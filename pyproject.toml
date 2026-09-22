@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tksteamlaunch"
+version = "0.1.0"
+description = "Minimal Steam launch wrapper (env, exe override, GameMode, gamescope, MangoHud, ludusavi, pre/post, night light)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "TKSteamLaunch contributors" }]
+dependencies = [
+  "PySide6",
+  "vdf",
+  "jeepney",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+tksteamlaunch = "tksteamlaunch.launcher:main"
+tksteamlaunch-gui = "tksteamlaunch.gui.app:main"
+tksteamlaunch-nightlight-holder = "tksteamlaunch.nightlight_holder:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tksteamlaunch = ["py.typed"]
