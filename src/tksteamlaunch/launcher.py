@@ -1,9 +1,10 @@
 """tksteamlaunch CLI: Steam -> tksteamlaunch %command% -> game.
 
 Pipeline:
-  resolve AppID -> load TOML -> nightlight disable -> ludusavi restore?
-  -> pre hook -> build prefix (cachy/gamemode/mangohud/gamescope + env + exe)
-  -> run game -> post hook -> ludusavi backup? -> nightlight restore -> log
+  resolve AppID -> load TOML -> nightlight disable -> pre hook
+  -> build prefix (exe swap + mangohud + cachy/gamemode + gamescope,
+     ludusavi wrap outermost) -> run game -> post hook
+  -> nightlight restore -> log
 """
 from __future__ import annotations
 
@@ -89,6 +90,17 @@ def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[li
     cmd, w = ov_backend.apply_gamescope(cmd, cfg.gamescope.enable, cfg.gamescope.args)
     warnings += w
 
+    # ludusavi wrap outermost: restore runs before everything, backup --gui
+    # after the whole stack (e.g. gamescope) exits so dialogs stay visible.
+    cmd, w = lu_backend.wrap_command(
+        cmd,
+        name_override=cfg.ludusavi.name_override,
+        enable_restore=cfg.ludusavi.enable_restore,
+        enable_backup=cfg.ludusavi.enable_backup,
+        use_gui=cfg.ludusavi.use_gui_progress,
+    )
+    warnings += w
+
     env = dict(cfg.env.vars)
     return cmd, env, warnings
 
@@ -153,14 +165,6 @@ def main(argv: list[str] | None = None) -> int:
         for w in nl_session.start():
             log.warning("nightlight: %s", w)
     try:
-        # ludusavi restore
-        if cfg.ludusavi.enable_restore:
-            lu_backend.run(
-                lu_backend.build_restore_cmd(
-                    cfg.ludusavi.name_override, cfg.ludusavi.use_gui_progress
-                ),
-                "restore",
-            )
         # pre hook (abort game on failure, unless skipped)
         if cfg.pre_post.pre_command.strip():
             rc = pp_backend.run_hook(
@@ -175,7 +179,9 @@ def main(argv: list[str] | None = None) -> int:
                 log.error("pre hook failed (rc=%s), aborting game launch", rc)
                 return 12
 
-        # run game
+        # run game (possibly inside `ludusavi wrap`; verified: wrap returns 0
+        # even when the wrapped command fails, so the logged code may mask
+        # game crashes while ludusavi is enabled)
         env = dict(os.environ)
         env.update({k: str(v) for k, v in extra_env.items()})
         log.info("exec: %s", shlex.join(final_cmd))
@@ -198,14 +204,6 @@ def main(argv: list[str] | None = None) -> int:
                 extra_env=extra_env,
             )
 
-        # ludusavi backup
-        if cfg.ludusavi.enable_backup:
-            lu_backend.run(
-                lu_backend.build_backup_cmd(
-                    cfg.ludusavi.name_override, cfg.ludusavi.use_gui_progress
-                ),
-                "backup",
-            )
         return int(game_rc)
     finally:
         try:

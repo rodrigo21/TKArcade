@@ -1,4 +1,12 @@
-"""ludusavi integration (simple level: CLI delegation only)."""
+"""ludusavi integration (simple level: CLI delegation only).
+
+Uses `ludusavi wrap` as the game invocation: it restores before launch and
+backs up after exit. NOTE: `backup`/`restore` subcommands do NOT accept
+`--infer` (only `wrap` does), and game names there are positional, so the
+split approach cannot address games by Steam AppID. `wrap` supports both
+`--infer steam` and `--name`, plus `--no-restore`/`--no-backup` for the
+independent toggles.
+"""
 from __future__ import annotations
 
 import logging
@@ -32,46 +40,37 @@ def find() -> tuple[str | None, str | None]:
     return path, None
 
 
-def build_backup_cmd(name_override: str = "", use_gui: bool = True) -> list[str] | None:
-    path, _ = find()
+def wrap_command(
+    game_cmd: list[str],
+    name_override: str = "",
+    enable_restore: bool = False,
+    enable_backup: bool = False,
+    use_gui: bool = True,
+) -> tuple[list[str], list[str]]:
+    """Wrap game_cmd with `ludusavi wrap`.
+
+    Returns (new_cmd, warnings). new_cmd == game_cmd unchanged when ludusavi
+    is fully disabled (both toggles off); callers can tell by identity/value.
+    When enabled but the binary is missing, returns game_cmd + warning.
+    """
+    warnings: list[str] = []
+    if not enable_restore and not enable_backup:
+        return list(game_cmd), warnings
+    path, warn = find()
+    if warn:
+        warnings.append(warn)
     if not path:
-        return None
-    cmd = [path, "backup"]
+        return list(game_cmd), warnings
+    cmd = [path, "wrap"]
     if (name_override or "").strip():
         cmd += ["--name", name_override.strip()]
     else:
         cmd += ["--infer", "steam"]
+    if not enable_restore:
+        cmd += ["--no-restore"]
+    if not enable_backup:
+        cmd += ["--no-backup"]
     if use_gui:
         cmd += ["--gui"]
-    return cmd
-
-
-def build_restore_cmd(name_override: str = "", use_gui: bool = True) -> list[str] | None:
-    path, _ = find()
-    if not path:
-        return None
-    cmd = [path, "restore"]
-    if (name_override or "").strip():
-        cmd += ["--name", name_override.strip()]
-    else:
-        cmd += ["--infer", "steam"]
-    if use_gui:
-        cmd += ["--gui"]
-    return cmd
-
-
-def run(cmd: list[str] | None, what: str) -> int:
-    if not cmd:
-        log.warning("ludusavi %s skipped (binary not found)", what)
-        return -1
-    log.info("ludusavi %s: %r", what, cmd)
-    try:
-        r = subprocess.run(cmd)
-        log.info("ludusavi %s exit=%s", what, r.returncode)
-        return r.returncode
-    except FileNotFoundError:
-        log.error("ludusavi binary not found: %r", cmd)
-        return -2
-    except Exception as e:  # noqa: BLE001
-        log.error("ludusavi %s failed: %s", what, e)
-        return -2
+    cmd += ["--", *game_cmd]
+    return cmd, warnings
