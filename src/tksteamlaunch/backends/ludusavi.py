@@ -42,19 +42,21 @@ def find() -> tuple[str | None, str | None]:
 
 def wrap_command(
     game_cmd: list[str],
+    *,
     name_override: str = "",
-    enable_restore: bool = False,
-    enable_backup: bool = False,
+    enabled: bool = False,
+    restore: bool = True,
+    backup: bool = True,
     use_gui: bool = True,
 ) -> tuple[list[str], list[str]]:
     """Wrap game_cmd with `ludusavi wrap`.
 
     Returns (new_cmd, warnings). new_cmd == game_cmd unchanged when ludusavi
-    is fully disabled (both toggles off); callers can tell by identity/value.
-    When enabled but the binary is missing, returns game_cmd + warning.
+    is off (enabled=False, or neither restore nor backup). When enabled but
+    the binary is missing, returns game_cmd + warning.
     """
     warnings: list[str] = []
-    if not enable_restore and not enable_backup:
+    if not enabled or (not restore and not backup):
         return list(game_cmd), warnings
     path, warn = find()
     if warn:
@@ -66,9 +68,9 @@ def wrap_command(
         cmd += ["--name", name_override.strip()]
     else:
         cmd += ["--infer", "steam"]
-    if not enable_restore:
+    if not restore:
         cmd += ["--no-restore"]
-    if not enable_backup:
+    if not backup:
         cmd += ["--no-backup"]
     if use_gui:
         cmd += ["--gui"]

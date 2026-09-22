@@ -95,9 +95,10 @@ def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[li
     cmd, w = lu_backend.wrap_command(
         cmd,
         name_override=cfg.ludusavi.name_override,
-        enable_restore=cfg.ludusavi.enable_restore,
-        enable_backup=cfg.ludusavi.enable_backup,
-        use_gui=cfg.ludusavi.use_gui_progress,
+        enabled=cfg.ludusavi.enable,
+        restore=cfg.ludusavi.restore,
+        backup=cfg.ludusavi.backup,
+        use_gui=cfg.ludusavi.use_gui,
     )
     warnings += w
 
