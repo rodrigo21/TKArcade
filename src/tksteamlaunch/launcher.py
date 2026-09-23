@@ -216,10 +216,38 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")
+    p.add_argument("--edit", action="store_true",
+                   help="open the game settings dialog before launching (needs a display)")
     p.add_argument("--verbose", action="store_true")
     p.add_argument("--version", action="store_true")
     p.add_argument("command", nargs=argparse.REMAINDER, help="game command (after -- or %%command%%)")
     return p.parse_args(argv)
+
+
+def run_editor(appid: str) -> str:
+    """Open the game settings dialog. Returns 'launch', 'saved' or 'cancelled'.
+
+    'unavailable' when PySide6 or a display is missing (exit 15). Qt is
+    imported lazily so the plain CLI stays stdlib-only.
+    """
+    try:
+        from PySide6.QtWidgets import QApplication, QDialog
+    except ImportError:
+        print("tksteamlaunch: --edit needs PySide6 installed", file=sys.stderr)
+        return "unavailable"
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        print("tksteamlaunch: --edit needs a display", file=sys.stderr)
+        return "unavailable"
+    from .gui.game_dialog import GameDialog
+
+    app = QApplication.instance() or QApplication(sys.argv)
+    names = {a: n for a, n in steammod.list_games()}
+    dlg = GameDialog(None, appid, names.get(appid, ""), launch_mode=True)
+    result = dlg.exec()
+    del app
+    if int(result) != int(QDialog.DialogCode.Accepted):
+        return "cancelled"
+    return "launch" if dlg.launch_requested else "saved"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -241,6 +269,19 @@ def main(argv: list[str] | None = None) -> int:
         print("tksteamlaunch: cannot resolve AppID", file=sys.stderr)
         return 10
     setup_logging(appid, args.verbose)
+
+    if args.edit:
+        outcome = run_editor(appid)
+        if outcome == "unavailable":
+            log.error("--edit unavailable (needs PySide6 and a display)")
+            return 15
+        if outcome == "cancelled":
+            log.info("launch cancelled in editor")
+            return 0
+        if outcome == "saved":
+            log.info("config saved in editor, launch skipped")
+            return 0
+        # "launch": fall through with the freshly saved config
 
     cfg = cfgmod.load(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)

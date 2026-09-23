@@ -99,9 +99,14 @@ class BulkEnvDialog(QDialog):
 
 
 class GameDialog(QDialog):
-    def __init__(self, parent, appid: str = "", name: str = "", defaults_mode: bool = False) -> None:
+    def __init__(
+        self, parent, appid: str = "", name: str = "",
+        defaults_mode: bool = False, launch_mode: bool = False,
+    ) -> None:
         super().__init__(parent)
         self.defaults_mode = defaults_mode
+        self.launch_mode = launch_mode and not defaults_mode
+        self.launch_requested = False
         self.appid = appid
         if defaults_mode:
             self.setWindowTitle("Global Defaults")
@@ -317,6 +322,11 @@ class GameDialog(QDialog):
             )
             btns.button(QDialogButtonBox.Reset).setText("Reset to Global Defaults")
             btns.button(QDialogButtonBox.Reset).clicked.connect(self._on_reset)
+        if self.launch_mode:
+            b_launch = QPushButton("Save && Launch")
+            b_launch.setDefault(True)
+            b_launch.clicked.connect(self._on_save_and_launch)
+            btns.addButton(b_launch, QDialogButtonBox.ButtonRole.AcceptRole)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
@@ -444,6 +454,10 @@ class GameDialog(QDialog):
         self.cfg = cfgmod.load_defaults()
         self.cfg.general.appid = self.appid
         self._populate()
+
+    def _on_save_and_launch(self) -> None:
+        self.launch_requested = True
+        self.accept()
 
     def _update_lu_state(self) -> None:
         on = self.c_lu_enable.isChecked()
