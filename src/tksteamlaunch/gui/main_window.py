@@ -62,8 +62,9 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _button_row(buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QHBoxLayout:
-        """Build a button row; append entries to add future actions."""
+        """Build a centered button row; append entries to add future actions."""
         row = QHBoxLayout()
+        row.addStretch(1)
         for label, slot in buttons:
             b = QPushButton(label)
             b.clicked.connect(slot)

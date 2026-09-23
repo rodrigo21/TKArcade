@@ -228,15 +228,18 @@ class GameDialog(QDialog):
         self.c_gs = QCheckBox("Enable Gamescope")
         self.e_gs_args = QLineEdit()
         self.e_gs_args.setPlaceholderText("-f -H 1080 -r 144")
+        self.l_gs_args = QLabel("Gamescope Options:")
         gf.addRow(self.c_gs)
-        gf.addRow("Gamescope Options:", self.e_gs_args)
+        gf.addRow(self.l_gs_args, self.e_gs_args)
         disp_layout.addWidget(gs_box)
         mh_box = QGroupBox("MangoHud")
         mf = QFormLayout(mh_box)
         self.c_mh = QCheckBox("Enable MangoHud")
         self.e_mh_args = QLineEdit()
+        self.l_mh_args = QLabel("MangoHud Options:")
         self.cb_mh_conf = QComboBox()
         self.cb_mh_conf.setToolTip("Sets MANGOHUD_CONFIGFILE for the game.")
+        self.l_mh_conf = QLabel("MangoHud Configuration:")
         mh_conf_row = QWidget()
         mh_conf_layout = QHBoxLayout(mh_conf_row)
         mh_conf_layout.setContentsMargins(0, 0, 0, 0)
@@ -245,8 +248,8 @@ class GameDialog(QDialog):
         mh_conf_layout.addWidget(self.cb_mh_conf, stretch=1)
         mh_conf_layout.addWidget(b_mh_new)
         mf.addRow(self.c_mh)
-        mf.addRow("MangoHud Options:", self.e_mh_args)
-        mf.addRow("MangoHud Configuration:", mh_conf_row)
+        mf.addRow(self.l_mh_args, self.e_mh_args)
+        mf.addRow(self.l_mh_conf, mh_conf_row)
         disp_layout.addWidget(mh_box)
         perf_layout.addWidget(disp_box)
         perf_layout.addStretch(1)
@@ -317,6 +320,7 @@ class GameDialog(QDialog):
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
 
+        self._align_label_widths(self.l_gs_args, self.l_mh_args, self.l_mh_conf)
         self._populate()
 
     def _populate(self) -> None:
@@ -442,6 +446,18 @@ class GameDialog(QDialog):
         for w in (self.c_restore, self.c_backup, self.e_luname,
                   self.c_lugui, self.l_lu_note):
             w.setEnabled(on)
+
+    @staticmethod
+    def _align_label_widths(*labels: QLabel) -> None:
+        """Equalize label widths so fields in separate form layouts align.
+
+        Runtime-measured via sizeHint: safe across fonts, DPI and themes.
+        """
+        width = 0
+        for label in labels:
+            width = max(width, label.sizeHint().width())
+        for label in labels:
+            label.setMinimumWidth(width)
 
     def _status_box(self, title: str, keys: list[str]) -> QWidget:
         """Full-width log-like box holding per-binary status lines."""
