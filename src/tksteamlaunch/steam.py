@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
+
+_ICON_HASH_RE = re.compile(r"^[0-9a-f]{40}\.jpg$")
 
 
 def resolve_appid(explicit: str = "") -> str:
@@ -125,7 +128,30 @@ def list_games() -> list[tuple[str, str]]:
 
 
 def find_game_icon(appid: str) -> Path | None:
-    """Return the Steam client icon for a game, if cached locally."""
+    """Return Steam artwork for a game, to use as a list icon.
+
+    Modern clients cache per-game art under
+    appcache/librarycache/<appid>/ (client icon as <sha1>.jpg, logo.png,
+    header.jpg, ...). Older clients used flat <appid>_icon.jpg files;
+    both layouts are tried.
+    """
+    for root in steam_roots():
+        cache = root / "appcache" / "librarycache"
+        d = cache / str(appid)
+        try:
+            if d.is_dir():
+                hashed = sorted(
+                    p for p in d.iterdir()
+                    if p.is_file() and _ICON_HASH_RE.match(p.name)
+                )
+                if hashed:
+                    return hashed[0]
+                for name in ("logo.png", "header.jpg", "library_600x900.jpg"):
+                    cand = d / name
+                    if cand.is_file():
+                        return cand
+        except Exception:  # noqa: BLE001
+            continue
     for root in steam_roots():
         cache = root / "appcache" / "librarycache"
         for suffix in (f"{appid}_icon.jpg", f"{appid}_logo.png"):

@@ -102,6 +102,13 @@ class GameDialog(QDialog):
         self.e_exe = QLineEdit()
         self.e_exe.setPlaceholderText("Optional replacement executable for this game")
         gf.addRow("Custom Executable:", self.e_exe)
+        self.e_prefix = QLineEdit()
+        self.e_prefix.setPlaceholderText("e.g. zink-run")
+        self.e_prefix.setToolTip(
+            "Command prefix wrapping the game directly, inside MangoHud, "
+            "GameMode, Gamescope and Ludusavi."
+        )
+        gf.addRow("Custom Command Prefix:", self.e_prefix)
         env_box = QWidget()
         env_layout = QVBoxLayout(env_box)
         env_layout.setContentsMargins(0, 0, 0, 0)
@@ -225,6 +232,9 @@ class GameDialog(QDialog):
 
         if defaults_mode:
             btns = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+            b_factory = QPushButton("Reset to Factory Defaults")
+            b_factory.clicked.connect(self._on_reset_factory)
+            btns.addButton(b_factory, QDialogButtonBox.ResetRole)
         else:
             btns = QDialogButtonBox(
                 QDialogButtonBox.Save | QDialogButtonBox.Cancel | QDialogButtonBox.Reset
@@ -241,6 +251,7 @@ class GameDialog(QDialog):
         c = self.cfg
         self.cb_gametype.setCurrentText(c.general.game_type or "auto")
         self.e_exe.setText(c.general.custom_executable)
+        self.e_prefix.setText(c.general.custom_prefix)
         self._set_env_table(c.env.vars)
         if not self.defaults_mode:
             log_path = str(xdg.game_log_file(self.appid))
@@ -344,6 +355,17 @@ class GameDialog(QDialog):
         if not open_path(self.e_log.text()):
             QMessageBox.warning(self, "TKSteamLaunch", "Could not open the log file.")
 
+    def _on_reset_factory(self) -> None:
+        r = QMessageBox.question(
+            self, "TKSteamLaunch",
+            "Delete the global defaults and restore the built-in values?",
+        )
+        if r != QMessageBox.StandardButton.Yes:
+            return
+        cfgmod.reset_defaults()
+        self.cfg = cfgmod.load_defaults()
+        self._populate()
+
     def _on_reset(self) -> None:
         r = QMessageBox.question(
             self, "TKSteamLaunch",
@@ -385,6 +407,7 @@ class GameDialog(QDialog):
 
         self.cfg.general.game_type = self.cb_gametype.currentText()
         self.cfg.general.custom_executable = self.e_exe.text().strip()
+        self.cfg.general.custom_prefix = self.e_prefix.text().strip()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()
         self.cfg.pre_post.pre_args = shlex.split(self.e_pre_args.text()) if self.e_pre_args.text().strip() else []

@@ -3,9 +3,9 @@
 Pipeline:
   resolve AppID -> load effective config (global defaults + game overrides)
   -> nightlight disable -> pre hook -> build prefix (exe swap honoring
-  game type + mangohud + cachy/gamemode + gamescope, ludusavi wrap
-  outermost) -> run game -> post hook -> nightlight restore -> log
-  (per-game <appid>.log plus a one-line global entry)
+  game type + custom prefix + mangohud + cachy/gamemode + gamescope,
+  ludusavi wrap outermost) -> run game -> post hook -> nightlight
+  restore -> log (per-game <appid>.log plus a one-line global entry)
 """
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from pathlib import Path
 from . import config as cfgmod
 from . import steam as steammod
 from . import xdg
+from .backends import split_args
 from .backends import gamemode as gm_backend
 from .backends import ludusavi as lu_backend
 from .backends import nightlight as nl_backend
@@ -124,6 +125,12 @@ def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[li
         cmd = swap_proton_executable(list(game_cmd), custom)
         if custom and game_cmd and custom not in cmd:
             warnings.append("custom_executable set but no 'run'/'--' marker found; keeping original command")
+
+    # innermost: custom prefix wraps the executable directly
+    # (e.g. zink-run), inside mangohud/gamemode/gamescope/wrap.
+    prefix = cfg.general.custom_prefix.strip()
+    if prefix:
+        cmd = split_args(prefix) + cmd
 
     # inner -> outer: mangohud, gamemode/cachy, gamescope outermost
     cmd, w = ov_backend.apply_mangohud(cmd, cfg.mangohud.enable, cfg.mangohud.args)

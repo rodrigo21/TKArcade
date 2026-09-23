@@ -28,6 +28,7 @@ class GeneralConfig:
     appid: str = ""
     custom_executable: str = ""
     game_type: str = "auto"  # auto|proton|native
+    custom_prefix: str = ""  # e.g. "zink-run", innermost command wrapper
 
 
 @dataclass
@@ -215,9 +216,14 @@ def reset_game_to_defaults(appid: str) -> None:
     game_file(appid).unlink(missing_ok=True)
 
 
+def reset_defaults() -> None:
+    """Delete the global defaults file so built-in defaults apply."""
+    xdg.defaults_file().unlink(missing_ok=True)
+
+
 def _section_known_keys(section: str) -> set[str]:
     return {
-        "general": {"appid", "custom_executable", "game_type"},
+        "general": {"appid", "custom_executable", "game_type", "custom_prefix"},
         "env": {"vars"},
         "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
         "gamemode": {"feral_gamemode", "cachyos_game_performance"},
@@ -254,6 +260,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     g = data.get("general", {})
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
     cfg.general.game_type = str(g.get("game_type", "auto"))
+    cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
     e = data.get("env", {})
     raw_vars = e.get("vars", {})
     cfg.env.vars = {str(k): str(v) for k, v in dict(raw_vars).items()}
