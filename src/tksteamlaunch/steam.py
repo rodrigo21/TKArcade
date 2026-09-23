@@ -122,3 +122,17 @@ def list_games() -> list[tuple[str, str]]:
         except Exception:  # noqa: BLE001
             continue
     return sorted(games.items(), key=lambda kv: kv[1].lower())
+
+
+def find_game_icon(appid: str) -> Path | None:
+    """Return the Steam client icon for a game, if cached locally."""
+    for root in steam_roots():
+        cache = root / "appcache" / "librarycache"
+        for suffix in (f"{appid}_icon.jpg", f"{appid}_logo.png"):
+            cand = cache / suffix
+            try:
+                if cand.is_file():
+                    return cand
+            except Exception:  # noqa: BLE001
+                continue
+    return None

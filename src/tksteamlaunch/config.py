@@ -1,4 +1,9 @@
-"""Per-game TOML config model + XDG load/save (stdlib only)."""
+"""Per-game TOML config model + XDG load/save (stdlib only).
+
+Effective config = merge(global defaults.toml, games/<appid>.toml).
+Game files store only keys that differ from the global defaults (sparse
+overrides); "Reset to Global Defaults" deletes the game file.
+"""
 from __future__ import annotations
 
 import logging
@@ -22,6 +27,7 @@ _LEGACY_LUDUSAVI = {
 class GeneralConfig:
     appid: str = ""
     custom_executable: str = ""
+    game_type: str = "auto"  # auto|proton|native
 
 
 @dataclass
@@ -55,6 +61,7 @@ class GamescopeConfig:
 class MangohudConfig:
     enable: bool = False
     args: str = ""
+    config_file: str = ""  # filename inside MangoHud config dir, "" = default
 
 
 @dataclass
@@ -143,80 +150,143 @@ def _render_toml(data: dict) -> str:
     return "\n".join(lines)
 
 
+def _deepmerge(base: dict, over: dict) -> dict:
+    out = dict(base)
+    for k, v in over.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deepmerge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def _diff_dict(full: dict, base: dict) -> dict:
+    """Keep only keys in full that differ from base (recursive for dicts)."""
+    out: dict = {}
+    for k, v in full.items():
+        if k not in base:
+            out[k] = v
+        elif isinstance(v, dict) and isinstance(base[k], dict):
+            sub = _diff_dict(v, base[k])
+            if sub:
+                out[k] = sub
+        elif v != base[k]:
+            out[k] = v
+    return out
+
+
 def game_file(appid: str) -> Path:
     return xdg.games_dir() / f"{appid}.toml"
 
 
-def _split_known(raw: dict, known: set[str]) -> tuple[dict, dict]:
-    have = {k: raw[k] for k in known if k in raw}
-    rest = {k: raw[k] for k in raw if k not in known}
-    return have, rest
-
-
-def load(appid: str) -> GameConfig:
-    path = game_file(appid)
-    cfg = GameConfig()
-    cfg.general.appid = appid
+def _read_toml(path: Path) -> dict:
     if not path.exists():
-        return cfg
+        return {}
     with path.open("rb") as f:
         data = tomllib.load(f)
+    return data if isinstance(data, dict) else {}
 
-    known_sections = {
-        "general", "env", "pre_post", "gamemode",
-        "gamescope", "mangohud", "ludusavi", "nightlight",
-    }
+
+def defaults_dict() -> dict:
+    return _read_toml(xdg.defaults_file())
+
+
+def load_defaults() -> GameConfig:
+    """Load the global defaults file as a GameConfig (appid empty)."""
+    cfg = GameConfig()
+    data = defaults_dict()
+    if not data:
+        return cfg
+    return _build(_deepmerge({}, data), cfg)
+
+
+def save_defaults(cfg: GameConfig) -> Path:
+    """Save the global defaults file (complete values, no appid)."""
+    path = xdg.defaults_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = to_toml_dict(cfg)
+    data.get("general", {}).pop("appid", None)
+    path.write_text(_render_toml(data), encoding="utf-8")
+    return path
+
+
+def reset_game_to_defaults(appid: str) -> None:
+    """Delete the per-game override file so global defaults apply."""
+    game_file(appid).unlink(missing_ok=True)
+
+
+def _section_known_keys(section: str) -> set[str]:
+    return {
+        "general": {"appid", "custom_executable", "game_type"},
+        "env": {"vars"},
+        "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
+        "gamemode": {"feral_gamemode", "cachyos_game_performance"},
+        "gamescope": {"enable", "args"},
+        "mangohud": {"enable", "args", "config_file"},
+        "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
+        "nightlight": {"disable_during_game", "provider"},
+    }.get(section, set())
+
+
+_KNOWN_SECTIONS = {
+    "general", "env", "pre_post", "gamemode",
+    "gamescope", "mangohud", "ludusavi", "nightlight",
+}
+
+
+def _collect_extra(data: dict, extra: dict) -> None:
     for section, body in data.items():
-        if section not in known_sections or not isinstance(body, dict):
-            cfg.extra.setdefault(section, {}).update(body if isinstance(body, dict) else {})
+        if not isinstance(body, dict):
             continue
-        if section != "ludusavi":
+        if section == "ludusavi":
+            continue  # handled by _load_ludusavi
+        if section in _KNOWN_SECTIONS:
             rest = {k: v for k, v in body.items() if k not in _section_known_keys(section)}
-            if rest:
-                cfg.extra.setdefault(section, {}).update(rest)
+        else:
+            rest = dict(body)
+        if rest:
+            extra.setdefault(section, {}).update(rest)
 
-    g, _ = _split_known(data.get("general", {}), {"appid", "custom_executable"})
+
+def _build(data: dict, cfg: GameConfig) -> GameConfig:
+    _collect_extra(data, cfg.extra)
+
+    g = data.get("general", {})
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
+    cfg.general.game_type = str(g.get("game_type", "auto"))
     e = data.get("env", {})
     raw_vars = e.get("vars", {})
     cfg.env.vars = {str(k): str(v) for k, v in dict(raw_vars).items()}
-    p, _ = _split_known(
-        data.get("pre_post", {}),
-        {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
-    )
+    p = data.get("pre_post", {})
     cfg.pre_post.pre_command = str(p.get("pre_command", ""))
     cfg.pre_post.pre_args = [str(x) for x in p.get("pre_args", [])]
     cfg.pre_post.post_command = str(p.get("post_command", ""))
     cfg.pre_post.post_args = [str(x) for x in p.get("post_args", [])]
     cfg.pre_post.timeout = int(p.get("timeout", 60))
     cfg.pre_post.run_in_shell = bool(p.get("run_in_shell", False))
-    gm, _ = _split_known(data.get("gamemode", {}), {"feral_gamemode", "cachyos_game_performance"})
+    gm = data.get("gamemode", {})
     cfg.gamemode.feral_gamemode = bool(gm.get("feral_gamemode", False))
     cfg.gamemode.cachyos_game_performance = bool(gm.get("cachyos_game_performance", False))
-    gs, _ = _split_known(data.get("gamescope", {}), {"enable", "args"})
+    gs = data.get("gamescope", {})
     cfg.gamescope.enable = bool(gs.get("enable", False))
     cfg.gamescope.args = str(gs.get("args", ""))
-    mh, _ = _split_known(data.get("mangohud", {}), {"enable", "args"})
+    mh = data.get("mangohud", {})
     cfg.mangohud.enable = bool(mh.get("enable", False))
     cfg.mangohud.args = str(mh.get("args", ""))
+    cfg.mangohud.config_file = str(mh.get("config_file", ""))
     cfg.ludusavi = _load_ludusavi(data.get("ludusavi", {}), cfg.extra)
-    nl, _ = _split_known(data.get("nightlight", {}), {"disable_during_game", "provider"})
+    nl = data.get("nightlight", {})
     cfg.nightlight.disable_during_game = bool(nl.get("disable_during_game", False))
     cfg.nightlight.provider = str(nl.get("provider", "auto"))
     return cfg
 
 
-def _section_known_keys(section: str) -> set[str]:
-    return {
-        "general": {"appid", "custom_executable"},
-        "env": {"vars"},
-        "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
-        "gamemode": {"feral_gamemode", "cachyos_game_performance"},
-        "gamescope": {"enable", "args"},
-        "mangohud": {"enable", "args"},
-        "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
-        "nightlight": {"disable_during_game", "provider"},
-    }.get(section, set())
+def load(appid: str) -> GameConfig:
+    """Load effective config: global defaults merged with per-game overrides."""
+    cfg = GameConfig()
+    cfg.general.appid = appid
+    effective = _deepmerge(defaults_dict(), _read_toml(game_file(appid)))
+    return _build(effective, cfg)
 
 
 def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
@@ -248,8 +318,11 @@ def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
     out.use_gui = pick("use_gui", "use_gui_progress", True)
     if "enable" in raw:
         out.enable = bool(raw["enable"])
-    else:
+    elif any(k in raw for k in _LEGACY_LUDUSAVI):
+        # old file without a master switch: keep previous behavior
         out.enable = out.restore or out.backup
+    else:
+        out.enable = False
     out.name_override = str(raw.get("name_override", ""))
 
     rest = {
@@ -262,9 +335,14 @@ def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
 
 
 def save(cfg: GameConfig) -> Path:
+    """Save per-game file with only keys differing from global defaults."""
     path = game_file(cfg.general.appid or "unknown")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_render_toml(to_toml_dict(cfg)), encoding="utf-8")
+    base = to_toml_dict(load_defaults())
+    full = to_toml_dict(cfg)
+    diff = _diff_dict(full, base)
+    diff.setdefault("general", {})["appid"] = cfg.general.appid
+    path.write_text(_render_toml(diff), encoding="utf-8")
     return path
 
 

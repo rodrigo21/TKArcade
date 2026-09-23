@@ -53,3 +53,15 @@ def app_cache_dir() -> Path:
 
 def log_file() -> Path:
     return app_state_dir() / "launcher.log"
+
+
+def games_log_dir() -> Path:
+    return app_state_dir() / "games"
+
+
+def game_log_file(appid: str) -> Path:
+    return games_log_dir() / f"{appid}.log"
+
+
+def defaults_file() -> Path:
+    return app_config_dir() / "defaults.toml"

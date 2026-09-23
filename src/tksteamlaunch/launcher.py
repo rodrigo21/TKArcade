@@ -1,14 +1,16 @@
 """tksteamlaunch CLI: Steam -> tksteamlaunch %command% -> game.
 
 Pipeline:
-  resolve AppID -> load TOML -> nightlight disable -> pre hook
-  -> build prefix (exe swap + mangohud + cachy/gamemode + gamescope,
-     ludusavi wrap outermost) -> run game -> post hook
-  -> nightlight restore -> log
+  resolve AppID -> load effective config (global defaults + game overrides)
+  -> nightlight disable -> pre hook -> build prefix (exe swap honoring
+  game type + mangohud + cachy/gamemode + gamescope, ludusavi wrap
+  outermost) -> run game -> post hook -> nightlight restore -> log
+  (per-game <appid>.log plus a one-line global entry)
 """
 from __future__ import annotations
 
 import argparse
+import datetime
 import logging
 import os
 import shlex
@@ -28,22 +30,39 @@ from .backends import prepost as pp_backend
 log = logging.getLogger("tksteamlaunch")
 
 
-def setup_logging(verbose: bool = False) -> Path:
+def setup_logging(appid: str = "", verbose: bool = False) -> Path:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
         format="%(asctime)s %(name)s %(levelname)s: %(message)s",
     )
+    if not appid:
+        return xdg.log_file()
     try:
-        d = xdg.app_state_dir()
+        d = xdg.games_log_dir()
         d.mkdir(parents=True, exist_ok=True)
-        fh = logging.FileHandler(d / "launcher.log", encoding="utf-8")
+        fh = logging.FileHandler(d / f"{appid}.log", encoding="utf-8")
         fh.setLevel(level)
         fh.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s"))
         logging.getLogger().addHandler(fh)
-        return d / "launcher.log"
+        return d / f"{appid}.log"
     except Exception:  # noqa: BLE001
-        return Path("launcher.log")
+        return Path(f"{appid}.log")
+
+
+def write_global_log(appid: str, exit_code: int, cmd: list[str]) -> None:
+    """Append a one-line summary to the global launcher.log."""
+    try:
+        path = xdg.log_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.datetime.now().isoformat(timespec="seconds")
+        shown = shlex.join(cmd)
+        if len(shown) > 300:
+            shown = shown[:300] + "..."
+        with path.open("a", encoding="utf-8") as f:
+            f.write(f"{stamp} appid={appid} exit={exit_code} cmd={shown}\n")
+    except Exception as e:  # noqa: BLE001
+        log.error("cannot write global log: %s", e)
 
 
 def swap_proton_executable(game_cmd: list[str], custom: str) -> list[str]:
@@ -73,12 +92,38 @@ def swap_proton_executable(game_cmd: list[str], custom: str) -> list[str]:
     return out
 
 
+def detect_game_type(game_cmd: list[str], explicit: str = "auto") -> str:
+    """Return 'proton' or 'native'. Explicit setting wins; auto sniffs."""
+    req = (explicit or "auto").strip().lower()
+    if req in ("proton", "native"):
+        return req
+    if os.environ.get("STEAM_COMPAT_DATA_PATH", "").strip():
+        return "proton"
+    if any("proton" in t.lower() for t in game_cmd):
+        return "proton"
+    return "native"
+
+
+def swap_native_executable(game_cmd: list[str], custom: str) -> list[str]:
+    """Replace argv[0], keeping arguments. Used for native Linux games."""
+    custom = (custom or "").strip()
+    if not custom:
+        return game_cmd
+    if not game_cmd:
+        return [custom]
+    return [custom, *game_cmd[1:]]
+
+
 def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[list[str], dict, list[str]]:
     warnings: list[str] = []
     custom = cfg.general.custom_executable.strip()
-    cmd = swap_proton_executable(list(game_cmd), custom)
-    if custom and game_cmd and custom not in cmd:
-        warnings.append("custom_executable set but no 'run'/'--' marker found; keeping original command")
+    game_type = detect_game_type(game_cmd, cfg.general.game_type)
+    if game_type == "native":
+        cmd = swap_native_executable(list(game_cmd), custom)
+    else:
+        cmd = swap_proton_executable(list(game_cmd), custom)
+        if custom and game_cmd and custom not in cmd:
+            warnings.append("custom_executable set but no 'run'/'--' marker found; keeping original command")
 
     # inner -> outer: mangohud, gamemode/cachy, gamescope outermost
     cmd, w = ov_backend.apply_mangohud(cmd, cfg.mangohud.enable, cfg.mangohud.args)
@@ -103,6 +148,9 @@ def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[li
     warnings += w
 
     env = dict(cfg.env.vars)
+    mh_env, w = ov_backend.mangohud_env(cfg.mangohud.config_file)
+    warnings += w
+    env.update(mh_env)
     return cmd, env, warnings
 
 
@@ -126,7 +174,6 @@ def main(argv: list[str] | None = None) -> int:
 
         print(__version__)
         return 0
-    setup_logging(args.verbose)
 
     game_cmd = list(args.command)
     if game_cmd and game_cmd[0] == "--":
@@ -134,9 +181,11 @@ def main(argv: list[str] | None = None) -> int:
 
     appid = steammod.resolve_appid(args.appid)
     if not appid:
+        setup_logging("", args.verbose)
         log.error("cannot resolve AppID (use --appid or STEAMAPPID env). game_cmd=%r", game_cmd)
         print("tksteamlaunch: cannot resolve AppID", file=sys.stderr)
         return 10
+    setup_logging(appid, args.verbose)
 
     cfg = cfgmod.load(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
@@ -178,6 +227,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             if rc not in (-1, 0):
                 log.error("pre hook failed (rc=%s), aborting game launch", rc)
+                write_global_log(appid, 12, final_cmd)
                 return 12
 
         # run game (possibly inside `ludusavi wrap`; verified: wrap returns 0
@@ -191,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
             game_rc = proc.returncode
         except FileNotFoundError:
             log.error("game executable not found: %r", final_cmd)
+            write_global_log(appid, 13, final_cmd)
             return 13
         log.info("game exit=%s", game_rc)
 
@@ -205,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
                 extra_env=extra_env,
             )
 
+        write_global_log(appid, int(game_rc), final_cmd)
         return int(game_rc)
     finally:
         try:
