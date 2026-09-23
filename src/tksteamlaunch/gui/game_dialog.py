@@ -389,29 +389,19 @@ class GameDialog(QDialog):
     def _new_mangohud_config(self) -> None:
         from PySide6.QtWidgets import QInputDialog
 
-        d = ov_backend.mangohud_config_dir()
-        try:
-            d.mkdir(parents=True, exist_ok=True)
-        except Exception as e:  # noqa: BLE001
-            QMessageBox.warning(self, "TKSteamLaunch", f"Could not create {d}: {e}")
-            return
         name, ok = QInputDialog.getText(self, "New MangoHud Configuration", "File name:")
         if not ok or not name.strip():
             return
-        name = name.strip()
-        if not name.endswith(".conf"):
-            name += ".conf"
-        path = d / name
-        if path.exists():
-            QMessageBox.information(self, "TKSteamLaunch", f"{name} already exists.")
-        else:
-            try:
-                path.write_text("# MangoHud configuration\n", encoding="utf-8")
-            except Exception as e:  # noqa: BLE001
-                QMessageBox.warning(self, "TKSteamLaunch", f"Could not write {path}: {e}")
-                return
+        path, source, error = ov_backend.create_mangohud_config(name.strip())
+        if error:
+            QMessageBox.warning(self, "TKSteamLaunch", error)
+            return
+        if source == "exists":
+            QMessageBox.information(
+                self, "TKSteamLaunch", f"{path.name} already exists."
+            )
         self._refresh_mangohud_configs()
-        idx = self.cb_mh_conf.findData(name)
+        idx = self.cb_mh_conf.findData(path.name)
         if idx >= 0:
             self.cb_mh_conf.setCurrentIndex(idx)
         if not open_path(str(path)):

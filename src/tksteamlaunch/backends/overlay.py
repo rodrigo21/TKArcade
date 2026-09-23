@@ -48,6 +48,37 @@ def mangohud_env(config_file: str) -> tuple[dict[str, str], list[str]]:
     return {"MANGOHUD_CONFIGFILE": os.fspath(path)}, []
 
 
+def create_mangohud_config(name: str) -> tuple[Path | None, str, str]:
+    """Create a new MangoHud config file. Returns (path, source, error).
+
+    The new file copies the default (MangoHud.conf) when present, else a
+    minimal template. The name is sanitized to stay inside the config dir.
+    source is 'default', 'template', or 'exists'; error is '' on success.
+    """
+    clean = Path((name or "").strip()).name
+    if not clean:
+        return None, "", "empty file name"
+    if not clean.endswith(".conf"):
+        clean += ".conf"
+    d = mangohud_config_dir()
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except Exception as e:  # noqa: BLE001
+        return None, "", f"Could not create {d}: {e}"
+    path = d / clean
+    if path.exists():
+        return path, "exists", ""
+    default = d / DEFAULT_MANGOHUD_CONF
+    try:
+        if default.is_file():
+            path.write_bytes(default.read_bytes())
+            return path, "default", ""
+        path.write_text("# MangoHud configuration\n", encoding="utf-8")
+        return path, "template", ""
+    except Exception as e:  # noqa: BLE001
+        return None, "", f"Could not write {path}: {e}"
+
+
 def apply_mangohud(cmd: list[str], enable: bool, args: str) -> tuple[list[str], list[str]]:
     warnings: list[str] = []
     if not enable:
