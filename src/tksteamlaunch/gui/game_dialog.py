@@ -202,9 +202,17 @@ class GameDialog(QDialog):
         perf = QWidget()
         ff = QFormLayout(perf)
         self.c_feral = QCheckBox("Enable Feral GameMode (gamemoderun)")
-        self.c_feral.setToolTip("Optimizes CPU and GPU governors while the game runs.")
+        self.c_feral.setToolTip(
+            "Optimizes CPU and GPU governors while the game runs. "
+            "Mutually exclusive with CachyOS game-performance."
+        )
         self.c_cachy = QCheckBox("Enable CachyOS game-performance")
-        self.c_cachy.setToolTip("Applies the CachyOS gaming performance profile.")
+        self.c_cachy.setToolTip(
+            "Applies the CachyOS gaming performance profile. "
+            "Mutually exclusive with Feral GameMode."
+        )
+        self.c_feral.toggled.connect(self._on_gamemode_exclusive)
+        self.c_cachy.toggled.connect(self._on_gamemode_exclusive)
         ff.addRow("", self.c_feral)
         ff.addRow("", self.c_cachy)
         tabs.addTab(perf, "Performance")
@@ -298,6 +306,14 @@ class GameDialog(QDialog):
         self._populate()
 
     def _populate(self) -> None:
+        self._populating = True
+        try:
+            self._populate_fields()
+        finally:
+            self._populating = False
+            self._refresh_binary_statuses()
+
+    def _populate_fields(self) -> None:
         c = self.cfg
         self.cb_gametype.setCurrentText(c.general.game_type or "auto")
         self.e_exe.setText(c.general.custom_executable)
@@ -330,7 +346,6 @@ class GameDialog(QDialog):
         self._update_lu_state()
         self.c_nl.setChecked(c.nightlight.disable_during_game)
         self.cb_nl.setCurrentText(c.nightlight.provider or "auto")
-        self._refresh_binary_statuses()
 
     def _set_env_table(self, vars: dict[str, str]) -> None:
         self.t_env.setRowCount(0)
@@ -488,6 +503,15 @@ class GameDialog(QDialog):
 
     def _on_feature_toggled(self, _checked: bool = False) -> None:
         self._refresh_binary_statuses()
+
+    def _on_gamemode_exclusive(self, _checked: bool = False) -> None:
+        if getattr(self, "_populating", False):
+            return
+        sender = self.sender()
+        if sender is self.c_feral and self.c_feral.isChecked():
+            self.c_cachy.setChecked(False)
+        elif sender is self.c_cachy and self.c_cachy.isChecked():
+            self.c_feral.setChecked(False)
 
     def _refresh_ludusavi_status(self) -> None:
         on = self.c_lu_enable.isChecked()

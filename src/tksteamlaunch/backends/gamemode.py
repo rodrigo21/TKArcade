@@ -11,9 +11,15 @@ log = logging.getLogger("tksteamlaunch.gamemode")
 def prefix(
     cmd: list[str], feral: bool = False, cachy: bool = False
 ) -> tuple[list[str], list[str]]:
-    """Return (new_cmd, warnings). Outermost order: game-performance, gamemoderun."""
+    """Return (new_cmd, warnings). Mutually exclusive: Feral wins on conflict."""
     warnings: list[str] = []
     out = list(cmd)
+    if feral and cachy:
+        warnings.append(
+            "Feral GameMode and CachyOS game-performance are mutually "
+            "exclusive; using gamemoderun, ignoring game-performance"
+        )
+        cachy = False
     if feral:
         if which("gamemoderun"):
             out = ["gamemoderun", *out]
