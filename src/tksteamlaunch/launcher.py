@@ -242,13 +242,6 @@ def main(argv: list[str] | None = None) -> int:
         return 10
     setup_logging(appid, args.verbose)
 
-    try:
-        migrated = cfgmod.migrate_sparse_to_snapshots()
-        if migrated:
-            log.info("migrated %d game(s) to snapshots", len(migrated))
-    except Exception as e:  # noqa: BLE001
-        log.error("config migration failed: %s", e)
-
     cfg = cfgmod.load(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
 

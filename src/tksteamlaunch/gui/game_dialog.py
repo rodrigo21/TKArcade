@@ -221,10 +221,18 @@ class GameDialog(QDialog):
         perf_layout.addWidget(sys_box)
 
         disp_box = QGroupBox("Display & Overlay")
-        of = QFormLayout(disp_box)
+        disp_layout = QVBoxLayout(disp_box)
+        disp_layout.setContentsMargins(4, 4, 4, 4)
+        gs_box = QGroupBox("Gamescope")
+        gf = QFormLayout(gs_box)
         self.c_gs = QCheckBox("Enable Gamescope")
         self.e_gs_args = QLineEdit()
         self.e_gs_args.setPlaceholderText("-f -H 1080 -r 144")
+        gf.addRow(self.c_gs)
+        gf.addRow("Gamescope Options:", self.e_gs_args)
+        disp_layout.addWidget(gs_box)
+        mh_box = QGroupBox("MangoHud")
+        mf = QFormLayout(mh_box)
         self.c_mh = QCheckBox("Enable MangoHud")
         self.e_mh_args = QLineEdit()
         self.cb_mh_conf = QComboBox()
@@ -236,11 +244,10 @@ class GameDialog(QDialog):
         b_mh_new.clicked.connect(self._new_mangohud_config)
         mh_conf_layout.addWidget(self.cb_mh_conf, stretch=1)
         mh_conf_layout.addWidget(b_mh_new)
-        of.addRow("", self.c_gs)
-        of.addRow("Gamescope Options:", self.e_gs_args)
-        of.addRow("", self.c_mh)
-        of.addRow("MangoHud Options:", self.e_mh_args)
-        of.addRow("MangoHud Configuration:", mh_conf_row)
+        mf.addRow(self.c_mh)
+        mf.addRow("MangoHud Options:", self.e_mh_args)
+        mf.addRow("MangoHud Configuration:", mh_conf_row)
+        disp_layout.addWidget(mh_box)
         perf_layout.addWidget(disp_box)
         perf_layout.addStretch(1)
         tabs.addTab(perf, "Performance")
@@ -273,7 +280,10 @@ class GameDialog(QDialog):
         nf = QFormLayout(nl)
         self.c_nl = QCheckBox("Disable while the game is running (restored on exit)")
         self.cb_nl = QComboBox()
-        self.cb_nl.addItems(["auto", "kde", "gnome", "off"])
+        self.cb_nl.addItem("Automatic", "auto")
+        self.cb_nl.addItem("Plasma", "plasma")
+        self.cb_nl.addItem("GNOME", "gnome")
+        self.cb_nl.addItem("Disabled", "off")
         nf.addRow("", self.c_nl)
         nf.addRow("Provider:", self.cb_nl)
         tabs.addTab(nl, "Night Light")
@@ -349,7 +359,8 @@ class GameDialog(QDialog):
         self.c_lugui.setChecked(c.ludusavi.use_gui)
         self._update_lu_state()
         self.c_nl.setChecked(c.nightlight.disable_during_game)
-        self.cb_nl.setCurrentText(c.nightlight.provider or "auto")
+        idx = self.cb_nl.findData(c.nightlight.provider or "auto")
+        self.cb_nl.setCurrentIndex(idx if idx >= 0 else 0)
 
     def _set_env_table(self, vars: dict[str, str]) -> None:
         self.t_env.setRowCount(0)
@@ -416,24 +427,14 @@ class GameDialog(QDialog):
             QMessageBox.warning(self, "TKSteamLaunch", "Could not open the log file.")
 
     def _on_reset_factory(self) -> None:
-        r = QMessageBox.question(
-            self, "TKSteamLaunch",
-            "Delete the global defaults and restore the built-in values?",
-        )
-        if r != QMessageBox.StandardButton.Yes:
-            return
-        cfgmod.reset_defaults()
-        self.cfg = cfgmod.load_defaults()
+        # In-memory only: the file changes on Save, Cancel discards everything.
+        self.cfg = cfgmod.GameConfig()
         self._populate()
 
     def _on_reset(self) -> None:
-        r = QMessageBox.question(
-            self, "TKSteamLaunch",
-            "Replace all settings for this game with a copy of the global defaults?",
-        )
-        if r != QMessageBox.StandardButton.Yes:
-            return
-        self.cfg = cfgmod.reset_game_to_defaults(self.appid)
+        # In-memory only: the file changes on Save, Cancel discards everything.
+        self.cfg = cfgmod.load_defaults()
+        self.cfg.general.appid = self.appid
         self._populate()
 
     def _update_lu_state(self) -> None:
@@ -564,7 +565,7 @@ class GameDialog(QDialog):
         self.cfg.ludusavi.name_override = self.e_luname.text().strip()
         self.cfg.ludusavi.use_gui = self.c_lugui.isChecked()
         self.cfg.nightlight.disable_during_game = self.c_nl.isChecked()
-        self.cfg.nightlight.provider = self.cb_nl.currentText()
+        self.cfg.nightlight.provider = str(self.cb_nl.currentData() or "auto")
 
     def accept(self) -> None:
         self._collect()

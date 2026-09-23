@@ -7,6 +7,7 @@ Games without a file fall back to the defaults template at load time.
 """
 from __future__ import annotations
 
+import copy
 import logging
 import tomllib
 from dataclasses import asdict, dataclass, field
@@ -15,13 +16,6 @@ from pathlib import Path
 from . import xdg
 
 log = logging.getLogger("tksteamlaunch.config")
-
-# Legacy ludusavi keys (pre-wrap schema) auto-migrated on load.
-_LEGACY_LUDUSAVI = {
-    "enable_restore": "restore",
-    "enable_backup": "backup",
-    "use_gui_progress": "use_gui",
-}
 
 
 @dataclass
@@ -78,7 +72,7 @@ class LudusaviConfig:
 @dataclass
 class NightlightConfig:
     disable_during_game: bool = False
-    provider: str = "auto"  # auto|kde|gnome|off
+    provider: str = "auto"  # auto|plasma|gnome|off
 
 
 @dataclass
@@ -152,17 +146,6 @@ def _render_toml(data: dict) -> str:
     return "\n".join(lines)
 
 
-def _deepmerge(base: dict, over: dict) -> dict:
-    """Recursive merge, used for the one-time sparse->snapshot migration."""
-    out = dict(base)
-    for k, v in over.items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = _deepmerge(out[k], v)
-        else:
-            out[k] = v
-    return out
-
-
 def game_file(appid: str) -> Path:
     return xdg.games_dir() / f"{appid}.toml"
 
@@ -185,7 +168,7 @@ def load_defaults() -> GameConfig:
     data = defaults_dict()
     if not data:
         return cfg
-    return _build(_deepmerge({}, data), cfg)
+    return _build(copy.deepcopy(data), cfg)
 
 
 def save_defaults(cfg: GameConfig) -> Path:
@@ -196,53 +179,6 @@ def save_defaults(cfg: GameConfig) -> Path:
     data.get("general", {}).pop("appid", None)
     path.write_text(_render_toml(data), encoding="utf-8")
     return path
-
-
-def reset_game_to_defaults(appid: str) -> GameConfig:
-    """Overwrite the game file with a snapshot of the global defaults."""
-    cfg = load_defaults()
-    cfg.general.appid = appid
-    save(cfg)
-    return cfg
-
-
-def migrate_sparse_to_snapshots() -> list[str]:
-    """One-time (idempotent) migration from sparse overrides to snapshots.
-
-    Old game files stored only keys differing from defaults.toml (merged at
-    load). Rewrites each file with its full effective config so the file
-    keeps meaning the same thing under snapshot semantics. Files already
-    complete are left untouched. Returns rewritten appids.
-    """
-    rewritten: list[str] = []
-    defaults = defaults_dict()
-    for appid in list_appids():
-        path = game_file(appid)
-        try:
-            old_text = path.read_text(encoding="utf-8")
-        except Exception:  # noqa: BLE001
-            continue
-        cfg = GameConfig()
-        cfg.general.appid = appid
-        _build(_deepmerge(defaults, _read_toml(path)), cfg)
-        full = to_toml_dict(cfg)
-        full.setdefault("general", {})["appid"] = appid
-        new_text = _render_toml(full)
-        if new_text != old_text:
-            try:
-                path.write_text(new_text, encoding="utf-8")
-            except Exception as e:  # noqa: BLE001
-                log.error("migration failed for %s: %s", appid, e)
-                continue
-            rewritten.append(appid)
-    if rewritten:
-        log.info("migrated %d game(s) to snapshots: %s", len(rewritten), ", ".join(rewritten))
-    return rewritten
-
-
-def reset_defaults() -> None:
-    """Delete the global defaults file so built-in defaults apply."""
-    xdg.defaults_file().unlink(missing_ok=True)
 
 
 def _section_known_keys(section: str) -> set[str]:
@@ -322,49 +258,24 @@ def load(appid: str) -> GameConfig:
     cfg.general.appid = appid
     data = _read_toml(game_file(appid))
     if not data:
-        return _build(_deepmerge({}, defaults_dict()), cfg)
+        return _build(copy.deepcopy(defaults_dict()), cfg)
     return _build(data, cfg)
 
 
 def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
-    """Load ludusavi section with legacy-key migration.
-
-    Legacy keys (enable_restore/enable_backup/use_gui_progress) are honored
-    when the new equivalents are absent, so old files keep working. Anything
-    else unknown is preserved verbatim in extra[] for round-trip.
-    """
+    """Load ludusavi section (current keys only; unknown kept in extra[])."""
     out = LudusaviConfig()
     if not isinstance(raw, dict):
         return out
-    migrated: list[str] = []
-    for legacy, new in _LEGACY_LUDUSAVI.items():
-        if legacy in raw and new not in raw:
-            migrated.append(f"{legacy} -> {new}")
-    if migrated:
-        log.warning("legacy ludusavi keys migrated: %s", ", ".join(migrated))
-
-    def pick(new: str, legacy: str | None, default: bool) -> bool:
-        if new in raw:
-            return bool(raw[new])
-        if legacy and legacy in raw:
-            return bool(raw[legacy])
-        return default
-
-    out.restore = pick("restore", "enable_restore", True)
-    out.backup = pick("backup", "enable_backup", True)
-    out.use_gui = pick("use_gui", "use_gui_progress", True)
-    if "enable" in raw:
-        out.enable = bool(raw["enable"])
-    elif any(k in raw for k in _LEGACY_LUDUSAVI):
-        # old file without a master switch: keep previous behavior
-        out.enable = out.restore or out.backup
-    else:
-        out.enable = False
+    out.enable = bool(raw.get("enable", False))
+    out.restore = bool(raw.get("restore", True))
+    out.backup = bool(raw.get("backup", True))
+    out.use_gui = bool(raw.get("use_gui", True))
     out.name_override = str(raw.get("name_override", ""))
 
     rest = {
         k: v for k, v in raw.items()
-        if k not in _section_known_keys("ludusavi") and k not in _LEGACY_LUDUSAVI
+        if k not in _section_known_keys("ludusavi")
     }
     if rest:
         extra.setdefault("ludusavi", {}).update(rest)

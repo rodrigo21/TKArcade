@@ -21,7 +21,7 @@ log = logging.getLogger("tksteamlaunch.nightlight")
 
 def detect_provider(requested: str = "auto") -> str:
     req = (requested or "auto").strip().lower()
-    if req in ("kde", "gnome", "off"):
+    if req in ("plasma", "gnome", "off"):
         return req
     desktop = (
         os.environ.get("XDG_CURRENT_DESKTOP", "")
@@ -29,12 +29,12 @@ def detect_provider(requested: str = "auto") -> str:
         + os.environ.get("DESKTOP_SESSION", "")
     ).lower()
     if "kde" in desktop or "plasma" in desktop:
-        return "kde"
+        return "plasma"
     if "gnome" in desktop:
         return "gnome"
     # fallback: binary hints
     if shutil.which("kreadconfig6") or shutil.which("qdbus6"):
-        return "kde"
+        return "plasma"
     if shutil.which("gsettings"):
         return "gnome"
     return "off"
@@ -53,7 +53,7 @@ def _read_gnome() -> str | None:
 
 
 class NightlightSession:
-    """RAII session: enter() disables, exit() restores. KDE uses holder proc."""
+    """RAII session: enter() disables, exit() restores. Plasma uses holder proc."""
 
     def __init__(self, provider: str = "auto"):
         self.provider = detect_provider(provider)
@@ -78,7 +78,7 @@ class NightlightSession:
             except Exception as e:  # noqa: BLE001
                 warnings.append(f"failed to disable GNOME night light: {e}")
             return warnings
-        if self.provider == "kde":
+        if self.provider == "plasma":
             # spawn persistent holder (jeepney-based)
             try:
                 self._holder = subprocess.Popen(
