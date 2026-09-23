@@ -46,12 +46,18 @@ def _is_dark_theme(widget: QWidget) -> bool:
         return False
 
 
-def _binary_status(name: str, skip_note: str = "skipped at launch") -> tuple[str, str]:
-    """Return (kind, text) describing whether a helper binary is available."""
+def _binary_status(
+    name: str, enabled: bool, skip_note: str = "skipped at launch"
+) -> tuple[str, str]:
+    """Return (kind, text); a missing binary is only an error when enabled."""
     path = shutil.which(name)
     if path:
-        return "ok", f"{name} — {path}"
-    return "warn", f"{name} not found in PATH — {skip_note}"
+        if enabled:
+            return "ok", f"{name} — {path}"
+        return "ok", f"{name} — {path} (off)"
+    if enabled:
+        return "warn", f"{name} not found in PATH — {skip_note}"
+    return "note", f"{name} not installed (feature off)"
 
 
 def _env_to_text(vars: dict[str, str]) -> str:
@@ -260,6 +266,11 @@ class GameDialog(QDialog):
         nf.addRow("Provider:", self.cb_nl)
         tabs.addTab(nl, "Night Light")
 
+        for box in (
+            self.c_feral, self.c_cachy, self.c_gs, self.c_mh, self.c_lu_enable,
+        ):
+            box.toggled.connect(self._on_feature_toggled)
+
         layout.addWidget(self._status_box("Dependency Status", [
             "custom_prefix",
             "gamemoderun",
@@ -458,23 +469,36 @@ class GameDialog(QDialog):
             label.setText(self._render_status(kind, text))
 
     def _refresh_binary_statuses(self) -> None:
-        for key in ("gamemoderun", "game-performance", "gamescope", "mangohud"):
-            self._set_status(key, *_binary_status(key))
+        self._set_status(
+            "gamemoderun",
+            *_binary_status("gamemoderun", self.c_feral.isChecked()),
+        )
+        self._set_status(
+            "game-performance",
+            *_binary_status("game-performance", self.c_cachy.isChecked()),
+        )
+        self._set_status(
+            "gamescope", *_binary_status("gamescope", self.c_gs.isChecked())
+        )
+        self._set_status(
+            "mangohud", *_binary_status("mangohud", self.c_mh.isChecked())
+        )
         self._refresh_ludusavi_status()
         self._update_prefix_status()
 
+    def _on_feature_toggled(self, _checked: bool = False) -> None:
+        self._refresh_binary_statuses()
+
     def _refresh_ludusavi_status(self) -> None:
+        on = self.c_lu_enable.isChecked()
         exe = shutil.which("ludusavi")
-        if not exe:
-            self._set_status("ludusavi", "warn", "ludusavi not found in PATH")
-        elif "/flatpak/" in exe or "flatpak" in exe:
+        if exe and ("/flatpak/" in exe or "flatpak" in exe):
             self._set_status(
                 "ludusavi", "note",
-                f"ludusavi via Flatpak ({exe}): may not see Proton prefixes"
-                " — prefer standalone",
+                f"ludusavi via Flatpak ({exe}) — may not see Proton prefixes",
             )
         else:
-            self._set_status("ludusavi", "ok", f"ludusavi — {exe}")
+            self._set_status("ludusavi", *_binary_status("ludusavi", on))
 
     def _update_prefix_status(self) -> None:
         import shlex
@@ -491,8 +515,10 @@ class GameDialog(QDialog):
             parts = prefix.split()
         if not parts:
             return
-        kind, text = _binary_status(parts[0], skip_note="launch will fail")
-        self._set_status("custom_prefix", kind, text)
+        self._set_status(
+            "custom_prefix",
+            *_binary_status(parts[0], True, skip_note="launch will fail"),
+        )
 
     def _collect(self) -> None:
         import shlex
