@@ -1,8 +1,9 @@
 """Per-game TOML config model + XDG load/save (stdlib only).
 
-Effective config = merge(global defaults.toml, games/<appid>.toml).
-Game files store only keys that differ from the global defaults (sparse
-overrides); "Reset to Global Defaults" deletes the game file.
+Snapshot semantics: each games/<appid>.toml stores the game's complete
+config. defaults.toml is only a template, copied when a new game is added
+or when a game is reset — editing defaults never changes existing games.
+Games without a file fall back to the defaults template at load time.
 """
 from __future__ import annotations
 
@@ -152,26 +153,12 @@ def _render_toml(data: dict) -> str:
 
 
 def _deepmerge(base: dict, over: dict) -> dict:
+    """Recursive merge, used for the one-time sparse->snapshot migration."""
     out = dict(base)
     for k, v in over.items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
             out[k] = _deepmerge(out[k], v)
         else:
-            out[k] = v
-    return out
-
-
-def _diff_dict(full: dict, base: dict) -> dict:
-    """Keep only keys in full that differ from base (recursive for dicts)."""
-    out: dict = {}
-    for k, v in full.items():
-        if k not in base:
-            out[k] = v
-        elif isinstance(v, dict) and isinstance(base[k], dict):
-            sub = _diff_dict(v, base[k])
-            if sub:
-                out[k] = sub
-        elif v != base[k]:
             out[k] = v
     return out
 
@@ -211,9 +198,46 @@ def save_defaults(cfg: GameConfig) -> Path:
     return path
 
 
-def reset_game_to_defaults(appid: str) -> None:
-    """Delete the per-game override file so global defaults apply."""
-    game_file(appid).unlink(missing_ok=True)
+def reset_game_to_defaults(appid: str) -> GameConfig:
+    """Overwrite the game file with a snapshot of the global defaults."""
+    cfg = load_defaults()
+    cfg.general.appid = appid
+    save(cfg)
+    return cfg
+
+
+def migrate_sparse_to_snapshots() -> list[str]:
+    """One-time (idempotent) migration from sparse overrides to snapshots.
+
+    Old game files stored only keys differing from defaults.toml (merged at
+    load). Rewrites each file with its full effective config so the file
+    keeps meaning the same thing under snapshot semantics. Files already
+    complete are left untouched. Returns rewritten appids.
+    """
+    rewritten: list[str] = []
+    defaults = defaults_dict()
+    for appid in list_appids():
+        path = game_file(appid)
+        try:
+            old_text = path.read_text(encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            continue
+        cfg = GameConfig()
+        cfg.general.appid = appid
+        _build(_deepmerge(defaults, _read_toml(path)), cfg)
+        full = to_toml_dict(cfg)
+        full.setdefault("general", {})["appid"] = appid
+        new_text = _render_toml(full)
+        if new_text != old_text:
+            try:
+                path.write_text(new_text, encoding="utf-8")
+            except Exception as e:  # noqa: BLE001
+                log.error("migration failed for %s: %s", appid, e)
+                continue
+            rewritten.append(appid)
+    if rewritten:
+        log.info("migrated %d game(s) to snapshots: %s", len(rewritten), ", ".join(rewritten))
+    return rewritten
 
 
 def reset_defaults() -> None:
@@ -289,11 +313,17 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
 
 
 def load(appid: str) -> GameConfig:
-    """Load effective config: global defaults merged with per-game overrides."""
+    """Load a game's complete config snapshot.
+
+    Games without a file fall back to the global defaults template (with
+    the appid set), so unconfigured games still launch.
+    """
     cfg = GameConfig()
     cfg.general.appid = appid
-    effective = _deepmerge(defaults_dict(), _read_toml(game_file(appid)))
-    return _build(effective, cfg)
+    data = _read_toml(game_file(appid))
+    if not data:
+        return _build(_deepmerge({}, defaults_dict()), cfg)
+    return _build(data, cfg)
 
 
 def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
@@ -342,14 +372,12 @@ def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
 
 
 def save(cfg: GameConfig) -> Path:
-    """Save per-game file with only keys differing from global defaults."""
+    """Save a game's complete config snapshot."""
     path = game_file(cfg.general.appid or "unknown")
     path.parent.mkdir(parents=True, exist_ok=True)
-    base = to_toml_dict(load_defaults())
-    full = to_toml_dict(cfg)
-    diff = _diff_dict(full, base)
-    diff.setdefault("general", {})["appid"] = cfg.general.appid
-    path.write_text(_render_toml(diff), encoding="utf-8")
+    data = to_toml_dict(cfg)
+    data.setdefault("general", {})["appid"] = cfg.general.appid
+    path.write_text(_render_toml(data), encoding="utf-8")
     return path
 
 

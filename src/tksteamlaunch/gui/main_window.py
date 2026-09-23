@@ -1,6 +1,7 @@
 """Main window: list configured games + Steam library."""
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 
@@ -25,12 +26,26 @@ from .. import xdg
 from .game_dialog import GameDialog
 from .helpers import open_path
 
+log = logging.getLogger("tksteamlaunch.gui")
+
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("TKSteamLaunch")
         self.resize(760, 520)
+        try:
+            migrated = cfgmod.migrate_sparse_to_snapshots()
+            if migrated:
+                log.info("migrated %d game(s) to snapshots", len(migrated))
+                self._pending_migration_note = (
+                    f"Migrated {len(migrated)} game(s) to standalone configs."
+                )
+            else:
+                self._pending_migration_note = ""
+        except Exception as e:  # noqa: BLE001
+            log.error("config migration failed: %s", e)
+            self._pending_migration_note = ""
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -75,7 +90,11 @@ class MainWindow(QMainWindow):
             item.setSizeHint(QSize(200, 48))
         total_cfg = len(cfgmod.list_appids())
         total_steam = len(names)
-        self.status.setText(f"{total_cfg} configured · {total_steam} Steam games detected")
+        status = f"{total_cfg} configured · {total_steam} Steam games detected"
+        if getattr(self, "_pending_migration_note", ""):
+            status += f" · {self._pending_migration_note}"
+            self._pending_migration_note = ""
+        self.status.setText(status)
 
     def _names(self) -> dict[str, str]:
         return {a: n for a, n in steammod.list_games()}

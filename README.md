@@ -16,17 +16,20 @@ tksteamlaunch %command%
 
 - Per-game env vars (table + bulk edit)
 - Custom executable (Proton prefix swap or native argv[0], auto-detected)
-- Global defaults (`defaults.toml`) with per-game sparse overrides
+- Custom command prefix (innermost wrapper, e.g. `zink-run`; missing binary aborts launch)
+- Global defaults (`defaults.toml`) as a template: copied into new games on add/reset
 - Feral `gamemoderun` + CachyOS `game-performance`
 - `gamescope`, `mangohud` (config file picker sets `MANGOHUD_CONFIGFILE`)
-- `ludusavi` via `wrap` (`--infer steam` or `--name`, `--no-restore`/`--no-backup`, `--gui`)
+- `ludusavi` via `wrap` (`--infer steam` or `--name`, `--no-restore`/`--no-backup`, `--gui`;
+  real game exit code recovered through a sentinel file)
 - Pre-launch/post-exit commands (executable + args, `shell=False`, with `run_in_shell` opt-in)
 - Night Light: KDE via persistent `inhibit/uninhibit` holder, GNOME via `gsettings`
 
 ## Config (XDG)
 
 `$XDG_CONFIG_HOME/tksteamlaunch/games/<appid>.toml` (e.g. `~/.config/...`),
-storing only values that differ from `defaults.toml`.
+storing each game's complete config. `defaults.toml` is only a template for
+new games — editing it never changes existing games.
 Per-game log at `$XDG_STATE_HOME/tksteamlaunch/games/<appid>.log` plus a
 one-line entry per run in `$XDG_STATE_HOME/tksteamlaunch/launcher.log`.
 

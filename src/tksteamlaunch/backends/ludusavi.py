@@ -10,11 +10,17 @@ independent toggles.
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 
 from . import is_flatpak_path, which
 
 log = logging.getLogger("tksteamlaunch.ludusavi")
+
+# Fixed `sh -c` script used to recover the wrapped game's exit code
+# (`wrap` itself returns 0 even when the game crashes). $0 carries the
+# rc-file path, $@ the game command. List-based, no quoting needed.
+_SH_EXIT_SENTINEL = '"$@"; echo $? > "$0"'
 
 
 def find() -> tuple[str | None, str | None]:
@@ -48,12 +54,17 @@ def wrap_command(
     restore: bool = True,
     backup: bool = True,
     use_gui: bool = True,
+    rc_file: str = "",
 ) -> tuple[list[str], list[str]]:
     """Wrap game_cmd with `ludusavi wrap`.
 
     Returns (new_cmd, warnings). new_cmd == game_cmd unchanged when ludusavi
     is off (enabled=False, or neither restore nor backup). When enabled but
     the binary is missing, returns game_cmd + warning.
+
+    When rc_file is given (and `sh` exists), the game runs inside
+    `sh -c '"$@"; echo $? > rc_file'` so callers can recover the real game
+    exit code that `wrap` otherwise masks with 0.
     """
     warnings: list[str] = []
     if not enabled or (not restore and not backup):
@@ -74,5 +85,10 @@ def wrap_command(
         cmd += ["--no-backup"]
     if use_gui:
         cmd += ["--gui"]
-    cmd += ["--", *game_cmd]
+    inner = list(game_cmd)
+    if rc_file and shutil.which("sh"):
+        inner = ["sh", "-c", _SH_EXIT_SENTINEL, rc_file, *game_cmd]
+    elif rc_file:
+        warnings.append("sh not found, game exit code may be masked by ludusavi wrap")
+    cmd += ["--", *inner]
     return cmd, warnings

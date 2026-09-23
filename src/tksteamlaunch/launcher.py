@@ -1,11 +1,12 @@
 """tksteamlaunch CLI: Steam -> tksteamlaunch %command% -> game.
 
 Pipeline:
-  resolve AppID -> load effective config (global defaults + game overrides)
-  -> nightlight disable -> pre hook -> build prefix (exe swap honoring
-  game type + custom prefix + mangohud + cachy/gamemode + gamescope,
-  ludusavi wrap outermost) -> run game -> post hook -> nightlight
-  restore -> log (per-game <appid>.log plus a one-line global entry)
+  resolve AppID -> load game snapshot (unconfigured games use the defaults
+  template) -> nightlight disable -> pre hook -> build prefix (exe swap
+  honoring game type + custom prefix + mangohud + cachy/gamemode +
+  gamescope, ludusavi wrap outermost with exit-code recovery) -> run game
+  -> post hook -> nightlight restore -> log (per-game <appid>.log plus a
+  one-line global entry)
 """
 from __future__ import annotations
 
@@ -14,8 +15,10 @@ import datetime
 import logging
 import os
 import shlex
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from . import config as cfgmod
@@ -29,6 +32,10 @@ from .backends import overlay as ov_backend
 from .backends import prepost as pp_backend
 
 log = logging.getLogger("tksteamlaunch")
+
+
+class PrefixNotFoundError(ValueError):
+    """Raised when custom_prefix names a binary missing from PATH."""
 
 
 def setup_logging(appid: str = "", verbose: bool = False) -> Path:
@@ -115,7 +122,11 @@ def swap_native_executable(game_cmd: list[str], custom: str) -> list[str]:
     return [custom, *game_cmd[1:]]
 
 
-def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[list[str], dict, list[str]]:
+def build_final_command(
+    cfg: cfgmod.GameConfig,
+    game_cmd: list[str],
+    wrap_rc_file: str = "",
+) -> tuple[list[str], dict, list[str]]:
     warnings: list[str] = []
     custom = cfg.general.custom_executable.strip()
     game_type = detect_game_type(game_cmd, cfg.general.game_type)
@@ -128,9 +139,15 @@ def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[li
 
     # innermost: custom prefix wraps the executable directly
     # (e.g. zink-run), inside mangohud/gamemode/gamescope/wrap.
+    # Unlike the other wrappers this one cannot be skipped: abort loudly.
     prefix = cfg.general.custom_prefix.strip()
     if prefix:
-        cmd = split_args(prefix) + cmd
+        parts = split_args(prefix)
+        if parts and not shutil.which(parts[0]):
+            raise PrefixNotFoundError(
+                f"custom_prefix binary not found in PATH: {parts[0]!r}"
+            )
+        cmd = parts + cmd
 
     # inner -> outer: mangohud, gamemode/cachy, gamescope outermost
     cmd, w = ov_backend.apply_mangohud(cmd, cfg.mangohud.enable, cfg.mangohud.args)
@@ -144,6 +161,7 @@ def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[li
 
     # ludusavi wrap outermost: restore runs before everything, backup --gui
     # after the whole stack (e.g. gamescope) exits so dialogs stay visible.
+    # wrap_rc_file recovers the real game exit code that wrap masks with 0.
     cmd, w = lu_backend.wrap_command(
         cmd,
         name_override=cfg.ludusavi.name_override,
@@ -151,6 +169,7 @@ def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[li
         restore=cfg.ludusavi.restore,
         backup=cfg.ludusavi.backup,
         use_gui=cfg.ludusavi.use_gui,
+        rc_file=wrap_rc_file,
     )
     warnings += w
 
@@ -159,6 +178,35 @@ def build_final_command(cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[li
     warnings += w
     env.update(mh_env)
     return cmd, env, warnings
+
+
+def _new_wrap_rc_file(appid: str) -> str:
+    """Reserve a sentinel path where the wrap shim writes the game exit code."""
+    d = xdg.app_state_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    fd, path = tempfile.mkstemp(prefix=f"tksteamlaunch-{appid}-", suffix=".rc", dir=str(d))
+    os.close(fd)
+    return path
+
+
+def _remove_wrap_rc_file(path: str) -> None:
+    if path:
+        try:
+            Path(path).unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _read_wrap_rc_file(path: str, fallback: int) -> int:
+    """Read the game exit code captured by the wrap shim, else fallback."""
+    try:
+        code = int(Path(path).read_text(encoding="utf-8").strip().split()[0])
+        if 0 <= code <= 255:
+            return code
+        log.warning("wrap exit-code file out of range: %r", code)
+    except Exception as e:  # noqa: BLE001
+        log.warning("could not read wrap exit-code file, using wrap code: %s", e)
+    return fallback
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -194,10 +242,33 @@ def main(argv: list[str] | None = None) -> int:
         return 10
     setup_logging(appid, args.verbose)
 
+    try:
+        migrated = cfgmod.migrate_sparse_to_snapshots()
+        if migrated:
+            log.info("migrated %d game(s) to snapshots", len(migrated))
+    except Exception as e:  # noqa: BLE001
+        log.error("config migration failed: %s", e)
+
     cfg = cfgmod.load(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
 
-    final_cmd, extra_env, warnings = build_final_command(cfg, game_cmd)
+    # Sentinel file so the real game exit code survives `ludusavi wrap`
+    # (which returns 0 even when the game crashes). Empty = wrap off.
+    wrap_active = bool(
+        cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup)
+    )
+    rc_file = _new_wrap_rc_file(appid) if wrap_active else ""
+
+    try:
+        final_cmd, extra_env, warnings = build_final_command(
+            cfg, game_cmd, wrap_rc_file=rc_file
+        )
+    except PrefixNotFoundError as e:
+        log.error("%s", e)
+        print(f"tksteamlaunch: {e}", file=sys.stderr)
+        write_global_log(appid, 14, game_cmd)
+        _remove_wrap_rc_file(rc_file)
+        return 14
     for w in warnings:
         log.warning("%s", w)
 
@@ -208,10 +279,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Env: {extra_env}")
         for w in warnings:
             print(f"warn: {w}")
+        _remove_wrap_rc_file(rc_file)
         return 0
 
     if not final_cmd:
         log.error("empty game command and no custom_executable")
+        _remove_wrap_rc_file(rc_file)
         return 11
 
     # --- pipeline with guaranteed nightlight restore ---
@@ -237,15 +310,16 @@ def main(argv: list[str] | None = None) -> int:
                 write_global_log(appid, 12, final_cmd)
                 return 12
 
-        # run game (possibly inside `ludusavi wrap`; verified: wrap returns 0
-        # even when the wrapped command fails, so the logged code may mask
-        # game crashes while ludusavi is enabled)
+        # run game (possibly inside `ludusavi wrap`; the sh shim writes the
+        # real game exit code to rc_file, recovered below)
         env = dict(os.environ)
         env.update({k: str(v) for k, v in extra_env.items()})
         log.info("exec: %s", shlex.join(final_cmd))
         try:
             proc = subprocess.run(final_cmd, env=env)
             game_rc = proc.returncode
+            if rc_file:
+                game_rc = _read_wrap_rc_file(rc_file, game_rc)
         except FileNotFoundError:
             log.error("game executable not found: %r", final_cmd)
             write_global_log(appid, 13, final_cmd)
@@ -266,6 +340,7 @@ def main(argv: list[str] | None = None) -> int:
         write_global_log(appid, int(game_rc), final_cmd)
         return int(game_rc)
     finally:
+        _remove_wrap_rc_file(rc_file)
         try:
             nl_session.stop()
         except Exception as e:  # noqa: BLE001

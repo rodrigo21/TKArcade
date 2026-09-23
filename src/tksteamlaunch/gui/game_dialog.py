@@ -78,12 +78,17 @@ class GameDialog(QDialog):
             self.cfg = cfgmod.load_defaults()
         else:
             self.setWindowTitle(f"Game Settings — {name} ({appid})" if name else f"Game Settings ({appid})")
-            self.cfg = cfgmod.load(appid)
+            if cfgmod.game_file(appid).exists():
+                self.cfg = cfgmod.load(appid)
+            else:
+                # New game: start from a snapshot of the global defaults.
+                self.cfg = cfgmod.load_defaults()
+                self.cfg.general.appid = appid
         self.resize(680, 560)
 
         layout = QVBoxLayout(self)
         if defaults_mode:
-            layout.addWidget(QLabel("These settings apply to all games unless overridden per game."))
+            layout.addWidget(QLabel("Template for new games. Existing games keep their own copy."))
 
         tabs = QTabWidget()
         layout.addWidget(tabs, stretch=1)
@@ -109,6 +114,10 @@ class GameDialog(QDialog):
             "GameMode, Gamescope and Ludusavi."
         )
         gf.addRow("Custom Command Prefix:", self.e_prefix)
+        self.l_prefix_status = QLabel()
+        self.l_prefix_status.setWordWrap(True)
+        self.e_prefix.textChanged.connect(self._update_prefix_status)
+        gf.addRow("", self.l_prefix_status)
         env_box = QWidget()
         env_layout = QVBoxLayout(env_box)
         env_layout.setContentsMargins(0, 0, 0, 0)
@@ -167,9 +176,14 @@ class GameDialog(QDialog):
         self.c_feral.setToolTip("Optimizes CPU and GPU governors while the game runs.")
         self.c_cachy = QCheckBox("Enable CachyOS game-performance")
         self.c_cachy.setToolTip("Applies the CachyOS gaming performance profile.")
+        self.l_feral_status = QLabel()
+        self.l_feral_status.setWordWrap(True)
+        self.l_cachy_status = QLabel()
+        self.l_cachy_status.setWordWrap(True)
         ff.addRow("", self.c_feral)
+        ff.addRow("", self.l_feral_status)
         ff.addRow("", self.c_cachy)
-        ff.addRow(QLabel(self._which_hint()))
+        ff.addRow("", self.l_cachy_status)
         tabs.addTab(perf, "Performance")
 
         # --- Gamescope & MangoHud ---
@@ -178,8 +192,12 @@ class GameDialog(QDialog):
         self.c_gs = QCheckBox("Enable Gamescope")
         self.e_gs_args = QLineEdit()
         self.e_gs_args.setPlaceholderText("-f -H 1080 -r 144")
+        self.l_gs_status = QLabel()
+        self.l_gs_status.setWordWrap(True)
         self.c_mh = QCheckBox("Enable MangoHud")
         self.e_mh_args = QLineEdit()
+        self.l_mh_status = QLabel()
+        self.l_mh_status.setWordWrap(True)
         self.cb_mh_conf = QComboBox()
         self.cb_mh_conf.setToolTip("Sets MANGOHUD_CONFIGFILE for the game.")
         mh_conf_row = QWidget()
@@ -190,8 +208,10 @@ class GameDialog(QDialog):
         mh_conf_layout.addWidget(self.cb_mh_conf, stretch=1)
         mh_conf_layout.addWidget(b_mh_new)
         of.addRow("", self.c_gs)
+        of.addRow("", self.l_gs_status)
         of.addRow("Gamescope Options:", self.e_gs_args)
         of.addRow("", self.c_mh)
+        of.addRow("", self.l_mh_status)
         of.addRow("MangoHud Options:", self.e_mh_args)
         of.addRow("MangoHud Configuration:", mh_conf_row)
         tabs.addTab(ov, "Gamescope & MangoHud")
@@ -252,6 +272,7 @@ class GameDialog(QDialog):
         self.cb_gametype.setCurrentText(c.general.game_type or "auto")
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
+        self._update_prefix_status()
         self._set_env_table(c.env.vars)
         if not self.defaults_mode:
             log_path = str(xdg.game_log_file(self.appid))
@@ -267,10 +288,14 @@ class GameDialog(QDialog):
         self.c_shell.setChecked(c.pre_post.run_in_shell)
         self.c_feral.setChecked(c.gamemode.feral_gamemode)
         self.c_cachy.setChecked(c.gamemode.cachyos_game_performance)
+        self.l_feral_status.setText(self._bin_status("gamemoderun"))
+        self.l_cachy_status.setText(self._bin_status("game-performance"))
         self.c_gs.setChecked(c.gamescope.enable)
         self.e_gs_args.setText(c.gamescope.args)
+        self.l_gs_status.setText(self._bin_status("gamescope"))
         self.c_mh.setChecked(c.mangohud.enable)
         self.e_mh_args.setText(c.mangohud.args)
+        self.l_mh_status.setText(self._bin_status("mangohud"))
         self._refresh_mangohud_configs()
         self.c_lu_enable.setChecked(c.ludusavi.enable)
         self.c_restore.setChecked(c.ludusavi.restore)
@@ -369,12 +394,11 @@ class GameDialog(QDialog):
     def _on_reset(self) -> None:
         r = QMessageBox.question(
             self, "TKSteamLaunch",
-            "Delete all per-game settings and use the global defaults instead?",
+            "Replace all settings for this game with a copy of the global defaults?",
         )
         if r != QMessageBox.StandardButton.Yes:
             return
-        cfgmod.reset_game_to_defaults(self.appid)
-        self.cfg = cfgmod.load(self.appid)
+        self.cfg = cfgmod.reset_game_to_defaults(self.appid)
         self._populate()
 
     def _update_lu_state(self) -> None:
@@ -383,16 +407,34 @@ class GameDialog(QDialog):
                   self.c_lugui, self.l_lu_note):
             w.setEnabled(on)
 
-    def _which_hint(self) -> str:
-        found, missing = [], []
-        for b in ("gamemoderun", "game-performance", "gamescope", "mangohud"):
-            (found if shutil.which(b) else missing).append(b)
-        parts = []
-        if found:
-            parts.append("Found: " + ", ".join(found))
-        if missing:
-            parts.append("Missing: " + ", ".join(missing))
-        return " · ".join(parts) if parts else ""
+    @staticmethod
+    def _bin_status(name: str) -> str:
+        path = shutil.which(name)
+        if path:
+            return f"Found: {name} ({path})"
+        return f"Not found in PATH: {name} — skipped at launch"
+
+    def _update_prefix_status(self) -> None:
+        import shlex
+
+        prefix = self.e_prefix.text().strip()
+        if not prefix:
+            self.l_prefix_status.setText("")
+            return
+        try:
+            parts = shlex.split(prefix)
+        except ValueError:
+            parts = prefix.split()
+        if not parts:
+            self.l_prefix_status.setText("")
+            return
+        path = shutil.which(parts[0])
+        if path:
+            self.l_prefix_status.setText(f"Found: {parts[0]} ({path})")
+        else:
+            self.l_prefix_status.setText(
+                f"Not found in PATH: {parts[0]} — launch will fail"
+            )
 
     def _ludusavi_hint(self) -> str:
         exe = shutil.which("ludusavi")
