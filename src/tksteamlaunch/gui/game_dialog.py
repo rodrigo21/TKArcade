@@ -198,9 +198,12 @@ class GameDialog(QDialog):
         pf.addRow("", self.c_shell)
         tabs.addTab(pp, "Pre/Post Commands")
 
-        # --- Performance ---
+        # --- Performance: system + display/overlay sections ---
         perf = QWidget()
-        ff = QFormLayout(perf)
+        perf_layout = QVBoxLayout(perf)
+        perf_layout.setContentsMargins(0, 0, 0, 0)
+        sys_box = QGroupBox("System")
+        ff = QFormLayout(sys_box)
         self.c_feral = QCheckBox("Enable Feral GameMode (gamemoderun)")
         self.c_feral.setToolTip(
             "Optimizes CPU and GPU governors while the game runs. "
@@ -213,13 +216,12 @@ class GameDialog(QDialog):
         )
         self.c_feral.toggled.connect(self._on_gamemode_exclusive)
         self.c_cachy.toggled.connect(self._on_gamemode_exclusive)
-        ff.addRow("", self.c_feral)
-        ff.addRow("", self.c_cachy)
-        tabs.addTab(perf, "Performance")
+        ff.addRow(self.c_feral)
+        ff.addRow(self.c_cachy)
+        perf_layout.addWidget(sys_box)
 
-        # --- Gamescope & MangoHud ---
-        ov = QWidget()
-        of = QFormLayout(ov)
+        disp_box = QGroupBox("Display & Overlay")
+        of = QFormLayout(disp_box)
         self.c_gs = QCheckBox("Enable Gamescope")
         self.e_gs_args = QLineEdit()
         self.e_gs_args.setPlaceholderText("-f -H 1080 -r 144")
@@ -239,7 +241,9 @@ class GameDialog(QDialog):
         of.addRow("", self.c_mh)
         of.addRow("MangoHud Options:", self.e_mh_args)
         of.addRow("MangoHud Configuration:", mh_conf_row)
-        tabs.addTab(ov, "Gamescope & MangoHud")
+        perf_layout.addWidget(disp_box)
+        perf_layout.addStretch(1)
+        tabs.addTab(perf, "Performance")
 
         # --- Ludusavi ---
         lu = QWidget()
