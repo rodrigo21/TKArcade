@@ -108,7 +108,7 @@ class GameDialog(QDialog):
                 # New game: start from a snapshot of the global defaults.
                 self.cfg = cfgmod.load_defaults()
                 self.cfg.general.appid = appid
-        self.resize(680, 560)
+        self.resize(680, 640)
         self._dark = _is_dark_theme(self)
         self._status_labels: dict[str, QLabel] = {}
 
@@ -141,7 +141,6 @@ class GameDialog(QDialog):
         )
         gf.addRow("Custom Command Prefix:", self.e_prefix)
         self.e_prefix.textChanged.connect(self._update_prefix_status)
-        gf.addRow(self._status_box("Dependency Status", ["custom_prefix"]))
         env_box = QWidget()
         env_layout = QVBoxLayout(env_box)
         env_layout.setContentsMargins(0, 0, 0, 0)
@@ -202,7 +201,6 @@ class GameDialog(QDialog):
         self.c_cachy.setToolTip("Applies the CachyOS gaming performance profile.")
         ff.addRow("", self.c_feral)
         ff.addRow("", self.c_cachy)
-        ff.addRow(self._status_box("Dependency Status", ["gamemoderun", "game-performance"]))
         tabs.addTab(perf, "Performance")
 
         # --- Gamescope & MangoHud ---
@@ -227,7 +225,6 @@ class GameDialog(QDialog):
         of.addRow("", self.c_mh)
         of.addRow("MangoHud Options:", self.e_mh_args)
         of.addRow("MangoHud Configuration:", mh_conf_row)
-        of.addRow(self._status_box("Dependency Status", ["gamescope", "mangohud"]))
         tabs.addTab(ov, "Gamescope & MangoHud")
 
         # --- Ludusavi ---
@@ -251,7 +248,6 @@ class GameDialog(QDialog):
         self.l_lu_note = QLabel("With prompts enabled, restore and backup can be declined per session.")
         self.l_lu_note.setWordWrap(True)
         lf.addRow(self.l_lu_note)
-        lf.addRow(self._status_box("Dependency Status", ["ludusavi"]))
         tabs.addTab(lu, "Ludusavi")
 
         # --- Night Light ---
@@ -263,6 +259,15 @@ class GameDialog(QDialog):
         nf.addRow("", self.c_nl)
         nf.addRow("Provider:", self.cb_nl)
         tabs.addTab(nl, "Night Light")
+
+        layout.addWidget(self._status_box("Dependency Status", [
+            "custom_prefix",
+            "gamemoderun",
+            "game-performance",
+            "gamescope",
+            "mangohud",
+            "ludusavi",
+        ]))
 
         if defaults_mode:
             btns = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
