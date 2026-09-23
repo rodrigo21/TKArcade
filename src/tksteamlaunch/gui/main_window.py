@@ -6,7 +6,7 @@ import subprocess
 from collections.abc import Callable
 
 from PySide6.QtCore import QSize
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -32,6 +32,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("TKSteamLaunch")
         self.resize(760, 520)
+        QShortcut(QKeySequence.StandardKey.Quit, self, self.close)
 
         central = QWidget()
         self.setCentralWidget(central)
