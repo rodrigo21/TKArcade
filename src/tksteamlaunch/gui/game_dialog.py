@@ -166,7 +166,8 @@ class GameDialog(QDialog):
         env_btns.addWidget(b_bulk)
         env_btns.addStretch(1)
         env_layout.addLayout(env_btns)
-        gf.addRow("Environment Variables:", env_box)
+        gf.addRow(QLabel("Environment Variables:"))
+        gf.addRow(env_box)
         if not defaults_mode:
             log_row = QWidget()
             log_layout = QHBoxLayout(log_row)
@@ -214,24 +215,23 @@ class GameDialog(QDialog):
             "Applies the CachyOS gaming performance profile. "
             "Mutually exclusive with Feral GameMode."
         )
+        self.l_feral_pad = QLabel()
+        self.l_cachy_pad = QLabel()
         self.c_feral.toggled.connect(self._on_gamemode_exclusive)
         self.c_cachy.toggled.connect(self._on_gamemode_exclusive)
-        ff.addRow(self.c_feral)
-        ff.addRow(self.c_cachy)
+        ff.addRow(self.l_feral_pad, self.c_feral)
+        ff.addRow(self.l_cachy_pad, self.c_cachy)
         perf_layout.addWidget(sys_box)
 
-        disp_box = QGroupBox("Display & Overlay")
-        disp_layout = QVBoxLayout(disp_box)
-        disp_layout.setContentsMargins(4, 4, 4, 4)
         gs_box = QGroupBox("Gamescope")
         gf = QFormLayout(gs_box)
         self.c_gs = QCheckBox("Enable Gamescope")
         self.e_gs_args = QLineEdit()
         self.e_gs_args.setPlaceholderText("-f -H 1080 -r 144")
         self.l_gs_args = QLabel("Gamescope Options:")
-        gf.addRow(self.c_gs)
+        gf.addRow("", self.c_gs)
         gf.addRow(self.l_gs_args, self.e_gs_args)
-        disp_layout.addWidget(gs_box)
+        perf_layout.addWidget(gs_box)
         mh_box = QGroupBox("MangoHud")
         mf = QFormLayout(mh_box)
         self.c_mh = QCheckBox("Enable MangoHud")
@@ -247,11 +247,10 @@ class GameDialog(QDialog):
         b_mh_new.clicked.connect(self._new_mangohud_config)
         mh_conf_layout.addWidget(self.cb_mh_conf, stretch=1)
         mh_conf_layout.addWidget(b_mh_new)
-        mf.addRow(self.c_mh)
+        mf.addRow("", self.c_mh)
         mf.addRow(self.l_mh_args, self.e_mh_args)
         mf.addRow(self.l_mh_conf, mh_conf_row)
-        disp_layout.addWidget(mh_box)
-        perf_layout.addWidget(disp_box)
+        perf_layout.addWidget(mh_box)
         perf_layout.addStretch(1)
         tabs.addTab(perf, "Performance")
 
@@ -320,7 +319,10 @@ class GameDialog(QDialog):
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
 
-        self._align_label_widths(self.l_gs_args, self.l_mh_args, self.l_mh_conf)
+        self._align_label_widths(
+            self.l_feral_pad, self.l_cachy_pad,
+            self.l_gs_args, self.l_mh_args, self.l_mh_conf,
+        )
         self._populate()
 
     def _populate(self) -> None:
