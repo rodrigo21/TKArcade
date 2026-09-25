@@ -16,6 +16,10 @@ def config_home() -> Path:
     return _env_home("XDG_CONFIG_HOME", ".config")
 
 
+def cache_home() -> Path:
+    return _env_home("XDG_CACHE_HOME", ".cache")
+
+
 def state_home() -> Path:
     return _env_home("XDG_STATE_HOME", ".local/state")
 
@@ -30,6 +34,10 @@ def games_dir() -> Path:
 
 def app_state_dir() -> Path:
     return state_home() / "tksteamlaunch"
+
+
+def app_cache_dir() -> Path:
+    return cache_home() / "tksteamlaunch"
 
 
 def log_file() -> Path:

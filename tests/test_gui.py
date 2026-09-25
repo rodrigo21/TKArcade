@@ -24,6 +24,33 @@ def test_dialogs_construct(qapp, xdg_env):
     qapp.processEvents()
 
 
+def test_main_table_columns(qapp, xdg_env, monkeypatch):
+    from tksteamlaunch import config as C
+    from tksteamlaunch import protondb as pdbmod
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "80"
+    C.save(cfg)
+    monkeypatch.setattr(pdbmod, "refresh", lambda appid: {"tier": "gold", "total": 5})
+    w = MainWindow()
+    w.show()
+    qapp.processEvents()
+    assert w.table.columnCount() == 3
+    assert w.table.rowCount() == 1
+    assert w.table.item(0, 1).text() == "80"
+    for _ in range(100):
+        cell = w.table.item(0, 2)
+        if cell is not None and cell.text() == "Gold":
+            break
+        qapp.processEvents()
+        import time
+
+        time.sleep(0.02)
+    assert w.table.item(0, 2).text() == "Gold"
+    w._stop_pdb_worker()
+
+
 def test_launch_mode_buttons(qapp, xdg_env):
     from PySide6.QtWidgets import QDialog, QPushButton
 

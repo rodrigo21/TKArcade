@@ -5,33 +5,63 @@ import shutil
 import subprocess
 from collections.abc import Callable
 
-from PySide6.QtCore import QSize
-from PySide6.QtGui import QIcon, QKeySequence, QShortcut
+from PySide6.QtCore import QSize, Qt, QThread, Signal
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QDesktopServices,
+    QIcon,
+    QKeySequence,
+    QShortcut,
+)
 from PySide6.QtWidgets import (
     QHBoxLayout,
+    QHeaderView,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
     QStyle,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from .. import config as cfgmod
+from .. import protondb as pdbmod
 from .. import steam as steammod
 from .. import xdg
 from .game_dialog import GameDialog
 from .helpers import open_path
 
 
+class _ProtonDBWorker(QThread):
+    """Refresh stale/missing ProtonDB tiers in the background."""
+
+    fetched = Signal(str, dict)
+
+    def __init__(self, appids: list[str], parent=None) -> None:
+        super().__init__(parent)
+        self._appids = appids
+
+    def run(self) -> None:
+        for appid in self._appids:
+            if self.isInterruptionRequested():
+                return
+            try:
+                data = pdbmod.refresh(appid)
+            except Exception:
+                continue
+            if data:
+                self.fetched.emit(appid, data)
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("TKSteamLaunch")
-        self.resize(760, 520)
+        self.resize(820, 520)
         QShortcut(QKeySequence.StandardKey.Quit, self, self.close)
 
         central = QWidget()
@@ -39,10 +69,17 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
 
         layout.addWidget(QLabel("Configured Games (double-click a game to edit its settings)"))
-        self.list = QListWidget()
-        self.list.setIconSize(QSize(32, 32))
-        self.list.itemDoubleClicked.connect(self._edit_selected)
-        layout.addWidget(self.list, stretch=1)
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["Game", "App ID", "ProtonDB"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table.verticalHeader().setDefaultSectionSize(40)
+        self.table.setIconSize(QSize(32, 32))
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.itemDoubleClicked.connect(self._on_double_click)
+        layout.addWidget(self.table, stretch=1)
+        self._pdb_thread: _ProtonDBWorker | None = None
 
         self.status = QLabel()
         layout.addWidget(self.status)
@@ -77,29 +114,85 @@ class MainWindow(QMainWindow):
         return row
 
     def refresh(self) -> None:
-        self.list.clear()
+        self._stop_pdb_worker()
+        self.table.setRowCount(0)
         names = {a: n for a, n in steammod.list_games()}
         fallback = self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-        for appid in cfgmod.list_appids():
-            label = f"{names.get(appid, appid)}  [{appid}]"
-            item = QListWidgetItem(label, self.list)
-            item.setData(32, appid)
+        appids = cfgmod.list_appids()
+        self.table.setRowCount(len(appids))
+        need_fetch: list[str] = []
+        for row, appid in enumerate(appids):
+            name_item = QTableWidgetItem(names.get(appid, appid))
+            name_item.setData(Qt.ItemDataRole.UserRole, appid)
             icon_path = steammod.find_game_icon(appid)
-            item.setIcon(QIcon(str(icon_path)) if icon_path else fallback)
-            item.setSizeHint(QSize(200, 48))
-        total_cfg = len(cfgmod.list_appids())
+            name_item.setIcon(QIcon(str(icon_path)) if icon_path else fallback)
+            self.table.setItem(row, 0, name_item)
+            self.table.setItem(row, 1, QTableWidgetItem(appid))
+            data, fresh = pdbmod.cached(appid)
+            if data:
+                self._set_tier_cell(row, appid, data)
+            if not fresh:
+                need_fetch.append(appid)
+        total_cfg = len(appids)
         total_steam = len(names)
         status = f"{total_cfg} configured · {total_steam} Steam games detected"
         self.status.setText(status)
+        if need_fetch:
+            self._pdb_thread = _ProtonDBWorker(need_fetch, self)
+            self._pdb_thread.fetched.connect(self._on_protondb)
+            self._pdb_thread.start()
+
+    def _set_tier_cell(self, row: int, appid: str, data: dict) -> None:
+        tier = str(data.get("tier", "")).lower()
+        total = data.get("total", "?")
+        item = QTableWidgetItem(tier.title() if tier else "?")
+        if tier in pdbmod.TIER_STYLE:
+            bg, fg = pdbmod.TIER_STYLE[tier]
+            item.setBackground(QBrush(QColor(bg)))
+            item.setForeground(QBrush(QColor(fg)))
+        item.setToolTip(f"{tier.title()} · {total} reports — double-click for protondb.com")
+        item.setData(Qt.ItemDataRole.UserRole, appid)
+        self.table.setItem(row, 2, item)
+
+    def _on_protondb(self, appid: str, data: dict) -> None:
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item is not None and str(item.data(Qt.ItemDataRole.UserRole) or "") == appid:
+                self._set_tier_cell(row, appid, data)
+                return
+
+    def _stop_pdb_worker(self) -> None:
+        if self._pdb_thread is not None:
+            if self._pdb_thread.isRunning():
+                self._pdb_thread.requestInterruption()
+                self._pdb_thread.wait(2000)
+            self._pdb_thread = None
+
+    def closeEvent(self, event) -> None:
+        self._stop_pdb_worker()
+        super().closeEvent(event)
+
+    def _on_double_click(self, item: QTableWidgetItem) -> None:
+        if item.column() == 2:
+            appid = str(item.data(Qt.ItemDataRole.UserRole) or "")
+            if appid:
+                from PySide6.QtCore import QUrl
+
+                QDesktopServices.openUrl(QUrl(pdbmod.GAME_URL.format(appid=appid)))
+            return
+        self._edit_selected()
 
     def _names(self) -> dict[str, str]:
         return {a: n for a, n in steammod.list_games()}
 
     def _selected_appid(self) -> str:
-        item = self.list.currentItem()
+        row = self.table.currentRow()
+        if row < 0:
+            return ""
+        item = self.table.item(row, 0)
         if not item:
             return ""
-        return str(item.data(32) or "")
+        return str(item.data(Qt.ItemDataRole.UserRole) or "")
 
     def _add(self) -> None:
         from PySide6.QtWidgets import QInputDialog
