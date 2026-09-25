@@ -335,6 +335,18 @@ def test_proton_version_lookup(monkeypatch, tmp_path):
     assert pm.proton_version_for("42") == "GE-Proton9-15"
 
 
+def test_mangohud_create_templates(xdg_env):
+    from tksteamlaunch.backends import overlay as ov
+
+    for key in ("minimal", "fps-cap", "full", "empty"):
+        path, source, error = ov.create_mangohud_config(f"t-{key}", template=key)
+        assert (source, error) == (key, ""), (key, source, error)
+        text = path.read_text()
+        assert text == ov.MANGOHUD_TEMPLATES.get(key, "# MangoHud configuration\n")
+    assert ov.create_mangohud_config("t-minimal", template="minimal")[1] == "exists"
+    assert "fps_limit=60" in ov.MANGOHUD_TEMPLATES["fps-cap"]
+
+
 def test_mangohud_config_env(xdg_env):
     os.makedirs(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud"), exist_ok=True)
     with open(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud", "custom.conf"), "w") as f:

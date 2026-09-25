@@ -7,6 +7,7 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ### Added
 - Config export/import tarballs (`--export`/`--import`, GUI buttons).
+- MangoHud starter templates (minimal, fps-cap, full) in New Configuration.
 - pytest suite (`tests/`, 41 tests) and ruff config in `pyproject.toml`.
 - `Co-Authored-By` trailer policy + `scripts/git-hooks/commit-msg` hook.
 - "Preview Command" button in the game dialog (dry-run parity).

@@ -434,7 +434,22 @@ class GameDialog(QDialog):
         name, ok = QInputDialog.getText(self, "New MangoHud Configuration", "File name:")
         if not ok or not name.strip():
             return
-        path, source, error = ov_backend.create_mangohud_config(name.strip())
+        choices = {
+            "Copy of MangoHud.conf": "default",
+            "Minimal overlay": "minimal",
+            "FPS limiter overlay": "fps-cap",
+            "Full metrics overlay": "full",
+            "Empty file": "empty",
+        }
+        label, ok = QInputDialog.getItem(
+            self, "New MangoHud Configuration", "Start from:",
+            list(choices), 0, False,
+        )
+        if not ok:
+            return
+        path, source, error = ov_backend.create_mangohud_config(
+            name.strip(), template=choices[label]
+        )
         if error:
             QMessageBox.warning(self, "TKSteamLaunch", error)
             return
