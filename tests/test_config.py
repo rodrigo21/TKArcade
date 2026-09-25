@@ -98,3 +98,48 @@ def test_notifications_roundtrip(xdg_env):
     C.save(cfg)
     assert C.load("11").notifications.notify_on_launch is False
     assert "[notifications]" in C.game_file("11").read_text()
+
+
+def test_export_import_roundtrip(xdg_env, tmp_path):
+    cfg = C.GameConfig()
+    cfg.general.appid = "21"
+    cfg.env.vars = {"A": "1"}
+    C.save(cfg)
+    C.save_defaults(C.GameConfig())
+    dest = tmp_path / "backup.tar.gz"
+    saved = C.export_configs(dest)
+    assert saved.exists()
+    (C.game_file("21")).unlink()
+    C.xdg.defaults_file().unlink()
+    imported = C.import_configs(dest)
+    assert imported == ["21"]
+    assert C.load("21").env.vars == {"A": "1"}
+
+
+def test_import_rejects_junk(xdg_env, tmp_path):
+    import io
+    import tarfile
+
+    evil = tmp_path / "evil.tar.gz"
+    with tarfile.open(evil, "w:gz") as tar:
+        for name in ("../escape.toml", "/abs.toml", "notes.txt"):
+            info = tarfile.TarInfo(name)
+            data = b"x"
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    try:
+        C.import_configs(evil)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("junk archive accepted")
+    assert C.list_appids() == []
+
+
+def test_import_missing_file(xdg_env, tmp_path):
+    try:
+        C.import_configs(tmp_path / "nope.tar.gz")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("missing file accepted")

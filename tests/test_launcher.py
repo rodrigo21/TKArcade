@@ -93,6 +93,18 @@ def test_list(xdg_env, monkeypatch, tmp_path):
     assert "Configured:" in r.stdout and "7" in r.stdout
 
 
+def test_export_import_cli(xdg_env, tmp_path):
+    _save("8")
+    env = _env(xdg_env)
+    dest = tmp_path / "b.tar.gz"
+    r = _run(env, "--export", str(dest))
+    assert r.returncode == 0 and dest.exists()
+    r = _run(env, "--import", str(dest))
+    assert r.returncode == 0 and "8" in r.stdout
+    r = _run(env, "--import", str(tmp_path / "missing.tar.gz"))
+    assert r.returncode == 16
+
+
 def test_per_game_log_rotates(xdg_env):
     import logging
 

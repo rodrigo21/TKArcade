@@ -347,3 +347,54 @@ def list_appids() -> list[str]:
     if not d.exists():
         return []
     return [p.stem for p in sorted(d.glob("*.toml"))]
+
+
+def export_configs(dest: str | Path) -> Path:
+    """Pack games/*.toml + defaults.toml into a tar.gz for migration."""
+    import tarfile
+
+    dest = Path(dest)
+    if not dest.suffixes[-2:] == [".tar", ".gz"]:
+        dest = dest.with_suffix(".tar.gz") if dest.suffix != ".gz" else dest
+    with tarfile.open(dest, "w:gz") as tar:
+        defaults = xdg.defaults_file()
+        if defaults.exists():
+            tar.add(defaults, arcname="defaults.toml")
+        games = xdg.games_dir()
+        if games.exists():
+            for path in sorted(games.glob("*.toml")):
+                tar.add(path, arcname=f"games/{path.name}")
+    return dest
+
+
+def import_configs(src: str | Path) -> list[str]:
+    """Restore an export tarball. Only games/*.toml + defaults.toml accepted.
+
+    Returns imported appids. Raises ValueError on invalid archives.
+    """
+    import tarfile
+
+    src = Path(src)
+    if not src.is_file():
+        raise ValueError(f"not found: {src}")
+    base = xdg.app_config_dir()
+    try:
+        tar = tarfile.open(src, "r:gz")
+    except (tarfile.TarError, OSError) as e:
+        raise ValueError(f"invalid archive: {e}") from e
+    with tar:
+        members = []
+        for member in tar.getmembers():
+            name = member.name
+            if name == "defaults.toml" or (
+                name.startswith("games/")
+                and name.endswith(".toml")
+                and "/" not in name[len("games/"):]
+            ):
+                members.append(member)
+        if not members:
+            raise ValueError("archive contains no TKSteamLaunch configs")
+        tar.extractall(path=base, members=members, filter="data")
+    return sorted(
+        Path(m.name).stem for m in members if m.name.startswith("games/")
+    )

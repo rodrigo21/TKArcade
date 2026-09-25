@@ -58,6 +58,8 @@ class MainWindow(QMainWindow):
             ("Open Ludusavi...", self._open_ludusavi),
             ("Global Defaults...", self._edit_defaults),
             ("Open Logs Folder", self._open_logs),
+            ("Export...", self._export_configs),
+            ("Import...", self._import_configs),
         )))
         self.refresh()
 
@@ -147,6 +149,39 @@ class MainWindow(QMainWindow):
             pass
         if not open_path(str(d)):
             QMessageBox.warning(self, "TKSteamLaunch", f"Could not open {d}.")
+
+    def _export_configs(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Configurations", "tksteamlaunch-configs.tar.gz",
+            "Archives (*.tar.gz)",
+        )
+        if not path:
+            return
+        try:
+            saved = cfgmod.export_configs(path)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, "TKSteamLaunch", f"Export failed: {e}")
+            return
+        self.status.setText(f"Exported to {saved}")
+
+    def _import_configs(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import Configurations", "",
+            "Archives (*.tar.gz)",
+        )
+        if not path:
+            return
+        try:
+            imported = cfgmod.import_configs(path)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, "TKSteamLaunch", f"Import failed: {e}")
+            return
+        self.status.setText(f"Imported {len(imported)} game(s)")
+        self.refresh()
 
     def _remove_selected(self) -> None:
         appid = self._selected_appid()

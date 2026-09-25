@@ -263,6 +263,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")
     p.add_argument("--list", action="store_true", help="list configured/detected games and exit")
+    p.add_argument("--export", default="", metavar="FILE",
+                   help="export configs to a tar.gz and exit")
+    p.add_argument("--import", dest="import_file", default="", metavar="FILE",
+                   help="import configs from a tar.gz and exit")
     p.add_argument("--edit", action="store_true",
                    help="open the game settings dialog before launching (needs a display)")
     p.add_argument("--verbose", action="store_true")
@@ -315,6 +319,22 @@ def main(argv: list[str] | None = None) -> int:
             print("Detected (not configured):")
             for appid, name in extra:
                 print(f"  {appid}\t{name}")
+        return 0
+    if args.export:
+        try:
+            path = cfgmod.export_configs(args.export)
+        except (OSError, ValueError) as e:
+            print(f"tksteamlaunch: export failed: {e}", file=sys.stderr)
+            return 16
+        print(f"Exported to {path}")
+        return 0
+    if args.import_file:
+        try:
+            imported = cfgmod.import_configs(args.import_file)
+        except (OSError, ValueError) as e:
+            print(f"tksteamlaunch: import failed: {e}", file=sys.stderr)
+            return 16
+        print(f"Imported {len(imported)} game(s): {', '.join(imported)}")
         return 0
 
     game_cmd = list(args.command)
