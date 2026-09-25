@@ -12,6 +12,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - `tksteamlaunch --list` prints configured and detected games.
 - Per-game logs rotate at 1 MiB (3 backups).
 - Desktop `notify-send` alerts on hook failures and launch blockers.
+- Transient game-start notification (per-game `[notifications]` toggle,
+  game icon, Proton version lookup).
 
 ### Changed
 - **BREAKING:** `nightlight.provider = "kde"` no longer recognized

@@ -210,6 +210,74 @@ def test_notify_calls_server(monkeypatch, tmp_path):
     assert "summary" in logged.read_text()
 
 
+def test_launch_summary_shapes():
+    from tksteamlaunch.backends import notify as ntf
+
+    title, body = ntf.launch_summary(
+        appid="1",
+        name="Some Game",
+        game_type="proton",
+        wrappers=["GameMode", "MangoHud"],
+        custom_executable="/g/dir/game.exe",
+        proton_version="9.0-2",
+    )
+    assert title == "TKSteamLaunch — Some Game"
+    assert body.splitlines() == [
+        "Proton 9.0-2",
+        "GameMode · MangoHud",
+        "Exe: game.exe",
+    ]
+    title, body = ntf.launch_summary(appid="2", game_type="native")
+    assert (title, body) == ("TKSteamLaunch — 2", "Native")
+    title, body = ntf.launch_summary(appid="3", game_type="proton")
+    assert body == "Proton"
+
+
+def test_send_icon_and_expiry(monkeypatch, tmp_path):
+    from tksteamlaunch.backends import notify as ntf
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    logged = tmp_path / "notify.log"
+    script = bindir / "notify-send"
+    script.write_text(f'#!/bin/sh\necho "$@" >> "{logged}"\n')
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bindir))
+    monkeypatch.setenv("DISPLAY", ":0")
+    ntf.send("t", "b", icon="/i.png", expire_ms=5000)
+    for _ in range(100):
+        if logged.exists():
+            break
+        import time
+
+        time.sleep(0.02)
+    out = logged.read_text()
+    assert "--icon=/i.png" in out and "--expire-time=5000" in out
+
+
+def test_proton_version_lookup(monkeypatch, tmp_path):
+    import sys
+
+    from tksteamlaunch import proton as pm
+
+    root = tmp_path / "steam"
+    (root / "config").mkdir(parents=True)
+    (root / "config" / "config.vdf").write_text(
+        '"InstallConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n'
+        '{\n"CompatToolMapping"\n{\n"42"\n{\n"name" "GE-Proton9-15"\n}\n}\n}\n}\n}\n}\n'
+    )
+    tooldir = root / "compatibilitytools.d" / "GE-Proton9-15"
+    tooldir.mkdir(parents=True)
+    (tooldir / "version").write_text("GE-Proton9-15\n")
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    assert pm.proton_version_for("42") == "GE-Proton9-15"
+    assert pm.proton_version_for("43") is None
+
+    # stdlib regex fallback without the vdf package
+    monkeypatch.setitem(sys.modules, "vdf", None)
+    assert pm.proton_version_for("42") == "GE-Proton9-15"
+
+
 def test_mangohud_config_env(xdg_env):
     os.makedirs(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud"), exist_ok=True)
     with open(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud", "custom.conf"), "w") as f:

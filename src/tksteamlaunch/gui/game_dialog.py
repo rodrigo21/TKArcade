@@ -153,6 +153,11 @@ class GameDialog(QDialog):
         )
         gf.addRow("Custom Command Prefix:", self.e_prefix)
         self.e_prefix.textChanged.connect(self._update_prefix_status)
+        self.c_notify = QCheckBox("Notify on launch")
+        self.c_notify.setToolTip(
+            "Show a transient summary notification when the game starts."
+        )
+        gf.addRow("", self.c_notify)
         env_box = QWidget()
         env_layout = QVBoxLayout(env_box)
         env_layout.setContentsMargins(0, 0, 0, 0)
@@ -354,6 +359,7 @@ class GameDialog(QDialog):
         self.cb_gametype.setCurrentText(c.general.game_type or "auto")
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
+        self.c_notify.setChecked(c.notifications.notify_on_launch)
         self._set_env_table(c.env.vars)
         if not self.defaults_mode:
             log_path = str(xdg.game_log_file(self.appid))
@@ -605,6 +611,7 @@ class GameDialog(QDialog):
         self.cfg.general.game_type = self.cb_gametype.currentText()
         self.cfg.general.custom_executable = self.e_exe.text().strip()
         self.cfg.general.custom_prefix = self.e_prefix.text().strip()
+        self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()
         self.cfg.pre_post.pre_args = shlex.split(self.e_pre_args.text()) if self.e_pre_args.text().strip() else []

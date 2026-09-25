@@ -55,3 +55,13 @@ def test_enums_match_wire_values():
     assert C.NightlightProvider.PLASMA == "plasma"
     assert C.GameType.NATIVE == "native"
     assert str(C.NightlightProvider.OFF) == "off"
+
+
+def test_notifications_roundtrip(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "11"
+    assert cfg.notifications.notify_on_launch is True
+    cfg.notifications.notify_on_launch = False
+    C.save(cfg)
+    assert C.load("11").notifications.notify_on_launch is False
+    assert "[notifications]" in C.game_file("11").read_text()

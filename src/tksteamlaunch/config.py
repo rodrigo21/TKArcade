@@ -87,6 +87,11 @@ class NightlightConfig:
 
 
 @dataclass
+class NotificationsConfig:
+    notify_on_launch: bool = True
+
+
+@dataclass
 class GameConfig:
     general: GeneralConfig = field(default_factory=GeneralConfig)
     env: EnvConfig = field(default_factory=EnvConfig)
@@ -96,6 +101,7 @@ class GameConfig:
     mangohud: MangohudConfig = field(default_factory=MangohudConfig)
     ludusavi: LudusaviConfig = field(default_factory=LudusaviConfig)
     nightlight: NightlightConfig = field(default_factory=NightlightConfig)
+    notifications: NotificationsConfig = field(default_factory=NotificationsConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -121,6 +127,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "mangohud": _to_toml_value(cfg.mangohud),
         "ludusavi": _to_toml_value(cfg.ludusavi),
         "nightlight": _to_toml_value(cfg.nightlight),
+        "notifications": _to_toml_value(cfg.notifications),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -202,12 +209,13 @@ def _section_known_keys(section: str) -> set[str]:
         "mangohud": {"enable", "args", "config_file"},
         "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
         "nightlight": {"disable_during_game", "provider"},
+        "notifications": {"notify_on_launch"},
     }.get(section, set())
 
 
 _KNOWN_SECTIONS = {
     "general", "env", "pre_post", "gamemode",
-    "gamescope", "mangohud", "ludusavi", "nightlight",
+    "gamescope", "mangohud", "ludusavi", "nightlight", "notifications",
 }
 
 
@@ -256,6 +264,8 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     nl = data.get("nightlight", {})
     cfg.nightlight.disable_during_game = bool(nl.get("disable_during_game", False))
     cfg.nightlight.provider = str(nl.get("provider", "auto"))
+    nt = data.get("notifications", {})
+    cfg.notifications.notify_on_launch = bool(nt.get("notify_on_launch", True))
     return cfg
 
 

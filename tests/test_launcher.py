@@ -106,3 +106,17 @@ def test_per_game_log_rotates(xdg_env):
     # WARNING: pytest runs the root logger at WARNING, INFO would be filtered.
     logging.getLogger("tksteamlaunch.test").warning("trigger rollover")
     assert (logdir / "8.log.1").exists()
+
+
+def test_launch_notification_toggle(xdg_env, fake_bin, monkeypatch, tmp_path):
+    log = tmp_path / "notify.log"
+    fake_bin("notify-send", f'#!/bin/sh\necho "$@" >> "{log}"\n')
+    monkeypatch.setenv("DISPLAY", ":0")
+    _save("9", notifications={"notify_on_launch": True})
+    env = _env(xdg_env)  # inherits fake PATH + DISPLAY
+    assert _run(env, "--appid", "9", "/bin/true").returncode == 0
+    assert "TKSteamLaunch" in log.read_text()
+    log.unlink()
+    _save("9", notifications={"notify_on_launch": False})
+    assert _run(env, "--appid", "9", "/bin/true").returncode == 0
+    assert not log.exists()

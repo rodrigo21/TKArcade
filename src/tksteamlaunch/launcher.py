@@ -218,6 +218,42 @@ def _read_wrap_rc_file(path: str, fallback: int) -> int:
     return fallback
 
 
+def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> None:
+    """Transient game-start summary notification (steamtinkerlaunch-style)."""
+    from . import proton as protonmod
+
+    game_type = detect_game_type(game_cmd, cfg.general.game_type)
+    wrappers = []
+    if cfg.gamemode.feral_gamemode:
+        wrappers.append("GameMode")
+    if cfg.gamemode.cachyos_game_performance:
+        wrappers.append("CachyOS")
+    if cfg.gamescope.enable:
+        wrappers.append("Gamescope")
+    if cfg.mangohud.enable:
+        wrappers.append("MangoHud")
+    if cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup):
+        wrappers.append("Ludusavi")
+    if cfg.nightlight.disable_during_game:
+        wrappers.append("Night Light")
+    names = {a: n for a, n in steammod.list_games()}
+    proton_version = (
+        protonmod.proton_version_for(appid) if game_type != "native" else None
+    )
+    icon_path = steammod.find_game_icon(appid)
+    title, body = notify_backend.launch_summary(
+        appid=appid,
+        name=names.get(appid, ""),
+        game_type=game_type,
+        wrappers=wrappers,
+        custom_executable=cfg.general.custom_executable,
+        proton_version=proton_version,
+    )
+    notify_backend.send(
+        title, body, icon=str(icon_path) if icon_path else "", expire_ms=5000
+    )
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="tksteamlaunch",
@@ -374,6 +410,8 @@ def main(argv: list[str] | None = None) -> int:
 
             # run game (possibly inside `ludusavi wrap`; the sh shim writes the
             # real game exit code to rc_file, recovered below)
+            if cfg.notifications.notify_on_launch:
+                notify_launch(appid, cfg, game_cmd)
             env = dict(os.environ)
             env.update({k: str(v) for k, v in extra_env.items()})
             log.info("exec: %s", shlex.join(final_cmd))
