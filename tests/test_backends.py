@@ -395,6 +395,20 @@ def test_mangohud_create_templates(xdg_env):
     assert "fps_limit=60" in ov.MANGOHUD_TEMPLATES["fps-cap"]
 
 
+def test_gamescope_presets():
+    from tksteamlaunch.backends import overlay as ov
+
+    assert set(ov.GAMESCOPE_PRESETS) == {
+        "1080p 144Hz Fullscreen",
+        "1440p 165Hz Fullscreen",
+        "4K 60Hz Fullscreen",
+        "Borderless Windowed",
+        "Steam Deck 1280x800",
+    }
+    for args in ov.GAMESCOPE_PRESETS.values():
+        assert args.startswith("-")
+
+
 def test_mangohud_config_env(xdg_env):
     os.makedirs(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud"), exist_ok=True)
     with open(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud", "custom.conf"), "w") as f:

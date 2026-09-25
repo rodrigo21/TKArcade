@@ -6,6 +6,7 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Gamescope option presets (1080p144, 1440p165, 4K60, borderless, Deck).
 - Config export/import tarballs (`--export`/`--import`, GUI buttons).
 - MangoHud starter templates (minimal, fps-cap, full) in New Configuration.
 - Env presets (FSR, RADV shaders, SDL Wayland) via Add Preset.

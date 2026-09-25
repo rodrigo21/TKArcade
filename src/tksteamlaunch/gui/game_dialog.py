@@ -252,8 +252,16 @@ class GameDialog(QDialog):
         self.e_gs_args.setPlaceholderText("-f -H 1080 -r 144")
         self.l_gs_args = QLabel("Gamescope Options:")
         self.l_gs_args.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        gs_args_row = QWidget()
+        gs_args_layout = QHBoxLayout(gs_args_row)
+        gs_args_layout.setContentsMargins(0, 0, 0, 0)
+        b_gs_preset = QPushButton("Preset...")
+        b_gs_preset.setToolTip("Fill in a starter Gamescope option set.")
+        b_gs_preset.clicked.connect(self._apply_gamescope_preset)
+        gs_args_layout.addWidget(self.e_gs_args, stretch=1)
+        gs_args_layout.addWidget(b_gs_preset)
         gf.addRow("", self.c_gs)
-        gf.addRow(self.l_gs_args, self.e_gs_args)
+        gf.addRow(self.l_gs_args, gs_args_row)
         perf_layout.addWidget(gs_box)
         mh_box = QGroupBox("MangoHud")
         mf = QFormLayout(mh_box)
@@ -470,6 +478,16 @@ class GameDialog(QDialog):
                 self, "TKSteamLaunch",
                 f"Preset '{name}': all keys already present.",
             )
+
+    def _apply_gamescope_preset(self) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        names = sorted(ov_backend.GAMESCOPE_PRESETS)
+        name, ok = QInputDialog.getItem(
+            self, "Gamescope Preset", "Preset:", names, 0, False
+        )
+        if ok and name:
+            self.e_gs_args.setText(ov_backend.GAMESCOPE_PRESETS[name])
 
     def _refresh_mangohud_configs(self) -> None:
         current = self.cfg.mangohud.config_file

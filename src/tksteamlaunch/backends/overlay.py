@@ -9,6 +9,14 @@ from . import split_args, which
 
 DEFAULT_MANGOHUD_CONF = "MangoHud.conf"
 
+GAMESCOPE_PRESETS: dict[str, str] = {
+    "1080p 144Hz Fullscreen": "-f -W 1920 -H 1080 -r 144",
+    "1440p 165Hz Fullscreen": "-f -W 2560 -H 1440 -r 165",
+    "4K 60Hz Fullscreen": "-f -W 3840 -H 2160 -r 60",
+    "Borderless Windowed": "-b -W 1920 -H 1080",
+    "Steam Deck 1280x800": "-f -W 1280 -H 800 -r 60",
+}
+
 MANGOHUD_TEMPLATES: dict[str, str] = {
     "minimal": "# Minimal MangoHud overlay\nfps\nframetime\n",
     "fps-cap": "# FPS limiter overlay\nfps_limit=60\nfps\nframetime\n",
