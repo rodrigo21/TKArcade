@@ -1,0 +1,8 @@
+#!/bin/sh
+# Ensures every commit carries the AI co-authorship trailer.
+# Activated via: git config core.hooksPath scripts/git-hooks
+file="$1"
+[ -z "$file" ] && exit 0
+head -n 1 "$file" | grep -q "^Merge " && exit 0
+grep -q "^Co-Authored-By: OpenCode " "$file" && exit 0
+printf '\nCo-Authored-By: OpenCode <noreply@opencode.ai>\n' >> "$file"

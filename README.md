@@ -44,3 +44,10 @@ one-line entry per run in `$XDG_STATE_HOME/tksteamlaunch/launcher.log`.
 
 No `pip` on the system (e.g. CachyOS): the launcher code uses stdlib only.
 Tests: `python3 -m py_compile` + `PYTHONPATH=src python3 -m tksteamlaunch.launcher --help`.
+
+## AI assistance
+
+This project is developed with AI assistance (OpenCode + Muse Spark),
+reviewed by the maintainer. Every commit carries a `Co-Authored-By` trailer;
+a local `commit-msg` hook (see `scripts/git-hooks/`, enabled via
+`git config core.hooksPath scripts/git-hooks`) adds it automatically.
