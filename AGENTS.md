@@ -49,4 +49,5 @@ never rewrite pushed history or tags.
 - Flatpak Ludusavi cannot see Proton prefixes: always warn, never
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,
-  13 missing exe, 14 missing prefix, 15 no display, 16 import/export).
+  13 missing exe, 14 missing prefix, 15 no display, 16 import/export,
+  17 validation issues).

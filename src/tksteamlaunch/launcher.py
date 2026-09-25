@@ -263,6 +263,66 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
     return name, icon
 
 
+def validate_game(appid: str) -> list[str]:
+    """Check one game's config and helper binaries. Returns issue strings."""
+    import tomllib
+
+    issues: list[str] = []
+    path = cfgmod.game_file(appid)
+    if path.exists():
+        try:
+            with path.open("rb") as f:
+                tomllib.load(f)
+        except (OSError, tomllib.TOMLDecodeError) as e:
+            return [f"{appid}: invalid TOML ({e}); built-in defaults apply"]
+    cfg = cfgmod.load(appid)
+
+    def check_exe(label: str, command: str) -> None:
+        parts = split_args(command)
+        if not parts:
+            return
+        first = parts[0]
+        if not shutil.which(first) and not Path(first).is_file():
+            issues.append(f"{appid}: {label} not found: {first}")
+
+    check_exe("pre_command", cfg.pre_post.pre_command)
+    check_exe("post_command", cfg.pre_post.post_command)
+    check_exe("custom_prefix", cfg.general.custom_prefix)
+    if cfg.gamemode.feral_gamemode and not shutil.which("gamemoderun"):
+        issues.append(f"{appid}: gamemoderun not found (Feral GameMode on)")
+    if cfg.gamemode.cachyos_game_performance and not shutil.which("game-performance"):
+        issues.append(f"{appid}: game-performance not found (CachyOS tweak on)")
+    if cfg.gamescope.enable and not shutil.which("gamescope"):
+        issues.append(f"{appid}: gamescope not found (enabled)")
+    if cfg.mangohud.enable and not shutil.which("mangohud"):
+        issues.append(f"{appid}: mangohud not found (enabled)")
+    if cfg.mangohud.config_file and ov_backend.mangohud_config_path(
+        cfg.mangohud.config_file
+    ) is None:
+        issues.append(
+            f"{appid}: MangoHud config not found: {cfg.mangohud.config_file}"
+        )
+    if cfg.ludusavi.enable and not lu_backend.find()[0]:
+        issues.append(f"{appid}: ludusavi not found (enabled)")
+    return issues
+
+
+def cmd_validate(appids: list[str]) -> int:
+    """Print a validation report. Returns 0 when clean, else 17."""
+    if not steammod.steam_roots():
+        print("global: no Steam installation found")
+    problems = 0
+    for appid in appids:
+        for issue in validate_game(appid):
+            print(issue)
+            problems += 1
+    if problems:
+        print(f"{problems} issue(s) found")
+        return 17
+    print("all clear")
+    return 0
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="tksteamlaunch",
@@ -271,6 +331,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")
     p.add_argument("--list", action="store_true", help="list configured/detected games and exit")
+    p.add_argument("--validate", action="store_true",
+                   help="check configs and helper binaries, exit 17 on issues")
     p.add_argument("--export", default="", metavar="FILE",
                    help="export configs to a tar.gz and exit")
     p.add_argument("--import", dest="import_file", default="", metavar="FILE",
@@ -328,6 +390,9 @@ def main(argv: list[str] | None = None) -> int:
             for appid, name in extra:
                 print(f"  {appid}\t{name}")
         return 0
+    if args.validate:
+        appids = [args.appid] if args.appid else cfgmod.list_appids()
+        return cmd_validate(appids)
     if args.export:
         try:
             path = cfgmod.export_configs(args.export)

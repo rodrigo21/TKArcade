@@ -145,6 +145,38 @@ def test_session_end_notification(xdg_env, fake_bin, monkeypatch, tmp_path):
     assert "Finished 10" in out and "Played" in out
 
 
+def test_validate_reports_issues(xdg_env, monkeypatch, tmp_path):
+    from tksteamlaunch import launcher as L
+
+    monkeypatch.setenv("PATH", str(tmp_path))
+    cfg = C.GameConfig()
+    cfg.general.appid = "30"
+    cfg.general.custom_prefix = "nope-bin"
+    cfg.gamemode.feral_gamemode = True
+    C.save(cfg)
+    issues = L.validate_game("30")
+    assert any("nope-bin" in i for i in issues)
+    assert any("gamemoderun" in i for i in issues)
+    assert L.cmd_validate(["30"]) == 17
+    C.game_file("30").write_text("[general\nbroken", encoding="utf-8")
+    assert any("invalid TOML" in i for i in L.validate_game("30"))
+
+
+def test_validate_cli_exit_code(xdg_env, monkeypatch, tmp_path):
+    _save("32", gamemode={"feral_gamemode": True})
+    monkeypatch.setenv("PATH", str(tmp_path))  # hide all helper binaries
+    assert _run(_env(xdg_env), "--validate", "--appid", "32").returncode == 17
+
+
+def test_validate_clean(xdg_env):
+    from tksteamlaunch import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "31"
+    C.save(cfg)
+    assert L.cmd_validate(["31"]) == 0
+
+
 def test_global_log_carries_duration(xdg_env):
     from tksteamlaunch import xdg
 
