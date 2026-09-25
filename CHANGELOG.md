@@ -17,6 +17,7 @@ Breaking config changes are called out explicitly under `Changed`.
 - Desktop `notify-send` alerts on hook failures and launch blockers.
 - Transient game-start notification (per-game `[notifications]` toggle,
   game icon, Proton version lookup).
+- Session-end notification with playtime.
 
 ### Changed
 - **BREAKING:** `nightlight.provider = "kde"` no longer recognized

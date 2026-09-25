@@ -132,3 +132,14 @@ def test_launch_notification_toggle(xdg_env, fake_bin, monkeypatch, tmp_path):
     _save("9", notifications={"notify_on_launch": False})
     assert _run(env, "--appid", "9", "/bin/true").returncode == 0
     assert not log.exists()
+
+
+def test_session_end_notification(xdg_env, fake_bin, monkeypatch, tmp_path):
+    log = tmp_path / "notify.log"
+    fake_bin("notify-send", f'#!/bin/sh\necho "$@" >> "{log}"\n')
+    monkeypatch.setenv("DISPLAY", ":0")
+    _save("10", notifications={"notify_on_launch": True})
+    env = _env(xdg_env)
+    assert _run(env, "--appid", "10", "/bin/sleep", "0").returncode == 0
+    out = log.read_text()
+    assert "Finished 10" in out and "Played" in out

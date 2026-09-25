@@ -274,6 +274,17 @@ def test_launch_summary_shapes():
     assert body == "Native · soldier"
 
 
+def test_format_duration():
+    from tksteamlaunch.backends import notify as ntf
+
+    assert ntf.format_duration(0) == "0s"
+    assert ntf.format_duration(38) == "38s"
+    assert ntf.format_duration(60) == "1m 00s"
+    assert ntf.format_duration(45 * 60 + 12) == "45m 12s"
+    assert ntf.format_duration(2 * 3600 + 13 * 60) == "2h 13m"
+    assert ntf.format_duration(-5) == "0s"
+
+
 def test_native_runtime_sniffing():
     from tksteamlaunch import proton as pm
 

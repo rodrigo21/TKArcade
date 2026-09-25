@@ -52,8 +52,6 @@ def launch_summary(
     runtime: str | None = None,
 ) -> tuple[str, str]:
     """Build (title, body) for the game-start notification. Pure function."""
-    import os
-
     title = f"TKSteamLaunch — {name.strip() or appid}"
     if game_type == "native":
         head = f"Native · {runtime}" if runtime else "Native"
@@ -67,3 +65,15 @@ def launch_summary(
     if (custom_executable or "").strip():
         lines.append(f"Exe: {os.path.basename(custom_executable.strip())}")
     return title, "\n".join(lines)
+
+
+def format_duration(seconds: float) -> str:
+    """Format playtime compactly: 38s, 45m 12s, 2h 13m."""
+    total = max(0, int(seconds))
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m {secs:02d}s"
+    return f"{secs}s"
