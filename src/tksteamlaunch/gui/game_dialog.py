@@ -332,6 +332,17 @@ class GameDialog(QDialog):
         nf.addRow("Provider:", self.cb_nl)
         tabs.addTab(nl, "Night Light")
 
+        if not defaults_mode:
+            notes = QWidget()
+            notes_layout = QVBoxLayout(notes)
+            notes_layout.setContentsMargins(0, 0, 0, 0)
+            self.e_notes = QPlainTextEdit()
+            self.e_notes.setPlaceholderText(
+                "Free-form notes, e.g. works with GE-Proton, disable FSR in menus."
+            )
+            notes_layout.addWidget(self.e_notes)
+            tabs.addTab(notes, "Notes")
+
         for box in (
             self.c_feral, self.c_cachy, self.c_gs, self.c_mh, self.c_lu_enable,
         ):
@@ -418,6 +429,8 @@ class GameDialog(QDialog):
         self.c_nl.setChecked(c.nightlight.disable_during_game)
         idx = self.cb_nl.findData(c.nightlight.provider or "auto")
         self.cb_nl.setCurrentIndex(max(idx, 0))
+        if not self.defaults_mode:
+            self.e_notes.setPlainText(c.notes.text)
 
     def _detect_runtime_text(self) -> str:
         """Read-only Proton tool/version from the Steam config, if mapped."""
@@ -744,6 +757,8 @@ class GameDialog(QDialog):
         self.cfg.ludusavi.use_gui = self.c_lugui.isChecked()
         self.cfg.nightlight.disable_during_game = self.c_nl.isChecked()
         self.cfg.nightlight.provider = str(self.cb_nl.currentData() or "auto")
+        if not self.defaults_mode:
+            self.cfg.notes.text = self.e_notes.toPlainText()
 
     def accept(self) -> None:
         self._collect()

@@ -96,6 +96,11 @@ class NotificationsConfig:
 
 
 @dataclass
+class NotesConfig:
+    text: str = ""
+
+
+@dataclass
 class GameConfig:
     general: GeneralConfig = field(default_factory=GeneralConfig)
     env: EnvConfig = field(default_factory=EnvConfig)
@@ -106,6 +111,7 @@ class GameConfig:
     ludusavi: LudusaviConfig = field(default_factory=LudusaviConfig)
     nightlight: NightlightConfig = field(default_factory=NightlightConfig)
     notifications: NotificationsConfig = field(default_factory=NotificationsConfig)
+    notes: NotesConfig = field(default_factory=NotesConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -132,6 +138,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "ludusavi": _to_toml_value(cfg.ludusavi),
         "nightlight": _to_toml_value(cfg.nightlight),
         "notifications": _to_toml_value(cfg.notifications),
+        "notes": _to_toml_value(cfg.notes),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -221,6 +228,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
     "nightlight": {"disable_during_game", "provider"},
     "notifications": {"notify_on_launch"},
+    "notes": {"text"},
 }
 
 
@@ -295,6 +303,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.nightlight.provider = str(nl.get("provider", "auto"))
     nt = _section(data, "notifications")
     cfg.notifications.notify_on_launch = bool(nt.get("notify_on_launch", True))
+    cfg.notes.text = str(_section(data, "notes").get("text", ""))
     return cfg
 
 

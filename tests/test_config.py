@@ -90,6 +90,14 @@ def test_sections_covered_by_key_map():
     assert set(C.to_toml_dict(C.GameConfig())) == set(C.SECTION_KEYS)
 
 
+def test_notes_multiline_roundtrip(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "12"
+    cfg.notes.text = "line one\nline two: FSR off in menus"
+    C.save(cfg)
+    assert C.load("12").notes.text == "line one\nline two: FSR off in menus"
+
+
 def test_notifications_roundtrip(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "11"
