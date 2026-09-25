@@ -6,8 +6,12 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
-- pytest suite (`tests/`, 36 tests) and ruff config in `pyproject.toml`.
+- pytest suite (`tests/`, 41 tests) and ruff config in `pyproject.toml`.
 - `Co-Authored-By` trailer policy + `scripts/git-hooks/commit-msg` hook.
+- "Preview Command" button in the game dialog (dry-run parity).
+- `tksteamlaunch --list` prints configured and detected games.
+- Per-game logs rotate at 1 MiB (3 backups).
+- Desktop `notify-send` alerts on hook failures and launch blockers.
 
 ### Changed
 - **BREAKING:** `nightlight.provider = "kde"` no longer recognized
