@@ -10,6 +10,7 @@ independent toggles.
 from __future__ import annotations
 
 import shutil
+import subprocess
 
 from . import is_flatpak_path, which
 
@@ -75,3 +76,58 @@ def wrap_command(
         warnings.append("sh not found, game exit code may be masked by ludusavi wrap")
     cmd += ["--", *inner]
     return cmd, warnings
+
+
+def check_coverage(appid: str, name_override: str = "") -> tuple[str, str]:
+    """Check manifest coverage for a game. Returns (status, detail).
+
+    status is 'covered' (saves found), 'no-local-saves' (entry exists but
+    nothing on disk), 'no-entry' (no manifest entry) or 'unavailable'.
+    Resolves by Steam ID, or by exact title with a name override.
+    """
+    import json
+
+    path, _warn = find()
+    if not path:
+        return "unavailable", "ludusavi not found in PATH"
+    if (name_override or "").strip():
+        find_cmd = [path, "find", "--api", "--", name_override.strip()]
+    else:
+        find_cmd = [path, "find", "--api", "--steam-id", str(appid)]
+    try:
+        found = subprocess.run(
+            find_cmd, capture_output=True, text=True, timeout=120
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return "unavailable", f"ludusavi find failed: {e}"
+    title = ""
+    if found.returncode == 0:
+        try:
+            games = json.loads(found.stdout or "{}").get("games", {})
+            title = next(iter(games)) if isinstance(games, dict) else ""
+        except ValueError:
+            title = ""
+    if not title:
+        return "no-entry", "No manifest entry for this game"
+    try:
+        preview = subprocess.run(
+            [path, "backup", "--preview", "--api", title],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return "unavailable", f"ludusavi preview failed: {e}"
+    if preview.returncode != 0:
+        return "unavailable", "ludusavi preview failed"
+    try:
+        entry = json.loads(preview.stdout or "{}").get("games", {}).get(title, {})
+    except ValueError:
+        entry = {}
+    files = entry.get("files", {}) if isinstance(entry, dict) else {}
+    total = sum(
+        info.get("bytes", 0) for info in files.values() if isinstance(info, dict)
+    )
+    if not files:
+        return "no-local-saves", f"Entry '{title}' exists, no saves on disk"
+    return "covered", f"Entry '{title}': {len(files)} file(s), {total} bytes"

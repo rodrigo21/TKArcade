@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 from .. import config as cfgmod
 from .. import proton as protonmod
 from .. import xdg
+from ..backends import ludusavi as lu_backend
 from ..backends import overlay as ov_backend
 from ..config import NightlightProvider
 from .helpers import open_path
@@ -299,6 +300,15 @@ class GameDialog(QDialog):
         self.l_lu_note = QLabel("With prompts enabled, restore and backup can be declined per session.")
         self.l_lu_note.setWordWrap(True)
         lf.addRow(self.l_lu_note)
+        b_coverage = QPushButton("Check Coverage...")
+        b_coverage.setToolTip("Check whether Ludusavi has a manifest entry and local saves.")
+        b_coverage.clicked.connect(self._check_coverage)
+        cov_row = QWidget()
+        cov_layout = QHBoxLayout(cov_row)
+        cov_layout.setContentsMargins(0, 0, 0, 0)
+        cov_layout.addWidget(b_coverage)
+        cov_layout.addStretch(1)
+        lf.addRow("Coverage:", cov_row)
         tabs.addTab(lu, "Ludusavi")
 
         # --- Night Light ---
@@ -558,6 +568,31 @@ class GameDialog(QDialog):
         for w in (self.c_restore, self.c_backup, self.e_luname,
                   self.c_lugui, self.l_lu_note):
             w.setEnabled(on)
+
+    def _check_coverage(self) -> None:
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QApplication
+
+        self._collect()
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            status, detail = lu_backend.check_coverage(
+                self.appid, self.cfg.ludusavi.name_override
+            )
+        finally:
+            QApplication.restoreOverrideCursor()
+        messages = {
+            "covered": f"Ludusavi covers this game.\n{detail}",
+            "no-local-saves": f"Manifest entry exists, but no saves found.\n{detail}",
+            "no-entry": (
+                "No manifest entry for this game.\n"
+                "Add a custom game entry in Ludusavi to enable backups."
+            ),
+            "unavailable": f"Could not check coverage:\n{detail}",
+        }
+        QMessageBox.information(
+            self, "TKSteamLaunch", messages.get(status, detail)
+        )
 
     @staticmethod
     def _align_label_widths(*labels: QLabel) -> None:

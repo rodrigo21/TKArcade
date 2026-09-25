@@ -98,6 +98,43 @@ def test_ludusavi_missing_binary_warns(xdg_env, monkeypatch, tmp_path):
     assert cmd == ["/bin/true"] and warnings
 
 
+_FAKE_LUDUSAVI = """#!/bin/sh
+if [ "$1" = "find" ]; then
+  case "$*" in
+    *"Empty Game"*)
+      echo '{"games": {"Empty Game": {"score": 1.0}}}'; exit 0;;
+    *"Known Game"*|*"--steam-id 42"*)
+      echo '{"games": {"Known Game": {"score": 1.0}}}'; exit 0;;
+    *) echo '{"games": {}}'; exit 1;;
+  esac
+elif [ "$1" = "backup" ]; then
+  case "$*" in
+    *"Empty Game"*)
+      echo '{"games": {"Empty Game": {"decision": "Processed", "files": {}, "registry": {}}}}'; exit 0;;
+    *) echo '{"games": {"Known Game": {"decision": "Processed", "files": {"/s/save.dat": {"bytes": 10}}, "registry": {}}}}'; exit 0;;
+  esac
+fi
+exit 2
+"""
+
+
+def test_check_coverage_states(fake_bin, monkeypatch, tmp_path):
+    bindir = tmp_path / "covbin"
+    bindir.mkdir()
+    script = bindir / "ludusavi"
+    script.write_text(_FAKE_LUDUSAVI)
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bindir))
+    assert lu.check_coverage("42")[0] == "covered"
+    assert lu.check_coverage("43")[0] == "no-entry"
+    assert lu.check_coverage("9", "Empty Game")[0] == "no-local-saves"
+
+
+def test_check_coverage_no_binary(monkeypatch, tmp_path):
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert lu.check_coverage("42")[0] == "unavailable"
+
+
 def test_ludusavi_wrap_shape(fake_bin):
     fake_bin("ludusavi")
     cmd, warnings = lu.wrap_command(

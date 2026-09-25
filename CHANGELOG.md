@@ -19,6 +19,7 @@ Breaking config changes are called out explicitly under `Changed`.
   game icon, Proton version lookup).
 - Session-end notification with playtime.
 - Detected Proton runtime shown read-only in the game dialog.
+- Ludusavi coverage check (manifest entry + local saves via preview).
 
 ### Changed
 - **BREAKING:** `nightlight.provider = "kde"` no longer recognized

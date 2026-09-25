@@ -94,3 +94,25 @@ def test_preview_command(qapp, xdg_env):
     btn.click()
     qapp.processEvents()
     assert d.result() == 0  # preview must not accept/reject the dialog
+
+
+def test_coverage_button(qapp, xdg_env, monkeypatch, tmp_path):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
+
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    monkeypatch.setenv("PATH", str(tmp_path))  # no ludusavi -> unavailable path
+    d = GameDialog(None, "28", "T")
+    QTimer.singleShot(
+        300,
+        lambda: [
+            w.close()
+            for w in QApplication.topLevelWidgets()
+            if isinstance(w, QMessageBox)
+        ],
+    )
+    btn = next(b for b in d.findChildren(QPushButton) if "Coverage" in b.text())
+    btn.click()
+    qapp.processEvents()
+    assert d.result() == 0
