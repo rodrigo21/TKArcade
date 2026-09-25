@@ -51,6 +51,7 @@ class MainWindow(QMainWindow):
             ("Add Game...", self._add),
             ("Edit...", self._edit_selected),
             ("Remove", self._remove_selected),
+            ("History...", self._show_history),
             ("Reload", self.refresh),
         )))
         layout.addLayout(self._button_row((
@@ -140,6 +141,11 @@ class MainWindow(QMainWindow):
     def _edit_defaults(self) -> None:
         dlg = GameDialog(self, defaults_mode=True)
         dlg.exec()
+
+    def _show_history(self) -> None:
+        from .history_dialog import HistoryDialog
+
+        HistoryDialog(self).exec()
 
     def _open_logs(self) -> None:
         d = xdg.games_log_dir()

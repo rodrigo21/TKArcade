@@ -68,7 +68,9 @@ def setup_logging(appid: str = "", verbose: bool = False) -> Path:
         return Path(f"{appid}.log")
 
 
-def write_global_log(appid: str, exit_code: int, cmd: list[str]) -> None:
+def write_global_log(
+    appid: str, exit_code: int, cmd: list[str], duration: float | None = None
+) -> None:
     """Append a one-line summary to the global launcher.log."""
     try:
         path = xdg.log_file()
@@ -77,8 +79,12 @@ def write_global_log(appid: str, exit_code: int, cmd: list[str]) -> None:
         shown = shlex.join(cmd)
         if len(shown) > 300:
             shown = shown[:300] + "..."
+        line = f"{stamp} appid={appid} exit={exit_code}"
+        if duration is not None:
+            line += f" dur={max(0, int(duration))}"
+        line += f" cmd={shown}\n"
         with path.open("a", encoding="utf-8") as f:
-            f.write(f"{stamp} appid={appid} exit={exit_code} cmd={shown}\n")
+            f.write(line)
     except Exception as e:
         log.error("cannot write global log: %s", e)
 
@@ -472,7 +478,7 @@ def main(argv: list[str] | None = None) -> int:
                         f"App {appid}, exit {post_rc}",
                     )
 
-            write_global_log(appid, int(game_rc), final_cmd)
+            write_global_log(appid, int(game_rc), final_cmd, time.monotonic() - start)
             if session_info is not None:
                 name, icon = session_info
                 notify_backend.send(

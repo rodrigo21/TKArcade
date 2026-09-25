@@ -6,6 +6,7 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Session history dialog (last played, sessions, total time, failures).
 - Steam launch-options verifier (dialog status + `--validate` input).
 - Gamescope option presets (1080p144, 1440p165, 4K60, borderless, Deck).
 - Per-game notes tab.

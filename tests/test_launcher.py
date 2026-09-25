@@ -143,3 +143,13 @@ def test_session_end_notification(xdg_env, fake_bin, monkeypatch, tmp_path):
     assert _run(env, "--appid", "10", "/bin/sleep", "0").returncode == 0
     out = log.read_text()
     assert "Finished 10" in out and "Played" in out
+
+
+def test_global_log_carries_duration(xdg_env):
+    from tksteamlaunch import xdg
+
+    _save("11")
+    env = _env(xdg_env)
+    assert _run(env, "--appid", "11", "/bin/true").returncode == 0
+    line = (xdg.app_state_dir() / "launcher.log").read_text()
+    assert "appid=11" in line and " dur=" in line
