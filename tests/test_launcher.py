@@ -76,3 +76,18 @@ def test_edit_without_display(xdg_env, monkeypatch):
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     r = _run(_env(xdg_env), "--appid", "5", "--edit", "--", "/bin/echo", "hi")
     assert r.returncode == 15
+
+
+def test_list(xdg_env, monkeypatch, tmp_path):
+    root = tmp_path / "steamapps"
+    root.mkdir()
+    (root / "appmanifest_7.acf").write_text(
+        '"AppState"\n{\n"appid" "7"\n"name" "Some Game"\n}\n'
+    )
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    _save("7")
+    env = _env(xdg_env)
+    env["STEAM_ROOT"] = str(tmp_path)
+    r = _run(env, "--list")
+    assert r.returncode == 0
+    assert "Configured:" in r.stdout and "7" in r.stdout

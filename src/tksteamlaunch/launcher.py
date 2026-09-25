@@ -218,6 +218,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")
+    p.add_argument("--list", action="store_true", help="list configured/detected games and exit")
     p.add_argument("--edit", action="store_true",
                    help="open the game settings dialog before launching (needs a display)")
     p.add_argument("--verbose", action="store_true")
@@ -258,6 +259,18 @@ def main(argv: list[str] | None = None) -> int:
         from . import __version__
 
         print(__version__)
+        return 0
+    if args.list:
+        names = dict(steammod.list_games())
+        configured = cfgmod.list_appids()
+        print("Configured:")
+        for appid in configured:
+            print(f"  {appid}\t{names.get(appid, '')}".rstrip())
+        extra = [(a, n) for a, n in names.items() if a not in set(configured)]
+        if extra:
+            print("Detected (not configured):")
+            for appid, name in extra:
+                print(f"  {appid}\t{name}")
         return 0
 
     game_cmd = list(args.command)

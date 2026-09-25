@@ -328,6 +328,9 @@ class GameDialog(QDialog):
             b_launch.setDefault(True)
             b_launch.clicked.connect(self._on_save_and_launch)
             btns.addButton(b_launch, QDialogButtonBox.ButtonRole.AcceptRole)
+        b_preview = QPushButton("Preview Command...")
+        b_preview.clicked.connect(self._on_preview)
+        btns.addButton(b_preview, QDialogButtonBox.ButtonRole.ActionRole)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
@@ -459,6 +462,32 @@ class GameDialog(QDialog):
     def _on_save_and_launch(self) -> None:
         self.launch_requested = True
         self.accept()
+
+    def _on_preview(self) -> None:
+        from ..launcher import PrefixNotFoundError, build_final_command
+
+        self._collect()
+        try:
+            cmd, env, warnings = build_final_command(self.cfg, ["<game-command>"])
+        except PrefixNotFoundError as e:
+            QMessageBox.warning(self, "TKSteamLaunch", str(e))
+            return
+        lines = [
+            "<game-command> stands in for the Steam %command%.",
+            "",
+            shlex.join(cmd) if cmd else "(empty command)",
+        ]
+        if env:
+            lines += ["", "Environment:"]
+            lines += [f"  {k}={v}" for k, v in sorted(env.items())]
+        if warnings:
+            lines += ["", "Warnings:"]
+            lines += [f"  - {w}" for w in warnings]
+        box = QMessageBox(self)
+        box.setWindowTitle("Launch Command Preview")
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setText("\n".join(lines))
+        box.exec()
 
     def _update_lu_state(self) -> None:
         on = self.c_lu_enable.isChecked()

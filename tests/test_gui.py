@@ -53,3 +53,25 @@ def test_provider_combo_data(qapp, xdg_env):
     from tksteamlaunch import config as C
 
     assert C.load("23").nightlight.provider == "plasma"
+
+
+def test_preview_command(qapp, xdg_env):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
+
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "24", "T")
+    d.c_feral.setChecked(True)
+    QTimer.singleShot(
+        300,
+        lambda: [
+            w.close()
+            for w in QApplication.topLevelWidgets()
+            if isinstance(w, QMessageBox)
+        ],
+    )
+    btn = next(b for b in d.findChildren(QPushButton) if "Preview" in b.text())
+    btn.click()
+    qapp.processEvents()
+    assert d.result() == 0  # preview must not accept/reject the dialog
