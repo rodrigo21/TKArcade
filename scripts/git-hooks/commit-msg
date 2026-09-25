@@ -1,8 +1,16 @@
 #!/bin/sh
-# Ensures every commit carries the AI co-authorship trailer.
+# Ensures every commit carries AI attribution trailers.
 # Activated via: git config core.hooksPath scripts/git-hooks
+# Optional repo-local model name in .opencode-model (gitignored).
 file="$1"
 [ -z "$file" ] && exit 0
 head -n 1 "$file" | grep -q "^Merge " && exit 0
-grep -q "^Co-Authored-By: OpenCode " "$file" && exit 0
-printf '\nCo-Authored-By: OpenCode <noreply@opencode.ai>\n' >> "$file"
+add_trailer() {
+    grep -q "^$1" "$file" || printf '\n%s\n' "$2" >> "$file"
+}
+add_trailer "Co-Authored-By: OpenCode " "Co-Authored-By: OpenCode <noreply@opencode.ai>"
+top=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$top" ] && [ -f "$top/.opencode-model" ]; then
+    model=$(tr -d '[:space:]' < "$top/.opencode-model")
+    [ -n "$model" ] && add_trailer "AI-Model:" "AI-Model: $model"
+fi

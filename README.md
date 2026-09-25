@@ -69,6 +69,9 @@ kill -TERM $HPID  # inhibited returns to false
 ## AI assistance
 
 This project is developed with AI assistance (OpenCode + Muse Spark),
-reviewed by the maintainer. Every commit carries a `Co-Authored-By` trailer;
-a local `commit-msg` hook (see `scripts/git-hooks/`, enabled via
-`git config core.hooksPath scripts/git-hooks`) adds it automatically.
+reviewed by the maintainer. Every commit carries a `Co-Authored-By` trailer
+plus an `AI-Model:` trailer with the model in use (from the gitignored
+`.opencode-model` file); a local `commit-msg` hook (see
+`scripts/git-hooks/`, enabled via
+`git config core.hooksPath scripts/git-hooks`) adds both automatically.
+Agent instructions live in `AGENTS.md`.
