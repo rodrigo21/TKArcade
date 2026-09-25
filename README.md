@@ -56,6 +56,16 @@ The launcher itself stays dependency-free on purpose (it runs on every
 game start); only the GUI needs PySide6 and helpers need vdf/jeepney.
 Breaking config changes are recorded in `CHANGELOG.md`.
 
+Manual Plasma check for the NightLight holder (needs a session bus):
+
+```bash
+PYTHONPATH=src python3 -m tksteamlaunch.nightlight_holder & HPID=$!
+sleep 2
+qdbus6 org.kde.KWin /org/kde/KWin/NightLight \
+  org.freedesktop.DBus.Properties.Get org.kde.KWin.NightLight inhibited  # true
+kill -TERM $HPID  # inhibited returns to false
+```
+
 ## AI assistance
 
 This project is developed with AI assistance (OpenCode + Muse Spark),

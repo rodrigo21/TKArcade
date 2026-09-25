@@ -1,6 +1,7 @@
 """Game editor dialog with tabs. Also used for global defaults."""
 from __future__ import annotations
 
+import os
 import shlex
 import shutil
 
@@ -364,8 +365,6 @@ class GameDialog(QDialog):
         if not self.defaults_mode:
             log_path = str(xdg.game_log_file(self.appid))
             self.e_log.setText(log_path)
-            import os
-
             self.b_log.setEnabled(os.path.exists(log_path))
         self.e_pre.setText(c.pre_post.pre_command)
         self.e_pre_args.setText(" ".join(c.pre_post.pre_args))
