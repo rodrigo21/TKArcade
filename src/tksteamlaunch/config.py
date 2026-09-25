@@ -8,14 +8,25 @@ Games without a file fall back to the defaults template at load time.
 from __future__ import annotations
 
 import copy
-import logging
 import tomllib
 from dataclasses import asdict, dataclass, field
+from enum import StrEnum
 from pathlib import Path
 
 from . import xdg
 
-log = logging.getLogger("tksteamlaunch.config")
+
+class NightlightProvider(StrEnum):
+    AUTO = "auto"
+    PLASMA = "plasma"
+    GNOME = "gnome"
+    OFF = "off"
+
+
+class GameType(StrEnum):
+    AUTO = "auto"
+    PROTON = "proton"
+    NATIVE = "native"
 
 
 @dataclass

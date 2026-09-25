@@ -59,8 +59,6 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
     except Exception:  # noqa: BLE001
         pass
     # fallback: crude "path" "..." extraction
-    import re
-
     out = []
     for m in re.finditer(r'"path"\s+"([^"]+)"', text):
         p = Path(m.group(1))
@@ -89,8 +87,6 @@ def library_paths() -> list[Path]:
 
 def _parse_acf_name(path: Path) -> tuple[str, str]:
     """Return (appid, name) from appmanifest_<id>.acf without deps."""
-    import re
-
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:  # noqa: BLE001

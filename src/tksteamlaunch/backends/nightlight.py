@@ -16,28 +16,35 @@ import shutil
 import subprocess
 import sys
 
+from ..config import NightlightProvider
+
 log = logging.getLogger("tksteamlaunch.nightlight")
 
 
 def detect_provider(requested: str = "auto") -> str:
     req = (requested or "auto").strip().lower()
-    if req in ("plasma", "gnome", "off"):
-        return req
+    match req:
+        case (
+            NightlightProvider.PLASMA
+            | NightlightProvider.GNOME
+            | NightlightProvider.OFF
+        ):
+            return req
     desktop = (
         os.environ.get("XDG_CURRENT_DESKTOP", "")
         + " "
         + os.environ.get("DESKTOP_SESSION", "")
     ).lower()
     if "kde" in desktop or "plasma" in desktop:
-        return "plasma"
+        return NightlightProvider.PLASMA
     if "gnome" in desktop:
-        return "gnome"
+        return NightlightProvider.GNOME
     # fallback: binary hints
     if shutil.which("kreadconfig6") or shutil.which("qdbus6"):
-        return "plasma"
+        return NightlightProvider.PLASMA
     if shutil.which("gsettings"):
-        return "gnome"
-    return "off"
+        return NightlightProvider.GNOME
+    return NightlightProvider.OFF
 
 
 def _read_gnome() -> str | None:
@@ -55,16 +62,16 @@ def _read_gnome() -> str | None:
 class NightlightSession:
     """RAII session: enter() disables, exit() restores. Plasma uses holder proc."""
 
-    def __init__(self, provider: str = "auto"):
+    def __init__(self, provider: str = NightlightProvider.AUTO):
         self.provider = detect_provider(provider)
         self._holder: subprocess.Popen | None = None
         self._gnome_prev: str | None = None
 
     def start(self) -> list[str]:
         warnings: list[str] = []
-        if self.provider == "off":
+        if self.provider == NightlightProvider.OFF:
             return warnings
-        if self.provider == "gnome":
+        if self.provider == NightlightProvider.GNOME:
             if not shutil.which("gsettings"):
                 return ["gsettings not found, skipping night light"]
             self._gnome_prev = _read_gnome()
@@ -78,7 +85,7 @@ class NightlightSession:
             except Exception as e:  # noqa: BLE001
                 warnings.append(f"failed to disable GNOME night light: {e}")
             return warnings
-        if self.provider == "plasma":
+        if self.provider == NightlightProvider.PLASMA:
             # spawn persistent holder (jeepney-based)
             try:
                 self._holder = subprocess.Popen(
@@ -118,7 +125,7 @@ class NightlightSession:
         return [f"unknown nightlight provider: {self.provider}"]
 
     def stop(self) -> None:
-        if self.provider == "gnome" and self._gnome_prev is not None:
+        if self.provider == NightlightProvider.GNOME and self._gnome_prev is not None:
             try:
                 val = "true" if self._gnome_prev == "true" else "false"
                 subprocess.run(

@@ -22,6 +22,7 @@ import tempfile
 from pathlib import Path
 
 from . import config as cfgmod
+from .config import GameType
 from . import steam as steammod
 from . import xdg
 from .backends import split_args
@@ -63,7 +64,7 @@ def write_global_log(appid: str, exit_code: int, cmd: list[str]) -> None:
     try:
         path = xdg.log_file()
         path.parent.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.datetime.now().isoformat(timespec="seconds")
+        stamp = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         shown = shlex.join(cmd)
         if len(shown) > 300:
             shown = shown[:300] + "..."
@@ -103,13 +104,14 @@ def swap_proton_executable(game_cmd: list[str], custom: str) -> list[str]:
 def detect_game_type(game_cmd: list[str], explicit: str = "auto") -> str:
     """Return 'proton' or 'native'. Explicit setting wins; auto sniffs."""
     req = (explicit or "auto").strip().lower()
-    if req in ("proton", "native"):
-        return req
+    match req:
+        case GameType.PROTON | GameType.NATIVE:
+            return req
     if os.environ.get("STEAM_COMPAT_DATA_PATH", "").strip():
-        return "proton"
+        return GameType.PROTON
     if any("proton" in t.lower() for t in game_cmd):
-        return "proton"
-    return "native"
+        return GameType.PROTON
+    return GameType.NATIVE
 
 
 def swap_native_executable(game_cmd: list[str], custom: str) -> list[str]:
@@ -244,7 +246,6 @@ def run_editor(appid: str) -> str:
     names = {a: n for a, n in steammod.list_games()}
     dlg = GameDialog(None, appid, names.get(appid, ""), launch_mode=True)
     result = dlg.exec()
-    del app
     if int(result) != int(QDialog.DialogCode.Accepted):
         return "cancelled"
     return "launch" if dlg.launch_requested else "saved"
@@ -322,63 +323,59 @@ def main(argv: list[str] | None = None) -> int:
         return 11
 
     # --- pipeline with guaranteed nightlight restore ---
-    nl_session = nl_backend.NightlightSession(
+    with nl_backend.NightlightSession(
         cfg.nightlight.provider if cfg.nightlight.disable_during_game else "off"
-    )
-    if cfg.nightlight.disable_during_game:
-        for w in nl_session.start():
-            log.warning("nightlight: %s", w)
-    try:
-        # pre hook (abort game on failure, unless skipped)
-        if cfg.pre_post.pre_command.strip():
-            rc = pp_backend.run_hook(
-                "pre",
-                cfg.pre_post.pre_command,
-                cfg.pre_post.pre_args,
-                timeout=cfg.pre_post.timeout,
-                run_in_shell=cfg.pre_post.run_in_shell,
-                extra_env=extra_env,
-            )
-            if rc not in (-1, 0):
-                log.error("pre hook failed (rc=%s), aborting game launch", rc)
-                write_global_log(appid, 12, final_cmd)
-                return 12
-
-        # run game (possibly inside `ludusavi wrap`; the sh shim writes the
-        # real game exit code to rc_file, recovered below)
-        env = dict(os.environ)
-        env.update({k: str(v) for k, v in extra_env.items()})
-        log.info("exec: %s", shlex.join(final_cmd))
+    ) as nl_session:
+        if cfg.nightlight.disable_during_game:
+            for w in nl_session.start():
+                log.warning("nightlight: %s", w)
         try:
-            proc = subprocess.run(final_cmd, env=env)
-            game_rc = proc.returncode
-            if rc_file:
-                game_rc = _read_wrap_rc_file(rc_file, game_rc)
-        except FileNotFoundError:
-            log.error("game executable not found: %r", final_cmd)
-            write_global_log(appid, 13, final_cmd)
-            return 13
-        log.info("game exit=%s", game_rc)
+            # pre hook (abort game on failure, unless skipped)
+            if cfg.pre_post.pre_command.strip():
+                rc = pp_backend.run_hook(
+                    "pre",
+                    cfg.pre_post.pre_command,
+                    cfg.pre_post.pre_args,
+                    timeout=cfg.pre_post.timeout,
+                    run_in_shell=cfg.pre_post.run_in_shell,
+                    extra_env=extra_env,
+                )
+                if rc not in (-1, 0):
+                    log.error("pre hook failed (rc=%s), aborting game launch", rc)
+                    write_global_log(appid, 12, final_cmd)
+                    return 12
 
-        # post hook (never aborts, only logs)
-        if cfg.pre_post.post_command.strip():
-            pp_backend.run_hook(
-                "post",
-                cfg.pre_post.post_command,
-                cfg.pre_post.post_args,
-                timeout=cfg.pre_post.timeout,
-                run_in_shell=cfg.pre_post.run_in_shell,
-                extra_env=extra_env,
-            )
+            # run game (possibly inside `ludusavi wrap`; the sh shim writes the
+            # real game exit code to rc_file, recovered below)
+            env = dict(os.environ)
+            env.update({k: str(v) for k, v in extra_env.items()})
+            log.info("exec: %s", shlex.join(final_cmd))
+            try:
+                proc = subprocess.run(final_cmd, env=env)
+                game_rc = proc.returncode
+                if rc_file:
+                    game_rc = _read_wrap_rc_file(rc_file, game_rc)
+            except FileNotFoundError:
+                log.error("game executable not found: %r", final_cmd)
+                write_global_log(appid, 13, final_cmd)
+                return 13
+            log.info("game exit=%s", game_rc)
 
-        write_global_log(appid, int(game_rc), final_cmd)
-        return int(game_rc)
-    finally:
-        _remove_wrap_rc_file(rc_file)
-        try:
-            nl_session.stop()
-        except Exception as e:  # noqa: BLE001
-            log.error("nightlight restore failed: %s", e)
+            # post hook (never aborts, only logs)
+            if cfg.pre_post.post_command.strip():
+                pp_backend.run_hook(
+                    "post",
+                    cfg.pre_post.post_command,
+                    cfg.pre_post.post_args,
+                    timeout=cfg.pre_post.timeout,
+                    run_in_shell=cfg.pre_post.run_in_shell,
+                    extra_env=extra_env,
+                )
+
+            write_global_log(appid, int(game_rc), final_cmd)
+            return int(game_rc)
+        finally:
+            _remove_wrap_rc_file(rc_file)
 
 
 if __name__ == "__main__":

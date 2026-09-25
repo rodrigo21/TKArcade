@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shlex
 import subprocess
 
@@ -30,18 +31,13 @@ def run_hook(
         return -1
     cmd = build_cmd(command, args or [], run_in_shell)
     log.info("%s hook: %r", name, cmd)
+    env = dict(os.environ)
+    if extra_env:
+        env.update({k: str(v) for k, v in extra_env.items()})
     try:
         if isinstance(cmd, str):
-            r = subprocess.run(
-                cmd, shell=True, timeout=timeout, env=None,
-            )
+            r = subprocess.run(cmd, shell=True, timeout=timeout, env=env)
         else:
-            import os
-
-            env = None
-            if extra_env:
-                env = dict(os.environ)
-                env.update({k: str(v) for k, v in extra_env.items()})
             r = subprocess.run(cmd, shell=False, timeout=timeout, env=env)
         log.info("%s hook exit=%s", name, r.returncode)
         return r.returncode

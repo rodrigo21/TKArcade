@@ -1,6 +1,7 @@
 """Game editor dialog with tabs. Also used for global defaults."""
 from __future__ import annotations
 
+import shlex
 import shutil
 
 from PySide6.QtCore import Qt
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import config as cfgmod
+from ..config import NightlightProvider
 from .. import xdg
 from ..backends import overlay as ov_backend
 from .helpers import open_path
@@ -289,10 +291,10 @@ class GameDialog(QDialog):
         nf = QFormLayout(nl)
         self.c_nl = QCheckBox("Disable while the game is running (restored on exit)")
         self.cb_nl = QComboBox()
-        self.cb_nl.addItem("Automatic", "auto")
-        self.cb_nl.addItem("Plasma", "plasma")
-        self.cb_nl.addItem("GNOME", "gnome")
-        self.cb_nl.addItem("Disabled", "off")
+        self.cb_nl.addItem("Automatic", NightlightProvider.AUTO)
+        self.cb_nl.addItem("Plasma", NightlightProvider.PLASMA)
+        self.cb_nl.addItem("GNOME", NightlightProvider.GNOME)
+        self.cb_nl.addItem("Disabled", NightlightProvider.OFF)
         nf.addRow("", self.c_nl)
         nf.addRow("Provider:", self.cb_nl)
         tabs.addTab(nl, "Night Light")
@@ -554,8 +556,6 @@ class GameDialog(QDialog):
             self._set_status("ludusavi", *_binary_status("ludusavi", on))
 
     def _update_prefix_status(self) -> None:
-        import shlex
-
         prefix = self.e_prefix.text().strip()
         if not prefix:
             self._set_status(
@@ -574,8 +574,6 @@ class GameDialog(QDialog):
         )
 
     def _collect(self) -> None:
-        import shlex
-
         self.cfg.general.game_type = self.cb_gametype.currentText()
         self.cfg.general.custom_executable = self.e_exe.text().strip()
         self.cfg.general.custom_prefix = self.e_prefix.text().strip()
