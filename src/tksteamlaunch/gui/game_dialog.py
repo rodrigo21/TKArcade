@@ -173,9 +173,13 @@ class GameDialog(QDialog):
         b_del.clicked.connect(self._remove_env_row)
         b_bulk = QPushButton("Bulk Edit...")
         b_bulk.clicked.connect(self._bulk_edit_env)
+        b_preset = QPushButton("Add Preset...")
+        b_preset.setToolTip("Merge a curated env preset (only missing keys).")
+        b_preset.clicked.connect(self._add_env_preset)
         env_btns.addWidget(b_add)
         env_btns.addWidget(b_del)
         env_btns.addWidget(b_bulk)
+        env_btns.addWidget(b_preset)
         env_btns.addStretch(1)
         env_layout.addLayout(env_btns)
         gf.addRow("Environment Variables:", env_box)
@@ -416,6 +420,26 @@ class GameDialog(QDialog):
         dlg = BulkEnvDialog(self, _env_to_text(self._table_to_env()))
         if dlg.exec():
             self._set_env_table(_text_to_env(dlg.text()))
+
+    def _add_env_preset(self) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        from .. import presets as presetsmod
+
+        names = sorted(presetsmod.ENV_PRESETS)
+        name, ok = QInputDialog.getItem(
+            self, "Add Env Preset", "Preset:", names, 0, False
+        )
+        if not ok or not name:
+            return
+        vars = self._table_to_env()
+        added = presetsmod.apply_preset(vars, name)
+        self._set_env_table(vars)
+        if not added:
+            QMessageBox.information(
+                self, "TKSteamLaunch",
+                f"Preset '{name}': all keys already present.",
+            )
 
     def _refresh_mangohud_configs(self) -> None:
         current = self.cfg.mangohud.config_file
