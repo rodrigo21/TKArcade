@@ -23,6 +23,7 @@ import tempfile
 from pathlib import Path
 
 from . import config as cfgmod
+from . import proton as protonmod
 from . import steam as steammod
 from . import xdg
 from .backends import gamemode as gm_backend
@@ -113,12 +114,12 @@ def detect_game_type(game_cmd: list[str], explicit: str = "auto") -> str:
     req = (explicit or "auto").strip().lower()
     match req:
         case GameType.PROTON | GameType.NATIVE:
-            return req
+            return str(req)
     if os.environ.get("STEAM_COMPAT_DATA_PATH", "").strip():
-        return GameType.PROTON
+        return str(GameType.PROTON)
     if any("proton" in t.lower() for t in game_cmd):
-        return GameType.PROTON
-    return GameType.NATIVE
+        return str(GameType.PROTON)
+    return str(GameType.NATIVE)
 
 
 def swap_native_executable(game_cmd: list[str], custom: str) -> list[str]:
@@ -220,8 +221,6 @@ def _read_wrap_rc_file(path: str, fallback: int) -> int:
 
 def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> None:
     """Transient game-start summary notification (steamtinkerlaunch-style)."""
-    from . import proton as protonmod
-
     game_type = detect_game_type(game_cmd, cfg.general.game_type)
     wrappers = []
     if cfg.gamemode.feral_gamemode:

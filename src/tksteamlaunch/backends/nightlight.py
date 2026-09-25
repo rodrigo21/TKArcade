@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import logging
 import os
+import select
 import shutil
 import subprocess
 import sys
+import time
 
 from ..config import NightlightProvider
 
@@ -29,22 +31,22 @@ def detect_provider(requested: str = "auto") -> str:
             | NightlightProvider.GNOME
             | NightlightProvider.OFF
         ):
-            return req
+            return str(req)
     desktop = (
         os.environ.get("XDG_CURRENT_DESKTOP", "")
         + " "
         + os.environ.get("DESKTOP_SESSION", "")
     ).lower()
     if "kde" in desktop or "plasma" in desktop:
-        return NightlightProvider.PLASMA
+        return str(NightlightProvider.PLASMA)
     if "gnome" in desktop:
-        return NightlightProvider.GNOME
+        return str(NightlightProvider.GNOME)
     # fallback: binary hints
     if shutil.which("kreadconfig6") or shutil.which("qdbus6"):
-        return NightlightProvider.PLASMA
+        return str(NightlightProvider.PLASMA)
     if shutil.which("gsettings"):
-        return NightlightProvider.GNOME
-    return NightlightProvider.OFF
+        return str(NightlightProvider.GNOME)
+    return str(NightlightProvider.OFF)
 
 
 def _read_gnome() -> str | None:
@@ -93,9 +95,6 @@ class NightlightSession:
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                 )
                 # holder prints "cookie=N" on success; give it a moment
-                import select
-                import time
-
                 deadline = time.time() + 5
                 cookie_seen = False
                 assert self._holder.stdout is not None

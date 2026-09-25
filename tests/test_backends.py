@@ -37,6 +37,7 @@ def test_swap_native_argv0():
 
 def test_detect_game_type():
     assert detect_game_type([], "proton") == "proton"
+    assert type(detect_game_type([], "proton")) is str
     assert detect_game_type(["/p/proton", "run", "x"], "auto") == "proton"
     assert detect_game_type(["/usr/bin/game"], "auto") == "native"
 
@@ -142,6 +143,7 @@ def test_nightlight_detect_matrix(monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
     monkeypatch.setenv("XDG_CURRENT_DESKTOP", "KDE")
     assert nl.detect_provider("auto") == "plasma"
+    assert type(nl.detect_provider("auto")) is str
     assert nl.detect_provider("plasma") == "plasma"
     assert nl.detect_provider("off") == "off"
     monkeypatch.setenv("XDG_CURRENT_DESKTOP", "")
