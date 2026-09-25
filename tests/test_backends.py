@@ -181,6 +181,35 @@ def test_build_prefix_missing_raises(xdg_env, monkeypatch, tmp_path):
         build_final_command(cfg, ["/bin/true"])
 
 
+def test_notify_noop_without_server(xdg_env, monkeypatch, tmp_path):
+    from tksteamlaunch.backends import notify as ntf
+
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert not ntf.available()
+    ntf.send("hi")  # must not raise
+
+
+def test_notify_calls_server(monkeypatch, tmp_path):
+    from tksteamlaunch.backends import notify as ntf
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    logged = tmp_path / "notify.log"
+    script = bindir / "notify-send"
+    script.write_text(f'#!/bin/sh\necho "$@" >> "{logged}"\n')
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bindir))
+    monkeypatch.setenv("DISPLAY", ":0")
+    ntf.send("summary", "body", "critical")
+    for _ in range(100):
+        if logged.exists():
+            break
+        import time
+
+        time.sleep(0.02)
+    assert "summary" in logged.read_text()
+
+
 def test_mangohud_config_env(xdg_env):
     os.makedirs(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud"), exist_ok=True)
     with open(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud", "custom.conf"), "w") as f:

@@ -91,3 +91,18 @@ def test_list(xdg_env, monkeypatch, tmp_path):
     r = _run(env, "--list")
     assert r.returncode == 0
     assert "Configured:" in r.stdout and "7" in r.stdout
+
+
+def test_per_game_log_rotates(xdg_env):
+    import logging
+
+    from tksteamlaunch import xdg
+    from tksteamlaunch.launcher import setup_logging
+
+    logdir = xdg.games_log_dir()
+    logdir.mkdir(parents=True, exist_ok=True)
+    (logdir / "8.log").write_bytes(b"x" * 1_100_000)
+    setup_logging("8")
+    # WARNING: pytest runs the root logger at WARNING, INFO would be filtered.
+    logging.getLogger("tksteamlaunch.test").warning("trigger rollover")
+    assert (logdir / "8.log.1").exists()

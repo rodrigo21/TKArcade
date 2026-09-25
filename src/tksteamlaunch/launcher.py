@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import logging
+import logging.handlers
 import os
 import shlex
 import shutil
@@ -27,6 +28,7 @@ from . import xdg
 from .backends import gamemode as gm_backend
 from .backends import ludusavi as lu_backend
 from .backends import nightlight as nl_backend
+from .backends import notify as notify_backend
 from .backends import overlay as ov_backend
 from .backends import prepost as pp_backend
 from .backends import split_args
@@ -50,7 +52,12 @@ def setup_logging(appid: str = "", verbose: bool = False) -> Path:
     try:
         d = xdg.games_log_dir()
         d.mkdir(parents=True, exist_ok=True)
-        fh = logging.FileHandler(d / f"{appid}.log", encoding="utf-8")
+        fh = logging.handlers.RotatingFileHandler(
+            d / f"{appid}.log",
+            maxBytes=1_000_000,
+            backupCount=3,
+            encoding="utf-8",
+        )
         fh.setLevel(level)
         fh.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s"))
         logging.getLogger().addHandler(fh)
@@ -315,6 +322,7 @@ def main(argv: list[str] | None = None) -> int:
     except PrefixNotFoundError as e:
         log.error("%s", e)
         print(f"tksteamlaunch: {e}", file=sys.stderr)
+        notify_backend.send("TKSteamLaunch: cannot launch", str(e), "critical")
         write_global_log(appid, 14, game_cmd)
         _remove_wrap_rc_file(rc_file)
         return 14
@@ -356,6 +364,11 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if rc not in (-1, 0):
                     log.error("pre hook failed (rc=%s), aborting game launch", rc)
+                    notify_backend.send(
+                        "TKSteamLaunch: pre-launch hook failed",
+                        f"App {appid}, exit {rc}; launch aborted",
+                        "critical",
+                    )
                     write_global_log(appid, 12, final_cmd)
                     return 12
 
@@ -371,13 +384,18 @@ def main(argv: list[str] | None = None) -> int:
                     game_rc = _read_wrap_rc_file(rc_file, game_rc)
             except FileNotFoundError:
                 log.error("game executable not found: %r", final_cmd)
+                notify_backend.send(
+                    "TKSteamLaunch: game executable not found",
+                    shlex.join(final_cmd)[:200],
+                    "critical",
+                )
                 write_global_log(appid, 13, final_cmd)
                 return 13
             log.info("game exit=%s", game_rc)
 
             # post hook (never aborts, only logs)
             if cfg.pre_post.post_command.strip():
-                pp_backend.run_hook(
+                post_rc = pp_backend.run_hook(
                     "post",
                     cfg.pre_post.post_command,
                     cfg.pre_post.post_args,
@@ -385,6 +403,11 @@ def main(argv: list[str] | None = None) -> int:
                     run_in_shell=cfg.pre_post.run_in_shell,
                     extra_env=extra_env,
                 )
+                if post_rc not in (-1, 0):
+                    notify_backend.send(
+                        "TKSteamLaunch: post-exit hook failed",
+                        f"App {appid}, exit {post_rc}",
+                    )
 
             write_global_log(appid, int(game_rc), final_cmd)
             return int(game_rc)
