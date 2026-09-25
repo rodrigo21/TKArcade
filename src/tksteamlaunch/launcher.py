@@ -240,6 +240,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> No
     proton_version = (
         protonmod.proton_version_for(appid) if game_type != "native" else None
     )
+    runtime = protonmod.native_runtime(game_cmd) if game_type == "native" else None
     icon_path = steammod.find_game_icon(appid)
     title, body = notify_backend.launch_summary(
         appid=appid,
@@ -248,6 +249,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> No
         wrappers=wrappers,
         custom_executable=cfg.general.custom_executable,
         proton_version=proton_version,
+        runtime=runtime,
     )
     notify_backend.send(
         title, body, icon=str(icon_path) if icon_path else "", expire_ms=5000

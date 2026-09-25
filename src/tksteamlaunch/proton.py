@@ -83,3 +83,24 @@ def proton_version_for(appid: str) -> str | None:
     if not tool:
         return None
     return tool_version(tool)
+
+
+def native_runtime(game_cmd: list[str]) -> str | None:
+    """Sniff the Steam Linux Runtime flavor from a native game command.
+
+    Steam wraps SLR games like .../SteamLinuxRuntime_soldier/... so the
+    codename (soldier/sniper/scout) is visible in argv. Only matches when
+    a runtime marker is present to avoid false positives from game paths.
+    """
+    for token in game_cmd:
+        low = token.lower()
+        if (
+            "steamlinuxruntime" in low
+            or "steam-runtime" in low
+            or "pressure-vessel" in low
+        ):
+            for name in ("soldier", "sniper", "scout"):
+                if name in low:
+                    return name
+            return "steam-runtime"
+    return None

@@ -231,6 +231,24 @@ def test_launch_summary_shapes():
     assert (title, body) == ("TKSteamLaunch — 2", "Native")
     title, body = ntf.launch_summary(appid="3", game_type="proton")
     assert body == "Proton"
+    title, body = ntf.launch_summary(appid="4", game_type="native", runtime="soldier")
+    assert body == "Native · soldier"
+
+
+def test_native_runtime_sniffing():
+    from tksteamlaunch import proton as pm
+
+    soldier = [
+        "/home/u/.steam/steam/steamapps/common/SteamLinuxRuntime_soldier/_v2-entry-point",
+        "--verb=waitforexitandrun",
+        "--",
+        "/game/run.sh",
+    ]
+    assert pm.native_runtime(soldier) == "soldier"
+    assert pm.native_runtime(["/x/SteamLinuxRuntime_sniper/run", "--", "/g"]) == "sniper"
+    assert pm.native_runtime(["/usr/bin/game"]) is None
+    # game path mentioning scout without a runtime marker: no false positive
+    assert pm.native_runtime(["/games/scout-adventure/run.sh"]) is None
 
 
 def test_send_icon_and_expiry(monkeypatch, tmp_path):

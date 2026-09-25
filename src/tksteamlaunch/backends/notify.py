@@ -49,13 +49,14 @@ def launch_summary(
     wrappers: list[str] | None = None,
     custom_executable: str = "",
     proton_version: str | None = None,
+    runtime: str | None = None,
 ) -> tuple[str, str]:
     """Build (title, body) for the game-start notification. Pure function."""
     import os
 
     title = f"TKSteamLaunch — {name.strip() or appid}"
     if game_type == "native":
-        head = "Native"
+        head = f"Native · {runtime}" if runtime else "Native"
     elif proton_version:
         head = f"Proton {proton_version}"
     else:
