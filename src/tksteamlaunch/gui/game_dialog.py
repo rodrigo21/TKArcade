@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import config as cfgmod
+from .. import proton as protonmod
 from .. import xdg
 from ..backends import overlay as ov_backend
 from ..config import NightlightProvider
@@ -143,6 +144,11 @@ class GameDialog(QDialog):
         self.cb_gametype.addItems(["auto", "proton", "native"])
         self.cb_gametype.setToolTip("Auto detects Proton versus native Linux games.")
         gf.addRow("Game Type:", self.cb_gametype)
+        if not defaults_mode:
+            self.e_runtime = QLineEdit()
+            self.e_runtime.setReadOnly(True)
+            self.e_runtime.setToolTip("Proton tool and version from your Steam config (read-only).")
+            gf.addRow("Detected Runtime:", self.e_runtime)
         self.e_exe = QLineEdit()
         self.e_exe.setPlaceholderText("Optional replacement executable for this game")
         gf.addRow("Custom Executable:", self.e_exe)
@@ -362,6 +368,8 @@ class GameDialog(QDialog):
     def _populate_fields(self) -> None:
         c = self.cfg
         self.cb_gametype.setCurrentText(c.general.game_type or "auto")
+        if not self.defaults_mode:
+            self.e_runtime.setText(self._detect_runtime_text())
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
         self.c_notify.setChecked(c.notifications.notify_on_launch)
@@ -392,6 +400,18 @@ class GameDialog(QDialog):
         self.c_nl.setChecked(c.nightlight.disable_during_game)
         idx = self.cb_nl.findData(c.nightlight.provider or "auto")
         self.cb_nl.setCurrentIndex(max(idx, 0))
+
+    def _detect_runtime_text(self) -> str:
+        """Read-only Proton tool/version from the Steam config, if mapped."""
+        if self.defaults_mode or not self.appid:
+            return ""
+        if (self.cfg.general.game_type or "auto") == "native":
+            return "Native (no Proton)"
+        tool = protonmod.compat_tool_name(self.appid)
+        if not tool:
+            return "Proton (default tool, version unknown)"
+        version = protonmod.tool_version(tool)
+        return f"{tool} ({version})" if version else tool
 
     def _set_env_table(self, vars: dict[str, str]) -> None:
         self.t_env.setRowCount(0)

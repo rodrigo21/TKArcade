@@ -18,6 +18,7 @@ Breaking config changes are called out explicitly under `Changed`.
 - Transient game-start notification (per-game `[notifications]` toggle,
   game icon, Proton version lookup).
 - Session-end notification with playtime.
+- Detected Proton runtime shown read-only in the game dialog.
 
 ### Changed
 - **BREAKING:** `nightlight.provider = "kde"` no longer recognized

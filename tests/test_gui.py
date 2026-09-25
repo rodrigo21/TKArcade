@@ -55,6 +55,25 @@ def test_provider_combo_data(qapp, xdg_env):
     assert C.load("23").nightlight.provider == "plasma"
 
 
+def test_detected_runtime_row(qapp, xdg_env, monkeypatch, tmp_path):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    root = tmp_path / "steam"
+    (root / "config").mkdir(parents=True)
+    (root / "config" / "config.vdf").write_text(
+        '"InstallConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n'
+        '{\n"CompatToolMapping"\n{\n"25"\n{\n"name" "proton_9"\n}\n}\n}\n}\n}\n}\n'
+    )
+    tooldir = root / "steamapps" / "common" / "proton_9"
+    tooldir.mkdir(parents=True)
+    (tooldir / "version").write_text("9.0-test\n")
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    d = GameDialog(None, "25", "T")
+    assert d.e_runtime.text() == "proton_9 (9.0-test)"
+    d2 = GameDialog(None, "26", "T2")
+    assert d2.e_runtime.text() == "Proton (default tool, version unknown)"
+
+
 def test_preview_command(qapp, xdg_env):
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
