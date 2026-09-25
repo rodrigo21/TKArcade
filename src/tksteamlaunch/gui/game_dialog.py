@@ -355,6 +355,7 @@ class GameDialog(QDialog):
             "gamescope",
             "mangohud",
             "ludusavi",
+            "steam-options",
         ]))
 
         if defaults_mode:
@@ -392,7 +393,7 @@ class GameDialog(QDialog):
             self._populate_fields()
         finally:
             self._populating = False
-            self._refresh_binary_statuses()
+            self._refresh_statuses()
 
     def _populate_fields(self) -> None:
         c = self.cfg
@@ -672,7 +673,7 @@ class GameDialog(QDialog):
         if label is not None:
             label.setText(self._render_status(kind, text))
 
-    def _refresh_binary_statuses(self) -> None:
+    def _refresh_statuses(self) -> None:
         self._set_status(
             "gamemoderun",
             *_binary_status("gamemoderun", self.c_feral.isChecked()),
@@ -689,9 +690,20 @@ class GameDialog(QDialog):
         )
         self._refresh_ludusavi_status()
         self._update_prefix_status()
+        self._refresh_steam_status()
+
+    def _refresh_steam_status(self) -> None:
+        from .. import steam as steammod
+
+        if self.defaults_mode or not self.appid:
+            self._set_status("steam-options", "note", "Steam options: n/a for global defaults")
+            return
+        status, detail = steammod.launch_options_status(self.appid)
+        kinds = {"ok": "ok", "missing": "warn", "unknown": "note"}
+        self._set_status("steam-options", kinds.get(status, "note"), detail)
 
     def _on_feature_toggled(self, _checked: bool = False) -> None:
-        self._refresh_binary_statuses()
+        self._refresh_statuses()
 
     def _on_gamemode_exclusive(self, _checked: bool = False) -> None:
         if getattr(self, "_populating", False):

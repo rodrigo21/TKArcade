@@ -418,3 +418,37 @@ def test_mangohud_config_env(xdg_env):
     cfg.mangohud.config_file = "custom.conf"
     _cmd, env, _ = build_final_command(cfg, ["/bin/true"])
     assert env["MANGOHUD_CONFIGFILE"].endswith("custom.conf")
+
+
+def _write_localconfig(root, uid, apps_body):
+    confdir = root / "userdata" / uid / "config"
+    confdir.mkdir(parents=True)
+    (confdir / "localconfig.vdf").write_text(
+        '"UserLocalConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n'
+        '{\n"Apps"\n{\n' + apps_body + "\n}\n}\n}\n}\n}\n"
+    )
+
+
+def test_launch_options_status(monkeypatch, tmp_path):
+    root = tmp_path / "steam"
+    _write_localconfig(root, "u1", '"60"\n{\n"LaunchOptions" "tksteamlaunch %command%"\n}')
+    _write_localconfig(root, "u2", '"61"\n{\n"LaunchOptions" "gamemoderun %command%"\n}')
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    assert S.launch_options_status("60")[0] == "ok"
+    assert S.launch_options_status("61")[0] == "missing"
+    assert S.launch_options_status("62")[0] == "missing"
+
+
+def test_launch_options_unknown_without_userdata(monkeypatch, tmp_path):
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path / "empty"))
+    assert S.launch_options_status("60")[0] == "unknown"
+
+
+def test_launch_options_regex_fallback(monkeypatch, tmp_path):
+    import sys
+
+    root = tmp_path / "steam"
+    _write_localconfig(root, "u1", '"60"\n{\n"LaunchOptions" "TKSTEAMLAUNCH %command%"\n}')
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    monkeypatch.setitem(sys.modules, "vdf", None)
+    assert S.launch_options_status("60")[0] == "ok"

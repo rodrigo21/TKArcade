@@ -159,3 +159,57 @@ def find_game_icon(appid: str) -> Path | None:
         except Exception:
             continue
     return None
+
+
+def launch_options_status(appid: str) -> tuple[str, str]:
+    """Check Steam launch options for tksteamlaunch. Read-only.
+
+    Returns (status, detail) with status 'ok' (options contain
+    tksteamlaunch), 'missing' (options found without it) or 'unknown'
+    (no Steam userdata found).
+    """
+    found_any = False
+    for root in steam_roots():
+        userdir = root / "userdata"
+        try:
+            profiles = [p for p in userdir.iterdir() if p.is_dir()]
+        except Exception:
+            continue
+        for profile in profiles:
+            localconfig = profile / "config" / "localconfig.vdf"
+            try:
+                text = localconfig.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            found_any = True
+            options = _launch_options_from_text(text, appid)
+            if options is not None and "tksteamlaunch" in options.lower():
+                return "ok", f"Steam launch options: {options}"
+    if found_any:
+        return "missing", "Steam launch options lack tksteamlaunch (add: tksteamlaunch %command%)"
+    return "unknown", "Steam userdata not found"
+
+
+def _launch_options_from_text(text: str, appid: str) -> str | None:
+    data = loads_kv1(text)
+    if data is not None:
+        try:
+            apps = data["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]["Apps"]
+            entry = apps.get(str(appid), {})
+            if isinstance(entry, dict) and "LaunchOptions" in entry:
+                return str(entry["LaunchOptions"])
+            return None
+        except (KeyError, TypeError, AttributeError):
+            pass
+    match = re.search(
+        r'"Apps"\s*\{(?P<apps>.*)\}\s*\}\s*\}\s*\}\s*\}$',
+        text,
+        re.DOTALL,
+    )
+    region = match.group("apps") if match else text
+    match = re.search(
+        r'"' + re.escape(str(appid)) + r'"\s*\{[^}]*?"LaunchOptions"\s+"([^"]*)"',
+        region,
+        re.DOTALL,
+    )
+    return match.group(1) if match else None
