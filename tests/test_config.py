@@ -90,6 +90,22 @@ def test_sections_covered_by_key_map():
     assert set(C.to_toml_dict(C.GameConfig())) == set(C.SECTION_KEYS)
 
 
+def test_profiles_crud(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "70"
+    cfg.env.vars = {"P": "1"}
+    assert C.list_profiles("70") == []
+    C.save_profile("70", "perf", cfg)
+    C.save_profile("70", "../evil", cfg)
+    names = C.list_profiles("70")
+    assert "perf" in names and all("/" not in n for n in names)
+    loaded = C.load_profile("70", "perf")
+    assert loaded.general.appid == "70" and loaded.env.vars == {"P": "1"}
+    assert C.profiles_dir("70").is_dir()
+    C.delete_profile("70", "perf")
+    assert "perf" not in C.list_profiles("70")
+
+
 def test_notes_multiline_roundtrip(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "12"

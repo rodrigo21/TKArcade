@@ -126,6 +126,7 @@ class GameDialog(QDialog):
         self.resize(680, 640)
         self._dark = _is_dark_theme(self)
         self._status_labels: dict[str, QLabel] = {}
+        self._active_profile = ""
 
         layout = QVBoxLayout(self)
         if defaults_mode:
@@ -166,6 +167,21 @@ class GameDialog(QDialog):
             "Show a transient summary notification when the game starts."
         )
         gf.addRow("", self.c_notify)
+        if not defaults_mode:
+            self.cb_profile = QComboBox()
+            self.cb_profile.setToolTip("Switching loads the profile (Save writes it).")
+            self.cb_profile.currentIndexChanged.connect(self._on_profile_switch)
+            b_prof_save = QPushButton("Save As...")
+            b_prof_save.clicked.connect(self._on_profile_save)
+            b_prof_delete = QPushButton("Delete")
+            b_prof_delete.clicked.connect(self._on_profile_delete)
+            prof_row = QWidget()
+            prof_layout = QHBoxLayout(prof_row)
+            prof_layout.setContentsMargins(0, 0, 0, 0)
+            prof_layout.addWidget(self.cb_profile, stretch=1)
+            prof_layout.addWidget(b_prof_save)
+            prof_layout.addWidget(b_prof_delete)
+            gf.addRow("Profile:", prof_row)
         env_box = QWidget()
         env_layout = QVBoxLayout(env_box)
         env_layout.setContentsMargins(0, 0, 0, 0)
@@ -403,6 +419,8 @@ class GameDialog(QDialog):
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
         self.c_notify.setChecked(c.notifications.notify_on_launch)
+        if not self.defaults_mode:
+            self._refresh_profiles()
         self._set_env_table(c.env.vars)
         if not self.defaults_mode:
             log_path = str(xdg.game_log_file(self.appid))
@@ -444,6 +462,46 @@ class GameDialog(QDialog):
             return "Proton (default tool, version unknown)"
         version = protonmod.tool_version(tool)
         return f"{tool} ({version})" if version else tool
+
+    def _refresh_profiles(self) -> None:
+        self.cb_profile.blockSignals(True)
+        try:
+            self.cb_profile.clear()
+            for name in cfgmod.list_profiles(self.appid):
+                self.cb_profile.addItem(name, name)
+            idx = self.cb_profile.findData(self._active_profile)
+            self.cb_profile.setCurrentIndex(idx)
+        finally:
+            self.cb_profile.blockSignals(False)
+
+    def _on_profile_switch(self) -> None:
+        name = str(self.cb_profile.currentData() or "")
+        if not name:
+            return
+        self._active_profile = name
+        self.cfg = cfgmod.load_profile(self.appid, name)
+        self.cfg.general.appid = self.appid
+        self._populate()
+
+    def _on_profile_save(self) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        name, ok = QInputDialog.getText(self, "Save Profile", "Profile name:")
+        if not ok or not name.strip():
+            return
+        self._collect()
+        cfgmod.save_profile(self.appid, name.strip(), self.cfg)
+        self._active_profile = name.strip()
+        self._refresh_profiles()
+
+    def _on_profile_delete(self) -> None:
+        name = str(self.cb_profile.currentData() or "")
+        if not name:
+            return
+        cfgmod.delete_profile(self.appid, name)
+        if self._active_profile == name:
+            self._active_profile = ""
+        self._refresh_profiles()
 
     def _set_env_table(self, vars: dict[str, str]) -> None:
         self.t_env.setRowCount(0)
@@ -563,6 +621,7 @@ class GameDialog(QDialog):
         # In-memory only: the file changes on Save, Cancel discards everything.
         self.cfg = cfgmod.load_defaults()
         self.cfg.general.appid = self.appid
+        self._active_profile = ""
         self._populate()
 
     def _on_save_and_launch(self) -> None:

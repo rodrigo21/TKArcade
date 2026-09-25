@@ -6,6 +6,7 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Per-game config profiles (switch/save-as/delete, in-memory until Save).
 - ProtonDB tier column in the main window (30-day cache, background
   refresh; double-click opens the game page).
 - Session history dialog (last played, sessions, total time, failures).

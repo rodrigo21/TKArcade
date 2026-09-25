@@ -178,8 +178,49 @@ def _render_toml(data: dict) -> str:
 def game_file(appid: str) -> Path:
     """Config path for an AppID. The stem is sanitized so crafted AppIDs
     (e.g. from manual GUI input) cannot escape games_dir()."""
-    safe = re.sub(r"[^A-Za-z0-9._-]", "_", appid).strip("._") or "unknown"
-    return xdg.games_dir() / f"{safe}.toml"
+    return xdg.games_dir() / f"{_safe_stem(appid)}.toml"
+
+
+def _safe_stem(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._") or "unknown"
+
+
+def profiles_dir(appid: str = "") -> Path:
+    """Profiles base dir, or per-game dir when appid is given."""
+    base = xdg.app_config_dir() / "profiles"
+    return base / _safe_stem(appid) if appid else base
+
+
+def list_profiles(appid: str) -> list[str]:
+    d = profiles_dir(appid)
+    if not d.exists():
+        return []
+    return [p.stem for p in sorted(d.glob("*.toml"))]
+
+
+def _profile_file(appid: str, name: str) -> Path:
+    return profiles_dir(appid) / f"{_safe_stem(name)}.toml"
+
+
+def load_profile(appid: str, name: str) -> GameConfig:
+    """Load a profile snapshot (falls back to defaults template)."""
+    cfg = GameConfig()
+    cfg.general.appid = appid
+    return _build(_read_toml(_profile_file(appid, name)), cfg)
+
+
+def save_profile(appid: str, name: str, cfg: GameConfig) -> Path:
+    """Save cfg as a named profile snapshot."""
+    path = _profile_file(appid, name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = to_toml_dict(cfg)
+    data.setdefault("general", {})["appid"] = appid
+    path.write_text(_render_toml(data), encoding="utf-8")
+    return path
+
+
+def delete_profile(appid: str, name: str) -> None:
+    _profile_file(appid, name).unlink(missing_ok=True)
 
 
 def _read_toml(path: Path) -> dict:
