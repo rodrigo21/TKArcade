@@ -57,6 +57,39 @@ def test_enums_match_wire_values():
     assert str(C.NightlightProvider.OFF) == "off"
 
 
+def test_appid_sanitized_to_games_dir(xdg_env):
+    path = C.game_file("../../evil")
+    assert path.parent == C.xdg.games_dir()
+    assert ".." not in path.name
+    assert C.game_file("").name == "unknown.toml"
+
+
+def test_invalid_toml_loads_fresh(xdg_env):
+    C.game_file("1").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("1").write_text("[general\nappid = oops", encoding="utf-8")
+    loaded = C.load("1")
+    assert loaded.general.appid == "1"
+    assert loaded.env.vars == {}
+
+
+def test_wrong_shaped_sections_load_fresh(xdg_env):
+    C.game_file("2").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("2").write_text(
+        'general = "nope"\n[env]\nvars = [1, 2]\n[pre_post]\n'
+        'timeout = "soon"\npre_args = "x"\n',
+        encoding="utf-8",
+    )
+    loaded = C.load("2")
+    assert loaded.general.custom_executable == ""
+    assert loaded.env.vars == {}
+    assert loaded.pre_post.timeout == 60
+    assert loaded.pre_post.pre_args == []
+
+
+def test_sections_covered_by_key_map():
+    assert set(C.to_toml_dict(C.GameConfig())) == set(C.SECTION_KEYS)
+
+
 def test_notifications_roundtrip(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "11"

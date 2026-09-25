@@ -8,12 +8,16 @@ Games without a file fall back to the defaults template at load time.
 from __future__ import annotations
 
 import copy
+import logging
+import re
 import tomllib
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
 from . import xdg
+
+log = logging.getLogger("tksteamlaunch.config")
 
 
 class NightlightProvider(StrEnum):
@@ -165,14 +169,21 @@ def _render_toml(data: dict) -> str:
 
 
 def game_file(appid: str) -> Path:
-    return xdg.games_dir() / f"{appid}.toml"
+    """Config path for an AppID. The stem is sanitized so crafted AppIDs
+    (e.g. from manual GUI input) cannot escape games_dir()."""
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", appid).strip("._") or "unknown"
+    return xdg.games_dir() / f"{safe}.toml"
 
 
 def _read_toml(path: Path) -> dict:
     if not path.exists():
         return {}
-    with path.open("rb") as f:
-        data = tomllib.load(f)
+    try:
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        log.warning("ignoring invalid TOML %s: %s", path, e)
+        return {}
     return data if isinstance(data, dict) else {}
 
 
@@ -199,24 +210,22 @@ def save_defaults(cfg: GameConfig) -> Path:
     return path
 
 
-def _section_known_keys(section: str) -> set[str]:
-    return {
-        "general": {"appid", "custom_executable", "game_type", "custom_prefix"},
-        "env": {"vars"},
-        "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
-        "gamemode": {"feral_gamemode", "cachyos_game_performance"},
-        "gamescope": {"enable", "args"},
-        "mangohud": {"enable", "args", "config_file"},
-        "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
-        "nightlight": {"disable_during_game", "provider"},
-        "notifications": {"notify_on_launch"},
-    }.get(section, set())
-
-
-_KNOWN_SECTIONS = {
-    "general", "env", "pre_post", "gamemode",
-    "gamescope", "mangohud", "ludusavi", "nightlight", "notifications",
+# Single source of truth for known sections/keys (load, save, extra).
+SECTION_KEYS: dict[str, set[str]] = {
+    "general": {"appid", "custom_executable", "game_type", "custom_prefix"},
+    "env": {"vars"},
+    "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
+    "gamemode": {"feral_gamemode", "cachyos_game_performance"},
+    "gamescope": {"enable", "args"},
+    "mangohud": {"enable", "args", "config_file"},
+    "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
+    "nightlight": {"disable_during_game", "provider"},
+    "notifications": {"notify_on_launch"},
 }
+
+
+def _section_known_keys(section: str) -> set[str]:
+    return SECTION_KEYS.get(section, set())
 
 
 def _collect_extra(data: dict, extra: dict) -> None:
@@ -225,7 +234,7 @@ def _collect_extra(data: dict, extra: dict) -> None:
             continue
         if section == "ludusavi":
             continue  # handled by _load_ludusavi
-        if section in _KNOWN_SECTIONS:
+        if section in SECTION_KEYS:
             rest = {k: v for k, v in body.items() if k not in _section_known_keys(section)}
         else:
             rest = dict(body)
@@ -233,38 +242,58 @@ def _collect_extra(data: dict, extra: dict) -> None:
             extra.setdefault(section, {}).update(rest)
 
 
+def _section(data: dict, name: str) -> dict:
+    """Return a section mapping; wrong-shaped values become {} (fresh)."""
+    body = data.get(name, {})
+    return body if isinstance(body, dict) else {}
+
+
+def _as_int(value: object, default: int) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+def _str_list(value: object) -> list[str]:
+    return [str(x) for x in value] if isinstance(value, (list, tuple)) else []
+
+
 def _build(data: dict, cfg: GameConfig) -> GameConfig:
     _collect_extra(data, cfg.extra)
 
-    g = data.get("general", {})
+    g = _section(data, "general")
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
     cfg.general.game_type = str(g.get("game_type", "auto"))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
-    e = data.get("env", {})
-    raw_vars = e.get("vars", {})
-    cfg.env.vars = {str(k): str(v) for k, v in dict(raw_vars).items()}
-    p = data.get("pre_post", {})
+    raw_vars = _section(data, "env").get("vars", {})
+    cfg.env.vars = (
+        {str(k): str(v) for k, v in raw_vars.items()}
+        if isinstance(raw_vars, dict)
+        else {}
+    )
+    p = _section(data, "pre_post")
     cfg.pre_post.pre_command = str(p.get("pre_command", ""))
-    cfg.pre_post.pre_args = [str(x) for x in p.get("pre_args", [])]
+    cfg.pre_post.pre_args = _str_list(p.get("pre_args", []))
     cfg.pre_post.post_command = str(p.get("post_command", ""))
-    cfg.pre_post.post_args = [str(x) for x in p.get("post_args", [])]
-    cfg.pre_post.timeout = int(p.get("timeout", 60))
+    cfg.pre_post.post_args = _str_list(p.get("post_args", []))
+    cfg.pre_post.timeout = _as_int(p.get("timeout", 60), 60)
     cfg.pre_post.run_in_shell = bool(p.get("run_in_shell", False))
-    gm = data.get("gamemode", {})
+    gm = _section(data, "gamemode")
     cfg.gamemode.feral_gamemode = bool(gm.get("feral_gamemode", False))
     cfg.gamemode.cachyos_game_performance = bool(gm.get("cachyos_game_performance", False))
-    gs = data.get("gamescope", {})
+    gs = _section(data, "gamescope")
     cfg.gamescope.enable = bool(gs.get("enable", False))
     cfg.gamescope.args = str(gs.get("args", ""))
-    mh = data.get("mangohud", {})
+    mh = _section(data, "mangohud")
     cfg.mangohud.enable = bool(mh.get("enable", False))
     cfg.mangohud.args = str(mh.get("args", ""))
     cfg.mangohud.config_file = str(mh.get("config_file", ""))
     cfg.ludusavi = _load_ludusavi(data.get("ludusavi", {}), cfg.extra)
-    nl = data.get("nightlight", {})
+    nl = _section(data, "nightlight")
     cfg.nightlight.disable_during_game = bool(nl.get("disable_during_game", False))
     cfg.nightlight.provider = str(nl.get("provider", "auto"))
-    nt = data.get("notifications", {})
+    nt = _section(data, "notifications")
     cfg.notifications.notify_on_launch = bool(nt.get("notify_on_launch", True))
     return cfg
 

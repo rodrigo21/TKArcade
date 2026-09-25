@@ -17,10 +17,7 @@ def config_home() -> Path:
 
 
 def state_home() -> Path:
-    val = os.environ.get("XDG_STATE_HOME")
-    if val:
-        return Path(val)
-    return Path.home() / ".local/state"
+    return _env_home("XDG_STATE_HOME", ".local/state")
 
 
 def app_config_dir() -> Path:
