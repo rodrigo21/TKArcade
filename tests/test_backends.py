@@ -77,6 +77,20 @@ def test_ludusavi_off_passthrough():
     assert lu.wrap_command(["/bin/true"], enabled=False) == (["/bin/true"], [])
 
 
+def test_ludusavi_find_paths(fake_bin, monkeypatch, tmp_path):
+    path, warning = lu.find()
+    if path and "flatpak" not in path:
+        assert warning is None
+    flatdir = tmp_path / "flatpak" / "bin"
+    flatdir.mkdir(parents=True)
+    script = flatdir / "ludusavi"
+    script.write_text("#!/bin/sh\nexit 0\n")
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", str(flatdir))
+    path, warning = lu.find()
+    assert path is not None and warning is not None
+
+
 def test_ludusavi_missing_binary_warns(xdg_env, monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
     cmd, warnings = lu.wrap_command(["/bin/true"], enabled=True)
@@ -156,6 +170,29 @@ def test_list_games_fake_root(monkeypatch, tmp_path):
     )
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
     assert S.list_games() == [("9", "A Game"), ("10", "B Game")]
+
+
+def test_loads_kv1_without_vdf(monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "vdf", None)
+    assert S.loads_kv1('"a" { "b" "c" }') is None
+    assert S.loads_kv1("not vdf {{{") is None
+
+
+def test_find_game_icon_layouts(monkeypatch, tmp_path):
+    root = tmp_path / "steam"
+    modern = root / "appcache" / "librarycache" / "11"
+    modern.mkdir(parents=True)
+    hashed = modern / ("a" * 40 + ".jpg")
+    hashed.write_bytes(b"x")
+    (modern / "logo.png").write_bytes(b"y")
+    legacy = root / "appcache" / "librarycache"
+    (legacy / "12_icon.jpg").write_bytes(b"z")
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    assert S.find_game_icon("11") == hashed
+    assert S.find_game_icon("12") == legacy / "12_icon.jpg"
+    assert S.find_game_icon("13") is None
 
 
 def test_build_prefix_order(fake_bin):

@@ -40,17 +40,25 @@ def steam_roots() -> list[Path]:
     return roots
 
 
+def loads_kv1(text: str) -> dict | None:
+    """Parse Valve KV1 text with the vdf package when available."""
+    try:
+        import vdf  # type: ignore
+
+        data = vdf.loads(text)
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
 def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
     """Parse libraryfolders.vdf without deps (KV1 subset). Returns library paths."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
         return []
-    # try vdf lib first
-    try:
-        import vdf  # type: ignore
-
-        data = vdf.loads(text)
+    data = loads_kv1(text)
+    if data is not None:
         libs = data.get("libraryfolders", {})
         out = [
             Path(str(v["path"]))
@@ -58,8 +66,6 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
             if isinstance(v, dict) and "path" in v
         ]
         return [p for p in out if p.exists()]
-    except Exception:
-        pass
     # fallback: crude "path" "..." extraction
     out = []
     for m in re.finditer(r'"path"\s+"([^"]+)"', text):
@@ -93,14 +99,12 @@ def _parse_acf_name(path: Path) -> tuple[str, str]:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
         return "", ""
-    try:
-        import vdf  # type: ignore
-
-        data = vdf.loads(text)
+    data = loads_kv1(text)
+    if data is not None:
         app = data.get("AppState", {})
-        return str(app.get("appid", "")), str(app.get("name", ""))
-    except Exception:
-        pass
+        if isinstance(app, dict):
+            return str(app.get("appid", "")), str(app.get("name", ""))
+        return "", ""
     m_id = re.search(r'"appid"\s+"(\d+)"', text)
     m_name = re.search(r'"name"\s+"([^"]+)"', text)
     return (m_id.group(1) if m_id else ""), (m_name.group(1) if m_name else "")
@@ -135,8 +139,8 @@ def find_game_icon(appid: str) -> Path | None:
     """
     for root in steam_roots():
         cache = root / "appcache" / "librarycache"
-        d = cache / str(appid)
         try:
+            d = cache / str(appid)
             if d.is_dir():
                 hashed = sorted(
                     p for p in d.iterdir()
@@ -148,15 +152,10 @@ def find_game_icon(appid: str) -> Path | None:
                     cand = d / name
                     if cand.is_file():
                         return cand
-        except Exception:
-            continue
-    for root in steam_roots():
-        cache = root / "appcache" / "librarycache"
-        for suffix in (f"{appid}_icon.jpg", f"{appid}_logo.png"):
-            cand = cache / suffix
-            try:
+            for suffix in (f"{appid}_icon.jpg", f"{appid}_logo.png"):
+                cand = cache / suffix
                 if cand.is_file():
                     return cand
-            except Exception:
-                continue
+        except Exception:
+            continue
     return None

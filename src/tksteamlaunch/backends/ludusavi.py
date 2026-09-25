@@ -9,13 +9,9 @@ independent toggles.
 """
 from __future__ import annotations
 
-import logging
 import shutil
-import subprocess
 
 from . import is_flatpak_path, which
-
-log = logging.getLogger("tksteamlaunch.ludusavi")
 
 # Fixed `sh -c` script used to recover the wrapped game's exit code
 # (`wrap` itself returns 0 even when the game crashes). $0 carries the
@@ -28,20 +24,7 @@ def find() -> tuple[str | None, str | None]:
     path = which("ludusavi")
     if not path:
         return None, "ludusavi not found in PATH"
-    if is_flatpak_path(path):
-        return path, "flatpak ludusavi may not see Proton prefixes; prefer standalone binary"
-    try:
-        r = subprocess.run(
-            ["flatpak", "info", "com.github.mtkennerly.ludusavi"],
-            capture_output=True, timeout=5,
-        )
-        if r.returncode == 0 and path.endswith("ludusavi"):
-            # heuristic only; real check is path-based
-            pass
-    except Exception:
-        pass
-    # generic flatpak binary wrapper detection
-    if "flatpak" in (path or ""):
+    if is_flatpak_path(path) or "flatpak" in path:
         return path, "flatpak ludusavi may not see Proton prefixes; prefer standalone binary"
     return path, None
 

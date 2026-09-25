@@ -5,12 +5,9 @@ file from the tool install dir. Anything missing -> None (callers omit).
 """
 from __future__ import annotations
 
-import logging
 import re
 
 from . import steam as steammod
-
-log = logging.getLogger("tksteamlaunch.proton")
 
 
 def compat_tool_name(appid: str) -> str | None:
@@ -28,22 +25,16 @@ def compat_tool_name(appid: str) -> str | None:
 
 
 def _tool_from_vdf(text: str, appid: str) -> str | None:
-    try:
-        import vdf  # type: ignore
-
-        mapping = (
-            vdf.loads(text)
-            .get("InstallConfigStore", {})
-            .get("Software", {})
-            .get("Valve", {})
-            .get("Steam", {})
-            .get("CompatToolMapping", {})
-        )
-        entry = mapping.get(str(appid), {})
-        name = str(entry.get("name", "")).strip()
-        return name or None
-    except Exception:
-        pass
+    data = steammod.loads_kv1(text)
+    if data is not None:
+        try:
+            entry = data["InstallConfigStore"]["Software"]["Valve"]["Steam"][
+                "CompatToolMapping"
+            ][str(appid)]
+            name = str(entry.get("name", "")).strip()
+            return name or None
+        except (KeyError, TypeError, AttributeError):
+            pass
     # stdlib fallback: find the appid block inside CompatToolMapping.
     region = text.find("CompatToolMapping")
     if region < 0:

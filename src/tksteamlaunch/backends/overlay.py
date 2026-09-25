@@ -1,14 +1,11 @@
 """gamescope / mangohud prefix builders."""
 from __future__ import annotations
 
-import logging
 import os
 from pathlib import Path
 
 from .. import xdg
 from . import split_args, which
-
-log = logging.getLogger("tksteamlaunch.overlay")
 
 DEFAULT_MANGOHUD_CONF = "MangoHud.conf"
 

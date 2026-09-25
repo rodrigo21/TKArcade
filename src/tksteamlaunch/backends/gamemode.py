@@ -1,11 +1,7 @@
 """gamemode (Feral) + CachyOS game-performance prefix builders."""
 from __future__ import annotations
 
-import logging
-
 from . import which
-
-log = logging.getLogger("tksteamlaunch.gamemode")
 
 
 def prefix(
