@@ -307,7 +307,4 @@ def list_appids() -> list[str]:
     d = xdg.games_dir()
     if not d.exists():
         return []
-    out = []
-    for p in sorted(d.glob("*.toml")):
-        out.append(p.stem)
-    return out
+    return [p.stem for p in sorted(d.glob("*.toml"))]

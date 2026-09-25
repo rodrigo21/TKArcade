@@ -143,7 +143,7 @@ class MainWindow(QMainWindow):
         d = xdg.games_log_dir()
         try:
             d.mkdir(parents=True, exist_ok=True)
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         if not open_path(str(d)):
             QMessageBox.warning(self, "TKSteamLaunch", f"Could not open {d}.")
@@ -158,7 +158,7 @@ class MainWindow(QMainWindow):
         if r == QMessageBox.StandardButton.Yes:
             try:
                 cfgmod.game_file(appid).unlink(missing_ok=True)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 QMessageBox.warning(self, "TKSteamLaunch", str(e))
             self.refresh()
 
@@ -181,5 +181,5 @@ class MainWindow(QMainWindow):
             )
         try:
             subprocess.Popen([exe])
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             QMessageBox.warning(self, "TKSteamLaunch", f"Could not open Ludusavi: {e}")

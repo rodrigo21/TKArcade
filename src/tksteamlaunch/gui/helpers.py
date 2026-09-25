@@ -17,13 +17,13 @@ def open_path(path: str) -> bool:
         try:
             subprocess.Popen(["xdg-open", path])
             return True
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
     editor = os.environ.get("EDITOR", "").strip() or os.environ.get("VISUAL", "").strip()
     if editor:
         try:
             subprocess.Popen([editor, path])
             return True
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
     return False

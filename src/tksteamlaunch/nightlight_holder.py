@@ -28,7 +28,7 @@ def main() -> int:
     )
     stop = threading.Event()
 
-    def _handler(signum, frame):  # noqa: ANN001, ANN202
+    def _handler(signum, frame):
         stop.set()
 
     signal.signal(signal.SIGTERM, _handler)
@@ -36,14 +36,14 @@ def main() -> int:
 
     try:
         conn = open_dbus_connection(bus="SESSION")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print(f"ERROR: cannot connect to session bus: {e}", flush=True)
         return 3
 
     try:
         reply = conn.send_and_get_reply(new_method_call(addr, "inhibit"))
         cookie = int(reply.body[0])
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print(f"ERROR: inhibit call failed: {e}", flush=True)
         return 4
 
@@ -60,7 +60,7 @@ def main() -> int:
             )
             print(f"uninhibited cookie={cookie}", flush=True)
             rc = 0
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             print(f"ERROR: uninhibit failed: {e}", flush=True)
             rc = 5
     return rc

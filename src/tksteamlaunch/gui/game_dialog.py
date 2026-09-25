@@ -21,19 +21,18 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
-    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from .. import config as cfgmod
-from ..config import NightlightProvider
 from .. import xdg
 from ..backends import overlay as ov_backend
+from ..config import NightlightProvider
 from .helpers import open_path
-
 
 _STATUS_COLORS_DARK = {"ok": "#7ee787", "warn": "#f47067", "note": "#e3b341"}
 _STATUS_COLORS_LIGHT = {"ok": "#1a7f37", "warn": "#d1242f", "note": "#9a6700"}
@@ -44,7 +43,7 @@ def _is_dark_theme(widget: QWidget) -> bool:
     """Detect a dark theme from the window background lightness."""
     try:
         return widget.palette().window().color().lightness() < 128
-    except Exception:  # noqa: BLE001
+    except Exception:
         return False
 
 
@@ -380,7 +379,7 @@ class GameDialog(QDialog):
         self._update_lu_state()
         self.c_nl.setChecked(c.nightlight.disable_during_game)
         idx = self.cb_nl.findData(c.nightlight.provider or "auto")
-        self.cb_nl.setCurrentIndex(idx if idx >= 0 else 0)
+        self.cb_nl.setCurrentIndex(max(idx, 0))
 
     def _set_env_table(self, vars: dict[str, str]) -> None:
         self.t_env.setRowCount(0)
@@ -419,7 +418,7 @@ class GameDialog(QDialog):
                 continue
             self.cb_mh_conf.addItem(name, name)
         idx = self.cb_mh_conf.findData(current)
-        self.cb_mh_conf.setCurrentIndex(idx if idx >= 0 else 0)
+        self.cb_mh_conf.setCurrentIndex(max(idx, 0))
 
     def _new_mangohud_config(self) -> None:
         from PySide6.QtWidgets import QInputDialog

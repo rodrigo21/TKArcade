@@ -19,6 +19,24 @@ dependencies = [
 [project.optional-dependencies]
 dev = []
 
+# Dev tools come from system packages on CachyOS/Arch (no venv):
+#   sudo pacman -S python-pytest ruff
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+# E4/E7/E9/F: syntax/style basics (E501 line length intentionally off).
+# I/UP/B/RUF100/FURB/PERF: modern, bug-prone and perf patterns.
+# Broad excepts and silent fallbacks are a project idiom (the game must
+# launch even when helpers fail); S/PL rules stay off for the same reason
+# (returncode inspection and best-effort fallbacks).
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "RUF100", "FURB", "PERF"]
+
 [project.scripts]
 tksteamlaunch = "tksteamlaunch.launcher:main"
 tksteamlaunch-gui = "tksteamlaunch.gui.app:main"

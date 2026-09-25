@@ -22,7 +22,7 @@ def list_mangohud_configs() -> list[str]:
     d = mangohud_config_dir()
     try:
         return sorted(p.name for p in d.glob("*.conf") if p.is_file())
-    except Exception:  # noqa: BLE001
+    except Exception:
         return []
 
 
@@ -34,7 +34,7 @@ def mangohud_config_path(name: str) -> Path | None:
     cand = mangohud_config_dir() / Path(name).name  # stay inside the dir
     try:
         return cand if cand.is_file() else None
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 
@@ -63,7 +63,7 @@ def create_mangohud_config(name: str) -> tuple[Path | None, str, str]:
     d = mangohud_config_dir()
     try:
         d.mkdir(parents=True, exist_ok=True)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return None, "", f"Could not create {d}: {e}"
     path = d / clean
     if path.exists():
@@ -75,7 +75,7 @@ def create_mangohud_config(name: str) -> tuple[Path | None, str, str]:
             return path, "default", ""
         path.write_text("# MangoHud configuration\n", encoding="utf-8")
         return path, "template", ""
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         return None, "", f"Could not write {path}: {e}"
 
 

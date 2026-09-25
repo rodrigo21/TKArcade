@@ -55,7 +55,7 @@ def _read_gnome() -> str | None:
             capture_output=True, text=True, timeout=5,
         )
         return r.stdout.strip() or None
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 
@@ -82,7 +82,7 @@ class NightlightSession:
                      "night-light-enabled", "false"],
                     timeout=5,
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 warnings.append(f"failed to disable GNOME night light: {e}")
             return warnings
         if self.provider == NightlightProvider.PLASMA:
@@ -119,7 +119,7 @@ class NightlightSession:
                     log.warning("nightlight holder did not confirm cookie in time")
             except FileNotFoundError:
                 warnings.append("python executable not found for nightlight holder")
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 warnings.append(f"failed to start nightlight holder: {e}")
             return warnings
         return [f"unknown nightlight provider: {self.provider}"]
@@ -134,7 +134,7 @@ class NightlightSession:
                      "night-light-enabled", val],
                     timeout=5,
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 log.error("failed to restore GNOME night light: %s", e)
             finally:
                 self._gnome_prev = None
@@ -142,16 +142,16 @@ class NightlightSession:
             try:
                 self._holder.terminate()
                 self._holder.wait(timeout=5)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 log.error("nightlight holder stop failed: %s", e)
                 try:
                     self._holder.kill()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     pass
             finally:
                 self._holder = None
 
-    def __enter__(self) -> "NightlightSession":
+    def __enter__(self) -> NightlightSession:
         self.start()
         return self
 

@@ -47,6 +47,6 @@ def run_hook(
     except FileNotFoundError:
         log.error("%s hook not found: %r", name, cmd)
         return -2
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.error("%s hook failed: %s", name, e)
         return -2

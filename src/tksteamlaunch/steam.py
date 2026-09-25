@@ -25,14 +25,15 @@ def resolve_appid(explicit: str = "") -> str:
 
 
 def steam_roots() -> list[Path]:
-    roots: list[Path] = []
-    for cand in (
-        Path.home() / ".steam/steam",
-        Path.home() / ".local/share/Steam",
-        Path.home() / ".var/app/com.valvesoftware.Steam/.local/share/Steam",
-    ):
-        if cand.exists():
-            roots.append(cand)
+    roots = [
+        cand
+        for cand in (
+            Path.home() / ".steam/steam",
+            Path.home() / ".local/share/Steam",
+            Path.home() / ".var/app/com.valvesoftware.Steam/.local/share/Steam",
+        )
+        if cand.exists()
+    ]
     env = os.environ.get("STEAM_ROOT", "").strip()
     if env and Path(env).exists():
         roots.append(Path(env))
@@ -43,7 +44,7 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
     """Parse libraryfolders.vdf without deps (KV1 subset). Returns library paths."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
-    except Exception:  # noqa: BLE001
+    except Exception:
         return []
     # try vdf lib first
     try:
@@ -51,12 +52,13 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
 
         data = vdf.loads(text)
         libs = data.get("libraryfolders", {})
-        out = []
-        for _k, v in libs.items():
-            if isinstance(v, dict) and "path" in v:
-                out.append(Path(str(v["path"])))
+        out = [
+            Path(str(v["path"]))
+            for v in libs.values()
+            if isinstance(v, dict) and "path" in v
+        ]
         return [p for p in out if p.exists()]
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     # fallback: crude "path" "..." extraction
     out = []
@@ -89,7 +91,7 @@ def _parse_acf_name(path: Path) -> tuple[str, str]:
     """Return (appid, name) from appmanifest_<id>.acf without deps."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
-    except Exception:  # noqa: BLE001
+    except Exception:
         return "", ""
     try:
         import vdf  # type: ignore
@@ -97,7 +99,7 @@ def _parse_acf_name(path: Path) -> tuple[str, str]:
         data = vdf.loads(text)
         app = data.get("AppState", {})
         return str(app.get("appid", "")), str(app.get("name", ""))
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     m_id = re.search(r'"appid"\s+"(\d+)"', text)
     m_name = re.search(r'"name"\s+"([^"]+)"', text)
@@ -118,7 +120,7 @@ def list_games() -> list[tuple[str, str]]:
                         appid = stem
                 if appid and appid not in games:
                     games[appid] = name or appid
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
     return sorted(games.items(), key=lambda kv: kv[1].lower())
 
@@ -146,7 +148,7 @@ def find_game_icon(appid: str) -> Path | None:
                     cand = d / name
                     if cand.is_file():
                         return cand
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
     for root in steam_roots():
         cache = root / "appcache" / "librarycache"
@@ -155,6 +157,6 @@ def find_game_icon(appid: str) -> Path | None:
             try:
                 if cand.is_file():
                     return cand
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
     return None

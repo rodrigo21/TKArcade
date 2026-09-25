@@ -38,7 +38,7 @@ def find() -> tuple[str | None, str | None]:
         if r.returncode == 0 and path.endswith("ludusavi"):
             # heuristic only; real check is path-based
             pass
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     # generic flatpak binary wrapper detection
     if "flatpak" in (path or ""):

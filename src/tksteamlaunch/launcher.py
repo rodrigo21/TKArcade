@@ -22,15 +22,15 @@ import tempfile
 from pathlib import Path
 
 from . import config as cfgmod
-from .config import GameType
 from . import steam as steammod
 from . import xdg
-from .backends import split_args
 from .backends import gamemode as gm_backend
 from .backends import ludusavi as lu_backend
 from .backends import nightlight as nl_backend
 from .backends import overlay as ov_backend
 from .backends import prepost as pp_backend
+from .backends import split_args
+from .config import GameType
 
 log = logging.getLogger("tksteamlaunch")
 
@@ -55,7 +55,7 @@ def setup_logging(appid: str = "", verbose: bool = False) -> Path:
         fh.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s"))
         logging.getLogger().addHandler(fh)
         return d / f"{appid}.log"
-    except Exception:  # noqa: BLE001
+    except Exception:
         return Path(f"{appid}.log")
 
 
@@ -70,7 +70,7 @@ def write_global_log(appid: str, exit_code: int, cmd: list[str]) -> None:
             shown = shown[:300] + "..."
         with path.open("a", encoding="utf-8") as f:
             f.write(f"{stamp} appid={appid} exit={exit_code} cmd={shown}\n")
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.error("cannot write global log: %s", e)
 
 
@@ -195,7 +195,7 @@ def _remove_wrap_rc_file(path: str) -> None:
     if path:
         try:
             Path(path).unlink(missing_ok=True)
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
 
 
@@ -206,7 +206,7 @@ def _read_wrap_rc_file(path: str, fallback: int) -> int:
         if 0 <= code <= 255:
             return code
         log.warning("wrap exit-code file out of range: %r", code)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.warning("could not read wrap exit-code file, using wrap code: %s", e)
     return fallback
 
@@ -242,7 +242,8 @@ def run_editor(appid: str) -> str:
         return "unavailable"
     from .gui.game_dialog import GameDialog
 
-    app = QApplication.instance() or QApplication(sys.argv)
+    # Reference kept alive: the dialog needs a living QApplication during exec.
+    app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
     names = {a: n for a, n in steammod.list_games()}
     dlg = GameDialog(None, appid, names.get(appid, ""), launch_mode=True)
     result = dlg.exec()

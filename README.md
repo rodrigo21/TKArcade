@@ -42,8 +42,19 @@ one-line entry per run in `$XDG_STATE_HOME/tksteamlaunch/launcher.log`.
 
 ## Dev without pip
 
-No `pip` on the system (e.g. CachyOS): the launcher code uses stdlib only.
-Tests: `python3 -m py_compile` + `PYTHONPATH=src python3 -m tksteamlaunch.launcher --help`.
+No `pip` on the system (e.g. CachyOS): the launcher code uses stdlib only,
+and dev tools come from system packages:
+
+```bash
+sudo pacman -S python-pytest ruff
+python3 -m pytest tests/   # full suite (needs PySide6 for GUI smoke tests)
+ruff check src/ tests/     # lint; see [tool.ruff] in pyproject.toml
+PYTHONPATH=src python3 -m tksteamlaunch.launcher --help
+```
+
+The launcher itself stays dependency-free on purpose (it runs on every
+game start); only the GUI needs PySide6 and helpers need vdf/jeepney.
+Breaking config changes are recorded in `CHANGELOG.md`.
 
 ## AI assistance
 
