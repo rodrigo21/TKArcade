@@ -135,3 +135,13 @@ def test_coverage_button(qapp, xdg_env, monkeypatch, tmp_path):
     btn.click()
     qapp.processEvents()
     assert d.result() == 0
+
+
+def test_coverage_button_hidden_in_defaults_mode(qapp, xdg_env):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    def buttons(dlg):
+        return [b.text() for b in dlg.findChildren(QtWidgets.QPushButton)]
+
+    assert "Check Coverage..." not in buttons(GameDialog(None, defaults_mode=True))
+    assert "Check Coverage..." in buttons(GameDialog(None, "23", "T"))
