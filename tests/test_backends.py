@@ -198,7 +198,7 @@ def test_resolve_appid(monkeypatch):
     assert S.resolve_appid("") == "123"
 
 
-def test_list_games_fake_root(monkeypatch, tmp_path):
+def test_list_games_fake_root(monkeypatch, tmp_path, xdg_env):
     root = tmp_path / "steamapps"
     root.mkdir()
     (root / "appmanifest_10.acf").write_text(
@@ -219,7 +219,7 @@ def test_loads_kv1_without_vdf(monkeypatch):
     assert S.loads_kv1("not vdf {{{") is None
 
 
-def test_find_game_icon_layouts(monkeypatch, tmp_path):
+def test_find_game_icon_layouts(monkeypatch, tmp_path, xdg_env):
     root = tmp_path / "steam"
     modern = root / "appcache" / "librarycache" / "11"
     modern.mkdir(parents=True)
@@ -360,7 +360,7 @@ def test_send_icon_and_expiry(monkeypatch, tmp_path):
     assert "--icon=/i.png" in out and "--expire-time=5000" in out
 
 
-def test_proton_version_lookup(monkeypatch, tmp_path):
+def test_proton_version_lookup(monkeypatch, tmp_path, xdg_env):
     import sys
 
     from tksteamlaunch import proton as pm
@@ -429,7 +429,7 @@ def _write_localconfig(root, uid, apps_body):
     )
 
 
-def test_launch_options_status(monkeypatch, tmp_path):
+def test_launch_options_status(monkeypatch, tmp_path, xdg_env):
     root = tmp_path / "steam"
     _write_localconfig(root, "u1", '"60"\n{\n"LaunchOptions" "tksteamlaunch %command%"\n}')
     _write_localconfig(root, "u2", '"61"\n{\n"LaunchOptions" "gamemoderun %command%"\n}')
@@ -439,12 +439,12 @@ def test_launch_options_status(monkeypatch, tmp_path):
     assert S.launch_options_status("62")[0] == "missing"
 
 
-def test_launch_options_unknown_without_userdata(monkeypatch, tmp_path):
+def test_launch_options_unknown_without_userdata(monkeypatch, tmp_path, xdg_env):
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path / "empty"))
     assert S.launch_options_status("60")[0] == "unknown"
 
 
-def test_launch_options_regex_fallback(monkeypatch, tmp_path):
+def test_launch_options_regex_fallback(monkeypatch, tmp_path, xdg_env):
     import sys
 
     root = tmp_path / "steam"
