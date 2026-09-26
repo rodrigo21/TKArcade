@@ -44,9 +44,7 @@ def test_stale_cache_returned_but_flagged(monkeypatch, xdg_env):
     path = pdb.cache_path("71")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        jsonlib.dumps(
-            {"saved": int(time.time()) - pdb.CACHE_TTL - 1, "data": {"tier": "silver"}}
-        )
+        jsonlib.dumps({"saved": int(time.time()) - pdb.CACHE_TTL - 1, "data": {"tier": "silver"}})
     )
     cached, fresh = pdb.cached("71")
     assert cached == {"tier": "silver"} and fresh is False

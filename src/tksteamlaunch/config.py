@@ -5,6 +5,7 @@ config. defaults.toml is only a template, copied when a new game is added
 or when a game is reset — editing defaults never changes existing games.
 Games without a file fall back to the defaults template at load time.
 """
+
 from __future__ import annotations
 
 import copy
@@ -317,9 +318,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
-        {str(k): str(v) for k, v in raw_vars.items()}
-        if isinstance(raw_vars, dict)
-        else {}
+        {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}
     )
     p = _section(data, "pre_post")
     cfg.pre_post.pre_command = str(p.get("pre_command", ""))
@@ -373,10 +372,7 @@ def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
     out.use_gui = bool(raw.get("use_gui", True))
     out.name_override = str(raw.get("name_override", ""))
 
-    rest = {
-        k: v for k, v in raw.items()
-        if k not in _section_known_keys("ludusavi")
-    }
+    rest = {k: v for k, v in raw.items() if k not in _section_known_keys("ludusavi")}
     if rest:
         extra.setdefault("ludusavi", {}).update(rest)
     return out
@@ -439,12 +435,10 @@ def import_configs(src: str | Path) -> list[str]:
             if name == "defaults.toml" or (
                 name.startswith("games/")
                 and name.endswith(".toml")
-                and "/" not in name[len("games/"):]
+                and "/" not in name[len("games/") :]
             ):
                 members.append(member)
         if not members:
             raise ValueError("archive contains no TKSteamLaunch configs")
         tar.extractall(path=base, members=members, filter="data")
-    return sorted(
-        Path(m.name).stem for m in members if m.name.startswith("games/")
-    )
+    return sorted(Path(m.name).stem for m in members if m.name.startswith("games/"))

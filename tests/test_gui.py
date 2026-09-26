@@ -111,11 +111,7 @@ def test_preview_command(qapp, xdg_env):
     d.c_feral.setChecked(True)
     QTimer.singleShot(
         300,
-        lambda: [
-            w.close()
-            for w in QApplication.topLevelWidgets()
-            if isinstance(w, QMessageBox)
-        ],
+        lambda: [w.close() for w in QApplication.topLevelWidgets() if isinstance(w, QMessageBox)],
     )
     btn = next(b for b in d.findChildren(QPushButton) if "Preview" in b.text())
     btn.click()
@@ -133,11 +129,7 @@ def test_coverage_button(qapp, xdg_env, monkeypatch, tmp_path):
     d = GameDialog(None, "28", "T")
     QTimer.singleShot(
         300,
-        lambda: [
-            w.close()
-            for w in QApplication.topLevelWidgets()
-            if isinstance(w, QMessageBox)
-        ],
+        lambda: [w.close() for w in QApplication.topLevelWidgets() if isinstance(w, QMessageBox)],
     )
     btn = next(b for b in d.findChildren(QPushButton) if "Coverage" in b.text())
     btn.click()

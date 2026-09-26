@@ -8,6 +8,7 @@ Pipeline:
   -> post hook -> nightlight restore -> log (per-game <appid>.log plus a
   one-line global entry)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -152,7 +153,9 @@ def build_final_command(
     else:
         cmd = swap_proton_executable(list(game_cmd), custom)
         if custom and game_cmd and custom not in cmd:
-            warnings.append("custom_executable set but no 'run'/'--' marker found; keeping original command")
+            warnings.append(
+                "custom_executable set but no 'run'/'--' marker found; keeping original command"
+            )
 
     # innermost: custom prefix wraps the executable directly
     # (e.g. zink-run), inside mangohud/gamemode/gamescope/wrap.
@@ -161,9 +164,7 @@ def build_final_command(
     if prefix:
         parts = split_args(prefix)
         if parts and not shutil.which(parts[0]):
-            raise PrefixNotFoundError(
-                f"custom_prefix binary not found in PATH: {parts[0]!r}"
-            )
+            raise PrefixNotFoundError(f"custom_prefix binary not found in PATH: {parts[0]!r}")
         cmd = parts + cmd
 
     # inner -> outer: mangohud, gamemode/cachy, gamescope outermost
@@ -243,9 +244,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
     if cfg.nightlight.disable_during_game:
         wrappers.append("Night Light")
     names = {a: n for a, n in steammod.list_games()}
-    proton_version = (
-        protonmod.proton_version_for(appid) if game_type != "native" else None
-    )
+    proton_version = protonmod.proton_version_for(appid) if game_type != "native" else None
     runtime = protonmod.native_runtime(game_cmd) if game_type == "native" else None
     icon_path = steammod.find_game_icon(appid)
     icon = str(icon_path) if icon_path else ""
@@ -296,12 +295,11 @@ def validate_game(appid: str) -> list[str]:
         issues.append(f"{appid}: gamescope not found (enabled)")
     if cfg.mangohud.enable and not shutil.which("mangohud"):
         issues.append(f"{appid}: mangohud not found (enabled)")
-    if cfg.mangohud.config_file and ov_backend.mangohud_config_path(
+    if (
         cfg.mangohud.config_file
-    ) is None:
-        issues.append(
-            f"{appid}: MangoHud config not found: {cfg.mangohud.config_file}"
-        )
+        and ov_backend.mangohud_config_path(cfg.mangohud.config_file) is None
+    ):
+        issues.append(f"{appid}: MangoHud config not found: {cfg.mangohud.config_file}")
     if cfg.ludusavi.enable and not lu_backend.find()[0]:
         issues.append(f"{appid}: ludusavi not found (enabled)")
     return issues
@@ -331,17 +329,31 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")
     p.add_argument("--list", action="store_true", help="list configured/detected games and exit")
-    p.add_argument("--validate", action="store_true",
-                   help="check configs and helper binaries, exit 17 on issues")
-    p.add_argument("--export", default="", metavar="FILE",
-                   help="export configs to a tar.gz and exit")
-    p.add_argument("--import", dest="import_file", default="", metavar="FILE",
-                   help="import configs from a tar.gz and exit")
-    p.add_argument("--edit", action="store_true",
-                   help="open the game settings dialog before launching (needs a display)")
+    p.add_argument(
+        "--validate",
+        action="store_true",
+        help="check configs and helper binaries, exit 17 on issues",
+    )
+    p.add_argument(
+        "--export", default="", metavar="FILE", help="export configs to a tar.gz and exit"
+    )
+    p.add_argument(
+        "--import",
+        dest="import_file",
+        default="",
+        metavar="FILE",
+        help="import configs from a tar.gz and exit",
+    )
+    p.add_argument(
+        "--edit",
+        action="store_true",
+        help="open the game settings dialog before launching (needs a display)",
+    )
     p.add_argument("--verbose", action="store_true")
     p.add_argument("--version", action="store_true")
-    p.add_argument("command", nargs=argparse.REMAINDER, help="game command (after -- or %%command%%)")
+    p.add_argument(
+        "command", nargs=argparse.REMAINDER, help="game command (after -- or %%command%%)"
+    )
     return p.parse_args(argv)
 
 
@@ -440,15 +452,11 @@ def main(argv: list[str] | None = None) -> int:
 
     # Sentinel file so the real game exit code survives `ludusavi wrap`
     # (which returns 0 even when the game crashes). Empty = wrap off.
-    wrap_active = bool(
-        cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup)
-    )
+    wrap_active = bool(cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup))
     rc_file = _new_wrap_rc_file(appid) if wrap_active else ""
 
     try:
-        final_cmd, extra_env, warnings = build_final_command(
-            cfg, game_cmd, wrap_rc_file=rc_file
-        )
+        final_cmd, extra_env, warnings = build_final_command(cfg, game_cmd, wrap_rc_file=rc_file)
     except PrefixNotFoundError as e:
         log.error("%s", e)
         print(f"tksteamlaunch: {e}", file=sys.stderr)

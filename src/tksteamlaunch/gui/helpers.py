@@ -1,4 +1,5 @@
 """Shared GUI helpers (PySide6)."""
+
 from __future__ import annotations
 
 import os

@@ -1,4 +1,5 @@
 """Session history parsed from the global launcher.log (tolerant reader)."""
+
 from __future__ import annotations
 
 import re
@@ -46,9 +47,7 @@ def parse_log(path: Path | str) -> list[Session]:
                     stamp=match.group("stamp"),
                     appid=match.group("appid"),
                     exit=int(match.group("exit")),
-                    duration=int(match.group("dur"))
-                    if match.group("dur") is not None
-                    else None,
+                    duration=int(match.group("dur")) if match.group("dur") is not None else None,
                     cmd=match.group("cmd"),
                 )
             )

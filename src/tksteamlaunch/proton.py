@@ -3,6 +3,7 @@
 Reads the per-game compat tool from Steam's config.vdf and its `version`
 file from the tool install dir. Anything missing -> None (callers omit).
 """
+
 from __future__ import annotations
 
 import re
@@ -28,9 +29,9 @@ def _tool_from_vdf(text: str, appid: str) -> str | None:
     data = steammod.loads_kv1(text)
     if data is not None:
         try:
-            entry = data["InstallConfigStore"]["Software"]["Valve"]["Steam"][
-                "CompatToolMapping"
-            ][str(appid)]
+            entry = data["InstallConfigStore"]["Software"]["Valve"]["Steam"]["CompatToolMapping"][
+                str(appid)
+            ]
             name = str(entry.get("name", "")).strip()
             return name or None
         except (KeyError, TypeError, AttributeError):
@@ -58,9 +59,7 @@ def tool_version(tool: str) -> str | None:
         ):
             try:
                 if cand.is_file():
-                    line = cand.read_text(
-                        encoding="utf-8", errors="replace"
-                    ).splitlines()
+                    line = cand.read_text(encoding="utf-8", errors="replace").splitlines()
                     if line and line[0].strip():
                         return line[0].strip()[:40]
             except Exception:
@@ -85,11 +84,7 @@ def native_runtime(game_cmd: list[str]) -> str | None:
     """
     for token in game_cmd:
         low = token.lower()
-        if (
-            "steamlinuxruntime" in low
-            or "steam-runtime" in low
-            or "pressure-vessel" in low
-        ):
+        if "steamlinuxruntime" in low or "steam-runtime" in low or "pressure-vessel" in low:
             for name in ("soldier", "sniper", "scout"):
                 if name in low:
                     return name

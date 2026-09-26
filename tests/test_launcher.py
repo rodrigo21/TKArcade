@@ -62,7 +62,7 @@ def test_wrap_sentinel_recovers_exit_code(xdg_env, fake_bin):
     # fake_bin prepends to this process's PATH, inherited by the subprocess.
     fake_bin(
         "ludusavi",
-        "#!/bin/sh\nwhile [ \"$1\" != \"--\" ] && [ $# -gt 0 ]; do shift; done\n"
+        '#!/bin/sh\nwhile [ "$1" != "--" ] && [ $# -gt 0 ]; do shift; done\n'
         '[ "$1" = "--" ] && shift\n"$@"\nexit 0\n',
     )
     _save("4", ludusavi={"enable": True, "restore": True, "backup": False})
@@ -81,9 +81,7 @@ def test_edit_without_display(xdg_env, monkeypatch):
 def test_list(xdg_env, monkeypatch, tmp_path):
     root = tmp_path / "steamapps"
     root.mkdir()
-    (root / "appmanifest_7.acf").write_text(
-        '"AppState"\n{\n"appid" "7"\n"name" "Some Game"\n}\n'
-    )
+    (root / "appmanifest_7.acf").write_text('"AppState"\n{\n"appid" "7"\n"name" "Some Game"\n}\n')
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
     _save("7")
     env = _env(xdg_env)

@@ -7,6 +7,7 @@ split approach cannot address games by Steam AppID. `wrap` supports both
 `--infer steam` and `--name`, plus `--no-restore`/`--no-backup` for the
 independent toggles.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -95,9 +96,7 @@ def check_coverage(appid: str, name_override: str = "") -> tuple[str, str]:
     else:
         find_cmd = [path, "find", "--api", "--steam-id", str(appid)]
     try:
-        found = subprocess.run(
-            find_cmd, capture_output=True, text=True, timeout=120
-        )
+        found = subprocess.run(find_cmd, capture_output=True, text=True, timeout=120)
     except (OSError, subprocess.TimeoutExpired) as e:
         return "unavailable", f"ludusavi find failed: {e}"
     title = ""
@@ -125,9 +124,7 @@ def check_coverage(appid: str, name_override: str = "") -> tuple[str, str]:
     except ValueError:
         entry = {}
     files = entry.get("files", {}) if isinstance(entry, dict) else {}
-    total = sum(
-        info.get("bytes", 0) for info in files.values() if isinstance(info, dict)
-    )
+    total = sum(info.get("bytes", 0) for info in files.values() if isinstance(info, dict))
     if not files:
         return "no-local-saves", f"Entry '{title}' exists, no saves on disk"
     return "covered", f"Entry '{title}': {len(files)} file(s), {total} bytes"

@@ -1,4 +1,5 @@
 """Backend helpers (stdlib only, pure command builders + which checks)."""
+
 from __future__ import annotations
 
 import shlex

@@ -1,4 +1,5 @@
 """pre/post hook execution (option B: executable + args, optional shell)."""
+
 from __future__ import annotations
 
 import logging

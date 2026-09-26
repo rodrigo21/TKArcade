@@ -1,4 +1,5 @@
 """Desktop notifications (best-effort via notify-send)."""
+
 from __future__ import annotations
 
 import logging

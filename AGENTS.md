@@ -24,6 +24,7 @@ License: GPL-3.0-or-later.
 ```bash
 python3 -m pytest tests/ -q
 ruff check src/ tests/
+ruff format --check src/ tests/  # line-length 100, see pyproject.toml
 QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -c "..."  # GUI smoke
 ```
 

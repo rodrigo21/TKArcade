@@ -1,12 +1,11 @@
 """gamemode (Feral) + CachyOS game-performance prefix builders."""
+
 from __future__ import annotations
 
 from . import which
 
 
-def prefix(
-    cmd: list[str], feral: bool = False, cachy: bool = False
-) -> tuple[list[str], list[str]]:
+def prefix(cmd: list[str], feral: bool = False, cachy: bool = False) -> tuple[list[str], list[str]]:
     """Return (new_cmd, warnings). Mutually exclusive: Feral wins on conflict."""
     warnings: list[str] = []
     out = list(cmd)

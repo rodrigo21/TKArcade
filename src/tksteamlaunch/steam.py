@@ -1,4 +1,5 @@
 """Steam helpers: resolve AppID, list installed games (vdf optional)."""
+
 from __future__ import annotations
 
 import os
@@ -60,11 +61,7 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
     data = loads_kv1(text)
     if data is not None:
         libs = data.get("libraryfolders", {})
-        out = [
-            Path(str(v["path"]))
-            for v in libs.values()
-            if isinstance(v, dict) and "path" in v
-        ]
+        out = [Path(str(v["path"])) for v in libs.values() if isinstance(v, dict) and "path" in v]
         return [p for p in out if p.exists()]
     # fallback: crude "path" "..." extraction
     out = []
@@ -143,8 +140,7 @@ def find_game_icon(appid: str) -> Path | None:
             d = cache / str(appid)
             if d.is_dir():
                 hashed = sorted(
-                    p for p in d.iterdir()
-                    if p.is_file() and _ICON_HASH_RE.match(p.name)
+                    p for p in d.iterdir() if p.is_file() and _ICON_HASH_RE.match(p.name)
                 )
                 if hashed:
                     return hashed[0]

@@ -75,8 +75,7 @@ def test_invalid_toml_loads_fresh(xdg_env):
 def test_wrong_shaped_sections_load_fresh(xdg_env):
     C.game_file("2").parent.mkdir(parents=True, exist_ok=True)
     C.game_file("2").write_text(
-        'general = "nope"\n[env]\nvars = [1, 2]\n[pre_post]\n'
-        'timeout = "soon"\npre_args = "x"\n',
+        'general = "nope"\n[env]\nvars = [1, 2]\n[pre_post]\ntimeout = "soon"\npre_args = "x"\n',
         encoding="utf-8",
     )
     loaded = C.load("2")

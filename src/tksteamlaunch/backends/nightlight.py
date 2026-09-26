@@ -8,6 +8,7 @@ immediately (verified: only "return" notification visible).
 
 GNOME: gsettings night-light-enabled (persistent, no holder needed).
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,16 +27,10 @@ log = logging.getLogger("tksteamlaunch.nightlight")
 def detect_provider(requested: str = "auto") -> str:
     req = (requested or "auto").strip().lower()
     match req:
-        case (
-            NightlightProvider.PLASMA
-            | NightlightProvider.GNOME
-            | NightlightProvider.OFF
-        ):
+        case NightlightProvider.PLASMA | NightlightProvider.GNOME | NightlightProvider.OFF:
             return str(req)
     desktop = (
-        os.environ.get("XDG_CURRENT_DESKTOP", "")
-        + " "
-        + os.environ.get("DESKTOP_SESSION", "")
+        os.environ.get("XDG_CURRENT_DESKTOP", "") + " " + os.environ.get("DESKTOP_SESSION", "")
     ).lower()
     if "kde" in desktop or "plasma" in desktop:
         return str(NightlightProvider.PLASMA)
@@ -52,9 +47,10 @@ def detect_provider(requested: str = "auto") -> str:
 def _read_gnome() -> str | None:
     try:
         r = subprocess.run(
-            ["gsettings", "get", "org.gnome.settings-daemon.plugins.color",
-             "night-light-enabled"],
-            capture_output=True, text=True, timeout=5,
+            ["gsettings", "get", "org.gnome.settings-daemon.plugins.color", "night-light-enabled"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         return r.stdout.strip() or None
     except Exception:
@@ -79,9 +75,13 @@ class NightlightSession:
             self._gnome_prev = _read_gnome()
             try:
                 subprocess.run(
-                    ["gsettings", "set",
-                     "org.gnome.settings-daemon.plugins.color",
-                     "night-light-enabled", "false"],
+                    [
+                        "gsettings",
+                        "set",
+                        "org.gnome.settings-daemon.plugins.color",
+                        "night-light-enabled",
+                        "false",
+                    ],
                     timeout=5,
                 )
             except Exception as e:
@@ -92,7 +92,9 @@ class NightlightSession:
             try:
                 self._holder = subprocess.Popen(
                     [sys.executable, "-m", "tksteamlaunch.nightlight_holder"],
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
                 )
                 # holder prints "cookie=N" on success; give it a moment
                 deadline = time.time() + 5
@@ -128,9 +130,13 @@ class NightlightSession:
             try:
                 val = "true" if self._gnome_prev == "true" else "false"
                 subprocess.run(
-                    ["gsettings", "set",
-                     "org.gnome.settings-daemon.plugins.color",
-                     "night-light-enabled", val],
+                    [
+                        "gsettings",
+                        "set",
+                        "org.gnome.settings-daemon.plugins.color",
+                        "night-light-enabled",
+                        val,
+                    ],
                     timeout=5,
                 )
             except Exception as e:

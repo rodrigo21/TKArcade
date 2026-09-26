@@ -1,4 +1,5 @@
 """Main window: list configured games + Steam library."""
+
 from __future__ import annotations
 
 import shutil
@@ -84,21 +85,29 @@ class MainWindow(QMainWindow):
         self.status = QLabel()
         layout.addWidget(self.status)
 
-        layout.addLayout(self._button_row((
-            ("Add Game...", self._add),
-            ("Edit...", self._edit_selected),
-            ("Remove", self._remove_selected),
-            ("History...", self._show_history),
-            ("Reload", self.refresh),
-        )))
-        layout.addLayout(self._button_row((
-            ("Copy Launch Options", self._copy_launch),
-            ("Open Ludusavi...", self._open_ludusavi),
-            ("Global Defaults...", self._edit_defaults),
-            ("Open Logs Folder", self._open_logs),
-            ("Export...", self._export_configs),
-            ("Import...", self._import_configs),
-        )))
+        layout.addLayout(
+            self._button_row(
+                (
+                    ("Add Game...", self._add),
+                    ("Edit...", self._edit_selected),
+                    ("Remove", self._remove_selected),
+                    ("History...", self._show_history),
+                    ("Reload", self.refresh),
+                )
+            )
+        )
+        layout.addLayout(
+            self._button_row(
+                (
+                    ("Copy Launch Options", self._copy_launch),
+                    ("Open Ludusavi...", self._open_ludusavi),
+                    ("Global Defaults...", self._edit_defaults),
+                    ("Open Logs Folder", self._open_logs),
+                    ("Export...", self._export_configs),
+                    ("Import...", self._import_configs),
+                )
+            )
+        )
         self.refresh()
 
     @staticmethod
@@ -203,9 +212,7 @@ class MainWindow(QMainWindow):
         unconfigured = [(a, n) for a, n in games if a not in configured]
         if unconfigured:
             labels = [f"{n} [{a}]" for a, n in unconfigured]
-            choice, ok = QInputDialog.getItem(
-                self, "Add Game", "Steam game:", labels, 0, True
-            )
+            choice, ok = QInputDialog.getItem(self, "Add Game", "Steam game:", labels, 0, True)
             if ok and choice:
                 import re
 
@@ -253,7 +260,9 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QFileDialog
 
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export Configurations", "tksteamlaunch-configs.tar.gz",
+            self,
+            "Export Configurations",
+            "tksteamlaunch-configs.tar.gz",
             "Archives (*.tar.gz)",
         )
         if not path:
@@ -269,7 +278,9 @@ class MainWindow(QMainWindow):
         from PySide6.QtWidgets import QFileDialog
 
         path, _ = QFileDialog.getOpenFileName(
-            self, "Import Configurations", "",
+            self,
+            "Import Configurations",
+            "",
             "Archives (*.tar.gz)",
         )
         if not path:
@@ -309,7 +320,8 @@ class MainWindow(QMainWindow):
             return
         if "/flatpak/" in exe or "flatpak" in exe:
             QMessageBox.warning(
-                self, "TKSteamLaunch",
+                self,
+                "TKSteamLaunch",
                 "Flatpak Ludusavi detected: it may not see Proton prefixes. "
                 "Prefer the standalone binary.",
             )

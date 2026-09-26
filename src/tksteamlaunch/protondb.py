@@ -1,4 +1,5 @@
 """ProtonDB tier lookups with a 30-day disk cache (stdlib urllib)."""
+
 from __future__ import annotations
 
 import json
@@ -49,9 +50,7 @@ def fetch(appid: str, timeout: int = 15) -> dict | None:
     if not str(appid).isdigit():
         return None
     try:
-        with urllib.request.urlopen(
-            ENDPOINT.format(appid=appid), timeout=timeout
-        ) as response:
+        with urllib.request.urlopen(ENDPOINT.format(appid=appid), timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
     except Exception as e:
         log.debug("protondb fetch failed for %s: %s", appid, e)

@@ -1,4 +1,5 @@
 """Session history dialog (reads the global launcher.log)."""
+
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
@@ -36,9 +37,7 @@ class HistoryDialog(QDialog):
             table.setItem(row, 0, QTableWidgetItem(names.get(s.appid, s.appid)))
             table.setItem(row, 1, QTableWidgetItem(s.last.replace("T", " ")))
             table.setItem(row, 2, QTableWidgetItem(str(s.runs)))
-            table.setItem(
-                row, 3, QTableWidgetItem(format_duration(s.total_dur))
-            )
+            table.setItem(row, 3, QTableWidgetItem(format_duration(s.total_dur)))
             table.setItem(row, 4, QTableWidgetItem(str(s.fails)))
         layout.addWidget(table)
         btns = QDialogButtonBox(QDialogButtonBox.Close)

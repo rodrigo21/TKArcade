@@ -6,6 +6,7 @@ then waits for SIGTERM/SIGINT and calls uninhibit(cookie).
 
 Usage: python -m tksteamlaunch.nightlight_holder
 """
+
 from __future__ import annotations
 
 import signal

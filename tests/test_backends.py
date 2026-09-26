@@ -21,13 +21,20 @@ from tksteamlaunch.launcher import (
 
 
 def test_swap_proton_run_marker():
-    assert swap_proton_executable(
-        ["/p/proton", "run", "/g/old.exe", "-x"], "/g/new.exe"
-    ) == ["/p/proton", "run", "/g/new.exe", "-x"]
+    assert swap_proton_executable(["/p/proton", "run", "/g/old.exe", "-x"], "/g/new.exe") == [
+        "/p/proton",
+        "run",
+        "/g/new.exe",
+        "-x",
+    ]
 
 
 def test_swap_proton_dashdash_marker():
-    assert swap_proton_executable(["a", "--", "old"], "new") == ["a", "--", "old".replace("old", "new")]
+    assert swap_proton_executable(["a", "--", "old"], "new") == [
+        "a",
+        "--",
+        "old".replace("old", "new"),
+    ]
 
 
 def test_swap_native_argv0():
@@ -165,13 +172,21 @@ def test_prepost_echo_and_failure():
 
 def test_prepost_shell_receives_env():
     rc = pp.run_hook(
-        "t", "/bin/sh", ["-c", 'test "$TK_TEST" = hello'],
-        timeout=10, run_in_shell=False, extra_env={"TK_TEST": "hello"},
+        "t",
+        "/bin/sh",
+        ["-c", 'test "$TK_TEST" = hello'],
+        timeout=10,
+        run_in_shell=False,
+        extra_env={"TK_TEST": "hello"},
     )
     assert rc == 0
     rc = pp.run_hook(
-        "t", "test \"$TK_TEST\" = hello", [], timeout=10,
-        run_in_shell=True, extra_env={"TK_TEST": "hello"},
+        "t",
+        'test "$TK_TEST" = hello',
+        [],
+        timeout=10,
+        run_in_shell=True,
+        extra_env={"TK_TEST": "hello"},
     )
     assert rc == 0
 
@@ -201,12 +216,8 @@ def test_resolve_appid(monkeypatch):
 def test_list_games_fake_root(monkeypatch, tmp_path, xdg_env):
     root = tmp_path / "steamapps"
     root.mkdir()
-    (root / "appmanifest_10.acf").write_text(
-        '"AppState"\n{\n"appid" "10"\n"name" "B Game"\n}\n'
-    )
-    (root / "appmanifest_9.acf").write_text(
-        '"AppState"\n{\n"appid" "9"\n"name" "A Game"\n}\n'
-    )
+    (root / "appmanifest_10.acf").write_text('"AppState"\n{\n"appid" "10"\n"name" "B Game"\n}\n')
+    (root / "appmanifest_9.acf").write_text('"AppState"\n{\n"appid" "9"\n"name" "A Game"\n}\n')
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
     assert S.list_games() == [("9", "A Game"), ("10", "B Game")]
 

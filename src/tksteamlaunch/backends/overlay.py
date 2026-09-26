@@ -1,4 +1,5 @@
 """gamescope / mangohud prefix builders."""
+
 from __future__ import annotations
 
 import os
@@ -21,8 +22,7 @@ MANGOHUD_TEMPLATES: dict[str, str] = {
     "minimal": "# Minimal MangoHud overlay\nfps\nframetime\n",
     "fps-cap": "# FPS limiter overlay\nfps_limit=60\nfps\nframetime\n",
     "full": (
-        "# Full metrics overlay\nfps\nframetime\nframe_timing\n"
-        "cpu_stats\ngpu_stats\nram\nvram\n"
+        "# Full metrics overlay\nfps\nframetime\nframe_timing\ncpu_stats\ngpu_stats\nram\nvram\n"
     ),
 }
 

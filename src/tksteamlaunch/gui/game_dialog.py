@@ -1,4 +1,5 @@
 """Game editor dialog with tabs. Also used for global defaults."""
+
 from __future__ import annotations
 
 import os
@@ -104,8 +105,12 @@ class BulkEnvDialog(QDialog):
 
 class GameDialog(QDialog):
     def __init__(
-        self, parent, appid: str = "", name: str = "",
-        defaults_mode: bool = False, launch_mode: bool = False,
+        self,
+        parent,
+        appid: str = "",
+        name: str = "",
+        defaults_mode: bool = False,
+        launch_mode: bool = False,
     ) -> None:
         super().__init__(parent)
         self.defaults_mode = defaults_mode
@@ -116,7 +121,9 @@ class GameDialog(QDialog):
             self.setWindowTitle("Global Defaults")
             self.cfg = cfgmod.load_defaults()
         else:
-            self.setWindowTitle(f"Game Settings — {name} ({appid})" if name else f"Game Settings ({appid})")
+            self.setWindowTitle(
+                f"Game Settings — {name} ({appid})" if name else f"Game Settings ({appid})"
+            )
             if cfgmod.game_file(appid).exists():
                 self.cfg = cfgmod.load(appid)
             else:
@@ -163,9 +170,7 @@ class GameDialog(QDialog):
         gf.addRow("Custom Command Prefix:", self.e_prefix)
         self.e_prefix.textChanged.connect(self._update_prefix_status)
         self.c_notify = QCheckBox("Notify on launch")
-        self.c_notify.setToolTip(
-            "Show a transient summary notification when the game starts."
-        )
+        self.c_notify.setToolTip("Show a transient summary notification when the game starts.")
         gf.addRow("", self.c_notify)
         if not defaults_mode:
             self.cb_profile = QComboBox()
@@ -315,13 +320,17 @@ class GameDialog(QDialog):
         self.e_luname = QLineEdit()
         self.e_luname.setPlaceholderText("Leave empty to detect the game from Steam")
         self.c_lugui = QCheckBox("Show Prompts (--gui)")
-        self.c_lugui.setToolTip("With prompts enabled, restore and backup can be declined per session.")
+        self.c_lugui.setToolTip(
+            "With prompts enabled, restore and backup can be declined per session."
+        )
         lf.addRow("", self.c_lu_enable)
         lf.addRow("", self.c_restore)
         lf.addRow("", self.c_backup)
         lf.addRow("Game Name Override:", self.e_luname)
         lf.addRow("", self.c_lugui)
-        self.l_lu_note = QLabel("With prompts enabled, restore and backup can be declined per session.")
+        self.l_lu_note = QLabel(
+            "With prompts enabled, restore and backup can be declined per session."
+        )
         self.l_lu_note.setWordWrap(True)
         lf.addRow(self.l_lu_note)
         b_coverage = QPushButton("Check Coverage...")
@@ -360,19 +369,28 @@ class GameDialog(QDialog):
             tabs.addTab(notes, "Notes")
 
         for box in (
-            self.c_feral, self.c_cachy, self.c_gs, self.c_mh, self.c_lu_enable,
+            self.c_feral,
+            self.c_cachy,
+            self.c_gs,
+            self.c_mh,
+            self.c_lu_enable,
         ):
             box.toggled.connect(self._on_feature_toggled)
 
-        layout.addWidget(self._status_box("Dependency Status", [
-            "custom_prefix",
-            "gamemoderun",
-            "game-performance",
-            "gamescope",
-            "mangohud",
-            "ludusavi",
-            "steam-options",
-        ]))
+        layout.addWidget(
+            self._status_box(
+                "Dependency Status",
+                [
+                    "custom_prefix",
+                    "gamemoderun",
+                    "game-performance",
+                    "gamescope",
+                    "mangohud",
+                    "ludusavi",
+                    "steam-options",
+                ],
+            )
+        )
 
         if defaults_mode:
             btns = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
@@ -398,8 +416,11 @@ class GameDialog(QDialog):
         layout.addWidget(btns)
 
         self._align_label_widths(
-            self.l_feral_pad, self.l_cachy_pad,
-            self.l_gs_args, self.l_mh_args, self.l_mh_conf,
+            self.l_feral_pad,
+            self.l_cachy_pad,
+            self.l_gs_args,
+            self.l_mh_args,
+            self.l_mh_conf,
         )
         self._populate()
 
@@ -537,9 +558,7 @@ class GameDialog(QDialog):
         from .. import presets as presetsmod
 
         names = sorted(presetsmod.ENV_PRESETS)
-        name, ok = QInputDialog.getItem(
-            self, "Add Env Preset", "Preset:", names, 0, False
-        )
+        name, ok = QInputDialog.getItem(self, "Add Env Preset", "Preset:", names, 0, False)
         if not ok or not name:
             return
         vars = self._table_to_env()
@@ -547,7 +566,8 @@ class GameDialog(QDialog):
         self._set_env_table(vars)
         if not added:
             QMessageBox.information(
-                self, "TKSteamLaunch",
+                self,
+                "TKSteamLaunch",
                 f"Preset '{name}': all keys already present.",
             )
 
@@ -555,9 +575,7 @@ class GameDialog(QDialog):
         from PySide6.QtWidgets import QInputDialog
 
         names = sorted(ov_backend.GAMESCOPE_PRESETS)
-        name, ok = QInputDialog.getItem(
-            self, "Gamescope Preset", "Preset:", names, 0, False
-        )
+        name, ok = QInputDialog.getItem(self, "Gamescope Preset", "Preset:", names, 0, False)
         if ok and name:
             self.e_gs_args.setText(ov_backend.GAMESCOPE_PRESETS[name])
 
@@ -586,8 +604,12 @@ class GameDialog(QDialog):
             "Empty file": "empty",
         }
         label, ok = QInputDialog.getItem(
-            self, "New MangoHud Configuration", "Start from:",
-            list(choices), 0, False,
+            self,
+            "New MangoHud Configuration",
+            "Start from:",
+            list(choices),
+            0,
+            False,
         )
         if not ok:
             return
@@ -598,9 +620,7 @@ class GameDialog(QDialog):
             QMessageBox.warning(self, "TKSteamLaunch", error)
             return
         if source == "exists":
-            QMessageBox.information(
-                self, "TKSteamLaunch", f"{path.name} already exists."
-            )
+            QMessageBox.information(self, "TKSteamLaunch", f"{path.name} already exists.")
         self._refresh_mangohud_configs()
         idx = self.cb_mh_conf.findData(path.name)
         if idx >= 0:
@@ -656,8 +676,7 @@ class GameDialog(QDialog):
 
     def _update_lu_state(self) -> None:
         on = self.c_lu_enable.isChecked()
-        for w in (self.c_restore, self.c_backup, self.e_luname,
-                  self.c_lugui, self.l_lu_note):
+        for w in (self.c_restore, self.c_backup, self.e_luname, self.c_lugui, self.l_lu_note):
             w.setEnabled(on)
 
     def _check_coverage(self) -> None:
@@ -667,9 +686,7 @@ class GameDialog(QDialog):
         self._collect()
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            status, detail = lu_backend.check_coverage(
-                self.appid, self.cfg.ludusavi.name_override
-            )
+            status, detail = lu_backend.check_coverage(self.appid, self.cfg.ludusavi.name_override)
         finally:
             QApplication.restoreOverrideCursor()
         messages = {
@@ -681,9 +698,7 @@ class GameDialog(QDialog):
             ),
             "unavailable": f"Could not check coverage:\n{detail}",
         }
-        QMessageBox.information(
-            self, "TKSteamLaunch", messages.get(status, detail)
-        )
+        QMessageBox.information(self, "TKSteamLaunch", messages.get(status, detail))
 
     @staticmethod
     def _align_label_widths(*labels: QLabel) -> None:
@@ -722,10 +737,7 @@ class GameDialog(QDialog):
         colors = _STATUS_COLORS_DARK if self._dark else _STATUS_COLORS_LIGHT
         mark = _STATUS_MARKS.get(kind, "●")
         color = colors.get(kind, colors["note"])
-        return (
-            f'<span style="color:{color}; font-weight:bold;">{mark}</span>'
-            f" {html.escape(text)}"
-        )
+        return f'<span style="color:{color}; font-weight:bold;">{mark}</span> {html.escape(text)}'
 
     def _set_status(self, key: str, kind: str, text: str) -> None:
         label = self._status_labels.get(key)
@@ -741,12 +753,8 @@ class GameDialog(QDialog):
             "game-performance",
             *_binary_status("game-performance", self.c_cachy.isChecked()),
         )
-        self._set_status(
-            "gamescope", *_binary_status("gamescope", self.c_gs.isChecked())
-        )
-        self._set_status(
-            "mangohud", *_binary_status("mangohud", self.c_mh.isChecked())
-        )
+        self._set_status("gamescope", *_binary_status("gamescope", self.c_gs.isChecked()))
+        self._set_status("mangohud", *_binary_status("mangohud", self.c_mh.isChecked()))
         self._refresh_ludusavi_status()
         self._update_prefix_status()
         self._refresh_steam_status()
@@ -778,7 +786,8 @@ class GameDialog(QDialog):
         exe = shutil.which("ludusavi")
         if exe and ("/flatpak/" in exe or "flatpak" in exe):
             self._set_status(
-                "ludusavi", "note",
+                "ludusavi",
+                "note",
                 f"ludusavi via Flatpak ({exe}) — may not see Proton prefixes",
             )
         else:
@@ -787,9 +796,7 @@ class GameDialog(QDialog):
     def _update_prefix_status(self) -> None:
         prefix = self.e_prefix.text().strip()
         if not prefix:
-            self._set_status(
-                "custom_prefix", "ok", "No custom prefix — game launches directly"
-            )
+            self._set_status("custom_prefix", "ok", "No custom prefix — game launches directly")
             return
         try:
             parts = shlex.split(prefix)
@@ -809,9 +816,13 @@ class GameDialog(QDialog):
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()
-        self.cfg.pre_post.pre_args = shlex.split(self.e_pre_args.text()) if self.e_pre_args.text().strip() else []
+        self.cfg.pre_post.pre_args = (
+            shlex.split(self.e_pre_args.text()) if self.e_pre_args.text().strip() else []
+        )
         self.cfg.pre_post.post_command = self.e_post.text().strip()
-        self.cfg.pre_post.post_args = shlex.split(self.e_post_args.text()) if self.e_post_args.text().strip() else []
+        self.cfg.pre_post.post_args = (
+            shlex.split(self.e_post_args.text()) if self.e_post_args.text().strip() else []
+        )
         self.cfg.pre_post.timeout = int(self.s_timeout.value())
         self.cfg.pre_post.run_in_shell = bool(self.c_shell.isChecked())
         self.cfg.gamemode.feral_gamemode = self.c_feral.isChecked()
