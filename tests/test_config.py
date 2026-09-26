@@ -166,3 +166,12 @@ def test_import_missing_file(xdg_env, tmp_path):
         pass
     else:
         raise AssertionError("missing file accepted")
+
+
+def test_show_menu_roundtrip(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "70"
+    cfg.general.show_menu = True
+    C.save(cfg)
+    assert C.load("70").general.show_menu is True
+    assert C.load("71").general.show_menu is False

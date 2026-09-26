@@ -27,6 +27,10 @@ Breaking config changes are called out explicitly under `Changed`.
 - Session-end notification with playtime.
 - Detected Proton runtime shown read-only in the game dialog.
 - Ludusavi coverage check (manifest entry + local saves via preview).
+- Pre-launch menu: `--menu` flag and per-game `show_menu` setting
+  (Launch / Settings / Cancel, display fallback launches directly).
+- `--edit` accepts a positional AppID and shows a game picker when
+  no AppID is given.
 
 ### Changed
 - **BREAKING:** `nightlight.provider = "kde"` no longer recognized

@@ -183,3 +183,31 @@ def test_global_log_carries_duration(xdg_env):
     assert _run(env, "--appid", "11", "/bin/true").returncode == 0
     line = (xdg.app_state_dir() / "launcher.log").read_text()
     assert "appid=11" in line and " dur=" in line
+
+
+def test_peel_edit_appid():
+    from tksteamlaunch.launcher import peel_edit_appid
+
+    assert peel_edit_appid(["588950"]) == ("588950", [])
+    assert peel_edit_appid(["/bin/echo", "hi"]) == ("", ["/bin/echo", "hi"])
+    assert peel_edit_appid([]) == ("", [])
+    assert peel_edit_appid(["12", "34"]) == ("", ["12", "34"])
+
+
+def test_menu_without_display_launches_directly(xdg_env, monkeypatch):
+    _save("6", general={"show_menu": True})
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    r = _run(_env(xdg_env), "--appid", "6", "--menu", "--", "/bin/echo", "hi")
+    assert r.returncode == 0
+    r = _run(_env(xdg_env), "--appid", "6", "--", "/bin/echo", "hi")
+    assert r.returncode == 0
+    log = xdg_env["state"] / "tksteamlaunch" / "games" / "6.log"
+    assert "launching directly" in log.read_text()
+
+
+def test_edit_positional_appid_without_display(xdg_env, monkeypatch):
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    r = _run(_env(xdg_env), "--edit", "7")
+    assert r.returncode == 15

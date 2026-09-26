@@ -347,7 +347,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument(
         "--edit",
         action="store_true",
-        help="open the game settings dialog before launching (needs a display)",
+        help="open the game settings dialog (needs a display); "
+        "takes an optional positional AppID, otherwise shows a game picker",
+    )
+    p.add_argument(
+        "--menu",
+        action="store_true",
+        help="show the pre-launch menu before starting the game "
+        "(needs a display; launches directly without one)",
     )
     p.add_argument("--verbose", action="store_true")
     p.add_argument("--version", action="store_true")
@@ -357,30 +364,93 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
-def run_editor(appid: str) -> str:
-    """Open the game settings dialog. Returns 'launch', 'saved' or 'cancelled'.
+def peel_edit_appid(game_cmd: list[str]) -> tuple[str, list[str]]:
+    """Split a lone all-digit positional off an --edit command line.
 
-    'unavailable' when PySide6 or a display is missing (exit 15). Qt is
-    imported lazily so the plain CLI stays stdlib-only.
+    Returns (appid, remaining_cmd). Only a single bare token qualifies,
+    so real game commands are never affected.
     """
+    if len(game_cmd) == 1 and game_cmd[0].isdigit():
+        return game_cmd[0], []
+    return "", list(game_cmd)
+
+
+def pick_game_appid() -> str:
+    """Show a game picker dialog. Returns the AppID or '' when cancelled.
+
+    Callers must ensure PySide6 and a display exist (use run_editor,
+    which reports 'unavailable' otherwise).
+    """
+    from PySide6.QtWidgets import QApplication, QInputDialog
+
+    app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
+    names = {a: n for a, n in steammod.list_games()}
+    configured = set(cfgmod.list_appids())
+    entries = [(a, names.get(a, a)) for a in configured]
+    entries += [(a, n) for a, n in names.items() if a not in configured]
+    if not entries:
+        return ""
+    labels = [f"{n} [{a}]" for a, n in entries]
+    choice, ok = QInputDialog.getItem(None, "Edit Game", "Game:", labels, 0, False)
+    if not ok or not choice:
+        return ""
+    for appid, _name in entries:
+        if choice.endswith(f"[{appid}]"):
+            return appid
+    return ""
+
+
+def _ensure_qapp(tool: str) -> bool:
+    """Lazy Qt import + display check. False means 'unavailable'."""
     try:
-        from PySide6.QtWidgets import QApplication, QDialog
+        from PySide6.QtWidgets import QApplication  # noqa: F401
     except ImportError:
-        print("tksteamlaunch: --edit needs PySide6 installed", file=sys.stderr)
-        return "unavailable"
+        print(f"tksteamlaunch: {tool} needs PySide6 installed", file=sys.stderr)
+        return False
     if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-        print("tksteamlaunch: --edit needs a display", file=sys.stderr)
-        return "unavailable"
+        print(f"tksteamlaunch: {tool} needs a display", file=sys.stderr)
+        return False
+    return True
+
+
+def run_editor_menu(appid: str, for_menu: bool = False) -> tuple[str, str]:
+    """Open the game settings dialog. Returns (outcome, appid).
+
+    An empty appid opens a game picker first. Outcomes: 'launch',
+    'saved', 'cancelled' or 'unavailable'. Qt is imported lazily so
+    the plain CLI stays stdlib-only.
+    """
+    tool = "--menu" if for_menu else "--edit"
+    if not _ensure_qapp(tool):
+        return "unavailable", appid
+    from PySide6.QtWidgets import QApplication, QDialog
+
     from .gui.game_dialog import GameDialog
 
     # Reference kept alive: the dialog needs a living QApplication during exec.
     app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
+    if not appid:
+        appid = pick_game_appid()
+        if not appid:
+            return "cancelled", ""
     names = {a: n for a, n in steammod.list_games()}
     dlg = GameDialog(None, appid, names.get(appid, ""), launch_mode=True)
     result = dlg.exec()
     if int(result) != int(QDialog.DialogCode.Accepted):
-        return "cancelled"
-    return "launch" if dlg.launch_requested else "saved"
+        return "cancelled", appid
+    return ("launch" if dlg.launch_requested else "saved"), appid
+
+
+def run_editor(appid: str) -> str:
+    """Open the game settings dialog. Returns 'launch', 'saved' or 'cancelled'.
+
+    An empty appid opens a game picker first ('cancelled' when dismissed).
+
+    'unavailable' when PySide6 or a display is missing (exit 15). Qt is
+    imported lazily so the plain CLI stays stdlib-only.
+    """
+    outcome, _appid = run_editor_menu(appid)
+    return outcome
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -426,29 +496,55 @@ def main(argv: list[str] | None = None) -> int:
     if game_cmd and game_cmd[0] == "--":
         game_cmd = game_cmd[1:]
 
+    if args.edit and not args.appid:
+        # --edit 588950: a lone all-digit token is the AppID, not a command.
+        peeled, game_cmd = peel_edit_appid(game_cmd)
+        if peeled:
+            args.appid = peeled
+
     appid = steammod.resolve_appid(args.appid)
-    if not appid:
+    if not appid and not args.edit:
         setup_logging("", args.verbose)
         log.error("cannot resolve AppID (use --appid or STEAMAPPID env). game_cmd=%r", game_cmd)
         print("tksteamlaunch: cannot resolve AppID", file=sys.stderr)
         return 10
     setup_logging(appid, args.verbose)
 
-    if args.edit:
-        outcome = run_editor(appid)
+    if args.edit or args.menu:
+        outcome, appid = run_editor_menu(appid, for_menu=args.menu and not args.edit)
         if outcome == "unavailable":
-            log.error("--edit unavailable (needs PySide6 and a display)")
-            return 15
-        if outcome == "cancelled":
+            if args.edit and not args.menu:
+                log.error("--edit unavailable (needs PySide6 and a display)")
+                return 15
+            log.warning("--menu unavailable (needs PySide6 and a display); launching directly")
+        elif outcome == "cancelled":
             log.info("launch cancelled in editor")
             return 0
-        if outcome == "saved":
+        elif outcome == "saved" and args.edit and not args.menu:
             log.info("config saved in editor, launch skipped")
             return 0
-        # "launch": fall through with the freshly saved config
+        # "launch", or "saved" from the pre-launch menu: (re)load config below
+        # and continue into the pipeline.
+        if not appid:
+            log.error("cannot resolve AppID (use --appid or STEAMAPPID env)")
+            print("tksteamlaunch: cannot resolve AppID", file=sys.stderr)
+            return 10
+        setup_logging(appid, args.verbose)
 
     cfg = cfgmod.load(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
+
+    if (args.menu or cfg.general.show_menu) and not args.edit:
+        outcome, picked = run_editor_menu(appid, for_menu=True)
+        if outcome == "unavailable":
+            log.warning("--menu unavailable (needs PySide6 and a display); launching directly")
+        elif outcome == "cancelled":
+            log.info("launch cancelled in pre-launch menu")
+            return 0
+        else:
+            # "launch" or "saved": reload the freshly saved config and continue.
+            appid = picked or appid
+            cfg = cfgmod.load(appid)
 
     # Sentinel file so the real game exit code survives `ludusavi wrap`
     # (which returns 0 even when the game crashes). Empty = wrap off.

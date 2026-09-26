@@ -169,6 +169,12 @@ class GameDialog(QDialog):
         )
         gf.addRow("Custom Command Prefix:", self.e_prefix)
         self.e_prefix.textChanged.connect(self._update_prefix_status)
+        self.c_show_menu = QCheckBox("Show menu before launch")
+        self.c_show_menu.setToolTip(
+            "Show the pre-launch menu (Launch / Settings / Cancel) "
+            "on every Steam start. Also forced by the --menu flag."
+        )
+        gf.addRow("", self.c_show_menu)
         self.c_notify = QCheckBox("Notify on launch")
         self.c_notify.setToolTip("Show a transient summary notification when the game starts.")
         gf.addRow("", self.c_notify)
@@ -440,6 +446,7 @@ class GameDialog(QDialog):
             self.e_runtime.setText(self._detect_runtime_text())
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
+        self.c_show_menu.setChecked(c.general.show_menu)
         self.c_notify.setChecked(c.notifications.notify_on_launch)
         if not self.defaults_mode:
             self._refresh_profiles()
@@ -814,6 +821,7 @@ class GameDialog(QDialog):
         self.cfg.general.game_type = self.cb_gametype.currentText()
         self.cfg.general.custom_executable = self.e_exe.text().strip()
         self.cfg.general.custom_prefix = self.e_prefix.text().strip()
+        self.cfg.general.show_menu = self.c_show_menu.isChecked()
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()

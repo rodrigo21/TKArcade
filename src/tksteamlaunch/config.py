@@ -39,6 +39,7 @@ class GeneralConfig:
     appid: str = ""
     custom_executable: str = ""
     game_type: str = "auto"  # auto|proton|native
+    show_menu: bool = False  # pre-launch menu (also forced by --menu flag)
     custom_prefix: str = ""  # e.g. "zink-run", innermost command wrapper
 
 
@@ -261,7 +262,7 @@ def save_defaults(cfg: GameConfig) -> Path:
 
 # Single source of truth for known sections/keys (load, save, extra).
 SECTION_KEYS: dict[str, set[str]] = {
-    "general": {"appid", "custom_executable", "game_type", "custom_prefix"},
+    "general": {"appid", "custom_executable", "game_type", "show_menu", "custom_prefix"},
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
     "gamemode": {"feral_gamemode", "cachyos_game_performance"},
@@ -315,6 +316,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     g = _section(data, "general")
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
     cfg.general.game_type = str(g.get("game_type", "auto"))
+    cfg.general.show_menu = bool(g.get("show_menu", False))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (

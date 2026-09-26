@@ -137,6 +137,17 @@ def test_coverage_button(qapp, xdg_env, monkeypatch, tmp_path):
     assert d.result() == 0
 
 
+def test_show_menu_checkbox_roundtrip(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "22", "T")
+    assert d.c_show_menu.isChecked() is False
+    d.c_show_menu.setChecked(True)
+    d.accept()
+    assert C.load("22").general.show_menu is True
+
+
 def test_coverage_button_hidden_in_defaults_mode(qapp, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
 
