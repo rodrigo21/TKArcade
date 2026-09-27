@@ -348,6 +348,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="tksteamlaunch",
         description="Minimal Steam launch wrapper. Use in Steam as: tksteamlaunch %command%",
+        epilog="exit codes: 0 ok (game code when it runs); 10 AppID not resolved; "
+        "11 empty game command; 12 pre-launch hook failed; 13 game executable "
+        "not found; 14 custom prefix binary not found; 15 display needed but "
+        "missing; 16 export/import failed; 17 validation issues found",
     )
     p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")
@@ -379,8 +383,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="show the pre-launch menu before starting the game "
         "(needs a display; launches directly without one)",
     )
-    p.add_argument("--verbose", action="store_true")
-    p.add_argument("--version", action="store_true")
+    p.add_argument("--verbose", action="store_true", help="debug logging to the per-game log")
+    p.add_argument("--version", action="store_true", help="print the version and exit")
     p.add_argument(
         "command", nargs=argparse.REMAINDER, help="game command (after -- or %%command%%)"
     )
@@ -485,18 +489,6 @@ def _run_editor_inprocess(appid: str, for_menu: bool, can_launch: bool) -> tuple
     if int(result) != int(QDialog.DialogCode.Accepted):
         return "cancelled", appid
     return ("launch" if dlg.launch_requested else "saved"), appid
-
-
-def run_editor(appid: str) -> str:
-    """Open the game settings dialog. Returns 'launch', 'saved' or 'cancelled'.
-
-    An empty appid opens a game picker first ('cancelled' when dismissed).
-
-    'unavailable' when PySide6 or a display is missing (exit 15). Qt is
-    imported lazily so the plain CLI stays stdlib-only.
-    """
-    outcome, _appid = run_editor_menu(appid)
-    return outcome
 
 
 def main(argv: list[str] | None = None) -> int:

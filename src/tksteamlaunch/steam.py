@@ -107,8 +107,19 @@ def _parse_acf_name(path: Path) -> tuple[str, str]:
     return (m_id.group(1) if m_id else ""), (m_name.group(1) if m_name else "")
 
 
+_GAMES_CACHE: dict[tuple[str, str], list[tuple[str, str]]] = {}
+
+
+def _roots_key() -> tuple[str, str]:
+    return (os.environ.get("HOME", ""), os.environ.get("STEAM_ROOT", ""))
+
+
 def list_games() -> list[tuple[str, str]]:
-    """Return sorted [(appid, name)]."""
+    """Return sorted [(appid, name)]. Cached per process (keyed by env)."""
+    key = _roots_key()
+    hit = _GAMES_CACHE.get(key)
+    if hit is not None:
+        return hit
     games: dict[str, str] = {}
     for lib in library_paths():
         try:
@@ -123,7 +134,9 @@ def list_games() -> list[tuple[str, str]]:
                     games[appid] = name or appid
         except Exception:
             continue
-    return sorted(games.items(), key=lambda kv: kv[1].lower())
+    result = sorted(games.items(), key=lambda kv: kv[1].lower())
+    _GAMES_CACHE[key] = result
+    return result
 
 
 def find_game_icon(appid: str) -> Path | None:

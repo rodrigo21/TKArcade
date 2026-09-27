@@ -33,6 +33,9 @@ Breaking config changes are called out explicitly under `Changed`.
   no AppID is given.
 
 ### Changed
+- Build backend setuptools → hatchling; local install via
+  `uv venv --system-site-packages` + `uv pip install --no-deps .`.
+- `--help` documents the exit-code contract.
 - **BREAKING:** `nightlight.provider = "kde"` no longer recognized
   (renamed to `"plasma"`); unknown values fall back to auto-detect.
 - **BREAKING:** legacy ludusavi keys (`enable_restore`, `enable_backup`,

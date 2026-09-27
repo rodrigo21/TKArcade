@@ -318,3 +318,9 @@ def test_editor_menu_spawn_fallback_headless(monkeypatch):
     monkeypatch.delenv("DISPLAY", raising=False)
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     assert L.run_editor_menu("42") == ("unavailable", "42")
+
+
+def test_help_documents_exit_codes(xdg_env):
+    r = _run(_env(xdg_env), "--help")
+    assert r.returncode == 0
+    assert "exit codes" in r.stdout and "10 AppID" in r.stdout

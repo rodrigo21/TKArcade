@@ -511,3 +511,17 @@ def test_coverage_bytes_coercion(monkeypatch):
 
     monkeypatch.setattr(lu.subprocess, "run", fake_run)
     assert lu.check_coverage("1") == ("covered", "Entry 'G': 2 file(s), 0 bytes")
+
+
+def test_list_games_cached_per_process(monkeypatch, tmp_path):
+    root = tmp_path / "steamapps"
+    root.mkdir()
+    (root / "appmanifest_1.acf").write_text('"AppState"\n{\n"appid" "1"\n"name" "Solo"\n}\n')
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    first = S.list_games()
+    assert first == [("1", "Solo")]
+    (root / "appmanifest_2.acf").write_text('"AppState"\n{\n"appid" "2"\n"name" "Duo"\n}\n')
+    assert S.list_games() is first  # cached: no rescan
+    S._GAMES_CACHE.clear()
+    assert S.list_games() == [("2", "Duo"), ("1", "Solo")]

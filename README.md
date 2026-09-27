@@ -4,57 +4,117 @@ Minimal Steam launch wrapper (inspired by steamtinkerlaunch), in Python 3.12+.
 
 GPLv3-or-later. See `LICENSE`.
 
+## Install (local test with uv)
+
+```bash
+# one-time: install uv itself (no root needed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+cd TKSteamLaunch
+uv venv --system-site-packages .venv   # reuses system PySide6/vdf/jeepney
+uv pip install --python .venv/bin/python --no-deps .
+```
+
+This installs the three entry points using the distro's Qt packages
+(536 KB venv instead of ~650 MB of PyPI Qt):
+
+| Command | Purpose |
+|---|---|
+| `tksteamlaunch` | Launcher used in Steam Launch Options |
+| `tksteamlaunch-gui` | Settings GUI |
+| `tksteamlaunch-nightlight-holder` | KDE NightLight inhibitor (spawned automatically) |
+
+Run without installing: `PYTHONPATH=src python3 -m tksteamlaunch.gui.app`.
+Delete `.venv/` to start over. A native Arch package (`PKGBUILD`) is planned.
+
 ## Steam usage
 
-Game Launch Options:
+Set the game's Launch Options to one of:
 
 ```
 tksteamlaunch %command%
+tksteamlaunch --menu %command%     # pre-launch menu (Launch / Settings / Cancel)
 ```
 
-## MVP features
+The AppID resolves automatically from the Steam environment. Logs go to
+`$XDG_STATE_HOME/tksteamlaunch/games/<appid>.log` (full) plus a one-line
+entry per run in `launcher.log`.
 
-- Per-game env vars (table + bulk edit)
-- Custom executable (Proton prefix swap or native argv[0], auto-detected)
-- Custom command prefix (innermost wrapper, e.g. `zink-run`; missing binary aborts launch)
-- Global defaults (`defaults.toml`) as a template: copied into new games on add/reset
-- Feral `gamemoderun` + CachyOS `game-performance`
-- `gamescope`, `mangohud` (config file picker sets `MANGOHUD_CONFIGFILE`)
-- `ludusavi` via `wrap` (`--infer steam` or `--name`, `--no-restore`/`--no-backup`, `--gui`;
-  real game exit code recovered through a sentinel file)
-- Pre-launch/post-exit commands (executable + args, `shell=False`, with `run_in_shell` opt-in)
-- Night Light: KDE via persistent `inhibit/uninhibit` holder, GNOME via `gsettings`
+## GUI guide
 
-## Config (XDG)
+* **Configured Games** — double-click to edit; icons come from the Steam
+  `librarycache`. `Add Game...` offers detected Steam games first.
+* **General** — game type (auto-detected Proton/native), custom executable,
+  custom command prefix (innermost wrapper, e.g. `zink-run`; a missing
+  binary aborts the launch with exit 14), environment variables (table +
+  bulk edit), pre-launch menu toggle, log file shortcut.
+* **Pre/Post Commands** — programs run before/after the game (executable +
+  arguments; optional shell mode; timeout; a failing pre-hook aborts
+  with exit 12).
+* **Performance** — Feral `gamemoderun` and CachyOS `game-performance`
+  (mutually exclusive, Feral wins).
+* **Gamescope & MangoHud** — wrappers plus gamescope presets and a
+  MangoHud config picker (`MANGOHUD_CONFIGFILE`); create new configs
+  from starter templates in your text editor.
+* **Ludusavi** — save restore/backup around the game via `ludusavi wrap`
+  (`--infer steam` or a name override, `--gui` prompts can decline per
+  session). Flatpak Ludusavi warns: it cannot see Proton prefixes.
+* **Night Light** — disables while playing, restores afterwards (KDE
+  Plasma inhibitor, GNOME `gsettings`).
+* **Global Defaults...** — template copied into new games; per-game
+  `Reset to Global Defaults` drops local overrides. Game files always
+  store complete snapshots; unknown keys are preserved.
 
-`$XDG_CONFIG_HOME/tksteamlaunch/games/<appid>.toml` (e.g. `~/.config/...`),
-storing each game's complete config. `defaults.toml` is only a template for
-new games — editing it never changes existing games.
-Per-game log at `$XDG_STATE_HOME/tksteamlaunch/games/<appid>.log` plus a
-one-line entry per run in `$XDG_STATE_HOME/tksteamlaunch/launcher.log`.
+## Config files (XDG)
 
-## Deps and licenses
+* `$XDG_CONFIG_HOME/tksteamlaunch/games/<appid>.toml` — per-game snapshot.
+* `$XDG_CONFIG_HOME/tksteamlaunch/defaults.toml` — new-game template only.
+* `$XDG_STATE_HOME/tksteamlaunch/games/<appid>.log` and `launcher.log`.
+* `$XDG_CACHE_HOME/tksteamlaunch/` — e.g. the ProtonDB tier cache.
 
-- `PySide6` (LGPLv3, fine with GPLv3 in the combined work) — GUI only
-- `vdf` (MIT) — GUI/Steam reading only
-- `jeepney` (MIT) — KDE NightLight holder
-- External calls (`gamemode`, `gamescope`, `mangohud`, `ludusavi`, `qdbus6`) via subprocess, no linking.
+Export/import everything with `tksteamlaunch --export FILE` /
+`--import FILE` (or the GUI buttons).
 
-## Dev without pip
+## Exit codes
 
-No `pip` on the system (e.g. CachyOS): the launcher code uses stdlib only,
-and dev tools come from system packages:
+0 ok (the game's own code when it runs); 10 AppID not resolved;
+11 empty game command; 12 pre-launch hook failed; 13 game executable
+not found; 14 custom prefix binary not found; 15 display needed but
+missing; 16 export/import failed; 17 validation issues found.
+See `tksteamlaunch --help`.
+
+## Troubleshooting
+
+* **Game starts and quits instantly** — check the per-game log; a custom
+  prefix or env var (e.g. vkBasalt) is the usual suspect. `--dry-run`
+  prints the final command without running it.
+* **Ludusavi does nothing** — the game must exist in Ludusavi (manifest
+  or custom entry); use `Open Ludusavi...` and the `Check Coverage`
+  button. The `wrap` exit code is always 0; the real game code is
+  recovered internally and logged.
+* **Night Light stuck off** — a leaked inhibitor holder may survive a
+  crash: `pkill -f nightlight-holder`.
+* **GUI looks unthemed under Steam** — the editor runs in a subprocess
+  with Steam-runtime library paths filtered out; child stderr lands in
+  the per-game log.
+
+## Development
+
+Launcher code (`launcher.py`, `config.py`, `backends/`, `proton.py`,
+`steam.py`, `xdg.py`, `nightlight_holder.py`) stays stdlib-only — it
+runs on every game start. PySide6/vdf/jeepney are for GUI/helpers only.
+Dev tools come from system packages:
 
 ```bash
 sudo pacman -S python-pytest ruff
-python3 -m pytest tests/   # full suite (needs PySide6 for GUI smoke tests)
-ruff check src/ tests/     # lint; see [tool.ruff] in pyproject.toml
-PYTHONPATH=src python3 -m tksteamlaunch.launcher --help
+python3 -m pytest tests/ -q
+ruff check src/ tests/
+ruff format --check src/ tests/  # line-length 100
+QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -c "..."  # GUI smoke
 ```
 
-The launcher itself stays dependency-free on purpose (it runs on every
-game start); only the GUI needs PySide6 and helpers need vdf/jeepney.
-Breaking config changes are recorded in `CHANGELOG.md`.
+Breaking changes are recorded in `CHANGELOG.md` (config files have no
+migration shims pre-1.0: incompatible files load as fresh built-ins).
 
 Manual Plasma check for the NightLight holder (needs a session bus):
 
