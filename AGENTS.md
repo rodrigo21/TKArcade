@@ -28,8 +28,9 @@ ruff format --check src/ tests/  # line-length 100, see pyproject.toml
 QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -c "..."  # GUI smoke
 ```
 
-GUI changes need an offscreen screenshot check. Never `git push`;
-never rewrite pushed history or tags.
+GUI changes need an offscreen screenshot check. Push at the end of each
+work session (all local commits go together); never rewrite pushed
+history or tags.
 
 ## Commits (one per area/theme)
 
