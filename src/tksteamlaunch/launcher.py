@@ -267,7 +267,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
     if cfg.nightlight.disable_during_game:
         wrappers.append("Night Light")
     names = {a: n for a, n in steammod.list_games()}
-    proton_version = protonmod.proton_version_for(appid) if game_type != "native" else None
+    proton_display = protonmod.tool_display(appid) if game_type != "native" else ""
     runtime = protonmod.native_runtime(game_cmd) if game_type == "native" else None
     icon_path = steammod.find_game_icon(appid)
     icon = str(icon_path) if icon_path else ""
@@ -278,7 +278,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
         game_type=game_type,
         wrappers=wrappers,
         custom_executable=cfg.general.custom_executable,
-        proton_version=proton_version,
+        proton_display=proton_display,
         runtime=runtime,
     )
     notify_backend.send(title, body, icon=icon, expire_ms=5000)

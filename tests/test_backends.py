@@ -306,12 +306,11 @@ def test_launch_summary_shapes():
         game_type="proton",
         wrappers=["GameMode", "MangoHud"],
         custom_executable="/g/dir/game.exe",
-        proton_version="9.0-2",
+        proton_display="Proton 9.0-2",
     )
     assert title == "TKSteamLaunch — Some Game"
     assert body.splitlines() == [
-        "Proton 9.0-2",
-        "GameMode · MangoHud",
+        "Proton 9.0-2 · GameMode · MangoHud",
         "Exe: game.exe",
     ]
     title, body = ntf.launch_summary(appid="2", game_type="native")
@@ -320,6 +319,9 @@ def test_launch_summary_shapes():
     assert body == "Proton"
     title, body = ntf.launch_summary(appid="4", game_type="native", runtime="soldier")
     assert body == "Native · soldier"
+    title, body = ntf.launch_summary(appid="5", game_type="proton", wrappers=["A", "", "B"])
+    assert body == "Proton · A · B"
+    assert all(not line.endswith((" ", "·")) for line in body.splitlines())
 
 
 def test_format_duration():
@@ -386,12 +388,12 @@ def test_proton_version_lookup(monkeypatch, tmp_path, xdg_env):
     tooldir.mkdir(parents=True)
     (tooldir / "version").write_text("GE-Proton9-15\n")
     monkeypatch.setenv("STEAM_ROOT", str(root))
-    assert pm.proton_version_for("42") == "GE-Proton9-15"
-    assert pm.proton_version_for("43") is None
+    assert pm.tool_display("42") == "GE-Proton9-15 (GE-Proton9-15)"
+    assert pm.tool_display("43") == "Proton"
 
     # stdlib regex fallback without the vdf package
     monkeypatch.setitem(sys.modules, "vdf", None)
-    assert pm.proton_version_for("42") == "GE-Proton9-15"
+    assert pm.tool_display("42") == "GE-Proton9-15 (GE-Proton9-15)"
 
 
 def test_mangohud_create_templates(xdg_env):

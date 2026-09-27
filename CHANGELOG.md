@@ -42,6 +42,10 @@ Breaking config changes are called out explicitly under `Changed`.
   files load as-is with built-in defaults for missing keys.
 
 ### Fixed
+- Start notification folds runtime and wrappers into one line and uses
+  the same Proton tool display as the game dialog (no more lone
+  "Proton" when only the tool mapping exists).
+  icons; "Launch" runs with the saved configuration, discarding
 - Settings dialogs opened from Steam no longer fall back to the Fusion
   style: the editor runs in a subprocess with Steam-runtime library
   paths filtered out of `LD_LIBRARY_PATH`.

@@ -67,12 +67,17 @@ def tool_version(tool: str) -> str | None:
     return None
 
 
-def proton_version_for(appid: str) -> str | None:
-    """Return the Proton version string for a game, or None when unknown."""
+def tool_display(appid: str) -> str:
+    """Display string for the Proton tool: 'tool (version)', 'tool', or 'Proton'.
+
+    Same rule everywhere (dialog, notifications) so both agree even when
+    only the tool mapping exists without a readable version file.
+    """
     tool = compat_tool_name(appid)
     if not tool:
-        return None
-    return tool_version(tool)
+        return "Proton"
+    version = tool_version(tool)
+    return f"{tool} ({version})" if version else tool
 
 
 def native_runtime(game_cmd: list[str]) -> str | None:

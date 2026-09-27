@@ -49,20 +49,21 @@ def launch_summary(
     game_type: str = "proton",
     wrappers: list[str] | None = None,
     custom_executable: str = "",
-    proton_version: str | None = None,
+    proton_display: str = "Proton",
     runtime: str | None = None,
 ) -> tuple[str, str]:
-    """Build (title, body) for the game-start notification. Pure function."""
+    """Build (title, body) for the game-start notification. Pure function.
+
+    The first body line folds runtime and wrappers together so no part
+    ever stands alone; blank parts are dropped (no trailing separators).
+    """
     title = f"TKSteamLaunch — {name.strip() or appid}"
     if game_type == "native":
         head = f"Native · {runtime}" if runtime else "Native"
-    elif proton_version:
-        head = f"Proton {proton_version}"
     else:
-        head = "Proton"
-    lines = [head]
-    if wrappers:
-        lines.append(" · ".join(wrappers))
+        head = (proton_display or "").strip() or "Proton"
+    parts = [head, *(wrappers or [])]
+    lines = [" · ".join(p for p in parts if p.strip())]
     if (custom_executable or "").strip():
         lines.append(f"Exe: {os.path.basename(custom_executable.strip())}")
     return title, "\n".join(lines)
