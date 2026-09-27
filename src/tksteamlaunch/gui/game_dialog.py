@@ -412,20 +412,18 @@ class GameDialog(QDialog):
         ):
             box.toggled.connect(self._on_feature_toggled)
 
-        layout.addWidget(
-            self._status_box(
-                "Dependency Status",
-                [
-                    "custom_prefix",
-                    "gamemoderun",
-                    "game-performance",
-                    "gamescope",
-                    "mangohud",
-                    "ludusavi",
-                    "steam-options",
-                ],
-            )
-        )
+        status_keys = [
+            "custom_prefix",
+            "gamemoderun",
+            "game-performance",
+            "gamescope",
+            "mangohud",
+            "ludusavi",
+        ]
+        if not defaults_mode:
+            # per-game only: Steam launch options need an AppID.
+            status_keys.append("steam-options")
+        layout.addWidget(self._status_box("Dependency Status", status_keys))
 
         if defaults_mode:
             btns = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
@@ -818,13 +816,18 @@ class GameDialog(QDialog):
             label.setText(self._render_status(kind, text))
 
     def _refresh_statuses(self) -> None:
+        feral_on = self.c_feral.isChecked()
+        cachy_on = self.c_cachy.isChecked()
+        # Mutually exclusive: hide the sidelined backend (Feral wins).
+        self._status_labels["gamemoderun"].setVisible(not cachy_on)
+        self._status_labels["game-performance"].setVisible(not feral_on)
         self._set_status(
             "gamemoderun",
-            *_binary_status("gamemoderun", self.c_feral.isChecked()),
+            *_binary_status("gamemoderun", feral_on),
         )
         self._set_status(
             "game-performance",
-            *_binary_status("game-performance", self.c_cachy.isChecked()),
+            *_binary_status("game-performance", cachy_on),
         )
         self._set_status("gamescope", *_binary_status("gamescope", self.c_gs.isChecked()))
         self._set_status("mangohud", *_binary_status("mangohud", self.c_mh.isChecked()))

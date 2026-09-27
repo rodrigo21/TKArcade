@@ -304,3 +304,31 @@ def test_launch_without_save_keeps_file(qapp, xdg_env):
     assert d.launch_requested is True
     assert C.game_file("26").read_bytes() == before
     assert C.load("26").general.custom_executable == ""
+
+
+def test_steam_options_hidden_in_defaults_mode(qapp, xdg_env):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    assert "steam-options" not in GameDialog(None, defaults_mode=True)._status_labels
+    assert "steam-options" in GameDialog(None, "31", "T")._status_labels
+
+
+def test_exclusive_backends_visibility(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    def vis(appid, feral, cachy):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.gamemode.feral_gamemode = feral
+        cfg.gamemode.cachyos_game_performance = cachy
+        C.save(cfg)
+        d = GameDialog(None, appid, "T")
+        return (
+            not d._status_labels["gamemoderun"].isHidden(),
+            not d._status_labels["game-performance"].isHidden(),
+        )
+
+    assert vis("32", False, False) == (True, True)
+    assert vis("33", True, False) == (True, False)
+    assert vis("34", False, True) == (False, True)
