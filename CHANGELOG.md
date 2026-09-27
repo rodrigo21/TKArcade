@@ -5,6 +5,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-27
+
 ### Added
 - Live launch-command preview box in dialogs (global `[ui] show_preview`
   toggle); tool toggles disable when their binaries are missing.

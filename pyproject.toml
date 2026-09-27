@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tksteamlaunch"
-version = "0.1.0"
+version = "0.3.0"
 description = "Minimal Steam launch wrapper (env, exe override, GameMode, gamescope, MangoHud, ludusavi, pre/post, night light)"
 readme = "README.md"
 requires-python = ">=3.12"
