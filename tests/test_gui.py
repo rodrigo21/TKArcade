@@ -59,7 +59,7 @@ def test_launch_mode_buttons(qapp, xdg_env):
 
     d = GameDialog(None, "21", "T", launch_mode=True)
     assert d.launch_requested is False
-    btn = next(b for b in d.findChildren(QPushButton) if "Launch" in b.text())
+    btn = next(b for b in d.findChildren(QPushButton) if b.text() == "Save && Launch")
     btn.click()
     assert d.result() == QDialog.DialogCode.Accepted
     assert d.launch_requested is True
@@ -98,7 +98,7 @@ def test_detected_runtime_row(qapp, xdg_env, monkeypatch, tmp_path):
     d = GameDialog(None, "25", "T")
     assert d.e_runtime.text() == "proton_9 (9.0-test)"
     d2 = GameDialog(None, "26", "T2")
-    assert d2.e_runtime.text() == "Proton (default tool, version unknown)"
+    assert d2.e_runtime.text() == "Proton"
 
 
 def test_preview_command(qapp, xdg_env):
@@ -271,3 +271,36 @@ def test_copy_launch_without_clipboard(qapp, xdg_env, monkeypatch):
     w = MainWindow()
     w._copy_launch()  # must not raise
     assert "unavailable" in w.status.text()
+
+
+def test_launch_buttons_order_and_icons(qapp, xdg_env):
+    from PySide6.QtWidgets import QDialogButtonBox
+
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "25", "T", launch_mode=True)
+    box = d.findChild(QDialogButtonBox)
+    texts = [b.text() for b in box.buttons()]
+    assert texts.index("Launch") < texts.index("Save") < texts.index("Save && Launch")
+    icons = {b.text(): b.icon() for b in box.buttons()}
+    assert not icons["Launch"].isNull()
+    assert not icons["Save && Launch"].isNull()
+
+
+def test_launch_without_save_keeps_file(qapp, xdg_env):
+    from PySide6.QtWidgets import QPushButton
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "26"
+    C.save(cfg)
+    before = C.game_file("26").read_bytes()
+    d = GameDialog(None, "26", "T", launch_mode=True)
+    d.e_exe.setText("/tmp/unsaved.exe")
+    btn = next(b for b in d.findChildren(QPushButton) if b.text() == "Launch")
+    btn.click()
+    assert d.launch_requested is True
+    assert C.game_file("26").read_bytes() == before
+    assert C.load("26").general.custom_executable == ""

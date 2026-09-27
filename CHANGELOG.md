@@ -45,7 +45,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Start notification folds runtime and wrappers into one line and uses
   the same Proton tool display as the game dialog (no more lone
   "Proton" when only the tool mapping exists).
+- Dialog buttons ordered Launch | Save | Save & Launch with theme
   icons; "Launch" runs with the saved configuration, discarding
+  unsaved edits.
 - Settings dialogs opened from Steam no longer fall back to the Fusion
   style: the editor runs in a subprocess with Steam-runtime library
   paths filtered out of `LD_LIBRARY_PATH`.

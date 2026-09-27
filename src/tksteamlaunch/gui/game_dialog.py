@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
+    QStyle,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -138,6 +139,7 @@ class GameDialog(QDialog):
         self.launch_mode = launch_mode and not defaults_mode
         self.can_launch = can_launch
         self.launch_requested = False
+        self._skip_save = False
         self._cov_thread: _CoverageWorker | None = None
         self._cov_run = 0
         self.appid = appid
@@ -431,16 +433,29 @@ class GameDialog(QDialog):
             b_factory.clicked.connect(self._on_reset_factory)
             btns.addButton(b_factory, QDialogButtonBox.ResetRole)
         else:
-            btns = QDialogButtonBox(
-                QDialogButtonBox.Save | QDialogButtonBox.Cancel | QDialogButtonBox.Reset
+            btns = QDialogButtonBox()
+            if self.launch_mode and self.can_launch:
+                b_launch = QPushButton("Launch")
+                b_launch.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+                b_launch.setToolTip(
+                    "Discard unsaved changes and launch with the saved configuration."
+                )
+                b_launch.clicked.connect(self._on_launch_without_save)
+                btns.addButton(b_launch, QDialogButtonBox.ButtonRole.AcceptRole)
+            btns.addButton(QDialogButtonBox.StandardButton.Save)
+            if self.launch_mode and self.can_launch:
+                b_save_launch = QPushButton("Save && Launch")
+                b_save_launch.setIcon(
+                    self.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
+                )
+                b_save_launch.setDefault(True)
+                b_save_launch.clicked.connect(self._on_save_and_launch)
+                btns.addButton(b_save_launch, QDialogButtonBox.ButtonRole.AcceptRole)
+            b_reset = btns.addButton(
+                "Reset to Global Defaults", QDialogButtonBox.ButtonRole.ResetRole
             )
-            btns.button(QDialogButtonBox.Reset).setText("Reset to Global Defaults")
-            btns.button(QDialogButtonBox.Reset).clicked.connect(self._on_reset)
-        if self.launch_mode and self.can_launch:
-            b_launch = QPushButton("Save && Launch")
-            b_launch.setDefault(True)
-            b_launch.clicked.connect(self._on_save_and_launch)
-            btns.addButton(b_launch, QDialogButtonBox.ButtonRole.AcceptRole)
+            b_reset.clicked.connect(self._on_reset)
+            btns.addButton(QDialogButtonBox.StandardButton.Cancel)
         b_preview = QPushButton("Preview Command...")
         b_preview.clicked.connect(self._on_preview)
         btns.addButton(b_preview, QDialogButtonBox.ButtonRole.ActionRole)
@@ -515,11 +530,7 @@ class GameDialog(QDialog):
             return ""
         if (self.cfg.general.game_type or "auto") == "native":
             return "Native (no Proton)"
-        tool = protonmod.compat_tool_name(self.appid)
-        if not tool:
-            return "Proton (default tool, version unknown)"
-        version = protonmod.tool_version(tool)
-        return f"{tool} ({version})" if version else tool
+        return protonmod.tool_display(self.appid)
 
     def _refresh_profiles(self) -> None:
         self.cb_profile.blockSignals(True)
@@ -911,11 +922,17 @@ class GameDialog(QDialog):
 
         QApplication.restoreOverrideCursor()
 
+    def _on_launch_without_save(self) -> None:
+        self.launch_requested = True
+        self._skip_save = True
+        self.accept()
+
     def accept(self) -> None:
         self._stop_coverage_worker()
-        self._collect()
-        if self.defaults_mode:
-            cfgmod.save_defaults(self.cfg)
-        else:
-            cfgmod.save(self.cfg)
+        if not self._skip_save:
+            self._collect()
+            if self.defaults_mode:
+                cfgmod.save_defaults(self.cfg)
+            else:
+                cfgmod.save(self.cfg)
         super().accept()
