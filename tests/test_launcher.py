@@ -219,3 +219,13 @@ def test_empty_command_skipped(xdg_env):
     assert r.returncode == 0
     log = xdg_env["state"] / "tksteamlaunch" / "games" / "8.log"
     assert "no game command to run" in log.read_text()
+
+
+def test_menu_flag_shows_editor_once_without_display(xdg_env, monkeypatch):
+    _save("9", general={})
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    r = _run(_env(xdg_env), "--appid", "9", "--menu", "--", "/bin/echo", "hi")
+    assert r.returncode == 0
+    log = xdg_env["state"] / "tksteamlaunch" / "games" / "9.log"
+    assert log.read_text().count("launching directly") == 1

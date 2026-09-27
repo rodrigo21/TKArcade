@@ -42,6 +42,8 @@ Breaking config changes are called out explicitly under `Changed`.
   files load as-is with built-in defaults for missing keys.
 
 ### Fixed
+- `--menu` flag no longer opens the pre-launch menu twice.
+- Qt/desktop environment logged per run to diagnose GUI theming.
 - NightLight holder spawned twice per launch, leaking an inhibitor;
   single spawn with idempotent start().
 - Empty game command executed a bare prefix stack; now skipped with

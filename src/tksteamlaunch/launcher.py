@@ -44,6 +44,28 @@ class PrefixNotFoundError(ValueError):
     """Raised when custom_prefix names a binary missing from PATH."""
 
 
+_GUI_ENV_KEYS = (
+    "QT_QPA_PLATFORM",
+    "QT_QPA_PLATFORMTHEME",
+    "QT_STYLE_OVERRIDE",
+    "XDG_CURRENT_DESKTOP",
+    "DESKTOP_SESSION",
+)
+
+
+def _log_gui_env() -> None:
+    """Log Qt/desktop env keys to help diagnose GUI theming issues."""
+    try:
+        shown = {k: os.environ.get(k, "") for k in _GUI_ENV_KEYS}
+        ld = os.environ.get("LD_LIBRARY_PATH", "")
+        if len(ld) > 200:
+            ld = ld[:200] + "..."
+        shown["LD_LIBRARY_PATH"] = ld
+        log.info("gui env: %r", shown)
+    except Exception:
+        pass
+
+
 def setup_logging(appid: str = "", verbose: bool = False) -> Path:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
@@ -513,13 +535,16 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = cfgmod.load(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
+    _log_gui_env()
 
+    menu_shown = False
     if args.edit or args.menu:
         outcome, appid = run_editor_menu(
             appid,
             for_menu=args.menu and not args.edit,
             can_launch=bool(game_cmd or cfg.general.custom_executable.strip()),
         )
+        menu_shown = True  # skip the config-triggered menu below in all outcomes
         if outcome == "unavailable":
             if args.edit and not args.menu:
                 log.error("--edit unavailable (needs PySide6 and a display)")
@@ -541,7 +566,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = cfgmod.load(appid)  # refresh: the editor above may have saved changes
 
-    if (args.menu or cfg.general.show_menu) and not args.edit:
+    if (args.menu or cfg.general.show_menu) and not args.edit and not menu_shown:
         outcome, picked = run_editor_menu(
             appid,
             for_menu=True,
