@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import logging
 import logging.handlers
 import os
@@ -397,57 +398,79 @@ def peel_edit_appid(game_cmd: list[str]) -> tuple[str, list[str]]:
     return "", list(game_cmd)
 
 
-def pick_game_appid() -> str:
-    """Show a game picker dialog. Returns the AppID or '' when cancelled.
-
-    Callers must ensure PySide6 and a display exist (use run_editor,
-    which reports 'unavailable' otherwise).
-    """
-    from PySide6.QtWidgets import QApplication, QInputDialog
-
-    app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
-    names = {a: n for a, n in steammod.list_games()}
-    configured = set(cfgmod.list_appids())
-    entries = [(a, names.get(a, a)) for a in configured]
-    entries += [(a, n) for a, n in names.items() if a not in configured]
-    if not entries:
-        return ""
-    labels = [f"{n} [{a}]" for a, n in entries]
-    choice, ok = QInputDialog.getItem(None, "Edit Game", "Game:", labels, 0, False)
-    if not ok or not choice:
-        return ""
-    for appid, _name in entries:
-        if choice.endswith(f"[{appid}]"):
-            return appid
-    return ""
+# Path fragments that, when present in LD_LIBRARY_PATH entries, mark them
+# as Steam-runtime pollution which breaks Qt theme plugin loading
+# (Breeze falls back to Fusion). Filtered out for GUI child processes.
+_STEAM_LIB_MARKERS = ("steam-runtime", "ubuntu12_32", ".local/share/Steam")
 
 
-def _ensure_qapp(tool: str) -> bool:
-    """Lazy Qt import + display check. False means 'unavailable'."""
-    try:
-        from PySide6.QtWidgets import QApplication  # noqa: F401
-    except ImportError:
-        print(f"tksteamlaunch: {tool} needs PySide6 installed", file=sys.stderr)
-        return False
-    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-        print(f"tksteamlaunch: {tool} needs a display", file=sys.stderr)
-        return False
-    return True
+def clean_gui_env(env: dict[str, str]) -> dict[str, str]:
+    """Copy env minus Steam-runtime library paths (pure, testable)."""
+    env = dict(env)
+    ld = env.get("LD_LIBRARY_PATH", "")
+    if ld:
+        kept = [p for p in ld.split(":") if p and not any(m in p for m in _STEAM_LIB_MARKERS)]
+        if kept:
+            env["LD_LIBRARY_PATH"] = ":".join(kept)
+        else:
+            env.pop("LD_LIBRARY_PATH", None)
+    return env
 
 
 def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True) -> tuple[str, str]:
-    """Open the game settings dialog. Returns (outcome, appid).
+    """Open the game settings dialog in a sanitized subprocess.
 
-    An empty appid opens a game picker first. Outcomes: 'launch',
-    'saved', 'cancelled' or 'unavailable'. With can_launch=False the
-    dialog offers no launch button (there is no game command to run).
-    Qt is imported lazily so the plain CLI stays stdlib-only.
+    Returns (outcome, appid). Outcomes: 'launch', 'saved', 'cancelled'
+    or 'unavailable'. A child crash is treated as 'cancelled' (never
+    launch on unknown user intent). Falls back to in-process display
+    when the child cannot even spawn.
     """
-    tool = "--menu" if for_menu else "--edit"
-    if not _ensure_qapp(tool):
+    cmd = [sys.executable, "-m", "tksteamlaunch.gui.edit"]
+    if (appid or "").strip():
+        cmd += ["--appid", appid.strip()]
+    else:
+        cmd += ["--pick"]
+    cmd += ["--can-launch" if can_launch else "--no-can-launch"]
+    try:
+        proc = subprocess.run(
+            cmd, env=clean_gui_env(dict(os.environ)), capture_output=True, text=True
+        )
+    except OSError as e:
+        log.warning("settings editor subprocess failed to spawn (%s); trying in-process", e)
+        return _run_editor_inprocess(appid, for_menu, can_launch)
+    if proc.stderr.strip():
+        for line in proc.stderr.strip().splitlines():
+            log.debug("editor child stderr: %s", line)
+    if proc.returncode == 2:
         return "unavailable", appid
-    from PySide6.QtWidgets import QApplication, QDialog
+    if proc.returncode != 0:
+        log.error("settings editor crashed (exit %s); launch cancelled", proc.returncode)
+        return "cancelled", appid
+    try:
+        data = json.loads(proc.stdout.strip().splitlines()[-1])
+        outcome = str(data.get("outcome", "cancelled"))
+        picked = str(data.get("appid", "") or appid)
+    except (ValueError, IndexError, AttributeError) as e:
+        log.error("settings editor sent bad output (%s); launch cancelled", e)
+        return "cancelled", appid
+    if outcome not in ("launch", "saved", "cancelled"):
+        log.error("settings editor sent bad outcome %r; launch cancelled", outcome)
+        return "cancelled", appid
+    return outcome, picked
 
+
+def _run_editor_inprocess(appid: str, for_menu: bool, can_launch: bool) -> tuple[str, str]:
+    """Legacy in-process fallback when the editor subprocess cannot spawn."""
+    tool = "--menu" if for_menu else "--edit"
+    try:
+        from PySide6.QtWidgets import QApplication, QDialog
+    except ImportError:
+        print(f"tksteamlaunch: {tool} needs PySide6 installed", file=sys.stderr)
+        return "unavailable", appid
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        print(f"tksteamlaunch: {tool} needs a display", file=sys.stderr)
+        return "unavailable", appid
+    from .gui.edit import pick_game_appid
     from .gui.game_dialog import GameDialog
 
     # Reference kept alive: the dialog needs a living QApplication during exec.

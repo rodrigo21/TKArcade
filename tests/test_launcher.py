@@ -229,3 +229,92 @@ def test_menu_flag_shows_editor_once_without_display(xdg_env, monkeypatch):
     assert r.returncode == 0
     log = xdg_env["state"] / "tksteamlaunch" / "games" / "9.log"
     assert log.read_text().count("launching directly") == 1
+
+
+def test_clean_gui_env():
+    from tksteamlaunch.launcher import clean_gui_env
+
+    env = {
+        "LD_LIBRARY_PATH": "/opt/intel/lib:/home/u/.local/share/Steam/ubuntu12_32/steam-runtime/pinned_libs_64:/usr/lib",
+        "DISPLAY": ":0",
+    }
+    out = clean_gui_env(env)
+    assert out["LD_LIBRARY_PATH"] == "/opt/intel/lib:/usr/lib"
+    assert out["DISPLAY"] == ":0"
+    assert env["LD_LIBRARY_PATH"].startswith("/opt/intel")  # input untouched
+    assert clean_gui_env({}) == {}
+    only_steam = {"LD_LIBRARY_PATH": "/a/steam-runtime/b"}
+    assert "LD_LIBRARY_PATH" not in clean_gui_env(only_steam)
+
+
+def test_edit_child_headless(xdg_env, monkeypatch):
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    r = _run(_env(xdg_env), "-m", "tksteamlaunch.gui.edit", "--appid", "1")
+    assert r.returncode == 2
+
+
+def test_editor_menu_parsing(monkeypatch):
+    import subprocess as sp
+
+    from tksteamlaunch import launcher as L
+
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen["cmd"] = cmd
+        seen["env"] = kw.get("env", {})
+
+        class P:
+            returncode = 0
+            stdout = '{"outcome": "launch", "appid": "42"}\n'
+            stderr = ""
+
+        return P()
+
+    monkeypatch.setattr(sp, "run", fake_run)
+    assert L.run_editor_menu("42") == ("launch", "42")
+    assert "-m" in seen["cmd"] and "tksteamlaunch.gui.edit" in seen["cmd"]
+    assert "LD_LIBRARY_PATH" not in seen["env"] or "steam-runtime" not in seen["env"].get(
+        "LD_LIBRARY_PATH", ""
+    )
+
+
+def test_editor_menu_crash_means_cancelled(monkeypatch):
+    import subprocess as sp
+
+    from tksteamlaunch import launcher as L
+
+    class P:
+        returncode = 1
+        stdout = ""
+        stderr = "boom"
+
+    monkeypatch.setattr(sp, "run", lambda *a, **k: P())
+    assert L.run_editor_menu("42") == ("cancelled", "42")
+
+
+def test_editor_menu_bad_output_cancelled(monkeypatch):
+    import subprocess as sp
+
+    from tksteamlaunch import launcher as L
+
+    class P:
+        returncode = 0
+        stdout = "not json\n"
+        stderr = ""
+
+    monkeypatch.setattr(sp, "run", lambda *a, **k: P())
+    assert L.run_editor_menu("42") == ("cancelled", "42")
+
+
+def test_editor_menu_spawn_fallback_headless(monkeypatch):
+    from tksteamlaunch import launcher as L
+
+    def boom(*a, **k):
+        raise OSError("noexec")
+
+    monkeypatch.setattr("subprocess.run", boom)
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    assert L.run_editor_menu("42") == ("unavailable", "42")

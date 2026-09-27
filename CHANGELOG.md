@@ -42,6 +42,9 @@ Breaking config changes are called out explicitly under `Changed`.
   files load as-is with built-in defaults for missing keys.
 
 ### Fixed
+- Settings dialogs opened from Steam no longer fall back to the Fusion
+  style: the editor runs in a subprocess with Steam-runtime library
+  paths filtered out of `LD_LIBRARY_PATH`.
 - `--menu` flag no longer opens the pre-launch menu twice.
 - Qt/desktop environment logged per run to diagnose GUI theming.
 - NightLight holder spawned twice per launch, leaking an inhibitor;
