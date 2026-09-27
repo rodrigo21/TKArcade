@@ -42,6 +42,8 @@ Breaking config changes are called out explicitly under `Changed`.
   files load as-is with built-in defaults for missing keys.
 
 ### Fixed
+- NightLight holder spawned twice per launch, leaking an inhibitor;
+  single spawn with idempotent start().
 - "Check Coverage" button hidden in Global Defaults (per-game only).
 - Pre/post hooks with `run_in_shell` now receive the game's env vars
   (previously dropped).

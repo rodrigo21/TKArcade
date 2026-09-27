@@ -64,9 +64,13 @@ class NightlightSession:
         self.provider = detect_provider(provider)
         self._holder: subprocess.Popen | None = None
         self._gnome_prev: str | None = None
+        self._started = False
 
     def start(self) -> list[str]:
         warnings: list[str] = []
+        if self._started:
+            return warnings  # idempotent: never spawn a second holder
+        self._started = True
         if self.provider == NightlightProvider.OFF:
             return warnings
         if self.provider == NightlightProvider.GNOME:
@@ -126,6 +130,7 @@ class NightlightSession:
         return [f"unknown nightlight provider: {self.provider}"]
 
     def stop(self) -> None:
+        self._started = False
         if self.provider == NightlightProvider.GNOME and self._gnome_prev is not None:
             try:
                 val = "true" if self._gnome_prev == "true" else "false"
@@ -157,7 +162,8 @@ class NightlightSession:
                 self._holder = None
 
     def __enter__(self) -> NightlightSession:
-        self.start()
+        for w in self.start():
+            log.warning("nightlight: %s", w)
         return self
 
     def __exit__(self, *exc) -> None:

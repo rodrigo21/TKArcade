@@ -581,10 +581,9 @@ def main(argv: list[str] | None = None) -> int:
     # --- pipeline with guaranteed nightlight restore ---
     with nl_backend.NightlightSession(
         cfg.nightlight.provider if cfg.nightlight.disable_during_game else "off"
-    ) as nl_session:
-        if cfg.nightlight.disable_during_game:
-            for w in nl_session.start():
-                log.warning("nightlight: %s", w)
+    ):
+        # NB: __enter__ already called start(); never call it again here
+        # (a second call used to orphan a holder process).
         try:
             # pre hook (abort game on failure, unless skipped)
             if cfg.pre_post.pre_command.strip():

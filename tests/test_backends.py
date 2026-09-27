@@ -463,3 +463,22 @@ def test_launch_options_regex_fallback(monkeypatch, tmp_path, xdg_env):
     monkeypatch.setenv("STEAM_ROOT", str(root))
     monkeypatch.setitem(sys.modules, "vdf", None)
     assert S.launch_options_status("60")[0] == "ok"
+
+
+def test_nightlight_start_idempotent(monkeypatch):
+    calls = []
+
+    class FakeProc:
+        def __init__(self, *a, **k):
+            calls.append((a, k))
+            self.stdout = object()  # select() raises immediately: no 5s wait
+
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(nl.subprocess, "Popen", FakeProc)
+    session = nl.NightlightSession("plasma")
+    session.start()
+    assert len(calls) == 1
+    assert session.start() == []
+    assert len(calls) == 1
