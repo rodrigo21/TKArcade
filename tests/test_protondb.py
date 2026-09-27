@@ -63,3 +63,12 @@ def test_tier_styles_complete():
     assert set(pdb.TIER_STYLE) == {"platinum", "gold", "silver", "bronze", "borked"}
     for bg, fg in pdb.TIER_STYLE.values():
         assert bg.startswith("#") and fg.startswith("#")
+
+
+def test_stale_cache_types(xdg_env):
+    from tksteamlaunch import protondb as pdb
+
+    p = pdb.cache_path("9")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text('{"saved": "yesterday", "data": {"tier": "gold"}}', encoding="utf-8")
+    assert pdb.cached("9") == (None, False)

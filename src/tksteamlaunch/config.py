@@ -306,6 +306,21 @@ def _as_int(value: object, default: int) -> int:
         return default
 
 
+def _as_bool(value: object, default: bool) -> bool:
+    """Tolerant bool: plain bool() misreads "false"/"0" strings as True."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low in ("1", "true", "yes", "y", "on"):
+            return True
+        if low in ("0", "false", "no", "n", "off", ""):
+            return False
+    return default
+
+
 def _str_list(value: object) -> list[str]:
     return [str(x) for x in value] if isinstance(value, (list, tuple)) else []
 
@@ -316,7 +331,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     g = _section(data, "general")
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
     cfg.general.game_type = str(g.get("game_type", "auto"))
-    cfg.general.show_menu = bool(g.get("show_menu", False))
+    cfg.general.show_menu = _as_bool(g.get("show_menu", False), False)
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
@@ -328,23 +343,25 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.pre_post.post_command = str(p.get("post_command", ""))
     cfg.pre_post.post_args = _str_list(p.get("post_args", []))
     cfg.pre_post.timeout = _as_int(p.get("timeout", 60), 60)
-    cfg.pre_post.run_in_shell = bool(p.get("run_in_shell", False))
+    cfg.pre_post.run_in_shell = _as_bool(p.get("run_in_shell", False), False)
     gm = _section(data, "gamemode")
-    cfg.gamemode.feral_gamemode = bool(gm.get("feral_gamemode", False))
-    cfg.gamemode.cachyos_game_performance = bool(gm.get("cachyos_game_performance", False))
+    cfg.gamemode.feral_gamemode = _as_bool(gm.get("feral_gamemode", False), False)
+    cfg.gamemode.cachyos_game_performance = _as_bool(
+        gm.get("cachyos_game_performance", False), False
+    )
     gs = _section(data, "gamescope")
-    cfg.gamescope.enable = bool(gs.get("enable", False))
+    cfg.gamescope.enable = _as_bool(gs.get("enable", False), False)
     cfg.gamescope.args = str(gs.get("args", ""))
     mh = _section(data, "mangohud")
-    cfg.mangohud.enable = bool(mh.get("enable", False))
+    cfg.mangohud.enable = _as_bool(mh.get("enable", False), False)
     cfg.mangohud.args = str(mh.get("args", ""))
     cfg.mangohud.config_file = str(mh.get("config_file", ""))
     cfg.ludusavi = _load_ludusavi(data.get("ludusavi", {}), cfg.extra)
     nl = _section(data, "nightlight")
-    cfg.nightlight.disable_during_game = bool(nl.get("disable_during_game", False))
+    cfg.nightlight.disable_during_game = _as_bool(nl.get("disable_during_game", False), False)
     cfg.nightlight.provider = str(nl.get("provider", "auto"))
     nt = _section(data, "notifications")
-    cfg.notifications.notify_on_launch = bool(nt.get("notify_on_launch", True))
+    cfg.notifications.notify_on_launch = _as_bool(nt.get("notify_on_launch", True), True)
     cfg.notes.text = str(_section(data, "notes").get("text", ""))
     return cfg
 
@@ -368,10 +385,10 @@ def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
     out = LudusaviConfig()
     if not isinstance(raw, dict):
         return out
-    out.enable = bool(raw.get("enable", False))
-    out.restore = bool(raw.get("restore", True))
-    out.backup = bool(raw.get("backup", True))
-    out.use_gui = bool(raw.get("use_gui", True))
+    out.enable = _as_bool(raw.get("enable", False), False)
+    out.restore = _as_bool(raw.get("restore", True), True)
+    out.backup = _as_bool(raw.get("backup", True), True)
+    out.use_gui = _as_bool(raw.get("use_gui", True), True)
     out.name_override = str(raw.get("name_override", ""))
 
     rest = {k: v for k, v in raw.items() if k not in _section_known_keys("ludusavi")}

@@ -482,3 +482,30 @@ def test_nightlight_start_idempotent(monkeypatch):
     assert len(calls) == 1
     assert session.start() == []
     assert len(calls) == 1
+
+
+def test_split_args_never_raises():
+    from tksteamlaunch.backends import split_args
+
+    assert split_args('foo "bar') == ["foo", '"bar']
+    assert split_args("") == []
+    assert split_args("--dlsym -x") == ["--dlsym", "-x"]
+
+
+def test_coverage_bytes_coercion(monkeypatch):
+    from tksteamlaunch.backends import ludusavi as lu
+
+    monkeypatch.setattr(lu, "find", lambda: ("/bin/ludusavi", None))
+
+    def fake_run(cmd, **kw):
+        class R:
+            returncode = 0
+
+        if "find" in cmd:
+            R.stdout = '{"games": {"G": {}}}'
+        else:
+            R.stdout = '{"games": {"G": {"files": {"/s": {"bytes": "7"}, "/t": {}}}}}'
+        return R()
+
+    monkeypatch.setattr(lu.subprocess, "run", fake_run)
+    assert lu.check_coverage("1") == ("covered", "Entry 'G': 2 file(s), 0 bytes")

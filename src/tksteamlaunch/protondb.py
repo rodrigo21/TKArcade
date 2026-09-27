@@ -40,8 +40,11 @@ def cached(appid: str) -> tuple[dict | None, bool]:
     if not isinstance(payload, dict):
         return None, False
     data = payload.get("data")
-    saved = payload.get("saved", 0)
-    fresh = isinstance(data, dict) and time.time() - saved < CACHE_TTL
+    try:
+        age = time.time() - float(payload.get("saved", 0))
+    except (TypeError, ValueError):
+        return None, False
+    fresh = isinstance(data, dict) and age < CACHE_TTL
     return (data if isinstance(data, dict) else None), fresh
 
 

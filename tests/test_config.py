@@ -175,3 +175,24 @@ def test_show_menu_roundtrip(xdg_env):
     C.save(cfg)
     assert C.load("70").general.show_menu is True
     assert C.load("71").general.show_menu is False
+
+
+def test_as_bool_strings(xdg_env):
+    assert C._as_bool("false", True) is False
+    assert C._as_bool("0", True) is False
+    assert C._as_bool("off", True) is False
+    assert C._as_bool("true", False) is True
+    assert C._as_bool("YES", False) is True
+    assert C._as_bool("maybe", True) is True
+    assert C._as_bool("maybe", False) is False
+    assert C._as_bool(1, False) is True
+
+
+def test_string_bools_in_toml(xdg_env):
+    from tksteamlaunch import xdg as xdgmod
+
+    xdgmod.games_dir().mkdir(parents=True, exist_ok=True)
+    (xdgmod.games_dir() / "72.toml").write_text(
+        '[general]\nappid = "72"\n[gamemode]\nferal_gamemode = "false"\n', encoding="utf-8"
+    )
+    assert C.load("72").gamemode.feral_gamemode is False

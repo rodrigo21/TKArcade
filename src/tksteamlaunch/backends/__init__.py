@@ -15,7 +15,15 @@ def is_flatpak_path(path: str) -> bool:
 
 
 def split_args(args: str) -> list[str]:
+    """Split like a shell, never raising.
+
+    Falls back to plain whitespace splitting on unbalanced quotes so a
+    typo in user config cannot crash game launch or validation.
+    """
     args = (args or "").strip()
     if not args:
         return []
-    return shlex.split(args)
+    try:
+        return shlex.split(args)
+    except ValueError:
+        return args.split()

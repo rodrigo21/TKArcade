@@ -124,7 +124,10 @@ def check_coverage(appid: str, name_override: str = "") -> tuple[str, str]:
     except ValueError:
         entry = {}
     files = entry.get("files", {}) if isinstance(entry, dict) else {}
-    total = sum(info.get("bytes", 0) for info in files.values() if isinstance(info, dict))
+    total = 0
+    for info in files.values():
+        size = info.get("bytes", 0) if isinstance(info, dict) else 0
+        total += size if isinstance(size, int) else 0
     if not files:
         return "no-local-saves", f"Entry '{title}' exists, no saves on disk"
     return "covered", f"Entry '{title}': {len(files)} file(s), {total} bytes"
