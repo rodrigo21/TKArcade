@@ -525,3 +525,32 @@ def test_list_games_cached_per_process(monkeypatch, tmp_path):
     assert S.list_games() is first  # cached: no rescan
     S._GAMES_CACHE.clear()
     assert S.list_games() == [("2", "Duo"), ("1", "Solo")]
+
+
+def test_launch_options_real_world_shape(monkeypatch, tmp_path, xdg_env):
+    # Faithful to real localconfig.vdf: lowercase "apps" node and a nested
+    # "cloud" block between the AppID and its LaunchOptions.
+    from tksteamlaunch.steam import _launch_options_from_text
+
+    body = (
+        '"UserLocalConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n'
+        '{\n"apps"\n{\n"63"\n{\n"LastPlayed" "1"\n"cloud"\n{\n"last_sync_state"'
+        ' "synchronized"\n}\n"LaunchOptions" "/opt/tksteamlaunch --menu %command%"\n'
+        '}\n"64"\n{\n"LastPlayed" "2"\n}\n}\n}\n}\n}\n}\n'
+    )
+    assert _launch_options_from_text(body, "63") == "/opt/tksteamlaunch --menu %command%"
+    assert _launch_options_from_text(body, "64") is None
+    assert _launch_options_from_text(body, "65") is None
+
+
+def test_launch_options_lowercase_apps_status(monkeypatch, tmp_path, xdg_env):
+    root = tmp_path / "steam"
+    confdir = root / "userdata" / "u9" / "config"
+    confdir.mkdir(parents=True)
+    (confdir / "localconfig.vdf").write_text(
+        '"UserLocalConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n'
+        '{\n"apps"\n{\n"66"\n{\n"cloud"\n{\n"x" "y"\n}\n"LaunchOptions"'
+        ' "tksteamlaunch --menu %command%"\n}\n}\n}\n}\n}\n}\n'
+    )
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    assert S.launch_options_status("66")[0] == "ok"

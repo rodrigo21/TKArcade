@@ -49,6 +49,9 @@ Breaking config changes are called out explicitly under `Changed`.
   files load as-is with built-in defaults for missing keys.
 
 ### Fixed
+- Steam launch-options check now parses real `localconfig.vdf` files
+  (lowercase `apps` node, nested blocks); venv paths with flags match.
+- Command preview uses `%command%` instead of `<game-command>`.
 - Start notification folds runtime and wrappers into one line and uses
   the same Proton tool display as the game dialog (no more lone
   "Proton" when only the tool mapping exists).

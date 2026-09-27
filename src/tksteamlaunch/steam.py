@@ -203,7 +203,8 @@ def _launch_options_from_text(text: str, appid: str) -> str | None:
     data = loads_kv1(text)
     if data is not None:
         try:
-            apps = data["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]["Apps"]
+            steam = data["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]
+            apps = steam.get("Apps", steam.get("apps", {}))
             entry = apps.get(str(appid), {})
             if isinstance(entry, dict) and "LaunchOptions" in entry:
                 return str(entry["LaunchOptions"])
@@ -213,11 +214,13 @@ def _launch_options_from_text(text: str, appid: str) -> str | None:
     match = re.search(
         r'"Apps"\s*\{(?P<apps>.*)\}\s*\}\s*\}\s*\}\s*\}$',
         text,
-        re.DOTALL,
+        re.DOTALL | re.IGNORECASE,
     )
     region = match.group("apps") if match else text
+    # One nesting level tolerated (e.g. a "cloud" {...} block sits
+    # between the AppID and its LaunchOptions in real files).
     match = re.search(
-        r'"' + re.escape(str(appid)) + r'"\s*\{[^}]*?"LaunchOptions"\s+"([^"]*)"',
+        r'"' + re.escape(str(appid)) + r'"\s*\{(?:[^{}]|\{[^{}]*\})*?"LaunchOptions"\s+"([^"]*)"',
         region,
         re.DOTALL,
     )

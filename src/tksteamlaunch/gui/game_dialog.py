@@ -754,7 +754,7 @@ class GameDialog(QDialog):
         try:
             from ..launcher import build_final_command
 
-            cmd, _env, warnings = build_final_command(self.cfg, ["<game-command>"])
+            cmd, _env, warnings = build_final_command(self.cfg, ["%command%"])
         except Exception as e:  # never break the dialog on preview
             self._preview_edit.setPlainText(f"(preview unavailable: {e})")
             return
