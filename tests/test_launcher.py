@@ -211,3 +211,11 @@ def test_edit_positional_appid_without_display(xdg_env, monkeypatch):
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     r = _run(_env(xdg_env), "--edit", "7")
     assert r.returncode == 15
+
+
+def test_empty_command_skipped(xdg_env):
+    _save("8", mangohud={"enable": True})
+    r = _run(_env(xdg_env), "--appid", "8")
+    assert r.returncode == 0
+    log = xdg_env["state"] / "tksteamlaunch" / "games" / "8.log"
+    assert "no game command to run" in log.read_text()

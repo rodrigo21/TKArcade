@@ -111,10 +111,12 @@ class GameDialog(QDialog):
         name: str = "",
         defaults_mode: bool = False,
         launch_mode: bool = False,
+        can_launch: bool = True,
     ) -> None:
         super().__init__(parent)
         self.defaults_mode = defaults_mode
         self.launch_mode = launch_mode and not defaults_mode
+        self.can_launch = can_launch
         self.launch_requested = False
         self.appid = appid
         if defaults_mode:
@@ -410,7 +412,7 @@ class GameDialog(QDialog):
             )
             btns.button(QDialogButtonBox.Reset).setText("Reset to Global Defaults")
             btns.button(QDialogButtonBox.Reset).clicked.connect(self._on_reset)
-        if self.launch_mode:
+        if self.launch_mode and self.can_launch:
             b_launch = QPushButton("Save && Launch")
             b_launch.setDefault(True)
             b_launch.clicked.connect(self._on_save_and_launch)

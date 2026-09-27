@@ -156,3 +156,15 @@ def test_coverage_button_hidden_in_defaults_mode(qapp, xdg_env):
 
     assert "Check Coverage..." not in buttons(GameDialog(None, defaults_mode=True))
     assert "Check Coverage..." in buttons(GameDialog(None, "23", "T"))
+
+
+def test_launch_button_hidden_without_command(qapp, xdg_env):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    def buttons(dlg):
+        return [b.text() for b in dlg.findChildren(QtWidgets.QPushButton)]
+
+    assert "Save && Launch" not in buttons(
+        GameDialog(None, "24", "T", launch_mode=True, can_launch=False)
+    )
+    assert "Save && Launch" in buttons(GameDialog(None, "24", "T", launch_mode=True))

@@ -413,12 +413,13 @@ def _ensure_qapp(tool: str) -> bool:
     return True
 
 
-def run_editor_menu(appid: str, for_menu: bool = False) -> tuple[str, str]:
+def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True) -> tuple[str, str]:
     """Open the game settings dialog. Returns (outcome, appid).
 
     An empty appid opens a game picker first. Outcomes: 'launch',
-    'saved', 'cancelled' or 'unavailable'. Qt is imported lazily so
-    the plain CLI stays stdlib-only.
+    'saved', 'cancelled' or 'unavailable'. With can_launch=False the
+    dialog offers no launch button (there is no game command to run).
+    Qt is imported lazily so the plain CLI stays stdlib-only.
     """
     tool = "--menu" if for_menu else "--edit"
     if not _ensure_qapp(tool):
@@ -434,7 +435,7 @@ def run_editor_menu(appid: str, for_menu: bool = False) -> tuple[str, str]:
         if not appid:
             return "cancelled", ""
     names = {a: n for a, n in steammod.list_games()}
-    dlg = GameDialog(None, appid, names.get(appid, ""), launch_mode=True)
+    dlg = GameDialog(None, appid, names.get(appid, ""), launch_mode=True, can_launch=can_launch)
     result = dlg.exec()
     if int(result) != int(QDialog.DialogCode.Accepted):
         return "cancelled", appid
@@ -510,8 +511,15 @@ def main(argv: list[str] | None = None) -> int:
         return 10
     setup_logging(appid, args.verbose)
 
+    cfg = cfgmod.load(appid)
+    log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
+
     if args.edit or args.menu:
-        outcome, appid = run_editor_menu(appid, for_menu=args.menu and not args.edit)
+        outcome, appid = run_editor_menu(
+            appid,
+            for_menu=args.menu and not args.edit,
+            can_launch=bool(game_cmd or cfg.general.custom_executable.strip()),
+        )
         if outcome == "unavailable":
             if args.edit and not args.menu:
                 log.error("--edit unavailable (needs PySide6 and a display)")
@@ -531,11 +539,14 @@ def main(argv: list[str] | None = None) -> int:
             return 10
         setup_logging(appid, args.verbose)
 
-    cfg = cfgmod.load(appid)
-    log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
+    cfg = cfgmod.load(appid)  # refresh: the editor above may have saved changes
 
     if (args.menu or cfg.general.show_menu) and not args.edit:
-        outcome, picked = run_editor_menu(appid, for_menu=True)
+        outcome, picked = run_editor_menu(
+            appid,
+            for_menu=True,
+            can_launch=bool(game_cmd or cfg.general.custom_executable.strip()),
+        )
         if outcome == "unavailable":
             log.warning("--menu unavailable (needs PySide6 and a display); launching directly")
         elif outcome == "cancelled":
@@ -545,6 +556,13 @@ def main(argv: list[str] | None = None) -> int:
             # "launch" or "saved": reload the freshly saved config and continue.
             appid = picked or appid
             cfg = cfgmod.load(appid)
+
+    if not game_cmd and not cfg.general.custom_executable.strip():
+        # e.g. bare `--edit <appid>` in a terminal: the editor may request
+        # a launch, but there is no game command to run. Skipping here
+        # beats executing a bare prefix stack (exit 1 from mangohud & co).
+        log.info("no game command to run; launch skipped")
+        return 0
 
     # Sentinel file so the real game exit code survives `ludusavi wrap`
     # (which returns 0 even when the game crashes). Empty = wrap off.
