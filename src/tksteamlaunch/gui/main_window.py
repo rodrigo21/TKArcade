@@ -174,7 +174,11 @@ class MainWindow(QMainWindow):
         if self._pdb_thread is not None:
             if self._pdb_thread.isRunning():
                 self._pdb_thread.requestInterruption()
-                self._pdb_thread.wait(2000)
+                self._pdb_thread.wait(5000)
+                if self._pdb_thread.isRunning():
+                    # last resort: never destroy a running QThread (aborts).
+                    self._pdb_thread.terminate()
+                    self._pdb_thread.wait(2000)
             self._pdb_thread = None
 
     def closeEvent(self, event) -> None:
@@ -218,6 +222,8 @@ class MainWindow(QMainWindow):
 
                 m = re.search(r"\[(\d+)\]\s*$", choice)
                 appid = m.group(1) if m else choice.strip()
+                if not appid:
+                    return
             else:
                 return
         else:
@@ -310,7 +316,11 @@ class MainWindow(QMainWindow):
     def _copy_launch(self) -> None:
         from PySide6.QtGui import QGuiApplication
 
-        QGuiApplication.clipboard().setText("tksteamlaunch %command%")
+        clipboard = QGuiApplication.clipboard()
+        if clipboard is None:  # e.g. offscreen/minimal platform
+            self.status.setText("Clipboard unavailable on this platform.")
+            return
+        clipboard.setText("tksteamlaunch %command%")
         self.status.setText("Launch options copied to clipboard: tksteamlaunch %command%")
 
     def _open_ludusavi(self) -> None:

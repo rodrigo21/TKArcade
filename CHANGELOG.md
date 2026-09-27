@@ -46,6 +46,16 @@ Breaking config changes are called out explicitly under `Changed`.
   single spawn with idempotent start().
 - Empty game command executed a bare prefix stack; now skipped with
   a log line, and "Save && Launch" hides when nothing can launch.
+- Unbalanced quotes in prefix/args fields no longer crash launch,
+  validation or Save (whitespace fallback).
+- String booleans in TOML (`"false"`) now parse correctly.
+- Ludusavi coverage tolerates non-integer `bytes` values.
+- GameMode/CachyOS conflict resolved on dialog load (Feral wins).
+- Add Game ignores blank names instead of writing `unknown.toml`.
+- Copy Launch Options handles missing clipboard (headless).
+- Command preview never kills the dialog on unexpected errors.
+- Ludusavi coverage check runs off the UI thread; worker threads
+  always joined (terminate fallback) before their owners close.
 - "Check Coverage" button hidden in Global Defaults (per-game only).
 - Pre/post hooks with `run_in_shell` now receive the game's env vars
   (previously dropped).

@@ -6,7 +6,7 @@ import os
 import shlex
 import shutil
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -35,6 +35,7 @@ from .. import proton as protonmod
 from .. import xdg
 from ..backends import ludusavi as lu_backend
 from ..backends import overlay as ov_backend
+from ..backends import split_args
 from ..config import NightlightProvider
 from .helpers import open_path
 
@@ -82,6 +83,25 @@ def _text_to_env(text: str) -> dict[str, str]:
     return out
 
 
+class _CoverageWorker(QThread):
+    """Run the (potentially slow) Ludusavi coverage check off the UI thread."""
+
+    done = Signal(str, str)
+
+    def __init__(self, appid: str, name_override: str, parent=None) -> None:
+        super().__init__(parent)
+        self._appid = appid
+        self._override = name_override
+
+    def run(self) -> None:
+        try:
+            status, detail = lu_backend.check_coverage(self._appid, self._override)
+        except Exception as e:  # never kill the dialog from the worker
+            status, detail = "unavailable", f"coverage check failed: {e}"
+        if not self.isInterruptionRequested():
+            self.done.emit(status, detail)
+
+
 class BulkEnvDialog(QDialog):
     """Bulk-edit environment variables as KEY=VALUE text."""
 
@@ -118,6 +138,8 @@ class GameDialog(QDialog):
         self.launch_mode = launch_mode and not defaults_mode
         self.can_launch = can_launch
         self.launch_requested = False
+        self._cov_thread: _CoverageWorker | None = None
+        self._cov_run = 0
         self.appid = appid
         if defaults_mode:
             self.setWindowTitle("Global Defaults")
@@ -342,13 +364,15 @@ class GameDialog(QDialog):
         self.l_lu_note.setWordWrap(True)
         lf.addRow(self.l_lu_note)
         if not defaults_mode:
-            b_coverage = QPushButton("Check Coverage...")
-            b_coverage.setToolTip("Check whether Ludusavi has a manifest entry and local saves.")
-            b_coverage.clicked.connect(self._check_coverage)
+            self.b_coverage = QPushButton("Check Coverage...")
+            self.b_coverage.setToolTip(
+                "Check whether Ludusavi has a manifest entry and local saves."
+            )
+            self.b_coverage.clicked.connect(self._check_coverage)
             cov_row = QWidget()
             cov_layout = QHBoxLayout(cov_row)
             cov_layout.setContentsMargins(0, 0, 0, 0)
-            cov_layout.addWidget(b_coverage)
+            cov_layout.addWidget(self.b_coverage)
             cov_layout.addStretch(1)
             lf.addRow("Coverage:", cov_row)
         tabs.addTab(lu, "Ludusavi")
@@ -465,6 +489,9 @@ class GameDialog(QDialog):
         self.c_shell.setChecked(c.pre_post.run_in_shell)
         self.c_feral.setChecked(c.gamemode.feral_gamemode)
         self.c_cachy.setChecked(c.gamemode.cachyos_game_performance)
+        if self.c_feral.isChecked() and self.c_cachy.isChecked():
+            # same rule as the launcher backend: Feral wins on conflict.
+            self.c_cachy.setChecked(False)
         self.c_gs.setChecked(c.gamescope.enable)
         self.e_gs_args.setText(c.gamescope.args)
         self.c_mh.setChecked(c.mangohud.enable)
@@ -647,8 +674,13 @@ class GameDialog(QDialog):
         self.cfg = cfgmod.GameConfig()
         self._populate()
 
+    def reject(self) -> None:
+        self._stop_coverage_worker()
+        super().reject()
+
     def _on_reset(self) -> None:
         # In-memory only: the file changes on Save, Cancel discards everything.
+        self._cov_run += 1  # invalidate any in-flight coverage result
         self.cfg = cfgmod.load_defaults()
         self.cfg.general.appid = self.appid
         self._active_profile = ""
@@ -666,6 +698,9 @@ class GameDialog(QDialog):
             cmd, env, warnings = build_final_command(self.cfg, ["<game-command>"])
         except PrefixNotFoundError as e:
             QMessageBox.warning(self, "TKSteamLaunch", str(e))
+            return
+        except Exception as e:  # never kill the dialog on preview
+            QMessageBox.warning(self, "TKSteamLaunch", f"Could not preview command: {e}")
             return
         lines = [
             "<game-command> stands in for the Steam %command%.",
@@ -693,12 +728,29 @@ class GameDialog(QDialog):
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QApplication
 
+        if self._cov_thread is not None and self._cov_thread.isRunning():
+            return
         self._collect()
+        self._cov_run += 1
+        run = self._cov_run
+        self.b_coverage.setEnabled(False)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            status, detail = lu_backend.check_coverage(self.appid, self.cfg.ludusavi.name_override)
-        finally:
-            QApplication.restoreOverrideCursor()
+        worker = _CoverageWorker(self.appid, self.cfg.ludusavi.name_override, parent=self)
+        worker.done.connect(lambda status, detail: self._on_coverage_done(run, status, detail))
+        worker.finished.connect(worker.deleteLater)
+        self._cov_thread = worker
+        worker.start()
+
+    def _on_coverage_done(self, run: int, status: str, detail: str) -> None:
+        from PySide6.QtWidgets import QApplication
+
+        # Drop our reference: finished() will deleteLater() the worker.
+        self._cov_thread = None
+        QApplication.restoreOverrideCursor()
+        if hasattr(self, "b_coverage"):
+            self.b_coverage.setEnabled(True)
+        if run != self._cov_run:
+            return  # stale result (e.g. config was reset mid-run)
         messages = {
             "covered": f"Ludusavi covers this game.\n{detail}",
             "no-local-saves": f"Manifest entry exists, but no saves found.\n{detail}",
@@ -808,10 +860,7 @@ class GameDialog(QDialog):
         if not prefix:
             self._set_status("custom_prefix", "ok", "No custom prefix — game launches directly")
             return
-        try:
-            parts = shlex.split(prefix)
-        except ValueError:
-            parts = prefix.split()
+        parts = split_args(prefix)
         if not parts:
             return
         self._set_status(
@@ -827,13 +876,9 @@ class GameDialog(QDialog):
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()
-        self.cfg.pre_post.pre_args = (
-            shlex.split(self.e_pre_args.text()) if self.e_pre_args.text().strip() else []
-        )
+        self.cfg.pre_post.pre_args = split_args(self.e_pre_args.text())
         self.cfg.pre_post.post_command = self.e_post.text().strip()
-        self.cfg.pre_post.post_args = (
-            shlex.split(self.e_post_args.text()) if self.e_post_args.text().strip() else []
-        )
+        self.cfg.pre_post.post_args = split_args(self.e_post_args.text())
         self.cfg.pre_post.timeout = int(self.s_timeout.value())
         self.cfg.pre_post.run_in_shell = bool(self.c_shell.isChecked())
         self.cfg.gamemode.feral_gamemode = self.c_feral.isChecked()
@@ -853,7 +898,21 @@ class GameDialog(QDialog):
         if not self.defaults_mode:
             self.cfg.notes.text = self.e_notes.toPlainText()
 
+    def _stop_coverage_worker(self) -> None:
+        worker, self._cov_thread = self._cov_thread, None
+        self._cov_run += 1  # invalidate any result still queued
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+            worker.wait(3000)
+            if worker.isRunning():
+                worker.terminate()
+                worker.wait(2000)
+        from PySide6.QtWidgets import QApplication
+
+        QApplication.restoreOverrideCursor()
+
     def accept(self) -> None:
+        self._stop_coverage_worker()
         self._collect()
         if self.defaults_mode:
             cfgmod.save_defaults(self.cfg)
