@@ -59,7 +59,9 @@ def wrap_command(
         warnings.append(warn)
     if not path:
         return list(game_cmd), warnings
-    cmd = [path, "wrap"]
+    # Bare name (PATH lookup at launch), consistent with the other
+    # wrappers; `path` above is only used for the missing/flatpak checks.
+    cmd = ["ludusavi", "wrap"]
     if (name_override or "").strip():
         cmd += ["--name", name_override.strip()]
     else:

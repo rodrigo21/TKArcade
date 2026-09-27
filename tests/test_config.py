@@ -196,3 +196,14 @@ def test_string_bools_in_toml(xdg_env):
         '[general]\nappid = "72"\n[gamemode]\nferal_gamemode = "false"\n', encoding="utf-8"
     )
     assert C.load("72").gamemode.feral_gamemode is False
+
+
+def test_ui_show_preview_roundtrip(xdg_env):
+    assert C.GameConfig().ui.show_preview is True
+    cfg = C.GameConfig()
+    cfg.general.appid = "73"
+    cfg.ui.show_preview = False
+    C.save(cfg)
+    assert C.load("73").ui.show_preview is False
+    text = C.game_file("73").read_text()
+    assert "[ui]" in text and "show_preview" in text

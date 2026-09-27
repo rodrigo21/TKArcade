@@ -101,22 +101,33 @@ def test_detected_runtime_row(qapp, xdg_env, monkeypatch, tmp_path):
     assert d2.e_runtime.text() == "Proton"
 
 
-def test_preview_command(qapp, xdg_env):
-    from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
+def _all_bins_present(monkeypatch):
+    import shutil
 
+    real_which = shutil.which
+    monkeypatch.setattr(
+        shutil, "which", lambda name, *a, **k: f"/bin/{name}" if name else real_which(name)
+    )
+
+
+def test_preview_command(qapp, xdg_env, monkeypatch):
+    from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
+    _all_bins_present(monkeypatch)
+    cfg = C.GameConfig()
+    cfg.general.appid = "24"
+    cfg.ludusavi.enable = True
+    C.save(cfg)
     d = GameDialog(None, "24", "T")
     d.c_feral.setChecked(True)
-    QTimer.singleShot(
-        300,
-        lambda: [w.close() for w in QApplication.topLevelWidgets() if isinstance(w, QMessageBox)],
-    )
-    btn = next(b for b in d.findChildren(QPushButton) if "Preview" in b.text())
-    btn.click()
     qapp.processEvents()
-    assert d.result() == 0  # preview must not accept/reject the dialog
+    text = d._preview_edit.toPlainText()
+    assert "ludusavi wrap --infer steam" in text
+    assert "/usr/bin/ludusavi" not in text
+    assert "stands in for" not in text
+    assert "gamemoderun" in text or "game-performance" in text
+    d.reject()
 
 
 def _auto_close_boxes(interval_ms=200):
@@ -234,10 +245,11 @@ def test_launch_button_hidden_without_command(qapp, xdg_env):
     assert "Save && Launch" in buttons(GameDialog(None, "24", "T", launch_mode=True))
 
 
-def test_gamemode_conflict_resolved_on_load(qapp, xdg_env):
+def test_gamemode_conflict_resolved_on_load(qapp, xdg_env, monkeypatch):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
+    _all_bins_present(monkeypatch)
     cfg = C.GameConfig()
     cfg.general.appid = "30"
     cfg.gamemode.feral_gamemode = True
@@ -313,9 +325,11 @@ def test_steam_options_hidden_in_defaults_mode(qapp, xdg_env):
     assert "steam-options" in GameDialog(None, "31", "T")._status_labels
 
 
-def test_exclusive_backends_visibility(qapp, xdg_env):
+def test_exclusive_backends_visibility(qapp, xdg_env, monkeypatch):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
+
+    _all_bins_present(monkeypatch)
 
     def vis(appid, feral, cachy):
         cfg = C.GameConfig()
@@ -332,3 +346,49 @@ def test_exclusive_backends_visibility(qapp, xdg_env):
     assert vis("32", False, False) == (True, True)
     assert vis("33", True, False) == (True, False)
     assert vis("34", False, True) == (False, True)
+
+
+def test_missing_binaries_disable_toggles(qapp, xdg_env, monkeypatch):
+    import shutil
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
+    cfg = C.GameConfig()
+    cfg.general.appid = "40"
+    cfg.gamemode.feral_gamemode = True
+    cfg.ludusavi.enable = True
+    C.save(cfg)
+    d = GameDialog(None, "40", "T")
+    for cb in (d.c_feral, d.c_cachy, d.c_gs, d.c_mh, d.c_lu_enable):
+        assert not cb.isEnabled()
+        assert not cb.isChecked()
+
+
+def test_preview_toggle_global_only(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    g = GameDialog(None, defaults_mode=True)
+    assert g.c_show_preview.isChecked() is True
+    d = GameDialog(None, "41", "T")
+    assert not hasattr(d, "c_show_preview")
+    assert d._preview_edit is not None
+    g.c_show_preview.setChecked(False)
+    g.accept()
+    assert C.load_defaults().ui.show_preview is False
+    d2 = GameDialog(None, "41", "T")
+    assert d2._preview_edit is None
+
+
+def test_preview_updates_live(qapp, xdg_env):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "42", "T")
+    before = d._preview_edit.toPlainText()
+    d.e_prefix.setText("zink-run")
+    qapp.processEvents()
+    after = d._preview_edit.toPlainText()
+    assert after != before and "zink-run" in after
+    d.reject()

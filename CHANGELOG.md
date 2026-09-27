@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Live launch-command preview box in dialogs (global `[ui] show_preview`
+  toggle); tool toggles disable when their binaries are missing.
 - Per-game config profiles (switch/save-as/delete, in-memory until Save).
 - ProtonDB tier column in the main window (30-day cache, background
   refresh; double-click opens the game page).
@@ -33,6 +35,8 @@ Breaking config changes are called out explicitly under `Changed`.
   no AppID is given.
 
 ### Changed
+- "Preview Command..." button removed (replaced by the live preview box);
+  ludusavi shown by bare name in previews, like other wrappers.
 - Build backend setuptools → hatchling; local install via
   `uv venv --system-site-packages` + `uv pip install --no-deps .`.
 - `--help` documents the exit-code contract.

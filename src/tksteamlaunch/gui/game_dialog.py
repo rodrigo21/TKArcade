@@ -7,6 +7,7 @@ import shlex
 import shutil
 
 from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -140,6 +141,7 @@ class GameDialog(QDialog):
         self.can_launch = can_launch
         self.launch_requested = False
         self._skip_save = False
+        self._orig_tips: dict = {}
         self._cov_thread: _CoverageWorker | None = None
         self._cov_run = 0
         self.appid = appid
@@ -201,6 +203,13 @@ class GameDialog(QDialog):
             "on every Steam start. Also forced by the --menu flag."
         )
         gf.addRow("", self.c_show_menu)
+        if defaults_mode:
+            self.c_show_preview = QCheckBox("Show launch command preview")
+            self.c_show_preview.setToolTip(
+                "Show a live launch-command preview at the bottom of game dialogs."
+            )
+            self.c_show_preview.toggled.connect(self._update_preview_visibility)
+            gf.addRow("", self.c_show_preview)
         self.c_notify = QCheckBox("Notify on launch")
         self.c_notify.setToolTip("Show a transient summary notification when the game starts.")
         gf.addRow("", self.c_notify)
@@ -454,9 +463,29 @@ class GameDialog(QDialog):
             )
             b_reset.clicked.connect(self._on_reset)
             btns.addButton(QDialogButtonBox.StandardButton.Cancel)
-        b_preview = QPushButton("Preview Command...")
-        b_preview.clicked.connect(self._on_preview)
-        btns.addButton(b_preview, QDialogButtonBox.ButtonRole.ActionRole)
+        if self._show_preview_box():
+            preview_group = QGroupBox("Launch Command Preview")
+            self._preview_group = preview_group
+            preview_layout = QVBoxLayout(preview_group)
+            preview_layout.setContentsMargins(4, 4, 4, 4)
+            self._preview_edit = QPlainTextEdit()
+            self._preview_edit.setReadOnly(True)
+            font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+            self._preview_edit.setFont(font)
+            metrics = self._preview_edit.fontMetrics()
+            self._preview_edit.setFixedHeight(metrics.lineSpacing() * 4 + 12)
+            preview_layout.addWidget(self._preview_edit)
+            preview_foot = QHBoxLayout()
+            preview_foot.addStretch(1)
+            b_refresh = QPushButton("Refresh")
+            b_refresh.setToolTip("Rebuild the preview from the current fields.")
+            b_refresh.clicked.connect(self._refresh_preview)
+            preview_foot.addWidget(b_refresh)
+            preview_layout.addLayout(preview_foot)
+            layout.addWidget(preview_group)
+        else:
+            self._preview_edit = None
+            self._preview_group = None
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
@@ -469,6 +498,9 @@ class GameDialog(QDialog):
             self.l_mh_conf,
         )
         self._populate()
+        self._wire_preview()
+        tabs.currentChanged.connect(self._refresh_preview)
+        self._refresh_preview()
 
     def _populate(self) -> None:
         self._populating = True
@@ -477,6 +509,7 @@ class GameDialog(QDialog):
         finally:
             self._populating = False
             self._refresh_statuses()
+            self._update_preview_visibility()
 
     def _populate_fields(self) -> None:
         c = self.cfg
@@ -486,6 +519,8 @@ class GameDialog(QDialog):
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
         self.c_show_menu.setChecked(c.general.show_menu)
+        if self.defaults_mode:
+            self.c_show_preview.setChecked(c.ui.show_preview)
         self.c_notify.setChecked(c.notifications.notify_on_launch)
         if not self.defaults_mode:
             self._refresh_profiles()
@@ -521,6 +556,7 @@ class GameDialog(QDialog):
         self.cb_nl.setCurrentIndex(max(idx, 0))
         if not self.defaults_mode:
             self.e_notes.setPlainText(c.notes.text)
+        self._apply_binary_availability()
 
     def _detect_runtime_text(self) -> str:
         """Read-only Proton tool/version from the Steam config, if mapped."""
@@ -699,34 +735,58 @@ class GameDialog(QDialog):
         self.launch_requested = True
         self.accept()
 
-    def _on_preview(self) -> None:
-        from ..launcher import PrefixNotFoundError, build_final_command
+    def _show_preview_box(self) -> bool:
+        if self.defaults_mode:
+            return True
+        try:
+            return bool(cfgmod.load_defaults().ui.show_preview)
+        except Exception:
+            return True
 
+    def _update_preview_visibility(self) -> None:
+        if self._preview_group is not None and self.defaults_mode:
+            self._preview_group.setVisible(self.c_show_preview.isChecked())
+
+    def _refresh_preview(self) -> None:
+        if self._preview_edit is None:
+            return
         self._collect()
         try:
-            cmd, env, warnings = build_final_command(self.cfg, ["<game-command>"])
-        except PrefixNotFoundError as e:
-            QMessageBox.warning(self, "TKSteamLaunch", str(e))
+            from ..launcher import build_final_command
+
+            cmd, _env, warnings = build_final_command(self.cfg, ["<game-command>"])
+        except Exception as e:  # never break the dialog on preview
+            self._preview_edit.setPlainText(f"(preview unavailable: {e})")
             return
-        except Exception as e:  # never kill the dialog on preview
-            QMessageBox.warning(self, "TKSteamLaunch", f"Could not preview command: {e}")
-            return
-        lines = [
-            "<game-command> stands in for the Steam %command%.",
-            "",
-            shlex.join(cmd) if cmd else "(empty command)",
-        ]
-        if env:
-            lines += ["", "Environment:"]
-            lines += [f"  {k}={v}" for k, v in sorted(env.items())]
-        if warnings:
-            lines += ["", "Warnings:"]
-            lines += [f"  - {w}" for w in warnings]
-        box = QMessageBox(self)
-        box.setWindowTitle("Launch Command Preview")
-        box.setTextFormat(Qt.TextFormat.PlainText)
-        box.setText("\n".join(lines))
-        box.exec()
+        lines = [shlex.join(cmd) if cmd else "(empty command)"]
+        lines += [f"# warning: {w}" for w in warnings]
+        self._preview_edit.setPlainText("\n".join(lines))
+
+    def _wire_preview(self) -> None:
+        from PySide6.QtWidgets import (
+            QCheckBox,
+            QComboBox,
+            QLineEdit,
+            QPlainTextEdit,
+            QSpinBox,
+            QTableWidget,
+        )
+
+        for widget in self.findChildren(QLineEdit):
+            widget.textChanged.connect(self._refresh_preview)
+        for widget in self.findChildren(QPlainTextEdit):
+            if widget is not self._preview_edit:
+                widget.textChanged.connect(self._refresh_preview)
+        for widget in self.findChildren(QCheckBox):
+            widget.toggled.connect(self._refresh_preview)
+        for widget in self.findChildren(QComboBox):
+            widget.currentIndexChanged.connect(self._refresh_preview)
+        for widget in self.findChildren(QSpinBox):
+            widget.valueChanged.connect(self._refresh_preview)
+        for widget in self.findChildren(QTableWidget):
+            widget.cellChanged.connect(self._refresh_preview)
+            widget.model().rowsInserted.connect(self._refresh_preview)
+            widget.model().rowsRemoved.connect(self._refresh_preview)
 
     def _update_lu_state(self) -> None:
         on = self.c_lu_enable.isChecked()
@@ -848,6 +908,30 @@ class GameDialog(QDialog):
     def _on_feature_toggled(self, _checked: bool = False) -> None:
         self._refresh_statuses()
 
+    def _apply_binary_availability(self) -> None:
+        """Disable tool toggles whose binaries are missing (unchecking them).
+
+        Dead-on-arrival options cannot be (re-)enabled; the launcher would
+        skip them with a warning anyway. Idempotent across repopulates.
+        """
+        tools = {
+            self.c_feral: "gamemoderun",
+            self.c_cachy: "game-performance",
+            self.c_gs: "gamescope",
+            self.c_mh: "mangohud",
+            self.c_lu_enable: "ludusavi",
+        }
+        for checkbox, binary in tools.items():
+            self._orig_tips.setdefault(checkbox, checkbox.toolTip())
+            if shutil.which(binary):
+                checkbox.setEnabled(True)
+                checkbox.setToolTip(self._orig_tips[checkbox])
+            else:
+                checkbox.setChecked(False)
+                checkbox.setEnabled(False)
+                checkbox.setToolTip(f"{binary} not installed — option skipped at launch.")
+        self._update_lu_state()
+
     def _on_gamemode_exclusive(self, _checked: bool = False) -> None:
         if getattr(self, "_populating", False):
             return
@@ -887,6 +971,8 @@ class GameDialog(QDialog):
         self.cfg.general.custom_executable = self.e_exe.text().strip()
         self.cfg.general.custom_prefix = self.e_prefix.text().strip()
         self.cfg.general.show_menu = self.c_show_menu.isChecked()
+        if self.defaults_mode:
+            self.cfg.ui.show_preview = self.c_show_preview.isChecked()
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()

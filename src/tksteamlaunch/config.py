@@ -103,6 +103,13 @@ class NotesConfig:
 
 
 @dataclass
+class UiConfig:
+    """GUI-only preferences (never affect launches)."""
+
+    show_preview: bool = True
+
+
+@dataclass
 class GameConfig:
     general: GeneralConfig = field(default_factory=GeneralConfig)
     env: EnvConfig = field(default_factory=EnvConfig)
@@ -114,6 +121,7 @@ class GameConfig:
     nightlight: NightlightConfig = field(default_factory=NightlightConfig)
     notifications: NotificationsConfig = field(default_factory=NotificationsConfig)
     notes: NotesConfig = field(default_factory=NotesConfig)
+    ui: UiConfig = field(default_factory=UiConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -141,6 +149,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "nightlight": _to_toml_value(cfg.nightlight),
         "notifications": _to_toml_value(cfg.notifications),
         "notes": _to_toml_value(cfg.notes),
+        "ui": _to_toml_value(cfg.ui),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -272,6 +281,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "nightlight": {"disable_during_game", "provider"},
     "notifications": {"notify_on_launch"},
     "notes": {"text"},
+    "ui": {"show_preview"},
 }
 
 
@@ -363,6 +373,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     nt = _section(data, "notifications")
     cfg.notifications.notify_on_launch = _as_bool(nt.get("notify_on_launch", True), True)
     cfg.notes.text = str(_section(data, "notes").get("text", ""))
+    cfg.ui.show_preview = _as_bool(_section(data, "ui").get("show_preview", True), True)
     return cfg
 
 
