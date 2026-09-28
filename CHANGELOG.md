@@ -62,6 +62,9 @@ Breaking config changes are called out explicitly under `Changed`.
   files load as-is with built-in defaults for missing keys.
 
 ### Fixed
+- Ctrl+Q quits the app; closing without close-to-tray drops the tray
+  icon so the app really exits.
+- Single GUI instance: followers raise the open window and exit.
 - Status tray rebuilt safely: persistent menu reference, update in
   place instead of delete/recreate, guarded teardown.
 - Steam launch-options check now parses real `localconfig.vdf` files

@@ -509,3 +509,94 @@ def test_tray_reuse_and_teardown(qapp, xdg_env, monkeypatch):
     w._apply_tray()
     assert w._tray is None and w._tray_menu is None
     w.close()
+
+
+def test_quit_shortcut_quits_app(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QApplication
+
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    calls = []
+    monkeypatch.setattr(
+        QApplication,
+        "instance",
+        classmethod(lambda cls: type("A", (), {"quit": staticmethod(lambda: calls.append(1))})()),
+    )
+    MainWindow()._quit()
+    assert calls == [1]
+
+
+def test_close_drops_tray(qapp, xdg_env, monkeypatch):
+    from PySide6 import QtWidgets
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    class FakeSignal:
+        def connect(self, *a):
+            pass
+
+    class FakeTray:
+        def __init__(self, icon=None, parent=None):
+            self.activated = FakeSignal()
+
+        @staticmethod
+        def isSystemTrayAvailable():
+            return True
+
+        def setToolTip(self, t):
+            pass
+
+        def setContextMenu(self, m):
+            pass
+
+        def setIcon(self, i):
+            pass
+
+        def show(self):
+            pass
+
+        def hide(self):
+            pass
+
+        def deleteLater(self):
+            pass
+
+    monkeypatch.setattr(QtWidgets, "QSystemTrayIcon", FakeTray)
+    prefs = C.load_preferences()
+    prefs.tray_enable = True
+    C.save_preferences(prefs)
+    w = MainWindow()
+    assert isinstance(w._tray, FakeTray)
+    w.close()
+    assert w._tray is None
+
+
+def test_single_instance_secondary_bows_out(qapp):
+    from tksteamlaunch.gui.app import single_instance
+
+    name = "tksteamlaunch-gui-test-single"
+    primary = single_instance(name)
+    assert primary is not None
+    try:
+        assert single_instance(name) is None
+    finally:
+        primary.close()
+        from PySide6.QtNetwork import QLocalServer
+
+        QLocalServer.removeServer(name)
+
+
+def test_show_request_raises_window(qapp, xdg_env):
+    from tksteamlaunch.gui.app import _on_show_request
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    class NoConnections:
+        def hasPendingConnections(self):
+            return False
+
+    w = MainWindow()
+    w.hide()
+    _on_show_request(NoConnections(), w)
+    assert w.isVisible()
+    w.close()

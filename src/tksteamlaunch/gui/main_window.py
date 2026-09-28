@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("TKSteamLaunch")
         self.resize(820, 520)
-        QShortcut(QKeySequence.StandardKey.Quit, self, self.close)
+        QShortcut(QKeySequence.StandardKey.Quit, self, self._quit)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -186,12 +186,18 @@ class MainWindow(QMainWindow):
                     self._pdb_thread.wait(2000)
             self._pdb_thread = None
 
+    def _quit(self) -> None:
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
+
     def closeEvent(self, event) -> None:
         prefs = cfgmod.load_preferences()
         if prefs.close_to_tray and self._tray is not None:
             event.ignore()
             self.hide()
             return
+        self._drop_tray()
         self._stop_pdb_worker()
         super().closeEvent(event)
 
