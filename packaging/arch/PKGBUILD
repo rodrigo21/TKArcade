@@ -1,7 +1,8 @@
 # Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
+
 pkgname=tksteamlaunch
 # Baseline for makepkg lint; pkgver() below refreshes it from git tags.
-pkgver=0.3.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="Minimal Steam launch wrapper"
 arch=('any')
@@ -15,6 +16,7 @@ sha256sums=('SKIP')
 
 pkgver() {
     cd "$pkgname"
+
     git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 

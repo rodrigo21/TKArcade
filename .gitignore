@@ -7,3 +7,7 @@ dist/
 *.egg-info/
 .env
 .opencode-model
+# makepkg outputs (repo src/ is source, not build dir)
+packaging/arch/pkg/
+packaging/arch/tksteamlaunch/
+packaging/arch/*.pkg.tar.zst

@@ -3,7 +3,7 @@
 All notable changes to TKSteamLaunch are documented here.
 Breaking config changes are called out explicitly under `Changed`.
 
-## [Unreleased]
+## [0.4.0] - 2026-09-28
 
 ### Added
 - Dynamic versioning from git tags (`uv-dynamic-versioning`); releases
@@ -21,8 +21,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ### Fixed
 - Minimize-to-tray deferred past the state-change event.
-
-## [0.3.0] - 2026-09-27
+- Reload rescans Steam games again (per-process cache is cleared).
+- GUI test suite hermetic to pytest-qt presence.
 
 ### Added
 - Live launch-command preview box in dialogs (global `[ui] show_preview`
