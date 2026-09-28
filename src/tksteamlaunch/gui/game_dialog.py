@@ -272,6 +272,13 @@ class GameDialog(QDialog):
             proton_layout.addWidget(self.c_protonlog, stretch=1)
             proton_layout.addWidget(self.b_protonlog)
             gf.addRow("", proton_row)
+            self.cb_winedebug = QComboBox()
+            self.cb_winedebug.addItem("Off", "")
+            self.cb_winedebug.addItem("Quiet (-all)", "-all")
+            self.cb_winedebug.addItem("Errors (+err)", "+err")
+            self.cb_winedebug.addItem("Warnings (+warn,+err)", "+warn,+err")
+            self.cb_winedebug.setToolTip("Sets WINEDEBUG for Wine/Proton output.")
+            gf.addRow("Wine Debug:", self.cb_winedebug)
         tabs.addTab(g, "General")
 
         # --- Pre/Post Commands ---
@@ -531,6 +538,8 @@ class GameDialog(QDialog):
         self.c_inhibit.setChecked(c.session.inhibit_idle)
         if not self.defaults_mode:
             self.c_protonlog.setChecked(c.debug.proton_log)
+            idx = self.cb_winedebug.findData(c.debug.winedebug or "")
+            self.cb_winedebug.setCurrentIndex(max(idx, 0))
         if not self.defaults_mode:
             self._refresh_profiles()
         self._set_env_table(c.env.vars)
@@ -1006,6 +1015,7 @@ class GameDialog(QDialog):
         if not self.defaults_mode:
             self.cfg.notes.text = self.e_notes.toPlainText()
             self.cfg.debug.proton_log = self.c_protonlog.isChecked()
+            self.cfg.debug.winedebug = str(self.cb_winedebug.currentData() or "")
 
     def _stop_coverage_worker(self) -> None:
         worker, self._cov_thread = self._cov_thread, None

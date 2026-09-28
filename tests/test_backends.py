@@ -357,6 +357,27 @@ def test_proton_log_env(xdg_env):
     assert "PROTON_LOG" not in env and "PROTON_LOG_DIR" not in env
 
 
+def test_winedebug_env(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "53"
+    cfg.debug.winedebug = "+err"
+    _cmd, env, _ = build_final_command(cfg, ["/bin/true"])
+    assert env.get("WINEDEBUG") == "+err"
+    cfg.debug.winedebug = ""
+    _cmd, env, _ = build_final_command(cfg, ["/bin/true"])
+    assert "WINEDEBUG" not in env
+
+
+def test_debug_section_roundtrip(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "54"
+    cfg.debug.proton_log = True
+    cfg.debug.winedebug = "-all"
+    C.save(cfg)
+    back = C.load("54")
+    assert back.debug.proton_log is True and back.debug.winedebug == "-all"
+
+
 def test_format_duration():
     from tksteamlaunch.backends import notify as ntf
 

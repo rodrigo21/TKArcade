@@ -105,6 +105,7 @@ class NotesConfig:
 @dataclass
 class DebugConfig:
     proton_log: bool = False
+    winedebug: str = ""
 
 
 @dataclass
@@ -297,7 +298,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "nightlight": {"disable_during_game", "provider"},
     "notifications": {"notify_on_launch"},
     "notes": {"text"},
-    "debug": {"proton_log"},
+    "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
 }
 
@@ -391,6 +392,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.notifications.notify_on_launch = _as_bool(nt.get("notify_on_launch", True), True)
     cfg.notes.text = str(_section(data, "notes").get("text", ""))
     cfg.debug.proton_log = _as_bool(_section(data, "debug").get("proton_log", False), False)
+    cfg.debug.winedebug = str(_section(data, "debug").get("winedebug", ""))
     cfg.session.inhibit_idle = _as_bool(_section(data, "session").get("inhibit_idle", False), False)
     return cfg
 

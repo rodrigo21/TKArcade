@@ -242,6 +242,8 @@ def build_final_command(
     if cfg.debug.proton_log:
         env["PROTON_LOG"] = "1"
         env["PROTON_LOG_DIR"] = os.fspath(proton_log_dir(cfg.general.appid))
+    if cfg.debug.winedebug.strip():
+        env["WINEDEBUG"] = cfg.debug.winedebug.strip()
     return cmd, env, warnings
 
 
