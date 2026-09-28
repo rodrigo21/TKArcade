@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("TKSteamLaunch")
-        self.resize(820, 520)
+        self._apply_default_size()
         QShortcut(QKeySequence.StandardKey.Quit, self, self._quit)
 
         central = QWidget()
@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.status)
 
         layout.addWidget(
-            self._section_box(
+            self._section_row(
                 "Games",
                 (
                     ("Add Game...", self._add),
@@ -134,7 +134,7 @@ class MainWindow(QMainWindow):
             )
         )
         layout.addWidget(
-            self._section_box(
+            self._section_row(
                 "Tools",
                 (
                     ("Copy Launch Options", self._copy_launch),
@@ -145,7 +145,7 @@ class MainWindow(QMainWindow):
             )
         )
         layout.addWidget(
-            self._section_box(
+            self._section_row(
                 "Application",
                 (
                     ("Global Defaults...", self._edit_defaults),
@@ -159,20 +159,36 @@ class MainWindow(QMainWindow):
         self.refresh()
         self._apply_tray()
 
-    @staticmethod
-    def _section_box(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:
-        """Grouped button row with a titled frame; append entries to add actions."""
-        from PySide6.QtWidgets import QGroupBox
+    def _apply_default_size(self) -> None:
+        """Half the available width, full available height.
 
-        box = QGroupBox(title)
-        row = QHBoxLayout(box)
-        row.addStretch(1)
-        for label, slot in buttons:
-            b = QPushButton(label)
+        availableGeometry() already excludes panels/taskbars, so the
+        window never hides under them. The WM may still constrain it.
+        """
+        from PySide6.QtWidgets import QApplication
+
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            self.resize(820, 520)
+            return
+        area = screen.availableGeometry()
+        self.resize(max(640, area.width() // 2), max(480, area.height()))
+
+    @staticmethod
+    def _section_row(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:
+        """Labeled button row; the fixed-width label keeps rows aligned."""
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        label = QLabel(title)
+        label.setMinimumWidth(90)
+        layout.addWidget(label)
+        for text, slot in buttons:
+            b = QPushButton(text)
             b.clicked.connect(slot)
-            row.addWidget(b)
-        row.addStretch(1)
-        return box
+            layout.addWidget(b)
+        layout.addStretch(1)
+        return row
 
     def refresh(self) -> None:
         self._stop_pdb_worker()

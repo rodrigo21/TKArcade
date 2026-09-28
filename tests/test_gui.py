@@ -612,11 +612,14 @@ def test_about_text_contents():
 
 
 def test_section_boxes_present(qapp, xdg_env):
-    from PySide6.QtWidgets import QGroupBox
+    from PySide6.QtWidgets import QGroupBox, QLabel
 
     from tksteamlaunch.gui.main_window import MainWindow
 
     w = MainWindow()
-    titles = [b.title() for b in w.findChildren(QGroupBox)]
-    assert titles == ["Games", "Tools", "Application"]
+    assert w.findChildren(QGroupBox) == []
+    labels = [label.text() for label in w.findChildren(QLabel)]
+    assert {"Games", "Tools", "Application"} <= set(labels)
+    w._apply_default_size()
+    assert w.width() >= 640 and w.height() >= 480
     w.close()
