@@ -442,6 +442,8 @@ def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True)
     else:
         cmd += ["--pick"]
     cmd += ["--can-launch" if can_launch else "--no-can-launch"]
+    if for_menu:
+        cmd.append("--menu")
     try:
         proc = subprocess.run(
             cmd, env=clean_gui_env(dict(os.environ)), capture_output=True, text=True
@@ -482,7 +484,6 @@ def _run_editor_inprocess(appid: str, for_menu: bool, can_launch: bool) -> tuple
         print(f"tksteamlaunch: {tool} needs a display", file=sys.stderr)
         return "unavailable", appid
     from .gui.edit import pick_game_appid
-    from .gui.game_dialog import GameDialog
 
     # Reference kept alive: the dialog needs a living QApplication during exec.
     app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
@@ -491,6 +492,16 @@ def _run_editor_inprocess(appid: str, for_menu: bool, can_launch: bool) -> tuple
         if not appid:
             return "cancelled", ""
     names = {a: n for a, n in steammod.list_games()}
+    if for_menu:
+        from .gui.menu_dialog import MenuDialog
+
+        menu = MenuDialog(None, appid, names.get(appid, ""), can_launch=can_launch)
+        result = menu.exec()
+        if int(result) != int(QDialog.DialogCode.Accepted):
+            return "cancelled", appid
+        return ("launch" if menu.launch_requested else "saved"), appid
+    from .gui.game_dialog import GameDialog
+
     dlg = GameDialog(None, appid, names.get(appid, ""), launch_mode=True, can_launch=can_launch)
     result = dlg.exec()
     if int(result) != int(QDialog.DialogCode.Accepted):

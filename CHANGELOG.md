@@ -6,6 +6,7 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Real pre-launch menu dialog (Launch / Settings / Cancel) for `--menu`.
 - Status tray icon (normal/monochrome) with menu, minimize/close to
   tray and a Preferences dialog (`preferences.toml`).
 - Bundled application icons and freedesktop desktop entry.

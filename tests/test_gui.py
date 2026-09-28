@@ -649,3 +649,61 @@ def test_section_row_centered(qt_app):
     spacers = [i for i in range(layout.count()) if isinstance(layout.itemAt(i), QSpacerItem)]
     assert spacers == [1, layout.count() - 2]  # group centered on the full row width
     assert layout.itemAt(layout.count() - 1).widget().minimumWidth() == 90
+
+
+def test_menu_launch_cancel_and_nolaunch(qt_app, xdg_env):
+    from PySide6.QtWidgets import QDialog
+
+    from tksteamlaunch.gui.menu_dialog import MenuDialog
+
+    m = MenuDialog(None, "77", "Menu Game")
+    assert m.launch_requested is False and m.b_launch.isEnabled()
+    m.b_launch.click()
+    assert m.launch_requested is True
+    assert m.result() == QDialog.DialogCode.Accepted
+
+    m2 = MenuDialog(None, "77", "Menu Game", can_launch=False)
+    assert not m2.b_launch.isEnabled()
+
+    m3 = MenuDialog(None, "77", "Menu Game")
+    m3.reject()
+    assert m3.launch_requested is False
+
+
+def test_menu_settings_returns_to_menu(qt_app, xdg_env):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QPushButton
+
+    from tksteamlaunch.gui.menu_dialog import MenuDialog
+
+    m = MenuDialog(None, "78", "Menu Game")
+    m.show()
+    qt_app.processEvents()
+
+    def close_nested():
+        modal = QApplication.activeModalWidget()
+        if modal is not None and modal is not m:
+            modal.reject()
+
+    QTimer.singleShot(400, close_nested)
+    btn = next(b for b in m.findChildren(QPushButton) if "Settings" in b.text())
+    btn.click()
+    qt_app.processEvents()
+    assert m.isVisible() and m.result() == 0 and m.launch_requested is False
+    m.close()
+
+
+def test_edit_menu_cancel_reports_json(qt_app, xdg_env, capsys):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QDialog
+
+    from tksteamlaunch.gui import edit as editmod
+
+    def reject_modal():
+        modal = QApplication.activeModalWidget()
+        if isinstance(modal, QDialog):
+            modal.reject()
+
+    QTimer.singleShot(400, reject_modal)
+    assert editmod.main(["--appid", "79", "--menu"]) == 0
+    assert '"outcome": "cancelled"' in capsys.readouterr().out

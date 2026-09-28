@@ -69,6 +69,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=True,
         help="hide the launch button when there is no game command to run",
     )
+    p.add_argument(
+        "--menu",
+        action="store_true",
+        help="show the Launch / Settings / Cancel menu instead of the editor",
+    )
     return p.parse_args(argv)
 
 
@@ -79,7 +84,6 @@ def main(argv: list[str] | None = None) -> int:
     from PySide6.QtWidgets import QApplication, QDialog
 
     from .. import steam as steammod
-    from .game_dialog import GameDialog
 
     app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
     appid = (args.appid or "").strip()
@@ -89,9 +93,16 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"outcome": "cancelled", "appid": ""}))
             return 0
     names = {a: n for a, n in steammod.list_games()}
-    dlg = GameDialog(
-        None, appid, names.get(appid, ""), launch_mode=True, can_launch=args.can_launch
-    )
+    if args.menu:
+        from .menu_dialog import MenuDialog
+
+        dlg = MenuDialog(None, appid, names.get(appid, ""), can_launch=args.can_launch)
+    else:
+        from .game_dialog import GameDialog
+
+        dlg = GameDialog(
+            None, appid, names.get(appid, ""), launch_mode=True, can_launch=args.can_launch
+        )
     result = dlg.exec()
     if int(result) != int(QDialog.DialogCode.Accepted):
         outcome = "cancelled"
