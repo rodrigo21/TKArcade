@@ -70,7 +70,6 @@ def tool_version(tool: str) -> str | None:
 
 def tool_display(appid: str) -> str:
     """Display string for the Proton tool: 'tool (version)', 'tool', or 'Proton'.
-
     Same rule everywhere (dialog, notifications) so both agree even when
     only the tool mapping exists without a readable version file.
     """
@@ -79,6 +78,16 @@ def tool_display(appid: str) -> str:
         return "Proton"
     version = tool_version(tool)
     return f"{tool} ({version})" if version else tool
+
+
+def flavor(tool: str) -> str:
+    """Classify a compat tool: 'cachyos', 'ge' or 'valve' (default)."""
+    low = (tool or "").lower()
+    if "cachyos" in low:
+        return "cachyos"
+    if "ge-proton" in low or low.startswith("ge"):
+        return "ge"
+    return "valve"
 
 
 def prepare_fresh_prefix() -> list[str]:

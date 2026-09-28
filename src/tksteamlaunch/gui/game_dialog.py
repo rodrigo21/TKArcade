@@ -33,6 +33,8 @@ from PySide6.QtWidgets import (
 )
 
 from .. import config as cfgmod
+from .. import gpu as gpumod
+from .. import presets as presetsmod
 from .. import proton as protonmod
 from .. import xdg
 from ..backends import ludusavi as lu_backend
@@ -671,12 +673,24 @@ class GameDialog(QDialog):
     def _add_env_preset(self) -> None:
         from PySide6.QtWidgets import QInputDialog
 
-        from .. import presets as presetsmod
-
-        names = sorted(presetsmod.ENV_PRESETS)
-        name, ok = QInputDialog.getItem(self, "Add Env Preset", "Preset:", names, 0, False)
-        if not ok or not name:
+        names = sorted(presetsmod.PRESETS)
+        labels = {n: self._preset_label(n, presetsmod.PRESETS[n]) for n in names}
+        label, ok = QInputDialog.getItem(
+            self, "Add Env Preset", "Preset:", [labels[n] for n in names], 0, False
+        )
+        if not ok or not label:
             return
+        name = next(n for n in names if labels[n] == label)
+        preset = presetsmod.PRESETS[name]
+        mismatch = self._preset_mismatch(preset)
+        if mismatch:
+            answer = QMessageBox.question(
+                self,
+                "TKSteamLaunch",
+                f"Preset '{name}' is for {mismatch}.\nApply anyway?",
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
         vars = self._table_to_env()
         added = presetsmod.apply_preset(vars, name)
         self._set_env_table(vars)
@@ -686,6 +700,29 @@ class GameDialog(QDialog):
                 "TKSteamLaunch",
                 f"Preset '{name}': all keys already present.",
             )
+
+    @staticmethod
+    def _preset_label(name: str, preset) -> str:
+        tags = []
+        if preset.drivers:
+            tags.append("/".join(preset.drivers))
+        if preset.proton:
+            tags.append("/".join(preset.proton))
+        if tags:
+            return f"{name} [{'/'.join(tags)}]"
+        return name
+
+    def _preset_mismatch(self, preset) -> str:
+        """Describe why a preset may not apply here, or '' when it fits."""
+        if preset.drivers:
+            vendors = gpumod.detect_vendors()
+            if vendors and not (set(preset.drivers) & vendors):
+                return "/".join(preset.drivers) + " GPUs"
+        if preset.proton and not self.defaults_mode and self.appid:
+            tool = protonmod.compat_tool_name(self.appid) or ""
+            if tool and protonmod.flavor(tool) not in preset.proton:
+                return "/".join(preset.proton) + " Proton"
+        return ""
 
     def _apply_gamescope_preset(self) -> None:
         from PySide6.QtWidgets import QInputDialog

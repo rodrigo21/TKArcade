@@ -12,6 +12,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Idle suspend inhibitor per game (logind idle lock only).
 - Proton prefix fresh-start toggle (deletes compatdata before launch).
 - Winetricks verbs per game via protontricks (unattended, skips repeats).
+- Compat preset catalog (FSR4, sync, D3D fallbacks, locale, HDR...) with
+  GPU/Proton applicability tags and mismatch confirm.
 
 ## [0.4.0] - 2026-09-28
 
