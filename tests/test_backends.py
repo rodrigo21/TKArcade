@@ -587,3 +587,30 @@ def test_launch_options_lowercase_apps_status(monkeypatch, tmp_path, xdg_env):
     )
     monkeypatch.setenv("STEAM_ROOT", str(root))
     assert S.launch_options_status("66")[0] == "ok"
+
+
+def test_inhibit_idle_prefix(fake_bin):
+    fake_bin("systemd-inhibit")
+    cfg = C.GameConfig()
+    cfg.general.appid = "67"
+    cfg.session.inhibit_idle = True
+    cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
+    assert not warnings
+    assert cmd[:5] == [
+        "systemd-inhibit",
+        "--what=idle",
+        "--who=TKSteamLaunch",
+        "--why=67",
+        "--",
+    ]
+    assert cmd[-1] == "/bin/true"
+
+
+def test_inhibit_idle_missing_binary(xdg_env, monkeypatch, tmp_path):
+    monkeypatch.setenv("PATH", str(tmp_path))
+    cfg = C.GameConfig()
+    cfg.general.appid = "68"
+    cfg.session.inhibit_idle = True
+    cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
+    assert cmd == ["/bin/true"]
+    assert any("systemd-inhibit" in w for w in warnings)

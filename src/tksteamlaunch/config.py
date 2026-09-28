@@ -108,6 +108,11 @@ class DebugConfig:
 
 
 @dataclass
+class SessionConfig:
+    inhibit_idle: bool = False
+
+
+@dataclass
 class Preferences:
     """Program-level preferences (never per-game)."""
 
@@ -131,6 +136,7 @@ class GameConfig:
     notifications: NotificationsConfig = field(default_factory=NotificationsConfig)
     notes: NotesConfig = field(default_factory=NotesConfig)
     debug: DebugConfig = field(default_factory=DebugConfig)
+    session: SessionConfig = field(default_factory=SessionConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -159,6 +165,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "notifications": _to_toml_value(cfg.notifications),
         "notes": _to_toml_value(cfg.notes),
         "debug": _to_toml_value(cfg.debug),
+        "session": _to_toml_value(cfg.session),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -291,6 +298,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "notifications": {"notify_on_launch"},
     "notes": {"text"},
     "debug": {"proton_log"},
+    "session": {"inhibit_idle"},
 }
 
 
@@ -383,6 +391,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.notifications.notify_on_launch = _as_bool(nt.get("notify_on_launch", True), True)
     cfg.notes.text = str(_section(data, "notes").get("text", ""))
     cfg.debug.proton_log = _as_bool(_section(data, "debug").get("proton_log", False), False)
+    cfg.session.inhibit_idle = _as_bool(_section(data, "session").get("inhibit_idle", False), False)
     return cfg
 
 

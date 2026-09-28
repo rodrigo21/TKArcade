@@ -12,6 +12,12 @@ ENV_PRESETS: dict[str, dict[str, str]] = {
     "Prefer Wayland (SDL)": {
         "SDL_VIDEODRIVER": "wayland",
     },
+    "Disable VSync (Mesa)": {
+        "vblank_mode": "0",
+    },
+    "Disable VSync (NVIDIA)": {
+        "__GL_SYNC_TO_VBLANK": "0",
+    },
 }
 
 

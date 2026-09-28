@@ -7,6 +7,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ### Added
 - Proton log capture per game (off by default, warning in notification).
+- VSync disable presets for Mesa and NVIDIA (verified against docs).
+- Idle suspend inhibitor per game (logind idle lock only).
 
 ## [0.4.0] - 2026-09-28
 

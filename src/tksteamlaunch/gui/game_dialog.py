@@ -206,6 +206,12 @@ class GameDialog(QDialog):
         self.c_notify = QCheckBox("Notify on launch")
         self.c_notify.setToolTip("Show a transient summary notification when the game starts.")
         gf.addRow("", self.c_notify)
+        self.c_inhibit = QCheckBox("Inhibit idle suspend while playing")
+        self.c_inhibit.setToolTip(
+            "Holds a logind idle lock during the session. Sleep lock is not "
+            "included (needs privileges)."
+        )
+        gf.addRow("", self.c_inhibit)
         if not defaults_mode:
             self.cb_profile = QComboBox()
             self.cb_profile.setToolTip("Switching loads the profile (Save writes it).")
@@ -522,6 +528,7 @@ class GameDialog(QDialog):
         self.e_prefix.setText(c.general.custom_prefix)
         self.c_show_menu.setChecked(c.general.show_menu)
         self.c_notify.setChecked(c.notifications.notify_on_launch)
+        self.c_inhibit.setChecked(c.session.inhibit_idle)
         if not self.defaults_mode:
             self.c_protonlog.setChecked(c.debug.proton_log)
         if not self.defaults_mode:
@@ -974,6 +981,7 @@ class GameDialog(QDialog):
         self.cfg.general.custom_prefix = self.e_prefix.text().strip()
         self.cfg.general.show_menu = self.c_show_menu.isChecked()
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
+        self.cfg.session.inhibit_idle = self.c_inhibit.isChecked()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()
         self.cfg.pre_post.pre_args = split_args(self.e_pre_args.text())

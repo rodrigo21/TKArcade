@@ -206,6 +206,21 @@ def build_final_command(
     cmd, w = ov_backend.apply_gamescope(cmd, cfg.gamescope.enable, cfg.gamescope.args)
     warnings += w
 
+    # idle inhibitor wraps the whole session (inside ludusavi wrap).
+    # Only idle: the sleep lock needs privileges logind won't grant us.
+    if cfg.session.inhibit_idle:
+        if shutil.which("systemd-inhibit"):
+            cmd = [
+                "systemd-inhibit",
+                "--what=idle",
+                "--who=TKSteamLaunch",
+                f"--why={cfg.general.appid.strip() or 'game'}",
+                "--",
+                *cmd,
+            ]
+        else:
+            warnings.append("systemd-inhibit not found, skipping idle inhibitor")
+
     # ludusavi wrap outermost: restore runs before everything, backup --gui
     # after the whole stack (e.g. gamescope) exits so dialogs stay visible.
     # wrap_rc_file recovers the real game exit code that wrap masks with 0.
@@ -275,6 +290,8 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
         wrappers.append("Ludusavi")
     if cfg.nightlight.disable_during_game:
         wrappers.append("Night Light")
+    if cfg.session.inhibit_idle:
+        wrappers.append("Idle Inhibit")
     names = {a: n for a, n in steammod.list_games()}
     proton_display = protonmod.tool_display(appid) if game_type != "native" else ""
     runtime = protonmod.native_runtime(game_cmd) if game_type == "native" else None

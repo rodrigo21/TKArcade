@@ -17,6 +17,8 @@ def test_preset_catalog():
         "FSR Upscaling (Wine/Proton)",
         "Faster Shaders (RADV)",
         "Prefer Wayland (SDL)",
+        "Disable VSync (Mesa)",
+        "Disable VSync (NVIDIA)",
     }
     for values in pm.ENV_PRESETS.values():
         assert values and all(values)
