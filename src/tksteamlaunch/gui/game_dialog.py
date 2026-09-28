@@ -509,6 +509,8 @@ class GameDialog(QDialog):
                 "Reset to Global Defaults", QDialogButtonBox.ButtonRole.ResetRole
             )
             b_reset.clicked.connect(self._on_reset)
+            b_diff = btns.addButton("Diff vs Defaults", QDialogButtonBox.ButtonRole.HelpRole)
+            b_diff.clicked.connect(self._show_diff)
             btns.addButton(QDialogButtonBox.StandardButton.Cancel)
         if self._show_preview_box():
             preview_group = QGroupBox("Launch Command Preview")
@@ -825,6 +827,22 @@ class GameDialog(QDialog):
         self.cfg.general.appid = self.appid
         self._active_profile = ""
         self._populate()
+
+    def _show_diff(self) -> None:
+        self._collect()
+        diff = cfgmod.diff_vs_defaults(self.cfg)
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Differences from Global Defaults")
+        dlg.resize(640, 480)
+        layout = QVBoxLayout(dlg)
+        edit = QPlainTextEdit(diff or "(no differences)")
+        edit.setReadOnly(True)
+        edit.setFont(QFontDatabase.systemFont(QFontDatabase.FixedFont))
+        layout.addWidget(edit)
+        btns = QDialogButtonBox(QDialogButtonBox.Close)
+        btns.rejected.connect(dlg.reject)
+        layout.addWidget(btns)
+        dlg.exec()
 
     def _on_save_and_launch(self) -> None:
         self.launch_requested = True

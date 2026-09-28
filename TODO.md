@@ -9,3 +9,7 @@
   on launch, restore on exit.
 - [ ] Review env presets against vendor docs (Mesa/NVIDIA semantics drift;
   verify `vblank_mode` / `__GL_SYNC_TO_VBLANK` values).
+- [ ] Block Internet per game (net namespace, unprivileged). Lighter
+  alternative already shipped: `WINE_BLOCK_HOSTS` preset.
+- [ ] vkBasalt successor: vkBasalt is unmaintained; evaluate forks or
+  ReShade-on-Linux successors when mature (out for now).

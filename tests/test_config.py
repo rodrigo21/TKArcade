@@ -276,3 +276,12 @@ def test_winetricks_missing_binary(xdg_env, monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
     assert "not found" in pm.run_winetricks("76", ["dotnet48"])[0]
     assert pm.run_winetricks("76", []) == []
+
+
+def test_diff_vs_defaults(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "90"
+    assert C.diff_vs_defaults(cfg) == ""
+    cfg.env.vars = {"A": "1"}
+    diff = C.diff_vs_defaults(cfg)
+    assert '"A" = "1"' in diff and diff.startswith("---")

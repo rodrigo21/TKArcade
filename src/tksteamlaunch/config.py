@@ -498,6 +498,25 @@ def save(cfg: GameConfig) -> Path:
     return path
 
 
+def diff_vs_defaults(cfg: GameConfig) -> str:
+    """Unified diff of a game config against global defaults (no appid)."""
+    import difflib
+
+    base = to_toml_dict(load_defaults())
+    full = to_toml_dict(cfg)
+    base.get("general", {}).pop("appid", None)
+    full.get("general", {}).pop("appid", None)
+    return "\n".join(
+        difflib.unified_diff(
+            _render_toml(base).splitlines(),
+            _render_toml(full).splitlines(),
+            "defaults",
+            "this game",
+            lineterm="",
+        )
+    )
+
+
 def list_appids() -> list[str]:
     d = xdg.games_dir()
     if not d.exists():
