@@ -2,7 +2,7 @@
 
 _basename=linux-rt-upscaler
 pkgname=linux-rt-upscaler-git
-pkgver=1.1.4.r0.g0000000
+pkgver=1.1.4.r8.g5b77b741
 pkgrel=1
 pkgdesc='Real-time SRCNN upscaler for any X-Window (X11/XWayland)'
 arch=('x86_64')
@@ -11,7 +11,6 @@ license=('GPL-3.0-or-later')
 depends=('python' 'pyside6' 'python-pillow' 'python-yaml' 'python-xcffib'
          'vulkan-icd-loader' 'libx11' 'libxcb' 'libxext' 'libxdamage' 'libxfixes')
 makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'vulkan-headers')
-# No check(): upstream ships no test suite.
 conflicts=('linux-rt-upscaler')
 provides=("linux-rt-upscaler=${pkgver}")
 source=("$_basename::git+https://github.com/baronsmv/linux-rt-upscaler.git#branch=main")

@@ -87,6 +87,17 @@ def _text_to_env(text: str) -> dict[str, str]:
     return out
 
 
+def _scroll_page(page: QWidget) -> QWidget:
+    """Wrap a tab page so small windows can scroll instead of clipping."""
+    from PySide6.QtWidgets import QScrollArea
+
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setWidget(page)
+    return scroll
+
+
 class _CoverageWorker(QThread):
     """Run the (potentially slow) Ludusavi coverage check off the UI thread."""
 
@@ -205,15 +216,6 @@ class GameDialog(QDialog):
             "on every Steam start. Also forced by the --menu flag."
         )
         gf.addRow("", self.c_show_menu)
-        self.c_notify = QCheckBox("Notify on launch")
-        self.c_notify.setToolTip("Show a transient summary notification when the game starts.")
-        gf.addRow("", self.c_notify)
-        self.c_inhibit = QCheckBox("Inhibit idle suspend while playing")
-        self.c_inhibit.setToolTip(
-            "Holds a logind idle lock during the session. Sleep lock is not "
-            "included (needs privileges)."
-        )
-        gf.addRow("", self.c_inhibit)
         if not defaults_mode:
             self.cb_profile = QComboBox()
             self.cb_profile.setToolTip("Switching loads the profile (Save writes it).")
@@ -229,6 +231,23 @@ class GameDialog(QDialog):
             prof_layout.addWidget(b_prof_save)
             prof_layout.addWidget(b_prof_delete)
             gf.addRow("Profile:", prof_row)
+        if not defaults_mode:
+            log_row = QWidget()
+            log_layout = QHBoxLayout(log_row)
+            log_layout.setContentsMargins(0, 0, 0, 0)
+            self.e_log = QLineEdit()
+            self.e_log.setReadOnly(True)
+            self.b_log = QPushButton("Open")
+            self.b_log.clicked.connect(self._open_log)
+            log_layout.addWidget(self.e_log, stretch=1)
+            log_layout.addWidget(self.b_log)
+            gf.addRow("Log File:", log_row)
+        tabs.addTab(_scroll_page(g), "General")
+
+        # --- Environment ---
+        env_page = QWidget()
+        env_page_layout = QVBoxLayout(env_page)
+        env_page_layout.setContentsMargins(4, 4, 4, 4)
         env_box = QWidget()
         env_layout = QVBoxLayout(env_box)
         env_layout.setContentsMargins(0, 0, 0, 0)
@@ -252,36 +271,9 @@ class GameDialog(QDialog):
         env_btns.addWidget(b_preset)
         env_btns.addStretch(1)
         env_layout.addLayout(env_btns)
-        gf.addRow("Environment Variables:", env_box)
-        if not defaults_mode:
-            log_row = QWidget()
-            log_layout = QHBoxLayout(log_row)
-            log_layout.setContentsMargins(0, 0, 0, 0)
-            self.e_log = QLineEdit()
-            self.e_log.setReadOnly(True)
-            self.b_log = QPushButton("Open")
-            self.b_log.clicked.connect(self._open_log)
-            log_layout.addWidget(self.e_log, stretch=1)
-            log_layout.addWidget(self.b_log)
-            gf.addRow("Log File:", log_row)
-            self.c_protonlog = QCheckBox("Capture Proton log (disk-heavy)")
-            self.c_protonlog.setToolTip("Sets PROTON_LOG=1 with a per-game log dir (Proton only).")
-            self.b_protonlog = QPushButton("Open")
-            self.b_protonlog.clicked.connect(self._open_proton_log)
-            proton_row = QWidget()
-            proton_layout = QHBoxLayout(proton_row)
-            proton_layout.setContentsMargins(0, 0, 0, 0)
-            proton_layout.addWidget(self.c_protonlog, stretch=1)
-            proton_layout.addWidget(self.b_protonlog)
-            gf.addRow("", proton_row)
-            self.cb_winedebug = QComboBox()
-            self.cb_winedebug.addItem("Off", "")
-            self.cb_winedebug.addItem("Quiet (-all)", "-all")
-            self.cb_winedebug.addItem("Errors (+err)", "+err")
-            self.cb_winedebug.addItem("Warnings (+warn,+err)", "+warn,+err")
-            self.cb_winedebug.setToolTip("Sets WINEDEBUG for Wine/Proton output.")
-            gf.addRow("Wine Debug:", self.cb_winedebug)
-        tabs.addTab(g, "General")
+        env_page_layout.addWidget(QLabel("Per-game environment variables:"))
+        env_page_layout.addWidget(env_box, stretch=1)
+        tabs.addTab(_scroll_page(env_page), "Environment")
 
         # --- Pre/Post Commands ---
         pp = QWidget()
@@ -299,7 +291,7 @@ class GameDialog(QDialog):
         pf.addRow("Post-Exit Arguments:", self.e_post_args)
         pf.addRow("Timeout (seconds):", self.s_timeout)
         pf.addRow("", self.c_shell)
-        tabs.addTab(pp, "Pre/Post Commands")
+        tabs.addTab(_scroll_page(pp), "Pre/Post Commands")
 
         # --- Performance: system + display/overlay sections ---
         perf = QWidget()
@@ -378,7 +370,7 @@ class GameDialog(QDialog):
         rf.addRow(self.l_rt_args, self.e_rt_args)
         perf_layout.addWidget(rt_box)
         perf_layout.addStretch(1)
-        tabs.addTab(perf, "Performance")
+        tabs.addTab(_scroll_page(perf), "Performance")
 
         # --- Ludusavi ---
         lu = QWidget()
@@ -417,11 +409,20 @@ class GameDialog(QDialog):
             cov_layout.addWidget(self.b_coverage)
             cov_layout.addStretch(1)
             lf.addRow("Coverage:", cov_row)
-        tabs.addTab(lu, "Ludusavi")
+        tabs.addTab(_scroll_page(lu), "Ludusavi")
 
-        # --- Night Light ---
+        # --- System (desktop integration) ---
         nl = QWidget()
         nf = QFormLayout(nl)
+        self.c_notify = QCheckBox("Notify on launch")
+        self.c_notify.setToolTip("Show a transient summary notification when the game starts.")
+        nf.addRow("", self.c_notify)
+        self.c_inhibit = QCheckBox("Inhibit idle suspend while playing")
+        self.c_inhibit.setToolTip(
+            "Holds a logind idle lock during the session. Sleep lock is not "
+            "included (needs privileges)."
+        )
+        nf.addRow("", self.c_inhibit)
         self.c_nl = QCheckBox("Disable while the game is running (restored on exit)")
         self.cb_nl = QComboBox()
         self.cb_nl.addItem("Automatic", NightlightProvider.AUTO)
@@ -430,7 +431,7 @@ class GameDialog(QDialog):
         self.cb_nl.addItem("Disabled", NightlightProvider.OFF)
         nf.addRow("", self.c_nl)
         nf.addRow("Provider:", self.cb_nl)
-        tabs.addTab(nl, "Night Light")
+        tabs.addTab(_scroll_page(nl), "System")
 
         pt = QWidget()
         pf = QFormLayout(pt)
@@ -444,7 +445,25 @@ class GameDialog(QDialog):
         self.e_verbs.setPlaceholderText("dotnet48 vcrun2022 (space-separated)")
         self.e_verbs.setToolTip("Winetricks verbs installed via protontricks before launch.")
         pf.addRow("Winetricks Verbs:", self.e_verbs)
-        tabs.addTab(pt, "Proton")
+        if not defaults_mode:
+            self.c_protonlog = QCheckBox("Capture Proton log (disk-heavy)")
+            self.c_protonlog.setToolTip("Sets PROTON_LOG=1 with a per-game log dir (Proton only).")
+            self.b_protonlog = QPushButton("Open")
+            self.b_protonlog.clicked.connect(self._open_proton_log)
+            proton_row = QWidget()
+            proton_layout = QHBoxLayout(proton_row)
+            proton_layout.setContentsMargins(0, 0, 0, 0)
+            proton_layout.addWidget(self.c_protonlog, stretch=1)
+            proton_layout.addWidget(self.b_protonlog)
+            pf.addRow("", proton_row)
+            self.cb_winedebug = QComboBox()
+            self.cb_winedebug.addItem("Off", "")
+            self.cb_winedebug.addItem("Quiet (-all)", "-all")
+            self.cb_winedebug.addItem("Errors (+err)", "+err")
+            self.cb_winedebug.addItem("Warnings (+warn,+err)", "+warn,+err")
+            self.cb_winedebug.setToolTip("Sets WINEDEBUG for Wine/Proton output.")
+            pf.addRow("Wine Debug:", self.cb_winedebug)
+        tabs.addTab(_scroll_page(pt), "Wine / Proton")
 
         if not defaults_mode:
             notes = QWidget()
@@ -455,7 +474,7 @@ class GameDialog(QDialog):
                 "Free-form notes, e.g. works with GE-Proton, disable FSR in menus."
             )
             notes_layout.addWidget(self.e_notes)
-            tabs.addTab(notes, "Notes")
+            tabs.addTab(_scroll_page(notes), "Notes")
 
         for box in (
             self.c_feral,

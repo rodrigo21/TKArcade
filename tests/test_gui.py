@@ -732,3 +732,25 @@ def test_edit_menu_cancel_reports_json(qt_app, xdg_env, capsys):
     QTimer.singleShot(400, reject_modal)
     assert editmod.main(["--appid", "79", "--menu"]) == 0
     assert '"outcome": "cancelled"' in capsys.readouterr().out
+
+
+def test_dialog_tab_map(qapp, xdg_env):
+    from PySide6.QtWidgets import QTabWidget
+
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    def tabs(dlg):
+        tab = dlg.findChild(QTabWidget)
+        return [tab.tabText(i) for i in range(tab.count())]
+
+    assert tabs(GameDialog(None, "50", "T")) == [
+        "General",
+        "Environment",
+        "Pre/Post Commands",
+        "Performance",
+        "Ludusavi",
+        "System",
+        "Wine / Proton",
+        "Notes",
+    ]
+    assert "Notes" not in tabs(GameDialog(None, defaults_mode=True))
