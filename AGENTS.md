@@ -12,8 +12,12 @@ License: GPL-3.0-or-later.
 
 ## Environment
 
-- Python >= 3.12, Linux. Dev tools from CachyOS/Arch system packages
-  (`sudo pacman -S python-pytest ruff`) — never create venvs.
+- Python >= 3.12, Linux. Default flow is `uv` with system site packages:
+  `uv venv --system-site-packages` (reuses Arch/CachyOS packages, never
+  plain `venv`/`pip` into the system interpreter). Run checks with
+  `.venv/bin/python`; `ruff` stays the system binary.
+- Exception: `PKGBUILD check()` always uses system packages only
+  (no uv in the chroot).
 - The launcher (`src/tksteamlaunch/launcher.py`, `config.py`, `backends/`,
   `proton.py`, `steam.py`, `xdg.py`, `nightlight_holder.py`) must stay
   **stdlib-only**: it runs on every game start. PySide6/vdf/jeepney are
