@@ -222,7 +222,7 @@ def test_list_games_fake_root(monkeypatch, tmp_path, xdg_env):
     assert S.list_games() == [("9", "A Game"), ("10", "B Game")]
 
 
-def test_games_cache_refresh(monkeypatch, tmp_path):
+def test_games_cache_refresh(monkeypatch, tmp_path, xdg_env):
     root = tmp_path / "steamapps"
     root.mkdir()
     (root / "appmanifest_10.acf").write_text('"AppState"\n{\n"appid" "10"\n}\n')
