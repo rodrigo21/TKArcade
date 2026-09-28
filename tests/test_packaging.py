@@ -35,3 +35,12 @@ def test_python_floor_and_files():
     assert project["requires-python"] == ">=3.12"
     assert (ROOT / "README.md").is_file()
     assert "GPL" in project["license"]["text"]
+
+
+def test_version_single_source():
+    import tksteamlaunch
+
+    assert isinstance(tksteamlaunch.__version__, str) and tksteamlaunch.__version__
+    assert tksteamlaunch.__version__ == _pyproject()["project"]["version"] or (
+        tksteamlaunch.__version__ == "0.0.0+src"
+    )
