@@ -626,7 +626,7 @@ def test_section_boxes_present(qapp, xdg_env):
 
 
 def test_section_row_centered(qapp):
-    from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QSpacerItem
+    from PySide6.QtWidgets import QGroupBox, QLabel, QPushButton, QSpacerItem
 
     from tksteamlaunch.gui.main_window import MainWindow
 
@@ -634,8 +634,8 @@ def test_section_row_centered(qapp):
         pass
 
     row = MainWindow._section_row("T", (("A", noop), ("B", noop), ("C", noop)))
-    assert isinstance(row, QFrame)
-    assert row.frameShape() == QFrame.Shape.StyledPanel
+    assert isinstance(row, QGroupBox)
+    assert row.title() == ""
     layout = row.layout()
     assert isinstance(layout.itemAt(0).widget(), QLabel)
     assert (

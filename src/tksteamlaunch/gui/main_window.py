@@ -182,14 +182,12 @@ class MainWindow(QMainWindow):
         """Labeled row with its buttons centered in the full row width.
 
         A trailing spacer mirrors the label so the group centers on the
-        window, not on the space after the label. Framed like the
-        Dependency Status box in the game dialog.
+        window, not on the space after the label. Untitled group box for
+        a full frame without a top title.
         """
-        from PySide6.QtWidgets import QFrame
+        from PySide6.QtWidgets import QGroupBox
 
-        frame = QFrame()
-        frame.setFrameShape(QFrame.Shape.StyledPanel)
-        frame.setFrameShadow(QFrame.Shadow.Sunken)
+        frame = QGroupBox()
         layout = QHBoxLayout(frame)
         layout.setSpacing(8)
         label = QLabel(title)
