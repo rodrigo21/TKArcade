@@ -617,7 +617,8 @@ def test_section_boxes_present(qapp, xdg_env):
     from tksteamlaunch.gui.main_window import MainWindow
 
     w = MainWindow()
-    assert w.findChildren(QGroupBox) == []
+    groups = w.findChildren(QGroupBox)
+    assert len(groups) == 3 and all(box.title() == "" for box in groups)
     labels = [label.text() for label in w.findChildren(QLabel)]
     assert {"Games", "Tools", "Application"} <= set(labels)
     w._apply_default_size()
