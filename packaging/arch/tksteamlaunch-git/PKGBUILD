@@ -1,39 +1,46 @@
 # Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
 
-pkgname=tksteamlaunch
-# Baseline for makepkg lint; pkgver() below refreshes it from git tags.
-pkgver=0.4.0
+_basename=tksteamlaunch
+pkgname=tksteamlaunch-git
+pkgver=0.4.0.r0.g67a5ef9
 pkgrel=1
-pkgdesc="Minimal Steam launch wrapper"
+pkgdesc='Minimal Steam launch wrapper'
 arch=('any')
-url="https://github.com/rodrigo21/TKSteamLaunch"
+url='https://github.com/rodrigo21/TKSteamLaunch'
 license=('GPL-3.0-or-later')
 depends=('hicolor-icon-theme' 'python' 'pyside6' 'python-vdf' 'python-jeepney')
 makedepends=('git' 'python-build' 'python-installer' 'python-hatchling' 'python-uv-dynamic-versioning')
 checkdepends=('python-pytest')
-source=("$pkgname::git+ssh://git@github.com/rodrigo21/TKSteamLaunch.git#branch=main")
+optdepends=('gamemode: Feral GameMode support'
+            'gamescope: Gamescope session support'
+            'mangohud: MangoHud overlay support'
+            'ludusavi: save backup and restore support (AUR)'
+            'libnotify: desktop notifications')
+conflicts=('tksteamlaunch')
+provides=("tksteamlaunch=${pkgver}")
+source=("$pkgname::git+https://github.com/rodrigo21/TKSteamLaunch.git#branch=main")
 sha256sums=('SKIP')
 
 pkgver() {
-    cd "$pkgname"
+    cd "$_basename"
 
     git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 build() {
-    cd "$pkgname"
+    cd "$_basename"
 
     python -m build --wheel --no-isolation
 }
 
 check() {
-    cd "$pkgname"
+    cd "$_basename"
 
     QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 }
 
 package() {
-    cd "$pkgname"
+    cd "$_basename"
 
     python -m installer --destdir="$pkgdir" dist/*.whl
 
