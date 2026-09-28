@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=TKSteamLaunch
+Comment=Minimal Steam launch wrapper settings
+Exec=tksteamlaunch-gui
+Icon=tksteamlaunch
+Terminal=false
+Categories=Game;
+StartupWMClass=TKSteamLaunch
