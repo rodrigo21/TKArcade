@@ -1,0 +1,26 @@
+# Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
+pkgname=linux-rt-upscaler
+pkgver=1.1.4
+pkgrel=1
+pkgdesc='Real-time SRCNN upscaler for any X-Window (X11/XWayland)'
+arch=('x86_64')
+url='https://github.com/baronsmv/linux-rt-upscaler'
+license=('GPL-3.0-or-later')
+depends=('python' 'pyside6' 'python-pillow' 'python-yaml' 'python-xcffib'
+         'vulkan-icd-loader' 'libx11' 'libxcb' 'libxext' 'libxdamage' 'libxfixes')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'vulkan-headers')
+# No check(): upstream ships no test suite.
+source=("$pkgname-$pkgver.tar.gz::https://github.com/baronsmv/linux-rt-upscaler/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('f3f7e471494dd094af99e1fe1ded6370f2d3a3fae60125338f92606a9a2583ce')
+
+build() {
+    cd "$pkgname-$pkgver"
+
+    python -m build --wheel --no-isolation
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+
+    python -m installer --destdir="$pkgdir" dist/*.whl
+}
