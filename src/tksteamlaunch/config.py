@@ -114,6 +114,12 @@ class SessionConfig:
 
 
 @dataclass
+class RtUpscaleConfig:
+    enable: bool = False
+    args: str = ""
+
+
+@dataclass
 class ProtonConfig:
     fresh_prefix: bool = False
     winetricks_verbs: list[str] = field(default_factory=list)
@@ -145,6 +151,7 @@ class GameConfig:
     debug: DebugConfig = field(default_factory=DebugConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
     proton: ProtonConfig = field(default_factory=ProtonConfig)
+    rtupscale: RtUpscaleConfig = field(default_factory=RtUpscaleConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -175,6 +182,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "debug": _to_toml_value(cfg.debug),
         "session": _to_toml_value(cfg.session),
         "proton": _to_toml_value(cfg.proton),
+        "rtupscale": _to_toml_value(cfg.rtupscale),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -309,6 +317,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
     "proton": {"fresh_prefix", "winetricks_verbs"},
+    "rtupscale": {"enable", "args"},
 }
 
 
@@ -405,6 +414,9 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.session.inhibit_idle = _as_bool(_section(data, "session").get("inhibit_idle", False), False)
     cfg.proton.fresh_prefix = _as_bool(_section(data, "proton").get("fresh_prefix", False), False)
     cfg.proton.winetricks_verbs = _str_list(_section(data, "proton").get("winetricks_verbs", []))
+    rt = _section(data, "rtupscale")
+    cfg.rtupscale.enable = _as_bool(rt.get("enable", False), False)
+    cfg.rtupscale.args = str(rt.get("args", ""))
     return cfg
 
 

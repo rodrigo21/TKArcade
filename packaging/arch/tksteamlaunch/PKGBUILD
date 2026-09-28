@@ -15,12 +15,10 @@ optdepends=('gamemode: Feral GameMode support'
             'mangohud: MangoHud overlay support'
             'ludusavi: save backup and restore support (AUR)'
             'libnotify: desktop notifications')
-conflicts=('tksteamlaunch-git')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/rodrigo21/TKSteamLaunch/archive/v$pkgver.tar.gz")
 sha256sums=('aa64346beaf4fab2e514d2730d2034853d499835da370485b1ed76e1f1375858')
 
 build() {
-    # Release tarballs carry no .git metadata; pin the version explicitly.
     cd "TKSteamLaunch-$pkgver"
 
     UV_DYNAMIC_VERSIONING_BYPASS=$pkgver python -m build --wheel --no-isolation

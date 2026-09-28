@@ -364,6 +364,19 @@ class GameDialog(QDialog):
         mf.addRow(self.l_mh_args, self.e_mh_args)
         mf.addRow(self.l_mh_conf, mh_conf_row)
         perf_layout.addWidget(mh_box)
+        rt_box = QGroupBox("RT Upscaler")
+        rf = QFormLayout(rt_box)
+        self.c_rt = QCheckBox("Enable RT Upscaler (linux-rt-upscaler)")
+        self.c_rt.setToolTip(
+            "SRCNN upscaling for X11/XWayland windows; forces PROTON_ENABLE_WAYLAND=0."
+        )
+        self.e_rt_args = QLineEdit()
+        self.e_rt_args.setPlaceholderText("-m 4x24 (see upscale --help-all)")
+        self.l_rt_args = QLabel("Upscaler Options:")
+        self.l_rt_args.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        rf.addRow("", self.c_rt)
+        rf.addRow(self.l_rt_args, self.e_rt_args)
+        perf_layout.addWidget(rt_box)
         perf_layout.addStretch(1)
         tabs.addTab(perf, "Performance")
 
@@ -449,6 +462,7 @@ class GameDialog(QDialog):
             self.c_cachy,
             self.c_gs,
             self.c_mh,
+            self.c_rt,
             self.c_lu_enable,
         ):
             box.toggled.connect(self._on_feature_toggled)
@@ -459,6 +473,7 @@ class GameDialog(QDialog):
             "game-performance",
             "gamescope",
             "mangohud",
+            "rt-upscale",
             "ludusavi",
         ]
         if not defaults_mode:
@@ -528,6 +543,7 @@ class GameDialog(QDialog):
             self.l_gs_args,
             self.l_mh_args,
             self.l_mh_conf,
+            self.l_rt_args,
         )
         self._populate()
         self._wire_preview()
@@ -579,6 +595,8 @@ class GameDialog(QDialog):
         self.c_mh.setChecked(c.mangohud.enable)
         self.e_mh_args.setText(c.mangohud.args)
         self._refresh_mangohud_configs()
+        self.c_rt.setChecked(c.rtupscale.enable)
+        self.e_rt_args.setText(c.rtupscale.args)
         self.c_lu_enable.setChecked(c.ludusavi.enable)
         self.c_restore.setChecked(c.ludusavi.restore)
         self.c_backup.setChecked(c.ludusavi.backup)
@@ -962,6 +980,7 @@ class GameDialog(QDialog):
         )
         self._set_status("gamescope", *_binary_status("gamescope", self.c_gs.isChecked()))
         self._set_status("mangohud", *_binary_status("mangohud", self.c_mh.isChecked()))
+        self._set_status("rt-upscale", *_binary_status("upscale", self.c_rt.isChecked()))
         self._refresh_ludusavi_status()
         self._update_prefix_status()
         self._refresh_steam_status()
@@ -1060,6 +1079,8 @@ class GameDialog(QDialog):
         self.cfg.mangohud.enable = self.c_mh.isChecked()
         self.cfg.mangohud.args = self.e_mh_args.text().strip()
         self.cfg.mangohud.config_file = str(self.cb_mh_conf.currentData() or "")
+        self.cfg.rtupscale.enable = self.c_rt.isChecked()
+        self.cfg.rtupscale.args = self.e_rt_args.text().strip()
         self.cfg.ludusavi.enable = self.c_lu_enable.isChecked()
         self.cfg.ludusavi.restore = self.c_restore.isChecked()
         self.cfg.ludusavi.backup = self.c_backup.isChecked()

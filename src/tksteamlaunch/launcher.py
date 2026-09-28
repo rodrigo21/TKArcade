@@ -35,6 +35,7 @@ from .backends import nightlight as nl_backend
 from .backends import notify as notify_backend
 from .backends import overlay as ov_backend
 from .backends import prepost as pp_backend
+from .backends import rtupscale as rtu_backend
 from .backends import split_args
 from .config import GameType
 
@@ -199,6 +200,8 @@ def build_final_command(
     # inner -> outer: mangohud, gamemode/cachy, gamescope outermost
     cmd, w = ov_backend.apply_mangohud(cmd, cfg.mangohud.enable, cfg.mangohud.args)
     warnings += w
+    cmd, w = rtu_backend.apply(cmd, cfg.rtupscale.enable, cfg.rtupscale.args)
+    warnings += w
     cmd, w = gm_backend.prefix(
         cmd, cfg.gamemode.feral_gamemode, cfg.gamemode.cachyos_game_performance
     )
@@ -239,6 +242,12 @@ def build_final_command(
     mh_env, w = ov_backend.mangohud_env(cfg.mangohud.config_file)
     warnings += w
     env.update(mh_env)
+    if cfg.rtupscale.enable:
+        # rt-upscaler only handles X11/XWayland windows: force XWayland even
+        # when the Proton build would default to native Wayland.
+        if env.get("PROTON_ENABLE_WAYLAND", "").strip() == "1":
+            warnings.append("rt-upscaler needs XWayland: overriding PROTON_ENABLE_WAYLAND=1 with 0")
+        env["PROTON_ENABLE_WAYLAND"] = "0"
     if cfg.debug.proton_log:
         env["PROTON_LOG"] = "1"
         env["PROTON_LOG_DIR"] = os.fspath(proton_log_dir(cfg.general.appid))
@@ -288,6 +297,8 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
         wrappers.append("Gamescope")
     if cfg.mangohud.enable:
         wrappers.append("MangoHud")
+    if cfg.rtupscale.enable:
+        wrappers.append("RT Upscaler")
     if cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup):
         wrappers.append("Ludusavi")
     if cfg.nightlight.disable_during_game:

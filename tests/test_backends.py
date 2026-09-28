@@ -635,3 +635,36 @@ def test_inhibit_idle_missing_binary(xdg_env, monkeypatch, tmp_path):
     cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
     assert cmd == ["/bin/true"]
     assert any("systemd-inhibit" in w for w in warnings)
+
+
+def test_rtupscale_wrap_and_xwayland(fake_bin):
+    fake_bin("upscale")
+    cfg = C.GameConfig()
+    cfg.general.appid = "81"
+    cfg.rtupscale.enable = True
+    cfg.rtupscale.args = "-m 4x24"
+    cmd, env, warnings = build_final_command(cfg, ["/bin/true"])
+    assert not warnings
+    assert cmd[:5] == ["upscale", "-m", "4x24", "--", "/bin/true"]
+    assert env.get("PROTON_ENABLE_WAYLAND") == "0"
+
+
+def test_rtupscale_conflict_warns(fake_bin):
+    fake_bin("upscale")
+    cfg = C.GameConfig()
+    cfg.general.appid = "82"
+    cfg.rtupscale.enable = True
+    cfg.env.vars = {"PROTON_ENABLE_WAYLAND": "1"}
+    _cmd, env, warnings = build_final_command(cfg, ["/bin/true"])
+    assert env["PROTON_ENABLE_WAYLAND"] == "0"
+    assert any("XWayland" in w for w in warnings)
+
+
+def test_rtupscale_missing_binary(xdg_env, monkeypatch, tmp_path):
+    monkeypatch.setenv("PATH", str(tmp_path))
+    cfg = C.GameConfig()
+    cfg.general.appid = "83"
+    cfg.rtupscale.enable = True
+    cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
+    assert cmd == ["/bin/true"]
+    assert any("upscale" in w for w in warnings)
