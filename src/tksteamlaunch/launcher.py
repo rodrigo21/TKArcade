@@ -660,6 +660,10 @@ def main(argv: list[str] | None = None) -> int:
         for w in protonmod.prepare_fresh_prefix():
             log.warning("fresh_prefix: %s", w)
 
+    if cfg.proton.winetricks_verbs:
+        for w in protonmod.run_winetricks(appid, cfg.proton.winetricks_verbs):
+            log.warning("winetricks: %s", w)
+
     # Sentinel file so the real game exit code survives `ludusavi wrap`
     # (which returns 0 even when the game crashes). Empty = wrap off.
     wrap_active = bool(cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup))

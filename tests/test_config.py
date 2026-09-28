@@ -252,3 +252,27 @@ def test_preferences_invalid_values(xdg_env):
     assert back.show_preview is False
     assert back.tray_icon == "normal"
     assert back.minimize_to_tray is True
+
+
+def test_winetricks_runs_and_skips_repeat(xdg_env, fake_bin, monkeypatch, tmp_path):
+    from tksteamlaunch import proton as pm
+
+    calls = tmp_path / "calls.log"
+    fake_bin(
+        "protontricks",
+        f'#!/bin/sh\necho "$@" >> "{calls}"\nexit 0\n',
+    )
+    assert pm.run_winetricks("75", ["dotnet48", "vcrun2022"]) == []
+    assert "75 -q dotnet48 vcrun2022" in calls.read_text()
+    calls.unlink()
+    assert pm.run_winetricks("75", ["vcrun2022", "dotnet48"]) == []
+    assert not calls.exists()  # fingerprint skips reinstall
+    assert "non-Steam" in pm.run_winetricks("abc", ["dotnet48"])[0]
+
+
+def test_winetricks_missing_binary(xdg_env, monkeypatch, tmp_path):
+    from tksteamlaunch import proton as pm
+
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert "not found" in pm.run_winetricks("76", ["dotnet48"])[0]
+    assert pm.run_winetricks("76", []) == []

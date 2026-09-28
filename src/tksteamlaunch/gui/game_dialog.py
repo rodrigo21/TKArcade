@@ -425,6 +425,10 @@ class GameDialog(QDialog):
             "inside the prefix — rely on cloud or Ludusavi backups!"
         )
         pf.addRow("", self.c_fresh)
+        self.e_verbs = QLineEdit()
+        self.e_verbs.setPlaceholderText("dotnet48 vcrun2022 (space-separated)")
+        self.e_verbs.setToolTip("Winetricks verbs installed via protontricks before launch.")
+        pf.addRow("Winetricks Verbs:", self.e_verbs)
         tabs.addTab(pt, "Proton")
 
         if not defaults_mode:
@@ -583,6 +587,7 @@ class GameDialog(QDialog):
         idx = self.cb_nl.findData(c.nightlight.provider or "auto")
         self.cb_nl.setCurrentIndex(max(idx, 0))
         self.c_fresh.setChecked(c.proton.fresh_prefix)
+        self.e_verbs.setText(" ".join(c.proton.winetricks_verbs))
         if not self.defaults_mode:
             self.e_notes.setPlainText(c.notes.text)
         self._apply_binary_availability()
@@ -1003,6 +1008,7 @@ class GameDialog(QDialog):
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.session.inhibit_idle = self.c_inhibit.isChecked()
         self.cfg.proton.fresh_prefix = self.c_fresh.isChecked()
+        self.cfg.proton.winetricks_verbs = split_args(self.e_verbs.text())
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()
         self.cfg.pre_post.pre_args = split_args(self.e_pre_args.text())

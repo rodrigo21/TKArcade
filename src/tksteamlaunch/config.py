@@ -116,6 +116,7 @@ class SessionConfig:
 @dataclass
 class ProtonConfig:
     fresh_prefix: bool = False
+    winetricks_verbs: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -307,7 +308,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "notes": {"text"},
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
-    "proton": {"fresh_prefix"},
+    "proton": {"fresh_prefix", "winetricks_verbs"},
 }
 
 
@@ -403,6 +404,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.debug.winedebug = str(_section(data, "debug").get("winedebug", ""))
     cfg.session.inhibit_idle = _as_bool(_section(data, "session").get("inhibit_idle", False), False)
     cfg.proton.fresh_prefix = _as_bool(_section(data, "proton").get("fresh_prefix", False), False)
+    cfg.proton.winetricks_verbs = _str_list(_section(data, "proton").get("winetricks_verbs", []))
     return cfg
 
 

@@ -103,6 +103,50 @@ def prepare_fresh_prefix() -> list[str]:
         return [f"could not delete prefix {compat}: {e}"]
 
 
+def run_winetricks(appid: str, verbs: list[str]) -> list[str]:
+    """Install winetricks verbs via protontricks (unattended). Skips when
+    the recorded verb set already ran. Returns warnings; never raises."""
+    import json
+    import shutil
+    import subprocess
+
+    verbs = [v for v in (verbs or []) if str(v).strip()]
+    if not verbs:
+        return []
+    if not str(appid).isdigit():
+        return [f"winetricks skipped: non-Steam AppID {appid!r}"]
+    exe = shutil.which("protontricks")
+    if not exe:
+        return ["winetricks skipped: protontricks not found in PATH"]
+    from . import xdg
+
+    state = xdg.app_state_dir() / "winetricks" / f"{appid}.json"
+    try:
+        recorded = json.loads(state.read_text(encoding="utf-8")).get("verbs")
+        if recorded == sorted(verbs):
+            return []
+    except Exception:
+        pass
+    try:
+        proc = subprocess.run(
+            [exe, str(appid), "-q", *verbs],
+            capture_output=True,
+            text=True,
+            timeout=1200,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return [f"winetricks failed: {e}"]
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]
+        return [f"winetricks exit {proc.returncode}: {'; '.join(tail)}"[:300]]
+    try:
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text(json.dumps({"verbs": sorted(verbs)}), encoding="utf-8")
+    except Exception as e:
+        return [f"winetricks ran, state not recorded: {e}"]
+    return []
+
+
 def native_runtime(game_cmd: list[str]) -> str | None:
     """Sniff the Steam Linux Runtime flavor from a native game command.
 
