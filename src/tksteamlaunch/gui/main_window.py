@@ -6,7 +6,7 @@ import shutil
 import subprocess
 from collections.abc import Callable
 
-from PySide6.QtCore import QSize, Qt, QThread, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, QThread, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QShortcut,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -81,6 +82,7 @@ class MainWindow(QMainWindow):
         self.table.itemDoubleClicked.connect(self._on_double_click)
         layout.addWidget(self.table, stretch=1)
         self._pdb_thread: _ProtonDBWorker | None = None
+        self._tray = None
 
         self.status = QLabel()
         layout.addWidget(self.status)
@@ -102,6 +104,7 @@ class MainWindow(QMainWindow):
                     ("Copy Launch Options", self._copy_launch),
                     ("Open Ludusavi...", self._open_ludusavi),
                     ("Global Defaults...", self._edit_defaults),
+                    ("Preferences...", self._edit_preferences),
                     ("Open Logs Folder", self._open_logs),
                     ("Export...", self._export_configs),
                     ("Import...", self._import_configs),
@@ -109,6 +112,7 @@ class MainWindow(QMainWindow):
             )
         )
         self.refresh()
+        self._apply_tray()
 
     @staticmethod
     def _button_row(buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QHBoxLayout:
@@ -182,8 +186,64 @@ class MainWindow(QMainWindow):
             self._pdb_thread = None
 
     def closeEvent(self, event) -> None:
+        prefs = cfgmod.load_preferences()
+        if prefs.close_to_tray and self._tray is not None:
+            event.ignore()
+            self.hide()
+            return
         self._stop_pdb_worker()
         super().closeEvent(event)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange and self.isMinimized():
+            prefs = cfgmod.load_preferences()
+            if prefs.minimize_to_tray and self._tray is not None:
+                self.hide()
+
+    def _toggle_visible(self) -> None:
+        self.setVisible(not self.isVisible())
+        if self.isVisible():
+            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
+            self.activateWindow()
+
+    def _apply_tray(self) -> None:
+        from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+
+        from . import icons as iconsmod
+
+        prefs = cfgmod.load_preferences()
+        if self._tray is not None:
+            self._tray.hide()
+            self._tray.deleteLater()
+            self._tray = None
+        if not prefs.tray_enable or not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+        tray = QSystemTrayIcon(iconsmod.app_icon(prefs.tray_icon), self)
+        tray.setToolTip("TKSteamLaunch")
+        menu = QMenu()
+        show_action = menu.addAction("Show / Hide")
+        show_action.triggered.connect(self._toggle_visible)
+        defaults_action = menu.addAction("Global Defaults...")
+        defaults_action.triggered.connect(self._edit_defaults)
+        prefs_action = menu.addAction("Preferences...")
+        prefs_action.triggered.connect(self._edit_preferences)
+        menu.addSeparator()
+        quit_action = menu.addAction("Quit")
+        quit_action.triggered.connect(QApplication.instance().quit)
+        tray.setContextMenu(menu)
+        tray.activated.connect(self._on_tray_activated)
+        tray.show()
+        self._tray = tray
+
+    def _on_tray_activated(self, reason) -> None:
+        from PySide6.QtWidgets import QSystemTrayIcon
+
+        if reason in (
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        ):
+            self._toggle_visible()
 
     def _on_double_click(self, item: QTableWidgetItem) -> None:
         if item.column() == 2:
@@ -247,6 +307,12 @@ class MainWindow(QMainWindow):
     def _edit_defaults(self) -> None:
         dlg = GameDialog(self, defaults_mode=True)
         dlg.exec()
+
+    def _edit_preferences(self) -> None:
+        from .preferences_dialog import PreferencesDialog
+
+        if PreferencesDialog(self).exec():
+            self._apply_tray()
 
     def _show_history(self) -> None:
         from .history_dialog import HistoryDialog

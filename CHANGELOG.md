@@ -5,6 +5,17 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Added
+- Status tray icon (normal/monochrome) with menu, minimize/close to
+  tray and a Preferences dialog (`preferences.toml`).
+- Bundled application icons and freedesktop desktop entry.
+
+### Changed
+- **BREAKING:** `show_preview` moved from `defaults.toml [ui]` to
+  `preferences.toml`; old key ignored.
+- LICENSE file removed (SPDX common license covers GPL-3.0-or-later);
+  nightlight-holder console script removed (use `python -m`).
+
 ## [0.3.0] - 2026-09-27
 
 ### Added

@@ -103,10 +103,14 @@ class NotesConfig:
 
 
 @dataclass
-class UiConfig:
-    """GUI-only preferences (never affect launches)."""
+class Preferences:
+    """Program-level preferences (never per-game)."""
 
     show_preview: bool = True
+    tray_enable: bool = False
+    tray_icon: str = "normal"  # normal|mono
+    minimize_to_tray: bool = False
+    close_to_tray: bool = False
 
 
 @dataclass
@@ -121,7 +125,6 @@ class GameConfig:
     nightlight: NightlightConfig = field(default_factory=NightlightConfig)
     notifications: NotificationsConfig = field(default_factory=NotificationsConfig)
     notes: NotesConfig = field(default_factory=NotesConfig)
-    ui: UiConfig = field(default_factory=UiConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -149,7 +152,6 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "nightlight": _to_toml_value(cfg.nightlight),
         "notifications": _to_toml_value(cfg.notifications),
         "notes": _to_toml_value(cfg.notes),
-        "ui": _to_toml_value(cfg.ui),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -281,7 +283,6 @@ SECTION_KEYS: dict[str, set[str]] = {
     "nightlight": {"disable_during_game", "provider"},
     "notifications": {"notify_on_launch"},
     "notes": {"text"},
-    "ui": {"show_preview"},
 }
 
 
@@ -373,8 +374,44 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     nt = _section(data, "notifications")
     cfg.notifications.notify_on_launch = _as_bool(nt.get("notify_on_launch", True), True)
     cfg.notes.text = str(_section(data, "notes").get("text", ""))
-    cfg.ui.show_preview = _as_bool(_section(data, "ui").get("show_preview", True), True)
     return cfg
+
+
+def load_preferences() -> Preferences:
+    """Load program preferences (all defaults when the file is missing)."""
+    out = Preferences()
+    data = _read_toml(xdg.preferences_file())
+    ui = data.get("ui", {}) if isinstance(data, dict) else {}
+    if not isinstance(ui, dict):
+        return out
+    out.show_preview = _as_bool(ui.get("show_preview", True), True)
+    out.tray_enable = _as_bool(ui.get("tray_enable", False), False)
+    out.tray_icon = str(ui.get("tray_icon", "normal") or "normal")
+    if out.tray_icon not in ("normal", "mono"):
+        out.tray_icon = "normal"
+    out.minimize_to_tray = _as_bool(ui.get("minimize_to_tray", False), False)
+    out.close_to_tray = _as_bool(ui.get("close_to_tray", False), False)
+    if not out.tray_enable:
+        out.minimize_to_tray = False
+        out.close_to_tray = False
+    return out
+
+
+def save_preferences(prefs: Preferences) -> Path:
+    """Save program preferences (flat [ui] table)."""
+    path = xdg.preferences_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "ui": {
+            "show_preview": bool(prefs.show_preview),
+            "tray_enable": bool(prefs.tray_enable),
+            "tray_icon": prefs.tray_icon if prefs.tray_icon in ("normal", "mono") else "normal",
+            "minimize_to_tray": bool(prefs.minimize_to_tray),
+            "close_to_tray": bool(prefs.close_to_tray),
+        }
+    }
+    path.write_text(_render_toml(data), encoding="utf-8")
+    return path
 
 
 def load(appid: str) -> GameConfig:

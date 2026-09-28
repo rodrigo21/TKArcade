@@ -55,3 +55,7 @@ def game_log_file(appid: str) -> Path:
 
 def defaults_file() -> Path:
     return app_config_dir() / "defaults.toml"
+
+
+def preferences_file() -> Path:
+    return app_config_dir() / "preferences.toml"

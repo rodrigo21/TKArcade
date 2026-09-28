@@ -203,13 +203,6 @@ class GameDialog(QDialog):
             "on every Steam start. Also forced by the --menu flag."
         )
         gf.addRow("", self.c_show_menu)
-        if defaults_mode:
-            self.c_show_preview = QCheckBox("Show launch command preview")
-            self.c_show_preview.setToolTip(
-                "Show a live launch-command preview at the bottom of game dialogs."
-            )
-            self.c_show_preview.toggled.connect(self._update_preview_visibility)
-            gf.addRow("", self.c_show_preview)
         self.c_notify = QCheckBox("Notify on launch")
         self.c_notify.setToolTip("Show a transient summary notification when the game starts.")
         gf.addRow("", self.c_notify)
@@ -509,7 +502,6 @@ class GameDialog(QDialog):
         finally:
             self._populating = False
             self._refresh_statuses()
-            self._update_preview_visibility()
 
     def _populate_fields(self) -> None:
         c = self.cfg
@@ -519,8 +511,6 @@ class GameDialog(QDialog):
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
         self.c_show_menu.setChecked(c.general.show_menu)
-        if self.defaults_mode:
-            self.c_show_preview.setChecked(c.ui.show_preview)
         self.c_notify.setChecked(c.notifications.notify_on_launch)
         if not self.defaults_mode:
             self._refresh_profiles()
@@ -736,16 +726,10 @@ class GameDialog(QDialog):
         self.accept()
 
     def _show_preview_box(self) -> bool:
-        if self.defaults_mode:
-            return True
         try:
-            return bool(cfgmod.load_defaults().ui.show_preview)
+            return bool(cfgmod.load_preferences().show_preview)
         except Exception:
             return True
-
-    def _update_preview_visibility(self) -> None:
-        if self._preview_group is not None and self.defaults_mode:
-            self._preview_group.setVisible(self.c_show_preview.isChecked())
 
     def _refresh_preview(self) -> None:
         if self._preview_edit is None:
@@ -971,8 +955,6 @@ class GameDialog(QDialog):
         self.cfg.general.custom_executable = self.e_exe.text().strip()
         self.cfg.general.custom_prefix = self.e_prefix.text().strip()
         self.cfg.general.show_menu = self.c_show_menu.isChecked()
-        if self.defaults_mode:
-            self.cfg.ui.show_preview = self.c_show_preview.isChecked()
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()

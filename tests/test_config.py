@@ -198,12 +198,35 @@ def test_string_bools_in_toml(xdg_env):
     assert C.load("72").gamemode.feral_gamemode is False
 
 
-def test_ui_show_preview_roundtrip(xdg_env):
-    assert C.GameConfig().ui.show_preview is True
-    cfg = C.GameConfig()
-    cfg.general.appid = "73"
-    cfg.ui.show_preview = False
-    C.save(cfg)
-    assert C.load("73").ui.show_preview is False
-    text = C.game_file("73").read_text()
-    assert "[ui]" in text and "show_preview" in text
+def test_preferences_roundtrip(xdg_env):
+    from tksteamlaunch import xdg as xdgmod
+
+    prefs = C.load_preferences()
+    assert prefs.show_preview is True and prefs.tray_enable is False
+    assert prefs.tray_icon == "normal"
+    prefs.show_preview = False
+    prefs.tray_enable = True
+    prefs.tray_icon = "mono"
+    prefs.close_to_tray = True
+    C.save_preferences(prefs)
+    back = C.load_preferences()
+    assert back.show_preview is False and back.tray_enable is True
+    assert back.tray_icon == "mono" and back.close_to_tray is True
+    assert back.minimize_to_tray is False
+    text = xdgmod.preferences_file().read_text()
+    assert "[ui]" in text and "tray_enable" in text
+
+
+def test_preferences_invalid_values(xdg_env):
+    from tksteamlaunch import xdg as xdgmod
+
+    xdgmod.app_config_dir().mkdir(parents=True, exist_ok=True)
+    xdgmod.preferences_file().write_text(
+        '[ui]\nshow_preview = "no"\ntray_icon = "rainbow"\ntray_enable = true\n'
+        "minimize_to_tray = true\n",
+        encoding="utf-8",
+    )
+    back = C.load_preferences()
+    assert back.show_preview is False
+    assert back.tray_icon == "normal"
+    assert back.minimize_to_tray is True

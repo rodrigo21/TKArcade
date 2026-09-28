@@ -366,20 +366,18 @@ def test_missing_binaries_disable_toggles(qapp, xdg_env, monkeypatch):
         assert not cb.isChecked()
 
 
-def test_preview_toggle_global_only(qapp, xdg_env):
+def test_preview_toggle_lives_in_preferences(qapp, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
+    from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
 
-    g = GameDialog(None, defaults_mode=True)
-    assert g.c_show_preview.isChecked() is True
-    d = GameDialog(None, "41", "T")
-    assert not hasattr(d, "c_show_preview")
-    assert d._preview_edit is not None
-    g.c_show_preview.setChecked(False)
-    g.accept()
-    assert C.load_defaults().ui.show_preview is False
-    d2 = GameDialog(None, "41", "T")
-    assert d2._preview_edit is None
+    assert not hasattr(GameDialog(None, "41", "T"), "c_show_preview")
+    prefs = PreferencesDialog(None)
+    assert prefs.c_show_preview.isChecked() is True
+    prefs.c_show_preview.setChecked(False)
+    prefs.accept()
+    assert C.load_preferences().show_preview is False
+    assert GameDialog(None, "41", "T")._preview_edit is None
 
 
 def test_preview_updates_live(qapp, xdg_env):
@@ -392,3 +390,64 @@ def test_preview_updates_live(qapp, xdg_env):
     after = d._preview_edit.toPlainText()
     assert after != before and "zink-run" in after
     d.reject()
+
+
+def test_preferences_dialog_roundtrip(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
+
+    prefs = PreferencesDialog(None)
+    assert prefs.c_show_preview.isChecked() is True
+    assert prefs.cb_tray_icon.isEnabled() is False  # tray off gates dependents
+    prefs.c_tray.setChecked(True)
+    assert prefs.cb_tray_icon.isEnabled() is True
+    prefs.cb_tray_icon.setCurrentIndex(1)
+    prefs.c_close.setChecked(True)
+    prefs.accept()
+    back = C.load_preferences()
+    assert (back.tray_enable, back.tray_icon, back.close_to_tray) == (True, "mono", True)
+    assert back.minimize_to_tray is False
+
+
+def test_tray_absent_offscreen(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    prefs = C.load_preferences()
+    prefs.tray_enable = True
+    C.save_preferences(prefs)
+    w = MainWindow()  # no tray available offscreen: must not crash
+    assert w._tray is None
+    w.close()
+    assert not w.isVisible()  # close proceeds normally without a tray
+
+
+def test_close_to_tray_needs_tray(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    prefs = C.load_preferences()
+    prefs.tray_enable = True
+    prefs.close_to_tray = True
+    C.save_preferences(prefs)
+    w = MainWindow()
+    w.show()
+    assert w._tray is None  # offscreen: no tray to hide into
+    w.close()  # must close normally, not hang hidden
+    assert not w.isVisible()
+
+
+def test_bundled_icons_valid(qapp):
+    import xml.etree.ElementTree as ET
+
+    from PySide6.QtSvg import QSvgRenderer
+
+    from tksteamlaunch.gui import icons as iconsmod
+
+    for style in ("normal", "mono"):
+        path = iconsmod.icon_path(style)
+        assert path is not None and path.is_file()
+        ET.parse(str(path))  # well-formed XML
+        assert QSvgRenderer(str(path)).isValid()
+    assert iconsmod.icon_path("nope") == iconsmod.icon_path("normal")  # fallback
+    assert not iconsmod.app_icon("normal").isNull()

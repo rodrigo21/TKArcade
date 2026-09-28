@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#031e65"/>
+  <text x="30" y="42" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="26" fill="#ffffff">TK</text>
+  <path d="M44 46 L58 38 L58 54 Z" fill="#f7530b"/>
+</svg>

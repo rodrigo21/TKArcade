@@ -8,11 +8,13 @@ import sys
 def main() -> int:
     from PySide6.QtWidgets import QApplication
 
+    from . import icons as iconsmod
     from .main_window import MainWindow
 
     app = QApplication(sys.argv[1:])
     app.setApplicationName("TKSteamLaunch")
     app.setOrganizationName("TKSteamLaunch")
+    app.setWindowIcon(iconsmod.app_icon())
     w = MainWindow()
     w.show()
     return app.exec()
