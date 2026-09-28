@@ -640,4 +640,5 @@ def test_section_row_centered(qapp):
         sum(isinstance(layout.itemAt(i).widget(), QPushButton) for i in range(layout.count())) == 3
     )
     spacers = [i for i in range(layout.count()) if isinstance(layout.itemAt(i), QSpacerItem)]
-    assert spacers == [1, layout.count() - 1]  # group centered, no gaps between buttons
+    assert spacers == [1, layout.count() - 2]  # group centered on the full row width
+    assert layout.itemAt(layout.count() - 1).widget().minimumWidth() == 90

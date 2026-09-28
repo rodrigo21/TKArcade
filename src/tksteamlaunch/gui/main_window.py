@@ -179,7 +179,11 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _section_row(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:
-        """Labeled row with its buttons centered as a group."""
+        """Labeled row with its buttons centered in the full row width.
+
+        A trailing spacer mirrors the label so the group centers on the
+        window, not on the space after the label.
+        """
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -193,6 +197,9 @@ class MainWindow(QMainWindow):
             b.clicked.connect(slot)
             layout.addWidget(b)
         layout.addStretch(1)
+        spacer = QWidget()
+        spacer.setFixedWidth(90)
+        layout.addWidget(spacer)
         return row
 
     def refresh(self) -> None:
