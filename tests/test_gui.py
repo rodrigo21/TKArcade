@@ -623,3 +623,20 @@ def test_section_boxes_present(qapp, xdg_env):
     w._apply_default_size()
     assert w.width() >= 640 and w.height() >= 480
     w.close()
+
+
+def test_section_row_spread(qapp):
+    from PySide6.QtWidgets import QLabel, QPushButton, QSpacerItem
+
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    def noop() -> None:
+        pass
+
+    row = MainWindow._section_row("T", (("A", noop), ("B", noop), ("C", noop)))
+    layout = row.layout()
+    assert isinstance(layout.itemAt(0).widget(), QLabel)
+    assert (
+        sum(isinstance(layout.itemAt(i).widget(), QPushButton) for i in range(layout.count())) == 3
+    )
+    assert sum(isinstance(layout.itemAt(i), QSpacerItem) for i in range(layout.count())) == 2

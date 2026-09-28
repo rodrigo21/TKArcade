@@ -121,6 +121,7 @@ class MainWindow(QMainWindow):
 
         self.status = QLabel()
         layout.addWidget(self.status)
+        layout.addSpacing(2)
 
         layout.addWidget(
             self._section_row(
@@ -133,6 +134,7 @@ class MainWindow(QMainWindow):
                 ),
             )
         )
+        layout.addSpacing(4)
         layout.addWidget(
             self._section_row(
                 "Tools",
@@ -144,6 +146,7 @@ class MainWindow(QMainWindow):
                 ),
             )
         )
+        layout.addSpacing(4)
         layout.addWidget(
             self._section_row(
                 "Application",
@@ -176,18 +179,20 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _section_row(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:
-        """Labeled button row; the fixed-width label keeps rows aligned."""
+        """Labeled row with buttons spread across the full width."""
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
         label = QLabel(title)
         label.setMinimumWidth(90)
         layout.addWidget(label)
-        for text, slot in buttons:
+        for i, (text, slot) in enumerate(buttons):
+            if i:
+                layout.addStretch(1)
             b = QPushButton(text)
             b.clicked.connect(slot)
             layout.addWidget(b)
-        layout.addStretch(1)
         return row
 
     def refresh(self) -> None:
