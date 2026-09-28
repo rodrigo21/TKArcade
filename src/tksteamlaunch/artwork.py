@@ -67,7 +67,7 @@ def fetch_missing(appid: str, api_key: str) -> Path | None:
         (g.get("thumb") for g in thumbs if isinstance(g, dict) and g.get("thumb")),
         "",
     )
-    if not thumb:
+    if not thumb or not str(thumb).startswith("https://"):
         return None
     try:
         with urllib.request.urlopen(thumb, timeout=30) as response:

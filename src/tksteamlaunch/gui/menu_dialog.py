@@ -36,7 +36,8 @@ class MenuDialog(QDialog):
 
         btns = QDialogButtonBox()
         self.b_launch = btns.addButton("Launch", QDialogButtonBox.ButtonRole.AcceptRole)
-        self.b_launch.setDefault(True)
+        if can_launch:
+            self.b_launch.setDefault(True)
         b_settings = btns.addButton("Settings...", QDialogButtonBox.ButtonRole.ActionRole)
         b_settings.clicked.connect(self._open_settings)
         btns.addButton(QDialogButtonBox.StandardButton.Cancel)
@@ -44,9 +45,7 @@ class MenuDialog(QDialog):
         if not can_launch:
             self.b_launch.setEnabled(False)
             self.b_launch.setToolTip("No game command to run")
-        b_launch_clicked = self._on_launch
-        self.b_launch.clicked.connect(b_launch_clicked)
-        btns.rejected.connect(self.reject)
+        self.b_launch.clicked.connect(self._on_launch)
         layout.addWidget(btns)
 
     def _on_launch(self) -> None:

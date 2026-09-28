@@ -14,6 +14,8 @@ optdepends=('gamemode: Feral GameMode support'
             'gamescope: Gamescope session support'
             'mangohud: MangoHud overlay support'
             'ludusavi: save backup and restore support (AUR)'
+            'protontricks: winetricks verbs support'
+            'linux-rt-upscaler: real-time upscaling support (local package)'
             'libnotify: desktop notifications')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/rodrigo21/TKSteamLaunch/archive/v$pkgver.tar.gz")
 sha256sums=('aa64346beaf4fab2e514d2730d2034853d499835da370485b1ed76e1f1375858')

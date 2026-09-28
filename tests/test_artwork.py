@@ -68,3 +68,11 @@ def test_fetch_failures_are_none(monkeypatch, xdg_env):
     assert art.fetch_missing("84", "KEY") is None
     _stub(monkeypatch, [("games/steam", urllib.error.URLError("down"))])
     assert art.fetch_missing("85", "KEY") is None
+
+
+def test_thumb_requires_https(monkeypatch, xdg_env):
+    games = {"data": [{"id": 7}]}
+    grids = {"data": [{"thumb": "file:///etc/passwd"}]}
+    _stub(monkeypatch, [("games/steam", games), ("grids/game", grids)])
+    assert art.fetch_missing("82", "key") is None
+    assert not art.grid_path("82").exists()
