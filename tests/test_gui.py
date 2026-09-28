@@ -625,7 +625,7 @@ def test_section_boxes_present(qapp, xdg_env):
     w.close()
 
 
-def test_section_row_spread(qapp):
+def test_section_row_centered(qapp):
     from PySide6.QtWidgets import QLabel, QPushButton, QSpacerItem
 
     from tksteamlaunch.gui.main_window import MainWindow
@@ -639,4 +639,5 @@ def test_section_row_spread(qapp):
     assert (
         sum(isinstance(layout.itemAt(i).widget(), QPushButton) for i in range(layout.count())) == 3
     )
-    assert sum(isinstance(layout.itemAt(i), QSpacerItem) for i in range(layout.count())) == 2
+    spacers = [i for i in range(layout.count()) if isinstance(layout.itemAt(i), QSpacerItem)]
+    assert spacers == [1, layout.count() - 1]  # group centered, no gaps between buttons

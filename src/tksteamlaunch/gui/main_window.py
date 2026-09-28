@@ -179,7 +179,7 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _section_row(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:
-        """Labeled row with buttons spread across the full width."""
+        """Labeled row with its buttons centered as a group."""
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -187,12 +187,12 @@ class MainWindow(QMainWindow):
         label = QLabel(title)
         label.setMinimumWidth(90)
         layout.addWidget(label)
-        for i, (text, slot) in enumerate(buttons):
-            if i:
-                layout.addStretch(1)
+        layout.addStretch(1)
+        for text, slot in buttons:
             b = QPushButton(text)
             b.clicked.connect(slot)
             layout.addWidget(b)
+        layout.addStretch(1)
         return row
 
     def refresh(self) -> None:
