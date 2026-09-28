@@ -18,6 +18,12 @@ Breaking config changes are called out explicitly under `Changed`.
 - Compat preset catalog (FSR4, sync, D3D fallbacks, locale, HDR...) with
   GPU/Proton applicability tags and mismatch confirm.
 
+### Changed
+- Settings dialog regrouped: Environment, System and Display tabs;
+  status box in two columns; collapsible 3-line command preview.
+- Main window centers on the available area; game list sorts A-Z by
+  default with clickable headers.
+
 ## [0.4.0] - 2026-09-28
 
 ### Added

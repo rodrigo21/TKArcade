@@ -317,6 +317,13 @@ class GameDialog(QDialog):
         ff.addRow(self.l_cachy_pad, self.c_cachy)
         perf_layout.addWidget(sys_box)
 
+        perf_layout.addStretch(1)
+        tabs.addTab(_scroll_page(perf), "Performance")
+
+        # --- Display (image pipeline) ---
+        disp = QWidget()
+        disp_layout = QVBoxLayout(disp)
+        disp_layout.setContentsMargins(4, 4, 4, 4)
         gs_box = QGroupBox("Gamescope")
         gf = QFormLayout(gs_box)
         self.c_gs = QCheckBox("Enable Gamescope")
@@ -334,7 +341,7 @@ class GameDialog(QDialog):
         gs_args_layout.addWidget(b_gs_preset)
         gf.addRow("", self.c_gs)
         gf.addRow(self.l_gs_args, gs_args_row)
-        perf_layout.addWidget(gs_box)
+        disp_layout.addWidget(gs_box)
         mh_box = QGroupBox("MangoHud")
         mf = QFormLayout(mh_box)
         self.c_mh = QCheckBox("Enable MangoHud")
@@ -355,7 +362,7 @@ class GameDialog(QDialog):
         mf.addRow("", self.c_mh)
         mf.addRow(self.l_mh_args, self.e_mh_args)
         mf.addRow(self.l_mh_conf, mh_conf_row)
-        perf_layout.addWidget(mh_box)
+        disp_layout.addWidget(mh_box)
         rt_box = QGroupBox("RT Upscaler")
         rf = QFormLayout(rt_box)
         self.c_rt = QCheckBox("Enable RT Upscaler (linux-rt-upscaler)")
@@ -368,9 +375,9 @@ class GameDialog(QDialog):
         self.l_rt_args.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         rf.addRow("", self.c_rt)
         rf.addRow(self.l_rt_args, self.e_rt_args)
-        perf_layout.addWidget(rt_box)
-        perf_layout.addStretch(1)
-        tabs.addTab(_scroll_page(perf), "Performance")
+        disp_layout.addWidget(rt_box)
+        disp_layout.addStretch(1)
+        tabs.addTab(_scroll_page(disp), "Display")
 
         # --- Ludusavi ---
         lu = QWidget()
@@ -533,6 +540,8 @@ class GameDialog(QDialog):
             btns.addButton(QDialogButtonBox.StandardButton.Cancel)
         if self._show_preview_box():
             preview_group = QGroupBox("Launch Command Preview")
+            preview_group.setCheckable(True)
+            preview_group.setChecked(True)
             self._preview_group = preview_group
             preview_layout = QVBoxLayout(preview_group)
             preview_layout.setContentsMargins(4, 4, 4, 4)
@@ -541,15 +550,19 @@ class GameDialog(QDialog):
             font = QFontDatabase.systemFont(QFontDatabase.FixedFont)
             self._preview_edit.setFont(font)
             metrics = self._preview_edit.fontMetrics()
-            self._preview_edit.setFixedHeight(metrics.lineSpacing() * 4 + 12)
+            self._preview_edit.setFixedHeight(metrics.lineSpacing() * 3 + 12)
             preview_layout.addWidget(self._preview_edit)
-            preview_foot = QHBoxLayout()
+            preview_foot_box = QWidget()
+            preview_foot = QHBoxLayout(preview_foot_box)
+            preview_foot.setContentsMargins(0, 0, 0, 0)
             preview_foot.addStretch(1)
             b_refresh = QPushButton("Refresh")
             b_refresh.setToolTip("Rebuild the preview from the current fields.")
             b_refresh.clicked.connect(self._refresh_preview)
             preview_foot.addWidget(b_refresh)
-            preview_layout.addLayout(preview_foot)
+            preview_layout.addWidget(preview_foot_box)
+            preview_group.toggled.connect(self._preview_edit.setVisible)
+            preview_group.toggled.connect(preview_foot_box.setVisible)
             layout.addWidget(preview_group)
         else:
             self._preview_edit = None
@@ -970,20 +983,22 @@ class GameDialog(QDialog):
             label.setMinimumWidth(width)
 
     def _status_box(self, title: str, keys: list[str]) -> QWidget:
-        """Full-width log-like box holding per-binary status lines."""
+        """Two-column box holding per-binary status lines."""
+        from PySide6.QtWidgets import QGridLayout
+
         box = QGroupBox(title)
         outer = QVBoxLayout(box)
         outer.setContentsMargins(4, 4, 4, 4)
         frame = QFrame()
         frame.setFrameShape(QFrame.Shape.StyledPanel)
         frame.setFrameShadow(QFrame.Shadow.Sunken)
-        inner = QVBoxLayout(frame)
+        inner = QGridLayout(frame)
         inner.setContentsMargins(8, 6, 8, 6)
-        for key in keys:
+        for i, key in enumerate(keys):
             label = QLabel()
             label.setTextFormat(Qt.TextFormat.RichText)
             label.setWordWrap(True)
-            inner.addWidget(label)
+            inner.addWidget(label, i // 2, i % 2)
             self._status_labels[key] = label
         outer.addWidget(frame)
         return box

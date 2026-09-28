@@ -132,6 +132,9 @@ class MainWindow(QMainWindow):
         self.table.setHorizontalHeaderLabels(["Game", "App ID", "ProtonDB"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionsClickable(True)
+        self.table.horizontalHeader().setSortIndicatorShown(True)
+        self.table.setSortingEnabled(True)
         self.table.verticalHeader().setDefaultSectionSize(40)
         self.table.setIconSize(QSize(32, 32))
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -141,6 +144,9 @@ class MainWindow(QMainWindow):
         self._pdb_thread: _ProtonDBWorker | None = None
         self._art_thread: _ArtworkWorker | None = None
         self._tray = None
+        self._tray_menu = None
+        self._user_sorted = False
+        self.table.horizontalHeader().sortIndicatorChanged.connect(self._mark_user_sorted)
         self._tray_menu = None
 
         self.status = QLabel()
@@ -200,6 +206,9 @@ class MainWindow(QMainWindow):
             return
         area = screen.availableGeometry()
         self.resize(max(640, area.width() // 2), max(480, area.height()))
+        frame = self.frameGeometry()
+        frame.moveCenter(area.center())
+        self.move(frame.topLeft())
 
     @staticmethod
     def _section_row(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:
@@ -228,10 +237,14 @@ class MainWindow(QMainWindow):
         layout.addWidget(spacer)
         return frame
 
+    def _mark_user_sorted(self, *_args) -> None:
+        self._user_sorted = True
+
     def refresh(self) -> None:
         self._stop_pdb_worker()
         self._stop_art_worker()
         steammod.clear_games_cache()
+        self.table.setSortingEnabled(False)
         self.table.setRowCount(0)
         names = {a: n for a, n in steammod.list_games()}
         fallback = self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
@@ -269,6 +282,9 @@ class MainWindow(QMainWindow):
             self._art_thread = _ArtworkWorker(need_art, api_key, self)
             self._art_thread.fetched.connect(self._on_artwork)
             self._art_thread.start()
+        self.table.setSortingEnabled(True)
+        if not self._user_sorted:
+            self.table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
 
     def _set_tier_cell(self, row: int, appid: str, data: dict) -> None:
         tier = str(data.get("tier", "")).lower()

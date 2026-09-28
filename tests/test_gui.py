@@ -748,9 +748,45 @@ def test_dialog_tab_map(qapp, xdg_env):
         "Environment",
         "Pre/Post Commands",
         "Performance",
+        "Display",
         "Ludusavi",
         "System",
         "Wine / Proton",
         "Notes",
     ]
     assert "Notes" not in tabs(GameDialog(None, defaults_mode=True))
+
+
+def test_preview_group_collapsible(qapp, xdg_env):
+    from PySide6.QtWidgets import QGroupBox
+
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "51", "T")
+    groups = [g for g in d.findChildren(QGroupBox) if g.title() == "Launch Command Preview"]
+    assert len(groups) == 1
+    group = groups[0]
+    assert group.isCheckable() and group.isChecked()
+    group.setChecked(False)
+    assert not d._preview_edit.isVisibleTo(d)
+    group.setChecked(True)
+    assert d._preview_edit.toPlainText() != ""
+
+
+def test_games_sorted_by_default(qapp, xdg_env, monkeypatch):
+    from PySide6.QtCore import Qt
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui import main_window as mw
+
+    monkeypatch.setattr(mw.steammod, "list_games", lambda: [("2", "Zulu"), ("1", "Alpha")])
+    for appid in ("1", "2"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    w = mw.MainWindow()
+    assert w.table.item(0, 0).text() == "Alpha"
+    assert w.table.item(1, 0).text() == "Zulu"
+    w.table.sortByColumn(1, Qt.SortOrder.DescendingOrder)
+    assert w.table.item(0, 1).text() == "2"
+    w.close()
