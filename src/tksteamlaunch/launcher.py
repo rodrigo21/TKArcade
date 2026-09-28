@@ -350,7 +350,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Minimal Steam launch wrapper. Use in Steam as: tksteamlaunch %command%",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
-        "  0   ok (the game's own code when it runs)\n"
+        "  0   ok: game ran (its own code), or menu/editor exited\n"
+        "      without launching\n"
         "  10  AppID not resolved\n"
         "  11  empty game command\n"
         "  12  pre-launch hook failed\n"

@@ -28,6 +28,10 @@ ruff format --check src/ tests/  # line-length 100, see pyproject.toml
 QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -c "..."  # GUI smoke
 ```
 
+The suite must pass with and without `pytest-qt` installed: never
+monkeypatch Qt globals at fixture scope (patch inside the test body so
+teardown hooks see a healthy QApplication).
+
 GUI changes need an offscreen screenshot check. Push each commit batch
 created during build mode (the Arch package builds from git); never
 rewrite pushed history or tags.

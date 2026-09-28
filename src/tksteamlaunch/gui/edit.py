@@ -6,8 +6,8 @@ breaks Qt style/theme plugin loading and falls back to Fusion).
 
 Protocol: prints one JSON line {"outcome": ..., "appid": ...} on stdout.
 Exit 0 = outcome delivered (launch/saved/cancelled), 2 = unavailable
-(no PySide6 or display), 3 = internal error. Anything on stderr is
-diagnostic noise the parent logs.
+(no PySide6 or display). Anything else (including tracebacks) means
+internal error. Anything on stderr is diagnostic noise the parent logs.
 
 Usage: python -m tksteamlaunch.gui.edit [--appid ID] [--pick]
        [--can-launch | --no-can-launch]
