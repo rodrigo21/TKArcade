@@ -1,0 +1,42 @@
+# Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
+
+pkgname=tksteamlaunch
+pkgver=0.4.0
+pkgrel=1
+pkgdesc='Minimal Steam launch wrapper'
+arch=('any')
+url='https://github.com/rodrigo21/TKSteamLaunch'
+license=('GPL-3.0-or-later')
+depends=('hicolor-icon-theme' 'python' 'pyside6' 'python-vdf' 'python-jeepney')
+makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-uv-dynamic-versioning')
+checkdepends=('python-pytest')
+optdepends=('gamemode: Feral GameMode support'
+            'gamescope: Gamescope session support'
+            'mangohud: MangoHud overlay support'
+            'ludusavi: save backup and restore support (AUR)'
+            'libnotify: desktop notifications')
+conflicts=('tksteamlaunch-git')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/rodrigo21/TKSteamLaunch/archive/v$pkgver.tar.gz")
+sha256sums=('aa64346beaf4fab2e514d2730d2034853d499835da370485b1ed76e1f1375858')
+
+build() {
+    # Release tarballs carry no .git metadata; pin the version explicitly.
+    cd "TKSteamLaunch-$pkgver"
+
+    UV_DYNAMIC_VERSIONING_BYPASS=$pkgver python -m build --wheel --no-isolation
+}
+
+check() {
+    cd "TKSteamLaunch-$pkgver"
+
+    QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
+}
+
+package() {
+    cd "TKSteamLaunch-$pkgver"
+
+    python -m installer --destdir="$pkgdir" dist/*.whl
+
+    install -Dm644 packaging/tksteamlaunch.desktop "$pkgdir/usr/share/applications/tksteamlaunch.desktop"
+    install -Dm644 src/tksteamlaunch/icons/tksteamlaunch.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tksteamlaunch.svg"
+}
