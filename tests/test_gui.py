@@ -6,14 +6,14 @@ QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 
 
 @pytest.fixture(scope="module")
-def qapp():
+def qt_app():
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance() or QApplication([])
     yield app
 
 
-def test_dialogs_construct(qapp, xdg_env):
+def test_dialogs_construct(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
     from tksteamlaunch.gui.main_window import MainWindow
 
@@ -21,10 +21,10 @@ def test_dialogs_construct(qapp, xdg_env):
     w.show()
     GameDialog(w, "1", "T").show()
     GameDialog(w, defaults_mode=True).show()
-    qapp.processEvents()
+    qt_app.processEvents()
 
 
-def test_main_table_columns(qapp, xdg_env, monkeypatch):
+def test_main_table_columns(qt_app, xdg_env, monkeypatch):
     from tksteamlaunch import config as C
     from tksteamlaunch import protondb as pdbmod
     from tksteamlaunch.gui.main_window import MainWindow
@@ -35,7 +35,7 @@ def test_main_table_columns(qapp, xdg_env, monkeypatch):
     monkeypatch.setattr(pdbmod, "refresh", lambda appid: {"tier": "gold", "total": 5})
     w = MainWindow()
     w.show()
-    qapp.processEvents()
+    qt_app.processEvents()
     assert w.table.columnCount() == 3
     assert w.table.rowCount() == 1
     assert w.table.item(0, 1).text() == "80"
@@ -43,7 +43,7 @@ def test_main_table_columns(qapp, xdg_env, monkeypatch):
         cell = w.table.item(0, 2)
         if cell is not None and cell.text() == "Gold":
             break
-        qapp.processEvents()
+        qt_app.processEvents()
         import time
 
         time.sleep(0.02)
@@ -51,7 +51,7 @@ def test_main_table_columns(qapp, xdg_env, monkeypatch):
     w._stop_pdb_worker()
 
 
-def test_launch_mode_buttons(qapp, xdg_env):
+def test_launch_mode_buttons(qt_app, xdg_env):
     from PySide6.QtWidgets import QDialog, QPushButton
 
     from tksteamlaunch import config as C
@@ -69,7 +69,7 @@ def test_launch_mode_buttons(qapp, xdg_env):
     assert not any("Launch" in b.text() for b in plain.findChildren(QPushButton))
 
 
-def test_provider_combo_data(qapp, xdg_env):
+def test_provider_combo_data(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "23", "T")
@@ -82,7 +82,7 @@ def test_provider_combo_data(qapp, xdg_env):
     assert C.load("23").nightlight.provider == "plasma"
 
 
-def test_detected_runtime_row(qapp, xdg_env, monkeypatch, tmp_path):
+def test_detected_runtime_row(qt_app, xdg_env, monkeypatch, tmp_path):
     from tksteamlaunch.gui.game_dialog import GameDialog
 
     root = tmp_path / "steam"
@@ -110,7 +110,7 @@ def _all_bins_present(monkeypatch):
     )
 
 
-def test_preview_command(qapp, xdg_env, monkeypatch):
+def test_preview_command(qt_app, xdg_env, monkeypatch):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -121,7 +121,7 @@ def test_preview_command(qapp, xdg_env, monkeypatch):
     C.save(cfg)
     d = GameDialog(None, "24", "T")
     d.c_feral.setChecked(True)
-    qapp.processEvents()
+    qt_app.processEvents()
     text = d._preview_edit.toPlainText()
     assert "ludusavi wrap --infer steam" in text
     assert "/usr/bin/ludusavi" not in text
@@ -139,17 +139,17 @@ def _auto_close_boxes(interval_ms=200):
     return timer
 
 
-def _pump_until(qapp, predicate, timeout_s=5.0):
+def _pump_until(qt_app, predicate, timeout_s=5.0):
     import time
 
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
-        qapp.processEvents()
+        qt_app.processEvents()
         _close_boxes()
         if predicate():
             return True
         time.sleep(0.02)
-    qapp.processEvents()
+    qt_app.processEvents()
     _close_boxes()
     return predicate()
 
@@ -162,7 +162,7 @@ def _close_boxes():
             w.close()
 
 
-def test_coverage_button(qapp, xdg_env, monkeypatch, tmp_path):
+def test_coverage_button(qt_app, xdg_env, monkeypatch, tmp_path):
     from PySide6.QtWidgets import QPushButton
 
     from tksteamlaunch.gui.game_dialog import GameDialog
@@ -173,14 +173,14 @@ def test_coverage_button(qapp, xdg_env, monkeypatch, tmp_path):
     closer = _auto_close_boxes()
     try:
         btn.click()
-        assert _pump_until(qapp, lambda: btn.isEnabled())
+        assert _pump_until(qt_app, lambda: btn.isEnabled())
     finally:
         closer.stop()
     assert d.result() == 0
     d.reject()
 
 
-def test_coverage_no_double_run(qapp, xdg_env, monkeypatch):
+def test_coverage_no_double_run(qt_app, xdg_env, monkeypatch):
     import threading
 
     from PySide6.QtWidgets import QPushButton
@@ -205,14 +205,14 @@ def test_coverage_no_double_run(qapp, xdg_env, monkeypatch):
         assert entered.wait(5)
         btn.click()  # ignored while a check is running
         release.set()
-        assert _pump_until(qapp, lambda: btn.isEnabled())
+        assert _pump_until(qt_app, lambda: btn.isEnabled())
     finally:
         closer.stop()
     assert len(calls) == 1
     d.reject()
 
 
-def test_show_menu_checkbox_roundtrip(qapp, xdg_env):
+def test_show_menu_checkbox_roundtrip(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -223,7 +223,7 @@ def test_show_menu_checkbox_roundtrip(qapp, xdg_env):
     assert C.load("22").general.show_menu is True
 
 
-def test_coverage_button_hidden_in_defaults_mode(qapp, xdg_env):
+def test_coverage_button_hidden_in_defaults_mode(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
 
     def buttons(dlg):
@@ -233,7 +233,7 @@ def test_coverage_button_hidden_in_defaults_mode(qapp, xdg_env):
     assert "Check Coverage..." in buttons(GameDialog(None, "23", "T"))
 
 
-def test_launch_button_hidden_without_command(qapp, xdg_env):
+def test_launch_button_hidden_without_command(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
 
     def buttons(dlg):
@@ -245,7 +245,7 @@ def test_launch_button_hidden_without_command(qapp, xdg_env):
     assert "Save && Launch" in buttons(GameDialog(None, "24", "T", launch_mode=True))
 
 
-def test_gamemode_conflict_resolved_on_load(qapp, xdg_env, monkeypatch):
+def test_gamemode_conflict_resolved_on_load(qt_app, xdg_env, monkeypatch):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -259,7 +259,7 @@ def test_gamemode_conflict_resolved_on_load(qapp, xdg_env, monkeypatch):
     assert d.c_feral.isChecked() and not d.c_cachy.isChecked()
 
 
-def test_add_blank_choice_ignored(qapp, xdg_env, monkeypatch):
+def test_add_blank_choice_ignored(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog
 
     from tksteamlaunch.gui import main_window as mw
@@ -274,7 +274,7 @@ def test_add_blank_choice_ignored(qapp, xdg_env, monkeypatch):
     mw.MainWindow()._add()
 
 
-def test_copy_launch_without_clipboard(qapp, xdg_env, monkeypatch):
+def test_copy_launch_without_clipboard(qt_app, xdg_env, monkeypatch):
     from PySide6.QtGui import QGuiApplication
 
     from tksteamlaunch.gui.main_window import MainWindow
@@ -285,7 +285,7 @@ def test_copy_launch_without_clipboard(qapp, xdg_env, monkeypatch):
     assert "unavailable" in w.status.text()
 
 
-def test_launch_buttons_order_and_icons(qapp, xdg_env):
+def test_launch_buttons_order_and_icons(qt_app, xdg_env):
     from PySide6.QtWidgets import QDialogButtonBox
 
     from tksteamlaunch.gui.game_dialog import GameDialog
@@ -299,7 +299,7 @@ def test_launch_buttons_order_and_icons(qapp, xdg_env):
     assert not icons["Save && Launch"].isNull()
 
 
-def test_launch_without_save_keeps_file(qapp, xdg_env):
+def test_launch_without_save_keeps_file(qt_app, xdg_env):
     from PySide6.QtWidgets import QPushButton
 
     from tksteamlaunch import config as C
@@ -318,14 +318,14 @@ def test_launch_without_save_keeps_file(qapp, xdg_env):
     assert C.load("26").general.custom_executable == ""
 
 
-def test_steam_options_hidden_in_defaults_mode(qapp, xdg_env):
+def test_steam_options_hidden_in_defaults_mode(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
 
     assert "steam-options" not in GameDialog(None, defaults_mode=True)._status_labels
     assert "steam-options" in GameDialog(None, "31", "T")._status_labels
 
 
-def test_exclusive_backends_visibility(qapp, xdg_env, monkeypatch):
+def test_exclusive_backends_visibility(qt_app, xdg_env, monkeypatch):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -348,7 +348,7 @@ def test_exclusive_backends_visibility(qapp, xdg_env, monkeypatch):
     assert vis("34", False, True) == (False, True)
 
 
-def test_missing_binaries_disable_toggles(qapp, xdg_env, monkeypatch):
+def test_missing_binaries_disable_toggles(qt_app, xdg_env, monkeypatch):
     import shutil
 
     from tksteamlaunch import config as C
@@ -366,7 +366,7 @@ def test_missing_binaries_disable_toggles(qapp, xdg_env, monkeypatch):
         assert not cb.isChecked()
 
 
-def test_preview_toggle_lives_in_preferences(qapp, xdg_env):
+def test_preview_toggle_lives_in_preferences(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
     from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
@@ -380,19 +380,19 @@ def test_preview_toggle_lives_in_preferences(qapp, xdg_env):
     assert GameDialog(None, "41", "T")._preview_edit is None
 
 
-def test_preview_updates_live(qapp, xdg_env):
+def test_preview_updates_live(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "42", "T")
     before = d._preview_edit.toPlainText()
     d.e_prefix.setText("zink-run")
-    qapp.processEvents()
+    qt_app.processEvents()
     after = d._preview_edit.toPlainText()
     assert after != before and "zink-run" in after
     d.reject()
 
 
-def test_preferences_dialog_roundtrip(qapp, xdg_env):
+def test_preferences_dialog_roundtrip(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
 
@@ -409,7 +409,7 @@ def test_preferences_dialog_roundtrip(qapp, xdg_env):
     assert back.minimize_to_tray is False
 
 
-def test_tray_absent_offscreen(qapp, xdg_env):
+def test_tray_absent_offscreen(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.main_window import MainWindow
 
@@ -422,7 +422,7 @@ def test_tray_absent_offscreen(qapp, xdg_env):
     assert not w.isVisible()  # close proceeds normally without a tray
 
 
-def test_close_to_tray_needs_tray(qapp, xdg_env):
+def test_close_to_tray_needs_tray(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.main_window import MainWindow
 
@@ -437,7 +437,7 @@ def test_close_to_tray_needs_tray(qapp, xdg_env):
     assert not w.isVisible()
 
 
-def test_bundled_icons_valid(qapp):
+def test_bundled_icons_valid(qt_app):
     import xml.etree.ElementTree as ET
 
     from PySide6.QtSvg import QSvgRenderer
@@ -453,7 +453,7 @@ def test_bundled_icons_valid(qapp):
     assert not iconsmod.app_icon("normal").isNull()
 
 
-def test_tray_reuse_and_teardown(qapp, xdg_env, monkeypatch):
+def test_tray_reuse_and_teardown(qt_app, xdg_env, monkeypatch):
     from PySide6 import QtWidgets
 
     from tksteamlaunch import config as C
@@ -511,22 +511,26 @@ def test_tray_reuse_and_teardown(qapp, xdg_env, monkeypatch):
     w.close()
 
 
-def test_quit_shortcut_quits_app(qapp, xdg_env, monkeypatch):
+def test_quit_shortcut_quits_app(qt_app, xdg_env):
+    from unittest import mock
+
     from PySide6.QtWidgets import QApplication
 
     from tksteamlaunch.gui.main_window import MainWindow
 
     calls = []
-    monkeypatch.setattr(
-        QApplication,
-        "instance",
-        classmethod(lambda cls: type("A", (), {"quit": staticmethod(lambda: calls.append(1))})()),
-    )
-    MainWindow()._quit()
+    fake = type("FakeApp", (), {"quit": staticmethod(lambda: calls.append(1))})()
+    window = MainWindow()
+    # NOTE: patched inside the test body (not via monkeypatch fixture) so
+    # QApplication.instance is restored before pytest-qt's teardown hook
+    # runs; a leaked patch crashes teardown for every following test.
+    with mock.patch.object(QApplication, "instance", classmethod(lambda cls: fake)):
+        window._quit()
     assert calls == [1]
+    window.close()
 
 
-def test_close_drops_tray(qapp, xdg_env, monkeypatch):
+def test_close_drops_tray(qt_app, xdg_env, monkeypatch):
     from PySide6 import QtWidgets
 
     from tksteamlaunch import config as C
@@ -572,7 +576,7 @@ def test_close_drops_tray(qapp, xdg_env, monkeypatch):
     assert w._tray is None
 
 
-def test_single_instance_secondary_bows_out(qapp):
+def test_single_instance_secondary_bows_out(qt_app):
     from tksteamlaunch.gui.app import single_instance
 
     name = "tksteamlaunch-gui-test-single"
@@ -587,7 +591,7 @@ def test_single_instance_secondary_bows_out(qapp):
         QLocalServer.removeServer(name)
 
 
-def test_show_request_raises_window(qapp, xdg_env):
+def test_show_request_raises_window(qt_app, xdg_env):
     from tksteamlaunch.gui.app import _on_show_request
     from tksteamlaunch.gui.main_window import MainWindow
 
@@ -611,7 +615,7 @@ def test_about_text_contents():
     assert "vdf" in text and "jeepney" in text
 
 
-def test_section_boxes_present(qapp, xdg_env):
+def test_section_boxes_present(qt_app, xdg_env):
     from PySide6.QtWidgets import QGroupBox, QLabel
 
     from tksteamlaunch.gui.main_window import MainWindow
@@ -626,7 +630,7 @@ def test_section_boxes_present(qapp, xdg_env):
     w.close()
 
 
-def test_section_row_centered(qapp):
+def test_section_row_centered(qt_app):
     from PySide6.QtWidgets import QGroupBox, QLabel, QPushButton, QSpacerItem
 
     from tksteamlaunch.gui.main_window import MainWindow
