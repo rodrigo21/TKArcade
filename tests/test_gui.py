@@ -451,3 +451,61 @@ def test_bundled_icons_valid(qapp):
         assert QSvgRenderer(str(path)).isValid()
     assert iconsmod.icon_path("nope") == iconsmod.icon_path("normal")  # fallback
     assert not iconsmod.app_icon("normal").isNull()
+
+
+def test_tray_reuse_and_teardown(qapp, xdg_env, monkeypatch):
+    from PySide6 import QtWidgets
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    created = []
+
+    class FakeSignal:
+        def connect(self, *a):
+            pass
+
+    class FakeTray:
+        def __init__(self, icon=None, parent=None):
+            self.icon = icon
+            self.activated = FakeSignal()
+            created.append(self)
+
+        @staticmethod
+        def isSystemTrayAvailable():
+            return True
+
+        def setToolTip(self, t):
+            pass
+
+        def setContextMenu(self, m):
+            self.menu = m
+
+        def setIcon(self, icon):
+            self.icon = icon
+
+        def show(self):
+            pass
+
+        def hide(self):
+            pass
+
+        def deleteLater(self):
+            pass
+
+    monkeypatch.setattr(QtWidgets, "QSystemTrayIcon", FakeTray)
+    prefs = C.load_preferences()
+    prefs.tray_enable = True
+    C.save_preferences(prefs)
+    w = MainWindow()
+    assert isinstance(w._tray, FakeTray) and w._tray_menu is not None
+    first = w._tray
+    prefs.tray_icon = "mono"
+    C.save_preferences(prefs)
+    w._apply_tray()  # update in place: same object, new icon
+    assert w._tray is first and len(created) == 1
+    prefs.tray_enable = False
+    C.save_preferences(prefs)
+    w._apply_tray()
+    assert w._tray is None and w._tray_menu is None
+    w.close()

@@ -62,6 +62,8 @@ Breaking config changes are called out explicitly under `Changed`.
   files load as-is with built-in defaults for missing keys.
 
 ### Fixed
+- Status tray rebuilt safely: persistent menu reference, update in
+  place instead of delete/recreate, guarded teardown.
 - Steam launch-options check now parses real `localconfig.vdf` files
   (lowercase `apps` node, nested blocks); venv paths with flags match.
 - Command preview uses `%command%` instead of `<game-command>`.

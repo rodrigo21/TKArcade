@@ -83,6 +83,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.table, stretch=1)
         self._pdb_thread: _ProtonDBWorker | None = None
         self._tray = None
+        self._tray_menu = None
 
         self.status = QLabel()
         layout.addWidget(self.status)
@@ -213,28 +214,42 @@ class MainWindow(QMainWindow):
         from . import icons as iconsmod
 
         prefs = cfgmod.load_preferences()
-        if self._tray is not None:
-            self._tray.hide()
-            self._tray.deleteLater()
-            self._tray = None
         if not prefs.tray_enable or not QSystemTrayIcon.isSystemTrayAvailable():
+            self._drop_tray()
             return
-        tray = QSystemTrayIcon(iconsmod.app_icon(prefs.tray_icon), self)
-        tray.setToolTip("TKSteamLaunch")
-        menu = QMenu()
-        show_action = menu.addAction("Show / Hide")
-        show_action.triggered.connect(self._toggle_visible)
-        defaults_action = menu.addAction("Global Defaults...")
-        defaults_action.triggered.connect(self._edit_defaults)
-        prefs_action = menu.addAction("Preferences...")
-        prefs_action.triggered.connect(self._edit_preferences)
-        menu.addSeparator()
-        quit_action = menu.addAction("Quit")
-        quit_action.triggered.connect(QApplication.instance().quit)
-        tray.setContextMenu(menu)
-        tray.activated.connect(self._on_tray_activated)
-        tray.show()
-        self._tray = tray
+        if self._tray is None:
+            tray = QSystemTrayIcon(iconsmod.app_icon(prefs.tray_icon), self)
+            tray.setToolTip("TKSteamLaunch")
+            menu = QMenu(self)
+            show_action = menu.addAction("Show / Hide")
+            show_action.triggered.connect(self._toggle_visible)
+            defaults_action = menu.addAction("Global Defaults...")
+            defaults_action.triggered.connect(self._edit_defaults)
+            prefs_action = menu.addAction("Preferences...")
+            prefs_action.triggered.connect(self._edit_preferences)
+            menu.addSeparator()
+            quit_action = menu.addAction("Quit")
+            app = QApplication.instance()
+            if app is not None:
+                quit_action.triggered.connect(app.quit)
+            tray.setContextMenu(menu)
+            tray.activated.connect(self._on_tray_activated)
+            tray.show()
+            self._tray = tray
+            self._tray_menu = menu
+        else:
+            # Update in place: never deleteLater + recreate from a menu slot.
+            self._tray.setIcon(iconsmod.app_icon(prefs.tray_icon))
+
+    def _drop_tray(self) -> None:
+        tray, self._tray = self._tray, None
+        self._tray_menu = None
+        if tray is not None:
+            try:
+                tray.hide()
+                tray.deleteLater()
+            except RuntimeError:
+                pass  # already deleted C++ object
 
     def _on_tray_activated(self, reason) -> None:
         from PySide6.QtWidgets import QSystemTrayIcon

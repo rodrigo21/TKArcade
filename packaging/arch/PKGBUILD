@@ -1,0 +1,34 @@
+# Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
+pkgname=tksteamlaunch
+pkgver=0.3.0
+pkgrel=1
+pkgdesc="Minimal Steam launch wrapper"
+arch=('any')
+url="https://github.com/rodrigo21/TKSteamLaunch"
+license=('GPL-3.0-or-later')
+depends=('hicolor-icon-theme' 'python' 'pyside6' 'python-vdf' 'python-jeepney')
+makedepends=('git' 'python-build' 'python-installer' 'python-hatchling')
+checkdepends=('python-pytest')
+source=("$pkgname::git+ssh://git@github.com/rodrigo21/TKSteamLaunch.git#branch=main")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname"
+
+    python -m build --wheel --no-isolation
+}
+
+check() {
+    cd "$pkgname"
+
+    python -m pytest tests/ -q
+}
+
+package() {
+    cd "$pkgname"
+
+    python -m installer --destdir="$pkgdir" dist/*.whl
+
+    install -Dm644 packaging/tksteamlaunch.desktop "$pkgdir/usr/share/applications/tksteamlaunch.desktop"
+    install -Dm644 src/tksteamlaunch/icons/tksteamlaunch.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tksteamlaunch.svg"
+}
