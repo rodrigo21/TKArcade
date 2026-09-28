@@ -21,7 +21,8 @@ build() {
 check() {
     cd "$pkgname"
 
-    python -m pytest tests/ -q
+    # GUI tests need Qt without a display server in the chroot.
+    QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 }
 
 package() {
