@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Dynamic versioning from git tags (`uv-dynamic-versioning`); releases
+  are cut by tagging. PKGBUILD derives `pkgver()` the same way.
 - Real pre-launch menu dialog (Launch / Settings / Cancel) for `--menu`.
 - Status tray icon (normal/monochrome) with menu, minimize/close to
   tray and a Preferences dialog (`preferences.toml`).

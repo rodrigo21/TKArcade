@@ -41,6 +41,6 @@ def test_version_single_source():
     import tksteamlaunch
 
     assert isinstance(tksteamlaunch.__version__, str) and tksteamlaunch.__version__
-    assert tksteamlaunch.__version__ == _pyproject()["project"]["version"] or (
-        tksteamlaunch.__version__ == "0.0.0+src"
-    )
+    # Dynamic versioning: git tags are the single source, not pyproject.
+    assert "version" not in _pyproject()["project"]
+    assert _pyproject()["tool"]["hatch"]["version"]["source"] == "uv-dynamic-versioning"

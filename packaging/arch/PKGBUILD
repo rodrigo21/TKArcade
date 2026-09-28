@@ -1,13 +1,16 @@
 # Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
 pkgname=tksteamlaunch
-pkgver=0.3.0
+pkgver() {
+    cd "$pkgname"
+    git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
 pkgrel=1
 pkgdesc="Minimal Steam launch wrapper"
 arch=('any')
 url="https://github.com/rodrigo21/TKSteamLaunch"
 license=('GPL-3.0-or-later')
 depends=('hicolor-icon-theme' 'python' 'pyside6' 'python-vdf' 'python-jeepney')
-makedepends=('git' 'python-build' 'python-installer' 'python-hatchling')
+makedepends=('git' 'python-build' 'python-installer' 'python-hatchling' 'python-uv-dynamic-versioning')
 checkdepends=('python-pytest')
 source=("$pkgname::git+ssh://git@github.com/rodrigo21/TKSteamLaunch.git#branch=main")
 sha256sums=('SKIP')
