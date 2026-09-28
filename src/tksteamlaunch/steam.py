@@ -139,6 +139,11 @@ def list_games() -> list[tuple[str, str]]:
     return result
 
 
+def clear_games_cache() -> None:
+    """Drop the list_games cache (e.g. the main-window Reload button)."""
+    _GAMES_CACHE.clear()
+
+
 def find_game_icon(appid: str) -> Path | None:
     """Return Steam artwork for a game, to use as a list icon.
 

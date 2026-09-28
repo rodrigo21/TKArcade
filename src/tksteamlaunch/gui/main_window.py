@@ -206,6 +206,7 @@ class MainWindow(QMainWindow):
 
     def refresh(self) -> None:
         self._stop_pdb_worker()
+        steammod.clear_games_cache()
         self.table.setRowCount(0)
         names = {a: n for a, n in steammod.list_games()}
         fallback = self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)

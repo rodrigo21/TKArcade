@@ -222,6 +222,18 @@ def test_list_games_fake_root(monkeypatch, tmp_path, xdg_env):
     assert S.list_games() == [("9", "A Game"), ("10", "B Game")]
 
 
+def test_games_cache_refresh(monkeypatch, tmp_path):
+    root = tmp_path / "steamapps"
+    root.mkdir()
+    (root / "appmanifest_10.acf").write_text('"AppState"\n{\n"appid" "10"\n}\n')
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    assert [a for a, _ in S.list_games()] == ["10"]
+    (root / "appmanifest_11.acf").write_text('"AppState"\n{\n"appid" "11"\n}\n')
+    assert [a for a, _ in S.list_games()] == ["10"]  # stale until cleared
+    S.clear_games_cache()
+    assert [a for a, _ in S.list_games()] == ["10", "11"]
+
+
 def test_loads_kv1_without_vdf(monkeypatch):
     import sys
 
