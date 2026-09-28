@@ -331,3 +331,13 @@ def test_help_exit_codes_format(xdg_env):
     assert r.returncode == 0
     assert "\n  10  AppID not resolved\n" in r.stdout
     assert "\n  17  validation issues found\n" in r.stdout
+
+
+def test_fresh_prefix_disarms_after_wipe(xdg_env, monkeypatch, tmp_path):
+    pfx = tmp_path / "compatdata" / "77"
+    (pfx / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
+    _save("77", proton={"fresh_prefix": True})
+    assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
+    assert not pfx.exists()
+    assert C.load("77").proton.fresh_prefix is False

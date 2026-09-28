@@ -667,9 +667,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if cfg.proton.fresh_prefix:
         # Before ludusavi wrap: wipe the broken prefix, Steam recreates it,
-        # then restore brings the saves back into it.
-        for w in protonmod.prepare_fresh_prefix():
+        # then restore brings the saves back into it. One-shot: disarm the
+        # toggle afterwards so later launches (and winetricks state) stay
+        # consistent.
+        wiped_ok, fresh_warnings = protonmod.prepare_fresh_prefix()
+        for w in fresh_warnings:
             log.warning("fresh_prefix: %s", w)
+        if wiped_ok:
+            cfg.proton.fresh_prefix = False
+            try:
+                cfgmod.save(cfg)
+                log.info("fresh_prefix disarmed after wipe")
+            except Exception as e:
+                log.warning("could not disarm fresh_prefix: %s", e)
 
     if cfg.proton.winetricks_verbs:
         for w in protonmod.run_winetricks(appid, cfg.proton.winetricks_verbs):

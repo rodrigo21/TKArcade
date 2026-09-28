@@ -85,15 +85,17 @@ def flavor(tool: str) -> str:
     low = (tool or "").lower()
     if "cachyos" in low:
         return "cachyos"
-    if "ge-proton" in low or low.startswith("ge"):
+    if "ge-proton" in low or low == "ge" or low.startswith("ge-"):
         return "ge"
     return "valve"
 
 
-def prepare_fresh_prefix() -> list[str]:
+def prepare_fresh_prefix() -> tuple[bool, list[str]]:
     """Delete the Proton prefix so Steam recreates it on launch.
 
-    Returns warnings (empty on success or when disabled by env absence).
+    Returns (ok, warnings). ok is False only when deletion failed or
+    STEAM_COMPAT_DATA_PATH is missing (keep retrying those); callers
+    should disarm one-shot toggles when ok is True.
     Saves inside the prefix are destroyed; cloud/manual backups survive.
     """
     import os
@@ -101,15 +103,15 @@ def prepare_fresh_prefix() -> list[str]:
 
     compat = os.environ.get("STEAM_COMPAT_DATA_PATH", "").strip()
     if not compat:
-        return ["fresh_prefix set but STEAM_COMPAT_DATA_PATH is missing; skipped"]
+        return False, ["fresh_prefix set but STEAM_COMPAT_DATA_PATH is missing; skipped"]
     target = Path(compat)
     try:
         if target.is_dir() and not target.is_symlink():
             shutil.rmtree(target)
-            return []
-        return [f"prefix not found, nothing to delete: {compat}"]
+            return True, []
+        return True, [f"prefix not found, nothing to delete: {compat}"]
     except Exception as e:
-        return [f"could not delete prefix {compat}: {e}"]
+        return False, [f"could not delete prefix {compat}: {e}"]
 
 
 def run_winetricks(appid: str, verbs: list[str]) -> list[str]:

@@ -100,11 +100,13 @@ def test_prepare_fresh_prefix(monkeypatch, tmp_path):
     pfx.mkdir(parents=True)
     (pfx / "save.dat").write_text("x")
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(tmp_path / "compatdata" / "70"))
-    assert pm.prepare_fresh_prefix() == []
+    assert pm.prepare_fresh_prefix() == (True, [])
     assert not (tmp_path / "compatdata" / "70").exists()
-    assert "nothing to delete" in pm.prepare_fresh_prefix()[0]
+    assert pm.prepare_fresh_prefix()[0] is True
+    assert "nothing to delete" in pm.prepare_fresh_prefix()[1][0]
     monkeypatch.delenv("STEAM_COMPAT_DATA_PATH")
-    assert "missing" in pm.prepare_fresh_prefix()[0]
+    ok, warnings = pm.prepare_fresh_prefix()
+    assert ok is False and "missing" in warnings[0]
 
 
 def test_sections_covered_by_key_map():
@@ -285,3 +287,13 @@ def test_diff_vs_defaults(xdg_env):
     cfg.env.vars = {"A": "1"}
     diff = C.diff_vs_defaults(cfg)
     assert '"A" = "1"' in diff and diff.startswith("---")
+
+
+def test_flavor_prefix_boundaries():
+    from tksteamlaunch import proton as pm
+
+    assert pm.flavor("proton-cachyos-slr") == "cachyos"
+    assert pm.flavor("GE-Proton9-15") == "ge"
+    assert pm.flavor("proton_9") == "valve"
+    assert pm.flavor("generic-tool") == "valve"
+    assert pm.flavor("") == "valve"
