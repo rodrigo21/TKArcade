@@ -600,3 +600,23 @@ def test_show_request_raises_window(qapp, xdg_env):
     _on_show_request(NoConnections(), w)
     assert w.isVisible()
     w.close()
+
+
+def test_about_text_contents():
+    from tksteamlaunch.gui.main_window import _about_text
+
+    text = _about_text()
+    assert "TKSteamLaunch" in text and "GPL-3.0-or-later" in text
+    assert "PySide6" in text and "Config:" in text and "Logs:" in text
+    assert "vdf" in text and "jeepney" in text
+
+
+def test_section_boxes_present(qapp, xdg_env):
+    from PySide6.QtWidgets import QGroupBox
+
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    w = MainWindow()
+    titles = [b.title() for b in w.findChildren(QGroupBox)]
+    assert titles == ["Games", "Tools", "Application"]
+    w.close()

@@ -16,6 +16,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - LICENSE file removed (SPDX common license covers GPL-3.0-or-later);
   nightlight-holder console script removed (use `python -m`).
 
+### Fixed
+- Minimize-to-tray deferred past the state-change event.
+
 ## [0.3.0] - 2026-09-27
 
 ### Added
@@ -62,6 +65,7 @@ Breaking config changes are called out explicitly under `Changed`.
   files load as-is with built-in defaults for missing keys.
 
 ### Fixed
+- Minimize-to-tray deferred past the state-change event.
 - Ctrl+Q quits the app; closing without close-to-tray drops the tray
   icon so the app really exits.
 - Single GUI instance: followers raise the open window and exit.

@@ -59,6 +59,40 @@ class _ProtonDBWorker(QThread):
                 self.fetched.emit(appid, data)
 
 
+def _dep_version(dist: str) -> str:
+    try:
+        from importlib.metadata import version
+
+        return version(dist)
+    except Exception:
+        return "unknown"
+
+
+def _about_text() -> str:
+    """About dialog body: versions, licenses, active file locations."""
+    import platform
+
+    from .. import __version__
+
+    try:
+        from PySide6 import __version__ as pyside_version
+        from PySide6.QtCore import qVersion
+    except Exception:
+        pyside_version, qVersion = "unknown", lambda: "unknown"
+    lines = [
+        f"TKSteamLaunch {__version__}",
+        "Minimal Steam launch wrapper. License: GPL-3.0-or-later.",
+        "",
+        f"Python {platform.python_version()} on {platform.system()}",
+        f"PySide6 {pyside_version} (Qt {qVersion()})",
+        f"vdf {_dep_version('vdf')} (MIT) · jeepney {_dep_version('jeepney')} (MIT)",
+        "",
+        f"Config: {xdg.app_config_dir()}",
+        f"Logs: {xdg.app_state_dir()}",
+    ]
+    return "\n".join(lines)
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -88,44 +122,57 @@ class MainWindow(QMainWindow):
         self.status = QLabel()
         layout.addWidget(self.status)
 
-        layout.addLayout(
-            self._button_row(
+        layout.addWidget(
+            self._section_box(
+                "Games",
                 (
                     ("Add Game...", self._add),
                     ("Edit...", self._edit_selected),
                     ("Remove", self._remove_selected),
                     ("History...", self._show_history),
-                    ("Reload", self.refresh),
-                )
+                ),
             )
         )
-        layout.addLayout(
-            self._button_row(
+        layout.addWidget(
+            self._section_box(
+                "Tools",
                 (
                     ("Copy Launch Options", self._copy_launch),
                     ("Open Ludusavi...", self._open_ludusavi),
+                    ("Open Logs Folder", self._open_logs),
+                    ("Reload", self.refresh),
+                ),
+            )
+        )
+        layout.addWidget(
+            self._section_box(
+                "Application",
+                (
                     ("Global Defaults...", self._edit_defaults),
                     ("Preferences...", self._edit_preferences),
-                    ("Open Logs Folder", self._open_logs),
+                    ("About...", self._show_about),
                     ("Export...", self._export_configs),
                     ("Import...", self._import_configs),
-                )
+                ),
             )
         )
         self.refresh()
         self._apply_tray()
 
     @staticmethod
-    def _button_row(buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QHBoxLayout:
-        """Build a centered button row; append entries to add future actions."""
-        row = QHBoxLayout()
+    def _section_box(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:
+        """Grouped button row with a titled frame; append entries to add actions."""
+        from PySide6.QtWidgets import QGroupBox
+
+        box = QGroupBox(title)
+        row = QHBoxLayout(box)
         row.addStretch(1)
         for label, slot in buttons:
             b = QPushButton(label)
             b.clicked.connect(slot)
             row.addWidget(b)
         row.addStretch(1)
-        return row
+        return box
 
     def refresh(self) -> None:
         self._stop_pdb_worker()
@@ -201,12 +248,19 @@ class MainWindow(QMainWindow):
         self._stop_pdb_worker()
         super().closeEvent(event)
 
+    def _show_about(self) -> None:
+        from PySide6.QtWidgets import QMessageBox
+
+        QMessageBox.about(self, "About TKSteamLaunch", _about_text())
+
     def changeEvent(self, event) -> None:
         super().changeEvent(event)
         if event.type() == QEvent.Type.WindowStateChange and self.isMinimized():
             prefs = cfgmod.load_preferences()
             if prefs.minimize_to_tray and self._tray is not None:
-                self.hide()
+                from PySide6.QtCore import QTimer
+
+                QTimer.singleShot(0, self.hide)
 
     def _toggle_visible(self) -> None:
         self.setVisible(not self.isVisible())
@@ -233,6 +287,8 @@ class MainWindow(QMainWindow):
             defaults_action.triggered.connect(self._edit_defaults)
             prefs_action = menu.addAction("Preferences...")
             prefs_action.triggered.connect(self._edit_preferences)
+            about_action = menu.addAction("About...")
+            about_action.triggered.connect(self._show_about)
             menu.addSeparator()
             quit_action = menu.addAction("Quit")
             app = QApplication.instance()
