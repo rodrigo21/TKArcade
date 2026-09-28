@@ -51,6 +51,7 @@ def launch_summary(
     custom_executable: str = "",
     proton_display: str = "Proton",
     runtime: str | None = None,
+    proton_log: bool = False,
 ) -> tuple[str, str]:
     """Build (title, body) for the game-start notification. Pure function.
 
@@ -66,6 +67,8 @@ def launch_summary(
     lines = [" · ".join(p for p in parts if p.strip())]
     if (custom_executable or "").strip():
         lines.append(f"Exe: {os.path.basename(custom_executable.strip())}")
+    if proton_log:
+        lines.append("⚠ Proton logging on (disk)")
     return title, "\n".join(lines)
 
 

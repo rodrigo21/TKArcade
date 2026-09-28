@@ -103,6 +103,11 @@ class NotesConfig:
 
 
 @dataclass
+class DebugConfig:
+    proton_log: bool = False
+
+
+@dataclass
 class Preferences:
     """Program-level preferences (never per-game)."""
 
@@ -125,6 +130,7 @@ class GameConfig:
     nightlight: NightlightConfig = field(default_factory=NightlightConfig)
     notifications: NotificationsConfig = field(default_factory=NotificationsConfig)
     notes: NotesConfig = field(default_factory=NotesConfig)
+    debug: DebugConfig = field(default_factory=DebugConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -152,6 +158,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "nightlight": _to_toml_value(cfg.nightlight),
         "notifications": _to_toml_value(cfg.notifications),
         "notes": _to_toml_value(cfg.notes),
+        "debug": _to_toml_value(cfg.debug),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -283,6 +290,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "nightlight": {"disable_during_game", "provider"},
     "notifications": {"notify_on_launch"},
     "notes": {"text"},
+    "debug": {"proton_log"},
 }
 
 
@@ -374,6 +382,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     nt = _section(data, "notifications")
     cfg.notifications.notify_on_launch = _as_bool(nt.get("notify_on_launch", True), True)
     cfg.notes.text = str(_section(data, "notes").get("text", ""))
+    cfg.debug.proton_log = _as_bool(_section(data, "debug").get("proton_log", False), False)
     return cfg
 
 

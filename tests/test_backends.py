@@ -336,6 +336,27 @@ def test_launch_summary_shapes():
     assert all(not line.endswith((" ", "·")) for line in body.splitlines())
 
 
+def test_launch_summary_proton_log_warning():
+    from tksteamlaunch.backends import notify as ntf
+
+    _, body = ntf.launch_summary(appid="5", proton_log=True)
+    assert "Proton logging on" in body
+    _, body = ntf.launch_summary(appid="5", proton_log=False)
+    assert "Proton logging" not in body
+
+
+def test_proton_log_env(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "51"
+    cfg.debug.proton_log = True
+    _cmd, env, _ = build_final_command(cfg, ["/bin/true"])
+    assert env.get("PROTON_LOG") == "1"
+    assert env.get("PROTON_LOG_DIR", "").endswith("51/proton")
+    cfg.debug.proton_log = False
+    _cmd, env, _ = build_final_command(cfg, ["/bin/true"])
+    assert "PROTON_LOG" not in env and "PROTON_LOG_DIR" not in env
+
+
 def test_format_duration():
     from tksteamlaunch.backends import notify as ntf
 

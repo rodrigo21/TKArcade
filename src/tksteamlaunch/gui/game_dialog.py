@@ -256,6 +256,16 @@ class GameDialog(QDialog):
             log_layout.addWidget(self.e_log, stretch=1)
             log_layout.addWidget(self.b_log)
             gf.addRow("Log File:", log_row)
+            self.c_protonlog = QCheckBox("Capture Proton log (disk-heavy)")
+            self.c_protonlog.setToolTip("Sets PROTON_LOG=1 with a per-game log dir (Proton only).")
+            self.b_protonlog = QPushButton("Open")
+            self.b_protonlog.clicked.connect(self._open_proton_log)
+            proton_row = QWidget()
+            proton_layout = QHBoxLayout(proton_row)
+            proton_layout.setContentsMargins(0, 0, 0, 0)
+            proton_layout.addWidget(self.c_protonlog, stretch=1)
+            proton_layout.addWidget(self.b_protonlog)
+            gf.addRow("", proton_row)
         tabs.addTab(g, "General")
 
         # --- Pre/Post Commands ---
@@ -513,6 +523,8 @@ class GameDialog(QDialog):
         self.c_show_menu.setChecked(c.general.show_menu)
         self.c_notify.setChecked(c.notifications.notify_on_launch)
         if not self.defaults_mode:
+            self.c_protonlog.setChecked(c.debug.proton_log)
+        if not self.defaults_mode:
             self._refresh_profiles()
         self._set_env_table(c.env.vars)
         if not self.defaults_mode:
@@ -703,6 +715,12 @@ class GameDialog(QDialog):
     def _open_log(self) -> None:
         if not open_path(self.e_log.text()):
             QMessageBox.warning(self, "TKSteamLaunch", "Could not open the log file.")
+
+    def _open_proton_log(self) -> None:
+        from ..launcher import proton_log_dir
+
+        if not open_path(str(proton_log_dir(self.appid))):
+            QMessageBox.warning(self, "TKSteamLaunch", "Could not open the Proton log folder.")
 
     def _on_reset_factory(self) -> None:
         # In-memory only: the file changes on Save, Cancel discards everything.
@@ -979,6 +997,7 @@ class GameDialog(QDialog):
         self.cfg.nightlight.provider = str(self.cb_nl.currentData() or "auto")
         if not self.defaults_mode:
             self.cfg.notes.text = self.e_notes.toPlainText()
+            self.cfg.debug.proton_log = self.c_protonlog.isChecked()
 
     def _stop_coverage_worker(self) -> None:
         worker, self._cov_thread = self._cov_thread, None

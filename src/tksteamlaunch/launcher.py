@@ -113,6 +113,12 @@ def write_global_log(
         log.error("cannot write global log: %s", e)
 
 
+def proton_log_dir(appid: str) -> Path:
+    """Directory for PROTON_LOG output of one game (created at launch)."""
+    safe = (appid or "").strip() or "unknown"
+    return xdg.games_log_dir() / safe / "proton"
+
+
 def swap_proton_executable(game_cmd: list[str], custom: str) -> list[str]:
     """Swap exe inside Proton prefix. Keeps 'proton run' wrapper.
 
@@ -218,6 +224,9 @@ def build_final_command(
     mh_env, w = ov_backend.mangohud_env(cfg.mangohud.config_file)
     warnings += w
     env.update(mh_env)
+    if cfg.debug.proton_log:
+        env["PROTON_LOG"] = "1"
+        env["PROTON_LOG_DIR"] = os.fspath(proton_log_dir(cfg.general.appid))
     return cmd, env, warnings
 
 
@@ -280,6 +289,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
         custom_executable=cfg.general.custom_executable,
         proton_display=proton_display,
         runtime=runtime,
+        proton_log=cfg.debug.proton_log,
     )
     notify_backend.send(title, body, icon=icon, expire_ms=5000)
     return name, icon
@@ -687,6 +697,11 @@ def main(argv: list[str] | None = None) -> int:
             session_info: tuple[str, str] | None = None
             if cfg.notifications.notify_on_launch:
                 session_info = notify_launch(appid, cfg, game_cmd)
+            if cfg.debug.proton_log:
+                try:
+                    proton_log_dir(appid).mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    log.warning("cannot create proton log dir: %s", e)
             env = dict(os.environ)
             env.update({k: str(v) for k, v in extra_env.items()})
             log.info("exec: %s", shlex.join(final_cmd))

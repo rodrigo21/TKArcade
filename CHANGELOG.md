@@ -3,6 +3,11 @@
 All notable changes to TKSteamLaunch are documented here.
 Breaking config changes are called out explicitly under `Changed`.
 
+## [Unreleased]
+
+### Added
+- Proton log capture per game (off by default, warning in notification).
+
 ## [0.4.0] - 2026-09-28
 
 ### Added
