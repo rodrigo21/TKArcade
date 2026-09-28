@@ -348,10 +348,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="tksteamlaunch",
         description="Minimal Steam launch wrapper. Use in Steam as: tksteamlaunch %command%",
-        epilog="exit codes: 0 ok (game code when it runs); 10 AppID not resolved; "
-        "11 empty game command; 12 pre-launch hook failed; 13 game executable "
-        "not found; 14 custom prefix binary not found; 15 display needed but "
-        "missing; 16 export/import failed; 17 validation issues found",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="exit codes:\n"
+        "  0   ok (the game's own code when it runs)\n"
+        "  10  AppID not resolved\n"
+        "  11  empty game command\n"
+        "  12  pre-launch hook failed\n"
+        "  13  game executable not found\n"
+        "  14  custom prefix binary not found\n"
+        "  15  display needed but missing\n"
+        "  16  export/import failed\n"
+        "  17  validation issues found",
     )
     p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")

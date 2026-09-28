@@ -2,7 +2,7 @@
 
 Minimal Steam launch wrapper (inspired by steamtinkerlaunch), in Python 3.12+.
 
-GPLv3-or-later. See `LICENSE`.
+GPLv3-or-later (SPDX `GPL-3.0-or-later`; see `/usr/share/licenses/spdx/`).
 
 ## Install (local test with uv)
 
@@ -22,7 +22,6 @@ This installs the three entry points using the distro's Qt packages
 |---|---|
 | `tksteamlaunch` | Launcher used in Steam Launch Options |
 | `tksteamlaunch-gui` | Settings GUI |
-| `tksteamlaunch-nightlight-holder` | KDE NightLight inhibitor (spawned automatically) |
 
 Run without installing: `PYTHONPATH=src python3 -m tksteamlaunch.gui.app`.
 Delete `.venv/` to start over. A native Arch package (`PKGBUILD`) is planned.
@@ -93,7 +92,7 @@ See `tksteamlaunch --help`.
   button. The `wrap` exit code is always 0; the real game code is
   recovered internally and logged.
 * **Night Light stuck off** — a leaked inhibitor holder may survive a
-  crash: `pkill -f nightlight-holder`.
+  crash: `pkill -f nightlight_holder`.
 * **GUI looks unthemed under Steam** — the editor runs in a subprocess
   with Steam-runtime library paths filtered out; child stderr lands in
   the per-game log.

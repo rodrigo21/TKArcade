@@ -23,7 +23,7 @@ def test_console_scripts():
     scripts = _pyproject()["project"]["scripts"]
     assert scripts["tksteamlaunch"] == "tksteamlaunch.launcher:main"
     assert scripts["tksteamlaunch-gui"] == "tksteamlaunch.gui.app:main"
-    assert scripts["tksteamlaunch-nightlight-holder"] == "tksteamlaunch.nightlight_holder:main"
+    assert len(scripts) == 2
     for target in scripts.values():
         module, _, func = target.partition(":")
         assert (ROOT / "src" / module.replace(".", "/")).with_suffix(".py").is_file()
@@ -34,5 +34,4 @@ def test_python_floor_and_files():
     project = _pyproject()["project"]
     assert project["requires-python"] == ">=3.12"
     assert (ROOT / "README.md").is_file()
-    assert (ROOT / "LICENSE").is_file()
     assert "GPL" in project["license"]["text"]

@@ -323,4 +323,11 @@ def test_editor_menu_spawn_fallback_headless(monkeypatch):
 def test_help_documents_exit_codes(xdg_env):
     r = _run(_env(xdg_env), "--help")
     assert r.returncode == 0
-    assert "exit codes" in r.stdout and "10 AppID" in r.stdout
+    assert "exit codes" in r.stdout and "  10  AppID not resolved" in r.stdout
+
+
+def test_help_exit_codes_format(xdg_env):
+    r = _run(_env(xdg_env), "--help")
+    assert r.returncode == 0
+    assert "\n  10  AppID not resolved\n" in r.stdout
+    assert "\n  17  validation issues found\n" in r.stdout
