@@ -10,6 +10,7 @@ Breaking config changes are called out explicitly under `Changed`.
 - WINEDEBUG selector per game (Off/-all/+err/+warn,+err).
 - VSync disable presets for Mesa and NVIDIA (verified against docs).
 - Idle suspend inhibitor per game (logind idle lock only).
+- Proton prefix fresh-start toggle (deletes compatdata before launch).
 
 ## [0.4.0] - 2026-09-28
 

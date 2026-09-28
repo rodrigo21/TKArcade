@@ -7,6 +7,7 @@ file from the tool install dir. Anything missing -> None (callers omit).
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from . import steam as steammod
 
@@ -78,6 +79,28 @@ def tool_display(appid: str) -> str:
         return "Proton"
     version = tool_version(tool)
     return f"{tool} ({version})" if version else tool
+
+
+def prepare_fresh_prefix() -> list[str]:
+    """Delete the Proton prefix so Steam recreates it on launch.
+
+    Returns warnings (empty on success or when disabled by env absence).
+    Saves inside the prefix are destroyed; cloud/manual backups survive.
+    """
+    import os
+    import shutil
+
+    compat = os.environ.get("STEAM_COMPAT_DATA_PATH", "").strip()
+    if not compat:
+        return ["fresh_prefix set but STEAM_COMPAT_DATA_PATH is missing; skipped"]
+    target = Path(compat)
+    try:
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
+            return []
+        return [f"prefix not found, nothing to delete: {compat}"]
+    except Exception as e:
+        return [f"could not delete prefix {compat}: {e}"]
 
 
 def native_runtime(game_cmd: list[str]) -> str | None:

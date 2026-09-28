@@ -114,6 +114,11 @@ class SessionConfig:
 
 
 @dataclass
+class ProtonConfig:
+    fresh_prefix: bool = False
+
+
+@dataclass
 class Preferences:
     """Program-level preferences (never per-game)."""
 
@@ -138,6 +143,7 @@ class GameConfig:
     notes: NotesConfig = field(default_factory=NotesConfig)
     debug: DebugConfig = field(default_factory=DebugConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
+    proton: ProtonConfig = field(default_factory=ProtonConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -167,6 +173,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "notes": _to_toml_value(cfg.notes),
         "debug": _to_toml_value(cfg.debug),
         "session": _to_toml_value(cfg.session),
+        "proton": _to_toml_value(cfg.proton),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -300,6 +307,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "notes": {"text"},
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
+    "proton": {"fresh_prefix"},
 }
 
 
@@ -394,6 +402,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.debug.proton_log = _as_bool(_section(data, "debug").get("proton_log", False), False)
     cfg.debug.winedebug = str(_section(data, "debug").get("winedebug", ""))
     cfg.session.inhibit_idle = _as_bool(_section(data, "session").get("inhibit_idle", False), False)
+    cfg.proton.fresh_prefix = _as_bool(_section(data, "proton").get("fresh_prefix", False), False)
     return cfg
 
 

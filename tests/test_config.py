@@ -85,6 +85,28 @@ def test_wrong_shaped_sections_load_fresh(xdg_env):
     assert loaded.pre_post.pre_args == []
 
 
+def test_proton_config_roundtrip(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "72"
+    cfg.proton.fresh_prefix = True
+    C.save(cfg)
+    assert C.load("72").proton.fresh_prefix is True
+
+
+def test_prepare_fresh_prefix(monkeypatch, tmp_path):
+    from tksteamlaunch import proton as pm
+
+    pfx = tmp_path / "compatdata" / "70" / "pfx"
+    pfx.mkdir(parents=True)
+    (pfx / "save.dat").write_text("x")
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(tmp_path / "compatdata" / "70"))
+    assert pm.prepare_fresh_prefix() == []
+    assert not (tmp_path / "compatdata" / "70").exists()
+    assert "nothing to delete" in pm.prepare_fresh_prefix()[0]
+    monkeypatch.delenv("STEAM_COMPAT_DATA_PATH")
+    assert "missing" in pm.prepare_fresh_prefix()[0]
+
+
 def test_sections_covered_by_key_map():
     assert set(C.to_toml_dict(C.GameConfig())) == set(C.SECTION_KEYS)
 

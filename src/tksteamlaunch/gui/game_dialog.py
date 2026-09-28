@@ -417,6 +417,16 @@ class GameDialog(QDialog):
         nf.addRow("Provider:", self.cb_nl)
         tabs.addTab(nl, "Night Light")
 
+        pt = QWidget()
+        pf = QFormLayout(pt)
+        self.c_fresh = QCheckBox("Delete prefix before launch (fresh start)")
+        self.c_fresh.setToolTip(
+            "Deletes the compatdata prefix so Steam recreates it. WIPES saves "
+            "inside the prefix — rely on cloud or Ludusavi backups!"
+        )
+        pf.addRow("", self.c_fresh)
+        tabs.addTab(pt, "Proton")
+
         if not defaults_mode:
             notes = QWidget()
             notes_layout = QVBoxLayout(notes)
@@ -572,6 +582,7 @@ class GameDialog(QDialog):
         self.c_nl.setChecked(c.nightlight.disable_during_game)
         idx = self.cb_nl.findData(c.nightlight.provider or "auto")
         self.cb_nl.setCurrentIndex(max(idx, 0))
+        self.c_fresh.setChecked(c.proton.fresh_prefix)
         if not self.defaults_mode:
             self.e_notes.setPlainText(c.notes.text)
         self._apply_binary_availability()
@@ -991,6 +1002,7 @@ class GameDialog(QDialog):
         self.cfg.general.show_menu = self.c_show_menu.isChecked()
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.session.inhibit_idle = self.c_inhibit.isChecked()
+        self.cfg.proton.fresh_prefix = self.c_fresh.isChecked()
         self.cfg.env.vars = self._table_to_env()
         self.cfg.pre_post.pre_command = self.e_pre.text().strip()
         self.cfg.pre_post.pre_args = split_args(self.e_pre_args.text())

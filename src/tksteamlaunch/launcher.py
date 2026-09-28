@@ -294,6 +294,8 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
         wrappers.append("Night Light")
     if cfg.session.inhibit_idle:
         wrappers.append("Idle Inhibit")
+    if cfg.proton.fresh_prefix:
+        wrappers.append("Fresh Prefix")
     names = {a: n for a, n in steammod.list_games()}
     proton_display = protonmod.tool_display(appid) if game_type != "native" else ""
     runtime = protonmod.native_runtime(game_cmd) if game_type == "native" else None
@@ -651,6 +653,12 @@ def main(argv: list[str] | None = None) -> int:
         # beats executing a bare prefix stack (exit 1 from mangohud & co).
         log.info("no game command to run; launch skipped")
         return 0
+
+    if cfg.proton.fresh_prefix:
+        # Before ludusavi wrap: wipe the broken prefix, Steam recreates it,
+        # then restore brings the saves back into it.
+        for w in protonmod.prepare_fresh_prefix():
+            log.warning("fresh_prefix: %s", w)
 
     # Sentinel file so the real game exit code survives `ludusavi wrap`
     # (which returns 0 even when the game crashes). Empty = wrap off.
