@@ -51,6 +51,14 @@ class PreferencesDialog(QDialog):
         form.addRow("", self.c_close)
         self._update_tray_state()
 
+        from PySide6.QtWidgets import QLineEdit
+
+        self.e_sgdb = QLineEdit(self.prefs.sgdb_api_key)
+        self.e_sgdb.setEchoMode(QLineEdit.EchoMode.Password)
+        self.e_sgdb.setPlaceholderText("Free key from steamgriddb.com")
+        self.e_sgdb.setToolTip("SteamGridDB API key for missing artwork fallback.")
+        form.addRow("SteamGridDB key:", self.e_sgdb)
+
         btns = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
@@ -67,5 +75,6 @@ class PreferencesDialog(QDialog):
         self.prefs.tray_icon = str(self.cb_tray_icon.currentData() or "normal")
         self.prefs.minimize_to_tray = self.c_minimize.isChecked() and self.c_tray.isChecked()
         self.prefs.close_to_tray = self.c_close.isChecked() and self.c_tray.isChecked()
+        self.prefs.sgdb_api_key = self.e_sgdb.text().strip()
         cfgmod.save_preferences(self.prefs)
         super().accept()

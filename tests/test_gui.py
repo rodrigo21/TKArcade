@@ -49,6 +49,31 @@ def test_main_table_columns(qt_app, xdg_env, monkeypatch):
         time.sleep(0.02)
     assert w.table.item(0, 2).text() == "Gold"
     w._stop_pdb_worker()
+    w._stop_art_worker()
+
+
+def test_grid_icon_preferred(qt_app, xdg_env):
+    from tksteamlaunch import artwork as artmod
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "86"
+    C.save(cfg)
+    import base64
+
+    grid = artmod.grid_path("86")
+    grid.parent.mkdir(parents=True, exist_ok=True)
+    grid.write_bytes(
+        base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
+    )
+    w = MainWindow()
+    w.show()
+    assert w.table.item(0, 0).icon().isNull() is False
+    w._stop_pdb_worker()
+    w._stop_art_worker()
 
 
 def test_launch_mode_buttons(qt_app, xdg_env):

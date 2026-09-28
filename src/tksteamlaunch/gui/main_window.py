@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import artwork as artmod
 from .. import config as cfgmod
 from .. import protondb as pdbmod
 from .. import steam as steammod
@@ -57,6 +58,28 @@ class _ProtonDBWorker(QThread):
                 continue
             if data:
                 self.fetched.emit(appid, data)
+
+
+class _ArtworkWorker(QThread):
+    """Download missing artwork in the background (needs an API key)."""
+
+    fetched = Signal(str, str)  # appid, path
+
+    def __init__(self, appids: list[str], api_key: str, parent=None) -> None:
+        super().__init__(parent)
+        self._appids = appids
+        self._api_key = api_key
+
+    def run(self) -> None:
+        for appid in self._appids:
+            if self.isInterruptionRequested():
+                return
+            try:
+                path = artmod.fetch_missing(appid, self._api_key)
+            except Exception:
+                continue
+            if path:
+                self.fetched.emit(appid, str(path))
 
 
 def _dep_version(dist: str) -> str:
@@ -116,6 +139,7 @@ class MainWindow(QMainWindow):
         self.table.itemDoubleClicked.connect(self._on_double_click)
         layout.addWidget(self.table, stretch=1)
         self._pdb_thread: _ProtonDBWorker | None = None
+        self._art_thread: _ArtworkWorker | None = None
         self._tray = None
         self._tray_menu = None
 
@@ -206,18 +230,26 @@ class MainWindow(QMainWindow):
 
     def refresh(self) -> None:
         self._stop_pdb_worker()
+        self._stop_art_worker()
         steammod.clear_games_cache()
         self.table.setRowCount(0)
         names = {a: n for a, n in steammod.list_games()}
         fallback = self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
         appids = cfgmod.list_appids()
         self.table.setRowCount(len(appids))
+        api_key = cfgmod.load_preferences().sgdb_api_key.strip()
         need_fetch: list[str] = []
+        need_art: list[str] = []
         for row, appid in enumerate(appids):
             name_item = QTableWidgetItem(names.get(appid, appid))
             name_item.setData(Qt.ItemDataRole.UserRole, appid)
-            icon_path = steammod.find_game_icon(appid)
-            name_item.setIcon(QIcon(str(icon_path)) if icon_path else fallback)
+            icon_path = artmod.resolve_icon(appid)
+            if icon_path:
+                name_item.setIcon(QIcon(str(icon_path)))
+            else:
+                name_item.setIcon(fallback)
+                if api_key:
+                    need_art.append(appid)
             self.table.setItem(row, 0, name_item)
             self.table.setItem(row, 1, QTableWidgetItem(appid))
             data, fresh = pdbmod.cached(appid)
@@ -233,6 +265,10 @@ class MainWindow(QMainWindow):
             self._pdb_thread = _ProtonDBWorker(need_fetch, self)
             self._pdb_thread.fetched.connect(self._on_protondb)
             self._pdb_thread.start()
+        if need_art:
+            self._art_thread = _ArtworkWorker(need_art, api_key, self)
+            self._art_thread.fetched.connect(self._on_artwork)
+            self._art_thread.start()
 
     def _set_tier_cell(self, row: int, appid: str, data: dict) -> None:
         tier = str(data.get("tier", "")).lower()
@@ -252,6 +288,23 @@ class MainWindow(QMainWindow):
             if item is not None and str(item.data(Qt.ItemDataRole.UserRole) or "") == appid:
                 self._set_tier_cell(row, appid, data)
                 return
+
+    def _on_artwork(self, appid: str, path: str) -> None:
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item is not None and str(item.data(Qt.ItemDataRole.UserRole) or "") == appid:
+                item.setIcon(QIcon(path))
+                return
+
+    def _stop_art_worker(self) -> None:
+        if self._art_thread is not None:
+            if self._art_thread.isRunning():
+                self._art_thread.requestInterruption()
+                self._art_thread.wait(5000)
+                if self._art_thread.isRunning():
+                    self._art_thread.terminate()
+                    self._art_thread.wait(2000)
+            self._art_thread = None
 
     def _stop_pdb_worker(self) -> None:
         if self._pdb_thread is not None:
@@ -277,6 +330,7 @@ class MainWindow(QMainWindow):
             return
         self._drop_tray()
         self._stop_pdb_worker()
+        self._stop_art_worker()
         super().closeEvent(event)
 
     def _show_about(self) -> None:

@@ -13,6 +13,7 @@ Breaking config changes are called out explicitly under `Changed`.
 - Proton prefix fresh-start toggle (deletes compatdata before launch).
 - Winetricks verbs per game via protontricks (unattended, skips repeats).
 - Config diff viewer (game vs global defaults).
+- SteamGridDB artwork fallback (API key in Preferences, own cache).
 - RT upscaler support (linux-rt-upscaler wrap, XWayland enforced).
 - Compat preset catalog (FSR4, sync, D3D fallbacks, locale, HDR...) with
   GPU/Proton applicability tags and mismatch confirm.

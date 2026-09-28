@@ -134,6 +134,7 @@ class Preferences:
     tray_icon: str = "normal"  # normal|mono
     minimize_to_tray: bool = False
     close_to_tray: bool = False
+    sgdb_api_key: str = ""
 
 
 @dataclass
@@ -434,6 +435,7 @@ def load_preferences() -> Preferences:
         out.tray_icon = "normal"
     out.minimize_to_tray = _as_bool(ui.get("minimize_to_tray", False), False)
     out.close_to_tray = _as_bool(ui.get("close_to_tray", False), False)
+    out.sgdb_api_key = str(ui.get("sgdb_api_key", "") or "")
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -451,6 +453,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "tray_icon": prefs.tray_icon if prefs.tray_icon in ("normal", "mono") else "normal",
             "minimize_to_tray": bool(prefs.minimize_to_tray),
             "close_to_tray": bool(prefs.close_to_tray),
+            "sgdb_api_key": prefs.sgdb_api_key,
         }
     }
     path.write_text(_render_toml(data), encoding="utf-8")
