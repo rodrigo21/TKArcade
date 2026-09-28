@@ -182,11 +182,15 @@ class MainWindow(QMainWindow):
         """Labeled row with its buttons centered in the full row width.
 
         A trailing spacer mirrors the label so the group centers on the
-        window, not on the space after the label.
+        window, not on the space after the label. Framed like the
+        Dependency Status box in the game dialog.
         """
-        row = QWidget()
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
+        from PySide6.QtWidgets import QFrame
+
+        frame = QFrame()
+        frame.setFrameShape(QFrame.Shape.StyledPanel)
+        frame.setFrameShadow(QFrame.Shadow.Sunken)
+        layout = QHBoxLayout(frame)
         layout.setSpacing(8)
         label = QLabel(title)
         label.setMinimumWidth(90)
@@ -200,7 +204,7 @@ class MainWindow(QMainWindow):
         spacer = QWidget()
         spacer.setFixedWidth(90)
         layout.addWidget(spacer)
-        return row
+        return frame
 
     def refresh(self) -> None:
         self._stop_pdb_worker()
