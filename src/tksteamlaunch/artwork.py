@@ -58,6 +58,9 @@ def fetch_missing(appid: str, api_key: str) -> Path | None:
         return grid_path(appid)
     games = _get_json(GAME_URL.format(appid=appid), api_key)
     entries = games.get("data", []) if isinstance(games, dict) else []
+    if isinstance(entries, dict):
+        # /games/steam/{appid} returns a single object, not a list.
+        entries = [entries]
     if not entries or not isinstance(entries[0], dict):
         return None
     game_id = entries[0].get("id")

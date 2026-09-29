@@ -28,6 +28,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Main window and dialogs center on the available area; game list
   sorts A-Z by default with clickable headers.
 
+### Fixed
+- SteamGridDB single-object game responses handled (artwork works).
+
 ## [0.4.0] - 2026-09-28
 
 ### Added

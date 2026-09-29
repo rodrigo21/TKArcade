@@ -76,3 +76,11 @@ def test_thumb_requires_https(monkeypatch, xdg_env):
     _stub(monkeypatch, [("games/steam", games), ("grids/game", grids)])
     assert art.fetch_missing("82", "key") is None
     assert not art.grid_path("82").exists()
+
+
+def test_fetch_dict_shaped_data(monkeypatch, xdg_env):
+    games = {"data": {"id": 9, "name": "Dict Game"}}
+    grids = {"data": [{"thumb": "https://cdn.test/g.png"}]}
+    _stub(monkeypatch, [("games/steam", games), ("grids/game", grids), ("cdn.test", b"PNG")])
+    path = art.fetch_missing("83", "key")
+    assert path is not None and path.is_file()
