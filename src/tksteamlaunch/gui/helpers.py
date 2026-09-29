@@ -28,3 +28,22 @@ def open_path(path: str) -> bool:
         except Exception:
             pass
     return False
+
+
+def apply_default_size(widget, fallback: tuple[int, int] = (820, 520)) -> None:
+    """Half the available width, full available height, centered.
+
+    availableGeometry() already excludes panels/taskbars. The window
+    manager may still constrain the result.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    screen = QApplication.primaryScreen()
+    if screen is None:
+        widget.resize(*fallback)
+        return
+    area = screen.availableGeometry()
+    widget.resize(max(640, area.width() // 2), max(480, area.height()))
+    frame = widget.frameGeometry()
+    frame.moveCenter(area.center())
+    widget.move(frame.topLeft())

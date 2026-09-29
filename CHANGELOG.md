@@ -20,9 +20,10 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ### Changed
 - Settings dialog regrouped: Environment, System and Display tabs;
-  status box in two columns; collapsible 3-line command preview.
-- Main window centers on the available area; game list sorts A-Z by
-  default with clickable headers.
+  status box in two columns with blanks packed last; collapsible
+  3-line command preview.
+- Main window and dialogs center on the available area; game list
+  sorts A-Z by default with clickable headers.
 
 ## [0.4.0] - 2026-09-28
 

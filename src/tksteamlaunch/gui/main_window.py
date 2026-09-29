@@ -193,22 +193,9 @@ class MainWindow(QMainWindow):
         self._apply_tray()
 
     def _apply_default_size(self) -> None:
-        """Half the available width, full available height.
+        from .helpers import apply_default_size
 
-        availableGeometry() already excludes panels/taskbars, so the
-        window never hides under them. The WM may still constrain it.
-        """
-        from PySide6.QtWidgets import QApplication
-
-        screen = QApplication.primaryScreen()
-        if screen is None:
-            self.resize(820, 520)
-            return
-        area = screen.availableGeometry()
-        self.resize(max(640, area.width() // 2), max(480, area.height()))
-        frame = self.frameGeometry()
-        frame.moveCenter(area.center())
-        self.move(frame.topLeft())
+        apply_default_size(self)
 
     @staticmethod
     def _section_row(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:

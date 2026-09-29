@@ -790,3 +790,34 @@ def test_games_sorted_by_default(qapp, xdg_env, monkeypatch):
     w.table.sortByColumn(1, Qt.SortOrder.DescendingOrder)
     assert w.table.item(0, 1).text() == "2"
     w.close()
+
+
+def test_dialog_default_size(qapp, xdg_env):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    for dlg in (GameDialog(None, "60", "T"), GameDialog(None, defaults_mode=True)):
+        assert dlg.width() >= 640 and dlg.height() >= 480
+        dlg.close()
+
+
+def test_status_grid_packs_visible_first(qapp, xdg_env, monkeypatch):
+    import shutil
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    monkeypatch.setattr(shutil, "which", lambda *a, **k: "/bin/x")
+    cfg = C.GameConfig()
+    cfg.general.appid = "61"
+    cfg.gamemode.cachyos_game_performance = True
+    C.save(cfg)
+    d = GameDialog(None, "61", "T")
+    grid = d._status_grid
+    cells = set()
+    for i in range(grid.count()):
+        r, c, _, _ = grid.getItemPosition(i)
+        w = grid.itemAt(i).widget()
+        assert w is not None and not w.isHidden()
+        cells.add((r, c))
+    assert cells == {(i // 2, i % 2) for i in range(len(cells))}
+    d.close()

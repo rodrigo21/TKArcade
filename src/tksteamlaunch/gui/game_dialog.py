@@ -171,10 +171,12 @@ class GameDialog(QDialog):
                 # New game: start from a snapshot of the global defaults.
                 self.cfg = cfgmod.load_defaults()
                 self.cfg.general.appid = appid
-        self.resize(680, 640)
         self._dark = _is_dark_theme(self)
         self._status_labels: dict[str, QLabel] = {}
         self._active_profile = ""
+        from .helpers import apply_default_size
+
+        apply_default_size(self, fallback=(680, 640))
 
         layout = QVBoxLayout(self)
         if defaults_mode:
@@ -994,6 +996,8 @@ class GameDialog(QDialog):
         frame.setFrameShadow(QFrame.Shadow.Sunken)
         inner = QGridLayout(frame)
         inner.setContentsMargins(8, 6, 8, 6)
+        self._status_grid = inner
+        self._status_grid = inner
         for i, key in enumerate(keys):
             label = QLabel()
             label.setTextFormat(Qt.TextFormat.RichText)
@@ -1002,6 +1006,31 @@ class GameDialog(QDialog):
             self._status_labels[key] = label
         outer.addWidget(frame)
         return box
+
+    def _reflow_status_grid(self) -> None:
+        """Pack visible labels first so blanks always land at the end."""
+        grid = getattr(self, "_status_grid", None)
+        if grid is None:
+            return
+        order = [
+            "custom_prefix",
+            "gamemoderun",
+            "game-performance",
+            "gamescope",
+            "mangohud",
+            "rt-upscale",
+            "ludusavi",
+            "steam-options",
+        ]
+        visible = [
+            self._status_labels[k]
+            for k in order
+            if k in self._status_labels and not self._status_labels[k].isHidden()
+        ]
+        for label in list(self._status_labels.values()):
+            grid.removeWidget(label)
+        for i, label in enumerate(visible):
+            grid.addWidget(label, i // 2, i % 2)
 
     def _render_status(self, kind: str, text: str) -> str:
         import html
@@ -1036,6 +1065,7 @@ class GameDialog(QDialog):
         self._refresh_ludusavi_status()
         self._update_prefix_status()
         self._refresh_steam_status()
+        self._reflow_status_grid()
 
     def _refresh_steam_status(self) -> None:
         from .. import steam as steammod
