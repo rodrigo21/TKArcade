@@ -5,6 +5,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-28
+
 ### Added
 - Proton log capture per game (off by default, warning in notification).
 - WINEDEBUG selector per game (Off/-all/+err/+warn,+err).
