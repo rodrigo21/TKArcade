@@ -8,10 +8,14 @@ inside Settings or via the launcher after Launch.
 
 from __future__ import annotations
 
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QHBoxLayout,
     QLabel,
+    QStyle,
     QVBoxLayout,
 )
 
@@ -24,15 +28,41 @@ class MenuDialog(QDialog):
         name: str = "",
         can_launch: bool = True,
     ) -> None:
+        from .. import artwork as artmod
+        from .. import proton as protonmod
+
         super().__init__(parent)
         self.appid = appid
+        self.name = name
         self.launch_requested = False
-        title = f"TKSteamLaunch — {name} ({appid})" if name else f"TKSteamLaunch ({appid})"
-        self.setWindowTitle(title)
+        self.setWindowTitle(f"TKSteamLaunch — {name or appid or 'game'}")
+        self.setMinimumWidth(440)
 
         layout = QVBoxLayout(self)
-        info = QLabel(f"Game: {name or appid}\nApp ID: {appid or '—'}")
-        layout.addWidget(info)
+        head = QHBoxLayout()
+        icon_label = QLabel()
+        pixmap = QPixmap(str(artmod.resolve_icon(appid))) if appid else QPixmap()
+        if pixmap.isNull():
+            icon_label.setPixmap(
+                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay).pixmap(QSize(64, 64))
+            )
+        else:
+            icon_label.setPixmap(
+                pixmap.scaled(
+                    QSize(64, 64),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+        head.addWidget(icon_label)
+        info = QLabel(
+            f"Game: {name or appid or '—'}\n"
+            f"App ID: {appid or '—'}\n"
+            f"Proton: {protonmod.tool_display(appid) if appid else '—'}"
+        )
+        info.setWordWrap(True)
+        head.addWidget(info, stretch=1)
+        layout.addLayout(head)
 
         btns = QDialogButtonBox()
         self.b_launch = btns.addButton("Launch", QDialogButtonBox.ButtonRole.AcceptRole)
@@ -55,5 +85,5 @@ class MenuDialog(QDialog):
     def _open_settings(self) -> None:
         from .game_dialog import GameDialog
 
-        dlg = GameDialog(self, self.appid, "", launch_mode=False)
+        dlg = GameDialog(self, self.appid, self.name, launch_mode=False)
         dlg.exec()

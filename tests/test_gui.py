@@ -821,3 +821,34 @@ def test_status_grid_packs_visible_first(qapp, xdg_env, monkeypatch):
         cells.add((r, c))
     assert cells == {(i // 2, i % 2) for i in range(len(cells))}
     d.close()
+
+
+def test_menu_dialog_rich_header(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QLabel
+
+    from tksteamlaunch.gui import menu_dialog as md
+
+    d = md.MenuDialog(None, "55", "Test Game")
+    assert d.windowTitle() == "TKSteamLaunch — Test Game"
+    assert d.minimumWidth() >= 400
+    pixmaps = [label.pixmap() for label in d.findChildren(QLabel) if label.pixmap() is not None]
+    assert pixmaps, "expected a game icon label"
+    texts = [label.text() for label in d.findChildren(QLabel)]
+    assert any("Test Game" in t and "55" in t for t in texts)
+    d.close()
+
+
+def test_menu_settings_keeps_name(qapp, xdg_env, monkeypatch):
+    from tksteamlaunch.gui import menu_dialog as md
+
+    seen = {}
+    monkeypatch.setattr(
+        "tksteamlaunch.gui.game_dialog.GameDialog",
+        lambda parent, appid, name="", **kw: (
+            seen.update(appid=appid, name=name) or type("D", (), {"exec": lambda self: 0})()
+        ),
+    )
+    d = md.MenuDialog(None, "55", "Test Game")
+    d._open_settings()
+    assert seen == {"appid": "55", "name": "Test Game"}
+    d.close()
