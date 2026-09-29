@@ -5,6 +5,11 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Added
+- SteamTinkerLaunch importer: common settings land in a
+  `steamtinkerlaunch` profile (live config untouched), with usage
+  notice; profile Clone button.
+
 ## [0.5.0] - 2026-09-28
 
 ### Added

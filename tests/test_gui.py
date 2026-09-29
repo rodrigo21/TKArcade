@@ -879,3 +879,64 @@ def test_menu_no_timeout_by_default(qapp, xdg_env):
     d = md.MenuDialog(None, "55", "Test Game")
     assert d._remaining == 0 and not d._count_label.isVisibleTo(d)
     d.close()
+
+
+def test_import_chooser_codes(qapp):
+    from PySide6.QtWidgets import QPushButton
+
+    from tksteamlaunch.gui.import_dialog import ImportChooserDialog, StlImportDialog, usage_notice
+
+    labels = [b.text() for b in ImportChooserDialog(None).findChildren(QPushButton)]
+    assert "TKSteamLaunch Export..." in labels
+    assert "SteamTinkerLaunch..." in labels
+    assert usage_notice(["60"], ["61"]).startswith("Imported as the 'steamtinkerlaunch' profile")
+    assert "61" in usage_notice(["60"], ["61"])
+    assert usage_notice([], []) == ""
+    dlg = StlImportDialog(None, [("60", "B Game"), ("61", "A Game")])
+    assert dlg.table.rowCount() == 2
+    assert dlg.table.item(0, 1).text() == "A Game"  # sorted by name
+    assert dlg._checked_appids() == ["61", "60"]
+    dlg.table.item(1, 0).setCheckState(
+        __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.CheckState.Unchecked
+    )
+    assert dlg._checked_appids() == ["61"]
+    dlg.close()
+
+
+def test_stl_import_writes_profile(qapp, xdg_env, monkeypatch, tmp_path):
+    from PySide6.QtCore import QTimer
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch import stl_import as sti
+    from tksteamlaunch.gui.import_dialog import StlImportDialog
+
+    stl_dir = tmp_path / "steamtinkerlaunch" / "gamecfgs" / "id"
+    stl_dir.mkdir(parents=True)
+    (stl_dir / "60.conf").write_text('USEGAMEMODERUN="1"\nUSERSTOP="/s/post.sh"\n')
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    assert sti.list_stl_appids() == ["60"]
+    dlg = StlImportDialog(None, [("60", "G")])
+    QTimer.singleShot(300, _close_boxes)
+    dlg._do_import()
+    assert C.load_profile("60", "steamtinkerlaunch").gamemode.feral_gamemode is True
+    assert C.load_profile("60", "steamtinkerlaunch").pre_post.post_command == "/s/post.sh"
+    assert C.load("60").gamemode.feral_gamemode is False  # live untouched
+    dlg.close()
+
+
+def test_profile_clone_button(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "62"
+    cfg.env.vars = {"A": "1"}
+    C.save(cfg)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("copy1", True))
+    d = GameDialog(None, "62", "T")
+    d._on_profile_clone()
+    assert C.load_profile("62", "copy1").env.vars == {"A": "1"}
+    assert d._active_profile == "copy1"
+    d.close()

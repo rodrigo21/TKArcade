@@ -512,6 +512,24 @@ class MainWindow(QMainWindow):
         self.status.setText(f"Exported to {saved}")
 
     def _import_configs(self) -> None:
+        from .. import stl_import as sti
+        from .import_dialog import ImportChooserDialog, StlImportDialog
+
+        choice = ImportChooserDialog(self)
+        picked = choice.exec()
+        if not picked:
+            return
+        if picked == 2:
+            names = {a: n for a, n in steammod.list_games()}
+            configured = set(cfgmod.list_appids())
+            stl = set(sti.list_stl_appids())
+            games = [(a, names.get(a, a)) for a in sorted(configured & stl)]
+            if StlImportDialog(self, games).exec():
+                self.refresh()
+            return
+        self._import_tarball()
+
+    def _import_tarball(self) -> None:
         from PySide6.QtWidgets import QFileDialog
 
         path, _ = QFileDialog.getOpenFileName(

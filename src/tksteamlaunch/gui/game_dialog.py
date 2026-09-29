@@ -228,6 +228,9 @@ class GameDialog(QDialog):
             self.cb_profile.currentIndexChanged.connect(self._on_profile_switch)
             b_prof_save = QPushButton("Save As...")
             b_prof_save.clicked.connect(self._on_profile_save)
+            b_prof_clone = QPushButton("Clone...")
+            b_prof_clone.setToolTip("Copy the selected profile (or live config) to a new name.")
+            b_prof_clone.clicked.connect(self._on_profile_clone)
             b_prof_delete = QPushButton("Delete")
             b_prof_delete.clicked.connect(self._on_profile_delete)
             prof_row = QWidget()
@@ -235,6 +238,7 @@ class GameDialog(QDialog):
             prof_layout.setContentsMargins(0, 0, 0, 0)
             prof_layout.addWidget(self.cb_profile, stretch=1)
             prof_layout.addWidget(b_prof_save)
+            prof_layout.addWidget(b_prof_clone)
             prof_layout.addWidget(b_prof_delete)
             gf.addRow("Profile:", prof_row)
         if not defaults_mode:
@@ -689,6 +693,24 @@ class GameDialog(QDialog):
             return
         self._collect()
         cfgmod.save_profile(self.appid, name.strip(), self.cfg)
+        self._active_profile = name.strip()
+        self._refresh_profiles()
+
+    def _on_profile_clone(self) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        src = str(self.cb_profile.currentData() or "")
+        if src:
+            cfg = cfgmod.load_profile(self.appid, src)
+        else:
+            self._collect()
+            cfg = self.cfg
+        name, ok = QInputDialog.getText(
+            self, "Clone Profile", "New profile name:", text=f"{src or 'live'} copy"
+        )
+        if not ok or not name.strip():
+            return
+        cfgmod.save_profile(self.appid, name.strip(), cfg)
         self._active_profile = name.strip()
         self._refresh_profiles()
 
