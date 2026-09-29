@@ -291,7 +291,7 @@ def active_wrappers(cfg: cfgmod.GameConfig) -> list[str]:
     if cfg.gamemode.feral_gamemode:
         wrappers.append("GameMode")
     if cfg.gamemode.cachyos_game_performance:
-        wrappers.append("CachyOS")
+        wrappers.append("game-performance")
     if cfg.gamescope.enable:
         wrappers.append("Gamescope")
     if cfg.mangohud.enable:

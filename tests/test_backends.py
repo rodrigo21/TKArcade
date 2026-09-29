@@ -679,6 +679,9 @@ def test_active_wrappers_lists_enabled():
     cfg.mangohud.enable = True
     cfg.ludusavi.enable = True
     assert active_wrappers(cfg) == ["MangoHud", "Ludusavi"]
+    cfg.gamemode.feral_gamemode = True
+    cfg.gamemode.cachyos_game_performance = True
+    assert active_wrappers(cfg) == ["GameMode", "game-performance", "MangoHud", "Ludusavi"]
 
 
 def test_find_game_icon_landscape_pref(monkeypatch, tmp_path, xdg_env):
