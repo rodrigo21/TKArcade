@@ -668,3 +668,29 @@ def test_rtupscale_missing_binary(xdg_env, monkeypatch, tmp_path):
     cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
     assert cmd == ["/bin/true"]
     assert any("upscale" in w for w in warnings)
+
+
+def test_active_wrappers_lists_enabled():
+    from tksteamlaunch import config as C
+    from tksteamlaunch.launcher import active_wrappers
+
+    assert active_wrappers(C.GameConfig()) == []
+    cfg = C.GameConfig()
+    cfg.mangohud.enable = True
+    cfg.ludusavi.enable = True
+    assert active_wrappers(cfg) == ["MangoHud", "Ludusavi"]
+
+
+def test_find_game_icon_landscape_pref(monkeypatch, tmp_path, xdg_env):
+    from tksteamlaunch import steam as S
+
+    root = tmp_path / "steam" / "appcache" / "librarycache" / "76"
+    root.mkdir(parents=True)
+    hashed = "b" * 40 + ".jpg"
+    (root / hashed).write_bytes(b"tiny")
+    (root / "header.jpg").write_bytes(b"wide")
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path / "steam"))
+    assert S.find_game_icon("76").name == hashed
+    assert S.find_game_icon("76", landscape=True).name == "header.jpg"
+    (root / "header.jpg").unlink()
+    assert S.find_game_icon("76", landscape=True).name == hashed

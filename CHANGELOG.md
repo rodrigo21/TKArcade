@@ -15,6 +15,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Config diff viewer (game vs global defaults).
 - SteamGridDB artwork fallback (API key in Preferences, own cache).
 - RT upscaler support (linux-rt-upscaler wrap, XWayland enforced).
+- Richer pre-launch menu: centered buttons with icons, landscape game
+  art, `Name (AppID)` header, playtime and active wrappers, optional
+  auto-launch countdown (`menu_timeout`).
 - Compat preset catalog (FSR4, sync, D3D fallbacks, locale, HDR...) with
   GPU/Proton applicability tags and mismatch confirm.
 

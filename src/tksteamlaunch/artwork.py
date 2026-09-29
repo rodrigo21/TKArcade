@@ -28,7 +28,7 @@ def grid_path(appid: str) -> Path:
     return xdg.app_cache_dir() / "grids" / f"{appid}.png"
 
 
-def resolve_icon(appid: str) -> Path | None:
+def resolve_icon(appid: str, landscape: bool = False) -> Path | None:
     """Our cached grid first, then Steam librarycache art."""
     grid = grid_path(appid)
     try:
@@ -36,7 +36,7 @@ def resolve_icon(appid: str) -> Path | None:
             return grid
     except Exception:
         pass
-    return steammod.find_game_icon(appid)
+    return steammod.find_game_icon(appid, landscape=landscape)
 
 
 def _get_json(url: str, api_key: str, timeout: int = 15) -> dict | list | None:

@@ -852,3 +852,30 @@ def test_menu_settings_keeps_name(qapp, xdg_env, monkeypatch):
     d._open_settings()
     assert seen == {"appid": "55", "name": "Test Game"}
     d.close()
+
+
+def test_menu_rich_header_and_timeout(qapp, xdg_env):
+    from PySide6.QtWidgets import QLabel, QPushButton
+
+    from tksteamlaunch.gui import menu_dialog as md
+
+    d = md.MenuDialog(None, "55", "Test Game", timeout=5)
+    assert d.windowTitle() == "TKSteamLaunch — Test Game"
+    assert d.minimumWidth() >= 400
+    texts = [label.text() for label in d.findChildren(QLabel)]
+    assert any("Test Game (55)" in t for t in texts)
+    launch_btn = next(b for b in d.findChildren(QPushButton) if b.text() == "Launch")
+    assert not launch_btn.icon().isNull()
+    assert d._remaining == 5
+    d._remaining = 1
+    d._tick()
+    assert d.launch_requested is True and d.result() != 0
+    d.close()
+
+
+def test_menu_no_timeout_by_default(qapp, xdg_env):
+    from tksteamlaunch.gui import menu_dialog as md
+
+    d = md.MenuDialog(None, "55", "Test Game")
+    assert d._remaining == 0 and not d._count_label.isVisibleTo(d)
+    d.close()

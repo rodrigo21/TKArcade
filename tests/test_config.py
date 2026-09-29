@@ -297,3 +297,18 @@ def test_flavor_prefix_boundaries():
     assert pm.flavor("proton_9") == "valve"
     assert pm.flavor("generic-tool") == "valve"
     assert pm.flavor("") == "valve"
+
+
+def test_menu_timeout_roundtrip_and_clamp(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "74"
+    cfg.general.menu_timeout = 15
+    C.save(cfg)
+    assert C.load("74").general.menu_timeout == 15
+    from tksteamlaunch import xdg as xdgmod
+
+    xdgmod.games_dir().mkdir(parents=True, exist_ok=True)
+    (xdgmod.games_dir() / "75.toml").write_text(
+        '[general]\nappid = "75"\nmenu_timeout = -5\n', encoding="utf-8"
+    )
+    assert C.load("75").general.menu_timeout == 0

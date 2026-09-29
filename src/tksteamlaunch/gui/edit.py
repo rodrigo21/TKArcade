@@ -94,9 +94,18 @@ def main(argv: list[str] | None = None) -> int:
             return 0
     names = {a: n for a, n in steammod.list_games()}
     if args.menu:
+        from .. import config as cfgmod
         from .menu_dialog import MenuDialog
 
-        dlg = MenuDialog(None, appid, names.get(appid, ""), can_launch=args.can_launch)
+        timeout = 0
+        if appid:
+            try:
+                timeout = cfgmod.load(appid).general.menu_timeout
+            except Exception:
+                timeout = 0
+        dlg = MenuDialog(
+            None, appid, names.get(appid, ""), can_launch=args.can_launch, timeout=timeout
+        )
     else:
         from .game_dialog import GameDialog
 

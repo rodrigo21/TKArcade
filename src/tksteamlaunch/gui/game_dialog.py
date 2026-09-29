@@ -218,6 +218,10 @@ class GameDialog(QDialog):
             "on every Steam start. Also forced by the --menu flag."
         )
         gf.addRow("", self.c_show_menu)
+        self.s_menu_timeout = QSpinBox()
+        self.s_menu_timeout.setRange(0, 600)
+        self.s_menu_timeout.setToolTip("Auto-launch countdown in seconds (0 = wait forever).")
+        gf.addRow("Menu Timeout (seconds):", self.s_menu_timeout)
         if not defaults_mode:
             self.cb_profile = QComboBox()
             self.cb_profile.setToolTip("Switching loads the profile (Save writes it).")
@@ -602,6 +606,7 @@ class GameDialog(QDialog):
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
         self.c_show_menu.setChecked(c.general.show_menu)
+        self.s_menu_timeout.setValue(c.general.menu_timeout)
         self.c_notify.setChecked(c.notifications.notify_on_launch)
         self.c_inhibit.setChecked(c.session.inhibit_idle)
         if not self.defaults_mode:
@@ -1143,6 +1148,7 @@ class GameDialog(QDialog):
         self.cfg.general.custom_executable = self.e_exe.text().strip()
         self.cfg.general.custom_prefix = self.e_prefix.text().strip()
         self.cfg.general.show_menu = self.c_show_menu.isChecked()
+        self.cfg.general.menu_timeout = int(self.s_menu_timeout.value())
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.session.inhibit_idle = self.c_inhibit.isChecked()
         self.cfg.proton.fresh_prefix = self.c_fresh.isChecked()

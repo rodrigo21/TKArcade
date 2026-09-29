@@ -285,9 +285,8 @@ def _read_wrap_rc_file(path: str, fallback: int) -> int:
     return fallback
 
 
-def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[str, str]:
-    """Send the transient game-start summary. Returns (name, icon) for reuse."""
-    game_type = detect_game_type(game_cmd, cfg.general.game_type)
+def active_wrappers(cfg: cfgmod.GameConfig) -> list[str]:
+    """Enabled wrappers/add-ons, innermost first, for summaries and menus."""
     wrappers = []
     if cfg.gamemode.feral_gamemode:
         wrappers.append("GameMode")
@@ -307,6 +306,13 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
         wrappers.append("Idle Inhibit")
     if cfg.proton.fresh_prefix:
         wrappers.append("Fresh Prefix")
+    return wrappers
+
+
+def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[str, str]:
+    """Send the transient game-start summary. Returns (name, icon) for reuse."""
+    game_type = detect_game_type(game_cmd, cfg.general.game_type)
+    wrappers = active_wrappers(cfg)
     names = {a: n for a, n in steammod.list_games()}
     proton_display = protonmod.tool_display(appid) if game_type != "native" else ""
     runtime = protonmod.native_runtime(game_cmd) if game_type == "native" else None
