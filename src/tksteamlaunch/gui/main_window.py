@@ -17,9 +17,11 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -128,6 +130,22 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
 
         layout.addWidget(QLabel("Configured Games (double-click a game to edit its settings)"))
+        filter_row = QHBoxLayout()
+        self.filter_input = QLineEdit()
+        self.filter_input.setObjectName("filter_input")
+        self.filter_input.setPlaceholderText("Filter by name or App ID...")
+        self.filter_input.setToolTip("Show only games whose name or App ID matches.")
+        self.filter_input.setClearButtonEnabled(True)
+        self.filter_input.textChanged.connect(self._apply_filter)
+        filter_row.addWidget(self.filter_input, stretch=1)
+        self.issues_only = QCheckBox("With issues only")
+        self.issues_only.setObjectName("issues_only")
+        self.issues_only.setToolTip(
+            "Show only games failing validation (same checks as --validate)."
+        )
+        self.issues_only.toggled.connect(self._apply_filter)
+        filter_row.addWidget(self.issues_only)
+        layout.addLayout(filter_row)
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Game", "App ID", "ProtonDB"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
@@ -297,8 +315,8 @@ class MainWindow(QMainWindow):
                 need_fetch.append(appid)
         total_cfg = len(appids)
         total_steam = len(names)
-        status = f"{total_cfg} configured · {total_steam} Steam games detected"
-        self.status.setText(status)
+        self._base_status = f"{total_cfg} configured · {total_steam} Steam games detected"
+        self._issues_cache: dict[str, list[str]] = {}
         empty = not appids
         self.empty_state.setVisible(empty)
         self.table.setVisible(not empty)
@@ -313,6 +331,41 @@ class MainWindow(QMainWindow):
         self.table.setSortingEnabled(True)
         if not self._user_sorted:
             self.table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+        self._apply_filter()
+
+    def _game_issues(self, appid: str) -> list[str]:
+        """Cached per-game validation issues (same checks as --validate)."""
+        if appid not in self._issues_cache:
+            from ..launcher import validate_game
+
+            try:
+                self._issues_cache[appid] = validate_game(appid)
+            except Exception:
+                self._issues_cache[appid] = []
+        return self._issues_cache[appid]
+
+    def _apply_filter(self) -> None:
+        query = self.filter_input.text().strip().lower()
+        only_issues = self.issues_only.isChecked()
+        shown = 0
+        for row in range(self.table.rowCount()):
+            name_item = self.table.item(row, 0)
+            if name_item is None:
+                self.table.setRowHidden(row, True)
+                continue
+            appid = str(name_item.data(Qt.ItemDataRole.UserRole) or "")
+            name = (name_item.text() or "").lower()
+            match = not query or query in name or query in appid.lower()
+            if match and only_issues and not self._game_issues(appid):
+                match = False
+            self.table.setRowHidden(row, not match)
+            if match:
+                shown += 1
+        base = getattr(self, "_base_status", "")
+        if query or only_issues:
+            self.status.setText(f"{base} · {shown} shown")
+        else:
+            self.status.setText(base)
 
     def _set_tier_cell(self, row: int, appid: str, data: dict) -> None:
         tier = str(data.get("tier", "")).lower()

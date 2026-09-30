@@ -808,6 +808,60 @@ def test_empty_state_hides_when_configured(qt_app, xdg_env):
     w._stop_art_worker()
 
 
+def test_filter_by_text(qt_app, xdg_env, monkeypatch):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui import main_window as mw
+
+    monkeypatch.setattr(mw.steammod, "list_games", lambda: [("1", "Alpha"), ("2", "Zulu")])
+    for appid in ("1", "2"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    w = mw.MainWindow()
+    w.show()
+    qt_app.processEvents()
+    assert not w.table.isRowHidden(0)
+    w.filter_input.setText("zul")
+    qt_app.processEvents()
+    hidden = [w.table.isRowHidden(r) for r in range(w.table.rowCount())]
+    assert sorted(hidden) == [False, True]
+    assert "1 shown" in w.status.text()
+    w.filter_input.clear()
+    qt_app.processEvents()
+    assert not any(w.table.isRowHidden(r) for r in range(w.table.rowCount()))
+    w._stop_pdb_worker()
+    w._stop_art_worker()
+
+
+def test_filter_issues_only(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtCore import Qt
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui import main_window as mw
+
+    monkeypatch.setattr(mw.steammod, "list_games", lambda: [("1", "Alpha"), ("2", "Zulu")])
+    good = C.GameConfig()
+    good.general.appid = "1"
+    C.save(good)
+    bad = C.GameConfig()
+    bad.general.appid = "2"
+    bad.pre_post.pre_command = "/nope/missing-hook.sh"
+    C.save(bad)
+    w = mw.MainWindow()
+    w.show()
+    qt_app.processEvents()
+    w.issues_only.setChecked(True)
+    qt_app.processEvents()
+    states = {}
+    for r in range(w.table.rowCount()):
+        item = w.table.item(r, 0)
+        states[str(item.data(Qt.ItemDataRole.UserRole) or item.text())] = w.table.isRowHidden(r)
+    assert any("2" in k for k, v in states.items() if not v)
+    assert any("1" in k for k, v in states.items() if v)
+    w._stop_pdb_worker()
+    w._stop_art_worker()
+
+
 def test_games_sorted_by_default(qt_app, xdg_env, monkeypatch):
     from PySide6.QtCore import Qt
 

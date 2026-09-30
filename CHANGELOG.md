@@ -13,6 +13,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Added
 - Guided empty state on the main window (Add / Import / Copy Launch
   Options) when no games are configured.
+- Game list filter by name or App ID plus "With issues only" (same
+  checks as `--validate`), with a "N shown" status suffix.
 
 ## [0.6.0] - 2026-09-30
 
