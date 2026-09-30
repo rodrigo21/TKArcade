@@ -17,6 +17,9 @@ Breaking config changes are called out explicitly under `Changed`.
   checks as `--validate`), with a "N shown" status suffix.
 - Live "Will launch with: ..." wrappers summary in the game dialog
   footer, updated on every field change.
+- Advanced tabs (Environment, Pre/Post Commands, Wine / Proton) hidden
+  behind an "Advanced" footer toggle; auto-expanded when the game
+  already uses them.
 
 ## [0.6.0] - 2026-09-30
 

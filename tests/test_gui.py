@@ -790,6 +790,55 @@ def test_wrappers_summary_updates(qt_app, xdg_env):
     assert d.wrappers_summary.text() == "No wrappers enabled"
 
 
+def _visible_labels(d) -> list:
+    return [d._tabs.tabText(i) for i in range(d._tabs.count()) if d._tabs.isTabVisible(i)]
+
+
+def test_advanced_tabs_collapsed_by_default(qt_app, xdg_env):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "53", "T")
+    qt_app.processEvents()
+    assert not d.c_advanced.isChecked()
+    labels = _visible_labels(d)
+    assert "Environment" not in labels
+    assert "Pre/Post Commands" not in labels
+    assert "Wine / Proton" not in labels
+    assert "General" in labels and "Display" in labels
+
+
+def test_advanced_auto_expands_with_data(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "54"
+    cfg.env.vars = {"FOO": "1"}
+    C.save(cfg)
+    d = GameDialog(None, "54", "T")
+    qt_app.processEvents()
+    assert d.c_advanced.isChecked()
+    assert "Environment" in _visible_labels(d)
+
+
+def test_advanced_toggle_keeps_values(qt_app, xdg_env):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "55", "T")
+    d.c_advanced.setChecked(True)
+    qt_app.processEvents()
+    d.t_env.insertRow(0)
+    from PySide6.QtWidgets import QTableWidgetItem
+
+    d.t_env.setItem(0, 0, QTableWidgetItem("FOO"))
+    d.t_env.setItem(0, 1, QTableWidgetItem("1"))
+    d.c_advanced.setChecked(False)
+    qt_app.processEvents()
+    assert "Environment" not in _visible_labels(d)
+    d._collect()
+    assert d.cfg.env.vars.get("FOO") == "1"
+
+
 def test_empty_state_guided(qt_app, xdg_env):
     from tksteamlaunch.gui import main_window as mw
 
