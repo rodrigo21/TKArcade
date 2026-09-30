@@ -81,10 +81,12 @@ def tool_display(appid: str) -> str:
 
 
 def flavor(tool: str) -> str:
-    """Classify a compat tool: 'cachyos', 'ge' or 'valve' (default)."""
+    """Classify a compat tool: 'cachyos', 'ge', 'dw' or 'valve' (default)."""
     low = (tool or "").lower()
     if "cachyos" in low:
         return "cachyos"
+    if "dwproton" in low or "dw-proton" in low or low.startswith("dw-"):
+        return "dw"
     if "ge-proton" in low or low == "ge" or low.startswith("ge-"):
         return "ge"
     return "valve"

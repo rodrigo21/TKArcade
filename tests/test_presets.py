@@ -22,7 +22,14 @@ def test_preset_catalog_schema():
         assert set(preset.proton) <= set(pm.KNOWN_PROTONS), name
     nvidia = pm.PRESETS["Disable VSync (NVIDIA)"]
     assert nvidia.drivers == ("nvidia",)
-    assert pm.PRESETS["D7VK DDraw"].proton == ("cachyos",)
+    assert pm.PRESETS["D7VK DDraw"].proton == ("cachyos", "dw")
+    assert pm.PRESETS["No NTSync"].proton == ("ge",)
+    assert pm.PRESETS["Media Force GST"].proton == ("cachyos", "dw")
+    assert pm.PRESETS["SDL Input"].proton == ("ge", "cachyos", "dw")
+    assert pm.PRESETS["No Steam Input"].proton == ("ge", "cachyos", "dw")
+    assert pm.PRESETS["Local Shader Cache"].proton == ("ge", "cachyos", "dw")
+    assert pm.PRESETS["FSR4 Upgrade (Proton)"].proton == ("ge", "cachyos", "dw")
+    assert "semicolon" in pm.PRESETS["Block Hosts (edit list)"].note
 
 
 def test_detect_vendors_fake_sysfs(tmp_path):
@@ -47,5 +54,6 @@ def test_proton_flavor():
 
     assert protonmod.flavor("Proton-cachyos") == "cachyos"
     assert protonmod.flavor("GE-Proton10-12") == "ge"
+    assert protonmod.flavor("DW-Proton Latest") == "dw"
     assert protonmod.flavor("proton_9") == "valve"
     assert protonmod.flavor("") == "valve"

@@ -294,6 +294,8 @@ def test_flavor_prefix_boundaries():
 
     assert pm.flavor("proton-cachyos-slr") == "cachyos"
     assert pm.flavor("GE-Proton9-15") == "ge"
+    assert pm.flavor("DW-Proton Latest") == "dw"
+    assert pm.flavor("dwproton-10") == "dw"
     assert pm.flavor("proton_9") == "valve"
     assert pm.flavor("generic-tool") == "valve"
     assert pm.flavor("") == "valve"

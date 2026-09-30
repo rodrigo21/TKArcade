@@ -23,6 +23,14 @@ Breaking config changes are called out explicitly under `Changed`.
 - Broken custom-executable/hook paths surface as live Dependency
   Status warnings with an "Open folder" link when the parent exists.
 
+### Fixed
+- Env preset applicability audited against current Valve/CachyOS/GE
+  docs and the installed Proton scripts: CachyOS-only vars no longer
+  offered on Valve/GE, GE-only `PROTON_NO_NTSYNC` no longer offered
+  elsewhere, DW-Proton recognized as its own flavor.
+- New presets: DXVK Sarek for pre-1.3 Vulkan GPUs, D7VK switch for
+  GE-Proton.
+
 ## [0.6.0] - 2026-09-30
 
 ### Added

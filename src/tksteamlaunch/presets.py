@@ -1,11 +1,19 @@
-"""Curated environment presets with driver/proton applicability metadata."""
+"""Curated environment presets with driver/proton applicability metadata.
+
+Applicability audited 2026-09-30 against the proton-cachyos README
+(upstream + CachyOS tables), the GE-Proton README, GE-Proton 10-9
+release notes, and the installed `proton` scripts of Valve Experimental,
+GE-Proton, proton-cachyos-slr and DW-Proton on the maintainer's PC
+(absence in a build's `proton` script = no-op there, so the preset is
+not offered for that flavor).
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 KNOWN_DRIVERS = ("amd", "nvidia", "intel")
-KNOWN_PROTONS = ("valve", "ge", "cachyos")
+KNOWN_PROTONS = ("valve", "ge", "cachyos", "dw")
 
 
 @dataclass(frozen=True)
@@ -26,12 +34,15 @@ PRESETS: dict[str, Preset] = {
     "Disable VSync (NVIDIA)": Preset(vars={"__GL_SYNC_TO_VBLANK": "0"}, drivers=("nvidia",)),
     "FSR4 Upgrade (Proton)": Preset(
         vars={"PROTON_FSR4_UPGRADE": "1"},
-        proton=("ge", "cachyos"),
+        proton=("ge", "cachyos", "dw"),
         note="Needs an FSR 3.1 game; downloads the DLL on first run.",
     ),
     "No Fsync": Preset(vars={"PROTON_NO_FSYNC": "1"}),
     "No Esync": Preset(vars={"PROTON_NO_ESYNC": "1"}),
-    "Large Address Aware": Preset(vars={"PROTON_FORCE_LARGE_ADDRESS_AWARE": "1"}),
+    "Large Address Aware": Preset(
+        vars={"PROTON_FORCE_LARGE_ADDRESS_AWARE": "1"},
+        note="Already default-on upstream; set explicitly for older builds.",
+    ),
     "Old GL String": Preset(vars={"PROTON_OLD_GL_STRING": "1"}),
     "Use WineD3D (OpenGL)": Preset(vars={"PROTON_USE_WINED3D": "1"}),
     "Disable D3D11": Preset(vars={"PROTON_NO_D3D11": "1"}),
@@ -40,12 +51,27 @@ PRESETS: dict[str, Preset] = {
     "DXVK D3D8": Preset(vars={"PROTON_DXVK_D3D8": "1"}),
     "D7VK DDraw": Preset(
         vars={"PROTON_D7VK_DDRAW": "1"},
-        proton=("cachyos",),
+        proton=("cachyos", "dw"),
         note="DirectX 7 and lower via D7VK.",
     ),
-    "Local Shader Cache": Preset(vars={"PROTON_LOCAL_SHADER_CACHE": "1"}),
+    "D7VK (GE-Proton)": Preset(
+        vars={"PROTON_USE_D7VK": "1"},
+        proton=("ge",),
+        note="GE's own switch; needs D7VK's ddraw.dll present.",
+    ),
+    "DXVK Sarek (old GPUs)": Preset(
+        vars={"PROTON_DXVK_SAREK": "1"},
+        proton=("cachyos", "dw"),
+        note="DXVK-Sarek fork for Vulkan 1.1/1.2 GPUs; never with anti-cheat.",
+    ),
+    "Local Shader Cache": Preset(
+        vars={"PROTON_LOCAL_SHADER_CACHE": "1"},
+        proton=("ge", "cachyos", "dw"),
+        note="Per-game shader cache even with pre-caching off; isolates, not precompiles.",
+    ),
     "Media Force GST": Preset(
         vars={"PROTON_MEDIA_FORCE_GST": "1"},
+        proton=("cachyos", "dw"),
         note="Fixes cutscene video/audio playback in some games.",
     ),
     "Integer Scaling": Preset(
@@ -62,20 +88,25 @@ PRESETS: dict[str, Preset] = {
     ),
     "Block Hosts (edit list)": Preset(
         vars={"WINE_BLOCK_HOSTS": ""},
-        note="Comma-separated hosts Wine must not connect to; edit after adding.",
+        note="Comma- or semicolon-separated hosts (max 16) Wine must not reach; edit after adding.",
     ),
     "SDL Input": Preset(
         vars={"PROTON_USE_SDL": "1"},
+        proton=("ge", "cachyos", "dw"),
         note="SDL instead of HIDRAW/Steam Input for controllers.",
     ),
-    "No Steam Input": Preset(vars={"PROTON_NO_STEAMINPUT": "1"}),
+    "No Steam Input": Preset(
+        vars={"PROTON_NO_STEAMINPUT": "1"},
+        proton=("ge", "cachyos", "dw"),
+    ),
     "Wine Audio (Pulse)": Preset(
         vars={"WINE_AUDIO_DRIVER": "pulse"},
         note="Force winepulse.drv instead of the default list.",
     ),
     "No NTSync": Preset(
         vars={"PROTON_NO_NTSYNC": "1"},
-        note="Disable the ntsync kernel module sync primitives.",
+        proton=("ge",),
+        note="Disable the ntsync kernel-module sync primitives (GE 10-9+).",
     ),
     "KWin Hacks": Preset(
         vars={"WINE_USE_KWIN_HACKS": "1"},
@@ -84,7 +115,7 @@ PRESETS: dict[str, Preset] = {
     "DLSS Upgrade (NVIDIA)": Preset(
         vars={"PROTON_DLSS_UPGRADE": "1"},
         drivers=("nvidia",),
-        proton=("ge", "cachyos"),
+        proton=("ge", "cachyos", "dw"),
     ),
     "Hide NVIDIA GPU": Preset(vars={"PROTON_HIDE_NVIDIA_GPU": "1"}, drivers=("nvidia",)),
     "Disable NVAPI": Preset(vars={"PROTON_DISABLE_NVAPI": "1"}, drivers=("nvidia",)),
