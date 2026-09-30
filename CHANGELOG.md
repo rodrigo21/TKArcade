@@ -20,6 +20,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Advanced tabs (Environment, Pre/Post Commands, Wine / Proton) hidden
   behind an "Advanced" footer toggle; auto-expanded when the game
   already uses them.
+- Broken custom-executable/hook paths surface as live Dependency
+  Status warnings with an "Open folder" link when the parent exists.
 
 ## [0.6.0] - 2026-09-30
 

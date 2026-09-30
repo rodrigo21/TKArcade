@@ -524,6 +524,9 @@ class GameDialog(QDialog):
 
         status_keys = [
             "custom_prefix",
+            "custom_exe",
+            "pre_hook",
+            "post_hook",
             "gamemoderun",
             "game-performance",
             "gamescope",
@@ -626,6 +629,9 @@ class GameDialog(QDialog):
         )
         self._populate()
         self._wire_preview()
+        self.e_exe.textChanged.connect(self._refresh_hook_statuses)
+        self.e_pre.textChanged.connect(self._refresh_hook_statuses)
+        self.e_post.textChanged.connect(self._refresh_hook_statuses)
         tabs.currentChanged.connect(self._refresh_preview)
         self._refresh_preview()
 
@@ -1158,6 +1164,7 @@ class GameDialog(QDialog):
             label = QLabel()
             label.setTextFormat(Qt.TextFormat.RichText)
             label.setWordWrap(True)
+            label.linkActivated.connect(self._on_status_link)
             inner.addWidget(label, i // 2, i % 2)
             self._status_labels[key] = label
         outer.addWidget(frame)
@@ -1170,6 +1177,9 @@ class GameDialog(QDialog):
             return
         order = [
             "custom_prefix",
+            "custom_exe",
+            "pre_hook",
+            "post_hook",
             "gamemoderun",
             "game-performance",
             "gamescope",
@@ -1201,6 +1211,61 @@ class GameDialog(QDialog):
         if label is not None:
             label.setText(self._render_status(kind, text))
 
+    def _on_status_link(self, target: str) -> None:
+        """Open-folder links inside status lines (never break the dialog)."""
+        try:
+            open_path(target)
+        except Exception:
+            pass
+
+    def _set_status_link(self, key: str, kind: str, text: str, link_dir: str) -> None:
+        """Status line with an Open-folder link; the dir itself is escaped."""
+        import html
+
+        label = self._status_labels.get(key)
+        if label is None:
+            return
+        colors = _STATUS_COLORS_DARK if self._dark else _STATUS_COLORS_LIGHT
+        mark = _STATUS_MARKS.get(kind, "●")
+        color = colors.get(kind, colors["note"])
+        label.setText(
+            f'<span style="color:{color}; font-weight:bold;">{mark}</span> '
+            f'{html.escape(text)} (<a href="{html.escape(link_dir)}">Open folder</a>)'
+        )
+        label.setVisible(True)
+
+    def _refresh_hook_statuses(self) -> None:
+        """Live custom-exe/hook path checks with actionable Open-folder links."""
+        for key, field in (
+            ("custom_exe", self.e_exe),
+            ("pre_hook", self.e_pre),
+            ("post_hook", self.e_post),
+        ):
+            label = self._status_labels.get(key)
+            if label is None:
+                continue
+            command = field.text().strip()
+            if not command:
+                label.setVisible(False)
+                continue
+            try:
+                first = shlex.split(command, posix=True)[0]
+            except (ValueError, IndexError):
+                first = command.split(maxsplit=1)[0]
+            if os.path.exists(os.path.expanduser(first)) or shutil.which(first):
+                label.setVisible(True)
+                self._set_status(key, "ok", f"{key.replace('_', '-')}: {first}")
+                continue
+            parent = os.path.dirname(os.path.expanduser(first)) or "."
+            label.setVisible(True)
+            if os.path.isdir(parent):
+                self._set_status_link(
+                    key, "warn", f"{key.replace('_', '-')} not found: {first}", parent
+                )
+            else:
+                self._set_status(key, "warn", f"{key.replace('_', '-')} not found: {first}")
+        self._reflow_status_grid()
+
     def _refresh_statuses(self) -> None:
         feral_on = self.c_feral.isChecked()
         cachy_on = self.c_cachy.isChecked()
@@ -1220,6 +1285,7 @@ class GameDialog(QDialog):
         self._set_status("rt-upscale", *_binary_status("upscale", self.c_rt.isChecked()))
         self._refresh_ludusavi_status()
         self._update_prefix_status()
+        self._refresh_hook_statuses()
         self._refresh_steam_status()
         self._reflow_status_grid()
 

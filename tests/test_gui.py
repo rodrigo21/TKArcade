@@ -839,6 +839,36 @@ def test_advanced_toggle_keeps_values(qt_app, xdg_env):
     assert d.cfg.env.vars.get("FOO") == "1"
 
 
+def test_hook_status_actionable(qt_app, xdg_env, tmp_path, monkeypatch):
+    from tksteamlaunch.gui import game_dialog as gd
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "56", "T")
+    d.show()
+    qt_app.processEvents()
+    assert d._status_labels["pre_hook"].isHidden()
+    real = tmp_path / "hooks"
+    real.mkdir()
+    hook = real / "pre.sh"
+    hook.write_text("#!/bin/sh\n")
+    missing = str(real / "missing-hook.sh")
+    d.e_pre.setText(missing)
+    qt_app.processEvents()
+    label = d._status_labels["pre_hook"]
+    assert label.isVisible()
+    assert "not found" in label.text()
+    assert "Open folder" in label.text()
+    assert f'href="{real}"' in label.text()
+    d.e_pre.setText(str(hook))
+    qt_app.processEvents()
+    assert "not found" not in label.text()
+    assert "Open folder" not in label.text()
+    opened = []
+    monkeypatch.setattr(gd, "open_path", lambda p: opened.append(p))
+    d._on_status_link("/nope")
+    assert opened == ["/nope"]
+
+
 def test_empty_state_guided(qt_app, xdg_env):
     from tksteamlaunch.gui import main_window as mw
 
