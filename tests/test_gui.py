@@ -1017,10 +1017,10 @@ def test_focus_refreshes_profile_list(qapp, xdg_env):
     cfg.general.appid = "84"
     C.save(cfg)
     d = GameDialog(None, "84", "T")
-    assert d.cb_profile.count() == 0
+    assert d.cb_profile.count() == 1  # "(Game Defaults)"
     C.save_profile("84", "late", cfg)
     d.focusInEvent(QFocusEvent(QEvent.Type.FocusIn))
-    assert d.cb_profile.count() == 1
+    assert d.cb_profile.count() == 2
     d.close()
 
 
@@ -1040,4 +1040,80 @@ def test_open_loads_persisted_profile_content(qapp, xdg_env):
     d = GameDialog(None, "85", "T")
     assert d.cb_profile.currentData() == "stl"
     assert d.e_pre.text() == "/prof/pre.sh"
+    d.close()
+
+
+def test_switch_to_game_defaults_reloads_live(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    live = C.GameConfig()
+    live.general.appid = "86"
+    live.pre_post.pre_command = "/live/pre.sh"
+    live.general.active_profile = "stl"
+    C.save(live)
+    prof = C.GameConfig()
+    prof.general.appid = "86"
+    prof.pre_post.pre_command = "/prof/pre.sh"
+    C.save_profile("86", "stl", prof)
+    d = GameDialog(None, "86", "T")
+    assert d.e_pre.text() == "/prof/pre.sh"
+    d.cb_profile.setCurrentIndex(0)  # "(Game Defaults)"
+    assert d.cb_profile.currentData() == ""
+    assert d._active_profile == ""
+    assert d.e_pre.text() == "/live/pre.sh"
+    d.close()
+
+
+def test_is_dirty_tracks_edits(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "87"
+    C.save(cfg)
+    C.save_profile("87", "p1", cfg)
+    d = GameDialog(None, "87", "T")
+    assert not d._is_dirty()
+    d.e_pre.setText("/edited.sh")
+    assert d._is_dirty()
+    d.close()
+
+
+def test_switch_cancel_restores_selection(qapp, xdg_env, monkeypatch):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "88"
+    C.save(cfg)
+    C.save_profile("88", "p1", cfg)
+    d = GameDialog(None, "88", "T")
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("p1"))
+    assert d._active_profile == "p1"
+    d.e_pre.setText("/edited.sh")
+    monkeypatch.setattr(d, "_confirm_discard_changes", lambda: False)
+    d.cb_profile.setCurrentIndex(0)
+    assert d._active_profile == "p1"
+    assert d.cb_profile.currentData() == "p1"
+    assert d.e_pre.text() == "/edited.sh"
+    d.close()
+
+
+def test_switch_save_persists_edits(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "89"
+    C.save(cfg)
+    C.save_profile("89", "p1", cfg)
+    d = GameDialog(None, "89", "T")
+    d.e_pre.setText("/edited.sh")
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: QMessageBox.StandardButton.Save)
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("p1"))
+    assert d._active_profile == "p1"
+    assert C.load("89").pre_post.pre_command == "/edited.sh"
     d.close()

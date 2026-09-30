@@ -8,6 +8,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Added
 - Profile selection persists per game; Clone confirms before copying
   live settings; profile list refreshes on dialog focus.
+- Profile combo starts with `(Game Defaults)` to reload the saved game
+  settings; switching (or deleting the active) profile with unsaved
+  edits asks Save / Discard / Cancel.
 - SteamTinkerLaunch importer: common settings land in a
   `steamtinkerlaunch` profile (live config untouched), with usage
   notice; profile Clone button.

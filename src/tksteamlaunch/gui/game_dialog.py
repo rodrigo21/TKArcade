@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import os
 import shlex
 import shutil
@@ -611,6 +612,7 @@ class GameDialog(QDialog):
         finally:
             self._populating = False
             self._refresh_statuses()
+        self._clean = copy.deepcopy(self.cfg)
 
     def _populate_fields(self) -> None:
         c = self.cfg
@@ -690,6 +692,7 @@ class GameDialog(QDialog):
         self.cb_profile.blockSignals(True)
         try:
             self.cb_profile.clear()
+            self.cb_profile.addItem("(Game Defaults)", "")
             names = cfgmod.list_profiles(self.appid)
             for name in names:
                 self.cb_profile.addItem(name, name)
@@ -699,13 +702,50 @@ class GameDialog(QDialog):
         finally:
             self.cb_profile.blockSignals(False)
 
+    def _load_live(self) -> None:
+        """Load the saved game settings (or defaults for a new game)."""
+        if cfgmod.game_file(self.appid).exists():
+            self.cfg = cfgmod.load(self.appid)
+        else:
+            self.cfg = cfgmod.load_defaults()
+        self.cfg.general.appid = self.appid
+
+    def _confirm_discard_changes(self) -> bool:
+        """Save/Discard/Cancel prompt for unsaved edits. True = proceed."""
+        if not self._is_dirty():
+            return True
+        box = QMessageBox(self)
+        box.setWindowTitle("TKSteamLaunch")
+        box.setText("You have unsaved changes. Save them before switching?")
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel
+        )
+        box.setDefaultButton(QMessageBox.StandardButton.Save)
+        answer = box.exec()
+        if answer == QMessageBox.StandardButton.Save:
+            self._collect()
+            if self.defaults_mode:
+                cfgmod.save_defaults(self.cfg)
+            else:
+                cfgmod.save(self.cfg)
+            return True
+        return answer == QMessageBox.StandardButton.Discard
+
     def _on_profile_switch(self) -> None:
         name = str(self.cb_profile.currentData() or "")
-        if not name:
+        if name == self._active_profile:
+            return
+        if not self._confirm_discard_changes():
+            self._refresh_profiles()
             return
         self._active_profile = name
-        self.cfg = cfgmod.load_profile(self.appid, name)
-        self.cfg.general.appid = self.appid
+        if name:
+            self.cfg = cfgmod.load_profile(self.appid, name)
+            self.cfg.general.appid = self.appid
+        else:
+            self._load_live()
         self._populate()
 
     def _on_profile_save(self) -> None:
@@ -751,7 +791,12 @@ class GameDialog(QDialog):
             return
         cfgmod.delete_profile(self.appid, name)
         if self._active_profile == name:
+            if not self._confirm_discard_changes():
+                self._refresh_profiles()
+                return
             self._active_profile = ""
+            self._load_live()
+            self._populate()
         self._refresh_profiles()
 
     def _set_env_table(self, vars: dict[str, str]) -> None:
@@ -1196,45 +1241,58 @@ class GameDialog(QDialog):
             *_binary_status(parts[0], True, skip_note="launch will fail"),
         )
 
+    def _collect_into(self, cfg) -> None:
+        cfg.general.game_type = self.cb_gametype.currentText()
+        cfg.general.custom_executable = self.e_exe.text().strip()
+        cfg.general.custom_prefix = self.e_prefix.text().strip()
+        cfg.general.show_menu = self.c_show_menu.isChecked()
+        if not self.defaults_mode:
+            cfg.general.active_profile = self._active_profile
+        cfg.general.menu_timeout = int(self.s_menu_timeout.value())
+        cfg.notifications.notify_on_launch = self.c_notify.isChecked()
+        cfg.session.inhibit_idle = self.c_inhibit.isChecked()
+        cfg.proton.fresh_prefix = self.c_fresh.isChecked()
+        cfg.proton.winetricks_verbs = split_args(self.e_verbs.text())
+        cfg.env.vars = self._table_to_env()
+        cfg.pre_post.pre_command = self.e_pre.text().strip()
+        cfg.pre_post.pre_args = split_args(self.e_pre_args.text())
+        cfg.pre_post.post_command = self.e_post.text().strip()
+        cfg.pre_post.post_args = split_args(self.e_post_args.text())
+        cfg.pre_post.timeout = int(self.s_timeout.value())
+        cfg.pre_post.run_in_shell = bool(self.c_shell.isChecked())
+        cfg.gamemode.feral_gamemode = self.c_feral.isChecked()
+        cfg.gamemode.cachyos_game_performance = self.c_cachy.isChecked()
+        cfg.gamescope.enable = self.c_gs.isChecked()
+        cfg.gamescope.args = self.e_gs_args.text().strip()
+        cfg.mangohud.enable = self.c_mh.isChecked()
+        cfg.mangohud.args = self.e_mh_args.text().strip()
+        cfg.mangohud.config_file = str(self.cb_mh_conf.currentData() or "")
+        cfg.rtupscale.enable = self.c_rt.isChecked()
+        cfg.rtupscale.args = self.e_rt_args.text().strip()
+        cfg.ludusavi.enable = self.c_lu_enable.isChecked()
+        cfg.ludusavi.restore = self.c_restore.isChecked()
+        cfg.ludusavi.backup = self.c_backup.isChecked()
+        cfg.ludusavi.name_override = self.e_luname.text().strip()
+        cfg.ludusavi.use_gui = self.c_lugui.isChecked()
+        cfg.nightlight.disable_during_game = self.c_nl.isChecked()
+        cfg.nightlight.provider = str(self.cb_nl.currentData() or "auto")
+        if not self.defaults_mode:
+            cfg.notes.text = self.e_notes.toPlainText()
+            cfg.debug.proton_log = self.c_protonlog.isChecked()
+            cfg.debug.winedebug = str(self.cb_winedebug.currentData() or "")
+
     def _collect(self) -> None:
-        self.cfg.general.game_type = self.cb_gametype.currentText()
-        self.cfg.general.custom_executable = self.e_exe.text().strip()
-        self.cfg.general.custom_prefix = self.e_prefix.text().strip()
-        self.cfg.general.show_menu = self.c_show_menu.isChecked()
-        if not self.defaults_mode:
-            self.cfg.general.active_profile = self._active_profile
-        self.cfg.general.menu_timeout = int(self.s_menu_timeout.value())
-        self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
-        self.cfg.session.inhibit_idle = self.c_inhibit.isChecked()
-        self.cfg.proton.fresh_prefix = self.c_fresh.isChecked()
-        self.cfg.proton.winetricks_verbs = split_args(self.e_verbs.text())
-        self.cfg.env.vars = self._table_to_env()
-        self.cfg.pre_post.pre_command = self.e_pre.text().strip()
-        self.cfg.pre_post.pre_args = split_args(self.e_pre_args.text())
-        self.cfg.pre_post.post_command = self.e_post.text().strip()
-        self.cfg.pre_post.post_args = split_args(self.e_post_args.text())
-        self.cfg.pre_post.timeout = int(self.s_timeout.value())
-        self.cfg.pre_post.run_in_shell = bool(self.c_shell.isChecked())
-        self.cfg.gamemode.feral_gamemode = self.c_feral.isChecked()
-        self.cfg.gamemode.cachyos_game_performance = self.c_cachy.isChecked()
-        self.cfg.gamescope.enable = self.c_gs.isChecked()
-        self.cfg.gamescope.args = self.e_gs_args.text().strip()
-        self.cfg.mangohud.enable = self.c_mh.isChecked()
-        self.cfg.mangohud.args = self.e_mh_args.text().strip()
-        self.cfg.mangohud.config_file = str(self.cb_mh_conf.currentData() or "")
-        self.cfg.rtupscale.enable = self.c_rt.isChecked()
-        self.cfg.rtupscale.args = self.e_rt_args.text().strip()
-        self.cfg.ludusavi.enable = self.c_lu_enable.isChecked()
-        self.cfg.ludusavi.restore = self.c_restore.isChecked()
-        self.cfg.ludusavi.backup = self.c_backup.isChecked()
-        self.cfg.ludusavi.name_override = self.e_luname.text().strip()
-        self.cfg.ludusavi.use_gui = self.c_lugui.isChecked()
-        self.cfg.nightlight.disable_during_game = self.c_nl.isChecked()
-        self.cfg.nightlight.provider = str(self.cb_nl.currentData() or "auto")
-        if not self.defaults_mode:
-            self.cfg.notes.text = self.e_notes.toPlainText()
-            self.cfg.debug.proton_log = self.c_protonlog.isChecked()
-            self.cfg.debug.winedebug = str(self.cb_winedebug.currentData() or "")
+        self._collect_into(self.cfg)
+
+    def _is_dirty(self) -> bool:
+        """True when the widgets differ from the last populated state."""
+        if getattr(self, "_clean", None) is None:
+            return False
+        probe = copy.deepcopy(self._clean)
+        self._collect_into(probe)
+        # Selection memory is not a user edit: profiles strip it on save.
+        probe.general.active_profile = self._clean.general.active_profile
+        return cfgmod.to_toml_dict(probe) != cfgmod.to_toml_dict(self._clean)
 
     def _stop_coverage_worker(self) -> None:
         worker, self._cov_thread = self._cov_thread, None
