@@ -5,6 +5,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-30
+
 ### Added
 - Profile selection persists per game; Clone confirms before copying
   live settings; profile list refreshes on dialog focus.
