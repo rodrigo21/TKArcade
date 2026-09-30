@@ -173,7 +173,13 @@ class GameDialog(QDialog):
                 self.cfg.general.appid = appid
         self._dark = _is_dark_theme(self)
         self._status_labels: dict[str, QLabel] = {}
-        self._active_profile = ""
+        saved_profile = "" if defaults_mode else self.cfg.general.active_profile
+        if saved_profile and saved_profile not in cfgmod.list_profiles(appid):
+            saved_profile = ""
+        self._active_profile = saved_profile
+        self._profile_names: set[str] = (
+            set(cfgmod.list_profiles(appid)) if not defaults_mode else set()
+        )
         from .helpers import apply_default_size
 
         apply_default_size(self, fallback=(680, 640))
@@ -665,14 +671,27 @@ class GameDialog(QDialog):
             return "Native (no Proton)"
         return protonmod.tool_display(self.appid)
 
+    def focusInEvent(self, event) -> None:
+        super().focusInEvent(event)
+        if self.defaults_mode:
+            return
+        current = set(cfgmod.list_profiles(self.appid))
+        if current != self._profile_names:
+            self._profile_names = current
+            if self._active_profile not in current:
+                self._active_profile = ""
+            self._refresh_profiles()
+
     def _refresh_profiles(self) -> None:
         self.cb_profile.blockSignals(True)
         try:
             self.cb_profile.clear()
-            for name in cfgmod.list_profiles(self.appid):
+            names = cfgmod.list_profiles(self.appid)
+            for name in names:
                 self.cb_profile.addItem(name, name)
             idx = self.cb_profile.findData(self._active_profile)
             self.cb_profile.setCurrentIndex(idx)
+            self._profile_names = set(names)
         finally:
             self.cb_profile.blockSignals(False)
 
@@ -697,12 +716,20 @@ class GameDialog(QDialog):
         self._refresh_profiles()
 
     def _on_profile_clone(self) -> None:
-        from PySide6.QtWidgets import QInputDialog
+        from PySide6.QtWidgets import QInputDialog, QMessageBox
 
+        self._refresh_profiles()
         src = str(self.cb_profile.currentData() or "")
         if src:
             cfg = cfgmod.load_profile(self.appid, src)
         else:
+            go = QMessageBox.question(
+                self,
+                "TKSteamLaunch",
+                "No profile selected — clone the current (live) settings?",
+            )
+            if go != QMessageBox.StandardButton.Yes:
+                return
             self._collect()
             cfg = self.cfg
         name, ok = QInputDialog.getText(
@@ -1170,6 +1197,8 @@ class GameDialog(QDialog):
         self.cfg.general.custom_executable = self.e_exe.text().strip()
         self.cfg.general.custom_prefix = self.e_prefix.text().strip()
         self.cfg.general.show_menu = self.c_show_menu.isChecked()
+        if not self.defaults_mode:
+            self.cfg.general.active_profile = self._active_profile
         self.cfg.general.menu_timeout = int(self.s_menu_timeout.value())
         self.cfg.notifications.notify_on_launch = self.c_notify.isChecked()
         self.cfg.session.inhibit_idle = self.c_inhibit.isChecked()

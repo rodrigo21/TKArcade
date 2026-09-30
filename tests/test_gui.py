@@ -925,7 +925,7 @@ def test_stl_import_writes_profile(qapp, xdg_env, monkeypatch, tmp_path):
 
 
 def test_profile_clone_button(qapp, xdg_env, monkeypatch):
-    from PySide6.QtWidgets import QInputDialog
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
 
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
@@ -935,8 +935,90 @@ def test_profile_clone_button(qapp, xdg_env, monkeypatch):
     cfg.env.vars = {"A": "1"}
     C.save(cfg)
     monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("copy1", True))
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
     d = GameDialog(None, "62", "T")
     d._on_profile_clone()
     assert C.load_profile("62", "copy1").env.vars == {"A": "1"}
     assert d._active_profile == "copy1"
+    d.close()
+
+
+def test_active_profile_persists(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "80"
+    C.save(cfg)
+    C.save_profile("80", "p1", cfg)
+    d = GameDialog(None, "80", "T")
+    assert d.cb_profile.currentData() in (None, "")
+    d._active_profile = "p1"
+    d._collect()
+    d.accept()
+    assert C.load("80").general.active_profile == "p1"
+    d2 = GameDialog(None, "80", "T")
+    assert d2.cb_profile.currentData() == "p1"
+    d2.close()
+
+
+def test_active_profile_missing_falls_back(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "81"
+    cfg.general.active_profile = "ghost"
+    C.save(cfg)
+    d = GameDialog(None, "81", "T")
+    assert d._active_profile == ""
+    assert d.cb_profile.currentData() in (None, "")
+    d.close()
+
+
+def test_save_profile_strips_selection(qapp, xdg_env):
+    from tksteamlaunch import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "82"
+    cfg.general.active_profile = "p1"
+    C.save_profile("82", "copy", cfg)
+    assert C.load_profile("82", "copy").general.active_profile == ""
+
+
+def test_clone_without_selection_confirms(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "83"
+    C.save(cfg)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("c1", True))
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
+    d = GameDialog(None, "83", "T")
+    d._on_profile_clone()
+    assert C.list_profiles("83") == []
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    d._on_profile_clone()
+    assert C.list_profiles("83") == ["c1"]
+    d.close()
+
+
+def test_focus_refreshes_profile_list(qapp, xdg_env):
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QFocusEvent
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "84"
+    C.save(cfg)
+    d = GameDialog(None, "84", "T")
+    assert d.cb_profile.count() == 0
+    C.save_profile("84", "late", cfg)
+    d.focusInEvent(QFocusEvent(QEvent.Type.FocusIn))
+    assert d.cb_profile.count() == 1
     d.close()

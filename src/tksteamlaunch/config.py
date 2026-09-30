@@ -42,6 +42,7 @@ class GeneralConfig:
     show_menu: bool = False  # pre-launch menu (also forced by --menu flag)
     menu_timeout: int = 0  # auto-launch countdown in seconds (0 = wait forever)
     custom_prefix: str = ""  # e.g. "zink-run", innermost command wrapper
+    active_profile: str = ""  # last used profile (GUI selection memory)
 
 
 @dataclass
@@ -256,11 +257,12 @@ def load_profile(appid: str, name: str) -> GameConfig:
 
 
 def save_profile(appid: str, name: str, cfg: GameConfig) -> Path:
-    """Save cfg as a named profile snapshot."""
+    """Save cfg as a named profile snapshot (selection memory stripped)."""
     path = _profile_file(appid, name)
     path.parent.mkdir(parents=True, exist_ok=True)
     data = to_toml_dict(cfg)
     data.setdefault("general", {})["appid"] = appid
+    data["general"]["active_profile"] = ""
     path.write_text(_render_toml(data), encoding="utf-8")
     return path
 
@@ -313,6 +315,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "show_menu",
         "menu_timeout",
         "custom_prefix",
+        "active_profile",
     },
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
@@ -389,6 +392,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.general.show_menu = _as_bool(g.get("show_menu", False), False)
     cfg.general.menu_timeout = max(0, _as_int(g.get("menu_timeout", 0), 0))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
+    cfg.general.active_profile = str(g.get("active_profile", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}

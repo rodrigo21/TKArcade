@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Profile selection persists per game; Clone confirms before copying
+  live settings; profile list refreshes on dialog focus.
 - SteamTinkerLaunch importer: common settings land in a
   `steamtinkerlaunch` profile (live config untouched), with usage
   notice; profile Clone button.
