@@ -773,6 +773,23 @@ def test_preview_group_collapsible(qt_app, xdg_env):
     assert d._preview_edit.toPlainText() != ""
 
 
+def test_wrappers_summary_updates(qt_app, xdg_env):
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "52", "T")
+    assert d.wrappers_summary.text() == "No wrappers enabled"
+    d.c_mh.setChecked(True)
+    d.c_feral.setChecked(True)
+    qt_app.processEvents()
+    text = d.wrappers_summary.text()
+    assert text.startswith("Will launch with: ")
+    assert "MangoHud" in text and "GameMode" in text
+    d.c_mh.setChecked(False)
+    d.c_feral.setChecked(False)
+    qt_app.processEvents()
+    assert d.wrappers_summary.text() == "No wrappers enabled"
+
+
 def test_empty_state_guided(qt_app, xdg_env):
     from tksteamlaunch.gui import main_window as mw
 

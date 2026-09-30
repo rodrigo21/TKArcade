@@ -590,6 +590,13 @@ class GameDialog(QDialog):
             self._preview_group = None
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
+        self.wrappers_summary = QLabel()
+        self.wrappers_summary.setObjectName("wrappers_summary")
+        self.wrappers_summary.setWordWrap(True)
+        self.wrappers_summary.setToolTip(
+            "Wrappers enabled by the current fields (same order as launch)."
+        )
+        layout.addWidget(self.wrappers_summary)
         layout.addWidget(btns)
 
         self._align_label_widths(
@@ -992,12 +999,20 @@ class GameDialog(QDialog):
             return True
 
     def _refresh_preview(self) -> None:
-        if self._preview_edit is None:
-            return
         self._collect()
         try:
-            from ..launcher import build_final_command
+            from ..launcher import active_wrappers, build_final_command
 
+            wrappers = active_wrappers(self.cfg)
+        except Exception:
+            wrappers = []
+        if wrappers:
+            self.wrappers_summary.setText(f"Will launch with: {' · '.join(wrappers)}")
+        else:
+            self.wrappers_summary.setText("No wrappers enabled")
+        if self._preview_edit is None:
+            return
+        try:
             cmd, _env, warnings = build_final_command(self.cfg, ["%command%"])
         except Exception as e:  # never break the dialog on preview
             self._preview_edit.setPlainText(f"(preview unavailable: {e})")

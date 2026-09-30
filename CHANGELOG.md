@@ -15,6 +15,8 @@ Breaking config changes are called out explicitly under `Changed`.
   Options) when no games are configured.
 - Game list filter by name or App ID plus "With issues only" (same
   checks as `--validate`), with a "N shown" status suffix.
+- Live "Will launch with: ..." wrappers summary in the game dialog
+  footer, updated on every field change.
 
 ## [0.6.0] - 2026-09-30
 
