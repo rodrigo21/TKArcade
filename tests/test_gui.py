@@ -1022,3 +1022,22 @@ def test_focus_refreshes_profile_list(qapp, xdg_env):
     d.focusInEvent(QFocusEvent(QEvent.Type.FocusIn))
     assert d.cb_profile.count() == 1
     d.close()
+
+
+def test_open_loads_persisted_profile_content(qapp, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    live = C.GameConfig()
+    live.general.appid = "85"
+    live.pre_post.pre_command = "/live/pre.sh"
+    live.general.active_profile = "stl"
+    C.save(live)
+    prof = C.GameConfig()
+    prof.general.appid = "85"
+    prof.pre_post.pre_command = "/prof/pre.sh"
+    C.save_profile("85", "stl", prof)
+    d = GameDialog(None, "85", "T")
+    assert d.cb_profile.currentData() == "stl"
+    assert d.e_pre.text() == "/prof/pre.sh"
+    d.close()

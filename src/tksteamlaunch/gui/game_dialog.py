@@ -177,6 +177,10 @@ class GameDialog(QDialog):
         if saved_profile and saved_profile not in cfgmod.list_profiles(appid):
             saved_profile = ""
         self._active_profile = saved_profile
+        if saved_profile:
+            # Open directly into the persisted profile content, not live.
+            self.cfg = cfgmod.load_profile(appid, saved_profile)
+            self.cfg.general.appid = appid
         self._profile_names: set[str] = (
             set(cfgmod.list_profiles(appid)) if not defaults_mode else set()
         )
