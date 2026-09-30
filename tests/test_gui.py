@@ -773,6 +773,41 @@ def test_preview_group_collapsible(qt_app, xdg_env):
     assert d._preview_edit.toPlainText() != ""
 
 
+def test_empty_state_guided(qt_app, xdg_env):
+    from tksteamlaunch.gui import main_window as mw
+
+    w = mw.MainWindow()
+    w.show()
+    qt_app.processEvents()
+    assert w.table.rowCount() == 0
+    assert w.empty_state.isVisible()
+    assert not w.table.isVisible()
+    assert w.empty_title.text() == "No games configured yet"
+    assert "tksteamlaunch %command%" in w.empty_steps.text()
+    assert w.empty_add.text() == "Add Game..."
+    assert w.empty_import.text() == "Import..."
+    assert w.empty_copy.text() == "Copy Launch Options"
+    w._stop_pdb_worker()
+    w._stop_art_worker()
+
+
+def test_empty_state_hides_when_configured(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui import main_window as mw
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "81"
+    C.save(cfg)
+    w = mw.MainWindow()
+    w.show()
+    qt_app.processEvents()
+    assert w.table.rowCount() == 1
+    assert not w.empty_state.isVisible()
+    assert w.table.isVisible()
+    w._stop_pdb_worker()
+    w._stop_art_worker()
+
+
 def test_games_sorted_by_default(qt_app, xdg_env, monkeypatch):
     from PySide6.QtCore import Qt
 

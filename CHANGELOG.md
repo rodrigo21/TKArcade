@@ -10,6 +10,10 @@ Breaking config changes are called out explicitly under `Changed`.
   via allowlist (numeric scales and unknown keys kept) and reports
   pre/post hooks or custom executables missing on disk (cross-PC paths).
 
+### Added
+- Guided empty state on the main window (Add / Import / Copy Launch
+  Options) when no games are configured.
+
 ## [0.6.0] - 2026-09-30
 
 ### Added

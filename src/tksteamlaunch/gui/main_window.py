@@ -141,6 +141,44 @@ class MainWindow(QMainWindow):
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.itemDoubleClicked.connect(self._on_double_click)
         layout.addWidget(self.table, stretch=1)
+        self.empty_state = QWidget()
+        self.empty_state.setObjectName("empty_state")
+        empty_layout = QVBoxLayout(self.empty_state)
+        empty_title = QLabel("No games configured yet")
+        empty_title.setObjectName("empty_title")
+        self.empty_title = empty_title
+        empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_title.setStyleSheet("font-weight: bold; font-size: 14pt;")
+        empty_layout.addWidget(empty_title)
+        empty_steps = QLabel(
+            "1. Add a Steam game below · 2. Edit its settings · "
+            "3. Set its Steam launch options to tksteamlaunch %command%"
+        )
+        empty_steps.setObjectName("empty_steps")
+        self.empty_steps = empty_steps
+        empty_steps.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_steps.setWordWrap(True)
+        empty_layout.addWidget(empty_steps)
+        empty_btns = QHBoxLayout()
+        empty_btns.addStretch(1)
+        self.empty_add = QPushButton("Add Game...")
+        self.empty_add.setObjectName("empty_add")
+        self.empty_add.setToolTip("Pick a Steam game to configure.")
+        self.empty_add.clicked.connect(self._add)
+        empty_btns.addWidget(self.empty_add)
+        self.empty_import = QPushButton("Import...")
+        self.empty_import.setObjectName("empty_import")
+        self.empty_import.setToolTip("Restore from an export tarball or SteamTinkerLaunch.")
+        self.empty_import.clicked.connect(self._import_configs)
+        empty_btns.addWidget(self.empty_import)
+        self.empty_copy = QPushButton("Copy Launch Options")
+        self.empty_copy.setObjectName("empty_copy")
+        self.empty_copy.setToolTip("Copy tksteamlaunch %command% for Steam.")
+        self.empty_copy.clicked.connect(self._copy_launch)
+        empty_btns.addWidget(self.empty_copy)
+        empty_btns.addStretch(1)
+        empty_layout.addLayout(empty_btns)
+        layout.addWidget(self.empty_state, stretch=1)
         self._pdb_thread: _ProtonDBWorker | None = None
         self._art_thread: _ArtworkWorker | None = None
         self._tray = None
@@ -261,6 +299,9 @@ class MainWindow(QMainWindow):
         total_steam = len(names)
         status = f"{total_cfg} configured · {total_steam} Steam games detected"
         self.status.setText(status)
+        empty = not appids
+        self.empty_state.setVisible(empty)
+        self.table.setVisible(not empty)
         if need_fetch:
             self._pdb_thread = _ProtonDBWorker(need_fetch, self)
             self._pdb_thread.fetched.connect(self._on_protondb)
