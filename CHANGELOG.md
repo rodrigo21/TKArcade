@@ -3,12 +3,7 @@
 All notable changes to TKSteamLaunch are documented here.
 Breaking config changes are called out explicitly under `Changed`.
 
-## [Unreleased]
-
-### Fixed
-- SteamTinkerLaunch importer drops default-off (`"0"`/`"none"`) flags
-  via allowlist (numeric scales and unknown keys kept) and reports
-  pre/post hooks or custom executables missing on disk (cross-PC paths).
+## [0.7.0] - 2026-09-30
 
 ### Added
 - Guided empty state on the main window (Add / Import / Copy Launch
@@ -22,14 +17,17 @@ Breaking config changes are called out explicitly under `Changed`.
   already uses them.
 - Broken custom-executable/hook paths surface as live Dependency
   Status warnings with an "Open folder" link when the parent exists.
+- New presets: DXVK Sarek for pre-1.3 Vulkan GPUs, D7VK switch for
+  GE-Proton.
 
 ### Fixed
+- SteamTinkerLaunch importer drops default-off (`"0"`/`"none"`) flags
+  via allowlist (numeric scales and unknown keys kept) and reports
+  pre/post hooks or custom executables missing on disk (cross-PC paths).
 - Env preset applicability audited against current Valve/CachyOS/GE
   docs and the installed Proton scripts: CachyOS-only vars no longer
   offered on Valve/GE, GE-only `PROTON_NO_NTSYNC` no longer offered
   elsewhere, DW-Proton recognized as its own flavor.
-- New presets: DXVK Sarek for pre-1.3 Vulkan GPUs, D7VK switch for
-  GE-Proton.
 
 ## [0.6.0] - 2026-09-30
 
