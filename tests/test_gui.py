@@ -734,7 +734,7 @@ def test_edit_menu_cancel_reports_json(qt_app, xdg_env, capsys):
     assert '"outcome": "cancelled"' in capsys.readouterr().out
 
 
-def test_dialog_tab_map(qapp, xdg_env):
+def test_dialog_tab_map(qt_app, xdg_env):
     from PySide6.QtWidgets import QTabWidget
 
     from tksteamlaunch.gui.game_dialog import GameDialog
@@ -757,7 +757,7 @@ def test_dialog_tab_map(qapp, xdg_env):
     assert "Notes" not in tabs(GameDialog(None, defaults_mode=True))
 
 
-def test_preview_group_collapsible(qapp, xdg_env):
+def test_preview_group_collapsible(qt_app, xdg_env):
     from PySide6.QtWidgets import QGroupBox
 
     from tksteamlaunch.gui.game_dialog import GameDialog
@@ -773,7 +773,7 @@ def test_preview_group_collapsible(qapp, xdg_env):
     assert d._preview_edit.toPlainText() != ""
 
 
-def test_games_sorted_by_default(qapp, xdg_env, monkeypatch):
+def test_games_sorted_by_default(qt_app, xdg_env, monkeypatch):
     from PySide6.QtCore import Qt
 
     from tksteamlaunch import config as C
@@ -792,7 +792,7 @@ def test_games_sorted_by_default(qapp, xdg_env, monkeypatch):
     w.close()
 
 
-def test_dialog_default_size(qapp, xdg_env):
+def test_dialog_default_size(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
 
     for dlg in (GameDialog(None, "60", "T"), GameDialog(None, defaults_mode=True)):
@@ -800,7 +800,7 @@ def test_dialog_default_size(qapp, xdg_env):
         dlg.close()
 
 
-def test_status_grid_packs_visible_first(qapp, xdg_env, monkeypatch):
+def test_status_grid_packs_visible_first(qt_app, xdg_env, monkeypatch):
     import shutil
 
     from tksteamlaunch import config as C
@@ -823,7 +823,7 @@ def test_status_grid_packs_visible_first(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_menu_dialog_rich_header(qapp, xdg_env, monkeypatch):
+def test_menu_dialog_rich_header(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QLabel
 
     from tksteamlaunch.gui import menu_dialog as md
@@ -838,7 +838,7 @@ def test_menu_dialog_rich_header(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_menu_settings_keeps_name(qapp, xdg_env, monkeypatch):
+def test_menu_settings_keeps_name(qt_app, xdg_env, monkeypatch):
     from tksteamlaunch.gui import menu_dialog as md
 
     seen = {}
@@ -854,7 +854,7 @@ def test_menu_settings_keeps_name(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_menu_rich_header_and_timeout(qapp, xdg_env):
+def test_menu_rich_header_and_timeout(qt_app, xdg_env):
     from PySide6.QtWidgets import QLabel, QPushButton
 
     from tksteamlaunch.gui import menu_dialog as md
@@ -873,7 +873,7 @@ def test_menu_rich_header_and_timeout(qapp, xdg_env):
     d.close()
 
 
-def test_menu_no_timeout_by_default(qapp, xdg_env):
+def test_menu_no_timeout_by_default(qt_app, xdg_env):
     from tksteamlaunch.gui import menu_dialog as md
 
     d = md.MenuDialog(None, "55", "Test Game")
@@ -881,7 +881,7 @@ def test_menu_no_timeout_by_default(qapp, xdg_env):
     d.close()
 
 
-def test_import_chooser_codes(qapp):
+def test_import_chooser_codes(qt_app):
     from PySide6.QtWidgets import QPushButton
 
     from tksteamlaunch.gui.import_dialog import ImportChooserDialog, StlImportDialog, usage_notice
@@ -903,7 +903,7 @@ def test_import_chooser_codes(qapp):
     dlg.close()
 
 
-def test_stl_import_writes_profile(qapp, xdg_env, monkeypatch, tmp_path):
+def test_stl_import_writes_profile(qt_app, xdg_env, monkeypatch, tmp_path):
     from PySide6.QtCore import QTimer
 
     from tksteamlaunch import config as C
@@ -924,7 +924,7 @@ def test_stl_import_writes_profile(qapp, xdg_env, monkeypatch, tmp_path):
     dlg.close()
 
 
-def test_profile_clone_button(qapp, xdg_env, monkeypatch):
+def test_profile_clone_button(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog, QMessageBox
 
     from tksteamlaunch import config as C
@@ -943,7 +943,7 @@ def test_profile_clone_button(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_active_profile_persists(qapp, xdg_env):
+def test_active_profile_persists(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -962,7 +962,7 @@ def test_active_profile_persists(qapp, xdg_env):
     d2.close()
 
 
-def test_active_profile_missing_falls_back(qapp, xdg_env):
+def test_active_profile_missing_falls_back(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -976,7 +976,7 @@ def test_active_profile_missing_falls_back(qapp, xdg_env):
     d.close()
 
 
-def test_save_profile_strips_selection(qapp, xdg_env):
+def test_save_profile_strips_selection(qt_app, xdg_env):
     from tksteamlaunch import config as C
 
     cfg = C.GameConfig()
@@ -986,7 +986,7 @@ def test_save_profile_strips_selection(qapp, xdg_env):
     assert C.load_profile("82", "copy").general.active_profile == ""
 
 
-def test_clone_without_selection_confirms(qapp, xdg_env, monkeypatch):
+def test_clone_without_selection_confirms(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog, QMessageBox
 
     from tksteamlaunch import config as C
@@ -1006,7 +1006,7 @@ def test_clone_without_selection_confirms(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_focus_refreshes_profile_list(qapp, xdg_env):
+def test_focus_refreshes_profile_list(qt_app, xdg_env):
     from PySide6.QtCore import QEvent
     from PySide6.QtGui import QFocusEvent
 
@@ -1024,7 +1024,7 @@ def test_focus_refreshes_profile_list(qapp, xdg_env):
     d.close()
 
 
-def test_open_loads_persisted_profile_content(qapp, xdg_env):
+def test_open_loads_persisted_profile_content(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -1043,7 +1043,7 @@ def test_open_loads_persisted_profile_content(qapp, xdg_env):
     d.close()
 
 
-def test_switch_to_game_defaults_reloads_live(qapp, xdg_env):
+def test_switch_to_game_defaults_reloads_live(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -1065,7 +1065,7 @@ def test_switch_to_game_defaults_reloads_live(qapp, xdg_env):
     d.close()
 
 
-def test_is_dirty_tracks_edits(qapp, xdg_env):
+def test_is_dirty_tracks_edits(qt_app, xdg_env):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -1080,7 +1080,7 @@ def test_is_dirty_tracks_edits(qapp, xdg_env):
     d.close()
 
 
-def test_switch_cancel_restores_selection(qapp, xdg_env, monkeypatch):
+def test_switch_cancel_restores_selection(qt_app, xdg_env, monkeypatch):
     from tksteamlaunch import config as C
     from tksteamlaunch.gui.game_dialog import GameDialog
 
@@ -1100,7 +1100,7 @@ def test_switch_cancel_restores_selection(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_switch_save_persists_edits(qapp, xdg_env, monkeypatch):
+def test_switch_save_persists_edits(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
     from tksteamlaunch import config as C
