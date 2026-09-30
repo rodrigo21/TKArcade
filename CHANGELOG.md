@@ -5,6 +5,11 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Fixed
+- SteamTinkerLaunch importer drops default-off (`"0"`/`"none"`) flags
+  via allowlist (numeric scales and unknown keys kept) and reports
+  pre/post hooks or custom executables missing on disk (cross-PC paths).
+
 ## [0.6.0] - 2026-09-30
 
 ### Added

@@ -90,3 +90,42 @@ def test_map_empty_and_unknown_winedebug():
     cfg2, report = sti.map_to_gameconfig("62", {"STLWINEDEBUG": "+trace"})
     assert cfg2.debug.winedebug == ""
     assert any("no equivalent" in note for note in report)
+
+
+def test_map_prunes_default_off_values():
+    cfg, report = sti.map_to_gameconfig(
+        "63",
+        {
+            "DXVK_HUD": "0",
+            "DXVK_LOG_LEVEL": "none",
+            "PROTON_NO_ESYNC": "0",
+            "WINE_FULLSCREEN_FSR_STRENGTH": "0",
+            "PROTON_SOME_FUTURE_FLAG": "0",
+            "PROTON_FORCE_LARGE_ADDRESS_AWARE": "1",
+        },
+    )
+    assert "DXVK_HUD" not in cfg.env.vars
+    assert "DXVK_LOG_LEVEL" not in cfg.env.vars
+    assert "PROTON_NO_ESYNC" not in cfg.env.vars
+    # numeric scales and unknown keys are never pruned
+    assert cfg.env.vars["WINE_FULLSCREEN_FSR_STRENGTH"] == "0"
+    assert cfg.env.vars["PROTON_SOME_FUTURE_FLAG"] == "0"
+    assert cfg.env.vars["PROTON_FORCE_LARGE_ADDRESS_AWARE"] == "1"
+    assert any("dropped" in note for note in report)
+
+
+def test_map_warns_on_missing_hook_paths(tmp_path):
+    real = tmp_path / "hook.sh"
+    real.write_text("#!/bin/sh\n")
+    cfg, report = sti.map_to_gameconfig(
+        "64",
+        {"USERSTART": str(real), "USERSTOP": "/nope/missing.sh"},
+    )
+    assert cfg.pre_post.pre_command == str(real)
+    assert not any("pre-launch hook not found" in note for note in report)
+    assert any("post-exit hook not found" in note for note in report)
+    cfg2, report2 = sti.map_to_gameconfig(
+        "65",
+        {"USECUSTOMCMD": "1", "ONLY_CUSTOMCMD": "1", "CUSTOMCMD": "/nope/game.exe"},
+    )
+    assert any("custom executable not found" in note for note in report2)
