@@ -162,16 +162,32 @@ class GameDialog(QDialog):
         if defaults_mode:
             self.setWindowTitle("Global Defaults")
             self.cfg = cfgmod.load_defaults()
+            err = cfgmod.toml_error(xdg.defaults_file())
+            self._load_warning = (
+                f"The defaults file could not be read (invalid TOML): {err}\n"
+                "Showing built-in defaults instead."
+                if err
+                else None
+            )
         else:
             self.setWindowTitle(
                 f"Game Settings — {name} ({appid})" if name else f"Game Settings ({appid})"
             )
             if cfgmod.game_file(appid).exists():
                 self.cfg = cfgmod.load(appid)
+                err = cfgmod.toml_error(cfgmod.game_file(appid))
+                self._load_warning = (
+                    f"The saved settings for this game could not be read "
+                    f"(invalid TOML): {err}\n"
+                    "Showing defaults instead. Saving will overwrite the file."
+                    if err
+                    else None
+                )
             else:
                 # New game: start from a snapshot of the global defaults.
                 self.cfg = cfgmod.load_defaults()
                 self.cfg.general.appid = appid
+                self._load_warning = None
         self._dark = _is_dark_theme(self)
         self._status_labels: dict[str, QLabel] = {}
         saved_profile = "" if defaults_mode else self.cfg.general.active_profile
@@ -182,6 +198,12 @@ class GameDialog(QDialog):
             # Open directly into the persisted profile content, not live.
             self.cfg = cfgmod.load_profile(appid, saved_profile)
             self.cfg.general.appid = appid
+            err = cfgmod.toml_error(cfgmod.profile_file(appid, saved_profile))
+            if err:
+                self._load_warning = (
+                    f'The profile "{saved_profile}" could not be read (invalid TOML): {err}\n'
+                    "Showing defaults for it instead."
+                )
         self._profile_names: set[str] = (
             set(cfgmod.list_profiles(appid)) if not defaults_mode else set()
         )
@@ -634,6 +656,8 @@ class GameDialog(QDialog):
         self.e_post.textChanged.connect(self._refresh_hook_statuses)
         tabs.currentChanged.connect(self._refresh_preview)
         self._refresh_preview()
+        if self._load_warning:
+            QMessageBox.warning(self, "TKSteamLaunch", self._load_warning)
 
     def _populate(self) -> None:
         self._populating = True

@@ -1302,3 +1302,37 @@ def test_switch_save_persists_edits(qt_app, xdg_env, monkeypatch):
     assert d._active_profile == "p1"
     assert C.load("89").pre_post.pre_command == "/edited.sh"
     d.close()
+
+
+def test_invalid_config_shows_warning_on_open(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    C.game_file("95").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("95").write_text("[general\nappid = oops", encoding="utf-8")
+    seen = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", lambda *a, **k: seen.append(str(a[2]) if len(a) > 2 else "")
+    )
+    d = GameDialog(None, "95", "T")
+    assert seen and "could not be read" in seen[0]
+    assert d.cfg.general.appid == "95"  # falls back to defaults but keeps appid
+    d.close()
+
+
+def test_valid_config_opens_without_warning(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "96"
+    C.save(cfg)
+    called = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: called.append(a))
+    d = GameDialog(None, "96", "T")
+    assert called == []
+    d.close()

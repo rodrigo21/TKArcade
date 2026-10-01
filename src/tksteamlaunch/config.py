@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import copy
 import logging
+import os
 import re
+import tempfile
 import tomllib
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
@@ -197,6 +199,37 @@ def to_toml_dict(cfg: GameConfig) -> dict:
     return data
 
 
+_SIMPLE_ESCAPES = {"\b": "\\b", "\t": "\\t", "\n": "\\n", "\f": "\\f", "\r": "\\r"}
+_BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _escape_str(s: str) -> str:
+    """Escape a Python string as a TOML basic string.
+
+    TOML forbids every control character except a literal tab; without
+    this, a pasted CR produced an unreadable file and the next load
+    silently fell back to defaults.
+    """
+    out: list[str] = []
+    for ch in s:
+        esc = _SIMPLE_ESCAPES.get(ch)
+        if esc is not None:
+            out.append(esc)
+        elif ch in ("\\", '"'):
+            out.append("\\" + ch)
+        elif ord(ch) < 0x20 or ord(ch) == 0x7F:
+            out.append(f"\\u{ord(ch):04X}")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _fmt_key(k: object) -> str:
+    """Render a key bare when possible, quoted otherwise."""
+    key = str(k)
+    return key if _BARE_KEY.fullmatch(key) else '"' + _escape_str(key) + '"'
+
+
 def _fmt_value(v: object) -> str:
     if isinstance(v, bool):
         return "true" if v else "false"
@@ -205,21 +238,38 @@ def _fmt_value(v: object) -> str:
     if isinstance(v, list):
         return "[" + ", ".join(_fmt_value(x) for x in v) + "]"
     if isinstance(v, dict):
-        items = ", ".join(f'"{k}" = {_fmt_value(v2)}' for k, v2 in v.items())
+        items = ", ".join(f'"{_escape_str(str(k))}" = {_fmt_value(v2)}' for k, v2 in v.items())
         return "{ " + items + " }"
-    s = str(v).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-    return f'"{s}"'
+    return '"' + _escape_str(str(v)) + '"'
 
 
 def _render_toml(data: dict) -> str:
     """Minimal TOML writer (avoid extra deps)."""
     lines: list[str] = []
     for section, body in data.items():
-        lines.append(f"[{section}]")
+        lines.append(f"[{_fmt_key(section)}]")
         for key, val in body.items():
-            lines.append(f"{key} = {_fmt_value(val)}")
+            lines.append(f"{_fmt_key(key)} = {_fmt_value(val)}")
         lines.append("")
     return "\n".join(lines)
+
+
+def _write_atomic(path: Path, text: str) -> None:
+    """Write via temp file + rename so a crash never truncates the config."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    tmp_path = Path(tmp)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        try:
+            os.chmod(tmp, path.stat().st_mode & 0o777)
+        except OSError:
+            pass  # new file: keep mkstemp's owner-only mode
+        os.replace(tmp, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def game_file(appid: str) -> Path:
@@ -245,7 +295,7 @@ def list_profiles(appid: str) -> list[str]:
     return [p.stem for p in sorted(d.glob("*.toml"))]
 
 
-def _profile_file(appid: str, name: str) -> Path:
+def profile_file(appid: str, name: str) -> Path:
     return profiles_dir(appid) / f"{_safe_stem(name)}.toml"
 
 
@@ -253,22 +303,21 @@ def load_profile(appid: str, name: str) -> GameConfig:
     """Load a profile snapshot (falls back to defaults template)."""
     cfg = GameConfig()
     cfg.general.appid = appid
-    return _build(_read_toml(_profile_file(appid, name)), cfg)
+    return _build(_read_toml(profile_file(appid, name)), cfg)
 
 
 def save_profile(appid: str, name: str, cfg: GameConfig) -> Path:
     """Save cfg as a named profile snapshot (selection memory stripped)."""
-    path = _profile_file(appid, name)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path = profile_file(appid, name)
     data = to_toml_dict(cfg)
     data.setdefault("general", {})["appid"] = appid
     data["general"]["active_profile"] = ""
-    path.write_text(_render_toml(data), encoding="utf-8")
+    _write_atomic(path, _render_toml(data))
     return path
 
 
 def delete_profile(appid: str, name: str) -> None:
-    _profile_file(appid, name).unlink(missing_ok=True)
+    profile_file(appid, name).unlink(missing_ok=True)
 
 
 def _read_toml(path: Path) -> dict:
@@ -281,6 +330,18 @@ def _read_toml(path: Path) -> dict:
         log.warning("ignoring invalid TOML %s: %s", path, e)
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def toml_error(path: Path) -> str | None:
+    """Parse error of an existing config file; None when missing or valid."""
+    if not path.exists():
+        return None
+    try:
+        with path.open("rb") as f:
+            tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        return str(e)
+    return None
 
 
 def defaults_dict() -> dict:
@@ -299,10 +360,9 @@ def load_defaults() -> GameConfig:
 def save_defaults(cfg: GameConfig) -> Path:
     """Save the global defaults file (complete values, no appid)."""
     path = xdg.defaults_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
     data = to_toml_dict(cfg)
     data.get("general", {}).pop("appid", None)
-    path.write_text(_render_toml(data), encoding="utf-8")
+    _write_atomic(path, _render_toml(data))
     return path
 
 
@@ -458,7 +518,6 @@ def load_preferences() -> Preferences:
 def save_preferences(prefs: Preferences) -> Path:
     """Save program preferences (flat [ui] table)."""
     path = xdg.preferences_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
     data = {
         "ui": {
             "show_preview": bool(prefs.show_preview),
@@ -469,7 +528,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "sgdb_api_key": prefs.sgdb_api_key,
         }
     }
-    path.write_text(_render_toml(data), encoding="utf-8")
+    _write_atomic(path, _render_toml(data))
     return path
 
 
@@ -507,10 +566,9 @@ def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
 def save(cfg: GameConfig) -> Path:
     """Save a game's complete config snapshot."""
     path = game_file(cfg.general.appid or "unknown")
-    path.parent.mkdir(parents=True, exist_ok=True)
     data = to_toml_dict(cfg)
     data.setdefault("general", {})["appid"] = cfg.general.appid
-    path.write_text(_render_toml(data), encoding="utf-8")
+    _write_atomic(path, _render_toml(data))
     return path
 
 

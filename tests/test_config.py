@@ -314,3 +314,60 @@ def test_menu_timeout_roundtrip_and_clamp(xdg_env):
         '[general]\nappid = "75"\nmenu_timeout = -5\n', encoding="utf-8"
     )
     assert C.load("75").general.menu_timeout == 0
+
+
+def test_control_chars_roundtrip(xdg_env):
+    import tomllib
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "90"
+    cfg.notes.text = "linha1\r\nlinha2\ttab\x1besc\x00nul"
+    cfg.env.vars = {"K": "v\r2"}
+    path = C.save(cfg)
+    tomllib.loads(path.read_text(encoding="utf-8"))  # file stays parseable
+    loaded = C.load("90")
+    assert loaded.notes.text == cfg.notes.text
+    assert loaded.env.vars == {"K": "v\r2"}
+
+
+def test_quoted_keys_roundtrip(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "91"
+    cfg.extra = {"future section": {'weird "key"': "kept"}}
+    C.save(cfg)
+    assert C.load("91").extra == {"future section": {'weird "key"': "kept"}}
+
+
+def test_save_is_atomic_and_leaves_no_tmp(xdg_env, monkeypatch):
+    cfg = C.GameConfig()
+    cfg.general.appid = "92"
+    cfg.notes.text = "first"
+    C.save(cfg)
+    path = C.game_file("92")
+    before = path.read_text(encoding="utf-8")
+
+    def boom(*a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(C.os, "replace", boom)
+    cfg.notes.text = "second"
+    try:
+        C.save(cfg)
+    except OSError:
+        pass
+    else:
+        raise AssertionError("save should propagate the failed rename")
+    monkeypatch.undo()
+    assert path.read_text(encoding="utf-8") == before  # original intact
+    assert not list(path.parent.glob(".*.tmp"))  # no temp litter
+
+
+def test_toml_error_reports_and_stays_quiet(xdg_env):
+    assert C.toml_error(C.game_file("999")) is None  # missing file
+    cfg = C.GameConfig()
+    cfg.general.appid = "93"
+    C.save(cfg)
+    assert C.toml_error(C.game_file("93")) is None  # valid file
+    C.game_file("94").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("94").write_text("[general\noops", encoding="utf-8")
+    assert "table" in (C.toml_error(C.game_file("94")) or "")

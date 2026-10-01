@@ -3,6 +3,20 @@
 All notable changes to TKSteamLaunch are documented here.
 Breaking config changes are called out explicitly under `Changed`.
 
+## [Unreleased]
+
+### Added
+- Opening the game dialog on a config file that cannot be parsed warns
+  that defaults are shown (and will be written on save) instead of
+  silently switching to them.
+
+### Fixed
+- Config writer escapes control characters (CR, ESC, NUL, …) and quotes
+  exotic keys: a pasted line break can no longer produce an unreadable
+  TOML file that resets the game to defaults on the next load.
+- Config saves (games, profiles, defaults, preferences) are atomic
+  (temp file + rename): a crash mid-write no longer truncates the file.
+
 ## [0.7.0] - 2026-09-30
 
 ### Added
