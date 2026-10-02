@@ -362,6 +362,20 @@ def test_save_is_atomic_and_leaves_no_tmp(xdg_env, monkeypatch):
     assert not list(path.parent.glob(".*.tmp"))  # no temp litter
 
 
+def test_save_sweeps_stale_crash_tmps(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "93"
+    C.save(cfg)
+    path = C.game_file("93")
+    stale = path.parent / f".{path.name}.deadbeef.tmp"
+    stale.write_text("crash leftover", encoding="utf-8")
+    cfg.notes.text = "after crash"
+    C.save(cfg)
+    assert not stale.exists()
+    assert not list(path.parent.glob(".*.tmp"))
+    assert C.load("93").notes.text == "after crash"
+
+
 def test_toml_error_reports_and_stays_quiet(xdg_env):
     assert C.toml_error(C.game_file("999")) is None  # missing file
     cfg = C.GameConfig()

@@ -257,6 +257,11 @@ def _render_toml(data: dict) -> str:
 def _write_atomic(path: Path, text: str) -> None:
     """Write via temp file + rename so a crash never truncates the config."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    for stale in path.parent.glob(f".{path.name}.*.tmp"):
+        try:
+            stale.unlink()
+        except OSError:
+            pass  # best effort: leftovers from a previous crash
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     tmp_path = Path(tmp)
     try:

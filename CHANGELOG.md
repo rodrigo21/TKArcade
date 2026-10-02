@@ -18,6 +18,7 @@ Breaking config changes are called out explicitly under `Changed`.
   TOML file that resets the game to defaults on the next load.
 - Config saves (games, profiles, defaults, preferences) are atomic
   (temp file + rename): a crash mid-write no longer truncates the file.
+- Atomic saves sweep stale temp files left by a previous crash.
 
 ## [0.7.0] - 2026-09-30
 
