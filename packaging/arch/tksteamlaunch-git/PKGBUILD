@@ -2,7 +2,7 @@
 
 _basename=tksteamlaunch
 pkgname=tksteamlaunch-git
-pkgver=0.6.0.r2.g943bca3
+pkgver=0.7.0.r3.g8f7613d
 pkgrel=1
 pkgdesc='Minimal Steam launch wrapper'
 arch=('any')
