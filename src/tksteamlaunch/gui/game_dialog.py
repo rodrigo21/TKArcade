@@ -161,33 +161,26 @@ class GameDialog(QDialog):
         self.appid = appid
         if defaults_mode:
             self.setWindowTitle("Global Defaults")
-            self.cfg = cfgmod.load_defaults()
-            err = cfgmod.toml_error(xdg.defaults_file())
-            self._load_warning = (
-                f"The defaults file could not be read (invalid TOML): {err}\n"
-                "Showing built-in defaults instead."
-                if err
-                else None
-            )
+            try:
+                self.cfg = cfgmod.load_defaults()
+            except OSError as e:
+                self.cfg = cfgmod.GameConfig()
+                self._load_warning = (
+                    f"The defaults file could not be read: {e}\nShowing built-in defaults instead."
+                )
+            else:
+                err = cfgmod.toml_error(xdg.defaults_file())
+                self._load_warning = (
+                    f"The defaults file could not be read (invalid TOML): {err}\n"
+                    "Showing built-in defaults instead."
+                    if err
+                    else None
+                )
         else:
             self.setWindowTitle(
                 f"Game Settings — {name} ({appid})" if name else f"Game Settings ({appid})"
             )
-            if cfgmod.game_file(appid).exists():
-                self.cfg = cfgmod.load(appid)
-                err = cfgmod.toml_error(cfgmod.game_file(appid))
-                self._load_warning = (
-                    f"The saved settings for this game could not be read "
-                    f"(invalid TOML): {err}\n"
-                    "Showing defaults instead. Saving will overwrite the file."
-                    if err
-                    else None
-                )
-            else:
-                # New game: start from a snapshot of the global defaults.
-                self.cfg = cfgmod.load_defaults()
-                self.cfg.general.appid = appid
-                self._load_warning = None
+            self.cfg, self._load_warning = cfgmod.load_with_warning(appid)
         self._dark = _is_dark_theme(self)
         self._status_labels: dict[str, QLabel] = {}
         saved_profile = "" if defaults_mode else self.cfg.general.active_profile
@@ -196,12 +189,16 @@ class GameDialog(QDialog):
         self._active_profile = saved_profile
         if saved_profile:
             # Open directly into the persisted profile content, not live.
-            self.cfg = cfgmod.load_profile(appid, saved_profile)
-            self.cfg.general.appid = appid
-            err = cfgmod.toml_error(cfgmod.profile_file(appid, saved_profile))
+            try:
+                self.cfg = cfgmod.load_profile(appid, saved_profile)
+                self.cfg.general.appid = appid
+            except OSError as e:
+                err = f"unreadable: {e}"
+            else:
+                err = cfgmod.toml_error(cfgmod.profile_file(appid, saved_profile))
             if err:
                 self._load_warning = (
-                    f'The profile "{saved_profile}" could not be read (invalid TOML): {err}\n'
+                    f'The profile "{saved_profile}" could not be read: {err}\n'
                     "Showing defaults for it instead."
                 )
         self._profile_names: set[str] = (
@@ -656,8 +653,7 @@ class GameDialog(QDialog):
         self.e_post.textChanged.connect(self._refresh_hook_statuses)
         tabs.currentChanged.connect(self._refresh_preview)
         self._refresh_preview()
-        if self._load_warning:
-            QMessageBox.warning(self, "TKSteamLaunch", self._load_warning)
+        self._show_load_warning()
 
     def _populate(self) -> None:
         self._populating = True
@@ -760,12 +756,17 @@ class GameDialog(QDialog):
             self.cb_profile.blockSignals(False)
 
     def _load_live(self) -> None:
-        """Load the saved game settings (or defaults for a new game)."""
-        if cfgmod.game_file(self.appid).exists():
-            self.cfg = cfgmod.load(self.appid)
-        else:
-            self.cfg = cfgmod.load_defaults()
-        self.cfg.general.appid = self.appid
+        """Load the saved game settings (or defaults for a new game).
+
+        Never raises on disk errors: _load_warning carries the fallback
+        notice for _show_load_warning.
+        """
+        self.cfg, self._load_warning = cfgmod.load_with_warning(self.appid)
+
+    def _show_load_warning(self) -> None:
+        """Surface a config-fallback warning after (re)populating, if any."""
+        if self._load_warning:
+            QMessageBox.warning(self, "TKSteamLaunch", self._load_warning)
 
     def _confirm_discard_changes(self) -> bool:
         """Save/Discard/Cancel prompt for unsaved edits. True = proceed."""
@@ -799,11 +800,22 @@ class GameDialog(QDialog):
             return
         self._active_profile = name
         if name:
-            self.cfg = cfgmod.load_profile(self.appid, name)
-            self.cfg.general.appid = self.appid
+            try:
+                self.cfg = cfgmod.load_profile(self.appid, name)
+                self.cfg.general.appid = self.appid
+            except OSError as e:
+                err = f"unreadable: {e}"
+            else:
+                err = cfgmod.toml_error(cfgmod.profile_file(self.appid, name))
+            self._load_warning = (
+                f'The profile "{name}" could not be read: {err}\nShowing defaults for it instead.'
+                if err
+                else None
+            )
         else:
             self._load_live()
         self._populate()
+        self._show_load_warning()
 
     def _on_profile_save(self) -> None:
         from PySide6.QtWidgets import QInputDialog
@@ -854,6 +866,7 @@ class GameDialog(QDialog):
             self._active_profile = ""
             self._load_live()
             self._populate()
+            self._show_load_warning()
         self._refresh_profiles()
 
     def _set_env_table(self, vars: dict[str, str]) -> None:

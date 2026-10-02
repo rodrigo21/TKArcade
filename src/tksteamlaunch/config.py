@@ -333,15 +333,56 @@ def _read_toml(path: Path) -> dict:
 
 
 def toml_error(path: Path) -> str | None:
-    """Parse error of an existing config file; None when missing or valid."""
+    """Parse error of an existing config file; None when missing or valid.
+
+    Unreadable files report as errors too (never raises), so GUI callers
+    can warn instead of crashing the dialog open.
+    """
     if not path.exists():
         return None
     try:
         with path.open("rb") as f:
             tomllib.load(f)
+    except OSError as e:
+        return f"unreadable: {e}"
     except tomllib.TOMLDecodeError as e:
         return str(e)
     return None
+
+
+def load_with_warning(appid: str) -> tuple[GameConfig, str | None]:
+    """Load a game's config without ever raising on disk errors.
+
+    Returns ``(cfg, warning)``: warning is None when the file parses (or
+    is absent — a new game starts from the defaults template); otherwise
+    it explains the fallback so callers can surface it instead of silently
+    showing defaults that the next save would write over the file.
+    """
+    path = game_file(appid)
+    if not path.exists():
+        try:
+            cfg = load_defaults()
+        except OSError:
+            cfg = GameConfig()
+        cfg.general.appid = appid
+        return cfg, None
+    try:
+        cfg = load(appid)
+    except OSError as e:
+        fresh = GameConfig()
+        fresh.general.appid = appid
+        return fresh, (
+            f"The saved settings for this game could not be read: {e}\n"
+            "Showing built-in defaults instead. Saving will overwrite the file."
+        )
+    err = toml_error(path)
+    if err:
+        return cfg, (
+            "The saved settings for this game could not be read "
+            f"(invalid TOML): {err}\n"
+            "Showing defaults instead. Saving will overwrite the file."
+        )
+    return cfg, None
 
 
 def defaults_dict() -> dict:

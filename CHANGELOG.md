@@ -8,7 +8,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Added
 - Opening the game dialog on a config file that cannot be parsed warns
   that defaults are shown (and will be written on save) instead of
-  silently switching to them.
+  silently switching to them. The same warning fires when switching to
+  an unreadable profile or back to an unreadable live file, and
+  unreadable (not just invalid) files no longer crash the dialog open.
 
 ### Fixed
 - Config writer escapes control characters (CR, ESC, NUL, …) and quotes

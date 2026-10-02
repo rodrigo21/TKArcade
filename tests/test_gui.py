@@ -1336,3 +1336,51 @@ def test_valid_config_opens_without_warning(qapp, xdg_env, monkeypatch):
     d = GameDialog(None, "96", "T")
     assert called == []
     d.close()
+
+
+def test_switch_to_corrupt_profile_warns(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "97"
+    C.save(cfg)
+    C.save_profile("97", "bad", cfg)
+    C.profile_file("97", "bad").write_text("[general\nappid = oops", encoding="utf-8")
+    seen = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", lambda *a, **k: seen.append(str(a[2]) if len(a) > 2 else "")
+    )
+    d = GameDialog(None, "97", "T")
+    assert seen == []  # live file is fine: no warning on open
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("bad"))
+    assert len(seen) == 1 and "could not be read" in seen[0]
+    d.close()
+
+
+def test_switch_back_to_corrupt_live_warns(qapp, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    live = C.GameConfig()
+    live.general.appid = "98"
+    C.save(live)
+    prof = C.GameConfig()
+    prof.general.appid = "98"
+    C.save_profile("98", "good", prof)
+    seen = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", lambda *a, **k: seen.append(str(a[2]) if len(a) > 2 else "")
+    )
+    d = GameDialog(None, "98", "T")
+    assert seen == []  # everything valid on open
+    C.game_file("98").write_text("[general\nappid = oops", encoding="utf-8")
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("good"))
+    assert seen == []  # profile itself is fine
+    d.cb_profile.setCurrentIndex(0)  # "(Game Defaults)" reloads the corrupt live file
+    assert len(seen) == 1 and "could not be read" in seen[0]
+    d.close()

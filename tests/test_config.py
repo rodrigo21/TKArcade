@@ -371,3 +371,42 @@ def test_toml_error_reports_and_stays_quiet(xdg_env):
     C.game_file("94").parent.mkdir(parents=True, exist_ok=True)
     C.game_file("94").write_text("[general\noops", encoding="utf-8")
     assert "table" in (C.toml_error(C.game_file("94")) or "")
+
+
+def test_load_with_warning_missing_file(xdg_env):
+    cfg, warning = C.load_with_warning("100")
+    assert warning is None
+    assert cfg.general.appid == "100"
+
+
+def test_load_with_warning_valid_file(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "101"
+    cfg.pre_post.pre_command = "/ok.sh"
+    C.save(cfg)
+    loaded, warning = C.load_with_warning("101")
+    assert warning is None
+    assert loaded.pre_post.pre_command == "/ok.sh"
+
+
+def test_load_with_warning_invalid_toml(xdg_env):
+    C.game_file("102").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("102").write_text("[general\nappid = oops", encoding="utf-8")
+    loaded, warning = C.load_with_warning("102")
+    assert loaded.general.appid == "102"  # falls back, keeps appid
+    assert warning and "invalid TOML" in warning and "overwrite" in warning
+
+
+def test_load_with_warning_unreadable_file(xdg_env, monkeypatch):
+    cfg = C.GameConfig()
+    cfg.general.appid = "103"
+    C.save(cfg)
+
+    def _denied(*a, **k):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(C.tomllib, "load", _denied)
+    assert "unreadable" in (C.toml_error(C.game_file("103")) or "")
+    loaded, warning = C.load_with_warning("103")
+    assert loaded.general.appid == "103"
+    assert warning and "could not be read" in warning
