@@ -1304,7 +1304,7 @@ def test_switch_save_persists_edits(qt_app, xdg_env, monkeypatch):
     d.close()
 
 
-def test_invalid_config_shows_warning_on_open(qapp, xdg_env, monkeypatch):
+def test_invalid_config_shows_warning_on_open(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
     from tksteamlaunch import config as C
@@ -1322,7 +1322,7 @@ def test_invalid_config_shows_warning_on_open(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_valid_config_opens_without_warning(qapp, xdg_env, monkeypatch):
+def test_valid_config_opens_without_warning(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
     from tksteamlaunch import config as C
@@ -1338,7 +1338,7 @@ def test_valid_config_opens_without_warning(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_switch_to_corrupt_profile_warns(qapp, xdg_env, monkeypatch):
+def test_switch_to_corrupt_profile_warns(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
     from tksteamlaunch import config as C
@@ -1360,7 +1360,7 @@ def test_switch_to_corrupt_profile_warns(qapp, xdg_env, monkeypatch):
     d.close()
 
 
-def test_switch_back_to_corrupt_live_warns(qapp, xdg_env, monkeypatch):
+def test_switch_back_to_corrupt_live_warns(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
     from tksteamlaunch import config as C
@@ -1384,3 +1384,17 @@ def test_switch_back_to_corrupt_live_warns(qapp, xdg_env, monkeypatch):
     d.cb_profile.setCurrentIndex(0)  # "(Game Defaults)" reloads the corrupt live file
     assert len(seen) == 1 and "could not be read" in seen[0]
     d.close()
+
+
+def test_no_pytest_qt_fixture_leak():
+    """The suite must pass without pytest-qt: only the local qt_app fixture."""
+    import re
+    from pathlib import Path
+
+    offenders = [
+        f"{p.name}:{i}"
+        for p in sorted(Path(__file__).parent.glob("test_*.py"))
+        for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+        if re.search(r"\bqapp\b", line)
+    ]
+    assert not offenders, f"use the local qt_app fixture instead: {offenders}"
