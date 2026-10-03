@@ -42,10 +42,11 @@ Breaking config changes are called out explicitly under `Changed`.
 - Config saves (games, profiles, defaults, preferences) are atomic
   (temp file + rename): a crash mid-write no longer truncates the file.
 - Atomic saves sweep stale temp files left by a previous crash.
-- Saving while a profile is active now mirrors the edits into the
-  profile as well as the live config: disabling Ludusavi or adding an
-  environment variable no longer reverts on reopen. The same mirroring
-  applies to the Save answer of the switch-with-unsaved-changes prompt.
+- Saving with a profile active writes the profile file and keeps
+  only the selection in the live file (see Changed above); edits no
+  longer revert on reopen and Game Defaults stays pristine.
+- Game list App ID column sorts numerically (9, 80, 1044620) instead
+  of lexicographically.
 
 ## [0.7.0] - 2026-09-30
 

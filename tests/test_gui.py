@@ -1707,3 +1707,22 @@ def test_double_click_protondb_opens_url(qt_app, xdg_env, monkeypatch):
     w._on_double_click(tier)
     assert opened == ["https://www.protondb.com/app/123"]
     w.close()
+
+
+def test_appid_column_sorts_numerically(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtCore import Qt
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui import main_window as mw
+
+    for appid in ("1044620", "80", "9", "vette"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    w = _main_window_with_game(qt_app, "80", monkeypatch)
+    w.table.sortByColumn(1, Qt.SortOrder.AscendingOrder)
+    qt_app.processEvents()
+    got = [w.table.item(r, 1).text() for r in range(w.table.rowCount())]
+    assert got == ["9", "80", "1044620", "vette"]
+    assert isinstance(w.table.item(0, 1), mw._AppIdItem)
+    w.close()

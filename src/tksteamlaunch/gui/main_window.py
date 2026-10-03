@@ -119,6 +119,26 @@ def _about_text() -> str:
     return "\n".join(lines)
 
 
+def _appid_sort_key(text: str) -> tuple[int, int, str]:
+    """Numeric AppIDs first (by value), then anything else by text."""
+    try:
+        return (0, int(text), "")
+    except ValueError:
+        return (1, 0, text)
+
+
+class _AppIdItem(QTableWidgetItem):
+    """App ID cell sorting numerically (Qt compares item text as strings).
+
+    Never call super().__lt__ here: PySide re-dispatches the virtual
+    back into this override (infinite recursion).
+    """
+
+    def __lt__(self, other: object) -> bool:
+        theirs = other.text() if isinstance(other, QTableWidgetItem) else ""
+        return _appid_sort_key(self.text()) < _appid_sort_key(theirs)
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -310,7 +330,7 @@ class MainWindow(QMainWindow):
                 if api_key:
                     need_art.append(appid)
             self.table.setItem(row, 0, name_item)
-            self.table.setItem(row, 1, QTableWidgetItem(appid))
+            self.table.setItem(row, 1, _AppIdItem(appid))
             data, fresh = pdbmod.cached(appid)
             if data:
                 self._set_tier_cell(row, appid, data)
