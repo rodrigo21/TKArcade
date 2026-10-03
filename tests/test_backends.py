@@ -697,3 +697,36 @@ def test_find_game_icon_landscape_pref(monkeypatch, tmp_path, xdg_env):
     assert S.find_game_icon("76", landscape=True).name == "header.jpg"
     (root / "header.jpg").unlink()
     assert S.find_game_icon("76", landscape=True).name == hashed
+
+
+def _fake_lib(tmp_path, appid, installdir=None):
+    sap = tmp_path / "steamapps"
+    (sap / "common").mkdir(parents=True, exist_ok=True)
+    acf = f'"AppState"\n{{\n"appid" "{appid}"\n"name" "T Game"'
+    if installdir is not None:
+        acf += f'\n"installdir" "{installdir}"'
+        (sap / "common" / installdir).mkdir(exist_ok=True)
+    acf += "\n}\n"
+    (sap / f"appmanifest_{appid}.acf").write_text(acf)
+    return sap
+
+
+def test_install_and_prefix_dirs(monkeypatch, tmp_path, xdg_env):
+    from tksteamlaunch import steam as S
+
+    _fake_lib(tmp_path, "77", "TGame")
+    (tmp_path / "steamapps" / "compatdata" / "77").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    assert S.install_dir("77") == tmp_path / "steamapps" / "common" / "TGame"
+    assert S.prefix_dir("77") == tmp_path / "steamapps" / "compatdata" / "77"
+
+
+def test_install_and_prefix_missing(monkeypatch, tmp_path, xdg_env):
+    from tksteamlaunch import steam as S
+
+    _fake_lib(tmp_path, "78")
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    assert S.install_dir("78") is None  # no installdir key
+    assert S.prefix_dir("78") is None  # never launched
+    assert S.install_dir("nope") is None
+    assert S.prefix_dir("../evil") is None  # no path escape

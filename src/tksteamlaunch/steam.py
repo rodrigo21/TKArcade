@@ -110,6 +110,56 @@ def _parse_acf_name(path: Path) -> tuple[str, str]:
 _GAMES_CACHE: dict[tuple[str, str], list[tuple[str, str]]] = {}
 
 
+def _parse_acf_installdir(path: Path) -> str:
+    """Return the installdir from appmanifest_<id>.acf ("" when unknown)."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return ""
+    data = loads_kv1(text)
+    if data is not None:
+        app = data.get("AppState", {})
+        if isinstance(app, dict):
+            return str(app.get("installdir", ""))
+        return ""
+    m = re.search(r'"installdir"\s+"([^"]+)"', text)
+    return m.group(1) if m else ""
+
+
+def _safe_appid(appid: str) -> str:
+    """Steam AppIDs are digits; anything else cannot name a manifest."""
+    return str(appid) if str(appid).isdigit() else ""
+
+
+def install_dir(appid: str) -> Path | None:
+    """Game install folder (steamapps/common/<installdir>), if present."""
+    appid = _safe_appid(appid)
+    if not appid:
+        return None
+    for lib in library_paths():
+        if _parse_acf_name(lib / f"appmanifest_{appid}.acf")[0] != appid:
+            continue
+        name = _parse_acf_installdir(lib / f"appmanifest_{appid}.acf")
+        if not name:
+            continue
+        cand = lib / "common" / name
+        if cand.is_dir():
+            return cand
+    return None
+
+
+def prefix_dir(appid: str) -> Path | None:
+    """Proton prefix folder (steamapps/compatdata/<appid>), if ever created."""
+    appid = _safe_appid(appid)
+    if not appid:
+        return None
+    for lib in library_paths():
+        cand = lib / "compatdata" / appid
+        if cand.is_dir():
+            return cand
+    return None
+
+
 def _roots_key() -> tuple[str, str]:
     return (os.environ.get("HOME", ""), os.environ.get("STEAM_ROOT", ""))
 

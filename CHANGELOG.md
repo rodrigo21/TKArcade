@@ -24,6 +24,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Proton Wayland env preset (`PROTON_ENABLE_WAYLAND=1` for GE,
   CachyOS and DW builds); No Esync and Disable D3D9 presets note
   where the toggle is a known no-op.
+- Right-click context menu on the game list: Edit, Copy App ID /
+  Game Name / Launch Options, Open Install Folder / Proton Prefix /
+  ProtonDB Page, Validate, Remove (entries disable when N/A).
 
 ### Added
 - Opening the game dialog on a config file that cannot be parsed warns

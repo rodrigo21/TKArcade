@@ -1597,3 +1597,113 @@ def test_switch_populates_late_fields(qt_app, xdg_env):
     d.accept()
     assert C.load_profile("118", "p2").ludusavi.enable is True
     d.close()
+
+
+def _main_window_with_game(qt_app, appid="120", monkeypatch=None):
+    from tksteamlaunch import config as C
+    from tksteamlaunch import protondb as pdbmod
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    if monkeypatch is not None:
+        monkeypatch.setattr(pdbmod, "refresh", lambda aid: {"tier": "gold", "total": 5})
+    cfg = C.GameConfig()
+    cfg.general.appid = appid
+    C.save(cfg)
+    w = MainWindow()
+    w.show()
+    qt_app.processEvents()
+    return w
+
+
+def _menu_actions(w, appid):
+    return w._build_game_menu(appid).actions()
+
+
+def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_path):
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))  # empty: no install/prefix
+    w = _main_window_with_game(qt_app, "120", monkeypatch)
+    texts = [(a.text(), a.isEnabled()) for a in _menu_actions(w, "120")]
+    labels = [t for t, _ in texts]
+    assert labels == [
+        "Edit Settings",
+        "",
+        "Copy App ID",
+        "Copy Game Name",
+        "Copy Launch Options",
+        "",
+        "Open Install Folder",
+        "Open Proton Prefix",
+        "Open ProtonDB Page",
+        "Validate Game",
+        "",
+        "Remove Game",
+    ]
+    state = dict(texts)
+    assert state["Open Install Folder"] is False
+    assert state["Open Proton Prefix"] is False
+    assert state["Copy App ID"] is True
+    w.close()
+
+
+def test_context_menu_folders_enabled_with_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_path):
+    sap = tmp_path / "steamapps"
+    (sap / "common" / "TGame").mkdir(parents=True)
+    (sap / "compatdata" / "121").mkdir(parents=True)
+    (sap / "appmanifest_121.acf").write_text(
+        '"AppState"\n{\n"appid" "121"\n"name" "T"\n"installdir" "TGame"\n}\n'
+    )
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    w = _main_window_with_game(qt_app, "121", monkeypatch)
+    state = {a.text(): a.isEnabled() for a in _menu_actions(w, "121")}
+    assert state["Open Install Folder"] is True
+    assert state["Open Proton Prefix"] is True
+    w.close()
+
+
+def test_context_menu_copy_and_validate(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtWidgets import QMessageBox
+
+    w = _main_window_with_game(qt_app, "122", monkeypatch)
+    pasted = []
+    monkeypatch.setattr(QGuiApplication, "clipboard", lambda *a: None)
+    w._copy_text("hello", "Thing")
+    assert "unavailable" in w.status.text()
+    monkeypatch.setattr(
+        QGuiApplication, "clipboard", lambda *a: type("C", (), {"setText": pasted.append})()
+    )
+    w._copy_text("122", "App ID")
+    assert pasted == ["122"]
+    assert "122" in w.status.text()
+
+    from tksteamlaunch import launcher as L
+
+    monkeypatch.setattr(L, "validate_game", lambda appid: [])
+    infos = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: infos.append(a))
+    w._validate_selected("122")
+    assert infos and "No issues" in str(infos[0])
+    warns = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warns.append(a))
+    monkeypatch.setattr(L, "validate_game", lambda appid: ["122: bad"])
+    w._validate_selected("122")
+    assert warns and "bad" in str(warns[0])
+    w.close()
+
+
+def test_double_click_protondb_opens_url(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+
+    w = _main_window_with_game(qt_app, "123", monkeypatch)
+    opened = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(url.toString()))
+    tier = None
+    for _ in range(100):
+        tier = w.table.item(0, 2)
+        if tier is not None:
+            break
+        qt_app.processEvents()
+    assert tier is not None, "tier cell never populated"
+    w._on_double_click(tier)
+    assert opened == ["https://www.protondb.com/app/123"]
+    w.close()

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QStyle,
@@ -158,6 +159,8 @@ class MainWindow(QMainWindow):
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.itemDoubleClicked.connect(self._on_double_click)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._game_context_menu)
         layout.addWidget(self.table, stretch=1)
         self.empty_state = QWidget()
         self.empty_state.setObjectName("empty_state")
@@ -508,11 +511,66 @@ class MainWindow(QMainWindow):
         if item.column() == 2:
             appid = str(item.data(Qt.ItemDataRole.UserRole) or "")
             if appid:
-                from PySide6.QtCore import QUrl
-
-                QDesktopServices.openUrl(QUrl(pdbmod.GAME_URL.format(appid=appid)))
+                self._open_protondb_page(appid)
             return
         self._edit_selected()
+
+    def _open_protondb_page(self, appid: str) -> None:
+        from PySide6.QtCore import QUrl
+
+        QDesktopServices.openUrl(QUrl(pdbmod.GAME_URL.format(appid=appid)))
+
+    def _game_context_menu(self, pos) -> None:
+        item = self.table.itemAt(pos)
+        if item is None:
+            return
+        row = item.row()
+        name_item = self.table.item(row, 0)
+        appid = str((name_item.data(Qt.ItemDataRole.UserRole) if name_item else "") or "")
+        if not appid:
+            return
+        self.table.selectRow(row)
+        menu = self._build_game_menu(appid)
+        menu.exec(self.table.viewport().mapToGlobal(pos))
+
+    def _build_game_menu(self, appid: str) -> QMenu:
+        """Context menu for a game row (split out so tests skip modal exec)."""
+        name = self._names().get(appid, appid)
+        menu = QMenu(self)
+        menu.addAction("Edit Settings", lambda: self._edit_selected())
+        menu.addSeparator()
+        menu.addAction("Copy App ID", lambda: self._copy_text(appid, "App ID"))
+        menu.addAction("Copy Game Name", lambda: self._copy_text(name, "Game name"))
+        menu.addAction("Copy Launch Options", lambda: self._copy_launch())
+        menu.addSeparator()
+        install = steammod.install_dir(appid)
+        act_install = menu.addAction("Open Install Folder")
+        act_install.setEnabled(install is not None)
+        if install is not None:
+            act_install.triggered.connect(lambda: self._open_folder(install, "install folder"))
+        prefix = steammod.prefix_dir(appid)
+        act_prefix = menu.addAction("Open Proton Prefix")
+        act_prefix.setEnabled(prefix is not None)
+        if prefix is not None:
+            act_prefix.triggered.connect(lambda: self._open_folder(prefix, "Proton prefix"))
+        menu.addAction("Open ProtonDB Page", lambda: self._open_protondb_page(appid))
+        menu.addAction("Validate Game", lambda: self._validate_selected(appid))
+        menu.addSeparator()
+        menu.addAction("Remove Game", lambda: self._remove_selected())
+        return menu
+
+    def _open_folder(self, path, what: str) -> None:
+        if not open_path(str(path)):
+            QMessageBox.warning(self, "TKSteamLaunch", f"Could not open {what}.")
+
+    def _validate_selected(self, appid: str) -> None:
+        from ..launcher import validate_game
+
+        issues = validate_game(appid)
+        if issues:
+            QMessageBox.warning(self, "TKSteamLaunch", "\n".join(issues))
+        else:
+            QMessageBox.information(self, "TKSteamLaunch", "No issues found.")
 
     def _names(self) -> dict[str, str]:
         return {a: n for a, n in steammod.list_games()}
@@ -656,15 +714,18 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "TKSteamLaunch", str(e))
             self.refresh()
 
-    def _copy_launch(self) -> None:
+    def _copy_text(self, text: str, what: str) -> None:
         from PySide6.QtGui import QGuiApplication
 
         clipboard = QGuiApplication.clipboard()
         if clipboard is None:  # e.g. offscreen/minimal platform
             self.status.setText("Clipboard unavailable on this platform.")
             return
-        clipboard.setText("tksteamlaunch %command%")
-        self.status.setText("Launch options copied to clipboard: tksteamlaunch %command%")
+        clipboard.setText(text)
+        self.status.setText(f"{what} copied to clipboard: {text}")
+
+    def _copy_launch(self) -> None:
+        self._copy_text("tksteamlaunch %command%", "Launch options")
 
     def _open_ludusavi(self) -> None:
         exe = shutil.which("ludusavi")
