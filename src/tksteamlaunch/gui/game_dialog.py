@@ -215,7 +215,6 @@ class GameDialog(QDialog):
         tabs = QTabWidget()
         layout.addWidget(tabs, stretch=1)
         self._tabs = tabs
-        self._adv_pages: list = []
 
         # --- General ---
         g = QWidget()
@@ -317,7 +316,6 @@ class GameDialog(QDialog):
         env_page_layout.addWidget(env_box, stretch=1)
         env_scroll = _scroll_page(env_page)
         tabs.addTab(env_scroll, "Environment")
-        self._adv_pages.append(env_scroll)
 
         # --- Pre/Post Commands ---
         pp = QWidget()
@@ -337,7 +335,6 @@ class GameDialog(QDialog):
         pf.addRow("", self.c_shell)
         pp_scroll = _scroll_page(pp)
         tabs.addTab(pp_scroll, "Pre/Post Commands")
-        self._adv_pages.append(pp_scroll)
 
         # --- Performance: system + display/overlay sections ---
         perf = QWidget()
@@ -518,7 +515,6 @@ class GameDialog(QDialog):
             pf.addRow("Wine Debug:", self.cb_winedebug)
         pt_scroll = _scroll_page(pt)
         tabs.addTab(pt_scroll, "Wine / Proton")
-        self._adv_pages.append(pt_scroll)
 
         if not defaults_mode:
             notes = QWidget()
@@ -628,13 +624,6 @@ class GameDialog(QDialog):
         )
         foot = QHBoxLayout()
         foot.addWidget(self.wrappers_summary, stretch=1)
-        self.c_advanced = QCheckBox("Advanced")
-        self.c_advanced.setObjectName("advanced_toggle")
-        self.c_advanced.setToolTip(
-            "Show the Environment, Pre/Post Commands and Wine / Proton tabs."
-        )
-        self.c_advanced.toggled.connect(self._set_advanced)
-        foot.addWidget(self.c_advanced)
         layout.addLayout(foot)
         layout.addWidget(btns)
 
@@ -663,9 +652,6 @@ class GameDialog(QDialog):
             self._populating = False
             self._refresh_statuses()
         self._clean = copy.deepcopy(self.cfg)
-        advanced = self._has_advanced_data()
-        self.c_advanced.setChecked(advanced)
-        self._set_advanced(advanced)
 
     def _populate_fields(self) -> None:
         c = self.cfg
@@ -1060,24 +1046,6 @@ class GameDialog(QDialog):
             return bool(cfgmod.load_preferences().show_preview)
         except Exception:
             return True
-
-    def _set_advanced(self, on: bool) -> None:
-        """Show or hide the advanced tabs (collect still reads hidden widgets)."""
-        for page in self._adv_pages:
-            self._tabs.setTabVisible(self._tabs.indexOf(page), on)
-
-    def _has_advanced_data(self) -> bool:
-        """True when any advanced field holds a non-default value."""
-        c = self.cfg
-        if c.env.vars or c.pre_post.pre_command or c.pre_post.post_command:
-            return True
-        if c.pre_post.pre_args or c.pre_post.post_args:
-            return True
-        if c.proton.winetricks_verbs or c.proton.fresh_prefix:
-            return True
-        if c.debug.proton_log or c.debug.winedebug:
-            return True
-        return False
 
     def _refresh_preview(self) -> None:
         self._collect()
