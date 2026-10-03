@@ -1458,3 +1458,82 @@ def test_switch_save_mirrors_origin_profile(qt_app, xdg_env, monkeypatch):
     assert C.load_profile("106", "p1").pre_post.pre_command == "/edited.sh"
     assert C.load("106").pre_post.pre_command == ""  # live untouched by profile edits
     d.close()
+
+
+def _answer(button):
+    return lambda *a, **k: button
+
+
+def test_reset_persists_defaults_immediately(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    tpl = C.GameConfig()
+    tpl.pre_post.pre_command = "/tpl.sh"
+    C.save_defaults(tpl)
+    cfg = C.GameConfig()
+    cfg.general.appid = "114"
+    cfg.pre_post.pre_command = "/live.sh"
+    C.save(cfg)
+    monkeypatch.setattr(QMessageBox, "question", _answer(QMessageBox.StandardButton.Reset))
+    d = GameDialog(None, "114", "T")
+    d.e_pre.setText("/dirty.sh")
+    d._on_reset()
+    assert C.load("114").pre_post.pre_command == "/tpl.sh"
+    assert d.e_pre.text() == "/tpl.sh"
+    assert d.cb_profile.currentData() == ""
+    assert not d._is_dirty()
+    d.close()
+
+
+def test_reset_on_profile_keeps_profile_file(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    tpl = C.GameConfig()
+    tpl.pre_post.pre_command = "/tpl.sh"
+    C.save_defaults(tpl)
+    cfg = C.GameConfig()
+    cfg.general.appid = "115"
+    cfg.general.active_profile = "p1"
+    C.save(cfg)
+    prof = C.GameConfig()
+    prof.general.appid = "115"
+    prof.pre_post.pre_command = "/prof.sh"
+    C.save_profile("115", "p1", prof)
+    monkeypatch.setattr(QMessageBox, "question", _answer(QMessageBox.StandardButton.Reset))
+    d = GameDialog(None, "115", "T")
+    assert d.cb_profile.currentData() == "p1"
+    d.e_pre.setText("/dirty.sh")
+    d._on_reset()
+    assert C.load_profile("115", "p1").pre_post.pre_command == "/prof.sh"
+    live = C.load("115")
+    assert live.pre_post.pre_command == "/tpl.sh"
+    assert live.general.active_profile == ""
+    assert d.cb_profile.currentData() == ""
+    d2 = GameDialog(None, "115", "T")
+    assert d2.e_pre.text() == "/tpl.sh"
+    d2.close()
+
+
+def test_reset_cancel_changes_nothing(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "116"
+    cfg.pre_post.pre_command = "/live.sh"
+    C.save(cfg)
+    monkeypatch.setattr(QMessageBox, "question", _answer(QMessageBox.StandardButton.Cancel))
+    d = GameDialog(None, "116", "T")
+    d.e_pre.setText("/dirty.sh")
+    d._on_reset()
+    assert C.load("116").pre_post.pre_command == "/live.sh"
+    assert d.e_pre.text() == "/dirty.sh"
+    d.close()

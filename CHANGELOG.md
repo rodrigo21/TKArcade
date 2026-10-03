@@ -12,6 +12,9 @@ Breaking config changes are called out explicitly under `Changed`.
   unreadable. Saving with a profile active writes the profile file
   and keeps only the selection in the live file, so Game Defaults
   stays pristine; `--validate` reports dangling selections.
+- Reset to Global Defaults persists immediately (with confirmation):
+  no more staged reset silently discarded by Cancel. Profiles are
+  never touched by Reset.
 
 ### Added
 - Proton Wayland env preset (`PROTON_ENABLE_WAYLAND=1` for GE,

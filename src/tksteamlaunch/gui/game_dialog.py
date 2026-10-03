@@ -1029,12 +1029,39 @@ class GameDialog(QDialog):
         super().reject()
 
     def _on_reset(self) -> None:
-        # In-memory only: the file changes on Save, Cancel discards everything.
+        """Reset the game to the Global Defaults template, persisting now.
+
+        Unlike other edits, Reset writes the live file immediately: a
+        staged reset that Cancel silently discards proved too easy to
+        mistake for applied. Profiles are never touched. Cancel leaves
+        widgets and files exactly as they were.
+        """
+        if self._active_profile:
+            detail = (
+                f'Unsaved changes to profile "{self._active_profile}" will be '
+                "discarded (the saved profile is kept)."
+            )
+        elif self._is_dirty():
+            detail = "Unsaved changes will be discarded."
+        else:
+            detail = "This overwrites the saved game config."
+        answer = QMessageBox.question(
+            self,
+            "TKSteamLaunch",
+            "Reset this game to the Global Defaults template now?\n" + detail,
+            QMessageBox.StandardButton.Reset | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Reset:
+            return
         self._cov_run += 1  # invalidate any in-flight coverage result
         self.cfg = cfgmod.load_defaults()
         self.cfg.general.appid = self.appid
         self._active_profile = ""
+        self._load_warning = None
         self._populate()
+        self._refresh_profiles()
+        cfgmod.save(self.cfg)
 
     def _show_diff(self) -> None:
         self._collect()
