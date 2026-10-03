@@ -754,20 +754,24 @@ class GameDialog(QDialog):
         if self._load_warning:
             QMessageBox.warning(self, "TKSteamLaunch", self._load_warning)
 
-    def _save_live_and_profile(self) -> None:
-        """Collect widgets and persist live config plus the active profile.
+    def _save_active(self) -> None:
+        """Collect widgets and persist to the active source.
 
-        The launcher runs the live file, so it must always carry the edits;
-        the active profile mirrors them so reopening the dialog shows what
-        was saved instead of the stale snapshot.
+        Profile active: the profile file carries the edits and the live
+        file keeps only the selection, so Game Defaults stays pristine.
+        Defaults active (or defaults mode): the live file (or the
+        defaults template) carries the edits.
         """
         self._collect()
         if self.defaults_mode:
             cfgmod.save_defaults(self.cfg)
+        elif self._active_profile:
+            cfgmod.save_profile(self.appid, self._active_profile, self.cfg)
+            live, _warn = cfgmod.load_with_warning(self.appid)
+            live.general.active_profile = self._active_profile
+            cfgmod.save(live)
         else:
             cfgmod.save(self.cfg)
-            if self._active_profile:
-                cfgmod.save_profile(self.appid, self._active_profile, self.cfg)
 
     def _confirm_discard_changes(self) -> bool:
         """Save/Discard/Cancel prompt for unsaved edits. True = proceed."""
@@ -784,7 +788,7 @@ class GameDialog(QDialog):
         box.setDefaultButton(QMessageBox.StandardButton.Save)
         answer = box.exec()
         if answer == QMessageBox.StandardButton.Save:
-            self._save_live_and_profile()
+            self._save_active()
             return True
         return answer == QMessageBox.StandardButton.Discard
 
@@ -1450,5 +1454,5 @@ class GameDialog(QDialog):
     def accept(self) -> None:
         self._stop_coverage_worker()
         if not self._skip_save:
-            self._save_live_and_profile()
+            self._save_active()
         super().accept()

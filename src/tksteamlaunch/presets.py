@@ -30,6 +30,11 @@ PRESETS: dict[str, Preset] = {
     "FSR Upscaling (Wine/Proton)": Preset(vars={"WINE_FULLSCREEN_FSR": "1"}),
     "Faster Shaders (RADV)": Preset(vars={"RADV_PERFTEST": "gpl"}, drivers=("amd",)),
     "Prefer Wayland (SDL)": Preset(vars={"SDL_VIDEODRIVER": "wayland"}),
+    "Proton Wayland": Preset(
+        vars={"PROTON_ENABLE_WAYLAND": "1"},
+        proton=("ge", "cachyos", "dw"),
+        note="Needs a Wayland session; no-op where the build lacks winewayland.",
+    ),
     "Disable VSync (Mesa)": Preset(vars={"vblank_mode": "0"}, drivers=("amd", "intel")),
     "Disable VSync (NVIDIA)": Preset(vars={"__GL_SYNC_TO_VBLANK": "0"}, drivers=("nvidia",)),
     "FSR4 Upgrade (Proton)": Preset(
@@ -38,7 +43,10 @@ PRESETS: dict[str, Preset] = {
         note="Needs an FSR 3.1 game; downloads the DLL on first run.",
     ),
     "No Fsync": Preset(vars={"PROTON_NO_FSYNC": "1"}),
-    "No Esync": Preset(vars={"PROTON_NO_ESYNC": "1"}),
+    "No Esync": Preset(
+        vars={"PROTON_NO_ESYNC": "1"},
+        note="No-op on builds that dropped the toggle (e.g. Experimental).",
+    ),
     "Large Address Aware": Preset(
         vars={"PROTON_FORCE_LARGE_ADDRESS_AWARE": "1"},
         note="Already default-on upstream; set explicitly for older builds.",
@@ -47,7 +55,10 @@ PRESETS: dict[str, Preset] = {
     "Use WineD3D (OpenGL)": Preset(vars={"PROTON_USE_WINED3D": "1"}),
     "Disable D3D11": Preset(vars={"PROTON_NO_D3D11": "1"}),
     "Disable D3D10": Preset(vars={"PROTON_NO_D3D10": "1"}),
-    "Disable D3D9": Preset(vars={"PROTON_NO_D3D9": "1"}),
+    "Disable D3D9": Preset(
+        vars={"PROTON_NO_D3D9": "1"},
+        note="Toggle removed upstream; no-op on current builds.",
+    ),
     "DXVK D3D8": Preset(vars={"PROTON_DXVK_D3D8": "1"}),
     "D7VK DDraw": Preset(
         vars={"PROTON_D7VK_DDRAW": "1"},

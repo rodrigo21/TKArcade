@@ -57,3 +57,10 @@ def test_proton_flavor():
     assert protonmod.flavor("DW-Proton Latest") == "dw"
     assert protonmod.flavor("proton_9") == "valve"
     assert protonmod.flavor("") == "valve"
+
+
+def test_proton_wayland_preset_tag():
+    import tksteamlaunch.presets as pm
+
+    assert pm.PRESETS["Proton Wayland"].vars == {"PROTON_ENABLE_WAYLAND": "1"}
+    assert pm.PRESETS["Proton Wayland"].proton == ("ge", "cachyos", "dw")

@@ -424,3 +424,44 @@ def test_load_with_warning_unreadable_file(xdg_env, monkeypatch):
     loaded, warning = C.load_with_warning("103")
     assert loaded.general.appid == "103"
     assert warning and "could not be read" in warning
+
+
+def test_load_effective_uses_active_profile(xdg_env):
+    live = C.GameConfig()
+    live.general.appid = "110"
+    live.pre_post.pre_command = "/live.sh"
+    live.general.active_profile = "p1"
+    C.save(live)
+    prof = C.GameConfig()
+    prof.general.appid = "110"
+    prof.pre_post.pre_command = "/prof.sh"
+    C.save_profile("110", "p1", prof)
+    assert C.load_effective("110").pre_post.pre_command == "/prof.sh"
+
+
+def test_load_effective_no_selection_uses_live(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "111"
+    cfg.pre_post.pre_command = "/live.sh"
+    C.save(cfg)
+    assert C.load_effective("111").pre_post.pre_command == "/live.sh"
+
+
+def test_load_effective_dangling_profile_falls_back_to_live(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "112"
+    cfg.pre_post.pre_command = "/live.sh"
+    cfg.general.active_profile = "gone"
+    C.save(cfg)
+    assert C.load_effective("112").pre_post.pre_command == "/live.sh"
+
+
+def test_load_effective_unreadable_profile_falls_back_to_live(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "113"
+    cfg.pre_post.pre_command = "/live.sh"
+    cfg.general.active_profile = "bad"
+    C.save(cfg)
+    C.save_profile("113", "bad", cfg)
+    C.profile_file("113", "bad").write_text("[general\nappid = oops", encoding="utf-8")
+    assert C.load_effective("113").pre_post.pre_command == "/live.sh"

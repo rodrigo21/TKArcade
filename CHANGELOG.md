@@ -5,6 +5,19 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: selecting a profile now affects the launch: the
+  launcher runs the active profile's content, falling back to the
+  live config (with a warning) when the selection is missing or
+  unreadable. Saving with a profile active writes the profile file
+  and keeps only the selection in the live file, so Game Defaults
+  stays pristine; `--validate` reports dangling selections.
+
+### Added
+- Proton Wayland env preset (`PROTON_ENABLE_WAYLAND=1` for GE,
+  CachyOS and DW builds); No Esync and Disable D3D9 presets note
+  where the toggle is a known no-op.
+
 ### Added
 - Opening the game dialog on a config file that cannot be parsed warns
   that defaults are shown (and will be written on save) instead of

@@ -347,6 +347,14 @@ def validate_game(appid: str) -> list[str]:
             return [f"{appid}: invalid TOML ({e}); built-in defaults apply"]
     cfg = cfgmod.load(appid)
 
+    sel = cfg.general.active_profile
+    if sel:
+        prof_path = cfgmod.profile_file(appid, sel)
+        if not prof_path.exists():
+            issues.append(f"{appid}: selected profile {sel!r} is missing; live config applies")
+        elif cfgmod.toml_error(prof_path) is not None:
+            issues.append(f"{appid}: selected profile {sel!r} is unreadable; live config applies")
+
     def check_exe(label: str, command: str) -> None:
         parts = split_args(command)
         if not parts:
@@ -615,7 +623,7 @@ def main(argv: list[str] | None = None) -> int:
         return 10
     setup_logging(appid, args.verbose)
 
-    cfg = cfgmod.load(appid)
+    cfg = cfgmod.load_effective(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
     _log_gui_env()
 
@@ -646,7 +654,7 @@ def main(argv: list[str] | None = None) -> int:
             return 10
         setup_logging(appid, args.verbose)
 
-    cfg = cfgmod.load(appid)  # refresh: the editor above may have saved changes
+    cfg = cfgmod.load_effective(appid)  # refresh: the editor above may have saved changes
 
     if (args.menu or cfg.general.show_menu) and not args.edit and not menu_shown:
         outcome, picked = run_editor_menu(
@@ -662,7 +670,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             # "launch" or "saved": reload the freshly saved config and continue.
             appid = picked or appid
-            cfg = cfgmod.load(appid)
+            cfg = cfgmod.load_effective(appid)
 
     if not game_cmd and not cfg.general.custom_executable.strip():
         # e.g. bare `--edit <appid>` in a terminal: the editor may request

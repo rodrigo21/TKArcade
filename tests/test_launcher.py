@@ -341,3 +341,19 @@ def test_fresh_prefix_disarms_after_wipe(xdg_env, monkeypatch, tmp_path):
     assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
     assert not pfx.exists()
     assert C.load("77").proton.fresh_prefix is False
+
+
+def test_validate_dangling_profile(xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "33"
+    cfg.general.active_profile = "gone"
+    C.save(cfg)
+    issues = L.validate_game("33")
+    assert any("gone" in i and "live config" in i for i in issues)
+    C.save_profile("33", "ok", cfg)
+    cfg.general.active_profile = "ok"
+    C.save(cfg)
+    assert L.validate_game("33") == []

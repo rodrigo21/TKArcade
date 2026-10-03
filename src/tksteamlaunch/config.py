@@ -592,6 +592,32 @@ def load(appid: str) -> GameConfig:
     return _build(data, cfg)
 
 
+def load_effective(appid: str) -> GameConfig:
+    """Load the config that should launch: the active profile when set.
+
+    Returns the selected profile's content when live's active_profile
+    names an existing, parseable profile; otherwise the live config (with
+    a warning logged for dangling/unreadable selections). A dangling
+    selection must never resolve to template defaults: the check requires
+    the profile file to exist and parse.
+    """
+    cfg = load(appid)
+    name = cfg.general.active_profile
+    if not name:
+        return cfg
+    path = profile_file(appid, name)
+    if not path.exists():
+        log.warning("profile %r for %s is gone; launching live config", name, appid)
+        return cfg
+    if toml_error(path) is not None:
+        log.warning("profile %r for %s is unreadable; launching live config", name, appid)
+        return cfg
+    prof = load_profile(appid, name)
+    prof.general.appid = appid
+    log.info("launching with profile %r for %s", name, appid)
+    return prof
+
+
 def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
     """Load ludusavi section (current keys only; unknown kept in extra[])."""
     out = LudusaviConfig()
