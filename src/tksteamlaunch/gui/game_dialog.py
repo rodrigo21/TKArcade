@@ -641,7 +641,6 @@ class GameDialog(QDialog):
         self.e_pre.textChanged.connect(self._refresh_hook_statuses)
         self.e_post.textChanged.connect(self._refresh_hook_statuses)
         tabs.currentChanged.connect(self._refresh_preview)
-        self._refresh_preview()
         self._show_load_warning()
 
     def _populate(self) -> None:
@@ -652,6 +651,9 @@ class GameDialog(QDialog):
             self._populating = False
             self._refresh_statuses()
         self._clean = copy.deepcopy(self.cfg)
+        # Explicit refresh: widget signals fired mid-populate must not
+        # collect (see _refresh_preview), so no incidental refresh happens.
+        self._refresh_preview()
 
     def _populate_fields(self) -> None:
         c = self.cfg
@@ -1090,6 +1092,11 @@ class GameDialog(QDialog):
             return True
 
     def _refresh_preview(self) -> None:
+        # Never collect mid-populate: later fields still hold stale widget
+        # values, so collecting now would clobber cfg and the populate
+        # would copy the stale values back ("reset changes nothing").
+        if getattr(self, "_populating", False):
+            return
         self._collect()
         try:
             from ..launcher import active_wrappers, build_final_command

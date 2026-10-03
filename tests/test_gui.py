@@ -1537,3 +1537,63 @@ def test_reset_cancel_changes_nothing(qt_app, xdg_env, monkeypatch):
     assert C.load("116").pre_post.pre_command == "/live.sh"
     assert d.e_pre.text() == "/dirty.sh"
     d.close()
+
+
+def test_reset_populates_late_fields(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    tpl = C.GameConfig()
+    tpl.ludusavi.enable = True
+    tpl.debug.proton_log = True
+    tpl.proton.fresh_prefix = True
+    tpl.proton.winetricks_verbs = ["dxvk"]
+    C.save_defaults(tpl)
+    cfg = C.GameConfig()
+    cfg.general.appid = "117"
+    C.save(cfg)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Reset)
+    d = GameDialog(None, "117", "T")
+    assert not d.c_lu_enable.isChecked()
+    d._on_reset()
+    assert d.c_lu_enable.isChecked()
+    assert d.c_protonlog.isChecked()
+    assert d.c_fresh.isChecked()
+    assert d.e_verbs.text() == "dxvk"
+    saved = C.load("117")
+    assert saved.ludusavi.enable is True
+    assert saved.debug.proton_log is True
+    assert saved.proton.fresh_prefix is True
+    assert saved.proton.winetricks_verbs == ["dxvk"]
+    d.close()
+
+
+def test_switch_populates_late_fields(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    live = C.GameConfig()
+    live.general.appid = "118"
+    live.general.active_profile = "p1"
+    C.save(live)
+    p1 = C.GameConfig()
+    p1.general.appid = "118"
+    C.save_profile("118", "p1", p1)
+    p2 = C.GameConfig()
+    p2.general.appid = "118"
+    p2.ludusavi.enable = True
+    p2.debug.proton_log = True
+    p2.proton.fresh_prefix = True
+    C.save_profile("118", "p2", p2)
+    d = GameDialog(None, "118", "T")
+    assert not d.c_lu_enable.isChecked()
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("p2"))
+    qt_app.processEvents()
+    assert d.c_lu_enable.isChecked()
+    assert d.c_protonlog.isChecked()
+    assert d.c_fresh.isChecked()
+    d.accept()
+    assert C.load_profile("118", "p2").ludusavi.enable is True
+    d.close()

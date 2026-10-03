@@ -15,6 +15,10 @@ Breaking config changes are called out explicitly under `Changed`.
 - Reset to Global Defaults persists immediately (with confirmation):
   no more staged reset silently discarded by Cancel. Profiles are
   never touched by Reset.
+- Fixed populate clobbering: live preview collects no longer overwrite
+  the config mid-populate, which left late fields (Ludusavi, Wine /
+  Proton, notes) stale on Reset and profile switches — looking like
+  "nothing changed".
 
 ### Added
 - Proton Wayland env preset (`PROTON_ENABLE_WAYLAND=1` for GE,
