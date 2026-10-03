@@ -1386,3 +1386,71 @@ def test_no_pytest_qt_fixture_leak():
         if re.search(r"\bqapp\b", line)
     ]
     assert not offenders, f"use the local qt_app fixture instead: {offenders}"
+
+
+def test_save_on_profile_mirrors_ludusavi_to_profile(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "104"
+    cfg.general.active_profile = "p1"
+    cfg.ludusavi.enable = True
+    C.save(cfg)
+    C.save_profile("104", "p1", cfg)
+    d = GameDialog(None, "104", "T")
+    assert d.cb_profile.currentData() == "p1"
+    assert d.c_lu_enable.isChecked()
+    d.c_lu_enable.setChecked(False)
+    d.accept()
+    assert C.load_profile("104", "p1").ludusavi.enable is False
+    assert C.load("104").ludusavi.enable is False
+    d2 = GameDialog(None, "104", "T")
+    assert not d2.c_lu_enable.isChecked()
+    d2.close()
+
+
+def test_save_on_profile_mirrors_env_to_profile(qt_app, xdg_env):
+    from PySide6.QtWidgets import QTableWidgetItem
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "105"
+    cfg.general.active_profile = "p1"
+    C.save(cfg)
+    C.save_profile("105", "p1", cfg)
+    d = GameDialog(None, "105", "T")
+    assert d.cb_profile.currentData() == "p1"
+    d.t_env.insertRow(0)
+    d.t_env.setItem(0, 0, QTableWidgetItem("MY_VAR"))
+    d.t_env.setItem(0, 1, QTableWidgetItem("1"))
+    d.accept()
+    assert C.load_profile("105", "p1").env.vars.get("MY_VAR") == "1"
+    assert C.load("105").env.vars.get("MY_VAR") == "1"
+    d2 = GameDialog(None, "105", "T")
+    assert d2.cfg.env.vars.get("MY_VAR") == "1"
+    d2.close()
+
+
+def test_switch_save_mirrors_origin_profile(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "106"
+    cfg.general.active_profile = "p1"
+    C.save(cfg)
+    C.save_profile("106", "p1", cfg)
+    C.save_profile("106", "p2", cfg)
+    d = GameDialog(None, "106", "T")
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("p1"))
+    d.e_pre.setText("/edited.sh")
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: QMessageBox.StandardButton.Save)
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("p2"))
+    assert C.load_profile("106", "p1").pre_post.pre_command == "/edited.sh"
+    assert C.load("106").pre_post.pre_command == "/edited.sh"
+    d.close()
