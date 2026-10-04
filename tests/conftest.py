@@ -7,6 +7,16 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
+@pytest.fixture(scope="module")
+def qt_app():
+    """Single offscreen QApplication shared by GUI tests in a module."""
+    pytest.importorskip("PySide6.QtWidgets")
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    yield app
+
+
 @pytest.fixture
 def xdg_env(monkeypatch, tmp_path):
     """Isolated XDG dirs, HOME and Steam-related env vars."""

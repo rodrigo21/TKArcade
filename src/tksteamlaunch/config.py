@@ -30,6 +30,15 @@ class NightlightProvider(StrEnum):
     OFF = "off"
 
 
+class DisplayProvider(StrEnum):
+    AUTO = "auto"
+    PLASMA = "plasma"
+    GNOME = "gnome"
+    WLROOTS = "wlroots"
+    X11 = "x11"
+    OFF = "off"
+
+
 class GameType(StrEnum):
     AUTO = "auto"
     PROTON = "proton"
@@ -97,6 +106,13 @@ class NightlightConfig:
 
 
 @dataclass
+class DisplayConfig:
+    provider: str = "auto"  # auto|plasma|gnome|wlroots|x11|off
+    output: str = ""  # empty = current output
+    mode: str = ""  # WIDTHxHEIGHT[@RATE]; empty = feature off
+
+
+@dataclass
 class NotificationsConfig:
     notify_on_launch: bool = True
 
@@ -151,6 +167,7 @@ class GameConfig:
     mangohud: MangohudConfig = field(default_factory=MangohudConfig)
     ludusavi: LudusaviConfig = field(default_factory=LudusaviConfig)
     nightlight: NightlightConfig = field(default_factory=NightlightConfig)
+    display: DisplayConfig = field(default_factory=DisplayConfig)
     notifications: NotificationsConfig = field(default_factory=NotificationsConfig)
     notes: NotesConfig = field(default_factory=NotesConfig)
     debug: DebugConfig = field(default_factory=DebugConfig)
@@ -182,6 +199,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "mangohud": _to_toml_value(cfg.mangohud),
         "ludusavi": _to_toml_value(cfg.ludusavi),
         "nightlight": _to_toml_value(cfg.nightlight),
+        "display": _to_toml_value(cfg.display),
         "notifications": _to_toml_value(cfg.notifications),
         "notes": _to_toml_value(cfg.notes),
         "debug": _to_toml_value(cfg.debug),
@@ -446,6 +464,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "mangohud": {"enable", "args", "config_file"},
     "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
     "nightlight": {"disable_during_game", "provider"},
+    "display": {"provider", "output", "mode"},
     "notifications": {"notify_on_launch"},
     "notes": {"text"},
     "debug": {"proton_log", "winedebug"},
@@ -542,6 +561,10 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     nl = _section(data, "nightlight")
     cfg.nightlight.disable_during_game = _as_bool(nl.get("disable_during_game", False), False)
     cfg.nightlight.provider = str(nl.get("provider", "auto"))
+    dp = _section(data, "display")
+    cfg.display.provider = str(dp.get("provider", "auto"))
+    cfg.display.output = str(dp.get("output", ""))
+    cfg.display.mode = str(dp.get("mode", ""))
     nt = _section(data, "notifications")
     cfg.notifications.notify_on_launch = _as_bool(nt.get("notify_on_launch", True), True)
     cfg.notes.text = str(_section(data, "notes").get("text", ""))

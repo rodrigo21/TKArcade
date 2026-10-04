@@ -29,6 +29,7 @@ from . import config as cfgmod
 from . import proton as protonmod
 from . import steam as steammod
 from . import xdg
+from .backends import display as disp_backend
 from .backends import gamemode as gm_backend
 from .backends import ludusavi as lu_backend
 from .backends import nightlight as nl_backend
@@ -366,6 +367,10 @@ def validate_game(appid: str) -> list[str]:
     check_exe("pre_command", cfg.pre_post.pre_command)
     check_exe("post_command", cfg.pre_post.post_command)
     check_exe("custom_prefix", cfg.general.custom_prefix)
+    if cfg.display.mode.strip() and disp_backend.parse_mode(cfg.display.mode) is None:
+        issues.append(
+            f"{appid}: invalid display mode {cfg.display.mode.strip()!r}; use WIDTHxHEIGHT[@RATE]"
+        )
     if cfg.gamemode.feral_gamemode and not shutil.which("gamemoderun"):
         issues.append(f"{appid}: gamemoderun not found (Feral GameMode on)")
     if cfg.gamemode.cachyos_game_performance and not shutil.which("game-performance"):
@@ -731,9 +736,14 @@ def main(argv: list[str] | None = None) -> int:
         _remove_wrap_rc_file(rc_file)
         return 11
 
-    # --- pipeline with guaranteed nightlight restore ---
-    with nl_backend.NightlightSession(
-        cfg.nightlight.provider if cfg.nightlight.disable_during_game else "off"
+    # --- pipeline with guaranteed display/nightlight restore ---
+    with (
+        disp_backend.DisplaySession(cfg.display.provider, cfg.display.output, cfg.display.mode),
+        nl_backend.NightlightSession(
+            # NB: __enter__ already called start(); never call it again here
+            # (a second call used to orphan a holder process).
+            cfg.nightlight.provider if cfg.nightlight.disable_during_game else "off"
+        ),
     ):
         # NB: __enter__ already called start(); never call it again here
         # (a second call used to orphan a holder process).

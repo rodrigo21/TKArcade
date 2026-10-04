@@ -21,6 +21,10 @@ Breaking config changes are called out explicitly under `Changed`.
   "nothing changed".
 
 ### Added
+- Per-game display mode (phase 1: Plasma via kscreen-doctor, X11 via
+  xrandr): optional output + WIDTHxHEIGHT[@RATE], applied on launch
+  and restored on exit, failures warn without aborting. Empty mode
+  disables it; GNOME/wlroots detect but warn as phase 2.
 - Proton Wayland env preset (`PROTON_ENABLE_WAYLAND=1` for GE,
   CachyOS and DW builds); No Esync and Disable D3D9 presets note
   where the toggle is a known no-op.

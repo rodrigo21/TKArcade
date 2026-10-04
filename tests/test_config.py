@@ -479,3 +479,17 @@ def test_orphaned_profiles(xdg_env):
     C.game_file("141").unlink(missing_ok=True)
     C.profiles_dir("142").mkdir(parents=True)  # empty dir: nothing to clean
     assert C.orphaned_profiles() == [("141", 2)]
+
+
+def test_display_config_roundtrip(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "160"
+    cfg.display.provider = "plasma"
+    cfg.display.output = "DP-3"
+    cfg.display.mode = "1920x1080@60"
+    C.save(cfg)
+    back = C.load("160")
+    assert back.display.provider == "plasma"
+    assert back.display.output == "DP-3"
+    assert back.display.mode == "1920x1080@60"
+    assert "[display]" in C.game_file("160").read_text()

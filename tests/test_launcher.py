@@ -357,3 +357,17 @@ def test_validate_dangling_profile(xdg_env):
     cfg.general.active_profile = "ok"
     C.save(cfg)
     assert L.validate_game("33") == []
+
+
+def test_validate_bad_display_mode(xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "34"
+    cfg.display.mode = "bogus"
+    C.save(cfg)
+    assert any("display mode" in i for i in L.validate_game("34"))
+    cfg.display.mode = "1920x1080@60"
+    C.save(cfg)
+    assert not any("display mode" in i for i in L.validate_game("34"))
