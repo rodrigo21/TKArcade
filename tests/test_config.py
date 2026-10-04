@@ -493,3 +493,16 @@ def test_display_config_roundtrip(xdg_env):
     assert back.display.output == "DP-3"
     assert back.display.mode == "1920x1080@60"
     assert "[display]" in C.game_file("160").read_text()
+
+
+def test_column_layout_prefs_roundtrip(xdg_env):
+    prefs = C.load_preferences()
+    prefs.column_order = "0,2,1,3"
+    prefs.hidden_columns = "2"
+    C.save_preferences(prefs)
+    back = C.load_preferences()
+    assert back.column_order == "0,2,1,3"
+    assert back.hidden_columns == "2"
+    prefs.hidden_columns = "x,1,,2"
+    C.save_preferences(prefs)
+    assert C.load_preferences().hidden_columns == "1,2"

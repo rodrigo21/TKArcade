@@ -5,6 +5,11 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Added
+- Movable game-list columns (drag the header) with a header context
+  menu to show/hide columns (Game always on) and reset to the
+  Game | App ID | Played | ProtonDB default; layout persists.
+
 ## [0.8.0] - 2026-10-04
 
 ### Changed

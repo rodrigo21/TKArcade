@@ -1989,3 +1989,52 @@ def test_history_clear(qt_app, xdg_env, monkeypatch):
     assert path.read_text() == ""
     assert dlg._table.rowCount() == 0
     dlg.close()
+
+
+def test_column_visibility_persists(qt_app, xdg_env, monkeypatch):
+    w = _main_window_with_game(qt_app, "160", monkeypatch)
+    header = w.table.horizontalHeader()
+    assert not header.isSectionHidden(1)
+    w._set_column_visible(1, False)
+    assert header.isSectionHidden(1)
+    w2 = _main_window_with_game(qt_app, "160", monkeypatch)
+    assert w2.table.horizontalHeader().isSectionHidden(1)
+    assert not w2.table.horizontalHeader().isSectionHidden(0)
+    w.close()
+    w2.close()
+
+
+def test_header_menu_game_locked_and_reset(qt_app, xdg_env, monkeypatch):
+    w = _main_window_with_game(qt_app, "161", monkeypatch)
+    acts = {a.text(): a for a in w._build_header_menu().actions()}
+    assert set(acts) == {"Game", "App ID", "Played", "ProtonDB", "", "Reset Columns"}
+    assert acts["Game"].isChecked() and not acts["Game"].isEnabled()
+    acts["App ID"].toggle()
+    qt_app.processEvents()
+    assert w.table.horizontalHeader().isSectionHidden(1)
+    w._reset_columns()
+    assert not w.table.horizontalHeader().isSectionHidden(1)
+    from tksteamlaunch import config as C
+
+    assert C.load_preferences().hidden_columns == ""
+    assert C.load_preferences().column_order == ""
+    w.close()
+
+
+def test_reordered_columns_keep_actions_working(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+
+    w = _main_window_with_game(qt_app, "162", monkeypatch)
+    header = w.table.horizontalHeader()
+    header.moveSection(header.visualIndex(3), 0)  # ProtonDB visually first
+    qt_app.processEvents()
+    from tksteamlaunch import config as C
+
+    assert C.load_preferences().column_order.split(",")[0] == "3"
+    tier = w.table.item(0, 3)  # logical index is stable
+    opened = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(url.toString()))
+    if tier is not None:
+        w._on_double_click(tier)
+        assert opened == ["https://www.protondb.com/app/162"]
+    w.close()

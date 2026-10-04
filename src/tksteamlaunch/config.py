@@ -155,6 +155,8 @@ class Preferences:
     minimize_to_tray: bool = False
     close_to_tray: bool = False
     sgdb_api_key: str = ""
+    column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
+    hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
 
 
 @dataclass
@@ -594,10 +596,17 @@ def load_preferences() -> Preferences:
     out.minimize_to_tray = _as_bool(ui.get("minimize_to_tray", False), False)
     out.close_to_tray = _as_bool(ui.get("close_to_tray", False), False)
     out.sgdb_api_key = str(ui.get("sgdb_api_key", "") or "")
+    out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
+    out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
     return out
+
+
+def _clean_int_list(text: str) -> str:
+    """Normalize a comma list to digits-only, preserving order ("" stays "")."""
+    return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdigit())
 
 
 def save_preferences(prefs: Preferences) -> Path:
@@ -611,6 +620,8 @@ def save_preferences(prefs: Preferences) -> Path:
             "minimize_to_tray": bool(prefs.minimize_to_tray),
             "close_to_tray": bool(prefs.close_to_tray),
             "sgdb_api_key": prefs.sgdb_api_key,
+            "column_order": _clean_int_list(prefs.column_order),
+            "hidden_columns": _clean_int_list(prefs.hidden_columns),
         }
     }
     _write_atomic(path, _render_toml(data))

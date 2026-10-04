@@ -241,6 +241,12 @@ class MainWindow(QMainWindow):
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table.itemDoubleClicked.connect(self._on_double_click)
+        header = self.table.horizontalHeader()
+        header.setSectionsMovable(True)
+        header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        header.customContextMenuRequested.connect(self._header_context_menu)
+        header.sectionMoved.connect(lambda *a: self._save_column_layout())
+        self._apply_column_layout()
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._game_context_menu)
         layout.addWidget(self.table, stretch=1)
@@ -603,6 +609,67 @@ class MainWindow(QMainWindow):
             QSystemTrayIcon.ActivationReason.DoubleClick,
         ):
             self._toggle_visible()
+
+    def _column_layout(self) -> tuple[list[int], set[int]]:
+        """Persisted (order, hidden) with defaults for missing/garbage."""
+        prefs = cfgmod.load_preferences()
+        order = [int(x) for x in prefs.column_order.split(",") if x.strip().isdigit()]
+        if sorted(order) != [0, 1, 2, 3]:
+            order = [0, 1, 2, 3]
+        hidden = {int(x) for x in prefs.hidden_columns.split(",") if x.strip().isdigit()}
+        return order, (hidden & {1, 2, 3})
+
+    def _apply_column_layout(self) -> None:
+        order, hidden = self._column_layout()
+        header = self.table.horizontalHeader()
+        for visual, logical in enumerate(order):
+            header.moveSection(header.visualIndex(logical), visual)
+        for logical in range(header.count()):
+            header.setSectionHidden(logical, logical in hidden)
+
+    def _save_column_layout(self) -> None:
+        header = self.table.horizontalHeader()
+        order = [header.logicalIndex(v) for v in range(header.count())]
+        hidden = sorted(i for i in range(header.count()) if header.isSectionHidden(i))
+        prefs = cfgmod.load_preferences()
+        prefs.column_order = ",".join(map(str, order))
+        prefs.hidden_columns = ",".join(map(str, hidden))
+        cfgmod.save_preferences(prefs)
+
+    def _set_column_visible(self, logical: int, visible: bool) -> None:
+        if logical == 0:  # Game column always stays on
+            return
+        self.table.horizontalHeader().setSectionHidden(logical, not visible)
+        self._save_column_layout()
+
+    def _reset_columns(self) -> None:
+        prefs = cfgmod.load_preferences()
+        prefs.column_order = ""
+        prefs.hidden_columns = ""
+        cfgmod.save_preferences(prefs)
+        self._apply_column_layout()
+
+    def _build_header_menu(self) -> QMenu:
+        """Column chooser (split out so tests skip modal exec)."""
+        header = self.table.horizontalHeader()
+        menu = QMenu(self)
+        for logical, title in enumerate(("Game", "App ID", "Played", "ProtonDB")):
+            act = menu.addAction(title)
+            act.setCheckable(True)
+            act.setChecked(not header.isSectionHidden(logical))
+            if logical == 0:
+                act.setEnabled(False)
+            else:
+                act.toggled.connect(
+                    lambda checked, log=logical: self._set_column_visible(log, checked)
+                )
+        menu.addSeparator()
+        menu.addAction("Reset Columns", lambda: self._reset_columns())
+        return menu
+
+    def _header_context_menu(self, pos) -> None:
+        menu = self._build_header_menu()
+        menu.exec(self.table.horizontalHeader().mapToGlobal(pos))
 
     def _on_double_click(self, item: QTableWidgetItem) -> None:
         if item.column() == 3:
