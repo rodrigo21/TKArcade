@@ -143,6 +143,45 @@ class _AppIdItem(QTableWidgetItem):
         return _appid_sort_key(self.text()) < _appid_sort_key(theirs)
 
 
+class _ScanDialog(QDialog):
+    """Checkbox table of unconfigured Steam games for batch add."""
+
+    def __init__(self, parent, entries: list[tuple[str, str]]) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Add Games")
+        self._entries = entries
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Steam games without a saved configuration:"))
+        table = QTableWidget(len(entries), 3)
+        table.setHorizontalHeaderLabels(["", "Game", "App ID"])
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        table.setEditTriggers(QTableWidget.NoEditTriggers)
+        for row, (appid, name) in enumerate(entries):
+            check = QTableWidgetItem()
+            check.setFlags(check.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            check.setCheckState(Qt.CheckState.Checked)
+            table.setItem(row, 0, check)
+            table.setItem(row, 1, QTableWidgetItem(name))
+            table.setItem(row, 2, QTableWidgetItem(appid))
+        self._table = table
+        layout.addWidget(table)
+        btns = QDialogButtonBox()
+        btns.addButton("Add Selected", QDialogButtonBox.ButtonRole.AcceptRole)
+        btns.addButton(QDialogButtonBox.Cancel)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        layout.addWidget(btns)
+
+    def selected(self) -> list[str]:
+        """Checked AppIDs, in table order."""
+        out = []
+        for row, (appid, _name) in enumerate(self._entries):
+            item = self._table.item(row, 0)
+            if item is not None and item.checkState() == Qt.CheckState.Checked:
+                out.append(appid)
+        return out
+
+
 class _ProfileCleanupDialog(QDialog):
     """Offer leftover profile cleanup after game removal."""
 
@@ -305,6 +344,7 @@ class MainWindow(QMainWindow):
                 "Games",
                 (
                     ("Add Game...", self._add),
+                    ("Scan Library...", self._scan_library),
                     ("Edit...", self._edit_selected),
                     ("Remove", self._remove_selected),
                     ("Reset...", self._reset_selected),
@@ -763,6 +803,11 @@ class MainWindow(QMainWindow):
             act_prefix.setEnabled(prefix is not None)
             if prefix is not None:
                 act_prefix.triggered.connect(lambda: self._open_folder(prefix, "Proton prefix"))
+            shaders = steammod.shader_dir(appid)
+            act_shaders = menu.addAction("Clear Shader Cache")
+            act_shaders.setEnabled(shaders is not None)
+            if shaders is not None:
+                act_shaders.triggered.connect(lambda: self._clear_shader_cache(appid))
             menu.addAction("Open ProtonDB Page", lambda: self._open_protondb_page(appid))
             menu.addAction("Validate Game", lambda: self._validate_selected(appid))
             menu.addSeparator()
@@ -777,6 +822,26 @@ class MainWindow(QMainWindow):
     def _open_folder(self, path, what: str) -> None:
         if not open_path(str(path)):
             QMessageBox.warning(self, "TKSteamLaunch", f"Could not open {what}.")
+
+    def _clear_shader_cache(self, appid: str) -> None:
+        """Delete a game's precompiled shaders (Steam rebuilds them)."""
+        target = steammod.shader_dir(appid)
+        if target is None:
+            return
+        size = steammod.format_size(steammod.dir_size(target))
+        r = QMessageBox.question(
+            self,
+            "TKSteamLaunch",
+            f"Delete {size} of shader cache for {appid}?\nSteam rebuilds it on demand.",
+        )
+        if r != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            shutil.rmtree(target)
+        except Exception as e:
+            QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+            return
+        self.status.setText(f"Cleared {size} of shader cache.")
 
     def _validate_selected(self, appid: str) -> None:
         from ..launcher import validate_game
@@ -826,6 +891,28 @@ class MainWindow(QMainWindow):
         dlg = GameDialog(self, appid, self._names().get(appid, ""))
         if dlg.exec():
             self.refresh()
+
+    def _scan_library(self) -> None:
+        """Batch-add Steam games without a saved config (defaults template)."""
+        cands = steammod.unconfigured_games(set(cfgmod.list_appids()))
+        if not cands:
+            QMessageBox.information(
+                self, "TKSteamLaunch", "Every Steam game is already configured."
+            )
+            return
+        dlg = _ScanDialog(self, cands)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        added = 0
+        for appid in dlg.selected():
+            if cfgmod.game_file(appid).exists():
+                continue
+            cfg = cfgmod.load_defaults()
+            cfg.general.appid = appid
+            cfgmod.save(cfg)
+            added += 1
+        self.refresh()
+        self.status.setText(f"Added {added} game(s).")
 
     def _edit_selected(self, appid: str = "") -> None:
         appid = appid or self._selected_appid()

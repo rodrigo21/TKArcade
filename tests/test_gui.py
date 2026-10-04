@@ -1625,6 +1625,7 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
         "",
         "Open Install Folder",
         "Open Proton Prefix",
+        "Clear Shader Cache",
         "Open ProtonDB Page",
         "Validate Game",
         "",
@@ -2089,3 +2090,97 @@ def test_tray_recents_and_steam_launch(qt_app, xdg_env, monkeypatch):
     w._launch_steam("171")
     assert warns
     w.close()
+
+
+def test_scan_library_adds_selected(qt_app, xdg_env, monkeypatch, tmp_path):
+    import tksteamlaunch.gui.main_window as mw
+    from tksteamlaunch import config as C
+
+    sap = tmp_path / "steamapps"
+    sap.mkdir()
+    (sap / "appmanifest_180.acf").write_text('"AppState"\n{\n"appid" "180"\n"name" "S Game"\n}\n')
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    w = _main_window_with_game(qt_app, "181", monkeypatch)
+
+    class FakeDialog:
+        def __init__(self, parent, entries):
+            assert entries == [("180", "S Game")]
+
+        def exec(self):
+            from PySide6.QtWidgets import QDialog
+
+            return QDialog.DialogCode.Accepted
+
+        def selected(self):
+            return ["180"]
+
+    monkeypatch.setattr(mw, "_ScanDialog", FakeDialog)
+    w._scan_library()
+    assert C.game_file("180").exists()
+    assert "Added 1" in w.status.text()
+    w.close()
+
+
+def test_scan_library_empty_informs(qt_app, xdg_env, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QMessageBox
+
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    w = _main_window_with_game(qt_app, "182", monkeypatch)
+    infos = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: infos.append(a))
+    w._scan_library()
+    assert infos and "already configured" in str(infos[0])
+    w.close()
+
+
+def test_scan_dialog_selection(qt_app):
+    from PySide6.QtCore import Qt
+
+    import tksteamlaunch.gui.main_window as mw
+
+    dlg = mw._ScanDialog(None, [("180", "S Game")])
+    assert dlg.selected() == ["180"]
+    dlg._table.item(0, 0).setCheckState(Qt.CheckState.Unchecked)
+    assert dlg.selected() == []
+    dlg.close()
+
+
+def test_clear_shader_cache(qt_app, xdg_env, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QMessageBox
+
+    sap = tmp_path / "steamapps"
+    (sap / "shadercache" / "183").mkdir(parents=True)
+    (sap / "shadercache" / "183" / "fossilize.db").write_bytes(b"x" * 1024)
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    w = _main_window_with_game(qt_app, "183", monkeypatch)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.No)
+    w._clear_shader_cache("183")
+    assert (sap / "shadercache" / "183").exists()
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    w._clear_shader_cache("183")
+    assert not (sap / "shadercache" / "183").exists()
+    assert "Cleared" in w.status.text()
+    w._clear_shader_cache("184")  # missing: silent no-op
+    w.close()
+
+
+def test_newer_config_warns_on_open(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "195"
+    C.save(cfg)
+    C.game_file("195").write_text(
+        C.game_file("195").read_text().replace("config_version = 1", "config_version = 99"),
+        encoding="utf-8",
+    )
+    seen = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", lambda *a, **k: seen.append(str(a[2]) if len(a) > 2 else "")
+    )
+    d = GameDialog(None, "195", "T")
+    assert seen and "newer" in seen[0]
+    d.close()

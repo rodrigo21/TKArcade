@@ -730,3 +730,31 @@ def test_install_and_prefix_missing(monkeypatch, tmp_path, xdg_env):
     assert S.prefix_dir("78") is None  # never launched
     assert S.install_dir("nope") is None
     assert S.prefix_dir("../evil") is None  # no path escape
+
+
+def test_unconfigured_games(monkeypatch, tmp_path, xdg_env):
+    from tksteamlaunch import steam as S
+
+    root = tmp_path / "steamapps"
+    root.mkdir()
+    (root / "appmanifest_10.acf").write_text('"AppState"\n{\n"appid" "10"\n"name" "B Game"\n}\n')
+    (root / "appmanifest_9.acf").write_text('"AppState"\n{\n"appid" "9"\n"name" "A Game"\n}\n')
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    assert S.unconfigured_games({"9"}) == [("10", "B Game")]
+    assert S.unconfigured_games({"9", "10"}) == []
+
+
+def test_shader_dir_and_size(monkeypatch, tmp_path, xdg_env):
+    from tksteamlaunch import steam as S
+
+    sap = tmp_path / "steamapps"
+    (sap / "shadercache" / "77").mkdir(parents=True)
+    (sap / "shadercache" / "77" / "foz.db").write_bytes(b"x" * 2048)
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    assert S.shader_dir("77") == sap / "shadercache" / "77"
+    assert S.dir_size(sap / "shadercache" / "77") == 2048
+    assert S.shader_dir("78") is None
+    assert S.shader_dir("../evil") is None
+    assert S.format_size(0) == "0 B"
+    assert S.format_size(2048) == "2.0 KB"
+    assert S.format_size(3 * 1024**3) == "3.0 GB"

@@ -160,6 +160,50 @@ def prefix_dir(appid: str) -> Path | None:
     return None
 
 
+def unconfigured_games(configured: set[str]) -> list[tuple[str, str]]:
+    """Steam games without a saved config (sorted by name)."""
+    have = set(configured)
+    return [(a, n) for a, n in list_games() if a not in have]
+
+
+def shader_dir(appid: str) -> Path | None:
+    """Precompiled shader cache dir (steamapps/shadercache/<appid>), if any."""
+    appid = _safe_appid(appid)
+    if not appid:
+        return None
+    for lib in library_paths():
+        cand = lib / "shadercache" / appid
+        if cand.is_dir():
+            return cand
+    return None
+
+
+def dir_size(path: Path) -> int:
+    """Recursive byte size, best effort (unreadable entries skipped)."""
+    total = 0
+    try:
+        entries = list(path.rglob("*"))
+    except OSError:
+        return 0
+    for p in entries:
+        try:
+            if p.is_file() and not p.is_symlink():
+                total += p.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
+def format_size(num: float) -> str:
+    """Format bytes compactly: 512 B, 1.2 MB, 3.0 GB."""
+    size = max(0, float(num))
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"  # unreachable, keeps types happy
+
+
 def _roots_key() -> tuple[str, str]:
     return (os.environ.get("HOME", ""), os.environ.get("STEAM_ROOT", ""))
 
