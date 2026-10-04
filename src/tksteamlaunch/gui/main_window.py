@@ -701,10 +701,14 @@ class MainWindow(QMainWindow):
     def _apply_column_layout(self) -> None:
         order, hidden = self._column_layout()
         header = self.table.horizontalHeader()
-        for visual, logical in enumerate(order):
-            header.moveSection(header.visualIndex(logical), visual)
-        for logical in range(header.count()):
-            header.setSectionHidden(logical, logical in hidden)
+        header.blockSignals(True)
+        try:
+            for visual, logical in enumerate(order):
+                header.moveSection(header.visualIndex(logical), visual)
+            for logical in range(header.count()):
+                header.setSectionHidden(logical, logical in hidden)
+        finally:
+            header.blockSignals(False)
 
     def _save_column_layout(self) -> None:
         header = self.table.horizontalHeader()
