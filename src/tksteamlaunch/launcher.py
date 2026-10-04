@@ -367,27 +367,28 @@ def validate_game(appid: str) -> list[str]:
         if not shutil.which(first) and not Path(first).is_file():
             issues.append(f"{appid}: {label} not found: {first}")
 
-    check_exe("pre_command", cfg.pre_post.pre_command)
-    check_exe("post_command", cfg.pre_post.post_command)
-    check_exe("custom_prefix", cfg.general.custom_prefix)
-    if cfg.display.mode.strip() and disp_backend.parse_mode(cfg.display.mode) is None:
+    eff = cfgmod.load_effective(appid)  # what would actually launch
+    check_exe("pre_command", eff.pre_post.pre_command)
+    check_exe("post_command", eff.pre_post.post_command)
+    check_exe("custom_prefix", eff.general.custom_prefix)
+    if eff.display.mode.strip() and disp_backend.parse_mode(eff.display.mode) is None:
         issues.append(
-            f"{appid}: invalid display mode {cfg.display.mode.strip()!r}; use WIDTHxHEIGHT[@RATE]"
+            f"{appid}: invalid display mode {eff.display.mode.strip()!r}; use WIDTHxHEIGHT[@RATE]"
         )
-    if cfg.gamemode.feral_gamemode and not shutil.which("gamemoderun"):
+    if eff.gamemode.feral_gamemode and not shutil.which("gamemoderun"):
         issues.append(f"{appid}: gamemoderun not found (Feral GameMode on)")
-    if cfg.gamemode.cachyos_game_performance and not shutil.which("game-performance"):
+    if eff.gamemode.cachyos_game_performance and not shutil.which("game-performance"):
         issues.append(f"{appid}: game-performance not found (CachyOS tweak on)")
-    if cfg.gamescope.enable and not shutil.which("gamescope"):
+    if eff.gamescope.enable and not shutil.which("gamescope"):
         issues.append(f"{appid}: gamescope not found (enabled)")
-    if cfg.mangohud.enable and not shutil.which("mangohud"):
+    if eff.mangohud.enable and not shutil.which("mangohud"):
         issues.append(f"{appid}: mangohud not found (enabled)")
     if (
-        cfg.mangohud.config_file
-        and ov_backend.mangohud_config_path(cfg.mangohud.config_file) is None
+        eff.mangohud.config_file
+        and ov_backend.mangohud_config_path(eff.mangohud.config_file) is None
     ):
-        issues.append(f"{appid}: MangoHud config not found: {cfg.mangohud.config_file}")
-    if cfg.ludusavi.enable and not lu_backend.find()[0]:
+        issues.append(f"{appid}: MangoHud config not found: {eff.mangohud.config_file}")
+    if eff.ludusavi.enable and not lu_backend.find()[0]:
         issues.append(f"{appid}: ludusavi not found (enabled)")
     return issues
 

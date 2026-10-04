@@ -18,6 +18,8 @@ Breaking config changes are called out explicitly under `Changed`.
   the live file while launching the profile).
 - Crafted AppIDs can no longer escape the log/proton-log dirs
   (`safe_stem` centralized in xdg, applied to every AppID path).
+- Validate and the pre-launch countdown check the effective
+  (profile-resolved) config, not just live.
 - Clone replaces (not merges) destination profiles; export skips
   hand-placed nested profile junk the importer would refuse.
 

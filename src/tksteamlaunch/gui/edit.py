@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         timeout = 0
         if appid:
             try:
-                timeout = cfgmod.load(appid).general.menu_timeout
+                timeout = cfgmod.load_effective(appid).general.menu_timeout
             except Exception:
                 timeout = 0
         dlg = MenuDialog(

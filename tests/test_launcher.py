@@ -404,3 +404,19 @@ def test_launcher_gui_dispatch(xdg_env, monkeypatch):
     monkeypatch.delenv("DISPLAY")
     assert L.main(["--gui"]) == 15  # no display
     assert L.main(["--cli"]) == 10  # never GUI: classic no-AppID error
+
+
+def test_validate_checks_effective_profile_content(xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "36"
+    cfg.general.active_profile = "p1"
+    C.save(cfg)
+    prof = C.GameConfig()
+    prof.general.appid = "36"
+    prof.pre_post.pre_command = "/definitely/not/here.sh"
+    C.save_profile("36", "p1", prof)
+    issues = L.validate_game("36")
+    assert any("not/here" in i for i in issues)

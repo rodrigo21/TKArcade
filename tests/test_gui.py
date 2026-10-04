@@ -2316,3 +2316,36 @@ def test_clone_game_from_list(qt_app, xdg_env, monkeypatch, tmp_path):
     assert picked and "C Game [206]" in picked[0]
     assert C.game_file("206").exists()
     w.close()
+
+
+def test_edit_menu_uses_profile_timeout(qt_app, xdg_env, capsys):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui import edit as editmod
+    from tksteamlaunch.gui.menu_dialog import MenuDialog
+
+    live = C.GameConfig()
+    live.general.appid = "213"
+    live.general.menu_timeout = 5
+    live.general.active_profile = "p1"
+    C.save(live)
+    prof = C.GameConfig()
+    prof.general.appid = "213"
+    prof.general.menu_timeout = 30
+    C.save_profile("213", "p1", prof)
+    seen = []
+
+    def inspect_modal():
+        modal = QApplication.activeModalWidget()
+        if isinstance(modal, MenuDialog):
+            seen.append(modal._remaining)
+            modal.reject()
+        else:
+            QTimer.singleShot(200, inspect_modal)
+
+    QTimer.singleShot(400, inspect_modal)
+    assert editmod.main(["--appid", "213", "--menu"]) == 0
+    assert seen == [30]
+    assert '"outcome": "cancelled"' in capsys.readouterr().out
