@@ -70,5 +70,5 @@ def test_fps_limit_preset():
     import tksteamlaunch.presets as pm
 
     preset = pm.PRESETS["FPS Limit (DXVK)"]
-    assert preset.vars == {"DXVK_FRAME_RATE": "60"}
+    assert preset.vars == {"DXVK_CONFIG": "dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60"}
     assert "DX9" in preset.note

@@ -53,10 +53,13 @@ changes get a `CHANGELOG.md` entry under Unreleased, with explicit
 ## AppImage
 
 `libappimage` is the spec implementation (inspect/integrate AppImages)
-— not a builder. Builds use `pyproject-appimage` (AUR, JakobDev):
+— not a builder. Builds use `pyproject-appimage` (JakobDev):
 it turns the pyproject into a self-contained AppImage (~150-250 MB
-with PySide6). External tools (GameMode, MangoHud, Ludusavi, …) stay
-on the host by design; the recipe lives in `packaging/appimage/`.
+with PySide6). A fixed and updated recipe (upstream AUR was stale at
+4.2) lives in `packaging/arch/pyproject-appimage/` — note its
+`python-desktop-entry-lib` dependency is AUR-only and must be
+installed first. External tools (GameMode, MangoHud, Ludusavi, …) stay
+on the host by design; the build recipe lives in `packaging/appimage/`.
 Verify the bundle on a clean session: GUI opens, dialog saves,
 `--validate` passes, and Steam accepts it in Launch Options.
 GitHub releases accept files up to 2 GB, so size is not an issue.

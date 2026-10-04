@@ -11,7 +11,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - User-focused README (uv tool/pipx/local package installs) with dev
   docs split into docs/DEVELOPMENT.md; new man page installed by both
   Arch packages; launcher-only AppImage recipe in packaging/appimage/.
-- FPS Limit (DXVK) env preset (`DXVK_FRAME_RATE=60`, DX9/10/11 only).
+- FPS Limit (DXVK) now uses `DXVK_CONFIG="dxgi.maxFrameRate = 60;
+  d3d9.maxFrameRate = 60"`: the `DXVK_FRAME_RATE` env var was removed
+  upstream (doitsujin/dxvk#5331); DX9/10/11 only.
 - Tray quick-launch: recent games section (steam:// URLs, 1-10
   configurable) with Preferences toggle and count.
 

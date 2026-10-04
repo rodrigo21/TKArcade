@@ -1,0 +1,27 @@
+# Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
+# Vendored from AUR (JakobDev) at 4.2 and updated here; upstream:
+# https://codeberg.org/JakobDev/pyproject-appimage
+
+pkgname=pyproject-appimage
+pkgver=4.3
+pkgrel=1
+pkgdesc="Generate AppImages from your Python projects"
+arch=("any")
+url="https://codeberg.org/JakobDev/pyproject-appimage"
+license=("BSD")
+depends=("python" "python-requests" "python-desktop-entry-lib")
+makedepends=("python-build" "python-setuptools" "python-installer" "python-wheel")
+source=("${pkgname}-${pkgver}.tar.gz::https://codeberg.org/JakobDev/pyproject-appimage/archive/${pkgver}.tar.gz")
+sha256sums=("613a16b48b39b02b501badf18f1dba9ad027e5419cded6ec923467ef0f420d1e")
+
+build() {
+    cd "${pkgname}"
+    python -m build --wheel --no-isolation
+}
+
+package() {
+    cd "${pkgname}"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 "README.md" -t "${pkgdir}/usr/share/doc/${pkgname}"
+    install -Dm644 "LICENSE" -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}

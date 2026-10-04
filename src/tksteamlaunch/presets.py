@@ -31,8 +31,9 @@ PRESETS: dict[str, Preset] = {
     "Faster Shaders (RADV)": Preset(vars={"RADV_PERFTEST": "gpl"}, drivers=("amd",)),
     "Prefer Wayland (SDL)": Preset(vars={"SDL_VIDEODRIVER": "wayland"}),
     "FPS Limit (DXVK)": Preset(
-        vars={"DXVK_FRAME_RATE": "60"},
-        note="DX9/10/11 only; edit the value. DX12 needs MangoHud fps_limit (overlay) or libstrangle.",
+        vars={"DXVK_CONFIG": "dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60"},
+        note="DX9/10/11 only; edit the value. The DXVK_FRAME_RATE env var was "
+        "removed upstream (doitsujin/dxvk#5331); this config string is the sanctioned path.",
     ),
     "Proton Wayland": Preset(
         vars={"PROTON_ENABLE_WAYLAND": "1"},
