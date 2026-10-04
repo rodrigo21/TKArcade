@@ -325,6 +325,22 @@ def delete_profile(appid: str, name: str) -> None:
     profile_file(appid, name).unlink(missing_ok=True)
 
 
+def orphaned_profiles() -> list[tuple[str, int]]:
+    """Leftover profiles whose game has no live config: [(appid, count)]."""
+    base = profiles_dir()
+    if not base.is_dir():
+        return []
+    live = set(list_appids())
+    out = []
+    for d in sorted(base.iterdir()):
+        if not d.is_dir():
+            continue
+        count = sum(1 for p in d.glob("*.toml") if p.is_file())
+        if count and d.name not in live:
+            out.append((d.name, count))
+    return out
+
+
 def _read_toml(path: Path) -> dict:
     if not path.exists():
         return {}

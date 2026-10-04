@@ -280,6 +280,7 @@ class MainWindow(QMainWindow):
                     ("Add Game...", self._add),
                     ("Edit...", self._edit_selected),
                     ("Remove", self._remove_selected),
+                    ("Reset...", self._reset_selected),
                     ("History...", self._show_history),
                 ),
             )
@@ -292,6 +293,7 @@ class MainWindow(QMainWindow):
                     ("Copy Launch Options", self._copy_launch),
                     ("Open Ludusavi...", self._open_ludusavi),
                     ("Open Logs Folder", self._open_logs),
+                    ("Clean Profiles...", self._clean_profiles),
                     ("Reload", self.refresh),
                 ),
             )
@@ -595,29 +597,35 @@ class MainWindow(QMainWindow):
         menu.exec(self.table.viewport().mapToGlobal(pos))
 
     def _build_game_menu(self, appid: str) -> QMenu:
-        """Context menu for a game row (split out so tests skip modal exec)."""
-        name = self._names().get(appid, appid)
+        """Context menu for a game row (split out so tests skip modal exec).
+
+        Multiple selection shows only multi-game actions; single-row
+        actions stay on single selection.
+        """
         menu = QMenu(self)
-        menu.addAction("Edit Settings", lambda: self._edit_selected())
-        menu.addSeparator()
-        menu.addAction("Copy App ID", lambda: self._copy_text(appid, "App ID"))
-        menu.addAction("Copy Game Name", lambda: self._copy_text(name, "Game name"))
-        menu.addAction("Copy Launch Options", lambda: self._copy_launch())
-        menu.addSeparator()
-        install = steammod.install_dir(appid)
-        act_install = menu.addAction("Open Install Folder")
-        act_install.setEnabled(install is not None)
-        if install is not None:
-            act_install.triggered.connect(lambda: self._open_folder(install, "install folder"))
-        prefix = steammod.prefix_dir(appid)
-        act_prefix = menu.addAction("Open Proton Prefix")
-        act_prefix.setEnabled(prefix is not None)
-        if prefix is not None:
-            act_prefix.triggered.connect(lambda: self._open_folder(prefix, "Proton prefix"))
-        menu.addAction("Open ProtonDB Page", lambda: self._open_protondb_page(appid))
-        menu.addAction("Validate Game", lambda: self._validate_selected(appid))
-        menu.addSeparator()
         sel = self._selected_appids() or [appid]
+        multi = len(sel) > 1
+        menu.addAction("Copy Launch Options", lambda: self._copy_launch())
+        if not multi:
+            name = self._names().get(appid, appid)
+            menu.addAction("Edit Settings", lambda: self._edit_selected(appid))
+            menu.addSeparator()
+            menu.addAction("Copy App ID", lambda: self._copy_text(appid, "App ID"))
+            menu.addAction("Copy Game Name", lambda: self._copy_text(name, "Game name"))
+            menu.addSeparator()
+            install = steammod.install_dir(appid)
+            act_install = menu.addAction("Open Install Folder")
+            act_install.setEnabled(install is not None)
+            if install is not None:
+                act_install.triggered.connect(lambda: self._open_folder(install, "install folder"))
+            prefix = steammod.prefix_dir(appid)
+            act_prefix = menu.addAction("Open Proton Prefix")
+            act_prefix.setEnabled(prefix is not None)
+            if prefix is not None:
+                act_prefix.triggered.connect(lambda: self._open_folder(prefix, "Proton prefix"))
+            menu.addAction("Open ProtonDB Page", lambda: self._open_protondb_page(appid))
+            menu.addAction("Validate Game", lambda: self._validate_selected(appid))
+            menu.addSeparator()
         n = len(sel)
         menu.addAction(
             f"Remove {n} Game" if n == 1 else f"Remove {n} Games",
@@ -679,8 +687,8 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             self.refresh()
 
-    def _edit_selected(self) -> None:
-        appid = self._selected_appid()
+    def _edit_selected(self, appid: str = "") -> None:
+        appid = appid or self._selected_appid()
         if not appid:
             QMessageBox.information(self, "TKSteamLaunch", "Select a game first.")
             return
@@ -787,6 +795,7 @@ class MainWindow(QMainWindow):
     def _remove_selected(self) -> None:
         appids = self._selected_appids()
         if not appids:
+            self.status.setText("Select games first.")
             return
         names = self._names()
         label = ", ".join(f"{names.get(a, a)} ({a})" for a in appids)
@@ -804,6 +813,27 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "TKSteamLaunch", "\n".join(errors))
         self._offer_profile_cleanup(appids)
         self.refresh()
+
+    def _clean_profiles(self) -> None:
+        """Clean profiles orphaned by past removals (checkbox pre-selection)."""
+        names = self._names()
+        entries = [
+            (appid, names.get(appid, appid), count) for appid, count in cfgmod.orphaned_profiles()
+        ]
+        if not entries:
+            QMessageBox.information(self, "TKSteamLaunch", "No orphaned profiles.")
+            return
+        dlg = _ProfileCleanupDialog(self, entries)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        cleaned = 0
+        for appid in dlg.selected():
+            try:
+                shutil.rmtree(cfgmod.profiles_dir(appid))
+                cleaned += 1
+            except Exception as e:
+                QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+        self.status.setText(f"Cleaned profiles for {cleaned} game(s).")
 
     def _offer_profile_cleanup(self, appids: list[str]) -> None:
         """Offer to delete leftover profiles of just-removed games."""
@@ -831,6 +861,7 @@ class MainWindow(QMainWindow):
         """Reset every selected game to the Global Defaults template."""
         appids = self._selected_appids()
         if not appids:
+            self.status.setText("Select games first.")
             return
         names = self._names()
         label = ", ".join(f"{names.get(a, a)} ({a})" for a in appids)

@@ -30,6 +30,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Multi-select (Ctrl/Shift+click) for Remove and Reset to Global
   Defaults, with one confirmation listing the games; removing offers
   to clean up leftover profiles via a checkbox table.
+- Context menu shows only multi-game actions on multiple selection;
+  Tools row has Clean Profiles for orphaned profiles anytime, Games
+  row has Reset, and empty Remove/Reset hint at selecting first.
 
 ### Added
 - Opening the game dialog on a config file that cannot be parsed warns

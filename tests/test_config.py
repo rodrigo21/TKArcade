@@ -465,3 +465,17 @@ def test_load_effective_unreadable_profile_falls_back_to_live(xdg_env):
     C.save_profile("113", "bad", cfg)
     C.profile_file("113", "bad").write_text("[general\nappid = oops", encoding="utf-8")
     assert C.load_effective("113").pre_post.pre_command == "/live.sh"
+
+
+def test_orphaned_profiles(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "140"
+    C.save(cfg)
+    C.save_profile("140", "p1", cfg)
+    ghost = C.GameConfig()
+    ghost.general.appid = "141"
+    C.save_profile("141", "p1", ghost)
+    C.save_profile("141", "p2", ghost)
+    C.game_file("141").unlink(missing_ok=True)
+    C.profiles_dir("142").mkdir(parents=True)  # empty dir: nothing to clean
+    assert C.orphaned_profiles() == [("141", 2)]

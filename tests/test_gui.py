@@ -1625,11 +1625,11 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
     texts = [(a.text(), a.isEnabled()) for a in _menu_actions(w, "120")]
     labels = [t for t, _ in texts]
     assert labels == [
+        "Copy Launch Options",
         "Edit Settings",
         "",
         "Copy App ID",
         "Copy Game Name",
-        "Copy Launch Options",
         "",
         "Open Install Folder",
         "Open Proton Prefix",
@@ -1876,4 +1876,65 @@ def test_ensure_row_selected_preserves_multi(qt_app, xdg_env, monkeypatch):
     assert w._selected_appids() == ["130", "131"]
     w._ensure_row_selected(2)  # unselected: collapse to it
     assert w._selected_appids() == ["132"]
+    w.close()
+
+
+def test_context_menu_multi_shows_only_multi_actions(qt_app, xdg_env, monkeypatch):
+    from tksteamlaunch import config as C
+
+    for appid in ("143", "144"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    w = _main_window_with_game(qt_app, "143", monkeypatch)
+    _select_rows(w, 0, 1)
+    labels = [a.text() for a in w._build_game_menu("143").actions()]
+    assert labels == [
+        "Copy Launch Options",
+        "Remove 2 Games",
+        "Reset to Global Defaults",
+    ]
+    w.close()
+
+
+def test_remove_reset_without_selection_hints(qt_app, xdg_env, monkeypatch):
+    w = _main_window_with_game(qt_app, "145", monkeypatch)
+    w.table.clearSelection()
+    w._remove_selected()
+    assert w.status.text() == "Select games first."
+    w._reset_selected()
+    assert w.status.text() == "Select games first."
+    w.close()
+
+
+def test_clean_profiles_button(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QDialog, QMessageBox
+
+    import tksteamlaunch.gui.main_window as mw
+    from tksteamlaunch import config as C
+
+    ghost = C.GameConfig()
+    ghost.general.appid = "146"
+    C.save_profile("146", "p1", ghost)
+    w = _main_window_with_game(qt_app, "147", monkeypatch)
+
+    class FakeDialog:
+        def __init__(self, parent, entries):
+            assert entries[0][0] == "146"
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+        def selected(self):
+            return ["146"]
+
+    monkeypatch.setattr(mw, "_ProfileCleanupDialog", FakeDialog)
+    w._clean_profiles()
+    assert not C.profiles_dir("146").exists()
+    assert "Cleaned" in w.status.text()
+
+    infos = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: infos.append(a))
+    w._clean_profiles()
+    assert infos and "No orphaned" in str(infos[0])
     w.close()
