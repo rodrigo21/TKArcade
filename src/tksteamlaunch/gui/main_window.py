@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
         filter_row.addWidget(self.issues_only)
         layout.addLayout(filter_row)
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["Game", "App ID", "ProtonDB", "Played"])
+        self.table.setHorizontalHeaderLabels(["Game", "App ID", "Played", "ProtonDB"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
@@ -410,7 +410,7 @@ class MainWindow(QMainWindow):
                 played = _PlayedItem(st.total_dur, format_duration(st.total_dur))
                 last = st.last.replace("T", " ")
                 played.setToolTip(f"{st.runs} sessions · last {last} · {st.fails} failures")
-            self.table.setItem(row, 3, played)
+            self.table.setItem(row, 2, played)
             if not fresh:
                 need_fetch.append(appid)
         total_cfg = len(appids)
@@ -477,7 +477,7 @@ class MainWindow(QMainWindow):
             item.setForeground(QBrush(QColor(fg)))
         item.setToolTip(f"{tier.title()} · {total} reports — double-click for protondb.com")
         item.setData(Qt.ItemDataRole.UserRole, appid)
-        self.table.setItem(row, 2, item)
+        self.table.setItem(row, 3, item)
 
     def _on_protondb(self, appid: str, data: dict) -> None:
         for row in range(self.table.rowCount()):
@@ -605,7 +605,7 @@ class MainWindow(QMainWindow):
             self._toggle_visible()
 
     def _on_double_click(self, item: QTableWidgetItem) -> None:
-        if item.column() == 2:
+        if item.column() == 3:
             appid = str(item.data(Qt.ItemDataRole.UserRole) or "")
             if appid:
                 self._open_protondb_page(appid)

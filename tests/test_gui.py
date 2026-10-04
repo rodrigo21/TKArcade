@@ -32,14 +32,14 @@ def test_main_table_columns(qt_app, xdg_env, monkeypatch):
     assert w.table.rowCount() == 1
     assert w.table.item(0, 1).text() == "80"
     for _ in range(100):
-        cell = w.table.item(0, 2)
+        cell = w.table.item(0, 3)
         if cell is not None and cell.text() == "Gold":
             break
         qt_app.processEvents()
         import time
 
         time.sleep(0.02)
-    assert w.table.item(0, 2).text() == "Gold"
+    assert w.table.item(0, 3).text() == "Gold"
     w._stop_pdb_worker()
     w._stop_art_worker()
 
@@ -1692,7 +1692,7 @@ def test_double_click_protondb_opens_url(qt_app, xdg_env, monkeypatch):
     monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(url.toString()))
     tier = None
     for _ in range(100):
-        tier = w.table.item(0, 2)
+        tier = w.table.item(0, 3)
         if tier is not None:
             break
         qt_app.processEvents()
@@ -1944,7 +1944,7 @@ def _write_history(xdg_env, *lines):
 def test_played_column_shows_total_time(qt_app, xdg_env, monkeypatch):
     _write_history(xdg_env, "2026-10-03T10:00:00 appid=150 exit=0 dur=3700 cmd=/game\n")
     w = _main_window_with_game(qt_app, "150", monkeypatch)
-    cell = w.table.item(0, 3)
+    cell = w.table.item(0, 2)
     assert cell.text() == "1h 1m"
     assert "1 sessions" in cell.toolTip()
     w.close()
@@ -1965,7 +1965,7 @@ def test_played_column_sorts_by_seconds(qt_app, xdg_env, monkeypatch):
         cfg.general.appid = appid
         C.save(cfg)
     w = _main_window_with_game(qt_app, "151", monkeypatch)
-    w.table.sortByColumn(3, Qt.SortOrder.DescendingOrder)
+    w.table.sortByColumn(2, Qt.SortOrder.DescendingOrder)
     qt_app.processEvents()
     got = [w.table.item(r, 1).text() for r in range(w.table.rowCount())]
     assert got[0] == "151"  # 2h first
