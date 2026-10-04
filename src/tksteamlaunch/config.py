@@ -157,6 +157,8 @@ class Preferences:
     sgdb_api_key: str = ""
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
+    tray_quick_launch: bool = True  # recent games section in the tray menu
+    tray_quick_count: int = 5  # recent games shown (1-10)
 
 
 @dataclass
@@ -598,6 +600,8 @@ def load_preferences() -> Preferences:
     out.sgdb_api_key = str(ui.get("sgdb_api_key", "") or "")
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
+    out.tray_quick_launch = _as_bool(ui.get("tray_quick_launch", True), True)
+    out.tray_quick_count = _clamp_quick_count(ui.get("tray_quick_count", 5))
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -607,6 +611,14 @@ def load_preferences() -> Preferences:
 def _clean_int_list(text: str) -> str:
     """Normalize a comma list to digits-only, preserving order ("" stays "")."""
     return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdigit())
+
+
+def _clamp_quick_count(value: object) -> int:
+    """Clamp the tray quick-launch count into 1-10 (default 5)."""
+    try:
+        return min(10, max(1, int(value)))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 5
 
 
 def save_preferences(prefs: Preferences) -> Path:
@@ -622,6 +634,8 @@ def save_preferences(prefs: Preferences) -> Path:
             "sgdb_api_key": prefs.sgdb_api_key,
             "column_order": _clean_int_list(prefs.column_order),
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
+            "tray_quick_launch": bool(prefs.tray_quick_launch),
+            "tray_quick_count": _clamp_quick_count(prefs.tray_quick_count),
         }
     }
     _write_atomic(path, _render_toml(data))

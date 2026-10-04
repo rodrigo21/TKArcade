@@ -49,6 +49,20 @@ class PreferencesDialog(QDialog):
         self.c_close = QCheckBox("Close to tray")
         self.c_close.setChecked(self.prefs.close_to_tray)
         form.addRow("", self.c_close)
+
+        self.c_quick = QCheckBox("Show recent games in tray menu")
+        self.c_quick.setToolTip("Launch recent games through Steam (steam:// URL).")
+        self.c_quick.setChecked(self.prefs.tray_quick_launch)
+        self.c_quick.toggled.connect(self._update_tray_state)
+        form.addRow("", self.c_quick)
+
+        from PySide6.QtWidgets import QSpinBox
+
+        self.s_quick_count = QSpinBox()
+        self.s_quick_count.setRange(1, 10)
+        self.s_quick_count.setValue(self.prefs.tray_quick_count)
+        self.s_quick_count.setToolTip("How many recent games to list.")
+        form.addRow("Recent games:", self.s_quick_count)
         self._update_tray_state()
 
         from PySide6.QtWidgets import QLineEdit
@@ -68,6 +82,7 @@ class PreferencesDialog(QDialog):
         on = self.c_tray.isChecked()
         for widget in (self.cb_tray_icon, self.c_minimize, self.c_close):
             widget.setEnabled(on)
+        self.s_quick_count.setEnabled(on and self.c_quick.isChecked())
 
     def accept(self) -> None:
         self.prefs.show_preview = self.c_show_preview.isChecked()
@@ -76,5 +91,7 @@ class PreferencesDialog(QDialog):
         self.prefs.minimize_to_tray = self.c_minimize.isChecked() and self.c_tray.isChecked()
         self.prefs.close_to_tray = self.c_close.isChecked() and self.c_tray.isChecked()
         self.prefs.sgdb_api_key = self.e_sgdb.text().strip()
+        self.prefs.tray_quick_launch = self.c_quick.isChecked() and self.c_tray.isChecked()
+        self.prefs.tray_quick_count = int(self.s_quick_count.value())
         cfgmod.save_preferences(self.prefs)
         super().accept()

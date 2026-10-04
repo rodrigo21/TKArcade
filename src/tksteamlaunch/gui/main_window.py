@@ -569,27 +569,66 @@ class MainWindow(QMainWindow):
             tray = QSystemTrayIcon(iconsmod.app_icon(prefs.tray_icon), self)
             tray.setToolTip("TKSteamLaunch")
             menu = QMenu(self)
-            show_action = menu.addAction("Show / Hide")
-            show_action.triggered.connect(self._toggle_visible)
-            defaults_action = menu.addAction("Global Defaults...")
-            defaults_action.triggered.connect(self._edit_defaults)
-            prefs_action = menu.addAction("Preferences...")
-            prefs_action.triggered.connect(self._edit_preferences)
-            about_action = menu.addAction("About...")
-            about_action.triggered.connect(self._show_about)
-            menu.addSeparator()
-            quit_action = menu.addAction("Quit")
-            app = QApplication.instance()
-            if app is not None:
-                quit_action.triggered.connect(app.quit)
+            menu.aboutToShow.connect(self._refresh_tray_menu)
+            self._refresh_tray_menu(menu)
             tray.setContextMenu(menu)
             tray.activated.connect(self._on_tray_activated)
             tray.show()
             self._tray = tray
             self._tray_menu = menu
         else:
-            # Update in place: never deleteLater + recreate from a menu slot.
+            # Update in place: never deleteLater + recreate from a menu slot
+            # (_edit_preferences calls back here). Freshness comes from
+            # aboutToShow rebuilding before every open.
             self._tray.setIcon(iconsmod.app_icon(prefs.tray_icon))
+
+    def _recent_games(self, limit: int) -> list[tuple[str, str, int]]:
+        """Recent launches as (appid, name, total seconds), newest first."""
+        names = self._names()
+        try:
+            stats = histmod.summarize(histmod.parse_log(xdg.log_file()))
+        except Exception:
+            return []
+        rows = sorted(stats.values(), key=lambda s: s.last, reverse=True)
+        return [(s.appid, names.get(s.appid, s.appid), s.total_dur) for s in rows[:limit]]
+
+    def _launch_steam(self, appid: str) -> None:
+        """Launch through the Steam client (with its time tracking)."""
+        from PySide6.QtCore import QUrl
+
+        if not QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")):
+            QMessageBox.warning(self, "TKSteamLaunch", "Could not ask Steam to launch the game.")
+
+    def _refresh_tray_menu(self, menu=None) -> None:
+        """Rebuild the tray menu, including the recent-games section."""
+        from ..backends.notify import format_duration
+
+        menu = menu if menu is not None else self._tray_menu
+        if menu is None:
+            return
+        menu.clear()
+        show_action = menu.addAction("Show / Hide")
+        show_action.triggered.connect(self._toggle_visible)
+        prefs = cfgmod.load_preferences()
+        if prefs.tray_quick_launch:
+            recents = self._recent_games(prefs.tray_quick_count)
+            if recents:
+                menu.addSeparator()
+                for appid, name, total in recents:
+                    act = menu.addAction(f"{name} ({format_duration(total)})")
+                    act.triggered.connect(lambda _=False, a=appid: self._launch_steam(a))
+        menu.addSeparator()
+        defaults_action = menu.addAction("Global Defaults...")
+        defaults_action.triggered.connect(self._edit_defaults)
+        prefs_action = menu.addAction("Preferences...")
+        prefs_action.triggered.connect(self._edit_preferences)
+        about_action = menu.addAction("About...")
+        about_action.triggered.connect(self._show_about)
+        menu.addSeparator()
+        quit_action = menu.addAction("Quit")
+        app = QApplication.instance()
+        if app is not None:
+            quit_action.triggered.connect(app.quit)
 
     def _drop_tray(self) -> None:
         tray, self._tray = self._tray, None

@@ -2038,3 +2038,54 @@ def test_reordered_columns_keep_actions_working(qt_app, xdg_env, monkeypatch):
         w._on_double_click(tier)
         assert opened == ["https://www.protondb.com/app/162"]
     w.close()
+
+
+def test_preferences_dialog_quick_launch(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
+
+    prefs = PreferencesDialog(None)
+    assert prefs.c_quick.isChecked() is True
+    assert prefs.s_quick_count.isEnabled() is False  # tray off gates it
+    prefs.c_tray.setChecked(True)
+    assert prefs.s_quick_count.isEnabled() is True
+    prefs.c_quick.setChecked(False)
+    assert prefs.s_quick_count.isEnabled() is False
+    prefs.c_quick.setChecked(True)
+    prefs.s_quick_count.setValue(8)
+    prefs.accept()
+    back = C.load_preferences()
+    assert (back.tray_quick_launch, back.tray_quick_count) == (True, 8)
+
+
+def test_tray_recents_and_steam_launch(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMenu
+
+    _write_history(
+        xdg_env,
+        "2026-10-03T10:00:00 appid=170 exit=0 dur=60 cmd=/a\n",
+        "2026-10-03T11:00:00 appid=171 exit=0 dur=120 cmd=/b\n",
+    )
+    w = _main_window_with_game(qt_app, "170", monkeypatch)
+    recents = w._recent_games(1)
+    assert [a for a, _, _ in recents] == ["171"]
+    assert recents[0][2] == 120
+    menu = QMenu(w)
+    w._refresh_tray_menu(menu)
+    labels = [a.text() for a in menu.actions() if a.text()]
+    assert any("171" in label or "170" in label for label in labels)
+    opened = []
+    monkeypatch.setattr(
+        QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True
+    )
+    w._launch_steam("171")
+    assert opened == ["steam://rungameid/171"]
+    from PySide6.QtWidgets import QMessageBox
+
+    warns = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: False)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warns.append(a))
+    w._launch_steam("171")
+    assert warns
+    w.close()

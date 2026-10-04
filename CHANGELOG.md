@@ -11,6 +11,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Movable game-list columns (drag the header) with a header context
   menu to show/hide columns (Game always on) and reset to the
   Game | App ID | Played | ProtonDB default; layout persists.
+- Tray quick-launch: recent games section (steam:// URLs, 1-10
+  configurable) with Preferences toggle and count.
 
 ## [0.8.0] - 2026-10-04
 
