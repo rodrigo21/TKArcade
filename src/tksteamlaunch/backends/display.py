@@ -222,10 +222,20 @@ def offered_modes(provider: str = "auto", output: str = "") -> list[tuple]:
 class DisplaySession:
     """RAII session: apply a display mode on enter, restore on exit."""
 
-    def __init__(self, provider: str = "auto", output: str = "", mode: str = "") -> None:
+    def __init__(
+        self,
+        provider: str = "auto",
+        output: str = "",
+        mode: str = "",
+        dip_seconds: int = DIP_SECONDS,
+    ) -> None:
         self.provider = provider
         self.output = (output or "").strip()
         self.mode = (mode or "").strip()
+        try:
+            self.dip_seconds = min(15, max(3, int(dip_seconds)))
+        except (TypeError, ValueError):
+            self.dip_seconds = DIP_SECONDS
         self._prev: tuple[str, str, str, str | None] | None = None
         self._started = False
 
@@ -306,7 +316,7 @@ class DisplaySession:
             if r.returncode != 0:
                 return [f"kscreen-doctor failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
             if i < len(specs) - 1:
-                time.sleep(DIP_SECONDS)
+                time.sleep(self.dip_seconds)
         if prev is not None:
             self._prev = (
                 "plasma",
@@ -379,7 +389,7 @@ class DisplaySession:
             if r.returncode != 0:
                 return [f"xrandr failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
             if i < len(cmds) - 1:
-                time.sleep(DIP_SECONDS)
+                time.sleep(self.dip_seconds)
         if prev is not None:
             self._prev = ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
             log.info(

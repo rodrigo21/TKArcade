@@ -275,3 +275,26 @@ def test_same_mode_x11_dips_down_and_back(tmp_path, monkeypatch):
     _k, x = _logs(tmp_path)
     assert x[0] == "--output DP-3 --mode 1920x1080 --rate 60"
     assert slept == [D.DIP_SECONDS]
+
+
+def test_display_dip_seconds_roundtrip_and_clamp(xdg_env):
+    from tksteamlaunch import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "168"
+    cfg.display.mode = "1920x1080@60"
+    cfg.display.dip_seconds = 7
+    C.save(cfg)
+    assert C.load("168").display.dip_seconds == 7
+    C.game_file("169").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("169").write_text(
+        '[general]\nappid = "169"\n[display]\nmode = "1920x1080@60"\ndip_seconds = 99\n',
+        encoding="utf-8",
+    )
+    assert C.load("169").display.dip_seconds == 15
+    C.game_file("170").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("170").write_text(
+        '[general]\nappid = "170"\n[display]\nmode = "x"\ndip_seconds = "lots"\n',
+        encoding="utf-8",
+    )
+    assert C.load("170").display.dip_seconds == 10

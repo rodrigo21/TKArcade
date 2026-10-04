@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSlider,
     QSpinBox,
     QStyle,
     QTableWidget,
@@ -414,6 +415,20 @@ class GameDialog(QDialog):
             self.cb_dprov.addItem(value, value)
         self.cb_dprov.setToolTip("Display backend. GNOME and wlroots compositors land in phase 2.")
         df.addRow("Provider:", self.cb_dprov)
+        self.s_dip = QSlider(Qt.Orientation.Horizontal)
+        self.s_dip.setRange(3, 15)
+        self.s_dip.setSingleStep(1)
+        self.s_dip.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.s_dip.setTickInterval(3)
+        self.s_dip.setToolTip("Seconds on the dip mode before returning.")
+        self.l_dip = QLabel("")
+        self.s_dip.valueChanged.connect(lambda v: self.l_dip.setText(f"{v} s"))
+        dip_row = QWidget()
+        dip_layout = QHBoxLayout(dip_row)
+        dip_layout.setContentsMargins(0, 0, 0, 0)
+        dip_layout.addWidget(self.s_dip, stretch=1)
+        dip_layout.addWidget(self.l_dip)
+        df.addRow("Dip delay:", dip_row)
         dm_note = QLabel("Same mode as current: dips down and back first (VRAM workaround).")
         dm_note.setObjectName("dip_note")
         dm_note.setVisible(False)
@@ -750,6 +765,8 @@ class GameDialog(QDialog):
         self.e_dmode.setCurrentText(c.display.mode)
         idx = self.cb_dprov.findData(c.display.provider or "auto")
         self.cb_dprov.setCurrentIndex(max(idx, 0))
+        self.s_dip.setValue(min(15, max(3, c.display.dip_seconds)))
+        self.l_dip.setText(f"{self.s_dip.value()} s")
         self.c_mh.setChecked(c.mangohud.enable)
         self.e_mh_args.setText(c.mangohud.args)
         self._refresh_mangohud_configs()
@@ -1577,6 +1594,7 @@ class GameDialog(QDialog):
             self.e_dmode.currentData() or self.e_dmode.currentText() or ""
         ).strip()
         cfg.display.provider = str(self.cb_dprov.currentData() or "auto")
+        cfg.display.dip_seconds = int(self.s_dip.value())
         cfg.mangohud.enable = self.c_mh.isChecked()
         cfg.mangohud.args = self.e_mh_args.text().strip()
         cfg.mangohud.config_file = str(self.cb_mh_conf.currentData() or "")

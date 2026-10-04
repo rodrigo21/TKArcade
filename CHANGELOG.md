@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Display dip delay slider (3-15 s, per game) for the same-mode
+  VRAM clock workaround.
 - Display same-mode workaround for the AMD VRAM clock bug: requesting
   the current mode dips one mode down and back before the game starts
   (same resolution, closest lower refresh; logged, never aborts).

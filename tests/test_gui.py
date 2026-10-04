@@ -2419,3 +2419,22 @@ def test_dip_note_only_for_current_mode(qt_app, xdg_env, monkeypatch):
     qt_app.processEvents()
     assert not d._dip_note.isHidden()
     d.close()
+
+
+def test_dip_slider_roundtrip(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "171"
+    C.save(cfg)
+    d = GameDialog(None, "171", "T")
+    assert (d.s_dip.minimum(), d.s_dip.maximum()) == (3, 15)
+    assert d.s_dip.value() == 10 and d.l_dip.text() == "10 s"
+    d.s_dip.setValue(6)
+    assert d.l_dip.text() == "6 s"
+    d._collect()
+    assert d.cfg.display.dip_seconds == 6
+    d.accept()
+    assert C.load("171").display.dip_seconds == 6
+    d.close()

@@ -788,7 +788,9 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- pipeline with guaranteed display/nightlight restore ---
     with (
-        disp_backend.DisplaySession(cfg.display.provider, cfg.display.output, cfg.display.mode),
+        disp_backend.DisplaySession(
+            cfg.display.provider, cfg.display.output, cfg.display.mode, cfg.display.dip_seconds
+        ),
         nl_backend.NightlightSession(
             # NB: __enter__ already called start(); never call it again here
             # (a second call used to orphan a holder process).
