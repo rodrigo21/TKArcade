@@ -5,6 +5,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-04
+
 ### Added
 - Movable game-list columns (drag the header) with a header context
   menu to show/hide columns (Game always on) and reset to the
