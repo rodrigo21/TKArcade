@@ -5,6 +5,19 @@ import pytest
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 
 
+@pytest.fixture(autouse=True)
+def _no_display_backend_calls(monkeypatch):
+    """Dialog tests must never spawn real backend subprocesses.
+
+    A wedged kscreen-doctor once hung dialog construction mid-suite;
+    production code queries in a worker thread, but tests stay fully
+    hermetic (backend coverage lives in test_display.py fakes).
+    """
+    from tksteamlaunch.backends import display as dispmod
+
+    monkeypatch.setattr(dispmod, "offered_modes", lambda *a, **k: [])
+
+
 def test_dialogs_construct(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
     from tksteamlaunch.gui.main_window import MainWindow
@@ -2355,9 +2368,29 @@ def test_dialog_open_never_queries_display_backend(qt_app, xdg_env, monkeypatch)
     from tksteamlaunch.backends import display as dispmod
     from tksteamlaunch.gui.game_dialog import GameDialog
 
-    def boom(*a, **k):
-        raise AssertionError("backend query during dialog open")
-
-    monkeypatch.setattr(dispmod, "offered_modes", boom)
+    monkeypatch.setattr(dispmod, "offered_modes", lambda *a: ["1920x1080@60"])
     d = GameDialog(None, "164", "T")
+    assert _pump_until(qt_app, lambda: d.e_dmode.count() >= 2)
+    assert "1920x1080@60" in [d.e_dmode.itemText(i) for i in range(d.e_dmode.count())]
+    d.close()
+
+
+def test_wedged_display_backend_never_blocks_open(qt_app, xdg_env, monkeypatch):
+    import threading
+    import time
+
+    from tksteamlaunch.backends import display as dispmod
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    gate = threading.Event()
+
+    def stuck(*a):
+        assert gate.wait(timeout=30)
+        return []
+
+    monkeypatch.setattr(dispmod, "offered_modes", stuck)
+    start = time.monotonic()
+    d = GameDialog(None, "166", "T")
+    assert time.monotonic() - start < 10
+    gate.set()  # release the worker before close so stop() joins cleanly
     d.close()

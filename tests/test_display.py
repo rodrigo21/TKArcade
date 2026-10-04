@@ -171,10 +171,12 @@ def test_offered_modes_lists_backend_modes(tmp_path, monkeypatch):
     assert D.offered_modes("x11", "") != []
 
 
-def test_mode_picker_lists_offered_and_keeps_manual(qt_app, xdg_env):
+def test_mode_picker_lists_offered_and_keeps_manual(qt_app, xdg_env, monkeypatch):
     from tksteamlaunch import config as C
+    from tksteamlaunch.backends import display as dispmod
     from tksteamlaunch.gui.game_dialog import GameDialog
 
+    monkeypatch.setattr(dispmod, "offered_modes", lambda *a: ["1920x1080@60"])
     cfg = C.GameConfig()
     cfg.general.appid = "163"
     cfg.display.mode = "1280x720@60"

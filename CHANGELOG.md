@@ -21,6 +21,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Display mode goes through kscreen numeric mode IDs (the WxH@rate
   string form is silently ignored) and the picker lists offered
   modes sorted by resolution then rate, descending.
+- Mode list fills in a worker thread (a wedged kscreen-doctor once
+  hung dialog construction); dialog open performs zero backend
+  queries, and worker threads stop cleanly on accept/reject.
 - Crafted AppIDs can no longer escape the log/proton-log dirs
   (`safe_stem` centralized in xdg, applied to every AppID path).
 - Validate and the pre-launch countdown check the effective

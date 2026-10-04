@@ -118,6 +118,28 @@ class _CoverageWorker(QThread):
             self.done.emit(status, detail)
 
 
+class _DisplayModesWorker(QThread):
+    """Query offered display modes off the UI thread (kscreen can wedge)."""
+
+    done = Signal(int, list)
+
+    def __init__(self, provider: str, output: str, run: int, parent=None) -> None:
+        super().__init__(parent)
+        self._provider = provider
+        self._output = output
+        self._run = run
+
+    def run(self) -> None:
+        try:
+            from ..backends import display as dispmod
+
+            modes = dispmod.offered_modes(self._provider, self._output)
+        except Exception:
+            modes = []
+        if not self.isInterruptionRequested():
+            self.done.emit(self._run, modes)
+
+
 class BulkEnvDialog(QDialog):
     """Bulk-edit environment variables as KEY=VALUE text."""
 
@@ -158,6 +180,8 @@ class GameDialog(QDialog):
         self._orig_tips: dict = {}
         self._cov_thread: _CoverageWorker | None = None
         self._cov_run = 0
+        self._dmode_thread: _DisplayModesWorker | None = None
+        self._dmode_run = 0
         self.appid = appid
         if defaults_mode:
             self.setWindowTitle("Global Defaults")
@@ -666,6 +690,7 @@ class GameDialog(QDialog):
         self.e_post.textChanged.connect(self._refresh_hook_statuses)
         tabs.currentChanged.connect(self._refresh_preview)
         self._show_load_warning()
+        self._refresh_display_modes()
 
     def _populate(self) -> None:
         self._populating = True
@@ -1067,6 +1092,7 @@ class GameDialog(QDialog):
 
     def reject(self) -> None:
         self._stop_coverage_worker()
+        self._stop_dmode_worker()
         super().reject()
 
     def _on_reset(self) -> None:
@@ -1131,17 +1157,30 @@ class GameDialog(QDialog):
             return True
 
     def _refresh_display_modes(self) -> None:
-        """Refill the mode picker from the backend (manual entry stays valid)."""
-        from ..backends import display as dispmod
+        """(Re)query offered modes in the background; manual entry always works."""
+        self._dmode_run += 1
+        run = self._dmode_run
+        worker = _DisplayModesWorker(
+            str(self.cb_dprov.currentData() or "auto"),
+            self.e_dout.text().strip(),
+            run,
+            parent=self,
+        )
+        worker.done.connect(self._on_display_modes)
+        worker.finished.connect(worker.deleteLater)
+        self._dmode_thread = worker
+        worker.start()
 
+    def _on_display_modes(self, run: int, modes: list) -> None:
+        self._dmode_thread = None
+        if run != self._dmode_run:
+            return  # stale result (e.g. output changed mid-query)
         current = self.e_dmode.currentText()
         self.e_dmode.blockSignals(True)
         try:
             self.e_dmode.clear()
             self.e_dmode.addItem("")
-            for mode in dispmod.offered_modes(
-                str(self.cb_dprov.currentData() or "auto"), self.e_dout.text().strip()
-            ):
+            for mode in modes:
                 self.e_dmode.addItem(mode)
         finally:
             self.e_dmode.blockSignals(False)
@@ -1539,6 +1578,18 @@ class GameDialog(QDialog):
 
         QApplication.restoreOverrideCursor()
 
+    def _stop_dmode_worker(self) -> None:
+        # Never destroy a running QThread (aborts): same stop-and-wait
+        # discipline as the coverage worker.
+        worker, self._dmode_thread = self._dmode_thread, None
+        self._dmode_run += 1  # invalidate any result still queued
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+            worker.wait(3000)
+            if worker.isRunning():
+                worker.terminate()
+                worker.wait(2000)
+
     def _on_launch_without_save(self) -> None:
         self.launch_requested = True
         self._skip_save = True
@@ -1546,6 +1597,7 @@ class GameDialog(QDialog):
 
     def accept(self) -> None:
         self._stop_coverage_worker()
+        self._stop_dmode_worker()
         if not self._skip_save:
             self._save_active()
         super().accept()
