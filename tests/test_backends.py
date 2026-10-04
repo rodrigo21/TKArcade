@@ -758,3 +758,31 @@ def test_shader_dir_and_size(monkeypatch, tmp_path, xdg_env):
     assert S.format_size(0) == "0 B"
     assert S.format_size(2048) == "2.0 KB"
     assert S.format_size(3 * 1024**3) == "3.0 GB"
+
+
+def test_tool_mapping_cached_by_mtime(monkeypatch, tmp_path, xdg_env):
+    from tksteamlaunch import proton as pm
+
+    pm.clear_tool_cache()
+    root = tmp_path / "steam"
+    cfgdir = root / "config"
+    cfgdir.mkdir(parents=True)
+    vdf = cfgdir / "config.vdf"
+    vdf.write_text(
+        '"InstallConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n{\n'
+        '"CompatToolMapping"\n{\n"42"\n{\n"name" "GE-Proton9-15"\n}\n}\n}\n}\n}\n}\n'
+    )
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    assert pm.compat_tool_name("42") == "GE-Proton9-15"
+    vdf.write_text(
+        '"InstallConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n{\n'
+        '"CompatToolMapping"\n{\n"42"\n{\n"name" "proton_9"\n}\n}\n}\n}\n}\n}\n'
+    )
+    import os
+    import time
+
+    stamp = time.time() + 5
+    os.utime(vdf, (stamp, stamp))  # force a newer mtime: cache must miss
+    assert pm.compat_tool_name("42") == "proton_9"
+    assert pm.compat_tool_name("43") is None
+    pm.clear_tool_cache()

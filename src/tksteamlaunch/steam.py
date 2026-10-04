@@ -179,18 +179,30 @@ def shader_dir(appid: str) -> Path | None:
 
 
 def dir_size(path: Path) -> int:
-    """Recursive byte size, best effort (unreadable entries skipped)."""
+    """Recursive byte size, best effort (unreadable entries skipped).
+
+    Iterative walk: constant memory even for huge shader trees (rglob
+    would materialize the whole listing first).
+    """
     total = 0
-    try:
-        entries = list(path.rglob("*"))
-    except OSError:
-        return 0
-    for p in entries:
+    stack = [path]
+    while stack:
+        current = stack.pop()
         try:
-            if p.is_file() and not p.is_symlink():
-                total += p.stat().st_size
+            with os.scandir(current) as it:
+                entries = list(it)
         except OSError:
             continue
+        for entry in entries:
+            try:
+                if entry.is_symlink():
+                    continue
+                if entry.is_dir(follow_symlinks=False):
+                    stack.append(Path(entry.path))
+                elif entry.is_file(follow_symlinks=False):
+                    total += entry.stat(follow_symlinks=False).st_size
+            except OSError:
+                continue
     return total
 
 

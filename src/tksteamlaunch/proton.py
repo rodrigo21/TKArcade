@@ -15,37 +15,62 @@ from . import steam as steammod
 def compat_tool_name(appid: str) -> str | None:
     """Return the compat tool name for a game (e.g. 'proton_9'), if mapped."""
     for root in steammod.steam_roots():
-        config_vdf = root / "config" / "config.vdf"
-        try:
-            text = config_vdf.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            continue
-        name = _tool_from_vdf(text, appid)
+        name = _tool_mapping(root / "config" / "config.vdf").get(str(appid), "")
         if name:
             return name
     return None
 
 
-def _tool_from_vdf(text: str, appid: str) -> str | None:
+_TOOL_CACHE: dict[str, tuple[float, dict[str, str]]] = {}
+
+
+def _tool_mapping(config_vdf: Path) -> dict[str, str]:
+    """appid -> compat tool name, cached by file mtime."""
+    try:
+        mtime = config_vdf.stat().st_mtime
+    except OSError:
+        return {}
+    key = str(config_vdf)
+    hit = _TOOL_CACHE.get(key)
+    if hit is not None and hit[0] == mtime:
+        return hit[1]
+    try:
+        text = config_vdf.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return {}
+    mapping = _parse_tool_mapping(text)
+    _TOOL_CACHE[key] = (mtime, mapping)
+    return mapping
+
+
+def clear_tool_cache() -> None:
+    """Drop the compat-tool cache (tests, Steam root switches)."""
+    _TOOL_CACHE.clear()
+
+
+def _parse_tool_mapping(text: str) -> dict[str, str]:
+    """Parse the whole CompatToolMapping section: {appid: tool name}."""
     data = steammod.loads_kv1(text)
     if data is not None:
         try:
-            entry = data["InstallConfigStore"]["Software"]["Valve"]["Steam"]["CompatToolMapping"][
-                str(appid)
-            ]
-            name = str(entry.get("name", "")).strip()
-            return name or None
+            section = data["InstallConfigStore"]["Software"]["Valve"]["Steam"]["CompatToolMapping"]
+            if isinstance(section, dict):
+                return {
+                    str(a): str(e.get("name", "")).strip()
+                    for a, e in section.items()
+                    if isinstance(e, dict) and str(e.get("name", "")).strip()
+                }
         except (KeyError, TypeError, AttributeError):
             pass
-    # stdlib fallback: find the appid block inside CompatToolMapping.
+    # stdlib fallback: every "appid" { "name" "tool" } pair in the section.
     region = text.find("CompatToolMapping")
     if region < 0:
-        return None
-    match = re.search(
-        r'"' + re.escape(str(appid)) + r'"\s*\{\s*"name"\s+"([^"]+)"',
-        text[region : region + 20000],
-    )
-    return match.group(1).strip() or None if match else None
+        return {}
+    out: dict[str, str] = {}
+    for match in re.finditer(r'"(\d+)"\s*\{\s*"name"\s+"([^"]+)"', text[region:]):
+        if match.group(2).strip():
+            out.setdefault(match.group(1), match.group(2).strip())
+    return out
 
 
 def tool_version(tool: str) -> str | None:
