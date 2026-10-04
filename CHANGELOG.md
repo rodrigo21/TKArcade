@@ -5,6 +5,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-04
+
 ### Changed
 - **BREAKING**: selecting a profile now affects the launch: the
   launcher runs the active profile's content, falling back to the
