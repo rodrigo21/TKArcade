@@ -23,5 +23,7 @@ Notes and limits:
 * Running an AppImage needs FUSE (`dev/fuse`). Without it, extract and
   run directly: `./TKSteamLaunch.AppImage --appimage-extract` then
   `./squashfs-root/AppRun --version`.
+* The bundle carries our `.desktop` file (needed by appimagetool
+  validation) alongside `.DirIcon`; both come from the repo.
 * Smoke test after building: `--version`, `--help`, and one
   `--dry-run --appid <id>` against a configured game.

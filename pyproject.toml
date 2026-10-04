@@ -31,6 +31,7 @@ pythonpath = ["src"]
 script = "tksteamlaunch"
 output = "TKSteamLaunch.AppImage"
 icon = "src/tksteamlaunch/icons/tksteamlaunch.svg"
+desktop-entry = "packaging/tksteamlaunch.desktop"
 
 [tool.ruff]
 target-version = "py312"
