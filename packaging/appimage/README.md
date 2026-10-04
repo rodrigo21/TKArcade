@@ -25,5 +25,9 @@ Notes and limits:
   `./squashfs-root/AppRun --version`.
 * The bundle carries our `.desktop` file (needed by appimagetool
   validation) alongside `.DirIcon`; both come from the repo.
+* System theme plugins (Breeze, qt6ct) cannot load against the bundled
+  Qt: inside an AppImage the GUI defaults to stock Fusion unless
+  `QT_STYLE_OVERRIDE` is set. Native packages use the system Qt and
+  follow the desktop theme.
 * Smoke test after building: `--version`, `--help`, and one
   `--dry-run --appid <id>` against a configured game.

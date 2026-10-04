@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+import os
 import sys
+
+
+def bundled_style() -> str:
+    """Style override for self-contained bundles (AppImage).
+
+    System theme plugins (Breeze, qt6ct, ...) build against the distro
+    Qt and cannot load in the bundled one, so default to stock Fusion
+    unless the user overrode the style explicitly.
+    """
+    if os.environ.get("APPIMAGE") and "QT_STYLE_OVERRIDE" not in os.environ:
+        return "Fusion"
+    return ""
 
 
 def single_instance(name: str = "tksteamlaunch-gui"):
@@ -35,6 +48,9 @@ def main() -> int:
     from . import icons as iconsmod
     from .main_window import MainWindow
 
+    style = bundled_style()
+    if style:
+        QApplication.setStyle(style)
     app = QApplication(sys.argv[1:])
     app.setApplicationName("TKSteamLaunch")
     app.setOrganizationName("TKSteamLaunch")

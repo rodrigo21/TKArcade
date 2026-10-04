@@ -2194,3 +2194,15 @@ def test_app_icons_are_font_free():
         text = (icons / name).read_text()
         assert "<text" not in text and "font-family" not in text
         assert text.index("<svg") == 0
+
+
+def test_bundled_style_only_inside_appimage(monkeypatch):
+    from tksteamlaunch.gui import app as appmod
+
+    monkeypatch.delenv("APPIMAGE", raising=False)
+    monkeypatch.delenv("QT_STYLE_OVERRIDE", raising=False)
+    assert appmod.bundled_style() == ""
+    monkeypatch.setenv("APPIMAGE", "/x/y.AppImage")
+    assert appmod.bundled_style() == "Fusion"
+    monkeypatch.setenv("QT_STYLE_OVERRIDE", "Windows")
+    assert appmod.bundled_style() == ""
