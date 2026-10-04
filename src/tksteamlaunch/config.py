@@ -195,7 +195,7 @@ def _to_toml_value(obj) -> dict:
 
 def to_toml_dict(cfg: GameConfig) -> dict:
     data = {
-        "general": _to_toml_value(cfg.general),
+        "general": {"config_version": CONFIG_VERSION, **_to_toml_value(cfg.general)},
         "env": {"vars": dict(cfg.env.vars)},
         "pre_post": _to_toml_value(cfg.pre_post),
         "gamemode": _to_toml_value(cfg.gamemode),
@@ -418,6 +418,13 @@ def load_with_warning(appid: str) -> tuple[GameConfig, str | None]:
             f"The saved settings for this game could not be read: {e}\n"
             "Showing built-in defaults instead. Saving will overwrite the file."
         )
+    except ConfigVersionError as e:
+        fresh = GameConfig()
+        fresh.general.appid = appid
+        return fresh, (
+            f"The saved settings need a newer TKSteamLaunch ({e}).\n"
+            "Showing built-in defaults instead. Saving will overwrite the file."
+        )
     err = toml_error(path)
     if err:
         return cfg, (
@@ -454,6 +461,7 @@ def save_defaults(cfg: GameConfig) -> Path:
 SECTION_KEYS: dict[str, set[str]] = {
     "general": {
         "appid",
+        "config_version",
         "custom_executable",
         "game_type",
         "show_menu",
@@ -480,6 +488,18 @@ SECTION_KEYS: dict[str, set[str]] = {
 
 def _section_known_keys(section: str) -> set[str]:
     return SECTION_KEYS.get(section, set())
+
+
+def _ensure_version(data: dict) -> None:
+    """Reject configs newer than this build (loud, never silent)."""
+    general = data.get("general", {})
+    version = general.get("config_version", 0) if isinstance(general, dict) else 0
+    try:
+        version = int(version)
+    except (TypeError, ValueError):
+        return  # malformed stamp: tolerant load, same as unknown keys
+    if version > CONFIG_VERSION:
+        raise ConfigVersionError(version)
 
 
 def _collect_extra(data: dict, extra: dict) -> None:
@@ -528,7 +548,22 @@ def _str_list(value: object) -> list[str]:
     return [str(x) for x in value] if isinstance(value, (list, tuple)) else []
 
 
+class ConfigVersionError(Exception):
+    """Config file needs a newer TKSteamLaunch than this one."""
+
+    def __init__(self, version: object) -> None:
+        super().__init__(f"config version {version} is newer than supported 1")
+        self.version = version
+
+
+#: Config schema version, stamped on every save. Missing stamp means
+#: pre-versioning (treated as current shape). Newer stamps never load
+#: silently: callers fall back loudly instead of resetting user data.
+CONFIG_VERSION = 1
+
+
 def _build(data: dict, cfg: GameConfig) -> GameConfig:
+    _ensure_version(data)
     _collect_extra(data, cfg.extra)
 
     g = _section(data, "general")
@@ -665,7 +700,13 @@ def load_effective(appid: str) -> GameConfig:
     selection must never resolve to template defaults: the check requires
     the profile file to exist and parse.
     """
-    cfg = load(appid)
+    try:
+        cfg = load(appid)
+    except ConfigVersionError as e:
+        log.error("game config needs a newer app (%s); launching built-in defaults", e)
+        cfg = GameConfig()
+        cfg.general.appid = appid
+        return cfg
     name = cfg.general.active_profile
     if not name:
         return cfg
@@ -676,7 +717,11 @@ def load_effective(appid: str) -> GameConfig:
     if toml_error(path) is not None:
         log.warning("profile %r for %s is unreadable; launching live config", name, appid)
         return cfg
-    prof = load_profile(appid, name)
+    try:
+        prof = load_profile(appid, name)
+    except ConfigVersionError as e:
+        log.error("profile %r for %s needs a newer app (%s); launching live", name, appid, e)
+        return cfg
     prof.general.appid = appid
     log.info("launching with profile %r for %s", name, appid)
     return prof

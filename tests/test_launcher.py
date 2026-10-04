@@ -371,3 +371,18 @@ def test_validate_bad_display_mode(xdg_env):
     cfg.display.mode = "1920x1080@60"
     C.save(cfg)
     assert not any("display mode" in i for i in L.validate_game("34"))
+
+
+def test_validate_newer_config_version(xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "35"
+    C.save(cfg)
+    C.game_file("35").write_text(
+        C.game_file("35").read_text().replace("config_version = 1", "config_version = 99"),
+        encoding="utf-8",
+    )
+    issues = L.validate_game("35")
+    assert any("newer" in i for i in issues)

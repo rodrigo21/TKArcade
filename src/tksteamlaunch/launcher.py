@@ -346,7 +346,10 @@ def validate_game(appid: str) -> list[str]:
                 tomllib.load(f)
         except (OSError, tomllib.TOMLDecodeError) as e:
             return [f"{appid}: invalid TOML ({e}); built-in defaults apply"]
-    cfg = cfgmod.load(appid)
+    try:
+        cfg = cfgmod.load(appid)
+    except cfgmod.ConfigVersionError as e:
+        return [f"{appid}: config needs a newer TKSteamLaunch ({e})"]
 
     sel = cfg.general.active_profile
     if sel:

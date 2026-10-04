@@ -13,6 +13,12 @@ Breaking config changes are called out explicitly under `Changed`.
 - Movable game-list columns (drag the header) with a header context
   menu to show/hide columns (Game always on) and reset to the
   Game | App ID | Played | ProtonDB default; layout persists.
+
+### Changed
+- Config files carry a `config_version` stamp (current: 1). Files from
+  the future fail loudly (dialog warning, launcher fallback with an
+  error, validate issue) instead of silently resetting; pre-stamp
+  files load as before.
 - Tray quick-launch: recent games section (steam:// URLs, 1-10
   configurable) with Preferences toggle and count.
 

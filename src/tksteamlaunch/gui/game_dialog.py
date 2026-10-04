@@ -189,13 +189,7 @@ class GameDialog(QDialog):
         self._active_profile = saved_profile
         if saved_profile:
             # Open directly into the persisted profile content, not live.
-            try:
-                self.cfg = cfgmod.load_profile(appid, saved_profile)
-                self.cfg.general.appid = appid
-            except OSError as e:
-                err = f"unreadable: {e}"
-            else:
-                err = cfgmod.toml_error(cfgmod.profile_file(appid, saved_profile))
+            err = self._read_profile(saved_profile)
             if err:
                 self._load_warning = (
                     f'The profile "{saved_profile}" could not be read: {err}\n'
@@ -816,6 +810,17 @@ class GameDialog(QDialog):
             return True
         return answer == QMessageBox.StandardButton.Discard
 
+    def _read_profile(self, name: str) -> str | None:
+        """Load a profile into self.cfg; return problem text or None."""
+        try:
+            self.cfg = cfgmod.load_profile(self.appid, name)
+            self.cfg.general.appid = self.appid
+        except OSError as e:
+            return f"unreadable: {e}"
+        except cfgmod.ConfigVersionError as e:
+            return str(e)
+        return cfgmod.toml_error(cfgmod.profile_file(self.appid, name))
+
     def _on_profile_switch(self) -> None:
         name = str(self.cb_profile.currentData() or "")
         if name == self._active_profile:
@@ -825,13 +830,7 @@ class GameDialog(QDialog):
             return
         self._active_profile = name
         if name:
-            try:
-                self.cfg = cfgmod.load_profile(self.appid, name)
-                self.cfg.general.appid = self.appid
-            except OSError as e:
-                err = f"unreadable: {e}"
-            else:
-                err = cfgmod.toml_error(cfgmod.profile_file(self.appid, name))
+            err = self._read_profile(name)
             self._load_warning = (
                 f'The profile "{name}" could not be read: {err}\nShowing defaults for it instead.'
                 if err
@@ -859,7 +858,13 @@ class GameDialog(QDialog):
         self._refresh_profiles()
         src = str(self.cb_profile.currentData() or "")
         if src:
-            cfg = cfgmod.load_profile(self.appid, src)
+            try:
+                cfg = cfgmod.load_profile(self.appid, src)
+            except (OSError, cfgmod.ConfigVersionError) as e:
+                QMessageBox.warning(
+                    self, "TKSteamLaunch", f'Profile "{src}" could not be read: {e}'
+                )
+                return
         else:
             go = QMessageBox.question(
                 self,

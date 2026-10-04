@@ -519,3 +519,56 @@ def test_tray_quick_prefs_roundtrip(xdg_env):
     prefs.tray_quick_count = 0
     C.save_preferences(prefs)
     assert C.load_preferences().tray_quick_count == 1
+
+
+def test_config_version_stamped_and_legacy_loads(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "190"
+    C.save(cfg)
+    assert "config_version = 1" in C.game_file("190").read_text()
+    C.game_file("191").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("191").write_text('[general]\nappid = "191"\n', encoding="utf-8")
+    assert C.load("191").general.appid == "191"  # pre-versioning loads as-is
+
+
+def test_config_version_newer_raises(xdg_env):
+    C.game_file("192").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("192").write_text(
+        '[general]\nappid = "192"\nconfig_version = 99\n', encoding="utf-8"
+    )
+    try:
+        C.load("192")
+    except C.ConfigVersionError as e:
+        assert "99" in str(e)
+    else:
+        raise AssertionError("newer config must raise")
+    cfg, warning = C.load_with_warning("192")
+    assert cfg.general.appid == "192" and warning and "newer" in warning
+
+
+def test_load_effective_newer_falls_back(xdg_env):
+    live = C.GameConfig()
+    live.general.appid = "193"
+    live.pre_post.pre_command = "/live.sh"
+    C.save(live)
+    C.game_file("193").write_text(
+        C.game_file("193").read_text().replace("config_version = 1", "config_version = 99"),
+        encoding="utf-8",
+    )
+    assert C.load_effective("193").pre_post.pre_command == ""
+    prof = C.GameConfig()
+    prof.general.appid = "194"
+    C.save(prof)
+    C.save_profile("194", "p1", prof)
+    C.profile_file("194", "p1").write_text(
+        C.profile_file("194", "p1")
+        .read_text()
+        .replace("config_version = 1", "config_version = 99"),
+        encoding="utf-8",
+    )
+    live2 = C.GameConfig()
+    live2.general.appid = "194"
+    live2.pre_post.pre_command = "/live.sh"
+    live2.general.active_profile = "p1"
+    C.save(live2)
+    assert C.load_effective("194").pre_post.pre_command == "/live.sh"
