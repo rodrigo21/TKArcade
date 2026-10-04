@@ -637,3 +637,43 @@ def test_clone_game(xdg_env):
         pass
     else:
         raise AssertionError("missing source accepted")
+
+
+def test_clone_replaces_dest_profiles(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "206"
+    C.save(cfg)
+    C.save_profile("206", "p1", cfg)
+    stale = C.GameConfig()
+    stale.general.appid = "207"
+    C.save(stale)
+    C.save_profile("207", "stale", stale)
+    C.clone_game("206", "207")
+    assert C.list_profiles("207") == ["p1"]
+
+
+def test_export_skips_nested_profile_junk(xdg_env, tmp_path):
+    import tarfile
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "208"
+    C.save(cfg)
+    C.save_profile("208", "p1", cfg)
+    nested = C.profiles_dir("208") / "deep" / "x.toml"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("[general]\n")
+    dest = tmp_path / "b.tar.gz"
+    C.export_configs(dest)
+    with tarfile.open(dest, "r:gz") as tar:
+        assert "profiles/208/deep/x.toml" not in tar.getnames()
+        assert "profiles/208/p1.toml" in tar.getnames()
+
+
+def test_appid_paths_cannot_escape(xdg_env):
+    from tksteamlaunch import xdg as xdgmod
+    from tksteamlaunch.launcher import proton_log_dir
+
+    for bad in ("../../evil", "/abs", "a/b", ""):
+        assert xdgmod.game_log_file(bad).parent == xdgmod.games_log_dir()
+        assert ".." not in proton_log_dir(bad).parts[-3:]
+        assert C.game_file(bad).parent == C.xdg.games_dir()

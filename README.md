@@ -42,8 +42,11 @@ entry per run in `launcher.log`.
 
 **Main window** — filter by name/App ID (or issues only); drag column
 headers to reorder, right-click them to show/hide columns; right-click
-a row for Edit/Copy/Open/Validate/Remove (multi-select works for Remove
-and Reset); double-click the ProtonDB rating to open its page; the tray
+a row for Edit/Copy/Open/Validate/Clone/Remove (multi-select works for
+Remove and Reset, multi shows only multi-game actions); Scan Library
+batch-adds unconfigured Steam games; Clear Shader Cache per game;
+double-click the ProtonDB rating to open its page; the Played column
+totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.
 
 **Game dialog** — tabs for General, Environment (variables + curated

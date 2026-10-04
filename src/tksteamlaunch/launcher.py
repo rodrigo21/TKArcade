@@ -117,7 +117,7 @@ def write_global_log(
 
 def proton_log_dir(appid: str) -> Path:
     """Directory for PROTON_LOG output of one game (created at launch)."""
-    safe = (appid or "").strip() or "unknown"
+    safe = xdg.safe_stem((appid or "").strip())
     return xdg.games_log_dir() / safe / "proton"
 
 

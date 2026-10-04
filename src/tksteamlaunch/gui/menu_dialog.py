@@ -117,7 +117,7 @@ class MenuDialog(QDialog):
             pass
         try:
             if self.appid:
-                wrappers = active_wrappers(cfgmod.load(self.appid))
+                wrappers = active_wrappers(cfgmod.load_effective(self.appid))
                 if wrappers:
                     parts.append(" · ".join(wrappers))
         except Exception:

@@ -10,6 +10,14 @@ Breaking config changes are called out explicitly under `Changed`.
   still rejected), and games clone live config plus profiles to
   another AppID ("Clone Settings To...", with overwrite confirm).
 
+### Fixed
+- Pre-launch menu shows the active profile's wrappers (it rendered
+  the live file while launching the profile).
+- Crafted AppIDs can no longer escape the log/proton-log dirs
+  (`safe_stem` centralized in xdg, applied to every AppID path).
+- Clone replaces (not merges) destination profiles; export skips
+  hand-placed nested profile junk the importer would refuse.
+
 ## [0.9.0] - 2026-10-04
 
 ### Added

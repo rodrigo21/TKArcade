@@ -2231,3 +2231,26 @@ def test_clone_settings_to_game(qt_app, xdg_env, monkeypatch):
     w._clone_game_to("204")
     assert infos  # same source/target refused
     w.close()
+
+
+def test_menu_shows_effective_profile_wrappers(qt_app, xdg_env, monkeypatch, tmp_path):
+    import os
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.menu_dialog import MenuDialog
+
+    live = C.GameConfig()
+    live.general.appid = "210"
+    live.general.active_profile = "p1"
+    C.save(live)
+    prof = C.GameConfig()
+    prof.general.appid = "210"
+    prof.gamemode.feral_gamemode = True
+    C.save_profile("210", "p1", prof)
+    fake = tmp_path / "gamemoderun"
+    fake.write_text("#!/bin/sh\nexit 0\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    m = MenuDialog(None, "210", "Menu Game")
+    assert "GameMode" in m._detail_lines()  # from the profile, not live
+    m.close()

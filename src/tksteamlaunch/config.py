@@ -302,17 +302,13 @@ def _write_atomic(path: Path, text: str) -> None:
 def game_file(appid: str) -> Path:
     """Config path for an AppID. The stem is sanitized so crafted AppIDs
     (e.g. from manual GUI input) cannot escape games_dir()."""
-    return xdg.games_dir() / f"{_safe_stem(appid)}.toml"
-
-
-def _safe_stem(name: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._") or "unknown"
+    return xdg.games_dir() / f"{xdg.safe_stem(appid)}.toml"
 
 
 def profiles_dir(appid: str = "") -> Path:
     """Profiles base dir, or per-game dir when appid is given."""
     base = xdg.app_config_dir() / "profiles"
-    return base / _safe_stem(appid) if appid else base
+    return base / xdg.safe_stem(appid) if appid else base
 
 
 def list_profiles(appid: str) -> list[str]:
@@ -323,7 +319,7 @@ def list_profiles(appid: str) -> list[str]:
 
 
 def profile_file(appid: str, name: str) -> Path:
-    return profiles_dir(appid) / f"{_safe_stem(name)}.toml"
+    return profiles_dir(appid) / f"{xdg.safe_stem(name)}.toml"
 
 
 def load_profile(appid: str, name: str) -> GameConfig:
@@ -355,7 +351,7 @@ def clone_game(src_appid: str, dest_appid: str) -> None:
     """
     import shutil
 
-    src, dest = _safe_stem(src_appid), _safe_stem(dest_appid)
+    src, dest = xdg.safe_stem(src_appid), xdg.safe_stem(dest_appid)
     if not src or not dest or src == dest:
         raise ValueError(f"invalid clone: {src_appid!r} -> {dest_appid!r}")
     live = game_file(src)
@@ -364,7 +360,9 @@ def clone_game(src_appid: str, dest_appid: str) -> None:
     shutil.copyfile(live, game_file(dest))
     profiles = profiles_dir(src)
     if profiles.is_dir():
-        shutil.copytree(profiles, profiles_dir(dest), dirs_exist_ok=True)
+        dest_profiles = profiles_dir(dest)
+        shutil.rmtree(dest_profiles, ignore_errors=True)
+        shutil.copytree(profiles, dest_profiles)
 
 
 def orphaned_profiles() -> list[tuple[str, int]]:
@@ -817,8 +815,9 @@ def export_configs(dest: str | Path) -> Path:
         profiles = profiles_dir()
         if profiles.is_dir():
             for path in sorted(profiles.rglob("*.toml")):
-                if path.is_file():
-                    tar.add(path, arcname=f"profiles/{path.relative_to(profiles).as_posix()}")
+                rel = path.relative_to(profiles)
+                if len(rel.parts) == 2 and path.is_file():
+                    tar.add(path, arcname=f"profiles/{rel.as_posix()}")
     return dest
 
 

@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
+
+
+def safe_stem(name: str) -> str:
+    """Filesystem-safe stem: crafted AppIDs cannot escape their dir."""
+    return re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._") or "unknown"
 
 
 def _env_home(name: str, default: str) -> Path:
@@ -50,7 +56,7 @@ def games_log_dir() -> Path:
 
 
 def game_log_file(appid: str) -> Path:
-    return games_log_dir() / f"{appid}.log"
+    return games_log_dir() / f"{safe_stem(appid)}.log"
 
 
 def defaults_file() -> Path:
