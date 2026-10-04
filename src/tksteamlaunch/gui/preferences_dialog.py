@@ -17,7 +17,7 @@ from .. import config as cfgmod
 class PreferencesDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Preferences")
+        self.setWindowTitle(self.tr("Preferences"))
         self.resize(420, 280)
         self.prefs = cfgmod.load_preferences()
 
@@ -25,33 +25,33 @@ class PreferencesDialog(QDialog):
         form = QFormLayout()
         layout.addLayout(form)
 
-        self.c_show_preview = QCheckBox("Show launch command preview")
-        self.c_show_preview.setToolTip("Live preview box at the bottom of game dialogs.")
+        self.c_show_preview = QCheckBox(self.tr("Show launch command preview"))
+        self.c_show_preview.setToolTip(self.tr("Live preview box at the bottom of game dialogs."))
         self.c_show_preview.setChecked(self.prefs.show_preview)
         form.addRow("", self.c_show_preview)
 
-        self.c_tray = QCheckBox("Enable status bar icon")
-        self.c_tray.setToolTip("Keep TKSteamLaunch in the system tray.")
+        self.c_tray = QCheckBox(self.tr("Enable status bar icon"))
+        self.c_tray.setToolTip(self.tr("Keep TKSteamLaunch in the system tray."))
         self.c_tray.setChecked(self.prefs.tray_enable)
         self.c_tray.toggled.connect(self._update_tray_state)
         form.addRow("", self.c_tray)
 
         self.cb_tray_icon = QComboBox()
-        self.cb_tray_icon.addItem("Normal", "normal")
-        self.cb_tray_icon.addItem("Monochrome", "mono")
+        self.cb_tray_icon.addItem(self.tr("Normal"), "normal")
+        self.cb_tray_icon.addItem(self.tr("Monochrome"), "mono")
         self.cb_tray_icon.setCurrentIndex(0 if self.prefs.tray_icon == "normal" else 1)
-        form.addRow("Tray icon style:", self.cb_tray_icon)
+        form.addRow(self.tr("Tray icon style:"), self.cb_tray_icon)
 
-        self.c_minimize = QCheckBox("Minimize to tray")
+        self.c_minimize = QCheckBox(self.tr("Minimize to tray"))
         self.c_minimize.setChecked(self.prefs.minimize_to_tray)
         form.addRow("", self.c_minimize)
 
-        self.c_close = QCheckBox("Close to tray")
+        self.c_close = QCheckBox(self.tr("Close to tray"))
         self.c_close.setChecked(self.prefs.close_to_tray)
         form.addRow("", self.c_close)
 
-        self.c_quick = QCheckBox("Show recent games in tray menu")
-        self.c_quick.setToolTip("Launch recent games through Steam (steam:// URL).")
+        self.c_quick = QCheckBox(self.tr("Show recent games in tray menu"))
+        self.c_quick.setToolTip(self.tr("Launch recent games through Steam (steam:// URL)."))
         self.c_quick.setChecked(self.prefs.tray_quick_launch)
         self.c_quick.toggled.connect(self._update_tray_state)
         form.addRow("", self.c_quick)
@@ -61,17 +61,17 @@ class PreferencesDialog(QDialog):
         self.s_quick_count = QSpinBox()
         self.s_quick_count.setRange(1, 10)
         self.s_quick_count.setValue(self.prefs.tray_quick_count)
-        self.s_quick_count.setToolTip("How many recent games to list.")
-        form.addRow("Recent games:", self.s_quick_count)
+        self.s_quick_count.setToolTip(self.tr("How many recent games to list."))
+        form.addRow(self.tr("Recent games:"), self.s_quick_count)
         self._update_tray_state()
 
         from PySide6.QtWidgets import QLineEdit
 
         self.e_sgdb = QLineEdit(self.prefs.sgdb_api_key)
         self.e_sgdb.setEchoMode(QLineEdit.EchoMode.Password)
-        self.e_sgdb.setPlaceholderText("Free key from steamgriddb.com")
-        self.e_sgdb.setToolTip("SteamGridDB API key for missing artwork fallback.")
-        form.addRow("SteamGridDB key:", self.e_sgdb)
+        self.e_sgdb.setPlaceholderText(self.tr("Free key from steamgriddb.com"))
+        self.e_sgdb.setToolTip(self.tr("SteamGridDB API key for missing artwork fallback."))
+        form.addRow(self.tr("SteamGridDB key:"), self.e_sgdb)
 
         btns = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         btns.accepted.connect(self.accept)

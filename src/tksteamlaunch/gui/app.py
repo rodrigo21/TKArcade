@@ -54,6 +54,9 @@ def main() -> int:
     app = QApplication(sys.argv[1:])
     app.setApplicationName("TKSteamLaunch")
     app.setOrganizationName("TKSteamLaunch")
+    from .helpers import install_translations
+
+    install_translations(app)
     app.setWindowIcon(iconsmod.app_icon())
     server = single_instance()
     if server is None:

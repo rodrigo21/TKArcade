@@ -2441,3 +2441,26 @@ def test_dip_slider_roundtrip(qt_app, xdg_env):
     d.accept()
     assert C.load("171").display.dip_seconds == 6
     d.close()
+
+
+def test_translations_load_pt_br(qt_app, monkeypatch):
+    from PySide6.QtCore import QCoreApplication, QLocale
+
+    from tksteamlaunch.gui import helpers as helpersmod
+
+    monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("pt_BR")))
+    app = qt_app
+    assert helpersmod.install_translations(app) == "pt_BR"
+    assert QCoreApplication.translate("MainWindow", "Games") == "Jogos"
+    assert QCoreApplication.translate("GameDialog", "Save As...") == "Salvar como..."
+    assert QCoreApplication.translate("MainWindow", "Nope") == "Nope"
+    app.removeTranslator(helpersmod._translators.pop())
+
+
+def test_translations_unknown_locale_loads_nothing(qt_app, monkeypatch):
+    from PySide6.QtCore import QLocale
+
+    from tksteamlaunch.gui import helpers as helpersmod
+
+    monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("xx_YY")))
+    assert helpersmod.install_translations(qt_app) == ""

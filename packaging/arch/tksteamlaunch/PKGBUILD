@@ -8,7 +8,7 @@ arch=('any')
 url='https://github.com/rodrigo21/TKSteamLaunch'
 license=('GPL-3.0-or-later')
 depends=('hicolor-icon-theme' 'python' 'pyside6' 'python-vdf' 'python-jeepney')
-makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-uv-dynamic-versioning')
+makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-uv-dynamic-versioning' 'qt6-tools')
 checkdepends=('python-pytest')
 optdepends=('gamemode: Feral GameMode support'
             'gamescope: Gamescope session support'

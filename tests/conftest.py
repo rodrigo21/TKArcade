@@ -10,6 +10,12 @@ if os.environ.get("TKSTEAMLAUNCH_TEST_GUI") != "1":
     # debugging with TKSTEAMLAUNCH_TEST_GUI=1.
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
+if os.environ.get("TKSTEAMLAUNCH_TEST_LOCALE") != "1":
+    # Pin the suite to English: installed translators follow the system
+    # locale, and most tests assert source strings. Opt out with
+    # TKSTEAMLAUNCH_TEST_LOCALE=1 (tests then depend on your locale).
+    os.environ["LC_ALL"] = "C"
+
 
 @pytest.fixture(scope="module")
 def qt_app():

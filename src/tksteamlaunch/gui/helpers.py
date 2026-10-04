@@ -6,8 +6,45 @@ import os
 import shutil
 import subprocess
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QLocale, QTranslator, QUrl
 from PySide6.QtGui import QDesktopServices
+
+_translators: list = []  # kept alive: Qt unloads GC'd translators
+
+
+def install_translations(app) -> str:
+    """Install the matching bundled translator (pt_BR today), if any.
+
+    Returns the loaded locale name or "". English (and unknown locales)
+    run untranslated. Safe to call repeatedly; loading twice is a no-op.
+    """
+    from importlib import resources
+
+    locale = QLocale.system().name()
+    candidates = [locale]
+    if "_" in locale:
+        candidates.append(locale.split("_")[0])
+    try:
+        pkg_files = resources.files("tksteamlaunch.translations")
+    except Exception:
+        return ""
+    for lang in candidates:
+        name = f"tksteamlaunch_{lang}.qm"
+        try:
+            ref = pkg_files.joinpath(name)
+            if not ref.is_file():
+                continue
+            with resources.as_file(ref) as path:
+                translator = QTranslator()
+                if not translator.load(str(path)):
+                    continue
+        except Exception:
+            continue
+        if not any(t.language() == translator.language() for t in _translators):
+            app.installTranslator(translator)
+            _translators.append(translator)
+            return lang
+    return ""
 
 
 def open_path(path: str) -> bool:

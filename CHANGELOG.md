@@ -6,6 +6,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- GUI translations via Qt Linguist, starting with PT-BR (351 strings;
+  CLI stays English). New UI strings require `tr()` (enforced by test).
+
+### Added
 - Display dip delay slider (3-15 s, per game) for the same-mode
   VRAM clock workaround.
 - Display same-mode workaround for the AMD VRAM clock bug: requesting

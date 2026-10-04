@@ -37,7 +37,7 @@ class MenuDialog(QDialog):
         self.name = name
         self.launch_requested = False
         self._remaining = max(0, int(timeout or 0))
-        self.setWindowTitle(f"TKSteamLaunch — {name or appid or 'game'}")
+        self.setWindowTitle(self.tr(f"TKSteamLaunch — {name or appid or 'game'}"))
         self.setMinimumWidth(480)
 
         layout = QVBoxLayout(self)
@@ -58,7 +58,8 @@ class MenuDialog(QDialog):
             )
         head.addWidget(icon_label)
         info_lines = [f"{name} ({appid})" if name and appid else (name or appid or "—")]
-        info_lines.append(f"Proton: {protonmod.tool_display(appid) if appid else '—'}")
+        proton = protonmod.tool_display(appid) if appid else "—"
+        info_lines.append(self.tr(f"Proton: {proton}"))
         extra = self._detail_lines()
         if extra:
             info_lines.append(extra)
@@ -72,11 +73,11 @@ class MenuDialog(QDialog):
 
         btns = QDialogButtonBox()
         btns.setCenterButtons(True)
-        self.b_launch = btns.addButton("Launch", QDialogButtonBox.ButtonRole.AcceptRole)
+        self.b_launch = btns.addButton(self.tr("Launch"), QDialogButtonBox.ButtonRole.AcceptRole)
         self.b_launch.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
         if can_launch:
             self.b_launch.setDefault(True)
-        b_settings = btns.addButton("Settings...", QDialogButtonBox.ButtonRole.ActionRole)
+        b_settings = btns.addButton(self.tr("Settings..."), QDialogButtonBox.ButtonRole.ActionRole)
         b_settings.setIcon(QIcon.fromTheme("configure"))
         if b_settings.icon().isNull():
             b_settings.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton))
@@ -85,7 +86,7 @@ class MenuDialog(QDialog):
         btns.rejected.connect(self.reject)
         if not can_launch:
             self.b_launch.setEnabled(False)
-            self.b_launch.setToolTip("No game command to run")
+            self.b_launch.setToolTip(self.tr("No game command to run"))
         self.b_launch.clicked.connect(self._on_launch)
         layout.addWidget(btns)
 
@@ -109,10 +110,8 @@ class MenuDialog(QDialog):
             sessions = histmod.parse_log(xdg.log_file())
             stats = histmod.summarize(sessions).get(self.appid or "")
             if stats is not None and stats.runs:
-                parts.append(
-                    f"Played {notify_backend.format_duration(stats.total_dur)} "
-                    f"over {stats.runs} session(s)"
-                )
+                dur = notify_backend.format_duration(stats.total_dur)
+                parts.append(self.tr(f"Played {dur} over {stats.runs} session(s)"))
         except Exception:
             pass
         try:
@@ -126,7 +125,8 @@ class MenuDialog(QDialog):
 
     def _update_countdown(self) -> None:
         self._count_label.setVisible(self._remaining > 0)
-        self._count_label.setText(f"Launching in {self._remaining}…" if self._remaining > 0 else "")
+        text = self.tr(f"Launching in {self._remaining}…") if self._remaining > 0 else ""
+        self._count_label.setText(text)
 
     def _tick(self) -> None:
         self._remaining -= 1

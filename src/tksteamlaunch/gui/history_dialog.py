@@ -21,12 +21,18 @@ from ..backends.notify import format_duration
 class HistoryDialog(QDialog):
     def __init__(self, parent) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Session History")
+        self.setWindowTitle(self.tr("Session History"))
         self.resize(640, 400)
         layout = QVBoxLayout(self)
         table = QTableWidget(0, 5)
         table.setHorizontalHeaderLabels(
-            ["Game", "Last played", "Sessions", "Total time", "Failures"]
+            [
+                self.tr("Game"),
+                self.tr("Last played"),
+                self.tr("Sessions"),
+                self.tr("Total time"),
+                self.tr("Failures"),
+            ]
         )
         table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -35,9 +41,13 @@ class HistoryDialog(QDialog):
         self._reload()
         btns = QDialogButtonBox(QDialogButtonBox.Close)
         btns.rejected.connect(self.reject)
-        clear = btns.addButton("Clear History...", QDialogButtonBox.ButtonRole.DestructiveRole)
+        clear = btns.addButton(
+            self.tr("Clear History..."), QDialogButtonBox.ButtonRole.DestructiveRole
+        )
         clear.clicked.connect(self._clear)
-        clear_sel = btns.addButton("Clear Selected", QDialogButtonBox.ButtonRole.ActionRole)
+        clear_sel = btns.addButton(
+            self.tr("Clear Selected"), QDialogButtonBox.ButtonRole.ActionRole
+        )
         clear_sel.clicked.connect(self._clear_selected)
         layout.addWidget(btns)
 
@@ -76,7 +86,7 @@ class HistoryDialog(QDialog):
         answer = QMessageBox.question(
             self,
             "TKSteamLaunch",
-            f"Clear history for {len(appids)} game(s)? This cannot be undone.",
+            self.tr(f"Clear history for {len(appids)} game(s)? This cannot be undone."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -97,7 +107,7 @@ class HistoryDialog(QDialog):
         answer = QMessageBox.question(
             self,
             "TKSteamLaunch",
-            "Clear all session history? This cannot be undone.",
+            self.tr("Clear all session history? This cannot be undone."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -106,6 +116,6 @@ class HistoryDialog(QDialog):
         try:
             xdg.log_file().write_text("", encoding="utf-8")
         except OSError as e:
-            QMessageBox.warning(self, "TKSteamLaunch", f"Could not clear history: {e}")
+            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not clear history: {e}"))
             return
         self._reload()

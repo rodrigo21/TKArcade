@@ -36,12 +36,16 @@ def _ensure_qapp(tool: str) -> bool:
 
 def pick_game_appid() -> str:
     """Show a game picker dialog. Returns the AppID or '' when cancelled."""
+    from PySide6.QtCore import QCoreApplication
     from PySide6.QtWidgets import QApplication, QInputDialog
 
     from .. import config as cfgmod
     from .. import steam as steammod
 
-    app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
+    app = QApplication.instance() or QApplication(sys.argv)
+    from .helpers import install_translations
+
+    install_translations(app)
     names = {a: n for a, n in steammod.list_games()}
     configured = set(cfgmod.list_appids())
     entries = [(a, names.get(a, a)) for a in configured]
@@ -49,7 +53,14 @@ def pick_game_appid() -> str:
     if not entries:
         return ""
     labels = [f"{n} [{a}]" for a, n in entries]
-    choice, ok = QInputDialog.getItem(None, "Edit Game", "Game:", labels, 0, False)
+    choice, ok = QInputDialog.getItem(
+        None,
+        QCoreApplication.translate("edit", "Edit Game"),
+        QCoreApplication.translate("edit", "Game:"),
+        labels,
+        0,
+        False,
+    )
     if not ok or not choice:
         return ""
     for appid, _name in entries:
@@ -85,7 +96,10 @@ def main(argv: list[str] | None = None) -> int:
 
     from .. import steam as steammod
 
-    app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
+    app = QApplication.instance() or QApplication(sys.argv)
+    from .helpers import install_translations
+
+    install_translations(app)
     appid = (args.appid or "").strip()
     if not appid and args.pick:
         appid = pick_game_appid()

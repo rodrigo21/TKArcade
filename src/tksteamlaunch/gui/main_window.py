@@ -102,6 +102,8 @@ def _about_text() -> str:
     """About dialog body: versions, licenses, active file locations."""
     import platform
 
+    from PySide6.QtCore import QCoreApplication
+
     from .. import __version__
 
     try:
@@ -111,7 +113,9 @@ def _about_text() -> str:
         pyside_version, qVersion = "unknown", lambda: "unknown"
     lines = [
         f"TKSteamLaunch {__version__}",
-        "Minimal Steam launch wrapper. License: GPL-3.0-or-later.",
+        QCoreApplication.translate(
+            "MainWindow", "Minimal Steam launch wrapper. License: GPL-3.0-or-later."
+        ),
         "",
         f"Python {platform.python_version()} on {platform.system()}",
         f"PySide6 {pyside_version} (Qt {qVersion()})",
@@ -148,12 +152,12 @@ class _ScanDialog(QDialog):
 
     def __init__(self, parent, entries: list[tuple[str, str]]) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Add Games")
+        self.setWindowTitle(self.tr("Add Games"))
         self._entries = entries
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Steam games without a saved configuration:"))
+        layout.addWidget(QLabel(self.tr("Steam games without a saved configuration:")))
         table = QTableWidget(len(entries), 3)
-        table.setHorizontalHeaderLabels(["", "Game", "App ID"])
+        table.setHorizontalHeaderLabels(["", self.tr("Game"), self.tr("App ID")])
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
         for row, (appid, name) in enumerate(entries):
@@ -166,7 +170,7 @@ class _ScanDialog(QDialog):
         self._table = table
         layout.addWidget(table)
         btns = QDialogButtonBox()
-        btns.addButton("Add Selected", QDialogButtonBox.ButtonRole.AcceptRole)
+        btns.addButton(self.tr("Add Selected"), QDialogButtonBox.ButtonRole.AcceptRole)
         btns.addButton(QDialogButtonBox.Cancel)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
@@ -187,12 +191,12 @@ class _ProfileCleanupDialog(QDialog):
 
     def __init__(self, parent, entries: list[tuple[str, str, int]]) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Clean Up Profiles")
+        self.setWindowTitle(self.tr("Clean Up Profiles"))
         self._entries = entries
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("These games were removed but still have saved profiles:"))
+        layout.addWidget(QLabel(self.tr("These games were removed but still have saved profiles:")))
         table = QTableWidget(len(entries), 3)
-        table.setHorizontalHeaderLabels(["", "Game", "Profiles"])
+        table.setHorizontalHeaderLabels(["", self.tr("Game"), self.tr("Profiles")])
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         for row, (appid, name, count) in enumerate(entries):
             check = QTableWidgetItem()
@@ -204,8 +208,8 @@ class _ProfileCleanupDialog(QDialog):
         self._table = table
         layout.addWidget(table)
         btns = QDialogButtonBox()
-        btns.addButton("Clean Selected", QDialogButtonBox.ButtonRole.AcceptRole)
-        btns.addButton("Keep All", QDialogButtonBox.ButtonRole.RejectRole)
+        btns.addButton(self.tr("Clean Selected"), QDialogButtonBox.ButtonRole.AcceptRole)
+        btns.addButton(self.tr("Keep All"), QDialogButtonBox.ButtonRole.RejectRole)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
@@ -249,25 +253,29 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
 
-        layout.addWidget(QLabel("Configured Games (double-click a game to edit its settings)"))
+        layout.addWidget(
+            QLabel(self.tr("Configured Games (double-click a game to edit its settings)"))
+        )
         filter_row = QHBoxLayout()
         self.filter_input = QLineEdit()
         self.filter_input.setObjectName("filter_input")
-        self.filter_input.setPlaceholderText("Filter by name or App ID...")
-        self.filter_input.setToolTip("Show only games whose name or App ID matches.")
+        self.filter_input.setPlaceholderText(self.tr("Filter by name or App ID..."))
+        self.filter_input.setToolTip(self.tr("Show only games whose name or App ID matches."))
         self.filter_input.setClearButtonEnabled(True)
         self.filter_input.textChanged.connect(self._apply_filter)
         filter_row.addWidget(self.filter_input, stretch=1)
-        self.issues_only = QCheckBox("With issues only")
+        self.issues_only = QCheckBox(self.tr("With issues only"))
         self.issues_only.setObjectName("issues_only")
         self.issues_only.setToolTip(
-            "Show only games failing validation (same checks as --validate)."
+            self.tr("Show only games failing validation (same checks as --validate).")
         )
         self.issues_only.toggled.connect(self._apply_filter)
         filter_row.addWidget(self.issues_only)
         layout.addLayout(filter_row)
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["Game", "App ID", "Played", "ProtonDB"])
+        self.table.setHorizontalHeaderLabels(
+            [self.tr("Game"), self.tr("App ID"), self.tr("Played"), self.tr("ProtonDB")]
+        )
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
@@ -292,15 +300,17 @@ class MainWindow(QMainWindow):
         self.empty_state = QWidget()
         self.empty_state.setObjectName("empty_state")
         empty_layout = QVBoxLayout(self.empty_state)
-        empty_title = QLabel("No games configured yet")
+        empty_title = QLabel(self.tr("No games configured yet"))
         empty_title.setObjectName("empty_title")
         self.empty_title = empty_title
         empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_title.setStyleSheet("font-weight: bold; font-size: 14pt;")
         empty_layout.addWidget(empty_title)
         empty_steps = QLabel(
-            "1. Add a Steam game below · 2. Edit its settings · "
-            "3. Set its Steam launch options to tksteamlaunch %command%"
+            self.tr(
+                "1. Add a Steam game below · 2. Edit its settings · "
+                "3. Set its Steam launch options to tksteamlaunch %command%"
+            )
         )
         empty_steps.setObjectName("empty_steps")
         self.empty_steps = empty_steps
@@ -309,19 +319,21 @@ class MainWindow(QMainWindow):
         empty_layout.addWidget(empty_steps)
         empty_btns = QHBoxLayout()
         empty_btns.addStretch(1)
-        self.empty_add = QPushButton("Add Game...")
+        self.empty_add = QPushButton(self.tr("Add Game..."))
         self.empty_add.setObjectName("empty_add")
-        self.empty_add.setToolTip("Pick a Steam game to configure.")
+        self.empty_add.setToolTip(self.tr("Pick a Steam game to configure."))
         self.empty_add.clicked.connect(self._add)
         empty_btns.addWidget(self.empty_add)
-        self.empty_import = QPushButton("Import...")
+        self.empty_import = QPushButton(self.tr("Import..."))
         self.empty_import.setObjectName("empty_import")
-        self.empty_import.setToolTip("Restore from an export tarball or SteamTinkerLaunch.")
+        self.empty_import.setToolTip(
+            self.tr("Restore from an export tarball or SteamTinkerLaunch.")
+        )
         self.empty_import.clicked.connect(self._import_configs)
         empty_btns.addWidget(self.empty_import)
-        self.empty_copy = QPushButton("Copy Launch Options")
+        self.empty_copy = QPushButton(self.tr("Copy Launch Options"))
         self.empty_copy.setObjectName("empty_copy")
-        self.empty_copy.setToolTip("Copy tksteamlaunch %command% for Steam.")
+        self.empty_copy.setToolTip(self.tr("Copy tksteamlaunch %command% for Steam."))
         self.empty_copy.clicked.connect(self._copy_launch)
         empty_btns.addWidget(self.empty_copy)
         empty_btns.addStretch(1)
@@ -341,40 +353,40 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(
             self._section_row(
-                "Games",
+                self.tr("Games"),
                 (
-                    ("Add Game...", self._add),
-                    ("Scan Library...", self._scan_library),
-                    ("Edit...", self._edit_selected),
-                    ("Remove", self._remove_selected),
-                    ("Reset...", self._reset_selected),
-                    ("History...", self._show_history),
+                    (self.tr("Add Game..."), self._add),
+                    (self.tr("Scan Library..."), self._scan_library),
+                    (self.tr("Edit..."), self._edit_selected),
+                    (self.tr("Remove"), self._remove_selected),
+                    (self.tr("Reset..."), self._reset_selected),
+                    (self.tr("History..."), self._show_history),
                 ),
             )
         )
         layout.addSpacing(4)
         layout.addWidget(
             self._section_row(
-                "Tools",
+                self.tr("Tools"),
                 (
-                    ("Copy Launch Options", self._copy_launch),
-                    ("Open Ludusavi...", self._open_ludusavi),
-                    ("Open Logs Folder", self._open_logs),
-                    ("Clean Profiles...", self._clean_profiles),
-                    ("Reload", self.refresh),
+                    (self.tr("Copy Launch Options"), self._copy_launch),
+                    (self.tr("Open Ludusavi..."), self._open_ludusavi),
+                    (self.tr("Open Logs Folder"), self._open_logs),
+                    (self.tr("Clean Profiles..."), self._clean_profiles),
+                    (self.tr("Reload"), self.refresh),
                 ),
             )
         )
         layout.addSpacing(4)
         layout.addWidget(
             self._section_row(
-                "Application",
+                self.tr("Application"),
                 (
-                    ("Global Defaults...", self._edit_defaults),
-                    ("Preferences...", self._edit_preferences),
-                    ("About...", self._show_about),
-                    ("Export...", self._export_configs),
-                    ("Import...", self._import_configs),
+                    (self.tr("Global Defaults..."), self._edit_defaults),
+                    (self.tr("Preferences..."), self._edit_preferences),
+                    (self.tr("About..."), self._show_about),
+                    (self.tr("Export..."), self._export_configs),
+                    (self.tr("Import..."), self._import_configs),
                 ),
             )
         )
@@ -451,17 +463,19 @@ class MainWindow(QMainWindow):
             st = stats.get(appid)
             if st is None:
                 played = _PlayedItem(-1, "—")
-                played.setToolTip("No recorded sessions")
+                played.setToolTip(self.tr("No recorded sessions"))
             else:
                 played = _PlayedItem(st.total_dur, format_duration(st.total_dur))
                 last = st.last.replace("T", " ")
-                played.setToolTip(f"{st.runs} sessions · last {last} · {st.fails} failures")
+                played.setToolTip(
+                    self.tr(f"{st.runs} sessions · last {last} · {st.fails} failures")
+                )
             self.table.setItem(row, 2, played)
             if not fresh:
                 need_fetch.append(appid)
         total_cfg = len(appids)
         total_steam = len(names)
-        self._base_status = f"{total_cfg} configured · {total_steam} Steam games detected"
+        self._base_status = self.tr(f"{total_cfg} configured · {total_steam} Steam games detected")
         self._issues_cache: dict[str, list[str]] = {}
         empty = not appids
         self.empty_state.setVisible(empty)
@@ -509,7 +523,7 @@ class MainWindow(QMainWindow):
                 shown += 1
         base = getattr(self, "_base_status", "")
         if query or only_issues:
-            self.status.setText(f"{base} · {shown} shown")
+            self.status.setText(self.tr(f"{base} · {shown} shown"))
         else:
             self.status.setText(base)
 
@@ -521,7 +535,9 @@ class MainWindow(QMainWindow):
             bg, fg = pdbmod.TIER_STYLE[tier]
             item.setBackground(QBrush(QColor(bg)))
             item.setForeground(QBrush(QColor(fg)))
-        item.setToolTip(f"{tier.title()} · {total} reports — double-click for protondb.com")
+        item.setToolTip(
+            self.tr(f"{tier.title()} · {total} reports — double-click for protondb.com")
+        )
         item.setData(Qt.ItemDataRole.UserRole, appid)
         self.table.setItem(row, 3, item)
 
@@ -579,7 +595,7 @@ class MainWindow(QMainWindow):
     def _show_about(self) -> None:
         from PySide6.QtWidgets import QMessageBox
 
-        QMessageBox.about(self, "About TKSteamLaunch", _about_text())
+        QMessageBox.about(self, self.tr("About TKSteamLaunch"), _about_text())
 
     def changeEvent(self, event) -> None:
         super().changeEvent(event)
@@ -637,7 +653,9 @@ class MainWindow(QMainWindow):
         from PySide6.QtCore import QUrl
 
         if not QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")):
-            QMessageBox.warning(self, "TKSteamLaunch", "Could not ask Steam to launch the game.")
+            QMessageBox.warning(
+                self, "TKSteamLaunch", self.tr("Could not ask Steam to launch the game.")
+            )
 
     def _refresh_tray_menu(self, menu=None) -> None:
         """Rebuild the tray menu, including the recent-games section."""
@@ -647,7 +665,7 @@ class MainWindow(QMainWindow):
         if menu is None:
             return
         menu.clear()
-        show_action = menu.addAction("Show / Hide")
+        show_action = menu.addAction(self.tr("Show / Hide"))
         show_action.triggered.connect(self._toggle_visible)
         prefs = cfgmod.load_preferences()
         if prefs.tray_quick_launch:
@@ -655,17 +673,17 @@ class MainWindow(QMainWindow):
             if recents:
                 menu.addSeparator()
                 for appid, name, total in recents:
-                    act = menu.addAction(f"{name} ({format_duration(total)})")
+                    act = menu.addAction(self.tr(f"{name} ({format_duration(total)})"))
                     act.triggered.connect(lambda _=False, a=appid: self._launch_steam(a))
         menu.addSeparator()
-        defaults_action = menu.addAction("Global Defaults...")
+        defaults_action = menu.addAction(self.tr("Global Defaults..."))
         defaults_action.triggered.connect(self._edit_defaults)
-        prefs_action = menu.addAction("Preferences...")
+        prefs_action = menu.addAction(self.tr("Preferences..."))
         prefs_action.triggered.connect(self._edit_preferences)
-        about_action = menu.addAction("About...")
+        about_action = menu.addAction(self.tr("About..."))
         about_action.triggered.connect(self._show_about)
         menu.addSeparator()
-        quit_action = menu.addAction("Quit")
+        quit_action = menu.addAction(self.tr("Quit"))
         app = QApplication.instance()
         if app is not None:
             quit_action.triggered.connect(app.quit)
@@ -736,7 +754,9 @@ class MainWindow(QMainWindow):
         """Column chooser (split out so tests skip modal exec)."""
         header = self.table.horizontalHeader()
         menu = QMenu(self)
-        for logical, title in enumerate(("Game", "App ID", "Played", "ProtonDB")):
+        for logical, title in enumerate(
+            (self.tr("Game"), self.tr("App ID"), self.tr("Played"), self.tr("ProtonDB"))
+        ):
             act = menu.addAction(title)
             act.setCheckable(True)
             act.setChecked(not header.isSectionHidden(logical))
@@ -747,7 +767,7 @@ class MainWindow(QMainWindow):
                     lambda checked, log=logical: self._set_column_visible(log, checked)
                 )
         menu.addSeparator()
-        menu.addAction("Reset Columns", lambda: self._reset_columns())
+        menu.addAction(self.tr("Reset Columns"), lambda: self._reset_columns())
         return menu
 
     def _header_context_menu(self, pos) -> None:
@@ -789,45 +809,54 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         sel = self._selected_appids() or [appid]
         multi = len(sel) > 1
-        menu.addAction("Copy Launch Options", lambda: self._copy_launch())
+        menu.addAction(self.tr("Copy Launch Options"), lambda: self._copy_launch())
         if not multi:
             name = self._names().get(appid, appid)
-            menu.addAction("Edit Settings", lambda: self._edit_selected(appid))
+            menu.addAction(self.tr("Edit Settings"), lambda: self._edit_selected(appid))
             menu.addSeparator()
-            menu.addAction("Copy App ID", lambda: self._copy_text(appid, "App ID"))
-            menu.addAction("Copy Game Name", lambda: self._copy_text(name, "Game name"))
+            menu.addAction(
+                self.tr("Copy App ID"), lambda: self._copy_text(appid, self.tr("App ID"))
+            )
+            menu.addAction(
+                self.tr("Copy Game Name"),
+                lambda: self._copy_text(name, self.tr("Game name")),
+            )
             menu.addSeparator()
             install = steammod.install_dir(appid)
-            act_install = menu.addAction("Open Install Folder")
+            act_install = menu.addAction(self.tr("Open Install Folder"))
             act_install.setEnabled(install is not None)
             if install is not None:
-                act_install.triggered.connect(lambda: self._open_folder(install, "install folder"))
+                act_install.triggered.connect(
+                    lambda: self._open_folder(install, self.tr("install folder"))
+                )
             prefix = steammod.prefix_dir(appid)
-            act_prefix = menu.addAction("Open Proton Prefix")
+            act_prefix = menu.addAction(self.tr("Open Proton Prefix"))
             act_prefix.setEnabled(prefix is not None)
             if prefix is not None:
-                act_prefix.triggered.connect(lambda: self._open_folder(prefix, "Proton prefix"))
+                act_prefix.triggered.connect(
+                    lambda: self._open_folder(prefix, self.tr("Proton prefix"))
+                )
             shaders = steammod.shader_dir(appid)
-            act_shaders = menu.addAction("Clear Shader Cache")
+            act_shaders = menu.addAction(self.tr("Clear Shader Cache"))
             act_shaders.setEnabled(shaders is not None)
             if shaders is not None:
                 act_shaders.triggered.connect(lambda: self._clear_shader_cache(appid))
-            menu.addAction("Open ProtonDB Page", lambda: self._open_protondb_page(appid))
-            menu.addAction("Validate Game", lambda: self._validate_selected(appid))
-            menu.addAction("Clear History", lambda: self._clear_game_history(appid))
-            menu.addAction("Clone Settings To...", lambda: self._clone_game_to(appid))
+            menu.addAction(self.tr("Open ProtonDB Page"), lambda: self._open_protondb_page(appid))
+            menu.addAction(self.tr("Validate Game"), lambda: self._validate_selected(appid))
+            menu.addAction(self.tr("Clear History"), lambda: self._clear_game_history(appid))
+            menu.addAction(self.tr("Clone Settings To..."), lambda: self._clone_game_to(appid))
             menu.addSeparator()
         n = len(sel)
         menu.addAction(
-            f"Remove {n} Game" if n == 1 else f"Remove {n} Games",
+            self.tr(f"Remove {n} Game") if n == 1 else self.tr(f"Remove {n} Games"),
             lambda: self._remove_selected(),
         )
-        menu.addAction("Reset to Global Defaults", lambda: self._reset_selected())
+        menu.addAction(self.tr("Reset to Global Defaults"), lambda: self._reset_selected())
         return menu
 
     def _open_folder(self, path, what: str) -> None:
         if not open_path(str(path)):
-            QMessageBox.warning(self, "TKSteamLaunch", f"Could not open {what}.")
+            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not open {what}."))
 
     def _clear_shader_cache(self, appid: str) -> None:
         """Delete a game's precompiled shaders (Steam rebuilds them)."""
@@ -838,7 +867,7 @@ class MainWindow(QMainWindow):
         r = QMessageBox.question(
             self,
             "TKSteamLaunch",
-            f"Delete {size} of shader cache for {appid}?\nSteam rebuilds it on demand.",
+            self.tr(f"Delete {size} of shader cache for {appid}?\nSteam rebuilds it on demand."),
         )
         if r != QMessageBox.StandardButton.Yes:
             return
@@ -847,7 +876,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
             return
-        self.status.setText(f"Cleared {size} of shader cache.")
+        self.status.setText(self.tr(f"Cleared {size} of shader cache."))
 
     def _validate_selected(self, appid: str) -> None:
         from ..launcher import validate_game
@@ -856,7 +885,7 @@ class MainWindow(QMainWindow):
         if issues:
             QMessageBox.warning(self, "TKSteamLaunch", "\n".join(issues))
         else:
-            QMessageBox.information(self, "TKSteamLaunch", "No issues found.")
+            QMessageBox.information(self, "TKSteamLaunch", self.tr("No issues found."))
 
     def _clear_game_history(self, appid: str) -> None:
         from .. import history as histmod
@@ -864,7 +893,7 @@ class MainWindow(QMainWindow):
         r = QMessageBox.question(
             self,
             "TKSteamLaunch",
-            f"Clear session history for {appid}? This cannot be undone.",
+            self.tr(f"Clear session history for {appid}? This cannot be undone."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -876,20 +905,24 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
             return
         self.refresh()
-        self.status.setText(f"Cleared {removed} session(s).")
+        self.status.setText(self.tr(f"Cleared {removed} session(s)."))
 
     def _clone_game_to(self, appid: str) -> None:
-        dest = self._pick_steam_game("Clone Settings", "Clone into game:", exclude={appid})
+        dest = self._pick_steam_game(
+            self.tr("Clone Settings"), self.tr("Clone into game:"), exclude={appid}
+        )
         if not dest:
             return
         if dest == appid:
-            QMessageBox.information(self, "TKSteamLaunch", "Source and target are the same.")
+            QMessageBox.information(
+                self, "TKSteamLaunch", self.tr("Source and target are the same.")
+            )
             return
         if cfgmod.game_file(dest).exists():
             go = QMessageBox.question(
                 self,
                 "TKSteamLaunch",
-                f"Overwrite the saved settings for {dest}?",
+                self.tr(f"Overwrite the saved settings for {dest}?"),
             )
             if go != QMessageBox.StandardButton.Yes:
                 return
@@ -899,7 +932,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "TKSteamLaunch", str(e))
             return
         self.refresh()
-        self.status.setText(f"Cloned {appid} to {dest}.")
+        self.status.setText(self.tr(f"Cloned {appid} to {dest}."))
 
     def _names(self) -> dict[str, str]:
         return {a: n for a, n in steammod.list_games()}
@@ -931,13 +964,13 @@ class MainWindow(QMainWindow):
                 if appid:
                     return appid
             return ""
-        appid, ok = QInputDialog.getText(self, title, "Steam App ID:")
+        appid, ok = QInputDialog.getText(self, title, self.tr("Steam App ID:"))
         if not ok or not appid.strip():
             return ""
         return appid.strip()
 
     def _add(self) -> None:
-        appid = self._pick_steam_game("Add Game", "Steam game:")
+        appid = self._pick_steam_game(self.tr("Add Game"), self.tr("Steam game:"))
         if not appid:
             return
         dlg = GameDialog(self, appid, self._names().get(appid, ""))
@@ -949,7 +982,9 @@ class MainWindow(QMainWindow):
         cands = steammod.unconfigured_games(set(cfgmod.list_appids()))
         if not cands:
             QMessageBox.information(
-                self, "TKSteamLaunch", "Every Steam game is already configured."
+                self,
+                "TKSteamLaunch",
+                self.tr("Every Steam game is already configured."),
             )
             return
         dlg = _ScanDialog(self, cands)
@@ -964,12 +999,12 @@ class MainWindow(QMainWindow):
             cfgmod.save(cfg)
             added += 1
         self.refresh()
-        self.status.setText(f"Added {added} game(s).")
+        self.status.setText(self.tr(f"Added {added} game(s)."))
 
     def _edit_selected(self, appid: str = "") -> None:
         appid = appid or self._selected_appid()
         if not appid:
-            QMessageBox.information(self, "TKSteamLaunch", "Select a game first.")
+            QMessageBox.information(self, "TKSteamLaunch", self.tr("Select a game first."))
             return
         dlg = GameDialog(self, appid, self._names().get(appid, ""))
         if dlg.exec():
@@ -998,25 +1033,25 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         if not open_path(str(d)):
-            QMessageBox.warning(self, "TKSteamLaunch", f"Could not open {d}.")
+            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not open {d}."))
 
     def _export_configs(self) -> None:
         from PySide6.QtWidgets import QFileDialog
 
         path, _ = QFileDialog.getSaveFileName(
             self,
-            "Export Configurations",
+            self.tr("Export Configurations"),
             "tksteamlaunch-configs.tar.gz",
-            "Archives (*.tar.gz)",
+            self.tr("Archives (*.tar.gz)"),
         )
         if not path:
             return
         try:
             saved = cfgmod.export_configs(path)
         except (OSError, ValueError) as e:
-            QMessageBox.warning(self, "TKSteamLaunch", f"Export failed: {e}")
+            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Export failed: {e}"))
             return
-        self.status.setText(f"Exported to {saved}")
+        self.status.setText(self.tr(f"Exported to {saved}"))
 
     def _import_configs(self) -> None:
         from .. import stl_import as sti
@@ -1041,18 +1076,18 @@ class MainWindow(QMainWindow):
 
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "Import Configurations",
+            self.tr("Import Configurations"),
             "",
-            "Archives (*.tar.gz)",
+            self.tr("Archives (*.tar.gz)"),
         )
         if not path:
             return
         try:
             imported = cfgmod.import_configs(path)
         except (OSError, ValueError) as e:
-            QMessageBox.warning(self, "TKSteamLaunch", f"Import failed: {e}")
+            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Import failed: {e}"))
             return
-        self.status.setText(f"Imported {len(imported)} game(s)")
+        self.status.setText(self.tr(f"Imported {len(imported)} game(s)"))
         self.refresh()
 
     def _selected_appids(self) -> list[str]:
@@ -1075,12 +1110,12 @@ class MainWindow(QMainWindow):
     def _remove_selected(self) -> None:
         appids = self._selected_appids()
         if not appids:
-            self.status.setText("Select games first.")
+            self.status.setText(self.tr("Select games first."))
             return
         names = self._names()
         label = ", ".join(f"{names.get(a, a)} ({a})" for a in appids)
-        what = "these configurations" if len(appids) > 1 else "the configuration"
-        r = QMessageBox.question(self, "TKSteamLaunch", f"Remove {what} for {label}?")
+        what = self.tr("these configurations") if len(appids) > 1 else self.tr("the configuration")
+        r = QMessageBox.question(self, "TKSteamLaunch", self.tr(f"Remove {what} for {label}?"))
         if r != QMessageBox.StandardButton.Yes:
             return
         errors = []
@@ -1101,7 +1136,7 @@ class MainWindow(QMainWindow):
             (appid, names.get(appid, appid), count) for appid, count in cfgmod.orphaned_profiles()
         ]
         if not entries:
-            QMessageBox.information(self, "TKSteamLaunch", "No orphaned profiles.")
+            QMessageBox.information(self, "TKSteamLaunch", self.tr("No orphaned profiles."))
             return
         dlg = _ProfileCleanupDialog(self, entries)
         if dlg.exec() != QDialog.DialogCode.Accepted:
@@ -1113,7 +1148,7 @@ class MainWindow(QMainWindow):
                 cleaned += 1
             except Exception as e:
                 QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
-        self.status.setText(f"Cleaned profiles for {cleaned} game(s).")
+        self.status.setText(self.tr(f"Cleaned profiles for {cleaned} game(s)."))
 
     def _offer_profile_cleanup(self, appids: list[str]) -> None:
         """Offer to delete leftover profiles of just-removed games."""
@@ -1141,15 +1176,17 @@ class MainWindow(QMainWindow):
         """Reset every selected game to the Global Defaults template."""
         appids = self._selected_appids()
         if not appids:
-            self.status.setText("Select games first.")
+            self.status.setText(self.tr("Select games first."))
             return
         names = self._names()
         label = ", ".join(f"{names.get(a, a)} ({a})" for a in appids)
         r = QMessageBox.question(
             self,
             "TKSteamLaunch",
-            f"Reset {len(appids)} game(s) to the Global Defaults template now?\n"
-            f"{label}\nThis overwrites their saved configs (profiles are kept).",
+            self.tr(
+                f"Reset {len(appids)} game(s) to the Global Defaults template now?\n"
+                f"{label}\nThis overwrites their saved configs (profiles are kept)."
+            ),
         )
         if r != QMessageBox.StandardButton.Yes:
             return
@@ -1164,27 +1201,33 @@ class MainWindow(QMainWindow):
 
         clipboard = QGuiApplication.clipboard()
         if clipboard is None:  # e.g. offscreen/minimal platform
-            self.status.setText("Clipboard unavailable on this platform.")
+            self.status.setText(self.tr("Clipboard unavailable on this platform."))
             return
         clipboard.setText(text)
-        self.status.setText(f"{what} copied to clipboard: {text}")
+        self.status.setText(self.tr(f"{what} copied to clipboard: {text}"))
 
     def _copy_launch(self) -> None:
-        self._copy_text("tksteamlaunch %command%", "Launch options")
+        self._copy_text("tksteamlaunch %command%", self.tr("Launch options"))
 
     def _open_ludusavi(self) -> None:
         exe = shutil.which("ludusavi")
         if not exe:
-            QMessageBox.warning(self, "TKSteamLaunch", "Ludusavi was not found in PATH.")
+            QMessageBox.warning(
+                self,
+                "TKSteamLaunch",
+                self.tr("Ludusavi was not found in PATH."),
+            )
             return
         if "/flatpak/" in exe or "flatpak" in exe:
             QMessageBox.warning(
                 self,
                 "TKSteamLaunch",
-                "Flatpak Ludusavi detected: it may not see Proton prefixes. "
-                "Prefer the standalone binary.",
+                self.tr(
+                    "Flatpak Ludusavi detected: it may not see Proton prefixes. "
+                    "Prefer the standalone binary."
+                ),
             )
         try:
             subprocess.Popen([exe])
         except Exception as e:
-            QMessageBox.warning(self, "TKSteamLaunch", f"Could not open Ludusavi: {e}")
+            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not open Ludusavi: {e}"))

@@ -73,3 +73,20 @@ in use (from the gitignored `.opencode-model` file); a local
 `commit-msg` hook (see `scripts/git-hooks/`, enabled via
 `git config core.hooksPath scripts/git-hooks`) adds both
 automatically. Agent instructions live in `AGENTS.md`.
+
+## Translations (Qt Linguist)
+
+GUI strings go through `self.tr()` (or `QCoreApplication.translate`
+at module level); display text and saved data stay split in combos so
+translations never break config round-trips. CLI/launcher text stays
+English by design.
+
+```bash
+python3 scripts/extract-messages.py  # refresh translations/*.ts
+# translate new strings (Linguist GUI or edit XML), then:
+lrelease6 translations/tksteamlaunch_pt_BR.ts \
+  -qm src/tksteamlaunch/translations/tksteamlaunch_pt_BR.qm
+```
+
+Commit both `.ts` (source) and `.qm` (runtime payload, travels in the
+wheel). `tests/test_i18n.py` fails on any untranslated `tr()` literal.

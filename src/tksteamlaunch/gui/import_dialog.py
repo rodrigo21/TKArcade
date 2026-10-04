@@ -24,15 +24,15 @@ class ImportChooserDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Import Configurations")
+        self.setWindowTitle(self.tr("Import Configurations"))
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Import configurations from:"))
+        layout.addWidget(QLabel(self.tr("Import configurations from:")))
         row = QHBoxLayout()
-        b_export = QPushButton("TKSteamLaunch Export...")
-        b_export.setToolTip("A tarball created by Export...")
+        b_export = QPushButton(self.tr("TKSteamLaunch Export..."))
+        b_export.setToolTip(self.tr("A tarball created by Export..."))
         b_export.clicked.connect(lambda: self.done(1))
-        b_stl = QPushButton("SteamTinkerLaunch...")
-        b_stl.setToolTip("Per-game configs as a steamtinkerlaunch profile")
+        b_stl = QPushButton(self.tr("SteamTinkerLaunch..."))
+        b_stl.setToolTip(self.tr("Per-game configs as a steamtinkerlaunch profile"))
         b_stl.clicked.connect(lambda: self.done(2))
         row.addWidget(b_export)
         row.addWidget(b_stl)
@@ -44,13 +44,16 @@ class ImportChooserDialog(QDialog):
 
 def usage_notice(imported: list[str], skipped: list[str]) -> str:
     """Explain where imports landed. Pure function (tested)."""
+    from PySide6.QtCore import QCoreApplication
+
+    tr = lambda s: QCoreApplication.translate("import_dialog", s)  # noqa: E731
     lines = []
     if imported:
-        lines.append("Imported as the 'steamtinkerlaunch' profile (live config untouched):")
+        lines.append(tr("Imported as the 'steamtinkerlaunch' profile (live config untouched):"))
         lines += [f"  • {appid}" for appid in imported]
-        lines.append("Open the game, pick the profile in the Profile row to try it.")
+        lines.append(tr("Open the game, pick the profile in the Profile row to try it."))
     if skipped:
-        lines.append("Skipped (no STL config found):")
+        lines.append(tr("Skipped (no STL config found):"))
         lines += [f"  • {appid}" for appid in skipped]
     return "\n".join(lines)
 
@@ -60,14 +63,16 @@ class StlImportDialog(QDialog):
 
     def __init__(self, parent, games: list[tuple[str, str]]) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Import from SteamTinkerLaunch")
+        self.setWindowTitle(self.tr("Import from SteamTinkerLaunch"))
         self.resize(520, 380)
         self._games = sorted(games, key=lambda g: g[1].lower())
         layout = QVBoxLayout(self)
         if not self._games:
-            layout.addWidget(QLabel("No configured game has an STL config."))
+            layout.addWidget(QLabel(self.tr("No configured game has an STL config.")))
         self.table = QTableWidget(len(self._games), 3)
-        self.table.setHorizontalHeaderLabels(["Import", "Game", "App ID"])
+        self.table.setHorizontalHeaderLabels(
+            [self.tr("Import"), self.tr("Game"), self.tr("App ID")]
+        )
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         for row, (appid, name) in enumerate(self._games):
@@ -80,11 +85,11 @@ class StlImportDialog(QDialog):
         self.table.resizeColumnsToContents()
         layout.addWidget(self.table, stretch=1)
         row = QHBoxLayout()
-        b_all = QPushButton("Select All")
+        b_all = QPushButton(self.tr("Select All"))
         b_all.clicked.connect(lambda: self._set_all(Qt.CheckState.Checked))
-        b_none = QPushButton("Select None")
+        b_none = QPushButton(self.tr("Select None"))
         b_none.clicked.connect(lambda: self._set_all(Qt.CheckState.Unchecked))
-        b_import = QPushButton("Import from SteamTinkerLaunch")
+        b_import = QPushButton(self.tr("Import from SteamTinkerLaunch"))
         b_import.setDefault(True)
         b_import.clicked.connect(self._do_import)
         row.addWidget(b_all)
@@ -133,6 +138,6 @@ class StlImportDialog(QDialog):
         text = usage_notice(imported, skipped)
         details = "\n".join(f"{a}: {'; '.join(r)}" for a, r in reports.items() if r)
         if details:
-            text += "\n\nNotes:\n" + details
-        QMessageBox.information(self, "TKSteamLaunch", text or "Nothing selected.")
+            text += "\n\n" + self.tr("Notes:") + "\n" + details
+        QMessageBox.information(self, "TKSteamLaunch", text or self.tr("Nothing selected."))
         self.accept()
