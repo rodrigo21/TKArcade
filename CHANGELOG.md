@@ -18,6 +18,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Fixed
 - Pre-launch menu shows the active profile's wrappers (it rendered
   the live file while launching the profile).
+- Display mode goes through kscreen numeric mode IDs (the WxH@rate
+  string form is silently ignored) and the picker lists offered
+  modes sorted by resolution then rate, descending.
 - Crafted AppIDs can no longer escape the log/proton-log dirs
   (`safe_stem` centralized in xdg, applied to every AppID path).
 - Validate and the pre-launch countdown check the effective

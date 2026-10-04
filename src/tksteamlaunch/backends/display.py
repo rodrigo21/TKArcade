@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+from typing import NamedTuple
 
 from ..config import DisplayProvider
 
@@ -19,6 +20,16 @@ log = logging.getLogger("tksteamlaunch.display")
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _MODE_RE = re.compile(r"^(\d{2,5})x(\d{2,5})(?:@(\d+(?:\.\d+)?))?$")
+
+
+class _Mode(NamedTuple):
+    """One reported mode. num is the kscreen N: id (None for xrandr)."""
+
+    num: int | None
+    w: int
+    h: int
+    rate: float
+    current: bool
 
 
 def detect_provider(requested: str = "auto") -> str:
@@ -62,8 +73,8 @@ def _strip_ansi(text: str) -> str:
     return _ANSI.sub("", text)
 
 
-def current_plasma() -> dict[str, list[tuple[int, int, float, bool]]]:
-    """Connected outputs with modes: {name: [(w, h, rate, current)]}.
+def current_plasma() -> dict[str, list[_Mode]]:
+    """Connected outputs with modes: {name: [_Mode]}.
 
     Real kscreen-doctor -o layout: `Output: <id> <NAME> [<uuid>]` header,
     `enabled`/`connected` on their own indented lines, then a `Modes:`
@@ -86,7 +97,8 @@ def current_plasma() -> dict[str, list[tuple[int, int, float, bool]]]:
             current["flags"].add(line.strip())
         for mode in re.finditer(r"(\d+):(\d+)x(\d+)@([\d.]+)([*+]?)", line):
             current["modes"].append(
-                (
+                _Mode(
+                    int(mode.group(1)),
                     int(mode.group(2)),
                     int(mode.group(3)),
                     float(mode.group(4)),
@@ -100,8 +112,8 @@ def current_plasma() -> dict[str, list[tuple[int, int, float, bool]]]:
     }
 
 
-def current_x11() -> dict[str, list[tuple[int, int, float, bool]]]:
-    """Connected outputs with modes: {name: [(w, h, rate, current)]}."""
+def current_x11() -> dict[str, list[_Mode]]:
+    """Connected outputs with modes: {name: [_Mode]}."""
     r = subprocess.run(["xrandr", "--query"], capture_output=True, text=True, timeout=15)
     if r.returncode != 0:
         raise RuntimeError(f"xrandr --query failed: {(r.stderr or '').strip()[:200]}")
@@ -119,20 +131,29 @@ def current_x11() -> dict[str, list[tuple[int, int, float, bool]]]:
         m2 = re.match(r"^\s+(\d+)x(\d+)\s+([\d.]+)(\*?).*$", line)
         if m2:
             out[name].append(
-                (int(m2.group(1)), int(m2.group(2)), float(m2.group(3)), m2.group(4) == "*")
+                _Mode(
+                    None, int(m2.group(1)), int(m2.group(2)), float(m2.group(3)), m2.group(4) == "*"
+                )
             )
     return {k: v for k, v in out.items() if v}
 
 
-def _match_mode(
-    modes: list[tuple[int, int, float, bool]], want: tuple[int, int, float | None]
-) -> bool:
+def _match_mode(modes: list[_Mode], want: tuple[int, int, float | None]) -> bool:
     """True when WxH exists (and the rate, if given, within 1 Hz)."""
     ww, hh, wr = want
-    cands = [(w, h, r) for w, h, r, _ in modes if w == ww and h == hh]
+    cands = [m for m in modes if m.w == ww and m.h == hh]
     if not cands:
         return False
-    return wr is None or any(abs(r - wr) < 1.0 for _, _, r in cands)
+    return wr is None or any(abs(m.rate - wr) < 1.0 for m in cands)
+
+
+def _mode_number(modes: list[_Mode], want: tuple[int, int, float | None]) -> int | None:
+    """kscreen N: id matching want (same tolerance as _match_mode)."""
+    ww, hh, wr = want
+    for m in modes:
+        if m.num is not None and m.w == ww and m.h == hh and (wr is None or abs(m.rate - wr) < 1.0):
+            return m.num
+    return None
 
 
 def offered_modes(provider: str = "auto", output: str = "") -> list[str]:
@@ -157,7 +178,8 @@ def offered_modes(provider: str = "auto", output: str = "") -> list[str]:
         modes = next(iter(outputs.values()))
     else:
         return []
-    return [f"{w}x{h}@{r:g}" for w, h, r, _ in modes]
+    ordered = sorted(modes, key=lambda m: (-m.w, -m.h, -m.rate))
+    return [f"{m.w}x{m.h}@{m.rate:g}" for m in ordered]
 
 
 class DisplaySession:
@@ -180,6 +202,16 @@ class DisplaySession:
         if want is None:
             return [f"invalid display mode {self.mode!r}; use WIDTHxHEIGHT[@RATE]"]
         provider = detect_provider(self.provider)
+        log.info(
+            "display: start provider=%s output=%r mode=%r "
+            "(DISPLAY=%r WAYLAND_DISPLAY=%r XDG_CURRENT_DESKTOP=%r)",
+            provider,
+            self.output,
+            self.mode,
+            os.environ.get("DISPLAY", ""),
+            os.environ.get("WAYLAND_DISPLAY", ""),
+            os.environ.get("XDG_CURRENT_DESKTOP", ""),
+        )
         if provider == DisplayProvider.OFF:
             return []
         if provider in (DisplayProvider.GNOME, DisplayProvider.WLROOTS):
@@ -208,10 +240,12 @@ class DisplaySession:
             return [f"output {self.output!r} not found (available: {avail})"]
         if not _match_mode(outputs[name], want):
             return [f"mode {self.mode} not offered by {name}; leaving display untouched"]
-        prev = next(((w, h, r) for w, h, r, cur in outputs[name] if cur), None)
+        prev = next((m for m in outputs[name] if m.current), None)
+        num = _mode_number(outputs[name], want)
+        spec = str(num) if num is not None else self.mode
         try:
             r = subprocess.run(
-                ["kscreen-doctor", f"output.{name}.mode.{self.mode}"],
+                ["kscreen-doctor", f"output.{name}.mode.{spec}"],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -223,14 +257,18 @@ class DisplaySession:
         if r.returncode != 0:
             return [f"kscreen-doctor failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
         if prev is not None:
-            pw, ph, pr = prev
-            self._prev = ("plasma", name, f"{pw}x{ph}@{pr:g}", None)
-            log.info("display: %s -> %s on %s (plasma)", self._prev[2], self.mode, name)
+            self._prev = (
+                "plasma",
+                name,
+                str(prev.num) if prev.num is not None else f"{prev.w}x{prev.h}@{prev.rate:g}",
+                None,
+            )
+            log.info("display: %s -> %s on %s (plasma)", self._prev[2], spec, name)
         else:
             log.warning(
                 "display: current mode of %s not detected; applied %s without restore",
                 name,
-                self.mode,
+                spec,
             )
         return []
 
@@ -247,7 +285,7 @@ class DisplaySession:
             return [f"output {self.output!r} not found (available: {avail})"]
         if not _match_mode(outputs[name], want):
             return [f"mode {self.mode} not offered by {name}; leaving display untouched"]
-        prev = next(((w, h, r) for w, h, r, cur in outputs[name] if cur), None)
+        prev = next((m for m in outputs[name] if m.current), None)
         ww, hh, wr = want
         cmd = ["xrandr", "--output", name, "--mode", f"{ww}x{hh}"]
         if wr is not None:
@@ -261,9 +299,13 @@ class DisplaySession:
         if r.returncode != 0:
             return [f"xrandr failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
         if prev is not None:
-            pw, ph, pr = prev
-            self._prev = ("x11", name, f"{pw}x{ph}", f"{pr:g}")
-            log.info("display: %s -> %s on %s (x11)", f"{pw}x{ph}@{pr:g}", self.mode, name)
+            self._prev = ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
+            log.info(
+                "display: %s -> %s on %s (x11)",
+                f"{prev.w}x{prev.h}@{prev.rate:g}",
+                self.mode,
+                name,
+            )
         else:
             log.warning(
                 "display: current mode of %s not detected; applied %s without restore",

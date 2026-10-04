@@ -82,7 +82,7 @@ def test_plasma_apply_and_restore(tmp_path, monkeypatch):
     assert s.start() == []
     s.stop()
     k, _x = _logs(tmp_path)
-    assert k == ["output.DP-3.mode.1920x1080@60", "output.DP-3.mode.2560x1440@164.96"]
+    assert k == ["output.DP-3.mode.3", "output.DP-3.mode.2"]
 
 
 def test_plasma_explicit_output_and_idempotent(tmp_path, monkeypatch):
@@ -91,7 +91,7 @@ def test_plasma_explicit_output_and_idempotent(tmp_path, monkeypatch):
     assert s.start() == []
     assert s.start() == []  # second start is a no-op
     k, _x = _logs(tmp_path)
-    assert k == ["output.DP-3.mode.1920x1080"]
+    assert k == ["output.DP-3.mode.3"]
     s.stop()
 
 
@@ -165,7 +165,7 @@ def test_offered_modes_lists_backend_modes(tmp_path, monkeypatch):
 
     _bindir(tmp_path, monkeypatch)
     modes = D.offered_modes("plasma", "")
-    assert "2560x1440@164.96" in modes and "1920x1080@60" in modes
+    assert modes == ["2560x1440@164.96", "2560x1440@120", "1920x1080@60"]
     assert D.offered_modes("plasma", "NOPE") == modes  # unknown output falls back
     assert D.offered_modes("gnome", "") == []
     assert D.offered_modes("x11", "") != []
