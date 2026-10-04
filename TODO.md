@@ -8,8 +8,12 @@
 - [ ] Per-game audio output: route to a chosen sink via `pactl`/`pw-cli`
   on launch, restore on exit.
 - [ ] Review env presets against vendor docs (Mesa/NVIDIA semantics drift;
-  verify `vblank_mode` / `__GL_SYNC_TO_VBLANK` values).
-- [ ] Block Internet per game (net namespace, unprivileged). Lighter
-  alternative already shipped: `WINE_BLOCK_HOSTS` preset.
+  verify `vblank_mode` / `__GL_SYNC_TO_VBLANK` values). Recurring: re-audit
+  on every release tag (last: 2026-09-30 + installed-build checks).
+- [ ] Block Internet per game (net namespace, unprivileged). DEFERRED for
+  now: not cheap enough (LAN/achievements/Proton-under-userns risk matrix).
+  Lighter alternative already shipped: `WINE_BLOCK_HOSTS` preset.
 - [ ] vkBasalt successor: vkBasalt is unmaintained; evaluate forks or
   ReShade-on-Linux successors when mature (out for now).
+- [ ] FPS cap field (MangoHud `fps_limit`) + libstrangle wrapper option for
+  DX12 titles without overlay (`DXVK_FRAME_RATE` preset covers DX9-11 only).

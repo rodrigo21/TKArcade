@@ -30,6 +30,10 @@ PRESETS: dict[str, Preset] = {
     "FSR Upscaling (Wine/Proton)": Preset(vars={"WINE_FULLSCREEN_FSR": "1"}),
     "Faster Shaders (RADV)": Preset(vars={"RADV_PERFTEST": "gpl"}, drivers=("amd",)),
     "Prefer Wayland (SDL)": Preset(vars={"SDL_VIDEODRIVER": "wayland"}),
+    "FPS Limit (DXVK)": Preset(
+        vars={"DXVK_FRAME_RATE": "60"},
+        note="DX9/10/11 only; edit the value. DX12 needs MangoHud fps_limit (overlay) or libstrangle.",
+    ),
     "Proton Wayland": Preset(
         vars={"PROTON_ENABLE_WAYLAND": "1"},
         proton=("ge", "cachyos", "dw"),

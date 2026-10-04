@@ -37,9 +37,11 @@ from PySide6.QtWidgets import (
 
 from .. import artwork as artmod
 from .. import config as cfgmod
+from .. import history as histmod
 from .. import protondb as pdbmod
 from .. import steam as steammod
 from .. import xdg
+from ..backends.notify import format_duration
 from .game_dialog import GameDialog
 from .helpers import open_path
 
@@ -179,6 +181,24 @@ class _ProfileCleanupDialog(QDialog):
         return out
 
 
+class _PlayedItem(QTableWidgetItem):
+    """Played cell sorting by seconds (text is a human duration).
+
+    Never call super().__lt__ here: PySide re-dispatches the virtual
+    back into this override (infinite recursion).
+    """
+
+    def __init__(self, seconds: int, text: str) -> None:
+        super().__init__(text)
+        self._seconds = seconds
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, _PlayedItem):
+            return self._seconds < other._seconds
+        theirs = other.text() if isinstance(other, QTableWidgetItem) else ""
+        return self.text() < theirs
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -207,10 +227,11 @@ class MainWindow(QMainWindow):
         self.issues_only.toggled.connect(self._apply_filter)
         filter_row.addWidget(self.issues_only)
         layout.addLayout(filter_row)
-        self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Game", "App ID", "ProtonDB"])
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["Game", "App ID", "ProtonDB", "Played"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionsClickable(True)
         self.table.horizontalHeader().setSortIndicatorShown(True)
         self.table.setSortingEnabled(True)
@@ -362,6 +383,10 @@ class MainWindow(QMainWindow):
         api_key = cfgmod.load_preferences().sgdb_api_key.strip()
         need_fetch: list[str] = []
         need_art: list[str] = []
+        try:
+            stats = histmod.summarize(histmod.parse_log(xdg.log_file()))
+        except Exception:
+            stats = {}
         for row, appid in enumerate(appids):
             name_item = QTableWidgetItem(names.get(appid, appid))
             name_item.setData(Qt.ItemDataRole.UserRole, appid)
@@ -377,6 +402,15 @@ class MainWindow(QMainWindow):
             data, fresh = pdbmod.cached(appid)
             if data:
                 self._set_tier_cell(row, appid, data)
+            st = stats.get(appid)
+            if st is None:
+                played = _PlayedItem(-1, "—")
+                played.setToolTip("No recorded sessions")
+            else:
+                played = _PlayedItem(st.total_dur, format_duration(st.total_dur))
+                last = st.last.replace("T", " ")
+                played.setToolTip(f"{st.runs} sessions · last {last} · {st.fails} failures")
+            self.table.setItem(row, 3, played)
             if not fresh:
                 need_fetch.append(appid)
         total_cfg = len(appids)
@@ -710,6 +744,7 @@ class MainWindow(QMainWindow):
         from .history_dialog import HistoryDialog
 
         HistoryDialog(self).exec()
+        self.refresh()
 
     def _open_logs(self) -> None:
         d = xdg.games_log_dir()

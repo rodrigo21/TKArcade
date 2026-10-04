@@ -5,14 +5,6 @@ import pytest
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 
 
-@pytest.fixture(scope="module")
-def qt_app():
-    from PySide6.QtWidgets import QApplication
-
-    app = QApplication.instance() or QApplication([])
-    yield app
-
-
 def test_dialogs_construct(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
     from tksteamlaunch.gui.main_window import MainWindow
@@ -36,7 +28,7 @@ def test_main_table_columns(qt_app, xdg_env, monkeypatch):
     w = MainWindow()
     w.show()
     qt_app.processEvents()
-    assert w.table.columnCount() == 3
+    assert w.table.columnCount() == 4
     assert w.table.rowCount() == 1
     assert w.table.item(0, 1).text() == "80"
     for _ in range(100):
@@ -1938,3 +1930,62 @@ def test_clean_profiles_button(qt_app, xdg_env, monkeypatch):
     w._clean_profiles()
     assert infos and "No orphaned" in str(infos[0])
     w.close()
+
+
+def _write_history(xdg_env, *lines):
+    from tksteamlaunch import xdg as xdgmod
+
+    path = xdgmod.log_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(lines), encoding="utf-8")
+    return path
+
+
+def test_played_column_shows_total_time(qt_app, xdg_env, monkeypatch):
+    _write_history(xdg_env, "2026-10-03T10:00:00 appid=150 exit=0 dur=3700 cmd=/game\n")
+    w = _main_window_with_game(qt_app, "150", monkeypatch)
+    cell = w.table.item(0, 3)
+    assert cell.text() == "1h 1m"
+    assert "1 sessions" in cell.toolTip()
+    w.close()
+
+
+def test_played_column_sorts_by_seconds(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtCore import Qt
+
+    from tksteamlaunch import config as C
+
+    _write_history(
+        xdg_env,
+        "2026-10-03T10:00:00 appid=151 exit=0 dur=7200 cmd=/a\n",
+        "2026-10-03T11:00:00 appid=152 exit=0 dur=60 cmd=/b\n",
+    )
+    for appid in ("151", "152", "153"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    w = _main_window_with_game(qt_app, "151", monkeypatch)
+    w.table.sortByColumn(3, Qt.SortOrder.DescendingOrder)
+    qt_app.processEvents()
+    got = [w.table.item(r, 1).text() for r in range(w.table.rowCount())]
+    assert got[0] == "151"  # 2h first
+    assert got[-1] == "153"  # never played last
+    w.close()
+
+
+def test_history_clear(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch.gui.history_dialog import HistoryDialog
+
+    path = _write_history(xdg_env, "2026-10-03T10:00:00 appid=150 exit=0 dur=60 cmd=/game\n")
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
+    dlg = HistoryDialog(None)
+    assert dlg._table.rowCount() == 1
+    dlg._clear()
+    assert path.read_text() != ""  # No keeps the log
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    dlg._clear()
+    assert path.read_text() == ""
+    assert dlg._table.rowCount() == 0
+    dlg.close()

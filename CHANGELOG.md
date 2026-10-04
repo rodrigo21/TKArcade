@@ -25,6 +25,9 @@ Breaking config changes are called out explicitly under `Changed`.
   xrandr): optional output + WIDTHxHEIGHT[@RATE], applied on launch
   and restored on exit, failures warn without aborting. Empty mode
   disables it; GNOME/wlroots detect but warn as phase 2.
+- Main window Played column (total time, sorts by seconds) fed by the
+  session log; History dialog gained Clear History with confirmation.
+- FPS Limit (DXVK) env preset (`DXVK_FRAME_RATE=60`, DX9/10/11 only).
 - Proton Wayland env preset (`PROTON_ENABLE_WAYLAND=1` for GE,
   CachyOS and DW builds); No Esync and Disable D3D9 presets note
   where the toggle is a known no-op.

@@ -29,6 +29,18 @@ class HistoryDialog(QDialog):
         )
         table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._table = table
+        layout.addWidget(table)
+        self._reload()
+        btns = QDialogButtonBox(QDialogButtonBox.Close)
+        btns.rejected.connect(self.reject)
+        clear = btns.addButton("Clear History...", QDialogButtonBox.ButtonRole.DestructiveRole)
+        clear.clicked.connect(self._clear)
+        layout.addWidget(btns)
+
+    def _reload(self) -> None:
+        """Rebuild the table from the current log file."""
+        table = self._table
         names = {a: n for a, n in steammod.list_games()}
         stats = histmod.summarize(histmod.parse_log(xdg.log_file()))
         rows = sorted(stats.values(), key=lambda s: s.last, reverse=True)
@@ -39,7 +51,23 @@ class HistoryDialog(QDialog):
             table.setItem(row, 2, QTableWidgetItem(str(s.runs)))
             table.setItem(row, 3, QTableWidgetItem(format_duration(s.total_dur)))
             table.setItem(row, 4, QTableWidgetItem(str(s.fails)))
-        layout.addWidget(table)
-        btns = QDialogButtonBox(QDialogButtonBox.Close)
-        btns.rejected.connect(self.reject)
-        layout.addWidget(btns)
+
+    def _clear(self) -> None:
+        """Truncate the session log after confirmation, then refresh."""
+        from PySide6.QtWidgets import QMessageBox
+
+        answer = QMessageBox.question(
+            self,
+            "TKSteamLaunch",
+            "Clear all session history? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            xdg.log_file().write_text("", encoding="utf-8")
+        except OSError as e:
+            QMessageBox.warning(self, "TKSteamLaunch", f"Could not clear history: {e}")
+            return
+        self._reload()
