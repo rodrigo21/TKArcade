@@ -8,6 +8,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Added
 - Scan Library batch-add for Steam games without a config, and
   per-game Clear Shader Cache (with size) in the context menu.
+- User-focused README (uv tool/pipx/local package installs) with dev
+  docs split into docs/DEVELOPMENT.md; new man page installed by both
+  Arch packages; launcher-only AppImage recipe in packaging/appimage/.
 - FPS Limit (DXVK) env preset (`DXVK_FRAME_RATE=60`, DX9/10/11 only).
 - Tray quick-launch: recent games section (steam:// URLs, 1-10
   configurable) with Preferences toggle and count.

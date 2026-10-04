@@ -39,4 +39,5 @@ package() {
 
     install -Dm644 packaging/tksteamlaunch.desktop "$pkgdir/usr/share/applications/tksteamlaunch.desktop"
     install -Dm644 src/tksteamlaunch/icons/tksteamlaunch.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tksteamlaunch.svg"
+    install -Dm644 packaging/man/tksteamlaunch.1 "$pkgdir/usr/share/man/man1/tksteamlaunch.1"
 }

@@ -27,3 +27,7 @@ packaging/arch/linux-rt-upscaler-git/pkg/
 packaging/arch/linux-rt-upscaler-git/src/
 packaging/arch/linux-rt-upscaler-git/linux-rt-upscaler/
 packaging/arch/linux-rt-upscaler-git/*.pkg.tar.zst
+
+# AppImage build outputs
+packaging/appimage/dist/
+*.AppImage

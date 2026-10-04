@@ -2,7 +2,7 @@
 
 _basename=tksteamlaunch
 pkgname=tksteamlaunch-git
-pkgver=0.7.0.r3.g8f7613d
+pkgver=0.8.1.r1.g12bf74c
 pkgrel=1
 pkgdesc='Minimal Steam launch wrapper'
 arch=('any')
@@ -48,4 +48,5 @@ package() {
 
     install -Dm644 packaging/tksteamlaunch.desktop "$pkgdir/usr/share/applications/tksteamlaunch.desktop"
     install -Dm644 src/tksteamlaunch/icons/tksteamlaunch.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tksteamlaunch.svg"
+    install -Dm644 packaging/man/tksteamlaunch.1 "$pkgdir/usr/share/man/man1/tksteamlaunch.1"
 }

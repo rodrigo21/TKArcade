@@ -26,6 +26,11 @@ dev = []
 testpaths = ["tests"]
 pythonpath = ["src"]
 
+# AppImage (launcher only) via pyproject-appimage; see packaging/appimage/.
+[tool.pyproject-appimage]
+script = "tksteamlaunch"
+output = "TKSteamLaunch.AppImage"
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

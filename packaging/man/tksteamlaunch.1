@@ -1,0 +1,68 @@
+.TH TKSTEAMLAUNCH 1 "October 2026" "TKSteamLaunch" "User Commands"
+.SH NAME
+tksteamlaunch \- minimal Steam launch wrapper
+.SH SYNOPSIS
+.B tksteamlaunch
+[\fIOPTIONS\fR] [\fB--\fR] [\fICOMMAND\fR...]
+.SH DESCRIPTION
+Minimal Steam launch wrapper (inspired by steamtinkerlaunch). Use in
+Steam as \fBtksteamlaunch %command%\fR. The Steam AppID resolves
+automatically from the Steam environment. Per-game settings live in
+TOML snapshots under \fB$XDG_CONFIG_HOME/tksteamlaunch/\fR; see
+\fBtksteamlaunch-gui\fR(1) or rather the GUI itself for editing them.
+.PP
+Logs go to \fB$XDG_STATE_HOME/tksteamlaunch/games/<appid>.log\fR (full)
+plus a one-line entry per run in \fBlauncher.log\fR.
+.SH OPTIONS
+.TP
+.BR --appid " AppID"
+Steam AppID (else STEAMAPPID env).
+.TP
+.BR --dry-run
+Print final command, do not run.
+.TP
+.BR --list
+List configured/detected games and exit.
+.TP
+.BR --validate
+Check configs and helper binaries, exit 17 on issues.
+.TP
+.BR --export " FILE"
+Export configs to a tar.gz and exit.
+.TP
+.BR --import " FILE"
+Import configs from a tar.gz and exit.
+.TP
+.BR --edit
+Open the game settings dialog (needs a display); takes an optional
+positional AppID, otherwise shows a game picker.
+.TP
+.BR --menu
+Show the pre-launch menu before starting the game (needs a display;
+launches directly without one).
+.TP
+.BR --verbose
+Debug logging to the per-game log.
+.TP
+.BR --version
+Print the version and exit.
+.SH EXIT CODES
+0 ok: game ran (its own code), or menu/editor exited without launching.
+10 AppID not resolved. 11 empty game command. 12 pre-launch hook
+failed. 13 game executable not found. 14 custom prefix binary not
+found. 15 display needed but missing. 16 export/import failed.
+17 validation issues found.
+.SH FILES
+.TP
+.I $XDG_CONFIG_HOME/tksteamlaunch/games/<appid>.toml
+Per-game config snapshot (carries a \fBconfig_version\fR stamp).
+.TP
+.I $XDG_CONFIG_HOME/tksteamlaunch/profiles/<appid>/<name>.toml
+Named per-game profiles.
+.TP
+.I $XDG_CONFIG_HOME/tksteamlaunch/defaults.toml
+New-game template only.
+.SH "SEE ALSO"
+.BR tksteamlaunch-gui (1)
+.PP
+Project home: https://github.com/rodrigo21/TKSteamLaunch
