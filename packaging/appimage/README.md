@@ -1,8 +1,11 @@
-# AppImage (launcher only)
+# AppImage (unified entry)
 
 `build.sh` produces `dist/TKSteamLaunch.AppImage` (git-ignored): the
-`tksteamlaunch` launcher plus its Python runtime and PySide6/vdf/jeepney
-wheels (~150-250 MB). Point Steam Launch Options at the file itself:
+`tksteamlaunch-appimage` entry plus its Python runtime and
+PySide6/vdf/jeepney wheels (~150-250 MB, plus GUI over the launcher
+bundle). Run without arguments (or `--gui`) for the settings GUI;
+anything else runs the launcher, so Steam Launch Options point at the
+file itself:
 
 ```
 .../TKSteamLaunch.AppImage %command%
@@ -13,8 +16,8 @@ Notes and limits:
 * Built with [pyproject-appimage](https://codeberg.org/JakobDev/pyproject-appimage)
   (`[tool.pyproject-appimage]` in the root `pyproject.toml`). `libappimage`
   is something else (the spec implementation) and is not needed.
-* Only the launcher is bundled. Pair it with the settings GUI from a
-  local package or `uv tool install` when you need to edit configs.
+* The bundle carries both faces: no arguments opens the settings
+  GUI, anything else runs the launcher (same binary for Steam).
 * External helpers (GameMode, Gamescope, MangoHud, Ludusavi,
   `protontricks`, `xdg-open`) stay on the host by design, same as the
   native packages.

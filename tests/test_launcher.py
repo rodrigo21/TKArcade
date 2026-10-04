@@ -386,3 +386,23 @@ def test_validate_newer_config_version(xdg_env):
     )
     issues = L.validate_game("35")
     assert any("newer" in i for i in issues)
+
+
+def test_appimage_dispatches_gui_and_launcher(monkeypatch):
+    import sys
+
+    import tksteamlaunch.appimage as A
+
+    calls = []
+    monkeypatch.setattr("tksteamlaunch.gui.app.main", lambda: calls.append("gui") or 0)
+    monkeypatch.setattr(
+        "tksteamlaunch.launcher.main", lambda argv=None: calls.append(("launch", argv)) or 0
+    )
+    monkeypatch.setattr(sys, "argv", ["tksteamlaunch-appimage"])
+    assert A.main() == 0
+    monkeypatch.setattr(sys, "argv", ["tksteamlaunch-appimage", "--gui"])
+    assert A.main() == 0
+    assert calls == ["gui", "gui"]
+    assert sys.argv == ["tksteamlaunch-appimage"]  # --gui hidden from Qt
+    assert A.main(["--version"]) == 0
+    assert calls[-1] == ("launch", ["--version"])

@@ -23,7 +23,8 @@ def test_console_scripts():
     scripts = _pyproject()["project"]["scripts"]
     assert scripts["tksteamlaunch"] == "tksteamlaunch.launcher:main"
     assert scripts["tksteamlaunch-gui"] == "tksteamlaunch.gui.app:main"
-    assert len(scripts) == 2
+    assert scripts["tksteamlaunch-appimage"] == "tksteamlaunch.appimage:main"
+    assert len(scripts) == 3
     for target in scripts.values():
         module, _, func = target.partition(":")
         assert (ROOT / "src" / module.replace(".", "/")).with_suffix(".py").is_file()

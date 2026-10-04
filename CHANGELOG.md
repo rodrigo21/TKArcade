@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Unified AppImage entry (`tksteamlaunch-appimage`): no arguments
+  opens the settings GUI, anything else runs the launcher, so one
+  file serves desktops and Steam Launch Options alike.
 - Scan Library batch-add for Steam games without a config, and
   per-game Clear Shader Cache (with size) in the context menu.
 - User-focused README (uv tool/pipx/local package installs) with dev
