@@ -13,6 +13,7 @@ Breaking config changes are called out explicitly under `Changed`.
 - Movable game-list columns (drag the header) with a header context
   menu to show/hide columns (Game always on) and reset to the
   Game | App ID | Played | ProtonDB default; layout persists.
+- FPS Limit (DXVK) env preset (`DXVK_FRAME_RATE=60`, DX9/10/11 only).
 
 ### Changed
 - Config files carry a `config_version` stamp (current: 1). Files from

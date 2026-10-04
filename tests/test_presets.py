@@ -64,3 +64,11 @@ def test_proton_wayland_preset_tag():
 
     assert pm.PRESETS["Proton Wayland"].vars == {"PROTON_ENABLE_WAYLAND": "1"}
     assert pm.PRESETS["Proton Wayland"].proton == ("ge", "cachyos", "dw")
+
+
+def test_fps_limit_preset():
+    import tksteamlaunch.presets as pm
+
+    preset = pm.PRESETS["FPS Limit (DXVK)"]
+    assert preset.vars == {"DXVK_FRAME_RATE": "60"}
+    assert "DX9" in preset.note
