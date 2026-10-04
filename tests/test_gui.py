@@ -2267,9 +2267,7 @@ def test_history_clear_selected(qt_app, xdg_env, monkeypatch):
         "2026-10-03T10:00:00 appid=210 exit=0 dur=60 cmd=/a\n",
         "2026-10-03T11:00:00 appid=211 exit=0 dur=60 cmd=/b\n",
     )
-    monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
-    )
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
     dlg = HistoryDialog(None)
     assert dlg._table.rowCount() == 2
     dlg._table.selectRow(0)
@@ -2288,9 +2286,7 @@ def test_main_menu_clear_history(qt_app, xdg_env, monkeypatch):
 
     _write_history(xdg_env, "2026-10-03T10:00:00 appid=212 exit=0 dur=60 cmd=/a\n")
     w = _main_window_with_game(qt_app, "212", monkeypatch)
-    monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
-    )
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
     w._clear_game_history("212")
     from tksteamlaunch import xdg as xdgmod
 
