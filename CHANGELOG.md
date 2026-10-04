@@ -6,14 +6,15 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
-- Unified AppImage entry (`tksteamlaunch-appimage`): no arguments
-  opens the settings GUI, anything else runs the launcher, so one
-  file serves desktops and Steam Launch Options alike.
+- Single binary: bare `tksteamlaunch` (or `--gui`) opens the settings
+  GUI, `--cli` guarantees launcher mode; the `tksteamlaunch-gui` and
+  `tksteamlaunch-appimage` entry points are gone (BREAKING for direct
+  callers; the desktop file and AppImage use `tksteamlaunch` now).
 - Scan Library batch-add for Steam games without a config, and
   per-game Clear Shader Cache (with size) in the context menu.
 - User-focused README (uv tool/pipx/local package installs) with dev
   docs split into docs/DEVELOPMENT.md; new man page installed by both
-  Arch packages; launcher-only AppImage recipe in packaging/appimage/.
+  Arch packages; single-entry AppImage recipe in packaging/appimage/.
 - FPS Limit (DXVK) now uses `DXVK_CONFIG="dxgi.maxFrameRate = 60;
   d3d9.maxFrameRate = 60"`: the `DXVK_FRAME_RATE` env var was removed
   upstream (doitsujin/dxvk#5331); DX9/10/11 only.

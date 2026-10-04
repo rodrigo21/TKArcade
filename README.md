@@ -19,8 +19,9 @@ pipx install git+https://github.com/rodrigo21/TKSteamLaunch.git
 cd packaging/arch/tksteamlaunch && makepkg -si
 ```
 
-This installs `tksteamlaunch` (launcher for Steam Launch Options) and
-`tksteamlaunch-gui` (settings GUI). External helpers (GameMode,
+This installs `tksteamlaunch`: the launcher for Steam Launch Options
+(`tksteamlaunch %command%`) and, without arguments, the settings GUI
+(`--gui` forces it, `--cli` forbids it). External helpers (GameMode,
 Gamescope, MangoHud, Ludusavi, `protontricks`) are optional and come
 from your distro.
 

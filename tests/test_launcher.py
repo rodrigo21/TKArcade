@@ -388,21 +388,19 @@ def test_validate_newer_config_version(xdg_env):
     assert any("newer" in i for i in issues)
 
 
-def test_appimage_dispatches_gui_and_launcher(monkeypatch):
+def test_launcher_gui_dispatch(xdg_env, monkeypatch):
     import sys
 
-    import tksteamlaunch.appimage as A
+    from tksteamlaunch import launcher as L
 
     calls = []
     monkeypatch.setattr("tksteamlaunch.gui.app.main", lambda: calls.append("gui") or 0)
-    monkeypatch.setattr(
-        "tksteamlaunch.launcher.main", lambda argv=None: calls.append(("launch", argv)) or 0
-    )
-    monkeypatch.setattr(sys, "argv", ["tksteamlaunch-appimage"])
-    assert A.main() == 0
-    monkeypatch.setattr(sys, "argv", ["tksteamlaunch-appimage", "--gui"])
-    assert A.main() == 0
+    monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr(sys, "argv", ["tksteamlaunch"])
+    assert L.main([]) == 0
+    assert L.main(["--gui"]) == 0
     assert calls == ["gui", "gui"]
-    assert sys.argv == ["tksteamlaunch-appimage"]  # --gui hidden from Qt
-    assert A.main(["--version"]) == 0
-    assert calls[-1] == ("launch", ["--version"])
+    monkeypatch.delenv("DISPLAY")
+    assert L.main(["--gui"]) == 15  # no display
+    assert L.main(["--cli"]) == 10  # never GUI: classic no-AppID error

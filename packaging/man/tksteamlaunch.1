@@ -8,12 +8,18 @@ tksteamlaunch \- minimal Steam launch wrapper
 Minimal Steam launch wrapper (inspired by steamtinkerlaunch). Use in
 Steam as \fBtksteamlaunch %command%\fR. The Steam AppID resolves
 automatically from the Steam environment. Per-game settings live in
-TOML snapshots under \fB$XDG_CONFIG_HOME/tksteamlaunch/\fR; see
-\fBtksteamlaunch-gui\fR(1) or rather the GUI itself for editing them.
+TOML snapshots under \fB$XDG_CONFIG_HOME/tksteamlaunch/\fR; run without
+arguments (or with \fB--gui\fR) for the settings GUI.
 .PP
 Logs go to \fB$XDG_STATE_HOME/tksteamlaunch/games/<appid>.log\fR (full)
 plus a one-line entry per run in \fBlauncher.log\fR.
 .SH OPTIONS
+.TP
+.BR --gui
+Open the settings GUI and exit (needs a display).
+.TP
+.BR --cli
+Never open the GUI, even without a command (for scripts).
 .TP
 .BR --appid " AppID"
 Steam AppID (else STEAMAPPID env).
@@ -63,6 +69,4 @@ Named per-game profiles.
 .I $XDG_CONFIG_HOME/tksteamlaunch/defaults.toml
 New-game template only.
 .SH "SEE ALSO"
-.BR tksteamlaunch-gui (1)
-.PP
 Project home: https://github.com/rodrigo21/TKSteamLaunch

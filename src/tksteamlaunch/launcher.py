@@ -457,10 +457,45 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     p.add_argument("--verbose", action="store_true", help="debug logging to the per-game log")
     p.add_argument("--version", action="store_true", help="print the version and exit")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--gui", action="store_true", help="open the settings GUI and exit")
+    mode.add_argument(
+        "--cli",
+        action="store_true",
+        help="never open the GUI, even without a command (for scripts)",
+    )
     p.add_argument(
         "command", nargs=argparse.REMAINDER, help="game command (after -- or %%command%%)"
     )
     return p.parse_args(argv)
+
+
+def _has_display() -> bool:
+    """True when a display server looks reachable for GUI work."""
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+def _has_cli_action(args: argparse.Namespace) -> bool:
+    """True when flags already determine non-GUI behavior."""
+    return bool(
+        args.list
+        or args.validate
+        or args.export
+        or args.import_file
+        or args.version
+        or args.dry_run
+        or args.edit
+        or args.menu
+    )
+
+
+def _run_gui() -> int:
+    try:
+        from .gui.app import main as gui_main
+    except ImportError:
+        print("tksteamlaunch: GUI needs PySide6 installed", file=sys.stderr)
+        return 15
+    return gui_main()
 
 
 def peel_edit_appid(game_cmd: list[str]) -> tuple[str, list[str]]:
@@ -622,6 +657,17 @@ def main(argv: list[str] | None = None) -> int:
         peeled, game_cmd = peel_edit_appid(game_cmd)
         if peeled:
             args.appid = peeled
+
+    if args.gui or (not args.cli and not game_cmd and not args.appid and not _has_cli_action(args)):
+        # No launch to perform and no AppID given: open the settings GUI
+        # instead of erroring out (bare invocation used to exit 11/10).
+        if not _has_display():
+            if args.gui:
+                print("tksteamlaunch: --gui needs a display", file=sys.stderr)
+                return 15
+            # Headless and bare: fall through to the classic errors below.
+        else:
+            return _run_gui()
 
     appid = steammod.resolve_appid(args.appid)
     if not appid and not args.edit:

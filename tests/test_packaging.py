@@ -22,9 +22,7 @@ def test_hatchling_backend():
 def test_console_scripts():
     scripts = _pyproject()["project"]["scripts"]
     assert scripts["tksteamlaunch"] == "tksteamlaunch.launcher:main"
-    assert scripts["tksteamlaunch-gui"] == "tksteamlaunch.gui.app:main"
-    assert scripts["tksteamlaunch-appimage"] == "tksteamlaunch.appimage:main"
-    assert len(scripts) == 3
+    assert len(scripts) == 1
     for target in scripts.values():
         module, _, func = target.partition(":")
         assert (ROOT / "src" / module.replace(".", "/")).with_suffix(".py").is_file()

@@ -1,11 +1,10 @@
 # AppImage (unified entry)
 
 `build.sh` produces `dist/TKSteamLaunch.AppImage` (git-ignored): the
-`tksteamlaunch-appimage` entry plus its Python runtime and
-PySide6/vdf/jeepney wheels (~150-250 MB, plus GUI over the launcher
-bundle). Run without arguments (or `--gui`) for the settings GUI;
-anything else runs the launcher, so Steam Launch Options point at the
-file itself:
+single `tksteamlaunch` entry plus its Python runtime and
+PySide6/vdf/jeepney wheels (~150-250 MB). Run without arguments (or
+`--gui`) for the settings GUI; anything else runs the launcher, so
+Steam Launch Options point at the file itself:
 
 ```
 .../TKSteamLaunch.AppImage %command%

@@ -2,7 +2,7 @@
 Type=Application
 Name=TKSteamLaunch
 Comment=Minimal Steam launch wrapper settings
-Exec=tksteamlaunch-gui
+Exec=tksteamlaunch
 Icon=tksteamlaunch
 Terminal=false
 Categories=Game;
