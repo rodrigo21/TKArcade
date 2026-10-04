@@ -297,4 +297,4 @@ def test_display_dip_seconds_roundtrip_and_clamp(xdg_env):
         '[general]\nappid = "170"\n[display]\nmode = "x"\ndip_seconds = "lots"\n',
         encoding="utf-8",
     )
-    assert C.load("170").display.dip_seconds == 10
+    assert C.load("170").display.dip_seconds == 8

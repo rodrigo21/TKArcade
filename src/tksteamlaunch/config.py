@@ -110,7 +110,7 @@ class DisplayConfig:
     provider: str = "auto"  # auto|plasma|gnome|wlroots|x11|off
     output: str = ""  # empty = current output
     mode: str = ""  # WIDTHxHEIGHT[@RATE]; empty = feature off
-    dip_seconds: int = 10  # same-mode dip dwell (VRAM workaround), 3-15
+    dip_seconds: int = 8  # same-mode dip dwell (VRAM workaround), 3-15
 
 
 @dataclass
@@ -623,7 +623,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.display.provider = str(dp.get("provider", "auto"))
     cfg.display.output = str(dp.get("output", ""))
     cfg.display.mode = str(dp.get("mode", ""))
-    cfg.display.dip_seconds = min(15, max(3, _as_int(dp.get("dip_seconds", 10), 10)))
+    cfg.display.dip_seconds = min(15, max(3, _as_int(dp.get("dip_seconds", 8), 8)))
     nt = _section(data, "notifications")
     cfg.notifications.notify_on_launch = _as_bool(nt.get("notify_on_launch", True), True)
     cfg.notes.text = str(_section(data, "notes").get("text", ""))

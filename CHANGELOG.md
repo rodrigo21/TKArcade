@@ -30,6 +30,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Display mode goes through kscreen numeric mode IDs (the WxH@rate
   string form is silently ignored) and the picker lists offered
   modes sorted by resolution then rate, descending.
+- Dip slider (default 8 s) and note show only for the current mode;
+  worker threads stop on dialog close (close() bypasses reject,
+  which once aborted suite teardown).
 - Mode list fills in a worker thread (a wedged kscreen-doctor once
   hung dialog construction); dialog open performs zero backend
   queries, and worker threads stop cleanly on accept/reject.

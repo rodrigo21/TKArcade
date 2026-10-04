@@ -424,11 +424,14 @@ class GameDialog(QDialog):
         self.l_dip = QLabel("")
         self.s_dip.valueChanged.connect(lambda v: self.l_dip.setText(f"{v} s"))
         dip_row = QWidget()
+        dip_row.setObjectName("dip_row")
         dip_layout = QHBoxLayout(dip_row)
         dip_layout.setContentsMargins(0, 0, 0, 0)
         dip_layout.addWidget(self.s_dip, stretch=1)
         dip_layout.addWidget(self.l_dip)
         df.addRow("Dip delay:", dip_row)
+        self._dip_row = dip_row
+        self._dip_row.setVisible(False)
         dm_note = QLabel("Same mode as current: dips down and back first (VRAM workaround).")
         dm_note.setObjectName("dip_note")
         dm_note.setVisible(False)
@@ -709,7 +712,7 @@ class GameDialog(QDialog):
         self.e_exe.textChanged.connect(self._refresh_hook_statuses)
         self.e_pre.textChanged.connect(self._refresh_hook_statuses)
         self.e_post.textChanged.connect(self._refresh_hook_statuses)
-        self.e_dmode.currentTextChanged.connect(lambda _t: self._update_dip_note())
+        self.e_dmode.currentTextChanged.connect(lambda _t: self._update_dip_ui())
         tabs.currentChanged.connect(self._refresh_preview)
         self._show_load_warning()
         self._refresh_display_modes()
@@ -1119,6 +1122,13 @@ class GameDialog(QDialog):
         self._stop_dmode_worker()
         super().reject()
 
+    def closeEvent(self, event) -> None:
+        # close() bypasses reject(): stop workers here too, never
+        # destroy a running QThread (aborts) at teardown.
+        self._stop_coverage_worker()
+        self._stop_dmode_worker()
+        super().closeEvent(event)
+
     def _on_reset(self) -> None:
         """Reset the game to the Global Defaults template, persisting now.
 
@@ -1223,10 +1233,10 @@ class GameDialog(QDialog):
         finally:
             self.e_dmode.blockSignals(False)
         self.e_dmode.setCurrentText(str(current or ""))
-        self._update_dip_note()
+        self._update_dip_ui()
 
-    def _update_dip_note(self) -> None:
-        """Show the dip workaround note only when requesting the current mode."""
+    def _update_dip_ui(self) -> None:
+        """Show dip note + slider only when requesting the current mode."""
         from ..backends import display as dispmod
 
         value = str(self.e_dmode.currentData() or self.e_dmode.currentText() or "").strip()
@@ -1242,6 +1252,7 @@ class GameDialog(QDialog):
                 and (want[2] is None or abs(want[2] - cur[2]) < 1.0)
             )
         self._dip_note.setVisible(show)
+        self._dip_row.setVisible(show)
 
     def _refresh_preview(self) -> None:
         # Never collect mid-populate: later fields still hold stale widget

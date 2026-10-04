@@ -2412,12 +2412,15 @@ def test_dip_note_only_for_current_mode(qt_app, xdg_env, monkeypatch):
     d = GameDialog(None, "167", "T")
     assert _pump_until(qt_app, lambda: d.e_dmode.count() >= 2)
     assert d._dip_note.isHidden()
+    assert d._dip_row.isHidden()
     d.e_dmode.setCurrentText("1920x1080@60")
     qt_app.processEvents()
     assert d._dip_note.isHidden()
+    assert d._dip_row.isHidden()
     d.e_dmode.setCurrentText("2560x1440@164.96")
     qt_app.processEvents()
     assert not d._dip_note.isHidden()
+    assert not d._dip_row.isHidden()
     d.close()
 
 
@@ -2430,7 +2433,7 @@ def test_dip_slider_roundtrip(qt_app, xdg_env):
     C.save(cfg)
     d = GameDialog(None, "171", "T")
     assert (d.s_dip.minimum(), d.s_dip.maximum()) == (3, 15)
-    assert d.s_dip.value() == 10 and d.l_dip.text() == "10 s"
+    assert d.s_dip.value() == 8 and d.l_dip.text() == "8 s"
     d.s_dip.setValue(6)
     assert d.l_dip.text() == "6 s"
     d._collect()
