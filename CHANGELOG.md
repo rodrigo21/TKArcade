@@ -10,6 +10,8 @@ Breaking config changes are called out explicitly under `Changed`.
   GUI, `--cli` guarantees launcher mode; the `tksteamlaunch-gui` and
   `tksteamlaunch-appimage` entry points are gone (BREAKING for direct
   callers; the desktop file and AppImage use `tksteamlaunch` now).
+- Gear-and-play app icon (font-free paths, gray gear + orange play),
+  also wired as the AppImage icon.
 - Scan Library batch-add for Steam games without a config, and
   per-game Clear Shader Cache (with size) in the context menu.
 - User-focused README (uv tool/pipx/local package installs) with dev

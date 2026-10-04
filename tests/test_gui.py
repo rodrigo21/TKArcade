@@ -2184,3 +2184,13 @@ def test_newer_config_warns_on_open(qt_app, xdg_env, monkeypatch):
     d = GameDialog(None, "195", "T")
     assert seen and "newer" in seen[0]
     d.close()
+
+
+def test_app_icons_are_font_free():
+    from pathlib import Path
+
+    icons = Path(__file__).parent.parent / "src" / "tksteamlaunch" / "icons"
+    for name in ("tksteamlaunch.svg", "tksteamlaunch-mono.svg"):
+        text = (icons / name).read_text()
+        assert "<text" not in text and "font-family" not in text
+        assert text.index("<svg") == 0
