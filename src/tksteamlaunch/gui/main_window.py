@@ -18,6 +18,8 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -139,6 +141,44 @@ class _AppIdItem(QTableWidgetItem):
         return _appid_sort_key(self.text()) < _appid_sort_key(theirs)
 
 
+class _ProfileCleanupDialog(QDialog):
+    """Offer leftover profile cleanup after game removal."""
+
+    def __init__(self, parent, entries: list[tuple[str, str, int]]) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Clean Up Profiles")
+        self._entries = entries
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("These games were removed but still have saved profiles:"))
+        table = QTableWidget(len(entries), 3)
+        table.setHorizontalHeaderLabels(["", "Game", "Profiles"])
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        for row, (appid, name, count) in enumerate(entries):
+            check = QTableWidgetItem()
+            check.setFlags(check.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            check.setCheckState(Qt.CheckState.Checked)
+            table.setItem(row, 0, check)
+            table.setItem(row, 1, QTableWidgetItem(f"{name} ({appid})"))
+            table.setItem(row, 2, QTableWidgetItem(str(count)))
+        self._table = table
+        layout.addWidget(table)
+        btns = QDialogButtonBox()
+        btns.addButton("Clean Selected", QDialogButtonBox.ButtonRole.AcceptRole)
+        btns.addButton("Keep All", QDialogButtonBox.ButtonRole.RejectRole)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        layout.addWidget(btns)
+
+    def selected(self) -> list[str]:
+        """AppIDs still checked for cleanup."""
+        out = []
+        for row, (appid, _name, _count) in enumerate(self._entries):
+            item = self._table.item(row, 0)
+            if item is not None and item.checkState() == Qt.CheckState.Checked:
+                out.append(appid)
+        return out
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -178,6 +218,7 @@ class MainWindow(QMainWindow):
         self.table.setIconSize(QSize(32, 32))
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table.itemDoubleClicked.connect(self._on_double_click)
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._game_context_menu)
@@ -549,7 +590,7 @@ class MainWindow(QMainWindow):
         appid = str((name_item.data(Qt.ItemDataRole.UserRole) if name_item else "") or "")
         if not appid:
             return
-        self.table.selectRow(row)
+        self._ensure_row_selected(row)
         menu = self._build_game_menu(appid)
         menu.exec(self.table.viewport().mapToGlobal(pos))
 
@@ -576,7 +617,13 @@ class MainWindow(QMainWindow):
         menu.addAction("Open ProtonDB Page", lambda: self._open_protondb_page(appid))
         menu.addAction("Validate Game", lambda: self._validate_selected(appid))
         menu.addSeparator()
-        menu.addAction("Remove Game", lambda: self._remove_selected())
+        sel = self._selected_appids() or [appid]
+        n = len(sel)
+        menu.addAction(
+            f"Remove {n} Game" if n == 1 else f"Remove {n} Games",
+            lambda: self._remove_selected(),
+        )
+        menu.addAction("Reset to Global Defaults", lambda: self._reset_selected())
         return menu
 
     def _open_folder(self, path, what: str) -> None:
@@ -720,19 +767,86 @@ class MainWindow(QMainWindow):
         self.status.setText(f"Imported {len(imported)} game(s)")
         self.refresh()
 
+    def _selected_appids(self) -> list[str]:
+        """AppIDs of all selected rows, in row order."""
+        rows = sorted({i.row() for i in self.table.selectedItems()})
+        out = []
+        for row in rows:
+            item = self.table.item(row, 0)
+            appid = str((item.data(Qt.ItemDataRole.UserRole) if item else "") or "")
+            if appid and appid not in out:
+                out.append(appid)
+        return out
+
+    def _ensure_row_selected(self, row: int) -> None:
+        """Select the row unless already selected (preserves multi-select)."""
+        item = self.table.item(row, 0)
+        if item is not None and not item.isSelected():
+            self.table.selectRow(row)
+
     def _remove_selected(self) -> None:
-        appid = self._selected_appid()
-        if not appid:
+        appids = self._selected_appids()
+        if not appids:
             return
-        r = QMessageBox.question(
-            self, "TKSteamLaunch", f"Remove the configuration for App ID {appid}?"
-        )
-        if r == QMessageBox.StandardButton.Yes:
+        names = self._names()
+        label = ", ".join(f"{names.get(a, a)} ({a})" for a in appids)
+        what = "these configurations" if len(appids) > 1 else "the configuration"
+        r = QMessageBox.question(self, "TKSteamLaunch", f"Remove {what} for {label}?")
+        if r != QMessageBox.StandardButton.Yes:
+            return
+        errors = []
+        for appid in appids:
             try:
                 cfgmod.game_file(appid).unlink(missing_ok=True)
             except Exception as e:
-                QMessageBox.warning(self, "TKSteamLaunch", str(e))
-            self.refresh()
+                errors.append(f"{appid}: {e}")
+        if errors:
+            QMessageBox.warning(self, "TKSteamLaunch", "\n".join(errors))
+        self._offer_profile_cleanup(appids)
+        self.refresh()
+
+    def _offer_profile_cleanup(self, appids: list[str]) -> None:
+        """Offer to delete leftover profiles of just-removed games."""
+        names = self._names()
+        entries = []
+        for appid in appids:
+            try:
+                left = [p for p in cfgmod.profiles_dir(appid).glob("*.toml") if p.is_file()]
+            except Exception:
+                left = []
+            if left:
+                entries.append((appid, names.get(appid, appid), len(left)))
+        if not entries:
+            return
+        dlg = _ProfileCleanupDialog(self, entries)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        for appid in dlg.selected():
+            try:
+                shutil.rmtree(cfgmod.profiles_dir(appid))
+            except Exception as e:
+                QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+
+    def _reset_selected(self) -> None:
+        """Reset every selected game to the Global Defaults template."""
+        appids = self._selected_appids()
+        if not appids:
+            return
+        names = self._names()
+        label = ", ".join(f"{names.get(a, a)} ({a})" for a in appids)
+        r = QMessageBox.question(
+            self,
+            "TKSteamLaunch",
+            f"Reset {len(appids)} game(s) to the Global Defaults template now?\n"
+            f"{label}\nThis overwrites their saved configs (profiles are kept).",
+        )
+        if r != QMessageBox.StandardButton.Yes:
+            return
+        for appid in appids:
+            cfg = cfgmod.load_defaults()
+            cfg.general.appid = appid
+            cfgmod.save(cfg)
+        self.refresh()
 
     def _copy_text(self, text: str, what: str) -> None:
         from PySide6.QtGui import QGuiApplication

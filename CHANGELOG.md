@@ -27,6 +27,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Right-click context menu on the game list: Edit, Copy App ID /
   Game Name / Launch Options, Open Install Folder / Proton Prefix /
   ProtonDB Page, Validate, Remove (entries disable when N/A).
+- Multi-select (Ctrl/Shift+click) for Remove and Reset to Global
+  Defaults, with one confirmation listing the games; removing offers
+  to clean up leftover profiles via a checkbox table.
 
 ### Added
 - Opening the game dialog on a config file that cannot be parsed warns

@@ -1636,7 +1636,8 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
         "Open ProtonDB Page",
         "Validate Game",
         "",
-        "Remove Game",
+        "Remove 1 Game",
+        "Reset to Global Defaults",
     ]
     state = dict(texts)
     assert state["Open Install Folder"] is False
@@ -1725,4 +1726,154 @@ def test_appid_column_sorts_numerically(qt_app, xdg_env, monkeypatch):
     got = [w.table.item(r, 1).text() for r in range(w.table.rowCount())]
     assert got == ["9", "80", "1044620", "vette"]
     assert isinstance(w.table.item(0, 1), mw._AppIdItem)
+    w.close()
+
+
+def _select_rows(w, *rows):
+    for row in rows:
+        w.table.item(row, 0).setSelected(True)
+
+
+def test_remove_selected_multi(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+
+    for appid in ("130", "131", "132"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    w = _main_window_with_game(qt_app, "130", monkeypatch)
+    _select_rows(w, 0, 1)
+    assert w._selected_appids() == ["130", "131"]
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.No)
+    w._remove_selected()
+    assert C.game_file("130").exists() and C.game_file("131").exists()
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    w._remove_selected()
+    assert not C.game_file("130").exists()
+    assert not C.game_file("131").exists()
+    assert C.game_file("132").exists()
+    w.close()
+
+
+def test_remove_offers_profile_cleanup(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QDialog, QMessageBox
+
+    import tksteamlaunch.gui.main_window as mw
+    from tksteamlaunch import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "133"
+    C.save(cfg)
+    C.save_profile("133", "p1", cfg)
+    C.save_profile("133", "p2", cfg)
+    w = _main_window_with_game(qt_app, "133", monkeypatch)
+    seen = []
+
+    class FakeDialog:
+        def __init__(self, parent, entries):
+            seen.append(entries)
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+        def selected(self):
+            return ["133"]  # clean it all
+
+    monkeypatch.setattr(mw, "_ProfileCleanupDialog", FakeDialog)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    w.table.selectRow(0)
+    w._remove_selected()
+    assert seen and seen[0][0][0] == "133" and seen[0][0][2] == 2
+    assert not C.profiles_dir("133").exists()
+    assert not C.game_file("133").exists()
+    w.close()
+
+
+def test_remove_cleanup_reject_keeps_profiles(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QDialog, QMessageBox
+
+    import tksteamlaunch.gui.main_window as mw
+    from tksteamlaunch import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "134"
+    C.save(cfg)
+    C.save_profile("134", "p1", cfg)
+    w = _main_window_with_game(qt_app, "134", monkeypatch)
+
+    class FakeDialog:
+        def __init__(self, parent, entries):
+            pass
+
+        def exec(self):
+            return QDialog.DialogCode.Rejected
+
+        def selected(self):
+            raise AssertionError("must not clean on reject")
+
+    monkeypatch.setattr(mw, "_ProfileCleanupDialog", FakeDialog)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    w.table.selectRow(0)
+    w._remove_selected()
+    assert C.profile_file("134", "p1").exists()
+    w.close()
+
+
+def test_cleanup_dialog_selection(qt_app):
+    from PySide6.QtCore import Qt
+
+    import tksteamlaunch.gui.main_window as mw
+
+    dlg = mw._ProfileCleanupDialog(None, [("135", "G", 2), ("136", "H", 1)])
+    assert dlg.selected() == ["135", "136"]
+    dlg._table.item(0, 0).setCheckState(Qt.CheckState.Unchecked)
+    assert dlg.selected() == ["136"]
+    dlg.close()
+
+
+def test_reset_selected_multi(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+
+    tpl = C.GameConfig()
+    tpl.pre_post.pre_command = "/tpl.sh"
+    C.save_defaults(tpl)
+    for appid in ("137", "138"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.pre_post.pre_command = "/live.sh"
+        C.save(cfg)
+        C.save_profile(appid, "p1", cfg)
+    w = _main_window_with_game(qt_app, "139", monkeypatch)
+    _select_rows(w, 0, 1)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.No)
+    w._reset_selected()
+    assert C.load("137").pre_post.pre_command == "/live.sh"
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    w._reset_selected()
+    for appid in ("137", "138"):
+        live = C.load(appid)
+        assert live.pre_post.pre_command == "/tpl.sh"
+        assert live.general.active_profile == ""
+        assert C.profile_file(appid, "p1").exists()  # profiles kept
+    w.close()
+
+
+def test_ensure_row_selected_preserves_multi(qt_app, xdg_env, monkeypatch):
+    w = _main_window_with_game(qt_app, "130", monkeypatch)
+    from tksteamlaunch import config as C
+
+    for appid in ("131", "132"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    w.refresh()
+    _select_rows(w, 0, 1)
+    w._ensure_row_selected(1)  # already selected: keep both
+    assert w._selected_appids() == ["130", "131"]
+    w._ensure_row_selected(2)  # unselected: collapse to it
+    assert w._selected_appids() == ["132"]
     w.close()
