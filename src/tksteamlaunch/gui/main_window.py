@@ -879,12 +879,9 @@ class MainWindow(QMainWindow):
         self.status.setText(f"Cleared {removed} session(s).")
 
     def _clone_game_to(self, appid: str) -> None:
-        from PySide6.QtWidgets import QInputDialog
-
-        dest, ok = QInputDialog.getText(self, "Clone Settings", "Target Steam App ID:")
-        if not ok or not dest.strip():
+        dest = self._pick_steam_game("Clone Settings", "Clone into game:", exclude={appid})
+        if not dest:
             return
-        dest = dest.strip()
         if dest == appid:
             QMessageBox.information(self, "TKSteamLaunch", "Source and target are the same.")
             return
@@ -916,30 +913,33 @@ class MainWindow(QMainWindow):
             return ""
         return str(item.data(Qt.ItemDataRole.UserRole) or "")
 
-    def _add(self) -> None:
+    def _pick_steam_game(self, title: str, label: str, exclude=frozenset()) -> str:
+        """Pick a Steam game from a list, else a manual AppID. "" when cancelled."""
         from PySide6.QtWidgets import QInputDialog
 
-        # offer steam games first
         games = steammod.list_games()
         configured = set(cfgmod.list_appids())
-        unconfigured = [(a, n) for a, n in games if a not in configured]
-        if unconfigured:
-            labels = [f"{n} [{a}]" for a, n in unconfigured]
-            choice, ok = QInputDialog.getItem(self, "Add Game", "Steam game:", labels, 0, True)
+        cands = [(a, n) for a, n in games if a not in configured and a not in exclude]
+        if cands:
+            labels = [f"{n} [{a}]" for a, n in cands]
+            choice, ok = QInputDialog.getItem(self, title, label, labels, 0, True)
             if ok and choice:
                 import re
 
                 m = re.search(r"\[(\d+)\]\s*$", choice)
                 appid = m.group(1) if m else choice.strip()
-                if not appid:
-                    return
-            else:
-                return
-        else:
-            appid, ok = QInputDialog.getText(self, "Add Game", "Steam App ID:")
-            if not ok or not appid.strip():
-                return
-            appid = appid.strip()
+                if appid:
+                    return appid
+            return ""
+        appid, ok = QInputDialog.getText(self, title, "Steam App ID:")
+        if not ok or not appid.strip():
+            return ""
+        return appid.strip()
+
+    def _add(self) -> None:
+        appid = self._pick_steam_game("Add Game", "Steam game:")
+        if not appid:
+            return
         dlg = GameDialog(self, appid, self._names().get(appid, ""))
         if dlg.exec():
             self.refresh()

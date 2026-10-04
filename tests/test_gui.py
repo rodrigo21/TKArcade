@@ -2293,3 +2293,26 @@ def test_main_menu_clear_history(qt_app, xdg_env, monkeypatch):
     assert "appid=212" not in xdgmod.log_file().read_text()
     assert "Cleared 1" in w.status.text()
     w.close()
+
+
+def test_clone_game_from_list(qt_app, xdg_env, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QInputDialog
+
+    from tksteamlaunch import config as C
+
+    sap = tmp_path / "steamapps"
+    sap.mkdir()
+    (sap / "appmanifest_206.acf").write_text('"AppState"\n{\n"appid" "206"\n"name" "C Game"\n}\n')
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    cfg = C.GameConfig()
+    cfg.general.appid = "204"
+    C.save(cfg)
+    w = _main_window_with_game(qt_app, "209", monkeypatch)
+    picked = []
+    monkeypatch.setattr(
+        QInputDialog, "getItem", lambda *a, **k: picked.append(a[3]) or ("C Game [206]", True)
+    )
+    w._clone_game_to("204")
+    assert picked and "C Game [206]" in picked[0]
+    assert C.game_file("206").exists()
+    w.close()
