@@ -5,6 +5,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-04
+
 ### Added
 - Single binary: bare `tksteamlaunch` (or `--gui`) opens the settings
   GUI, `--cli` guarantees launcher mode; the `tksteamlaunch-gui` and
