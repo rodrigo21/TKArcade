@@ -810,6 +810,7 @@ class MainWindow(QMainWindow):
                 act_shaders.triggered.connect(lambda: self._clear_shader_cache(appid))
             menu.addAction("Open ProtonDB Page", lambda: self._open_protondb_page(appid))
             menu.addAction("Validate Game", lambda: self._validate_selected(appid))
+            menu.addAction("Clone Settings To...", lambda: self._clone_game_to(appid))
             menu.addSeparator()
         n = len(sel)
         menu.addAction(
@@ -851,6 +852,32 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "TKSteamLaunch", "\n".join(issues))
         else:
             QMessageBox.information(self, "TKSteamLaunch", "No issues found.")
+
+    def _clone_game_to(self, appid: str) -> None:
+        from PySide6.QtWidgets import QInputDialog
+
+        dest, ok = QInputDialog.getText(self, "Clone Settings", "Target Steam App ID:")
+        if not ok or not dest.strip():
+            return
+        dest = dest.strip()
+        if dest == appid:
+            QMessageBox.information(self, "TKSteamLaunch", "Source and target are the same.")
+            return
+        if cfgmod.game_file(dest).exists():
+            go = QMessageBox.question(
+                self,
+                "TKSteamLaunch",
+                f"Overwrite the saved settings for {dest}?",
+            )
+            if go != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            cfgmod.clone_game(appid, dest)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, "TKSteamLaunch", str(e))
+            return
+        self.refresh()
+        self.status.setText(f"Cloned {appid} to {dest}.")
 
     def _names(self) -> dict[str, str]:
         return {a: n for a, n in steammod.list_games()}

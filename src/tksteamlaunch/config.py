@@ -347,6 +347,26 @@ def delete_profile(appid: str, name: str) -> None:
     profile_file(appid, name).unlink(missing_ok=True)
 
 
+def clone_game(src_appid: str, dest_appid: str) -> None:
+    """Copy a game's live config plus profiles to another AppID.
+
+    Overwrites the destination (callers confirm first). Raises
+    ValueError when the source has nothing saved.
+    """
+    import shutil
+
+    src, dest = _safe_stem(src_appid), _safe_stem(dest_appid)
+    if not src or not dest or src == dest:
+        raise ValueError(f"invalid clone: {src_appid!r} -> {dest_appid!r}")
+    live = game_file(src)
+    if not live.is_file():
+        raise ValueError(f"no saved config for {src!r}")
+    shutil.copyfile(live, game_file(dest))
+    profiles = profiles_dir(src)
+    if profiles.is_dir():
+        shutil.copytree(profiles, profiles_dir(dest), dirs_exist_ok=True)
+
+
 def orphaned_profiles() -> list[tuple[str, int]]:
     """Leftover profiles whose game has no live config: [(appid, count)]."""
     base = profiles_dir()
@@ -780,7 +800,7 @@ def list_appids() -> list[str]:
 
 
 def export_configs(dest: str | Path) -> Path:
-    """Pack games/*.toml + defaults.toml into a tar.gz for migration."""
+    """Pack games/profiles/defaults TOML files into a tar.gz for migration."""
     import tarfile
 
     dest = Path(dest)
@@ -794,11 +814,16 @@ def export_configs(dest: str | Path) -> Path:
         if games.exists():
             for path in sorted(games.glob("*.toml")):
                 tar.add(path, arcname=f"games/{path.name}")
+        profiles = profiles_dir()
+        if profiles.is_dir():
+            for path in sorted(profiles.rglob("*.toml")):
+                if path.is_file():
+                    tar.add(path, arcname=f"profiles/{path.relative_to(profiles).as_posix()}")
     return dest
 
 
 def import_configs(src: str | Path) -> list[str]:
-    """Restore an export tarball. Only games/*.toml + defaults.toml accepted.
+    """Restore an export tarball. Only defaults/games/profiles TOML accepted.
 
     Returns imported appids. Raises ValueError on invalid archives.
     """
@@ -816,10 +841,20 @@ def import_configs(src: str | Path) -> list[str]:
         members = []
         for member in tar.getmembers():
             name = member.name
-            if name == "defaults.toml" or (
-                name.startswith("games/")
-                and name.endswith(".toml")
-                and "/" not in name[len("games/") :]
+            if (
+                name == "defaults.toml"
+                or (
+                    name.startswith("games/")
+                    and name.endswith(".toml")
+                    and "/" not in name[len("games/") :]
+                )
+                or (
+                    name.startswith("profiles/")
+                    and name.endswith(".toml")
+                    and len(Path(name).parts) == 3
+                    and ".." not in Path(name).parts
+                    and "." not in Path(name).parts
+                )
             ):
                 members.append(member)
         if not members:

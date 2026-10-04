@@ -1,5 +1,7 @@
 """Config load/save: snapshots, defaults fallback, enums, forward-compat."""
 
+import shutil
+
 from tksteamlaunch import config as C
 
 
@@ -572,3 +574,66 @@ def test_load_effective_newer_falls_back(xdg_env):
     live2.general.active_profile = "p1"
     C.save(live2)
     assert C.load_effective("194").pre_post.pre_command == "/live.sh"
+
+
+def test_export_import_includes_profiles(xdg_env, tmp_path):
+    cfg = C.GameConfig()
+    cfg.general.appid = "200"
+    cfg.general.active_profile = "p1"
+    cfg.env.vars = {"A": "1"}
+    C.save(cfg)
+    prof = C.GameConfig()
+    prof.general.appid = "200"
+    prof.env.vars = {"P": "2"}
+    C.save_profile("200", "p1", prof)
+    dest = tmp_path / "backup.tar.gz"
+    C.export_configs(dest)
+    C.game_file("200").unlink()
+    shutil.rmtree(C.profiles_dir("200"))
+    C.import_configs(dest)
+    assert C.load("200").env.vars == {"A": "1"}
+    assert C.load("200").general.active_profile == "p1"
+    assert C.load_profile("200", "p1").env.vars == {"P": "2"}
+
+
+def test_import_rejects_nested_profiles(xdg_env, tmp_path):
+    import io
+    import tarfile
+
+    evil = tmp_path / "evil.tar.gz"
+    with tarfile.open(evil, "w:gz") as tar:
+        for name in ("profiles/a/b/c.toml", "profiles/../escape.toml"):
+            info = tarfile.TarInfo(name)
+            data = b"x"
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    try:
+        C.import_configs(evil)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("nested profile paths accepted")
+    assert C.list_appids() == []
+
+
+def test_clone_game(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "201"
+    cfg.env.vars = {"A": "1"}
+    C.save(cfg)
+    C.save_profile("201", "p1", cfg)
+    C.clone_game("201", "202")
+    assert C.load("202").env.vars == {"A": "1"}
+    assert C.load_profile("202", "p1").env.vars == {"A": "1"}
+    try:
+        C.clone_game("201", "201")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("self-clone accepted")
+    try:
+        C.clone_game("999", "203")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("missing source accepted")

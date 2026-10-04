@@ -1628,6 +1628,7 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
         "Clear Shader Cache",
         "Open ProtonDB Page",
         "Validate Game",
+        "Clone Settings To...",
         "",
         "Remove 1 Game",
         "Reset to Global Defaults",
@@ -2206,3 +2207,27 @@ def test_bundled_style_only_inside_appimage(monkeypatch):
     assert appmod.bundled_style() == "Fusion"
     monkeypatch.setenv("QT_STYLE_OVERRIDE", "Windows")
     assert appmod.bundled_style() == ""
+
+
+def test_clone_settings_to_game(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+    from tksteamlaunch import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "204"
+    cfg.env.vars = {"A": "1"}
+    C.save(cfg)
+    C.save_profile("204", "p1", cfg)
+    w = _main_window_with_game(qt_app, "209", monkeypatch)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("205", True))
+    w._clone_game_to("204")
+    assert C.load("205").env.vars == {"A": "1"}
+    assert C.load_profile("205", "p1").env.vars == {"A": "1"}
+    assert "Cloned" in w.status.text()
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("204", True))
+    infos = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: infos.append(a))
+    w._clone_game_to("204")
+    assert infos  # same source/target refused
+    w.close()

@@ -5,6 +5,11 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Added
+- Export/import now carries profiles (whitelist extended, traversal
+  still rejected), and games clone live config plus profiles to
+  another AppID ("Clone Settings To...", with overwrite confirm).
+
 ## [0.9.0] - 2026-10-04
 
 ### Added
