@@ -1628,6 +1628,7 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
         "Clear Shader Cache",
         "Open ProtonDB Page",
         "Validate Game",
+        "Clear History",
         "Clone Settings To...",
         "",
         "Remove 1 Game",
@@ -2254,3 +2255,45 @@ def test_menu_shows_effective_profile_wrappers(qt_app, xdg_env, monkeypatch, tmp
     m = MenuDialog(None, "210", "Menu Game")
     assert "GameMode" in m._detail_lines()  # from the profile, not live
     m.close()
+
+
+def test_history_clear_selected(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch.gui.history_dialog import HistoryDialog
+
+    _write_history(
+        xdg_env,
+        "2026-10-03T10:00:00 appid=210 exit=0 dur=60 cmd=/a\n",
+        "2026-10-03T11:00:00 appid=211 exit=0 dur=60 cmd=/b\n",
+    )
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    dlg = HistoryDialog(None)
+    assert dlg._table.rowCount() == 2
+    dlg._table.selectRow(0)
+    ask = dlg._appid_for_row(0)
+    dlg._clear_selected()
+    assert dlg._table.rowCount() == 1
+    from tksteamlaunch import xdg as xdgmod
+
+    rest = xdgmod.log_file().read_text()
+    assert f"appid={ask} " not in rest
+    dlg.close()
+
+
+def test_main_menu_clear_history(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    _write_history(xdg_env, "2026-10-03T10:00:00 appid=212 exit=0 dur=60 cmd=/a\n")
+    w = _main_window_with_game(qt_app, "212", monkeypatch)
+    monkeypatch.setattr(
+        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    w._clear_game_history("212")
+    from tksteamlaunch import xdg as xdgmod
+
+    assert "appid=212" not in xdgmod.log_file().read_text()
+    assert "Cleared 1" in w.status.text()
+    w.close()

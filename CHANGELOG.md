@@ -9,6 +9,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Export/import now carries profiles (whitelist extended, traversal
   still rejected), and games clone live config plus profiles to
   another AppID ("Clone Settings To...", with overwrite confirm).
+- Per-game history clearing: exact token match, atomic rewrite, in
+  the History dialog (Clear Selected) and the game context menu.
 
 ### Fixed
 - Pre-launch menu shows the active profile's wrappers (it rendered

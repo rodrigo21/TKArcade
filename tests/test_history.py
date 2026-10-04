@@ -27,3 +27,21 @@ def test_parse_new_and_old_lines(tmp_path):
 def test_parse_missing_file(tmp_path):
     assert H.parse_log(tmp_path / "nope.log") == []
     assert H.summarize([]) == {}
+
+
+def test_clear_appid_exact_token(tmp_path):
+    from tksteamlaunch import history as H
+
+    log = tmp_path / "launcher.log"
+    log.write_text(
+        "2026-10-04T10:00:00 appid=8 exit=0 dur=60 cmd=/a\n"
+        "2026-10-04T10:01:00 appid=80 exit=0 dur=60 cmd=/b\n"
+        "2026-10-04T10:02:00 appid=8 exit=1 dur=5 cmd=/c\n"
+        "junk line without appid\n"
+    )
+    assert H.clear_appid(log, "8") == 2
+    rest = log.read_text()
+    assert "appid=80" in rest and "junk line" in rest
+    assert "appid=8 " not in rest
+    assert H.clear_appid(log, "8") == 0
+    assert H.clear_appid(tmp_path / "missing.log", "8") == 0

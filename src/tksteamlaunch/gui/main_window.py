@@ -814,6 +814,7 @@ class MainWindow(QMainWindow):
                 act_shaders.triggered.connect(lambda: self._clear_shader_cache(appid))
             menu.addAction("Open ProtonDB Page", lambda: self._open_protondb_page(appid))
             menu.addAction("Validate Game", lambda: self._validate_selected(appid))
+            menu.addAction("Clear History", lambda: self._clear_game_history(appid))
             menu.addAction("Clone Settings To...", lambda: self._clone_game_to(appid))
             menu.addSeparator()
         n = len(sel)
@@ -856,6 +857,26 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "TKSteamLaunch", "\n".join(issues))
         else:
             QMessageBox.information(self, "TKSteamLaunch", "No issues found.")
+
+    def _clear_game_history(self, appid: str) -> None:
+        from .. import history as histmod
+
+        r = QMessageBox.question(
+            self,
+            "TKSteamLaunch",
+            f"Clear session history for {appid}? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if r != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            removed = histmod.clear_appid(xdg.log_file(), appid)
+        except Exception as e:
+            QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+            return
+        self.refresh()
+        self.status.setText(f"Cleared {removed} session(s).")
 
     def _clone_game_to(self, appid: str) -> None:
         from PySide6.QtWidgets import QInputDialog
