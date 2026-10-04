@@ -158,7 +158,8 @@ def _mode_number(modes: list[_Mode], want: tuple[int, int, float | None]) -> int
 
 
 #: Seconds on the dip mode before returning (AMD VRAM clock workaround).
-DIP_SECONDS = 3
+#: Generous so the dip is actually observable; tune down if annoying.
+DIP_SECONDS = 10
 
 
 def _dip_candidate(modes: list[_Mode], current: _Mode) -> _Mode | None:

@@ -414,12 +414,12 @@ class GameDialog(QDialog):
             self.cb_dprov.addItem(value, value)
         self.cb_dprov.setToolTip("Display backend. GNOME and wlroots compositors land in phase 2.")
         df.addRow("Provider:", self.cb_dprov)
-        dm_note = QLabel(
-            "Requesting the current mode dips one mode down and back first "
-            "(AMD VRAM clock workaround)."
-        )
-        dm_note.setWordWrap(True)
+        dm_note = QLabel("Same mode as current: dips down and back first (VRAM workaround).")
+        dm_note.setObjectName("dip_note")
+        dm_note.setVisible(False)
         df.addRow("", dm_note)
+        self._dip_note = dm_note
+        self._dmode_current: str | None = None
         disp_layout.addWidget(dm_box)
         gs_box = QGroupBox("Gamescope")
         gf = QFormLayout(gs_box)
@@ -694,6 +694,7 @@ class GameDialog(QDialog):
         self.e_exe.textChanged.connect(self._refresh_hook_statuses)
         self.e_pre.textChanged.connect(self._refresh_hook_statuses)
         self.e_post.textChanged.connect(self._refresh_hook_statuses)
+        self.e_dmode.currentTextChanged.connect(lambda _t: self._update_dip_note())
         tabs.currentChanged.connect(self._refresh_preview)
         self._show_load_warning()
         self._refresh_display_modes()
@@ -1182,6 +1183,7 @@ class GameDialog(QDialog):
         if run != self._dmode_run:
             return  # stale result (e.g. output changed mid-query)
         current = self.e_dmode.currentData() or self.e_dmode.currentText()
+        self._dmode_current = None
         self.e_dmode.blockSignals(True)
         try:
             self.e_dmode.clear()
@@ -1193,6 +1195,8 @@ class GameDialog(QDialog):
                     num, text, is_current = None, entry, False
                 else:
                     num, text, is_current = entry
+                if is_current:
+                    self._dmode_current = text
                 if num is None:
                     self.e_dmode.addItem(text, text)
                 elif is_current:
@@ -1202,6 +1206,25 @@ class GameDialog(QDialog):
         finally:
             self.e_dmode.blockSignals(False)
         self.e_dmode.setCurrentText(str(current or ""))
+        self._update_dip_note()
+
+    def _update_dip_note(self) -> None:
+        """Show the dip workaround note only when requesting the current mode."""
+        from ..backends import display as dispmod
+
+        value = str(self.e_dmode.currentData() or self.e_dmode.currentText() or "").strip()
+        show = False
+        if value and self._dmode_current:
+            want = dispmod.parse_mode(value)
+            cur = dispmod.parse_mode(self._dmode_current)
+            show = (
+                want is not None
+                and cur is not None
+                and want[0] == cur[0]
+                and want[1] == cur[1]
+                and (want[2] is None or abs(want[2] - cur[2]) < 1.0)
+            )
+        self._dip_note.setVisible(show)
 
     def _refresh_preview(self) -> None:
         # Never collect mid-populate: later fields still hold stale widget

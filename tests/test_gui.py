@@ -2394,3 +2394,28 @@ def test_wedged_display_backend_never_blocks_open(qt_app, xdg_env, monkeypatch):
     assert time.monotonic() - start < 10
     gate.set()  # release the worker before close so stop() joins cleanly
     d.close()
+
+
+def test_dip_note_only_for_current_mode(qt_app, xdg_env, monkeypatch):
+    from tksteamlaunch.backends import display as dispmod
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    monkeypatch.setattr(
+        dispmod,
+        "offered_modes",
+        lambda *a: [(2, "2560x1440@164.96", True), (3, "1920x1080@60", False)],
+    )
+    cfg = __import__("tksteamlaunch.config", fromlist=["x"]).GameConfig()
+    cfg.general.appid = "167"
+    cfg.display.mode = ""
+    __import__("tksteamlaunch.config", fromlist=["x"]).save(cfg)
+    d = GameDialog(None, "167", "T")
+    assert _pump_until(qt_app, lambda: d.e_dmode.count() >= 2)
+    assert d._dip_note.isHidden()
+    d.e_dmode.setCurrentText("1920x1080@60")
+    qt_app.processEvents()
+    assert d._dip_note.isHidden()
+    d.e_dmode.setCurrentText("2560x1440@164.96")
+    qt_app.processEvents()
+    assert not d._dip_note.isHidden()
+    d.close()

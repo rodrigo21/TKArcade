@@ -11,6 +11,8 @@ Breaking config changes are called out explicitly under `Changed`.
   (same resolution, closest lower refresh; logged, never aborts).
 - Mode picker shows backend numbers and the current mode, keeps manual
   entry valid, and warns that same-mode requests dip first.
+- Mode picker shows backend numbers and the current mode, keeps manual
+  entry valid, and warns that same-mode requests dip first.
 - Export/import now carries profiles (whitelist extended, traversal
   still rejected), and games clone live config plus profiles to
   another AppID ("Clone Settings To...", picking from the Steam
