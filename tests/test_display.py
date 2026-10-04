@@ -165,7 +165,11 @@ def test_offered_modes_lists_backend_modes(tmp_path, monkeypatch):
 
     _bindir(tmp_path, monkeypatch)
     modes = D.offered_modes("plasma", "")
-    assert modes == ["2560x1440@164.96", "2560x1440@120", "1920x1080@60"]
+    assert modes == [
+        (2, "2560x1440@164.96", True),
+        (1, "2560x1440@120", False),
+        (3, "1920x1080@60", False),
+    ]
     assert D.offered_modes("plasma", "NOPE") == modes  # unknown output falls back
     assert D.offered_modes("gnome", "") == []
     assert D.offered_modes("x11", "") != []
@@ -176,7 +180,7 @@ def test_mode_picker_lists_offered_and_keeps_manual(qt_app, xdg_env, monkeypatch
     from tksteamlaunch.backends import display as dispmod
     from tksteamlaunch.gui.game_dialog import GameDialog
 
-    monkeypatch.setattr(dispmod, "offered_modes", lambda *a: ["1920x1080@60"])
+    monkeypatch.setattr(dispmod, "offered_modes", lambda *a: [(None, "1920x1080@60", False)])
     cfg = C.GameConfig()
     cfg.general.appid = "163"
     cfg.display.mode = "1280x720@60"
@@ -228,3 +232,46 @@ def test_no_current_mode_warns_without_restore(tmp_path, monkeypatch, caplog):
         assert unhealthy.start() == []
     assert any("without restore" in r.message for r in caplog.records)
     assert unhealthy._prev is None
+
+
+def test_dip_candidate_prefers_same_res_lower_rate():
+    from tksteamlaunch.backends.display import _dip_candidate, _Mode
+
+    modes = [
+        _Mode(1, 2560, 1440, 120.0, False),
+        _Mode(2, 2560, 1440, 164.96, True),
+        _Mode(3, 1920, 1080, 60.0, False),
+    ]
+    assert _dip_candidate(modes, modes[1]) == modes[0]
+    assert _dip_candidate([modes[1]], modes[1]) is None
+
+
+def test_same_mode_dips_down_and_back(tmp_path, monkeypatch):
+
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    slept = []
+    monkeypatch.setattr(D.time, "sleep", lambda s: slept.append(s))
+    s = D.DisplaySession(provider="plasma", mode="2560x1440@164.96")
+    assert s.start() == []
+    k, _x = _logs(tmp_path)
+    assert k == ["output.DP-3.mode.1", "output.DP-3.mode.2"]
+    assert slept == [D.DIP_SECONDS]
+    s.stop()
+    k, _x = _logs(tmp_path)
+    assert k[-1] == "output.DP-3.mode.2"
+
+
+def test_same_mode_x11_dips_down_and_back(tmp_path, monkeypatch):
+
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    slept = []
+    monkeypatch.setattr(D.time, "sleep", lambda s: slept.append(s))
+    s = D.DisplaySession(provider="x11", mode="2560x1440")
+    assert s.start() == []
+    _k, x = _logs(tmp_path)
+    assert x[0] == "--output DP-3 --mode 1920x1080 --rate 60"
+    assert slept == [D.DIP_SECONDS]

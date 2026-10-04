@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from typing import NamedTuple
 
 from ..config import DisplayProvider
@@ -156,11 +157,46 @@ def _mode_number(modes: list[_Mode], want: tuple[int, int, float | None]) -> int
     return None
 
 
-def offered_modes(provider: str = "auto", output: str = "") -> list[str]:
-    """Mode strings the backend reports (e.g. '1920x1080@60').
+#: Seconds on the dip mode before returning (AMD VRAM clock workaround).
+DIP_SECONDS = 3
 
-    For the GUI picker; manual entry stays valid. Empty when the
-    provider is unsupported or outputs are unreadable.
+
+def _dip_candidate(modes: list[_Mode], current: _Mode) -> _Mode | None:
+    """A lower mode to dip through when target == current.
+
+    Same resolution and closest lower refresh first (avoids a resolution
+    flicker); any other mode as fallback. None when already lowest.
+    """
+    same_res = [m for m in modes if (m.w, m.h) == (current.w, current.h) and m != current]
+    lower = sorted(
+        (m for m in same_res if m.rate < current.rate),
+        key=lambda m: m.rate,
+        reverse=True,
+    )
+    if lower:
+        return lower[0]
+    others = sorted(
+        (m for m in modes if m != current),
+        key=lambda m: (m.w, m.h, m.rate),
+    )
+    return others[0] if others else None
+
+
+def _wants_current(want: tuple[int, int, float | None], current: _Mode | None) -> bool:
+    """True when the requested mode is already active (dip case)."""
+    return (
+        current is not None
+        and current.w == want[0]
+        and current.h == want[1]
+        and (want[2] is None or abs(current.rate - want[2]) < 1.0)
+    )
+
+
+def offered_modes(provider: str = "auto", output: str = "") -> list[tuple]:
+    """Offered modes as (number|None, 'WxH@R', is_current), resolution first.
+
+    Numbers are kscreen N: ids (None for xrandr); manual entry stays
+    valid. Empty when the provider is unsupported or unreadable.
     """
     provider = detect_provider(provider)
     try:
@@ -179,7 +215,7 @@ def offered_modes(provider: str = "auto", output: str = "") -> list[str]:
     else:
         return []
     ordered = sorted(modes, key=lambda m: (-m.w, -m.h, -m.rate))
-    return [f"{m.w}x{m.h}@{m.rate:g}" for m in ordered]
+    return [(m.num, f"{m.w}x{m.h}@{m.rate:g}", m.current) for m in ordered]
 
 
 class DisplaySession:
@@ -242,20 +278,34 @@ class DisplaySession:
             return [f"mode {self.mode} not offered by {name}; leaving display untouched"]
         prev = next((m for m in outputs[name] if m.current), None)
         num = _mode_number(outputs[name], want)
-        spec = str(num) if num is not None else self.mode
-        try:
-            r = subprocess.run(
-                ["kscreen-doctor", f"output.{name}.mode.{spec}"],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-        except FileNotFoundError:
-            return ["kscreen-doctor not found, skipping display mode"]
-        except Exception as e:
-            return [f"failed to set display mode: {e}"]
-        if r.returncode != 0:
-            return [f"kscreen-doctor failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
+        target = str(num) if num is not None else self.mode
+        specs = [target]
+        if _wants_current(want, prev):
+            # Already there (e.g. AMD VRAM clock stuck): dip one mode
+            # down and back so the switch actually happens.
+            dip = _dip_candidate(outputs[name], prev)
+            if dip is None:
+                log.warning("display: already on %s; no lower mode to dip through", self.mode)
+            else:
+                dip_spec = str(dip.num) if dip.num is not None else f"{dip.w}x{dip.h}@{dip.rate:g}"
+                log.info("display: target is current; dipping through %s first", dip_spec)
+                specs.insert(0, dip_spec)
+        for i, spec in enumerate(specs):
+            try:
+                r = subprocess.run(
+                    ["kscreen-doctor", f"output.{name}.mode.{spec}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+            except FileNotFoundError:
+                return ["kscreen-doctor not found, skipping display mode"]
+            except Exception as e:
+                return [f"failed to set display mode: {e}"]
+            if r.returncode != 0:
+                return [f"kscreen-doctor failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
+            if i < len(specs) - 1:
+                time.sleep(DIP_SECONDS)
         if prev is not None:
             self._prev = (
                 "plasma",
@@ -263,7 +313,7 @@ class DisplaySession:
                 str(prev.num) if prev.num is not None else f"{prev.w}x{prev.h}@{prev.rate:g}",
                 None,
             )
-            log.info("display: %s -> %s on %s (plasma)", self._prev[2], spec, name)
+            log.info("display: %s -> %s on %s (plasma)", self._prev[2], target, name)
         else:
             log.warning(
                 "display: current mode of %s not detected; applied %s without restore",
@@ -287,17 +337,48 @@ class DisplaySession:
             return [f"mode {self.mode} not offered by {name}; leaving display untouched"]
         prev = next((m for m in outputs[name] if m.current), None)
         ww, hh, wr = want
-        cmd = ["xrandr", "--output", name, "--mode", f"{ww}x{hh}"]
-        if wr is not None:
-            cmd += ["--rate", f"{wr:g}"]
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-        except FileNotFoundError:
-            return ["xrandr not found, skipping display mode"]
-        except Exception as e:
-            return [f"failed to set display mode: {e}"]
-        if r.returncode != 0:
-            return [f"xrandr failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
+        cmds = [
+            [
+                "xrandr",
+                "--output",
+                name,
+                "--mode",
+                f"{ww}x{hh}",
+                *(["--rate", f"{wr:g}"] if wr is not None else []),
+            ]
+        ]
+        if _wants_current(want, prev):
+            dip = _dip_candidate(outputs[name], prev)
+            if dip is None:
+                log.warning("display: already on %s; no lower mode to dip through", self.mode)
+            else:
+                dip_cmd = [
+                    "xrandr",
+                    "--output",
+                    name,
+                    "--mode",
+                    f"{dip.w}x{dip.h}",
+                    "--rate",
+                    f"{dip.rate:g}",
+                ]
+                log.info(
+                    "display: target is current; dipping through %sx%s@%s first",
+                    dip.w,
+                    dip.h,
+                    f"{dip.rate:g}",
+                )
+                cmds.insert(0, dip_cmd)
+        for i, cmd in enumerate(cmds):
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            except FileNotFoundError:
+                return ["xrandr not found, skipping display mode"]
+            except Exception as e:
+                return [f"failed to set display mode: {e}"]
+            if r.returncode != 0:
+                return [f"xrandr failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
+            if i < len(cmds) - 1:
+                time.sleep(DIP_SECONDS)
         if prev is not None:
             self._prev = ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
             log.info(

@@ -2364,14 +2364,14 @@ def test_edit_menu_uses_profile_timeout(qt_app, xdg_env, capsys):
     assert '"outcome": "cancelled"' in capsys.readouterr().out
 
 
-def test_dialog_open_never_queries_display_backend(qt_app, xdg_env, monkeypatch):
+def test_mode_picker_fills_in_background(qt_app, xdg_env, monkeypatch):
     from tksteamlaunch.backends import display as dispmod
     from tksteamlaunch.gui.game_dialog import GameDialog
 
-    monkeypatch.setattr(dispmod, "offered_modes", lambda *a: ["1920x1080@60"])
+    monkeypatch.setattr(dispmod, "offered_modes", lambda *a: [(3, "1920x1080@60", False)])
     d = GameDialog(None, "164", "T")
     assert _pump_until(qt_app, lambda: d.e_dmode.count() >= 2)
-    assert "1920x1080@60" in [d.e_dmode.itemText(i) for i in range(d.e_dmode.count())]
+    assert "1920x1080@60" in [d.e_dmode.itemData(i) for i in range(d.e_dmode.count())]
     d.close()
 
 

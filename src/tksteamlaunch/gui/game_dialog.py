@@ -414,6 +414,12 @@ class GameDialog(QDialog):
             self.cb_dprov.addItem(value, value)
         self.cb_dprov.setToolTip("Display backend. GNOME and wlroots compositors land in phase 2.")
         df.addRow("Provider:", self.cb_dprov)
+        dm_note = QLabel(
+            "Requesting the current mode dips one mode down and back first "
+            "(AMD VRAM clock workaround)."
+        )
+        dm_note.setWordWrap(True)
+        df.addRow("", dm_note)
         disp_layout.addWidget(dm_box)
         gs_box = QGroupBox("Gamescope")
         gf = QFormLayout(gs_box)
@@ -1175,16 +1181,27 @@ class GameDialog(QDialog):
         self._dmode_thread = None
         if run != self._dmode_run:
             return  # stale result (e.g. output changed mid-query)
-        current = self.e_dmode.currentText()
+        current = self.e_dmode.currentData() or self.e_dmode.currentText()
         self.e_dmode.blockSignals(True)
         try:
             self.e_dmode.clear()
             self.e_dmode.addItem("")
-            for mode in modes:
-                self.e_dmode.addItem(mode)
+            for entry in modes:
+                # Tolerate legacy plain-string items; never blow up in the
+                # event loop on a malformed worker result.
+                if isinstance(entry, str):
+                    num, text, is_current = None, entry, False
+                else:
+                    num, text, is_current = entry
+                if num is None:
+                    self.e_dmode.addItem(text, text)
+                elif is_current:
+                    self.e_dmode.addItem(f"{num}: {text} ★", text)
+                else:
+                    self.e_dmode.addItem(f"{num}: {text}", text)
         finally:
             self.e_dmode.blockSignals(False)
-        self.e_dmode.setCurrentText(current)
+        self.e_dmode.setCurrentText(str(current or ""))
 
     def _refresh_preview(self) -> None:
         # Never collect mid-populate: later fields still hold stale widget
@@ -1533,7 +1550,9 @@ class GameDialog(QDialog):
         cfg.gamescope.enable = self.c_gs.isChecked()
         cfg.gamescope.args = self.e_gs_args.text().strip()
         cfg.display.output = self.e_dout.text().strip()
-        cfg.display.mode = self.e_dmode.currentText().strip()
+        cfg.display.mode = str(
+            self.e_dmode.currentData() or self.e_dmode.currentText() or ""
+        ).strip()
         cfg.display.provider = str(self.cb_dprov.currentData() or "auto")
         cfg.mangohud.enable = self.c_mh.isChecked()
         cfg.mangohud.args = self.e_mh_args.text().strip()
