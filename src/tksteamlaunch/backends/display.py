@@ -135,6 +135,31 @@ def _match_mode(
     return wr is None or any(abs(r - wr) < 1.0 for _, _, r in cands)
 
 
+def offered_modes(provider: str = "auto", output: str = "") -> list[str]:
+    """Mode strings the backend reports (e.g. '1920x1080@60').
+
+    For the GUI picker; manual entry stays valid. Empty when the
+    provider is unsupported or outputs are unreadable.
+    """
+    provider = detect_provider(provider)
+    try:
+        if provider == DisplayProvider.PLASMA:
+            outputs = current_plasma()
+        elif provider == DisplayProvider.X11:
+            outputs = current_x11()
+        else:
+            return []
+    except Exception:
+        return []
+    if output and output in outputs:
+        modes = outputs[output]
+    elif outputs:
+        modes = next(iter(outputs.values()))
+    else:
+        return []
+    return [f"{w}x{h}@{r:g}" for w, h, r, _ in modes]
+
+
 class DisplaySession:
     """RAII session: apply a display mode on enter, restore on exit."""
 
@@ -200,6 +225,13 @@ class DisplaySession:
         if prev is not None:
             pw, ph, pr = prev
             self._prev = ("plasma", name, f"{pw}x{ph}@{pr:g}", None)
+            log.info("display: %s -> %s on %s (plasma)", self._prev[2], self.mode, name)
+        else:
+            log.warning(
+                "display: current mode of %s not detected; applied %s without restore",
+                name,
+                self.mode,
+            )
         return []
 
     def _start_x11(self, want: tuple[int, int, float | None]) -> list[str]:
@@ -231,6 +263,13 @@ class DisplaySession:
         if prev is not None:
             pw, ph, pr = prev
             self._prev = ("x11", name, f"{pw}x{ph}", f"{pr:g}")
+            log.info("display: %s -> %s on %s (x11)", f"{pw}x{ph}@{pr:g}", self.mode, name)
+        else:
+            log.warning(
+                "display: current mode of %s not detected; applied %s without restore",
+                name,
+                self.mode,
+            )
         return []
 
     def stop(self) -> None:
@@ -242,19 +281,34 @@ class DisplaySession:
         try:
             if kind == "plasma":
                 if not shutil.which("kscreen-doctor"):
+                    log.warning("display: kscreen-doctor gone, cannot restore %s", mode)
                     return
-                subprocess.run(
-                    ["kscreen-doctor", f"output.{name}.mode.{mode}"],
-                    capture_output=True,
-                    timeout=15,
-                )
+                cmd = ["kscreen-doctor", f"output.{name}.mode.{mode}"]
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                if r.returncode != 0:
+                    log.warning(
+                        "display: restore %s failed: %s",
+                        mode,
+                        (r.stderr or r.stdout or "").strip()[:200],
+                    )
+                else:
+                    log.info("display: restored %s on %s", mode, name)
             elif kind == "x11":
                 if not shutil.which("xrandr"):
+                    log.warning("display: xrandr gone, cannot restore %s", mode)
                     return
                 cmd = ["xrandr", "--output", name, "--mode", mode]
                 if rate is not None:
                     cmd += ["--rate", rate]
-                subprocess.run(cmd, capture_output=True, timeout=15)
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                if r.returncode != 0:
+                    log.warning(
+                        "display: restore %s failed: %s",
+                        mode,
+                        (r.stderr or r.stdout or "").strip()[:200],
+                    )
+                else:
+                    log.info("display: restored %s on %s", mode, name)
         except Exception as e:
             log.error("failed to restore display mode: %s", e)
 

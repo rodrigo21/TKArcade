@@ -2349,3 +2349,15 @@ def test_edit_menu_uses_profile_timeout(qt_app, xdg_env, capsys):
     assert editmod.main(["--appid", "213", "--menu"]) == 0
     assert seen == [30]
     assert '"outcome": "cancelled"' in capsys.readouterr().out
+
+
+def test_dialog_open_never_queries_display_backend(qt_app, xdg_env, monkeypatch):
+    from tksteamlaunch.backends import display as dispmod
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    def boom(*a, **k):
+        raise AssertionError("backend query during dialog open")
+
+    monkeypatch.setattr(dispmod, "offered_modes", boom)
+    d = GameDialog(None, "164", "T")
+    d.close()

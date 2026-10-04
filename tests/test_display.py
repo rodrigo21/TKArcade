@@ -150,11 +150,79 @@ def test_display_fields_collect_and_populate(qt_app, xdg_env):
     C.save(cfg)
     d = GameDialog(None, "161", "T")
     assert d.e_dout.text() == "DP-3"
-    assert d.e_dmode.text() == "1920x1080@60"
+    assert d.e_dmode.currentText() == "1920x1080@60"
     assert d.cb_dprov.currentData() == "plasma"
-    d.e_dmode.setText("1280x720")
+    d.e_dmode.setCurrentText("1280x720")
     d._collect()
     assert d.cfg.display.mode == "1280x720"
     d.accept()
     assert C.load("161").display.mode == "1280x720"
     d.close()
+
+
+def test_offered_modes_lists_backend_modes(tmp_path, monkeypatch):
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    modes = D.offered_modes("plasma", "")
+    assert "2560x1440@164.96" in modes and "1920x1080@60" in modes
+    assert D.offered_modes("plasma", "NOPE") == modes  # unknown output falls back
+    assert D.offered_modes("gnome", "") == []
+    assert D.offered_modes("x11", "") != []
+
+
+def test_mode_picker_lists_offered_and_keeps_manual(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "163"
+    cfg.display.mode = "1280x720@60"
+    C.save(cfg)
+    d = GameDialog(None, "163", "T")
+    assert d.e_dmode.currentText() == "1280x720@60"  # manual value survives refill
+    d.close()
+
+
+def test_restore_rc_failure_warns(tmp_path, monkeypatch, caplog):
+    import logging
+    import subprocess
+
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    s = D.DisplaySession(provider="plasma", mode="1920x1080@60")
+    assert s.start() == []
+    assert s._prev is not None
+
+    def boom(*a, **k):
+        return subprocess.CompletedProcess(a[0], 1, "", "nope")
+
+    monkeypatch.setattr(D.subprocess, "run", boom)
+    with caplog.at_level(logging.WARNING, logger="tksteamlaunch.display"):
+        s.stop()
+    assert any("restore" in r.message and "failed" in r.message for r in caplog.records)
+
+
+def test_no_current_mode_warns_without_restore(tmp_path, monkeypatch, caplog):
+    import logging
+    import subprocess
+
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    real_run = D.subprocess.run
+
+    def no_star(cmd, **k):
+        if cmd[:2] == ["kscreen-doctor", "-o"]:
+            out = real_run(cmd, **k)
+            text = out.stdout.replace("*", "")
+            return subprocess.CompletedProcess(cmd, 0, text, "")
+        return real_run(cmd, **k)
+
+    unhealthy = D.DisplaySession(provider="plasma", mode="1920x1080@60")
+    monkeypatch.setattr(D.subprocess, "run", no_star)
+    with caplog.at_level(logging.WARNING, logger="tksteamlaunch.display"):
+        assert unhealthy.start() == []
+    assert any("without restore" in r.message for r in caplog.records)
+    assert unhealthy._prev is None

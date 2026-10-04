@@ -10,6 +10,8 @@ Breaking config changes are called out explicitly under `Changed`.
   still rejected), and games clone live config plus profiles to
   another AppID ("Clone Settings To...", picking from the Steam
   game list, with overwrite confirm).
+- Display mode picker lists detected modes (manual entry kept) with
+  a Refresh button; apply/restore log values and failures loudly.
 - Per-game history clearing: exact token match, atomic rewrite, in
   the History dialog (Clear Selected) and the game context menu.
 

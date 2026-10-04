@@ -367,12 +367,24 @@ class GameDialog(QDialog):
         self.e_dout.setPlaceholderText("auto = current output")
         self.e_dout.setToolTip("Output name (e.g. DP-3); empty follows the current output.")
         df.addRow("Output:", self.e_dout)
-        self.e_dmode = QLineEdit()
+        self.e_dmode = QComboBox()
+        self.e_dmode.setEditable(True)
         self.e_dmode.setPlaceholderText("e.g. 1920x1080@60, empty = off")
         self.e_dmode.setToolTip(
-            "Resolution (and refresh rate) while the game runs; restored on exit."
+            "Resolution (and refresh rate) while the game runs; restored on exit. "
+            "Type any mode or pick a detected one."
         )
-        df.addRow("Mode:", self.e_dmode)
+        b_dmodes = QPushButton("Refresh")
+        b_dmodes.setToolTip(
+            "List the output's detected modes (runs a backend query). Manual entry always works."
+        )
+        b_dmodes.clicked.connect(self._refresh_display_modes)
+        dmode_row = QWidget()
+        dmode_layout = QHBoxLayout(dmode_row)
+        dmode_layout.setContentsMargins(0, 0, 0, 0)
+        dmode_layout.addWidget(self.e_dmode, stretch=1)
+        dmode_layout.addWidget(b_dmodes)
+        df.addRow("Mode:", dmode_row)
         self.cb_dprov = QComboBox()
         for value in ("auto", "plasma", "gnome", "wlroots", "x11", "off"):
             self.cb_dprov.addItem(value, value)
@@ -703,7 +715,7 @@ class GameDialog(QDialog):
         self.c_gs.setChecked(c.gamescope.enable)
         self.e_gs_args.setText(c.gamescope.args)
         self.e_dout.setText(c.display.output)
-        self.e_dmode.setText(c.display.mode)
+        self.e_dmode.setCurrentText(c.display.mode)
         idx = self.cb_dprov.findData(c.display.provider or "auto")
         self.cb_dprov.setCurrentIndex(max(idx, 0))
         self.c_mh.setChecked(c.mangohud.enable)
@@ -1118,6 +1130,23 @@ class GameDialog(QDialog):
         except Exception:
             return True
 
+    def _refresh_display_modes(self) -> None:
+        """Refill the mode picker from the backend (manual entry stays valid)."""
+        from ..backends import display as dispmod
+
+        current = self.e_dmode.currentText()
+        self.e_dmode.blockSignals(True)
+        try:
+            self.e_dmode.clear()
+            self.e_dmode.addItem("")
+            for mode in dispmod.offered_modes(
+                str(self.cb_dprov.currentData() or "auto"), self.e_dout.text().strip()
+            ):
+                self.e_dmode.addItem(mode)
+        finally:
+            self.e_dmode.blockSignals(False)
+        self.e_dmode.setCurrentText(current)
+
     def _refresh_preview(self) -> None:
         # Never collect mid-populate: later fields still hold stale widget
         # values, so collecting now would clobber cfg and the populate
@@ -1465,7 +1494,7 @@ class GameDialog(QDialog):
         cfg.gamescope.enable = self.c_gs.isChecked()
         cfg.gamescope.args = self.e_gs_args.text().strip()
         cfg.display.output = self.e_dout.text().strip()
-        cfg.display.mode = self.e_dmode.text().strip()
+        cfg.display.mode = self.e_dmode.currentText().strip()
         cfg.display.provider = str(self.cb_dprov.currentData() or "auto")
         cfg.mangohud.enable = self.c_mh.isChecked()
         cfg.mangohud.args = self.e_mh_args.text().strip()
