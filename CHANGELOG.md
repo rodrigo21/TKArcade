@@ -5,6 +5,10 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Changed
+- AppImage release asset now carries the version
+  (`TKSteamLaunch-<version>.AppImage`).
+
 ## [1.1.1] - 2026-10-05
 
 ### Fixed

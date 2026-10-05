@@ -7,14 +7,23 @@ cd "$(dirname "$0")/../.."
 
 OUT_DIR="${1:-packaging/appimage/dist}"
 mkdir -p "$OUT_DIR"
+# Versioned bundle name (release assets carry the version).
+if TAG="$(git describe --tags --exact-match 2>/dev/null)"; then
+    VER="${TAG#v}"
+elif DESCRIBE="$(git describe --tags 2>/dev/null)"; then
+    VER="${DESCRIBE#v}"
+else
+    VER="$(python3 -c 'from importlib.metadata import version; print(version("tksteamlaunch"))' 2>/dev/null || echo dev)"
+fi
+NAME="TKSteamLaunch-${VER}.AppImage"
 # Drop any previous bundle first: overwriting a running AppImage fails
 # with "Text file busy" (unlinking a running file is fine on Linux).
-rm -f "$OUT_DIR/TKSteamLaunch.AppImage"
+rm -f "$OUT_DIR"/TKSteamLaunch*.AppImage
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 pyproject-appimage \
-    --output "$OUT_DIR/TKSteamLaunch.AppImage" \
+    --output "$OUT_DIR/$NAME" \
     --work-dir "$WORK_DIR"
-chmod +x "$OUT_DIR/TKSteamLaunch.AppImage"
-echo "built: $OUT_DIR/TKSteamLaunch.AppImage"
+chmod +x "$OUT_DIR/$NAME"
+echo "built: $OUT_DIR/$NAME"
