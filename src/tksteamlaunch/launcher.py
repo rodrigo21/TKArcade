@@ -696,6 +696,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.gui or (not args.cli and not game_cmd and not args.appid and not _has_cli_action(args)):
         # No launch to perform and no AppID given: open the settings GUI
         # instead of erroring out (bare invocation used to exit 11/10).
+        # Note: a lone --verbose still lands here; verbosity only affects
+        # per-game log files, of which a bare invocation has none.
         if not _has_display():
             if args.gui:
                 print("tksteamlaunch: --gui needs a display", file=sys.stderr)

@@ -525,6 +525,26 @@ def _ensure_version(data: dict) -> None:
         raise ConfigVersionError(version)
 
 
+def needs_newer_app(path: Path) -> bool:
+    """True when the file parses but stamps a newer config_version.
+
+    Lets GUI callers gate overwrites (Save/Reset) instead of silently
+    downgrading a newer config after the loud fallback.
+    """
+    try:
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+    general = data.get("general", {}) if isinstance(data, dict) else {}
+    if not isinstance(general, dict):
+        return False
+    try:
+        return int(general.get("config_version", 0)) > CONFIG_VERSION
+    except (TypeError, ValueError):
+        return False
+
+
 def _collect_extra(data: dict, extra: dict) -> None:
     for section, body in data.items():
         if not isinstance(body, dict):

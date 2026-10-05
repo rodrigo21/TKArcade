@@ -460,6 +460,22 @@ def test_preferences_unreadable_falls_back_to_defaults(xdg_env, monkeypatch):
     assert prefs.show_preview is True
 
 
+def test_needs_newer_app(xdg_env):
+    assert C.needs_newer_app(C.game_file("120")) is False  # missing
+    C.game_file("120").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("120").write_text("not toml [[[", encoding="utf-8")
+    assert C.needs_newer_app(C.game_file("120")) is False  # unparsable
+    cfg = C.GameConfig()
+    cfg.general.appid = "121"
+    C.save(cfg)
+    assert C.needs_newer_app(C.game_file("121")) is False  # current stamp
+    C.game_file("122").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("122").write_text(
+        '[general]\nappid = "122"\nconfig_version = 999\n', encoding="utf-8"
+    )
+    assert C.needs_newer_app(C.game_file("122")) is True
+
+
 def test_load_effective_uses_active_profile(xdg_env):
     live = C.GameConfig()
     live.general.appid = "110"

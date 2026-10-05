@@ -29,6 +29,16 @@ def test_parse_missing_file(tmp_path):
     assert H.summarize([]) == {}
 
 
+def test_summarize_last_is_max_not_file_order(tmp_path):
+    log = tmp_path / "launcher.log"
+    log.write_text(
+        "2026-09-25T12:00:00 appid=1 exit=0 dur=10 cmd=/bin/true\n"
+        "2026-09-25T10:00:00 appid=1 exit=0 dur=10 cmd=/bin/true\n"
+    )
+    stats = H.summarize(H.parse_log(log))
+    assert stats["1"].last == "2026-09-25T12:00:00"
+
+
 def test_clear_appid_exact_token(tmp_path):
     from tksteamlaunch import history as H
 

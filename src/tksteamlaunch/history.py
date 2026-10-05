@@ -92,7 +92,7 @@ def summarize(sessions: list[Session]) -> dict[str, GameStats]:
     stats: dict[str, GameStats] = {}
     for s in sessions:
         entry = stats.setdefault(s.appid, GameStats(appid=s.appid))
-        entry.last = s.stamp
+        entry.last = max(entry.last, s.stamp)
         entry.runs += 1
         entry.total_dur += s.duration or 0
         if s.exit != 0:
