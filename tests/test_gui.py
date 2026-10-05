@@ -2504,3 +2504,17 @@ def test_preferred_language_falls_back(xdg_env, monkeypatch):
     assert helpersmod.preferred_language() == "pt_BR"
     monkeypatch.setattr(C, "load_preferences", lambda: 1 / 0)
     assert helpersmod.preferred_language() == ""
+
+
+def test_system_tab_groups(qt_app, xdg_env):
+    from PySide6.QtWidgets import QGroupBox
+
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    d = GameDialog(None, "215", "T")
+    groups = set()
+    for box in d.findChildren(QGroupBox):
+        if box.title() in ("Notifications", "Idle Suspend", "Night Light"):
+            groups.add(box.title())
+    assert groups == {"Notifications", "Idle Suspend", "Night Light"}
+    d.close()

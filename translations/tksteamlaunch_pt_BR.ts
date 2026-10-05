@@ -66,7 +66,7 @@ Mostrando padrões embutidos.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="231" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="960" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="973" />
             <source>The profile "{}" could not be read: {}
 Showing defaults for it instead.</source>
             <translation>Não foi possível ler o profile "{}": {}
@@ -85,7 +85,7 @@ Mostrando padrões.</translation>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="259" />
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="451" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="601" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="612" />
             <source>Automatic</source>
             <translation>Automático</translation>
         </message>
@@ -196,7 +196,7 @@ Mostrando padrões.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="325" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="630" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="643" />
             <source>Open</source>
             <translation>Abrir</translation>
         </message>
@@ -292,7 +292,7 @@ Mostrando padrões.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="387" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="607" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="620" />
             <source>System</source>
             <translation>Sistema</translation>
         </message>
@@ -353,7 +353,7 @@ Mostrando padrões.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="435" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="737" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="750" />
             <source>Refresh</source>
             <translation>Atualizar</translation>
         </message>
@@ -369,13 +369,13 @@ Mostrando padrões.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="452" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="602" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="613" />
             <source>Plasma</source>
             <translation>Plasma</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="453" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="603" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="614" />
             <source>GNOME</source>
             <translation>GNOME</translation>
         </message>
@@ -391,7 +391,7 @@ Mostrando padrões.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="456" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="604" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="615" />
             <source>Disabled</source>
             <translation>Desativado</translation>
         </message>
@@ -402,7 +402,7 @@ Mostrando padrões.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="462" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="606" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="617" />
             <source>Provider:</source>
             <translation>Provedor:</translation>
         </message>
@@ -413,7 +413,7 @@ Mostrando padrões.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="470" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="832" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="845" />
             <source>{} s</source>
             <translation>{} s</translation>
         </message>
@@ -584,422 +584,437 @@ Mostrando padrões.</translation>
             <translation>Ludusavi</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="586" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="587" />
+            <source>Notifications</source>
+            <translation>Notificações</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="589" />
             <source>Notify on launch</source>
             <translation>Notificar ao lançar</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="588" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="591" />
             <source>Show a transient summary notification when the game starts.</source>
             <translation>Mostra resumo transitório ao iniciar o jogo.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="591" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="595" />
+            <source>Idle Suspend</source>
+            <translation>Suspensão por ociosidade</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="597" />
             <source>Inhibit idle suspend while playing</source>
             <translation>Inibir suspensão por ociosidade jogando</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="594" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="600" />
             <source>Holds a logind idle lock during the session. Sleep lock is not included (needs privileges).</source>
             <translation>Mantém lock de ociosidade do logind na sessão. Lock de sleep não incluído (precisa privilégios).</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="599" />
-            <source>Disable while the game is running (restored on exit)</source>
-            <translation>Desativa durante o jogo (restaura ao sair)</translation>
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="606" />
+            <source>Night Light</source>
+            <translation>Luz noturna</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="611" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="609" />
+            <source>Disable night light while the game is running (restored on exit)</source>
+            <translation>Desativar luz noturna durante o jogo (restaura ao sair)</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="624" />
             <source>Delete prefix before launch (fresh start)</source>
             <translation>Apagar prefix antes de lançar (começo limpo)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="614" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="627" />
             <source>Deletes the compatdata prefix so Steam recreates it. WIPES saves inside the prefix — rely on cloud or Ludusavi backups!</source>
             <translation>Apaga o prefix compatdata para o Steam recriar. APAGA saves dentro — confie em nuvem ou backups Ludusavi!</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="620" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="633" />
             <source>dotnet48 vcrun2022 (space-separated)</source>
             <translation>dotnet48 vcrun2022 (separados por espaço)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="622" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="635" />
             <source>Winetricks verbs installed via protontricks before launch.</source>
             <translation>Verbos winetricks via protontricks antes de lançar.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="624" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="637" />
             <source>Winetricks Verbs:</source>
             <translation>Verbos Winetricks:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="626" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="639" />
             <source>Capture Proton log (disk-heavy)</source>
             <translation>Capturar log Proton (pesado em disco)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="628" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="641" />
             <source>Sets PROTON_LOG=1 with a per-game log dir (Proton only).</source>
             <translation>Define PROTON_LOG=1 com pasta por jogo (só Proton).</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="639" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="652" />
             <source>Off</source>
             <translation>Off</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="640" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="653" />
             <source>Quiet (-all)</source>
             <translation>Silencioso (-all)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="641" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="654" />
             <source>Errors (+err)</source>
             <translation>Erros (+err)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="642" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="655" />
             <source>Warnings (+warn,+err)</source>
             <translation>Avisos (+warn,+err)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="643" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="656" />
             <source>Sets WINEDEBUG for Wine/Proton output.</source>
             <translation>Define WINEDEBUG para saída Wine/Proton.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="644" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="657" />
             <source>Wine Debug:</source>
             <translation>Debug Wine:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="646" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="659" />
             <source>Wine / Proton</source>
             <translation>Wine / Proton</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="654" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="667" />
             <source>Free-form notes, e.g. works with GE-Proton, disable FSR in menus.</source>
             <translation>Notas livres, ex.: funciona com GE-Proton, desative FSR nos menus.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="657" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="670" />
             <source>Notes</source>
             <translation>Notas</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="684" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="697" />
             <source>Dependency Status</source>
             <translation>Status de dependências</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="688" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="701" />
             <source>Reset to Factory Defaults</source>
             <translation>Restaurar padrões de fábrica</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="694" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="707" />
             <source>Launch</source>
             <translation>Lançar</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="697" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="710" />
             <source>Discard unsaved changes and launch with the saved configuration.</source>
             <translation>Descarta edições e lança com a config salva.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="703" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="716" />
             <source>Save &amp;&amp; Launch</source>
             <translation>Salvar e lançar</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="711" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="724" />
             <source>Reset to Global Defaults</source>
             <translation>Restaurar padrões globais</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="715" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="728" />
             <source>Diff vs Defaults</source>
             <translation>Diff vs padrões</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="720" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="733" />
             <source>Launch Command Preview</source>
             <translation>Prévia do comando</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="738" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="751" />
             <source>Rebuild the preview from the current fields.</source>
             <translation>Reconstrói a prévia dos campos atuais.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="754" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="767" />
             <source>Wrappers enabled by the current fields (same order as launch).</source>
             <translation>Wrappers dos campos atuais (mesma ordem do launch).</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="858" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="871" />
             <source>Native (no Proton)</source>
             <translation>Nativo (sem Proton)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="876" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="889" />
             <source>(Game Defaults)</source>
             <translation>(Padrões do jogo)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="924" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="937" />
             <source>You have unsaved changes. Save them before switching?</source>
             <translation>Há edições não salvas. Salvar antes de trocar?</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="974" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="987" />
             <source>Save Profile</source>
             <translation>Salvar profile</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="974" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="987" />
             <source>Profile name:</source>
             <translation>Nome do profile:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="992" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1005" />
             <source>Profile "{}" could not be read: {}</source>
             <translation>Não foi possível ler o profile "{}": {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="999" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1012" />
             <source>No profile selected — clone the current (live) settings?</source>
             <translation>Sem profile selecionado — clonar as configs atuais (live)?</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1007" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1020" />
             <source>Clone Profile</source>
             <translation>Clonar profile</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1008" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1021" />
             <source>New profile name:</source>
             <translation>Novo nome de profile:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1067" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1080" />
             <source>Add Env Preset</source>
             <translation>Adicionar preset de env</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1068" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1122" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1081" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1135" />
             <source>Preset:</source>
             <translation>Preset:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1082" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1095" />
             <source>Preset '{}' is for {}.
 Apply anyway?</source>
             <translation>Preset '{}' é para {}.
 Aplicar mesmo assim?</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1091" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1104" />
             <source>Preset '{}': all keys already present.</source>
             <translation>Preset '{}': todas as chaves já presentes.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1122" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1135" />
             <source>Gamescope Preset</source>
             <translation>Preset de Gamescope</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1130" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1143" />
             <source>Default (MangoHud.conf)</source>
             <translation>Padrão (MangoHud.conf)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1142" />
             <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1155" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1168" />
             <source>New MangoHud Configuration</source>
             <translation>Nova configuração MangoHud</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1142" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1155" />
             <source>File name:</source>
             <translation>Nome do arquivo:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1147" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1160" />
             <source>Copy of MangoHud.conf</source>
             <translation>Cópia de MangoHud.conf</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1148" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1161" />
             <source>Minimal overlay</source>
             <translation>Overlay mínimo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1149" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1162" />
             <source>FPS limiter overlay</source>
             <translation>Overlay limitador de FPS</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1150" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1163" />
             <source>Full metrics overlay</source>
             <translation>Overlay de métricas completo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1151" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1164" />
             <source>Empty file</source>
             <translation>Arquivo vazio</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1156" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1169" />
             <source>Start from:</source>
             <translation>Começar de:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1170" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1183" />
             <source>{} already exists.</source>
             <translation>{} já existe.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1176" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1189" />
             <source>Could not open {}.</source>
             <translation>Não foi possível abrir {}.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1180" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1193" />
             <source>Could not open the log file.</source>
             <translation>Não foi possível abrir o log.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1187" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1200" />
             <source>Could not open the Proton log folder.</source>
             <translation>Não foi possível abrir a pasta de log Proton.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1217" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1230" />
             <source>Unsaved changes to profile "{}" will be discarded (the saved profile is kept).</source>
             <translation>Edições não salvas do profile "{}" serão descartadas (o salvo é mantido).</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1221" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1234" />
             <source>Unsaved changes will be discarded.</source>
             <translation>Edições não salvas serão descartadas.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1223" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1236" />
             <source>This overwrites the saved game config.</source>
             <translation>Isso sobrescreve a config salva do jogo.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1227" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1240" />
             <source>Reset this game to the Global Defaults template now?
 </source>
             <translation>Restaurar este jogo para o modelo de padrões globais agora?
 </translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1246" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1259" />
             <source>Differences from Global Defaults</source>
             <translation>Diferenças dos padrões globais</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1249" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1262" />
             <source>(no differences)</source>
             <translation>(sem diferenças)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1346" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1359" />
             <source>Will launch with: {}</source>
             <translation>Vai lançar com: {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1348" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1361" />
             <source>No wrappers enabled</source>
             <translation>Sem wrappers ativos</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1354" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1367" />
             <source>(preview unavailable: {})</source>
             <translation>(prévia indisponível: {})</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1356" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1369" />
             <source>(empty command)</source>
             <translation>(comando vazio)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1357" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1370" />
             <source># warning: {}</source>
             <translation># aviso: {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1419" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1432" />
             <source>Ludusavi covers this game.
 {}</source>
             <translation>Ludusavi cobre este jogo.
 {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1420" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1433" />
             <source>Manifest entry exists, but no saves found.
 {}</source>
             <translation>Manifesto existe, mas sem saves.
 {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1422" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1435" />
             <source>No manifest entry for this game.
 Add a custom game entry in Ludusavi to enable backups.</source>
             <translation>Sem manifesto para este jogo.
 Adicione entrada custom no Ludusavi para backups.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1425" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1438" />
             <source>Could not check coverage:
 {}</source>
             <translation>Não foi possível checar cobertura:
 {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1525" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1538" />
             <source>Open folder</source>
             <translation>Abrir pasta</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1549" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1562" />
             <source>{}: {}</source>
             <translation>{}: {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1555" />
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1559" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1568" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1572" />
             <source>{} not found: {}</source>
             <translation>{} não encontrado: {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1591" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1604" />
             <source>Steam options: n/a for global defaults</source>
             <translation>Opções Steam: n/a para padrões globais</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1622" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1635" />
             <source>{} not installed — option skipped at launch.</source>
             <translation>{} não instalado — opção ignorada no launch.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1641" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1654" />
             <source>ludusavi via Flatpak ({}) — may not see Proton prefixes</source>
             <translation>ludusavi via Flatpak ({}) — pode não ver prefixes Proton</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1650" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1663" />
             <source>No custom prefix — game launches directly</source>
             <translation>Sem prefixo custom — jogo lança direto</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1658" />
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1671" />
             <source>launch will fail</source>
             <translation>vai falhar ao lançar</translation>
         </message>
@@ -1845,17 +1860,17 @@ Isso sobrescreve as configs salvas (profiles mantidos).</translation>
             <translation>Chave SteamGridDB:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="81" />
+            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="79" />
             <source>System default</source>
             <translation>Padrão do sistema</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="86" />
+            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="84" />
             <source>Takes effect on restart.</source>
             <translation>Vale após reiniciar.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="87" />
+            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="85" />
             <source>Language:</source>
             <translation>Idioma:</translation>
         </message>

@@ -582,12 +582,18 @@ class GameDialog(QDialog):
 
         # --- System (desktop integration) ---
         nl = QWidget()
-        nf = QFormLayout(nl)
+        nl_layout = QVBoxLayout(nl)
+        nl_layout.setContentsMargins(4, 4, 4, 4)
+        notif_box = QGroupBox(self.tr("Notifications"))
+        nff = QFormLayout(notif_box)
         self.c_notify = QCheckBox(self.tr("Notify on launch"))
         self.c_notify.setToolTip(
             self.tr("Show a transient summary notification when the game starts.")
         )
-        nf.addRow("", self.c_notify)
+        nff.addRow("", self.c_notify)
+        nl_layout.addWidget(notif_box)
+        idle_box = QGroupBox(self.tr("Idle Suspend"))
+        iff = QFormLayout(idle_box)
         self.c_inhibit = QCheckBox(self.tr("Inhibit idle suspend while playing"))
         self.c_inhibit.setToolTip(
             self.tr(
@@ -595,15 +601,22 @@ class GameDialog(QDialog):
                 "included (needs privileges)."
             )
         )
-        nf.addRow("", self.c_inhibit)
-        self.c_nl = QCheckBox(self.tr("Disable while the game is running (restored on exit)"))
+        iff.addRow("", self.c_inhibit)
+        nl_layout.addWidget(idle_box)
+        nlight_box = QGroupBox(self.tr("Night Light"))
+        nlf = QFormLayout(nlight_box)
+        self.c_nl = QCheckBox(
+            self.tr("Disable night light while the game is running (restored on exit)")
+        )
         self.cb_nl = QComboBox()
         self.cb_nl.addItem(self.tr("Automatic"), NightlightProvider.AUTO)
         self.cb_nl.addItem(self.tr("Plasma"), NightlightProvider.PLASMA)
         self.cb_nl.addItem(self.tr("GNOME"), NightlightProvider.GNOME)
         self.cb_nl.addItem(self.tr("Disabled"), NightlightProvider.OFF)
-        nf.addRow("", self.c_nl)
-        nf.addRow(self.tr("Provider:"), self.cb_nl)
+        nlf.addRow("", self.c_nl)
+        nlf.addRow(self.tr("Provider:"), self.cb_nl)
+        nl_layout.addWidget(nlight_box)
+        nl_layout.addStretch(1)
         tabs.addTab(_scroll_page(nl), self.tr("System"))
 
         pt = QWidget()
