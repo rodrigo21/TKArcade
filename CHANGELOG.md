@@ -6,6 +6,17 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Profile Delete asks first and Save/Clone ask before overwriting an
+  existing profile.
+- Save and Reset over a newer-version config need an explicit Ok, so a
+  loud fallback can no longer be silently downgraded.
+- Steam quick-launch rejects non-numeric App IDs, and a failed Steam
+  handoff no longer plants a menu skip that would eat the next menu.
+- Game add/clone pickers reject non-numeric App IDs instead of writing
+  garbage configs.
+- Mode list no longer queries on dialog open (Refresh/provider/output
+  only) and rapid Refresh never stacks workers.
+- `summarize().last` is the newest stamp, not file order.
 - Launch-without-save now persists just the profile selection, so the
   launcher resolves the profile shown in the dialog (never overwriting
   an unreadable live file on this path).

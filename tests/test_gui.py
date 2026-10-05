@@ -1226,6 +1226,79 @@ def test_clone_without_selection_confirms(qt_app, xdg_env, monkeypatch):
     d.close()
 
 
+def test_profile_delete_confirms_first(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "84"
+    C.save(cfg)
+    C.save_profile("84", "doomed", cfg)
+    d = GameDialog(None, "84", "T")
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("doomed"))
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
+    d._on_profile_delete()
+    assert C.list_profiles("84") == ["doomed"]  # No keeps the file
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    # Active profile: discard prompt also answered by the same mock.
+    d._on_profile_delete()
+    assert C.list_profiles("84") == []
+    d.close()
+
+
+def test_profile_save_overwrite_confirms(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "85"
+    C.save(cfg)
+    old = C.GameConfig()
+    old.general.appid = "85"
+    old.env.vars = {"KEEP": "1"}
+    C.save_profile("85", "p1", old)
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("p1", True))
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
+    d = GameDialog(None, "85", "T")
+    d.e_exe.setText("/new.sh")
+    d._on_profile_save()
+    assert C.load_profile("85", "p1").env.vars == {"KEEP": "1"}  # not clobbered
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    d._on_profile_save()
+    assert C.load_profile("85", "p1").general.custom_executable == "/new.sh"
+    d.close()
+
+
+def test_newer_version_save_gated(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    C.game_file("86").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("86").write_text(
+        '[general]\nappid = "86"\nconfig_version = 999\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
+    d = GameDialog(None, "86", "T")
+    assert d._newer_version is True
+    d.e_exe.setText("/v1.sh")
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Cancel)
+    d.accept()  # gated: file keeps the newer stamp
+    assert "config_version = 999" in C.game_file("86").read_text(encoding="utf-8")
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Ok)
+    d2 = GameDialog(None, "86", "T")
+    d2.e_exe.setText("/v1.sh")
+    d2.accept()  # confirmed: downgrade proceeds once
+    assert "config_version = 999" not in C.game_file("86").read_text(encoding="utf-8")
+    d.close()
+    d2.close()
+
+
 def test_focus_refreshes_profile_list(qt_app, xdg_env):
     from PySide6.QtCore import QEvent
     from PySide6.QtGui import QFocusEvent
@@ -2150,6 +2223,60 @@ def test_tray_recents_and_steam_launch(qt_app, xdg_env, monkeypatch):
     w.close()
 
 
+def test_launch_steam_rejects_non_numeric(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    w = MainWindow()
+    opened, warns = [], []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(url))
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warns.append(a))
+    w._launch_steam("abc")
+    assert opened == [] and warns
+    w._stop_pdb_worker()
+    w._stop_art_worker()
+    w.close()
+
+
+def test_launch_steam_failure_consumes_skip(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import launcher as L
+    from tksteamlaunch.gui.main_window import MainWindow
+
+    w = MainWindow()
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: False)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: None)
+    w._launch_steam("171")
+    assert not L.menu_skip_path("171").exists()
+    w._stop_pdb_worker()
+    w._stop_art_worker()
+    w.close()
+
+
+def test_pick_steam_game_rejects_non_numeric(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+    from tksteamlaunch.gui import main_window as mw
+
+    w = mw.MainWindow()
+    infos = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: infos.append(a))
+    monkeypatch.setattr(mw.steammod, "list_games", lambda: [("1", "One"), ("2", "Two")])
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *a, **k: ("CustomName", True))
+    assert w._pick_steam_game("T", "L") == ""
+    assert infos
+    monkeypatch.setattr(mw.steammod, "list_games", lambda: [])
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("xyz", True))
+    assert w._pick_steam_game("T", "L") == ""
+    w._stop_pdb_worker()
+    w._stop_art_worker()
+    w.close()
+
+
 def test_scan_library_adds_selected(qt_app, xdg_env, monkeypatch, tmp_path):
     import tksteamlaunch.gui.main_window as mw
     from tksteamlaunch import config as C
@@ -2413,6 +2540,7 @@ def test_mode_picker_fills_in_background(qt_app, xdg_env, monkeypatch):
 
     monkeypatch.setattr(dispmod, "offered_modes", lambda *a: [(3, "1920x1080@60", False)])
     d = GameDialog(None, "164", "T")
+    d._refresh_display_modes()  # queries are manual (Refresh/provider/output), never on open
     assert _pump_until(qt_app, lambda: d.e_dmode.count() >= 2)
     assert "1920x1080@60" in [d.e_dmode.itemData(i) for i in range(d.e_dmode.count())]
     d.close()
@@ -2453,6 +2581,8 @@ def test_dip_note_only_for_current_mode(qt_app, xdg_env, monkeypatch):
     cfg.display.mode = ""
     __import__("tksteamlaunch.config", fromlist=["x"]).save(cfg)
     d = GameDialog(None, "167", "T")
+    assert d.e_dmode.count() < 2  # no query on open; manual entry works
+    d._refresh_display_modes()
     assert _pump_until(qt_app, lambda: d.e_dmode.count() >= 2)
     assert d._dip_note.isHidden()
     assert d._dip_row.isHidden()

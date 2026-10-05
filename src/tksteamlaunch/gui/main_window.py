@@ -665,10 +665,14 @@ class MainWindow(QMainWindow):
         """
         from PySide6.QtCore import QUrl
 
-        from ..launcher import plant_menu_skip
+        from ..launcher import consume_menu_skip, plant_menu_skip
 
+        if not appid.isdigit():
+            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Not a Steam App ID: {appid}"))
+            return
         plant_menu_skip(appid)
         if not QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")):
+            consume_menu_skip(appid)  # failed handoff: never skip a later real menu
             QMessageBox.warning(
                 self, "TKSteamLaunch", self.tr("Could not ask Steam to launch the game.")
             )
@@ -981,11 +985,22 @@ class MainWindow(QMainWindow):
 
                 m = re.search(r"\[(\d+)\]\s*$", choice)
                 appid = m.group(1) if m else choice.strip()
-                if appid:
-                    return appid
+                if not appid:
+                    return ""
+                if not appid.isdigit():
+                    QMessageBox.information(
+                        self, "TKSteamLaunch", self.tr(f"Not a Steam App ID: {choice}")
+                    )
+                    return ""
+                return appid
             return ""
         appid, ok = QInputDialog.getText(self, title, self.tr("Steam App ID:"))
         if not ok or not appid.strip():
+            return ""
+        if not appid.strip().isdigit():
+            QMessageBox.information(
+                self, "TKSteamLaunch", self.tr(f"Not a Steam App ID: {appid.strip()}")
+            )
             return ""
         return appid.strip()
 

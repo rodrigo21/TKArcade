@@ -190,6 +190,7 @@ class GameDialog(QDialog):
         self._cov_run = 0
         self._dmode_thread: _DisplayModesWorker | None = None
         self._dmode_run = 0
+        self._newer_version = False
         self.appid = appid
         if defaults_mode:
             self.setWindowTitle(self.tr("Global Defaults"))
@@ -234,6 +235,7 @@ class GameDialog(QDialog):
         self._profile_names: set[str] = (
             set(cfgmod.list_profiles(appid)) if not defaults_mode else set()
         )
+        self._refresh_newer_flag()
         from .helpers import apply_default_size
 
         apply_default_size(self, fallback=(680, 640))
@@ -787,7 +789,8 @@ class GameDialog(QDialog):
         self.e_dmode.currentTextChanged.connect(lambda _t: self._update_dip_ui())
         tabs.currentChanged.connect(self._refresh_preview)
         self._show_load_warning()
-        self._refresh_display_modes()
+        # No query on open (subprocess I/O stays behind Refresh and
+        # provider/output edits); manual mode entry always works.
 
     def _populate(self) -> None:
         self._populating = True
@@ -903,6 +906,39 @@ class GameDialog(QDialog):
         notice for _show_load_warning.
         """
         self.cfg, self._load_warning = cfgmod.load_with_warning(self.appid)
+        self._refresh_newer_flag()
+
+    def _refresh_newer_flag(self) -> None:
+        """Track whether the shown source needs a newer app (downgrade gate)."""
+        if self.defaults_mode:
+            path = xdg.defaults_file()
+        elif self._active_profile:
+            path = cfgmod.profile_file(self.appid, self._active_profile)
+        else:
+            path = cfgmod.game_file(self.appid)
+        try:
+            self._newer_version = cfgmod.needs_newer_app(path)
+        except Exception:
+            self._newer_version = False
+
+    def _confirm_newer_overwrite(self) -> bool:
+        """Gate Save/Reset over a newer-version config behind an explicit Ok."""
+        if not self._newer_version:
+            return True
+        answer = QMessageBox.warning(
+            self,
+            "TKSteamLaunch",
+            self.tr(
+                "This configuration was written by a newer TKSteamLaunch. "
+                "Saving now will downgrade it and may lose settings. Continue?"
+            ),
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Ok:
+            return False
+        self._newer_version = False
+        return True
 
     def _show_load_warning(self) -> None:
         """Surface a config-fallback warning after (re)populating, if any."""
@@ -918,6 +954,8 @@ class GameDialog(QDialog):
         defaults template) carries the edits.
         """
         self._collect()
+        if not self._confirm_newer_overwrite():
+            return
         if self.defaults_mode:
             cfgmod.save_defaults(self.cfg)
         elif self._active_profile:
@@ -979,13 +1017,27 @@ class GameDialog(QDialog):
         else:
             self._load_live()
         self._populate()
+        self._refresh_newer_flag()
         self._show_load_warning()
+
+    def _confirm_profile_overwrite(self, name: str) -> bool:
+        """Ask before clobbering an existing profile snapshot."""
+        if cfgmod.profile_file(self.appid, name).exists():
+            answer = QMessageBox.question(
+                self,
+                "TKSteamLaunch",
+                self.tr(f'Profile "{name}" already exists. Overwrite it?'),
+            )
+            return answer == QMessageBox.StandardButton.Yes
+        return True
 
     def _on_profile_save(self) -> None:
         from PySide6.QtWidgets import QInputDialog
 
         name, ok = QInputDialog.getText(self, self.tr("Save Profile"), self.tr("Profile name:"))
         if not ok or not name.strip():
+            return
+        if not self._confirm_profile_overwrite(name.strip()):
             return
         self._collect()
         cfgmod.save_profile(self.appid, name.strip(), self.cfg)
@@ -1023,6 +1075,8 @@ class GameDialog(QDialog):
         )
         if not ok or not name.strip():
             return
+        if not self._confirm_profile_overwrite(name.strip()):
+            return
         cfgmod.save_profile(self.appid, name.strip(), cfg)
         self._active_profile = name.strip()
         self._refresh_profiles()
@@ -1030,6 +1084,13 @@ class GameDialog(QDialog):
     def _on_profile_delete(self) -> None:
         name = str(self.cb_profile.currentData() or "")
         if not name:
+            return
+        answer = QMessageBox.question(
+            self,
+            "TKSteamLaunch",
+            self.tr(f'Delete profile "{name}"? This cannot be undone.'),
+        )
+        if answer != QMessageBox.StandardButton.Yes:
             return
         cfgmod.delete_profile(self.appid, name)
         if self._active_profile == name:
@@ -1225,6 +1286,8 @@ class GameDialog(QDialog):
         mistake for applied. Profiles are never touched. Cancel leaves
         widgets and files exactly as they were.
         """
+        if not self._confirm_newer_overwrite():
+            return
         if self._active_profile:
             detail = self.tr(
                 f'Unsaved changes to profile "{self._active_profile}" will be '
@@ -1251,6 +1314,7 @@ class GameDialog(QDialog):
         self._populate()
         self._refresh_profiles()
         cfgmod.save(self.cfg)
+        self._newer_version = False  # file just rewritten at this version
 
     def _show_diff(self) -> None:
         self._collect()
@@ -1280,6 +1344,7 @@ class GameDialog(QDialog):
 
     def _refresh_display_modes(self) -> None:
         """(Re)query offered modes in the background; manual entry always works."""
+        self._stop_dmode_worker()  # never stack concurrent queries
         self._dmode_run += 1
         run = self._dmode_run
         worker = _DisplayModesWorker(
