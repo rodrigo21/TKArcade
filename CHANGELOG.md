@@ -5,16 +5,15 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
-### Added
-- Play in the game context menu; launching from the program (button,
-  tray, menu) skips the pre-launch menu once via a fresh sentinel,
-  even with show-menu enabled.
-- Backup now includes preferences.toml; context menu order mirrors
-  the button rows (Play/Edit/Remove/Reset, then copies, then tools).
+## [1.1.0] - 2026-10-05
 
 ### Added
-- Play button (Games row) and Launch via Steam (context menu) for
-  launching through the client; Play uses the real selection.
+- Play button (Games row) and Play in the context menu for launching
+  through the client; Play uses the real selection. Launching from
+  the program (button, tray, menu) skips the pre-launch menu once
+  via a fresh sentinel, even with show-menu enabled.
+- Backup now includes preferences.toml; context menu order mirrors
+  the button rows, with Copy Launch Options leading the copies group.
 - In-app language option (Preferences): system default, English, or
   shipped locales — restart to apply, games unaffected (no LC_ALL leak).
 - Display dip delay slider (3-15 s, per game, default 8 s) for the
