@@ -15,6 +15,16 @@ _translators: list = []  # kept alive: Qt unloads GC'd translators
 LANGUAGE_NAMES = {"pt_BR": "Português (Brasil)"}
 
 
+def preferred_language() -> str:
+    """GUI language from preferences ("" on any error: system default)."""
+    try:
+        from .. import config as cfgmod
+
+        return cfgmod.load_preferences().language
+    except Exception:
+        return ""
+
+
 def available_languages() -> list[tuple[str, str]]:
     """Shipped [(code, label)] for the language picker (English included)."""
     codes: set[str] = set()

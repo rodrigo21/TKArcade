@@ -43,9 +43,9 @@ def pick_game_appid() -> str:
     from .. import steam as steammod
 
     app = QApplication.instance() or QApplication(sys.argv)
-    from .helpers import install_translations
+    from .helpers import install_translations, preferred_language
 
-    install_translations(app, cfgmod.load_preferences().language)
+    install_translations(app, preferred_language())
     names = {a: n for a, n in steammod.list_games()}
     configured = set(cfgmod.list_appids())
     entries = [(a, names.get(a, a)) for a in configured]
@@ -97,10 +97,9 @@ def main(argv: list[str] | None = None) -> int:
     from .. import steam as steammod
 
     app = QApplication.instance() or QApplication(sys.argv)
-    from .. import config as cfgmod
-    from .helpers import install_translations
+    from .helpers import install_translations, preferred_language
 
-    install_translations(app, cfgmod.load_preferences().language)
+    install_translations(app, preferred_language())
     appid = (args.appid or "").strip()
     if not appid and args.pick:
         appid = pick_game_appid()

@@ -2491,3 +2491,16 @@ def test_install_translations_explicit_override(qt_app, monkeypatch):
     assert helpersmod.install_translations(qt_app, "pt_BR") == "pt_BR"
     assert QCoreApplication.translate("MainWindow", "Games") == "Jogos"
     qt_app.removeTranslator(helpersmod._translators.pop())
+
+
+def test_preferred_language_falls_back(xdg_env, monkeypatch):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui import helpers as helpersmod
+
+    assert helpersmod.preferred_language() == "system"
+    prefs = C.load_preferences()
+    prefs.language = "pt_BR"
+    C.save_preferences(prefs)
+    assert helpersmod.preferred_language() == "pt_BR"
+    monkeypatch.setattr(C, "load_preferences", lambda: 1 / 0)
+    assert helpersmod.preferred_language() == ""
