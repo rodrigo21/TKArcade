@@ -111,6 +111,24 @@ def test_prepare_fresh_prefix(monkeypatch, tmp_path):
     assert ok is False and "missing" in warnings[0]
 
 
+def test_prepare_fresh_prefix_refuses_non_prefix(monkeypatch, tmp_path):
+    from tksteamlaunch import proton as pm
+
+    victim = tmp_path / "precious"
+    victim.mkdir()
+    (victim / "save.dat").write_text("x")
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(victim))
+    ok, warnings = pm.prepare_fresh_prefix()
+    assert ok is False and "refused" in warnings[0]
+    assert (victim / "save.dat").exists()  # untouched
+    nested = tmp_path / "steamapps" / "common" / "70"
+    nested.mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(nested))
+    ok, warnings = pm.prepare_fresh_prefix()
+    assert ok is False and "refused" in warnings[0]
+    assert nested.exists()
+
+
 def test_sections_covered_by_key_map():
     assert set(C.to_toml_dict(C.GameConfig())) == set(C.SECTION_KEYS)
 

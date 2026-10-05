@@ -132,6 +132,10 @@ def prepare_fresh_prefix() -> tuple[bool, list[str]]:
     if not compat:
         return False, ["fresh_prefix set but STEAM_COMPAT_DATA_PATH is missing; skipped"]
     target = Path(compat)
+    if not target.name.isdigit() or "compatdata" not in target.parts:
+        return False, [
+            f"fresh_prefix refused: {compat} is not a compatdata/<appid> prefix; skipped"
+        ]
     try:
         if target.is_dir() and not target.is_symlink():
             shutil.rmtree(target)
