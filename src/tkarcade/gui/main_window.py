@@ -938,9 +938,7 @@ class MainWindow(QMainWindow):
         if not dest:
             return
         if dest == appid:
-            QMessageBox.information(
-                self, "TKArcade", self.tr("Source and target are the same.")
-            )
+            QMessageBox.information(self, "TKArcade", self.tr("Source and target are the same."))
             return
         if cfgmod.game_file(dest).exists():
             go = QMessageBox.question(

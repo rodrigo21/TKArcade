@@ -1257,9 +1257,7 @@ class GameDialog(QDialog):
         from ..launcher import proton_log_dir
 
         if not open_path(str(proton_log_dir(self.appid))):
-            QMessageBox.warning(
-                self, "TKArcade", self.tr("Could not open the Proton log folder.")
-            )
+            QMessageBox.warning(self, "TKArcade", self.tr("Could not open the Proton log folder."))
 
     def _on_reset_factory(self) -> None:
         # In-memory only: the file changes on Save, Cancel discards everything.
