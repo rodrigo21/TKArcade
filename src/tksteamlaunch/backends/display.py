@@ -129,13 +129,13 @@ def current_x11() -> dict[str, list[_Mode]]:
             continue
         if name is None:
             continue
-        m2 = re.match(r"^\s+(\d+)x(\d+)\s+([\d.]+)(\*?).*$", line)
+        m2 = re.match(r"^\s+(\d+)x(\d+)\s+(.*)$", line)
         if m2:
-            out[name].append(
-                _Mode(
-                    None, int(m2.group(1)), int(m2.group(2)), float(m2.group(3)), m2.group(4) == "*"
-                )
-            )
+            w, h = int(m2.group(1)), int(m2.group(2))
+            # One line carries every rate for the resolution
+            # (e.g. "2560x1440 164.96*+ 60.00"): keep them all.
+            for rate in re.finditer(r"([\d.]+)([*+]?)", m2.group(3)):
+                out[name].append(_Mode(None, w, h, float(rate.group(1)), "*" in rate.group(2)))
     return {k: v for k, v in out.items() if v}
 
 
@@ -301,29 +301,52 @@ class DisplaySession:
                 dip_spec = str(dip.num) if dip.num is not None else f"{dip.w}x{dip.h}@{dip.rate:g}"
                 log.info("display: target is current; dipping through %s first", dip_spec)
                 specs.insert(0, dip_spec)
-        for i, spec in enumerate(specs):
-            try:
-                r = subprocess.run(
-                    ["kscreen-doctor", f"output.{name}.mode.{spec}"],
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                )
-            except FileNotFoundError:
-                return ["kscreen-doctor not found, skipping display mode"]
-            except Exception as e:
-                return [f"failed to set display mode: {e}"]
-            if r.returncode != 0:
-                return [f"kscreen-doctor failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
-            if i < len(specs) - 1:
-                time.sleep(self.dip_seconds)
+        try:
+            for i, spec in enumerate(specs):
+                try:
+                    r = subprocess.run(
+                        ["kscreen-doctor", f"output.{name}.mode.{spec}"],
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
+                    )
+                except FileNotFoundError:
+                    if i > 0:
+                        self.stop()
+                    return ["kscreen-doctor not found, skipping display mode"]
+                except Exception as e:
+                    if i > 0:
+                        self.stop()
+                    return [f"failed to set display mode: {e}"]
+                if r.returncode != 0:
+                    if i > 0:
+                        self.stop()
+                    return [f"kscreen-doctor failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
+                if self._prev is None and prev is not None and i < len(specs) - 1:
+                    # The dip (specs[0]) applied: the restore point is known
+                    # from here on, so a later failure must undo it.
+                    self._prev = (
+                        "plasma",
+                        name,
+                        str(prev.num)
+                        if prev.num is not None
+                        else f"{prev.w}x{prev.h}@{prev.rate:g}",
+                        None,
+                    )
+                if i < len(specs) - 1:
+                    time.sleep(self.dip_seconds)
+        except BaseException:
+            # Interrupted mid-dip (SIGTERM/Ctrl-C): never leave the dip live.
+            self.stop()
+            raise
         if prev is not None:
-            self._prev = (
-                "plasma",
-                name,
-                str(prev.num) if prev.num is not None else f"{prev.w}x{prev.h}@{prev.rate:g}",
-                None,
-            )
+            if self._prev is None:
+                self._prev = (
+                    "plasma",
+                    name,
+                    str(prev.num) if prev.num is not None else f"{prev.w}x{prev.h}@{prev.rate:g}",
+                    None,
+                )
             log.info("display: %s -> %s on %s (plasma)", self._prev[2], target, name)
         else:
             log.warning(
@@ -379,19 +402,35 @@ class DisplaySession:
                     f"{dip.rate:g}",
                 )
                 cmds.insert(0, dip_cmd)
-        for i, cmd in enumerate(cmds):
-            try:
-                r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-            except FileNotFoundError:
-                return ["xrandr not found, skipping display mode"]
-            except Exception as e:
-                return [f"failed to set display mode: {e}"]
-            if r.returncode != 0:
-                return [f"xrandr failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
-            if i < len(cmds) - 1:
-                time.sleep(self.dip_seconds)
+        try:
+            for i, cmd in enumerate(cmds):
+                try:
+                    r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                except FileNotFoundError:
+                    if i > 0:
+                        self.stop()
+                    return ["xrandr not found, skipping display mode"]
+                except Exception as e:
+                    if i > 0:
+                        self.stop()
+                    return [f"failed to set display mode: {e}"]
+                if r.returncode != 0:
+                    if i > 0:
+                        self.stop()
+                    return [f"xrandr failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
+                if self._prev is None and prev is not None and i < len(cmds) - 1:
+                    # The dip (cmds[0]) applied: the restore point is known
+                    # from here on, so a later failure must undo it.
+                    self._prev = ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
+                if i < len(cmds) - 1:
+                    time.sleep(self.dip_seconds)
+        except BaseException:
+            # Interrupted mid-dip (SIGTERM/Ctrl-C): never leave the dip live.
+            self.stop()
+            raise
         if prev is not None:
-            self._prev = ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
+            if self._prev is None:
+                self._prev = ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
             log.info(
                 "display: %s -> %s on %s (x11)",
                 f"{prev.w}x{prev.h}@{prev.rate:g}",

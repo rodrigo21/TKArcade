@@ -273,7 +273,8 @@ def test_same_mode_x11_dips_down_and_back(tmp_path, monkeypatch):
     s = D.DisplaySession(provider="x11", mode="2560x1440")
     assert s.start() == []
     _k, x = _logs(tmp_path)
-    assert x[0] == "--output DP-3 --mode 1920x1080 --rate 60"
+    # Same resolution, lower refresh: no resolution flicker on the dip.
+    assert x[0] == "--output DP-3 --mode 2560x1440 --rate 60"
     assert slept == [D.DIP_SECONDS]
 
 
@@ -298,3 +299,96 @@ def test_display_dip_seconds_roundtrip_and_clamp(xdg_env):
         encoding="utf-8",
     )
     assert C.load("170").display.dip_seconds == 8
+
+
+def _flaky_second_apply(monkeypatch, tmp_path):
+    """Real binaries, but the 2nd mode-set (the dip target) fails."""
+    from types import SimpleNamespace
+
+    from tksteamlaunch.backends import display as D
+
+    real_run = D.subprocess.run
+    sets = []
+
+    def flaky(cmd, **kw):
+        if isinstance(cmd, list) and any(a.startswith("output.") or a == "--mode" for a in cmd):
+            sets.append(" ".join(cmd))
+            if len(sets) == 2:
+                return SimpleNamespace(returncode=1, stdout="", stderr="boom")
+        return real_run(cmd, **kw)
+
+    monkeypatch.setattr(D.subprocess, "run", flaky)
+    return sets
+
+
+def test_partial_dip_restores_plasma(tmp_path, monkeypatch):
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    _flaky_second_apply(monkeypatch, tmp_path)
+    monkeypatch.setattr(D.time, "sleep", lambda s: None)
+    s = D.DisplaySession(provider="plasma", mode="2560x1440@164.96")
+    warnings = s.start()
+    assert warnings and "boom" in warnings[0]
+    k, _x = _logs(tmp_path)
+    # dip applied, target failed, restore re-applied the original (mode 2)
+    assert k == ["output.DP-3.mode.1", "output.DP-3.mode.2"]
+    assert s._prev is None  # restore consumed it; stop() is a safe no-op
+    s.stop()
+
+
+def test_partial_dip_restores_x11(tmp_path, monkeypatch):
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    _flaky_second_apply(monkeypatch, tmp_path)
+    monkeypatch.setattr(D.time, "sleep", lambda s: None)
+    s = D.DisplaySession(provider="x11", mode="2560x1440")
+    warnings = s.start()
+    assert warnings and "boom" in warnings[0]
+    _k, x = _logs(tmp_path)
+    assert x[0] == "--output DP-3 --mode 2560x1440 --rate 60"
+    assert x[-1] == "--output DP-3 --mode 2560x1440 --rate 164.96"
+    assert s._prev is None
+    s.stop()
+
+
+def test_sleep_interrupted_restores_plasma(tmp_path, monkeypatch):
+    import pytest
+
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+
+    def boom(s):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(D.time, "sleep", boom)
+    s = D.DisplaySession(provider="plasma", mode="2560x1440@164.96")
+    with pytest.raises(KeyboardInterrupt):
+        s.start()
+    k, _x = _logs(tmp_path)
+    assert k == ["output.DP-3.mode.1", "output.DP-3.mode.2"]
+    assert s._prev is None
+
+
+def test_xrandr_keeps_every_rate_on_one_line(tmp_path, monkeypatch):
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    modes = D.current_x11()["DP-3"]
+    same = sorted(m.rate for m in modes if (m.w, m.h) == (2560, 1440))
+    assert same == [60.0, 164.96]
+    assert sum(1 for m in modes if m.current) == 1
+
+
+def test_dip_seconds_plumbing(tmp_path, monkeypatch):
+    from tksteamlaunch.backends import display as D
+
+    _bindir(tmp_path, monkeypatch)
+    slept = []
+    monkeypatch.setattr(D.time, "sleep", lambda s: slept.append(s))
+    s = D.DisplaySession(provider="plasma", mode="2560x1440@164.96", dip_seconds=5)
+    assert s.start() == []
+    assert slept == [5]
+    s.stop()

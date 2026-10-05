@@ -5,6 +5,13 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Fixed
+- Display mode no longer gets stuck on the dip mode when the target
+  apply fails or the launch is interrupted: the original mode is
+  recorded after the first apply and restored best-effort.
+- xrandr mode lines keep every refresh rate (e.g. `164.96*+ 60.00`),
+  so same-resolution dips avoid a resolution flicker.
+
 ## [1.1.0] - 2026-10-05
 
 ### Added
