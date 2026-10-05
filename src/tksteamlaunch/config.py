@@ -659,7 +659,9 @@ def load_preferences() -> Preferences:
     out.tray_quick_launch = _as_bool(ui.get("tray_quick_launch", True), True)
     out.tray_quick_count = _clamp_quick_count(ui.get("tray_quick_count", 5))
     lang = str(ui.get("language", "system") or "system").strip()
-    out.language = lang if lang == "system" or re.fullmatch(r"[A-Za-z]+(_[A-Za-z]+)?", lang) else "system"
+    out.language = (
+        lang if lang == "system" or re.fullmatch(r"[A-Za-z]+(_[A-Za-z]+)?", lang) else "system"
+    )
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
