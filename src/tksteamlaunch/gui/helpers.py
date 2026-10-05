@@ -79,9 +79,12 @@ def install_translations(app, language: str = "") -> str:
                     continue
         except Exception:
             continue
-        if not any(t.language() == translator.language() for t in _translators):
+        if not any(
+            installed_app is app and t.language() == translator.language()
+            for installed_app, t in _translators
+        ):
             app.installTranslator(translator)
-            _translators.append(translator)
+            _translators.append((app, translator))
             return lang
     return ""
 

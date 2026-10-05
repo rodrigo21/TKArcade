@@ -41,3 +41,28 @@ def test_all_tr_literals_translated():
                 untranslated.append(f"{context}: {source}")
     assert not missing, missing[:5]
     assert not untranslated, untranslated[:5]
+
+
+def test_shipped_qm_covers_ts():
+    shipped = {p.stem for p in (ROOT / "src" / "tksteamlaunch" / "translations").glob("*.qm")}
+    sources = {p.stem for p in (ROOT / "translations").glob("*.ts")}
+    assert sources, "no source catalogs found"
+    assert sources <= shipped, sources - shipped
+
+
+def test_available_languages_lists_shipped():
+    from tksteamlaunch.gui import helpers as helpersmod
+
+    codes = dict(helpersmod.available_languages())
+    assert codes["en"] == "English"
+    assert codes["pt_BR"] == "Português (Brasil)"
+
+
+def test_install_translations_corrupt_qm_falls_back(qt_app, tmp_path, monkeypatch):
+    import importlib.resources as res
+
+    from tksteamlaunch.gui import helpers as helpersmod
+
+    (tmp_path / "tksteamlaunch_xx_YY.qm").write_bytes(b"not a qt catalog")
+    monkeypatch.setattr(res, "files", lambda package: tmp_path)
+    assert helpersmod.install_translations(qt_app, "xx_YY") == ""

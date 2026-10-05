@@ -2455,7 +2455,7 @@ def test_translations_load_pt_br(qt_app, monkeypatch):
     assert QCoreApplication.translate("MainWindow", "Games") == "Jogos"
     assert QCoreApplication.translate("GameDialog", "Save As...") == "Salvar como..."
     assert QCoreApplication.translate("MainWindow", "Nope") == "Nope"
-    app.removeTranslator(helpersmod._translators.pop())
+    app.removeTranslator(helpersmod._translators.pop()[1])
 
 
 def test_translations_unknown_locale_loads_nothing(qt_app, monkeypatch):
@@ -2491,7 +2491,7 @@ def test_install_translations_explicit_override(qt_app, monkeypatch):
     assert QCoreApplication.translate("MainWindow", "Games") == "Games"
     assert helpersmod.install_translations(qt_app, "pt_BR") == "pt_BR"
     assert QCoreApplication.translate("MainWindow", "Games") == "Jogos"
-    qt_app.removeTranslator(helpersmod._translators.pop())
+    qt_app.removeTranslator(helpersmod._translators.pop()[1])
 
 
 def test_preferred_language_falls_back(xdg_env, monkeypatch):

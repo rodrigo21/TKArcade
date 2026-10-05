@@ -11,6 +11,10 @@ Breaking config changes are called out explicitly under `Changed`.
   recorded after the first apply and restored best-effort.
 - xrandr mode lines keep every refresh rate (e.g. `164.96*+ 60.00`),
   so same-resolution dips avoid a resolution flicker.
+- Shipped Qt translations actually load from installed packages: the
+  catalog dir is a real package with an explicit wheel rule (previously
+  English-only outside a source checkout), and repeat installs on one
+  process no longer skip a second app.
 
 ## [1.1.0] - 2026-10-05
 
