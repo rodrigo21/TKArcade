@@ -1,7 +1,7 @@
 # Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
 
 pkgname=tksteamlaunch
-pkgver=0.9.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc='Minimal Steam launch wrapper'
 arch=('any')
@@ -18,7 +18,7 @@ optdepends=('gamemode: Feral GameMode support'
             'linux-rt-upscaler: real-time upscaling support (local package)'
             'libnotify: desktop notifications')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/rodrigo21/TKSteamLaunch/archive/v$pkgver.tar.gz")
-sha256sums=('5ef96a5127be954c982a30f01152d6774e4d086770e3eb2d25ff195337266249')
+sha256sums=('321430390c999ef2cf66316b6d9193fda5c5a3492c0e9c94d29bbe3931ebd402')
 
 build() {
     cd "TKSteamLaunch-$pkgver"
