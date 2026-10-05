@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Launch-without-save now persists just the profile selection, so the
+  launcher resolves the profile shown in the dialog (never overwriting
+  an unreadable live file on this path).
+- Unreadable (not just invalid) config files fall back to defaults
+  everywhere instead of crashing dialogs.
 - Display mode no longer gets stuck on the dip mode when the target
   apply fails or the launch is interrupted: the original mode is
   recorded after the first apply and restored best-effort.

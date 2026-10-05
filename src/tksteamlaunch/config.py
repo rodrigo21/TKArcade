@@ -392,6 +392,9 @@ def _read_toml(path: Path) -> dict:
     except tomllib.TOMLDecodeError as e:
         log.warning("ignoring invalid TOML %s: %s", path, e)
         return {}
+    except OSError as e:
+        log.warning("ignoring unreadable TOML %s: %s", path, e)
+        return {}
     return data if isinstance(data, dict) else {}
 
 

@@ -428,6 +428,20 @@ def test_load_with_warning_unreadable_file(xdg_env, monkeypatch):
     assert warning and "could not be read" in warning
 
 
+def test_preferences_unreadable_falls_back_to_defaults(xdg_env, monkeypatch):
+    from tksteamlaunch import xdg as xdgmod
+
+    xdgmod.preferences_file().parent.mkdir(parents=True, exist_ok=True)
+    xdgmod.preferences_file().write_text("[ui]\nshow_preview = false\n", encoding="utf-8")
+
+    def _denied(*a, **k):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(C.tomllib, "load", _denied)
+    prefs = C.load_preferences()  # must not raise: dialogs stay open
+    assert prefs.show_preview is True
+
+
 def test_load_effective_uses_active_profile(xdg_env):
     live = C.GameConfig()
     live.general.appid = "110"
