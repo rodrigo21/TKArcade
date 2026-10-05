@@ -349,6 +349,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
     game_type = detect_game_type(game_cmd, cfg.general.game_type)
     wrappers = active_wrappers(cfg)
     names = {a: n for a, n in steammod.list_games()}
+    names.update(steammod.local_names())
     proton_display = protonmod.tool_display(appid) if game_type != "native" else ""
     runtime = protonmod.native_runtime(game_cmd) if game_type == "native" else None
     icon_path = steammod.find_game_icon(appid)
@@ -627,6 +628,7 @@ def _run_editor_inprocess(appid: str, for_menu: bool, can_launch: bool) -> tuple
         if not appid:
             return "cancelled", ""
     names = {a: n for a, n in steammod.list_games()}
+    names.update(steammod.local_names())
     if for_menu:
         from .gui.menu_dialog import MenuDialog
 

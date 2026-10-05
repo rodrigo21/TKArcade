@@ -48,6 +48,7 @@ class GameType(StrEnum):
 @dataclass
 class GeneralConfig:
     appid: str = ""
+    name: str = ""  # display name for local (non-Steam) games; Steam names come from Steam
     custom_executable: str = ""
     game_type: str = "auto"  # auto|proton|native
     show_menu: bool = False  # pre-launch menu (also forced by --menu flag)
@@ -484,6 +485,7 @@ def save_defaults(cfg: GameConfig) -> Path:
 SECTION_KEYS: dict[str, set[str]] = {
     "general": {
         "appid",
+        "name",
         "config_version",
         "custom_executable",
         "game_type",
@@ -610,6 +612,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     _collect_extra(data, cfg.extra)
 
     g = _section(data, "general")
+    cfg.general.name = str(g.get("name", ""))
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
     cfg.general.game_type = str(g.get("game_type", "auto"))
     cfg.general.show_menu = _as_bool(g.get("show_menu", False), False)

@@ -126,9 +126,30 @@ def _parse_acf_installdir(path: Path) -> str:
     return m.group(1) if m else ""
 
 
+def is_steam_id(appid: str) -> bool:
+    """True for numeric Steam AppIDs; local game IDs are anything else."""
+    return str(appid or "").strip().isdigit()
+
+
+def local_names() -> dict[str, str]:
+    """Display names of configured local (non-Steam) games (id -> name)."""
+    from . import config as cfgmod
+
+    names: dict[str, str] = {}
+    for appid in cfgmod.list_appids():
+        if is_steam_id(appid):
+            continue
+        try:
+            name = cfgmod.load(appid).general.name.strip()
+        except Exception:
+            name = ""
+        names[appid] = name or appid
+    return names
+
+
 def _safe_appid(appid: str) -> str:
     """Steam AppIDs are digits; anything else cannot name a manifest."""
-    return str(appid) if str(appid).isdigit() else ""
+    return str(appid) if is_steam_id(appid) else ""
 
 
 def install_dir(appid: str) -> Path | None:

@@ -752,3 +752,15 @@ def test_export_import_includes_preferences(xdg_env, tmp_path):
     C.import_configs(dest)
     back = C.load_preferences()
     assert (back.tray_quick_count, back.language) == (8, "pt_BR")
+
+
+def test_general_name_roundtrip(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    assert C.load("local-doom").general.name == "Doom"
+    fresh = C.GameConfig()
+    fresh.general.appid = "214"
+    C.save(fresh)
+    assert C.load("214").general.name == ""

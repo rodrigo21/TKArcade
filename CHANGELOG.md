@@ -5,6 +5,12 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Added
+- Game identity groundwork for local (non-Steam) games: string IDs
+  (`local-<slug>` alongside numeric Steam AppIDs), per-game display
+  names, and a Source column (Steam/Local) in the games list.
+  Steam-only lookups (ProtonDB, artwork) skip local rows.
+
 ### Changed
 - TKArcade starts here as a standalone repo renamed from
   TKSteamLaunch 1.1.1 (full history preserved, new remote).

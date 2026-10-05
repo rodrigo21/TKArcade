@@ -38,6 +38,7 @@ from .. import config as cfgmod
 from .. import gpu as gpumod
 from .. import presets as presetsmod
 from .. import proton as protonmod
+from .. import steam as steammod
 from .. import xdg
 from ..backends import ludusavi as lu_backend
 from ..backends import overlay as ov_backend
@@ -192,6 +193,10 @@ class GameDialog(QDialog):
         self._dmode_run = 0
         self._newer_version = False
         self.appid = appid
+        # Local (non-Steam) games carry their display name in the config;
+        # Steam names always come from Steam.
+        self._is_steam = bool(defaults_mode) or steammod.is_steam_id(appid)
+        self._steam_name = name if self._is_steam else ""
         if defaults_mode:
             self.setWindowTitle(self.tr("Global Defaults"))
             try:
@@ -256,7 +261,13 @@ class GameDialog(QDialog):
         if not defaults_mode:
             self.e_appid = QLineEdit(self.cfg.general.appid)
             self.e_appid.setReadOnly(True)
-            gf.addRow(self.tr("Steam App ID:"), self.e_appid)
+            id_label = self.tr("Steam App ID:") if self._is_steam else self.tr("Game ID:")
+            gf.addRow(id_label, self.e_appid)
+            self.e_name = QLineEdit()
+            if self._is_steam:
+                self.e_name.setText(name)
+                self.e_name.setReadOnly(True)
+            gf.addRow(self.tr("Game Name:"), self.e_name)
         self.cb_gametype = QComboBox()
         self.cb_gametype.addItem(self.tr("Automatic"), "auto")
         self.cb_gametype.addItem(self.tr("Proton"), "proton")
@@ -659,6 +670,9 @@ class GameDialog(QDialog):
             pf.addRow(self.tr("Wine Debug:"), self.cb_winedebug)
         pt_scroll = _scroll_page(pt)
         tabs.addTab(pt_scroll, self.tr("Wine / Proton"))
+        if not defaults_mode and not self._is_steam:
+            # Native local games have no Proton prefix to manage here.
+            tabs.setTabEnabled(tabs.indexOf(pt_scroll), False)
 
         if not defaults_mode:
             notes = QWidget()
@@ -810,6 +824,8 @@ class GameDialog(QDialog):
         self.cb_gametype.setCurrentIndex(max(idx, 0))
         if not self.defaults_mode:
             self.e_runtime.setText(self._detect_runtime_text())
+            self.e_runtime.setEnabled(self._is_steam)
+            self.e_name.setText(self._steam_name if self._is_steam else c.general.name)
         self.e_exe.setText(c.general.custom_executable)
         self.e_prefix.setText(c.general.custom_prefix)
         self.c_show_menu.setChecked(c.general.show_menu)
@@ -868,7 +884,7 @@ class GameDialog(QDialog):
 
     def _detect_runtime_text(self) -> str:
         """Read-only Proton tool/version from the Steam config, if mapped."""
-        if self.defaults_mode or not self.appid:
+        if self.defaults_mode or not self.appid or not self._is_steam:
             return ""
         if (self.cfg.general.game_type or "auto") == "native":
             return self.tr("Native (no Proton)")
@@ -1736,6 +1752,8 @@ class GameDialog(QDialog):
 
     def _collect_into(self, cfg) -> None:
         cfg.general.game_type = str(self.cb_gametype.currentData() or "auto")
+        if not self.defaults_mode and not self._is_steam:
+            cfg.general.name = self.e_name.text().strip()
         cfg.general.custom_executable = self.e_exe.text().strip()
         cfg.general.custom_prefix = self.e_prefix.text().strip()
         cfg.general.show_menu = self.c_show_menu.isChecked()

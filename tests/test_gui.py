@@ -41,7 +41,7 @@ def test_main_table_columns(qt_app, xdg_env, monkeypatch):
     w = MainWindow()
     w.show()
     qt_app.processEvents()
-    assert w.table.columnCount() == 4
+    assert w.table.columnCount() == 5
     assert w.table.rowCount() == 1
     assert w.table.item(0, 1).text() == "80"
     for _ in range(100):
@@ -2139,7 +2139,7 @@ def test_column_visibility_persists(qt_app, xdg_env, monkeypatch):
 def test_header_menu_game_locked_and_reset(qt_app, xdg_env, monkeypatch):
     w = _main_window_with_game(qt_app, "161", monkeypatch)
     acts = {a.text(): a for a in w._build_header_menu().actions()}
-    assert set(acts) == {"Game", "App ID", "Played", "ProtonDB", "", "Reset Columns"}
+    assert set(acts) == {"Game", "App ID", "Played", "ProtonDB", "Source", "", "Reset Columns"}
     assert acts["Game"].isChecked() and not acts["Game"].isEnabled()
     acts["App ID"].toggle()
     qt_app.processEvents()
@@ -2718,3 +2718,48 @@ def test_play_button_and_menu_launch(qt_app, xdg_env, monkeypatch):
     assert "Play" in labels
     assert "Launch via Steam" not in labels
     w.close()
+
+
+def test_source_column_marks_steam_and_local(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtCore import Qt
+
+    from tkarcade import config as C
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    C.save(local)
+    w = _main_window_with_game(qt_app, "120", monkeypatch)
+    qt_app.processEvents()
+    sources = {}
+    for row in range(w.table.rowCount()):
+        item = w.table.item(row, 0)
+        appid = str(item.data(Qt.ItemDataRole.UserRole) or "")
+        sources[appid] = w.table.item(row, 4).text()
+    assert sources == {"120": "Steam", "local-doom": "Local"}
+    assert w.table.item(0, 0).text() in ("120", "Doom")  # names resolve per source
+    w.close()
+
+
+def test_game_dialog_local_guards(qt_app, xdg_env):
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    d = GameDialog(None, "local-doom", "")
+    try:
+        assert d.e_name.text() == "Doom"
+        assert d.e_name.isReadOnly() is False
+        assert d.e_runtime.isEnabled() is False
+        tabs = d._tabs
+        wine = [tabs.tabText(i) for i in range(tabs.count())]
+        assert "Wine / Proton" in wine
+        assert tabs.isTabEnabled(wine.index("Wine / Proton")) is False
+        d.e_name.setText("Doom II")
+        d._collect()
+        assert d.cfg.general.name == "Doom II"
+    finally:
+        d.close()

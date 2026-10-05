@@ -258,8 +258,8 @@ class MainWindow(QMainWindow):
         filter_row = QHBoxLayout()
         self.filter_input = QLineEdit()
         self.filter_input.setObjectName("filter_input")
-        self.filter_input.setPlaceholderText(self.tr("Filter by name or App ID..."))
-        self.filter_input.setToolTip(self.tr("Show only games whose name or App ID matches."))
+        self.filter_input.setPlaceholderText(self.tr("Filter by name or ID..."))
+        self.filter_input.setToolTip(self.tr("Show only games whose name or ID matches."))
         self.filter_input.setClearButtonEnabled(True)
         self.filter_input.textChanged.connect(self._apply_filter)
         filter_row.addWidget(self.filter_input, stretch=1)
@@ -271,13 +271,20 @@ class MainWindow(QMainWindow):
         self.issues_only.toggled.connect(self._apply_filter)
         filter_row.addWidget(self.issues_only)
         layout.addLayout(filter_row)
-        self.table = QTableWidget(0, 4)
+        self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(
-            [self.tr("Game"), self.tr("App ID"), self.tr("Played"), self.tr("ProtonDB")]
+            [
+                self.tr("Game"),
+                self.tr("App ID"),
+                self.tr("Played"),
+                self.tr("ProtonDB"),
+                self.tr("Source"),
+            ]
         )
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionsClickable(True)
         self.table.horizontalHeader().setSortIndicatorShown(True)
         self.table.setSortingEnabled(True)
@@ -444,6 +451,7 @@ class MainWindow(QMainWindow):
         self.table.setSortingEnabled(False)
         self.table.setRowCount(0)
         names = {a: n for a, n in steammod.list_games()}
+        names.update(steammod.local_names())
         fallback = self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
         appids = cfgmod.list_appids()
         self.table.setRowCount(len(appids))
@@ -462,10 +470,12 @@ class MainWindow(QMainWindow):
                 name_item.setIcon(QIcon(str(icon_path)))
             else:
                 name_item.setIcon(fallback)
-                if api_key:
+                if api_key and steammod.is_steam_id(appid):
                     need_art.append(appid)
             self.table.setItem(row, 0, name_item)
             self.table.setItem(row, 1, _AppIdItem(appid))
+            source = "Steam" if steammod.is_steam_id(appid) else "Local"
+            self.table.setItem(row, 4, QTableWidgetItem(self.tr(source)))
             data, fresh = pdbmod.cached(appid)
             if data:
                 self._set_tier_cell(row, appid, data)
@@ -480,7 +490,7 @@ class MainWindow(QMainWindow):
                     self.tr(f"{st.runs} sessions · last {last} · {st.fails} failures")
                 )
             self.table.setItem(row, 2, played)
-            if not fresh:
+            if not fresh and steammod.is_steam_id(appid):
                 need_fetch.append(appid)
         total_cfg = len(appids)
         total_steam = len(names)
@@ -731,10 +741,10 @@ class MainWindow(QMainWindow):
         """Persisted (order, hidden) with defaults for missing/garbage."""
         prefs = cfgmod.load_preferences()
         order = [int(x) for x in prefs.column_order.split(",") if x.strip().isdigit()]
-        if sorted(order) != [0, 1, 2, 3]:
-            order = [0, 1, 2, 3]
+        if sorted(order) != [0, 1, 2, 3, 4]:
+            order = [0, 1, 2, 3, 4]
         hidden = {int(x) for x in prefs.hidden_columns.split(",") if x.strip().isdigit()}
-        return order, (hidden & {1, 2, 3})
+        return order, (hidden & {1, 2, 3, 4})
 
     def _apply_column_layout(self) -> None:
         order, hidden = self._column_layout()
@@ -775,7 +785,13 @@ class MainWindow(QMainWindow):
         header = self.table.horizontalHeader()
         menu = QMenu(self)
         for logical, title in enumerate(
-            (self.tr("Game"), self.tr("App ID"), self.tr("Played"), self.tr("ProtonDB"))
+            (
+                self.tr("Game"),
+                self.tr("App ID"),
+                self.tr("Played"),
+                self.tr("ProtonDB"),
+                self.tr("Source"),
+            )
         ):
             act = menu.addAction(title)
             act.setCheckable(True)
@@ -957,7 +973,9 @@ class MainWindow(QMainWindow):
         self.status.setText(self.tr(f"Cloned {appid} to {dest}."))
 
     def _names(self) -> dict[str, str]:
-        return {a: n for a, n in steammod.list_games()}
+        names = {a: n for a, n in steammod.list_games()}
+        names.update(steammod.local_names())
+        return names
 
     def _selected_appid(self) -> str:
         row = self.table.currentRow()
