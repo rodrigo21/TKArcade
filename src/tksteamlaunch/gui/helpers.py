@@ -11,19 +11,48 @@ from PySide6.QtGui import QDesktopServices
 
 _translators: list = []  # kept alive: Qt unloads GC'd translators
 
+#: Autonyms for shipped locales (never translated by definition).
+LANGUAGE_NAMES = {"pt_BR": "Português (Brasil)"}
 
-def install_translations(app) -> str:
-    """Install the matching bundled translator (pt_BR today), if any.
 
-    Returns the loaded locale name or "". English (and unknown locales)
-    run untranslated. Safe to call repeatedly; loading twice is a no-op.
+def available_languages() -> list[tuple[str, str]]:
+    """Shipped [(code, label)] for the language picker (English included)."""
+    codes: set[str] = set()
+    try:
+        from importlib import resources
+
+        pkg = resources.files("tksteamlaunch.translations")
+        for entry in pkg.iterdir():
+            name = entry.name
+            if name.startswith("tksteamlaunch_") and name.endswith(".qm"):
+                codes.add(name[len("tksteamlaunch_") : -len(".qm")])
+    except Exception:
+        pass
+    out = [("en", "English")]
+    out.extend((code, LANGUAGE_NAMES.get(code, code)) for code in sorted(codes))
+    return out
+
+
+def install_translations(app, language: str = "") -> str:
+    """Install the matching bundled translator, if any.
+
+    language: "" or "system" follows the OS locale, "en" forces
+    English, anything else is tried as a locale code first.
+    Returns the loaded locale name or "". English (and unknown
+    locales) run untranslated. Safe to call repeatedly.
     """
     from importlib import resources
 
-    locale = QLocale.system().name()
-    candidates = [locale]
-    if "_" in locale:
-        candidates.append(locale.split("_")[0])
+    choice = (language or "").strip()
+    if choice.lower() in ("en", "c"):
+        return ""
+    if choice and choice != "system":
+        candidates = [choice]
+    else:
+        locale = QLocale.system().name()
+        candidates = [locale]
+        if "_" in locale:
+            candidates.append(locale.split("_")[0])
     try:
         pkg_files = resources.files("tksteamlaunch.translations")
     except Exception:

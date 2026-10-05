@@ -3,12 +3,12 @@
     <context>
         <name>edit</name>
         <message>
-            <location filename="src/tksteamlaunch/gui/edit.py" line="55" />
+            <location filename="src/tksteamlaunch/gui/edit.py" line="58" />
             <source>Edit Game</source>
             <translation>Editar jogo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/edit.py" line="56" />
+            <location filename="src/tksteamlaunch/gui/edit.py" line="59" />
             <source>Game:</source>
             <translation>Jogo:</translation>
         </message>
@@ -1843,6 +1843,21 @@ Isso sobrescreve as configs salvas (profiles mantidos).</translation>
             <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="74" />
             <source>SteamGridDB key:</source>
             <translation>Chave SteamGridDB:</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="81" />
+            <source>System default</source>
+            <translation>Padrão do sistema</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="86" />
+            <source>Takes effect on restart.</source>
+            <translation>Vale após reiniciar.</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/preferences_dialog.py" line="87" />
+            <source>Language:</source>
+            <translation>Idioma:</translation>
         </message>
     </context>
 </TS>

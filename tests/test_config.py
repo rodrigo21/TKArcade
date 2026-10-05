@@ -677,3 +677,14 @@ def test_appid_paths_cannot_escape(xdg_env):
         assert xdgmod.game_log_file(bad).parent == xdgmod.games_log_dir()
         assert ".." not in proton_log_dir(bad).parts[-3:]
         assert C.game_file(bad).parent == C.xdg.games_dir()
+
+
+def test_language_prefs_roundtrip_and_clamp(xdg_env):
+    prefs = C.load_preferences()
+    assert prefs.language == "system"
+    prefs.language = "pt_BR"
+    C.save_preferences(prefs)
+    assert C.load_preferences().language == "pt_BR"
+    prefs.language = "!!!junk!!!"
+    C.save_preferences(prefs)
+    assert C.load_preferences().language == "system"

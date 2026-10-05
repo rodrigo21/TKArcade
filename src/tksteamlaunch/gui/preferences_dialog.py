@@ -73,6 +73,17 @@ class PreferencesDialog(QDialog):
         self.e_sgdb.setToolTip(self.tr("SteamGridDB API key for missing artwork fallback."))
         form.addRow(self.tr("SteamGridDB key:"), self.e_sgdb)
 
+        from .helpers import available_languages
+
+        self.cb_lang = QComboBox()
+        self.cb_lang.addItem(self.tr("System default"), "system")
+        for code, label in available_languages():
+            self.cb_lang.addItem(label, code)
+        idx = self.cb_lang.findData(self.prefs.language or "system")
+        self.cb_lang.setCurrentIndex(max(idx, 0))
+        self.cb_lang.setToolTip(self.tr("Takes effect on restart."))
+        form.addRow(self.tr("Language:"), self.cb_lang)
+
         btns = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
@@ -93,5 +104,6 @@ class PreferencesDialog(QDialog):
         self.prefs.sgdb_api_key = self.e_sgdb.text().strip()
         self.prefs.tray_quick_launch = self.c_quick.isChecked() and self.c_tray.isChecked()
         self.prefs.tray_quick_count = int(self.s_quick_count.value())
+        self.prefs.language = str(self.cb_lang.currentData() or "system")
         cfgmod.save_preferences(self.prefs)
         super().accept()

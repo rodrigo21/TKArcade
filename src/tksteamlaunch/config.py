@@ -160,6 +160,7 @@ class Preferences:
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
     tray_quick_launch: bool = True  # recent games section in the tray menu
     tray_quick_count: int = 5  # recent games shown (1-10)
+    language: str = "system"  # system locale, "en" for English, or a locale code
 
 
 @dataclass
@@ -657,6 +658,8 @@ def load_preferences() -> Preferences:
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
     out.tray_quick_launch = _as_bool(ui.get("tray_quick_launch", True), True)
     out.tray_quick_count = _clamp_quick_count(ui.get("tray_quick_count", 5))
+    lang = str(ui.get("language", "system") or "system").strip()
+    out.language = lang if lang == "system" or re.fullmatch(r"[A-Za-z]+(_[A-Za-z]+)?", lang) else "system"
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -691,6 +694,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
             "tray_quick_launch": bool(prefs.tray_quick_launch),
             "tray_quick_count": _clamp_quick_count(prefs.tray_quick_count),
+            "language": prefs.language if isinstance(prefs.language, str) else "system",
         }
     }
     _write_atomic(path, _render_toml(data))

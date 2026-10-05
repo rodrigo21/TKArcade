@@ -8,6 +8,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [1.0.0] - 2026-10-04
 
 ### Added
+- In-app language option (Preferences): system default, English, or
+  shipped locales — restart to apply, games unaffected (no LC_ALL leak).
 - GUI translations via Qt Linguist, starting with PT-BR (351 strings;
   CLI stays English). New UI strings require `tr()` (enforced by test).
 

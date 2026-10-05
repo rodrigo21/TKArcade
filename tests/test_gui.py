@@ -2464,3 +2464,30 @@ def test_translations_unknown_locale_loads_nothing(qt_app, monkeypatch):
 
     monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("xx_YY")))
     assert helpersmod.install_translations(qt_app) == ""
+
+
+def test_preferences_dialog_language(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
+
+    prefs = PreferencesDialog(None)
+    datas = [prefs.cb_lang.itemData(i) for i in range(prefs.cb_lang.count())]
+    assert datas[0] == "system"
+    assert "pt_BR" in datas
+    prefs.cb_lang.setCurrentIndex(datas.index("pt_BR"))
+    prefs.accept()
+    assert C.load_preferences().language == "pt_BR"
+    prefs.close()
+
+
+def test_install_translations_explicit_override(qt_app, monkeypatch):
+    from PySide6.QtCore import QCoreApplication, QLocale
+
+    from tksteamlaunch.gui import helpers as helpersmod
+
+    monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("pt_BR")))
+    assert helpersmod.install_translations(qt_app, "en") == ""
+    assert QCoreApplication.translate("MainWindow", "Games") == "Games"
+    assert helpersmod.install_translations(qt_app, "pt_BR") == "pt_BR"
+    assert QCoreApplication.translate("MainWindow", "Games") == "Jogos"
+    qt_app.removeTranslator(helpersmod._translators.pop())
