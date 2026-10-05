@@ -27,6 +27,10 @@ packaging/arch/linux-rt-upscaler-git/pkg/
 packaging/arch/linux-rt-upscaler-git/src/
 packaging/arch/linux-rt-upscaler-git/linux-rt-upscaler/
 packaging/arch/linux-rt-upscaler-git/*.pkg.tar.zst
+packaging/arch/pyproject-appimage/pkg/
+packaging/arch/pyproject-appimage/src/
+packaging/arch/pyproject-appimage/*.pkg.tar.zst
+packaging/arch/pyproject-appimage/*.tar.gz
 
 # AppImage build outputs
 packaging/appimage/dist/

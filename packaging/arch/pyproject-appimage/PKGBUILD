@@ -1,5 +1,5 @@
 # Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
-# Vendored from AUR (JakobDev) at 4.2 and updated here; upstream:
+# Vendored from AUR (JakobDev) at 4.3 and updated here; upstream:
 # https://codeberg.org/JakobDev/pyproject-appimage
 
 pkgname=pyproject-appimage

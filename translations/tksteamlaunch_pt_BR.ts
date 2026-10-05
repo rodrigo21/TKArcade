@@ -1018,6 +1018,21 @@ Adicione entrada custom no Ludusavi para backups.</translation>
             <source>launch will fail</source>
             <translation>vai falhar ao lançar</translation>
         </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="932" />
+            <source>This configuration was written by a newer TKSteamLaunch. Saving now will downgrade it and may lose settings. Continue?</source>
+            <translation>Essa configuração foi escrita por um TKSteamLaunch mais novo. Salvar agora vai rebaixá-la e pode perder configurações. Continuar?</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1029" />
+            <source>Profile "{}" already exists. Overwrite it?</source>
+            <translation>Profile "{}" já existe. Sobrescrever?</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/game_dialog.py" line="1091" />
+            <source>Delete profile "{}"? This cannot be undone.</source>
+            <translation>Deletar profile "{}"? Não tem como desfazer.</translation>
+        </message>
     </context>
     <context>
         <name>HistoryDialog</name>
@@ -1678,6 +1693,13 @@ Isso sobrescreve as configs salvas (profiles mantidos).</translation>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="1258" />
             <source>Could not open Ludusavi: {}</source>
             <translation>Não foi possível abrir o Ludusavi: {}</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="672" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="992" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1002" />
+            <source>Not a Steam App ID: {}</source>
+            <translation>Não é um App ID Steam: {}</translation>
         </message>
     </context>
     <context>
