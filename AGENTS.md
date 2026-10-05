@@ -56,6 +56,10 @@ rewrite pushed history or tags.
   never sparse); `defaults.toml` is a new-game template only.
 - New third-party deps need GPLv3-compatible licenses (MIT/BSD/
   Apache-2.0/PSF/LGPL). External tools via subprocess, never linked.
+- Third-party recipes under `packaging/arch/` (linux-rt-upscaler*,
+  pyproject-appimage) are synced copies from TKSteamLaunch: check
+  drift with `diff -r` against it before tagging, copy the winner
+  in a commit of its own.
 - Flatpak Ludusavi cannot see Proton prefixes: always warn, never
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,

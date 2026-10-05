@@ -10,6 +10,10 @@ Breaking config changes are called out explicitly under `Changed`.
   TKSteamLaunch 1.1.1 (full history preserved, new remote).
   **BREAKING**: config/state/cache now live under the `tkarcade`
   XDG directories, so no settings carry over automatically.
+- Pre-0.1: `-git` is the only Arch package (normal PKGBUILD
+  returns with the 0.1.0 release); third-party recipes under
+  `packaging/arch/` stay in sync with TKSteamLaunch until this
+  project supplants it.
 - AppImage release asset now carries the version
   (`TKArcade-<version>.AppImage`).
 
