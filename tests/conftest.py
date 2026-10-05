@@ -4,16 +4,16 @@ import os
 
 import pytest
 
-if os.environ.get("TKSTEAMLAUNCH_TEST_GUI") != "1":
+if os.environ.get("TKARCADE_TEST_GUI") != "1":
     # Forced (not setdefault): a user-exported QT_QPA_PLATFORM would pop
     # real windows mid-suite and strand modal dialogs. Opt out for visual
-    # debugging with TKSTEAMLAUNCH_TEST_GUI=1.
+    # debugging with TKARCADE_TEST_GUI=1.
     os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-if os.environ.get("TKSTEAMLAUNCH_TEST_LOCALE") != "1":
+if os.environ.get("TKARCADE_TEST_LOCALE") != "1":
     # Pin the suite to English: installed translators follow the system
     # locale, and most tests assert source strings. Opt out with
-    # TKSTEAMLAUNCH_TEST_LOCALE=1 (tests then depend on your locale).
+    # TKARCADE_TEST_LOCALE=1 (tests then depend on your locale).
     os.environ["LC_ALL"] = "C"
 
 

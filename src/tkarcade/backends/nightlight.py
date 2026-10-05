@@ -21,7 +21,7 @@ import time
 
 from ..config import NightlightProvider
 
-log = logging.getLogger("tksteamlaunch.nightlight")
+log = logging.getLogger("tkarcade.nightlight")
 
 
 def detect_provider(requested: str = "auto") -> str:
@@ -95,7 +95,7 @@ class NightlightSession:
             # spawn persistent holder (jeepney-based)
             try:
                 self._holder = subprocess.Popen(
-                    [sys.executable, "-m", "tksteamlaunch.nightlight_holder"],
+                    [sys.executable, "-m", "tkarcade.nightlight_holder"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,

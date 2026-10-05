@@ -1,4 +1,4 @@
-"""tksteamlaunch CLI: Steam -> tksteamlaunch %command% -> game.
+"""tkarcade CLI: Steam -> tkarcade %command% -> game.
 
 Pipeline:
   resolve AppID -> load game snapshot (unconfigured games use the defaults
@@ -40,7 +40,7 @@ from .backends import rtupscale as rtu_backend
 from .backends import split_args
 from .config import GameType
 
-log = logging.getLogger("tksteamlaunch")
+log = logging.getLogger("tkarcade")
 
 
 class PrefixNotFoundError(ValueError):
@@ -251,7 +251,7 @@ def build_final_command(
             cmd = [
                 "systemd-inhibit",
                 "--what=idle",
-                "--who=TKSteamLaunch",
+                "--who=TKArcade",
                 f"--why={cfg.general.appid.strip() or 'game'}",
                 "--",
                 *cmd,
@@ -295,7 +295,7 @@ def _new_wrap_rc_file(appid: str) -> str:
     """Reserve a sentinel path where the wrap shim writes the game exit code."""
     d = xdg.app_state_dir()
     d.mkdir(parents=True, exist_ok=True)
-    fd, path = tempfile.mkstemp(prefix=f"tksteamlaunch-{appid}-", suffix=".rc", dir=str(d))
+    fd, path = tempfile.mkstemp(prefix=f"tkarcade-{appid}-", suffix=".rc", dir=str(d))
     os.close(fd)
     return path
 
@@ -383,7 +383,7 @@ def validate_game(appid: str) -> list[str]:
     try:
         cfg = cfgmod.load(appid)
     except cfgmod.ConfigVersionError as e:
-        return [f"{appid}: config needs a newer TKSteamLaunch ({e})"]
+        return [f"{appid}: config needs a newer TKArcade ({e})"]
 
     sel = cfg.general.active_profile
     if sel:
@@ -445,8 +445,8 @@ def cmd_validate(appids: list[str]) -> int:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        prog="tksteamlaunch",
-        description="Minimal Steam launch wrapper. Use in Steam as: tksteamlaunch %command%",
+        prog="tkarcade",
+        description="Minimal Steam launch wrapper. Use in Steam as: tkarcade %command%",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
         "  0   ok: game ran (its own code), or menu/editor exited\n"
@@ -528,7 +528,7 @@ def _run_gui() -> int:
     try:
         from .gui.app import main as gui_main
     except ImportError:
-        print("tksteamlaunch: GUI needs PySide6 installed", file=sys.stderr)
+        print("tkarcade: GUI needs PySide6 installed", file=sys.stderr)
         return 15
     return gui_main()
 
@@ -571,7 +571,7 @@ def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True)
     launch on unknown user intent). Falls back to in-process display
     when the child cannot even spawn.
     """
-    cmd = [sys.executable, "-m", "tksteamlaunch.gui.edit"]
+    cmd = [sys.executable, "-m", "tkarcade.gui.edit"]
     if (appid or "").strip():
         cmd += ["--appid", appid.strip()]
     else:
@@ -613,10 +613,10 @@ def _run_editor_inprocess(appid: str, for_menu: bool, can_launch: bool) -> tuple
     try:
         from PySide6.QtWidgets import QApplication, QDialog
     except ImportError:
-        print(f"tksteamlaunch: {tool} needs PySide6 installed", file=sys.stderr)
+        print(f"tkarcade: {tool} needs PySide6 installed", file=sys.stderr)
         return "unavailable", appid
     if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-        print(f"tksteamlaunch: {tool} needs a display", file=sys.stderr)
+        print(f"tkarcade: {tool} needs a display", file=sys.stderr)
         return "unavailable", appid
     from .gui.edit import pick_game_appid
 
@@ -670,7 +670,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             path = cfgmod.export_configs(args.export)
         except (OSError, ValueError) as e:
-            print(f"tksteamlaunch: export failed: {e}", file=sys.stderr)
+            print(f"tkarcade: export failed: {e}", file=sys.stderr)
             return 16
         print(f"Exported to {path}")
         return 0
@@ -678,7 +678,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             imported = cfgmod.import_configs(args.import_file)
         except (OSError, ValueError) as e:
-            print(f"tksteamlaunch: import failed: {e}", file=sys.stderr)
+            print(f"tkarcade: import failed: {e}", file=sys.stderr)
             return 16
         print(f"Imported {len(imported)} game(s): {', '.join(imported)}")
         return 0
@@ -700,7 +700,7 @@ def main(argv: list[str] | None = None) -> int:
         # per-game log files, of which a bare invocation has none.
         if not _has_display():
             if args.gui:
-                print("tksteamlaunch: --gui needs a display", file=sys.stderr)
+                print("tkarcade: --gui needs a display", file=sys.stderr)
                 return 15
             # Headless and bare: fall through to the classic errors below.
         else:
@@ -710,7 +710,7 @@ def main(argv: list[str] | None = None) -> int:
     if not appid and not args.edit:
         setup_logging("", args.verbose)
         log.error("cannot resolve AppID (use --appid or STEAMAPPID env). game_cmd=%r", game_cmd)
-        print("tksteamlaunch: cannot resolve AppID", file=sys.stderr)
+        print("tkarcade: cannot resolve AppID", file=sys.stderr)
         return 10
     setup_logging(appid, args.verbose)
 
@@ -741,7 +741,7 @@ def main(argv: list[str] | None = None) -> int:
         # and continue into the pipeline.
         if not appid:
             log.error("cannot resolve AppID (use --appid or STEAMAPPID env)")
-            print("tksteamlaunch: cannot resolve AppID", file=sys.stderr)
+            print("tkarcade: cannot resolve AppID", file=sys.stderr)
             return 10
         setup_logging(appid, args.verbose)
 
@@ -804,8 +804,8 @@ def main(argv: list[str] | None = None) -> int:
         final_cmd, extra_env, warnings = build_final_command(cfg, game_cmd, wrap_rc_file=rc_file)
     except PrefixNotFoundError as e:
         log.error("%s", e)
-        print(f"tksteamlaunch: {e}", file=sys.stderr)
-        notify_backend.send("TKSteamLaunch: cannot launch", str(e), "critical")
+        print(f"tkarcade: {e}", file=sys.stderr)
+        notify_backend.send("TKArcade: cannot launch", str(e), "critical")
         write_global_log(appid, 14, game_cmd)
         _remove_wrap_rc_file(rc_file)
         return 14
@@ -854,7 +854,7 @@ def main(argv: list[str] | None = None) -> int:
                 if rc not in (-1, 0):
                     log.error("pre hook failed (rc=%s), aborting game launch", rc)
                     notify_backend.send(
-                        "TKSteamLaunch: pre-launch hook failed",
+                        "TKArcade: pre-launch hook failed",
                         f"App {appid}, exit {rc}; launch aborted",
                         "critical",
                     )
@@ -883,7 +883,7 @@ def main(argv: list[str] | None = None) -> int:
             except FileNotFoundError:
                 log.error("game executable not found: %r", final_cmd)
                 notify_backend.send(
-                    "TKSteamLaunch: game executable not found",
+                    "TKArcade: game executable not found",
                     shlex.join(final_cmd)[:200],
                     "critical",
                 )
@@ -903,7 +903,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if post_rc not in (-1, 0):
                     notify_backend.send(
-                        "TKSteamLaunch: post-exit hook failed",
+                        "TKArcade: post-exit hook failed",
                         f"App {appid}, exit {post_rc}",
                     )
 

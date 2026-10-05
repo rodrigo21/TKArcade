@@ -32,7 +32,7 @@ def state_home() -> Path:
 
 
 def app_config_dir() -> Path:
-    return config_home() / "tksteamlaunch"
+    return config_home() / "tkarcade"
 
 
 def games_dir() -> Path:
@@ -40,11 +40,11 @@ def games_dir() -> Path:
 
 
 def app_state_dir() -> Path:
-    return state_home() / "tksteamlaunch"
+    return state_home() / "tkarcade"
 
 
 def app_cache_dir() -> Path:
-    return cache_home() / "tksteamlaunch"
+    return cache_home() / "tkarcade"
 
 
 def log_file() -> Path:

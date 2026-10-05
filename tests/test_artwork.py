@@ -2,7 +2,7 @@
 
 import json
 
-from tksteamlaunch import artwork as art
+from tkarcade import artwork as art
 
 
 class _Resp:
@@ -34,7 +34,7 @@ def _stub(monkeypatch, routes):
 
 
 def test_resolve_prefers_grid(xdg_env, tmp_path):
-    from tksteamlaunch import steam as S
+    from tkarcade import steam as S
 
     grid = art.grid_path("81")
     grid.parent.mkdir(parents=True)

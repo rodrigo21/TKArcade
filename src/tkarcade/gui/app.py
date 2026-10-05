@@ -18,7 +18,7 @@ def bundled_style() -> str:
     return ""
 
 
-def single_instance(name: str = "tksteamlaunch-gui"):
+def single_instance(name: str = "tkarcade-gui"):
     """Ensure a single GUI instance. Returns the server, or None in followers.
 
     A follower notifies the primary (which shows its window) and the
@@ -52,8 +52,8 @@ def main() -> int:
     if style:
         QApplication.setStyle(style)
     app = QApplication(sys.argv[1:])
-    app.setApplicationName("TKSteamLaunch")
-    app.setOrganizationName("TKSteamLaunch")
+    app.setApplicationName("TKArcade")
+    app.setOrganizationName("TKArcade")
     from .helpers import install_translations, preferred_language
 
     install_translations(app, preferred_language())

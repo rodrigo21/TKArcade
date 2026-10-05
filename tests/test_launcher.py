@@ -5,13 +5,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from tksteamlaunch import config as C
+from tkarcade import config as C
 
 SRC = str(Path(__file__).resolve().parent.parent / "src")
 
 
 def _run(env, *args):
-    cmd = [sys.executable, "-m", "tksteamlaunch.launcher", *args]
+    cmd = [sys.executable, "-m", "tkarcade.launcher", *args]
     return subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=60)
 
 
@@ -106,15 +106,15 @@ def test_export_import_cli(xdg_env, tmp_path):
 def test_per_game_log_rotates(xdg_env):
     import logging
 
-    from tksteamlaunch import xdg
-    from tksteamlaunch.launcher import setup_logging
+    from tkarcade import xdg
+    from tkarcade.launcher import setup_logging
 
     logdir = xdg.games_log_dir()
     logdir.mkdir(parents=True, exist_ok=True)
     (logdir / "8.log").write_bytes(b"x" * 1_100_000)
     setup_logging("8")
     # WARNING: pytest runs the root logger at WARNING, INFO would be filtered.
-    logging.getLogger("tksteamlaunch.test").warning("trigger rollover")
+    logging.getLogger("tkarcade.test").warning("trigger rollover")
     assert (logdir / "8.log.1").exists()
 
 
@@ -125,7 +125,7 @@ def test_launch_notification_toggle(xdg_env, fake_bin, monkeypatch, tmp_path):
     _save("9", notifications={"notify_on_launch": True})
     env = _env(xdg_env)  # inherits fake PATH + DISPLAY
     assert _run(env, "--appid", "9", "/bin/true").returncode == 0
-    assert "TKSteamLaunch" in log.read_text()
+    assert "TKArcade" in log.read_text()
     log.unlink()
     _save("9", notifications={"notify_on_launch": False})
     assert _run(env, "--appid", "9", "/bin/true").returncode == 0
@@ -144,7 +144,7 @@ def test_session_end_notification(xdg_env, fake_bin, monkeypatch, tmp_path):
 
 
 def test_validate_reports_issues(xdg_env, monkeypatch, tmp_path):
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     monkeypatch.setenv("PATH", str(tmp_path))
     cfg = C.GameConfig()
@@ -167,7 +167,7 @@ def test_validate_cli_exit_code(xdg_env, monkeypatch, tmp_path):
 
 
 def test_validate_clean(xdg_env):
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     cfg = C.GameConfig()
     cfg.general.appid = "31"
@@ -176,7 +176,7 @@ def test_validate_clean(xdg_env):
 
 
 def test_global_log_carries_duration(xdg_env):
-    from tksteamlaunch import xdg
+    from tkarcade import xdg
 
     _save("11")
     env = _env(xdg_env)
@@ -186,7 +186,7 @@ def test_global_log_carries_duration(xdg_env):
 
 
 def test_peel_edit_appid():
-    from tksteamlaunch.launcher import peel_edit_appid
+    from tkarcade.launcher import peel_edit_appid
 
     assert peel_edit_appid(["588950"]) == ("588950", [])
     assert peel_edit_appid(["/bin/echo", "hi"]) == ("", ["/bin/echo", "hi"])
@@ -202,7 +202,7 @@ def test_menu_without_display_launches_directly(xdg_env, monkeypatch):
     assert r.returncode == 0
     r = _run(_env(xdg_env), "--appid", "6", "--", "/bin/echo", "hi")
     assert r.returncode == 0
-    log = xdg_env["state"] / "tksteamlaunch" / "games" / "6.log"
+    log = xdg_env["state"] / "tkarcade" / "games" / "6.log"
     assert "launching directly" in log.read_text()
 
 
@@ -217,7 +217,7 @@ def test_empty_command_skipped(xdg_env):
     _save("8", mangohud={"enable": True})
     r = _run(_env(xdg_env), "--appid", "8")
     assert r.returncode == 0
-    log = xdg_env["state"] / "tksteamlaunch" / "games" / "8.log"
+    log = xdg_env["state"] / "tkarcade" / "games" / "8.log"
     assert "no game command to run" in log.read_text()
 
 
@@ -227,12 +227,12 @@ def test_menu_flag_shows_editor_once_without_display(xdg_env, monkeypatch):
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     r = _run(_env(xdg_env), "--appid", "9", "--menu", "--", "/bin/echo", "hi")
     assert r.returncode == 0
-    log = xdg_env["state"] / "tksteamlaunch" / "games" / "9.log"
+    log = xdg_env["state"] / "tkarcade" / "games" / "9.log"
     assert log.read_text().count("launching directly") == 1
 
 
 def test_clean_gui_env():
-    from tksteamlaunch.launcher import clean_gui_env
+    from tkarcade.launcher import clean_gui_env
 
     env = {
         "LD_LIBRARY_PATH": "/opt/intel/lib:/home/u/.local/share/Steam/ubuntu12_32/steam-runtime/pinned_libs_64:/usr/lib",
@@ -250,14 +250,14 @@ def test_clean_gui_env():
 def test_edit_child_headless(xdg_env, monkeypatch):
     monkeypatch.delenv("DISPLAY", raising=False)
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
-    r = _run(_env(xdg_env), "-m", "tksteamlaunch.gui.edit", "--appid", "1")
+    r = _run(_env(xdg_env), "-m", "tkarcade.gui.edit", "--appid", "1")
     assert r.returncode == 2
 
 
 def test_editor_menu_parsing(monkeypatch):
     import subprocess as sp
 
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     seen = {}
 
@@ -274,7 +274,7 @@ def test_editor_menu_parsing(monkeypatch):
 
     monkeypatch.setattr(sp, "run", fake_run)
     assert L.run_editor_menu("42") == ("launch", "42")
-    assert "-m" in seen["cmd"] and "tksteamlaunch.gui.edit" in seen["cmd"]
+    assert "-m" in seen["cmd"] and "tkarcade.gui.edit" in seen["cmd"]
     assert "LD_LIBRARY_PATH" not in seen["env"] or "steam-runtime" not in seen["env"].get(
         "LD_LIBRARY_PATH", ""
     )
@@ -283,7 +283,7 @@ def test_editor_menu_parsing(monkeypatch):
 def test_editor_menu_crash_means_cancelled(monkeypatch):
     import subprocess as sp
 
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     class P:
         returncode = 1
@@ -297,7 +297,7 @@ def test_editor_menu_crash_means_cancelled(monkeypatch):
 def test_editor_menu_bad_output_cancelled(monkeypatch):
     import subprocess as sp
 
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     class P:
         returncode = 0
@@ -309,7 +309,7 @@ def test_editor_menu_bad_output_cancelled(monkeypatch):
 
 
 def test_editor_menu_spawn_fallback_headless(monkeypatch):
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     def boom(*a, **k):
         raise OSError("noexec")
@@ -344,8 +344,8 @@ def test_fresh_prefix_disarms_after_wipe(xdg_env, monkeypatch, tmp_path):
 
 
 def test_validate_dangling_profile(xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch import launcher as L
+    from tkarcade import config as C
+    from tkarcade import launcher as L
 
     cfg = C.GameConfig()
     cfg.general.appid = "33"
@@ -360,8 +360,8 @@ def test_validate_dangling_profile(xdg_env):
 
 
 def test_validate_bad_display_mode(xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch import launcher as L
+    from tkarcade import config as C
+    from tkarcade import launcher as L
 
     cfg = C.GameConfig()
     cfg.general.appid = "34"
@@ -374,8 +374,8 @@ def test_validate_bad_display_mode(xdg_env):
 
 
 def test_validate_newer_config_version(xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch import launcher as L
+    from tkarcade import config as C
+    from tkarcade import launcher as L
 
     cfg = C.GameConfig()
     cfg.general.appid = "35"
@@ -391,13 +391,13 @@ def test_validate_newer_config_version(xdg_env):
 def test_launcher_gui_dispatch(xdg_env, monkeypatch):
     import sys
 
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     calls = []
-    monkeypatch.setattr("tksteamlaunch.gui.app.main", lambda: calls.append("gui") or 0)
+    monkeypatch.setattr("tkarcade.gui.app.main", lambda: calls.append("gui") or 0)
     monkeypatch.setenv("DISPLAY", ":0")
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
-    monkeypatch.setattr(sys, "argv", ["tksteamlaunch"])
+    monkeypatch.setattr(sys, "argv", ["tkarcade"])
     assert L.main([]) == 0
     assert L.main(["--gui"]) == 0
     assert calls == ["gui", "gui"]
@@ -407,8 +407,8 @@ def test_launcher_gui_dispatch(xdg_env, monkeypatch):
 
 
 def test_validate_checks_effective_profile_content(xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch import launcher as L
+    from tkarcade import config as C
+    from tkarcade import launcher as L
 
     cfg = C.GameConfig()
     cfg.general.appid = "36"
@@ -426,7 +426,7 @@ def test_menu_skip_plant_consume_expire(xdg_env, tmp_path):
     import os
     import time
 
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     assert L.consume_menu_skip("40") is False
     L.plant_menu_skip("40")

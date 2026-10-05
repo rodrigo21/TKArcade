@@ -15,7 +15,7 @@ from pathlib import Path
 from . import steam as steammod
 from . import xdg
 
-log = logging.getLogger("tksteamlaunch.artwork")
+log = logging.getLogger("tkarcade.artwork")
 
 GAME_URL = "https://www.steamgriddb.com/api/v2/games/steam/{appid}"
 GRIDS_URL = (

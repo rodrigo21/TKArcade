@@ -31,11 +31,11 @@ def available_languages() -> list[tuple[str, str]]:
     try:
         from importlib import resources
 
-        pkg = resources.files("tksteamlaunch.translations")
+        pkg = resources.files("tkarcade.translations")
         for entry in pkg.iterdir():
             name = entry.name
-            if name.startswith("tksteamlaunch_") and name.endswith(".qm"):
-                codes.add(name[len("tksteamlaunch_") : -len(".qm")])
+            if name.startswith("tkarcade_") and name.endswith(".qm"):
+                codes.add(name[len("tkarcade_") : -len(".qm")])
     except Exception:
         pass
     out = [("en", "English")]
@@ -64,11 +64,11 @@ def install_translations(app, language: str = "") -> str:
         if "_" in locale:
             candidates.append(locale.split("_")[0])
     try:
-        pkg_files = resources.files("tksteamlaunch.translations")
+        pkg_files = resources.files("tkarcade.translations")
     except Exception:
         return ""
     for lang in candidates:
-        name = f"tksteamlaunch_{lang}.qm"
+        name = f"tkarcade_{lang}.qm"
         try:
             ref = pkg_files.joinpath(name)
             if not ref.is_file():

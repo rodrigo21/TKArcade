@@ -4,7 +4,7 @@ import json
 import time
 import urllib.error
 
-from tksteamlaunch import protondb as pdb
+from tkarcade import protondb as pdb
 
 
 class _Resp:
@@ -66,7 +66,7 @@ def test_tier_styles_complete():
 
 
 def test_stale_cache_types(xdg_env):
-    from tksteamlaunch import protondb as pdb
+    from tkarcade import protondb as pdb
 
     p = pdb.cache_path("9")
     p.parent.mkdir(parents=True, exist_ok=True)

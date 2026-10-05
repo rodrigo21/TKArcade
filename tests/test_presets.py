@@ -1,6 +1,6 @@
 """Env presets: merge semantics, metadata schema, GPU/flavor helpers."""
 
-from tksteamlaunch import presets as pm
+from tkarcade import presets as pm
 
 
 def test_apply_preset_merges_missing_only():
@@ -33,7 +33,7 @@ def test_preset_catalog_schema():
 
 
 def test_detect_vendors_fake_sysfs(tmp_path):
-    from tksteamlaunch import gpu as gpumod
+    from tkarcade import gpu as gpumod
 
     def dev(name, cls, vendor):
         d = tmp_path / name
@@ -50,7 +50,7 @@ def test_detect_vendors_fake_sysfs(tmp_path):
 
 
 def test_proton_flavor():
-    from tksteamlaunch import proton as protonmod
+    from tkarcade import proton as protonmod
 
     assert protonmod.flavor("Proton-cachyos") == "cachyos"
     assert protonmod.flavor("GE-Proton10-12") == "ge"
@@ -60,14 +60,14 @@ def test_proton_flavor():
 
 
 def test_proton_wayland_preset_tag():
-    import tksteamlaunch.presets as pm
+    import tkarcade.presets as pm
 
     assert pm.PRESETS["Proton Wayland"].vars == {"PROTON_ENABLE_WAYLAND": "1"}
     assert pm.PRESETS["Proton Wayland"].proton == ("ge", "cachyos", "dw")
 
 
 def test_fps_limit_preset():
-    import tksteamlaunch.presets as pm
+    import tkarcade.presets as pm
 
     preset = pm.PRESETS["FPS Limit (DXVK)"]
     assert preset.vars == {"DXVK_CONFIG": "dxgi.maxFrameRate = 60; d3d9.maxFrameRate = 60"}

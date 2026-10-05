@@ -11,7 +11,7 @@ from pathlib import Path
 
 from . import xdg
 
-log = logging.getLogger("tksteamlaunch.protondb")
+log = logging.getLogger("tkarcade.protondb")
 
 ENDPOINT = "https://www.protondb.com/api/v1/reports/summaries/{appid}.json"
 GAME_URL = "https://www.protondb.com/app/{appid}"

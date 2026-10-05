@@ -20,7 +20,7 @@ from pathlib import Path
 
 from . import xdg
 
-log = logging.getLogger("tksteamlaunch.config")
+log = logging.getLogger("tkarcade.config")
 
 
 class NightlightProvider(StrEnum):
@@ -445,7 +445,7 @@ def load_with_warning(appid: str) -> tuple[GameConfig, str | None]:
         fresh = GameConfig()
         fresh.general.appid = appid
         return fresh, (
-            f"The saved settings need a newer TKSteamLaunch ({e}).\n"
+            f"The saved settings need a newer TKArcade ({e}).\n"
             "Showing built-in defaults instead. Saving will overwrite the file."
         )
     err = toml_error(path)
@@ -592,7 +592,7 @@ def _str_list(value: object) -> list[str]:
 
 
 class ConfigVersionError(Exception):
-    """Config file needs a newer TKSteamLaunch than this one."""
+    """Config file needs a newer TKArcade than this one."""
 
     def __init__(self, version: object) -> None:
         super().__init__(f"config version {version} is newer than supported 1")
@@ -891,6 +891,6 @@ def import_configs(src: str | Path) -> list[str]:
             ):
                 members.append(member)
         if not members:
-            raise ValueError("archive contains no TKSteamLaunch configs")
+            raise ValueError("archive contains no TKArcade configs")
         tar.extractall(path=base, members=members, filter="data")
     return sorted(Path(m.name).stem for m in members if m.name.startswith("games/"))

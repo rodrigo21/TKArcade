@@ -9,7 +9,7 @@ Exit 0 = outcome delivered (launch/saved/cancelled), 2 = unavailable
 (no PySide6 or display). Anything else (including tracebacks) means
 internal error. Anything on stderr is diagnostic noise the parent logs.
 
-Usage: python -m tksteamlaunch.gui.edit [--appid ID] [--pick]
+Usage: python -m tkarcade.gui.edit [--appid ID] [--pick]
        [--can-launch | --no-can-launch]
 """
 
@@ -26,10 +26,10 @@ def _ensure_qapp(tool: str) -> bool:
     try:
         from PySide6.QtWidgets import QApplication  # noqa: F401
     except ImportError:
-        print(f"tksteamlaunch: {tool} needs PySide6 installed", file=sys.stderr)
+        print(f"tkarcade: {tool} needs PySide6 installed", file=sys.stderr)
         return False
     if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-        print(f"tksteamlaunch: {tool} needs a display", file=sys.stderr)
+        print(f"tkarcade: {tool} needs a display", file=sys.stderr)
         return False
     return True
 
@@ -70,7 +70,7 @@ def pick_game_appid() -> str:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="tksteamlaunch.gui.edit")
+    p = argparse.ArgumentParser(prog="tkarcade.gui.edit")
     p.add_argument("--appid", default="")
     p.add_argument("--pick", action="store_true", help="show a game picker when no AppID is given")
     p.add_argument(

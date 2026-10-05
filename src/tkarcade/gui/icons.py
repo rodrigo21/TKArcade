@@ -7,7 +7,7 @@ from pathlib import Path
 
 def icon_path(style: str = "normal") -> Path | None:
     """Absolute SVG path for a style, or None when missing."""
-    name = "tksteamlaunch-mono.svg" if style == "mono" else "tksteamlaunch.svg"
+    name = "tkarcade-mono.svg" if style == "mono" else "tkarcade.svg"
     path = Path(__file__).resolve().parent.parent / "icons" / name
     try:
         return path if path.is_file() else None

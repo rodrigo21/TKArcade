@@ -1,4 +1,4 @@
-"""Import entry points: TKSteamLaunch exports or SteamTinkerLaunch configs."""
+"""Import entry points: TKArcade exports or SteamTinkerLaunch configs."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ class ImportChooserDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(self.tr("Import configurations from:")))
         row = QHBoxLayout()
-        b_export = QPushButton(self.tr("TKSteamLaunch Export..."))
+        b_export = QPushButton(self.tr("TKArcade Export..."))
         b_export.setToolTip(self.tr("A tarball created by Export..."))
         b_export.clicked.connect(lambda: self.done(1))
         b_stl = QPushButton(self.tr("SteamTinkerLaunch..."))
@@ -139,5 +139,5 @@ class StlImportDialog(QDialog):
         details = "\n".join(f"{a}: {'; '.join(r)}" for a, r in reports.items() if r)
         if details:
             text += "\n\n" + self.tr("Notes:") + "\n" + details
-        QMessageBox.information(self, "TKSteamLaunch", text or self.tr("Nothing selected."))
+        QMessageBox.information(self, "TKArcade", text or self.tr("Nothing selected."))
         self.accept()

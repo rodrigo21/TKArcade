@@ -31,7 +31,7 @@ class PreferencesDialog(QDialog):
         form.addRow("", self.c_show_preview)
 
         self.c_tray = QCheckBox(self.tr("Enable status bar icon"))
-        self.c_tray.setToolTip(self.tr("Keep TKSteamLaunch in the system tray."))
+        self.c_tray.setToolTip(self.tr("Keep TKArcade in the system tray."))
         self.c_tray.setChecked(self.prefs.tray_enable)
         self.c_tray.toggled.connect(self._update_tray_state)
         form.addRow("", self.c_tray)

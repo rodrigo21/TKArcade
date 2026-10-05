@@ -7,7 +7,7 @@ import os
 import shutil
 import subprocess
 
-log = logging.getLogger("tksteamlaunch.notify")
+log = logging.getLogger("tkarcade.notify")
 
 
 def available() -> bool:
@@ -26,7 +26,7 @@ def send(
     """Fire-and-forget notification. Never raises; no-op when unavailable."""
     if not available():
         return
-    cmd = ["notify-send", "--app-name=TKSteamLaunch", f"--urgency={urgency}"]
+    cmd = ["notify-send", "--app-name=TKArcade", f"--urgency={urgency}"]
     if expire_ms > 0:
         cmd.append(f"--expire-time={expire_ms}")
     if icon:
@@ -58,7 +58,7 @@ def launch_summary(
     The first body line folds runtime and wrappers together so no part
     ever stands alone; blank parts are dropped (no trailing separators).
     """
-    title = f"TKSteamLaunch — {name.strip() or appid}"
+    title = f"TKArcade — {name.strip() or appid}"
     if game_type == "native":
         head = f"Native · {runtime}" if runtime else "Native"
     else:

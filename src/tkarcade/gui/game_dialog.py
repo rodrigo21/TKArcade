@@ -927,9 +927,9 @@ class GameDialog(QDialog):
             return True
         answer = QMessageBox.warning(
             self,
-            "TKSteamLaunch",
+            "TKArcade",
             self.tr(
-                "This configuration was written by a newer TKSteamLaunch. "
+                "This configuration was written by a newer TKArcade. "
                 "Saving now will downgrade it and may lose settings. Continue?"
             ),
             QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
@@ -943,7 +943,7 @@ class GameDialog(QDialog):
     def _show_load_warning(self) -> None:
         """Surface a config-fallback warning after (re)populating, if any."""
         if self._load_warning:
-            QMessageBox.warning(self, "TKSteamLaunch", self._load_warning)
+            QMessageBox.warning(self, "TKArcade", self._load_warning)
 
     def _save_active(self) -> None:
         """Collect widgets and persist to the active source.
@@ -971,7 +971,7 @@ class GameDialog(QDialog):
         if not self._is_dirty():
             return True
         box = QMessageBox(self)
-        box.setWindowTitle("TKSteamLaunch")
+        box.setWindowTitle("TKArcade")
         box.setText(self.tr("You have unsaved changes. Save them before switching?"))
         box.setStandardButtons(
             QMessageBox.StandardButton.Save
@@ -1025,7 +1025,7 @@ class GameDialog(QDialog):
         if cfgmod.profile_file(self.appid, name).exists():
             answer = QMessageBox.question(
                 self,
-                "TKSteamLaunch",
+                "TKArcade",
                 self.tr(f'Profile "{name}" already exists. Overwrite it?'),
             )
             return answer == QMessageBox.StandardButton.Yes
@@ -1054,13 +1054,13 @@ class GameDialog(QDialog):
                 cfg = cfgmod.load_profile(self.appid, src)
             except (OSError, cfgmod.ConfigVersionError) as e:
                 QMessageBox.warning(
-                    self, "TKSteamLaunch", self.tr(f'Profile "{src}" could not be read: {e}')
+                    self, "TKArcade", self.tr(f'Profile "{src}" could not be read: {e}')
                 )
                 return
         else:
             go = QMessageBox.question(
                 self,
-                "TKSteamLaunch",
+                "TKArcade",
                 self.tr("No profile selected — clone the current (live) settings?"),
             )
             if go != QMessageBox.StandardButton.Yes:
@@ -1087,7 +1087,7 @@ class GameDialog(QDialog):
             return
         answer = QMessageBox.question(
             self,
-            "TKSteamLaunch",
+            "TKArcade",
             self.tr(f'Delete profile "{name}"? This cannot be undone.'),
         )
         if answer != QMessageBox.StandardButton.Yes:
@@ -1152,7 +1152,7 @@ class GameDialog(QDialog):
         if mismatch:
             answer = QMessageBox.question(
                 self,
-                "TKSteamLaunch",
+                "TKArcade",
                 self.tr(f"Preset '{name}' is for {mismatch}.\nApply anyway?"),
             )
             if answer != QMessageBox.StandardButton.Yes:
@@ -1162,7 +1162,7 @@ class GameDialog(QDialog):
         self._set_env_table(vars)
         if not added:
             QMessageBox.information(
-                self, "TKSteamLaunch", self.tr(f"Preset '{name}': all keys already present.")
+                self, "TKArcade", self.tr(f"Preset '{name}': all keys already present.")
             )
 
     @staticmethod
@@ -1238,27 +1238,27 @@ class GameDialog(QDialog):
             name.strip(), template=choices[label]
         )
         if error:
-            QMessageBox.warning(self, "TKSteamLaunch", error)
+            QMessageBox.warning(self, "TKArcade", error)
             return
         if source == "exists":
-            QMessageBox.information(self, "TKSteamLaunch", self.tr(f"{path.name} already exists."))
+            QMessageBox.information(self, "TKArcade", self.tr(f"{path.name} already exists."))
         self._refresh_mangohud_configs()
         idx = self.cb_mh_conf.findData(path.name)
         if idx >= 0:
             self.cb_mh_conf.setCurrentIndex(idx)
         if not open_path(str(path)):
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not open {path}."))
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Could not open {path}."))
 
     def _open_log(self) -> None:
         if not open_path(self.e_log.text()):
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr("Could not open the log file."))
+            QMessageBox.warning(self, "TKArcade", self.tr("Could not open the log file."))
 
     def _open_proton_log(self) -> None:
         from ..launcher import proton_log_dir
 
         if not open_path(str(proton_log_dir(self.appid))):
             QMessageBox.warning(
-                self, "TKSteamLaunch", self.tr("Could not open the Proton log folder.")
+                self, "TKArcade", self.tr("Could not open the Proton log folder.")
             )
 
     def _on_reset_factory(self) -> None:
@@ -1299,7 +1299,7 @@ class GameDialog(QDialog):
             detail = self.tr("This overwrites the saved game config.")
         answer = QMessageBox.question(
             self,
-            "TKSteamLaunch",
+            "TKArcade",
             self.tr("Reset this game to the Global Defaults template now?\n") + detail,
             QMessageBox.StandardButton.Reset | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
@@ -1502,7 +1502,7 @@ class GameDialog(QDialog):
             ),
             "unavailable": self.tr(f"Could not check coverage:\n{detail}"),
         }
-        QMessageBox.information(self, "TKSteamLaunch", messages.get(status, detail))
+        QMessageBox.information(self, "TKArcade", messages.get(status, detail))
 
     @staticmethod
     def _align_label_widths(*labels: QLabel) -> None:

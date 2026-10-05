@@ -2,7 +2,7 @@
 
 import shutil
 
-from tksteamlaunch import config as C
+from tkarcade import config as C
 
 
 def test_save_load_roundtrip(xdg_env):
@@ -96,7 +96,7 @@ def test_proton_config_roundtrip(xdg_env):
 
 
 def test_prepare_fresh_prefix(monkeypatch, tmp_path):
-    from tksteamlaunch import proton as pm
+    from tkarcade import proton as pm
 
     pfx = tmp_path / "compatdata" / "70" / "pfx"
     pfx.mkdir(parents=True)
@@ -112,7 +112,7 @@ def test_prepare_fresh_prefix(monkeypatch, tmp_path):
 
 
 def test_prepare_fresh_prefix_refuses_non_prefix(monkeypatch, tmp_path):
-    from tksteamlaunch import proton as pm
+    from tkarcade import proton as pm
 
     victim = tmp_path / "precious"
     victim.mkdir()
@@ -233,7 +233,7 @@ def test_as_bool_strings(xdg_env):
 
 
 def test_string_bools_in_toml(xdg_env):
-    from tksteamlaunch import xdg as xdgmod
+    from tkarcade import xdg as xdgmod
 
     xdgmod.games_dir().mkdir(parents=True, exist_ok=True)
     (xdgmod.games_dir() / "72.toml").write_text(
@@ -243,7 +243,7 @@ def test_string_bools_in_toml(xdg_env):
 
 
 def test_preferences_roundtrip(xdg_env):
-    from tksteamlaunch import xdg as xdgmod
+    from tkarcade import xdg as xdgmod
 
     prefs = C.load_preferences()
     assert prefs.show_preview is True and prefs.tray_enable is False
@@ -262,7 +262,7 @@ def test_preferences_roundtrip(xdg_env):
 
 
 def test_preferences_invalid_values(xdg_env):
-    from tksteamlaunch import xdg as xdgmod
+    from tkarcade import xdg as xdgmod
 
     xdgmod.app_config_dir().mkdir(parents=True, exist_ok=True)
     xdgmod.preferences_file().write_text(
@@ -277,7 +277,7 @@ def test_preferences_invalid_values(xdg_env):
 
 
 def test_winetricks_runs_and_skips_repeat(xdg_env, fake_bin, monkeypatch, tmp_path):
-    from tksteamlaunch import proton as pm
+    from tkarcade import proton as pm
 
     calls = tmp_path / "calls.log"
     fake_bin(
@@ -293,7 +293,7 @@ def test_winetricks_runs_and_skips_repeat(xdg_env, fake_bin, monkeypatch, tmp_pa
 
 
 def test_winetricks_missing_binary(xdg_env, monkeypatch, tmp_path):
-    from tksteamlaunch import proton as pm
+    from tkarcade import proton as pm
 
     monkeypatch.setenv("PATH", str(tmp_path))
     assert "not found" in pm.run_winetricks("76", ["dotnet48"])[0]
@@ -310,7 +310,7 @@ def test_diff_vs_defaults(xdg_env):
 
 
 def test_flavor_prefix_boundaries():
-    from tksteamlaunch import proton as pm
+    from tkarcade import proton as pm
 
     assert pm.flavor("proton-cachyos-slr") == "cachyos"
     assert pm.flavor("GE-Proton9-15") == "ge"
@@ -327,7 +327,7 @@ def test_menu_timeout_roundtrip_and_clamp(xdg_env):
     cfg.general.menu_timeout = 15
     C.save(cfg)
     assert C.load("74").general.menu_timeout == 15
-    from tksteamlaunch import xdg as xdgmod
+    from tkarcade import xdg as xdgmod
 
     xdgmod.games_dir().mkdir(parents=True, exist_ok=True)
     (xdgmod.games_dir() / "75.toml").write_text(
@@ -447,7 +447,7 @@ def test_load_with_warning_unreadable_file(xdg_env, monkeypatch):
 
 
 def test_preferences_unreadable_falls_back_to_defaults(xdg_env, monkeypatch):
-    from tksteamlaunch import xdg as xdgmod
+    from tkarcade import xdg as xdgmod
 
     xdgmod.preferences_file().parent.mkdir(parents=True, exist_ok=True)
     xdgmod.preferences_file().write_text("[ui]\nshow_preview = false\n", encoding="utf-8")
@@ -718,8 +718,8 @@ def test_export_skips_nested_profile_junk(xdg_env, tmp_path):
 
 
 def test_appid_paths_cannot_escape(xdg_env):
-    from tksteamlaunch import xdg as xdgmod
-    from tksteamlaunch.launcher import proton_log_dir
+    from tkarcade import xdg as xdgmod
+    from tkarcade.launcher import proton_log_dir
 
     for bad in ("../../evil", "/abs", "a/b", ""):
         assert xdgmod.game_log_file(bad).parent == xdgmod.games_log_dir()

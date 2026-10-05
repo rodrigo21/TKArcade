@@ -13,14 +13,14 @@ def _no_display_backend_calls(monkeypatch):
     production code queries in a worker thread, but tests stay fully
     hermetic (backend coverage lives in test_display.py fakes).
     """
-    from tksteamlaunch.backends import display as dispmod
+    from tkarcade.backends import display as dispmod
 
     monkeypatch.setattr(dispmod, "offered_modes", lambda *a, **k: [])
 
 
 def test_dialogs_construct(qt_app, xdg_env):
-    from tksteamlaunch.gui.game_dialog import GameDialog
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade.gui.game_dialog import GameDialog
+    from tkarcade.gui.main_window import MainWindow
 
     w = MainWindow()
     w.show()
@@ -30,9 +30,9 @@ def test_dialogs_construct(qt_app, xdg_env):
 
 
 def test_main_table_columns(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
-    from tksteamlaunch import protondb as pdbmod
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade import config as C
+    from tkarcade import protondb as pdbmod
+    from tkarcade.gui.main_window import MainWindow
 
     cfg = C.GameConfig()
     cfg.general.appid = "80"
@@ -58,9 +58,9 @@ def test_main_table_columns(qt_app, xdg_env, monkeypatch):
 
 
 def test_grid_icon_preferred(qt_app, xdg_env):
-    from tksteamlaunch import artwork as artmod
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade import artwork as artmod
+    from tkarcade import config as C
+    from tkarcade.gui.main_window import MainWindow
 
     cfg = C.GameConfig()
     cfg.general.appid = "86"
@@ -84,8 +84,8 @@ def test_grid_icon_preferred(qt_app, xdg_env):
 def test_launch_mode_buttons(qt_app, xdg_env):
     from PySide6.QtWidgets import QDialog, QPushButton
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "21", "T", launch_mode=True)
     assert d.launch_requested is False
@@ -100,8 +100,8 @@ def test_launch_mode_buttons(qt_app, xdg_env):
 
 
 def test_launch_without_save_persists_selection(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     live = C.GameConfig()
     live.general.appid = "24"
@@ -128,8 +128,8 @@ def test_launch_without_save_persists_selection(qt_app, xdg_env):
 def test_launch_without_save_keeps_corrupt_live(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     C.game_file("25").parent.mkdir(parents=True, exist_ok=True)
     C.game_file("25").write_text("[general\nappid = oops", encoding="utf-8")
@@ -142,20 +142,20 @@ def test_launch_without_save_keeps_corrupt_live(qt_app, xdg_env, monkeypatch):
 
 
 def test_provider_combo_data(qt_app, xdg_env):
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "23", "T")
     datas = [d.cb_nl.itemData(i) for i in range(d.cb_nl.count())]
     assert datas == ["auto", "plasma", "gnome", "off"]
     d.cb_nl.setCurrentIndex(1)
     d.accept()
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     assert C.load("23").nightlight.provider == "plasma"
 
 
 def test_detected_runtime_row(qt_app, xdg_env, monkeypatch, tmp_path):
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     root = tmp_path / "steam"
     (root / "config").mkdir(parents=True)
@@ -183,8 +183,8 @@ def _all_bins_present(monkeypatch):
 
 
 def test_preview_command(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     _all_bins_present(monkeypatch)
     cfg = C.GameConfig()
@@ -237,7 +237,7 @@ def _close_boxes():
 def test_coverage_button(qt_app, xdg_env, monkeypatch, tmp_path):
     from PySide6.QtWidgets import QPushButton
 
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     monkeypatch.setenv("PATH", str(tmp_path))  # no ludusavi -> unavailable path
     d = GameDialog(None, "28", "T")
@@ -257,8 +257,8 @@ def test_coverage_no_double_run(qt_app, xdg_env, monkeypatch):
 
     from PySide6.QtWidgets import QPushButton
 
-    from tksteamlaunch.backends import ludusavi as lu
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.backends import ludusavi as lu
+    from tkarcade.gui.game_dialog import GameDialog
 
     entered, release, calls = threading.Event(), threading.Event(), []
 
@@ -285,8 +285,8 @@ def test_coverage_no_double_run(qt_app, xdg_env, monkeypatch):
 
 
 def test_show_menu_checkbox_roundtrip(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "22", "T")
     assert d.c_show_menu.isChecked() is False
@@ -296,7 +296,7 @@ def test_show_menu_checkbox_roundtrip(qt_app, xdg_env):
 
 
 def test_coverage_button_hidden_in_defaults_mode(qt_app, xdg_env):
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     def buttons(dlg):
         return [b.text() for b in dlg.findChildren(QtWidgets.QPushButton)]
@@ -306,7 +306,7 @@ def test_coverage_button_hidden_in_defaults_mode(qt_app, xdg_env):
 
 
 def test_launch_button_hidden_without_command(qt_app, xdg_env):
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     def buttons(dlg):
         return [b.text() for b in dlg.findChildren(QtWidgets.QPushButton)]
@@ -318,8 +318,8 @@ def test_launch_button_hidden_without_command(qt_app, xdg_env):
 
 
 def test_gamemode_conflict_resolved_on_load(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     _all_bins_present(monkeypatch)
     cfg = C.GameConfig()
@@ -334,7 +334,7 @@ def test_gamemode_conflict_resolved_on_load(qt_app, xdg_env, monkeypatch):
 def test_add_blank_choice_ignored(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog
 
-    from tksteamlaunch.gui import main_window as mw
+    from tkarcade.gui import main_window as mw
 
     monkeypatch.setattr(mw.steammod, "list_games", lambda: [("1", "G")])
     monkeypatch.setattr(QInputDialog, "getItem", lambda *a, **k: ("   ", True))
@@ -349,7 +349,7 @@ def test_add_blank_choice_ignored(qt_app, xdg_env, monkeypatch):
 def test_copy_launch_without_clipboard(qt_app, xdg_env, monkeypatch):
     from PySide6.QtGui import QGuiApplication
 
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade.gui.main_window import MainWindow
 
     monkeypatch.setattr(QGuiApplication, "clipboard", classmethod(lambda cls: None))
     w = MainWindow()
@@ -360,7 +360,7 @@ def test_copy_launch_without_clipboard(qt_app, xdg_env, monkeypatch):
 def test_launch_buttons_order_and_icons(qt_app, xdg_env):
     from PySide6.QtWidgets import QDialogButtonBox
 
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "25", "T", launch_mode=True)
     box = d.findChild(QDialogButtonBox)
@@ -374,8 +374,8 @@ def test_launch_buttons_order_and_icons(qt_app, xdg_env):
 def test_launch_without_save_keeps_file(qt_app, xdg_env):
     from PySide6.QtWidgets import QPushButton
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "26"
@@ -391,15 +391,15 @@ def test_launch_without_save_keeps_file(qt_app, xdg_env):
 
 
 def test_steam_options_hidden_in_defaults_mode(qt_app, xdg_env):
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     assert "steam-options" not in GameDialog(None, defaults_mode=True)._status_labels
     assert "steam-options" in GameDialog(None, "31", "T")._status_labels
 
 
 def test_exclusive_backends_visibility(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     _all_bins_present(monkeypatch)
 
@@ -423,8 +423,8 @@ def test_exclusive_backends_visibility(qt_app, xdg_env, monkeypatch):
 def test_missing_binaries_disable_toggles(qt_app, xdg_env, monkeypatch):
     import shutil
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
     cfg = C.GameConfig()
@@ -439,9 +439,9 @@ def test_missing_binaries_disable_toggles(qt_app, xdg_env, monkeypatch):
 
 
 def test_preview_toggle_lives_in_preferences(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
-    from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
+    from tkarcade.gui.preferences_dialog import PreferencesDialog
 
     assert not hasattr(GameDialog(None, "41", "T"), "c_show_preview")
     prefs = PreferencesDialog(None)
@@ -453,7 +453,7 @@ def test_preview_toggle_lives_in_preferences(qt_app, xdg_env):
 
 
 def test_preview_updates_live(qt_app, xdg_env):
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "42", "T")
     before = d._preview_edit.toPlainText()
@@ -465,8 +465,8 @@ def test_preview_updates_live(qt_app, xdg_env):
 
 
 def test_preferences_dialog_roundtrip(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
+    from tkarcade import config as C
+    from tkarcade.gui.preferences_dialog import PreferencesDialog
 
     prefs = PreferencesDialog(None)
     assert prefs.c_show_preview.isChecked() is True
@@ -482,8 +482,8 @@ def test_preferences_dialog_roundtrip(qt_app, xdg_env):
 
 
 def test_tray_absent_offscreen(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade import config as C
+    from tkarcade.gui.main_window import MainWindow
 
     prefs = C.load_preferences()
     prefs.tray_enable = True
@@ -495,8 +495,8 @@ def test_tray_absent_offscreen(qt_app, xdg_env):
 
 
 def test_close_to_tray_needs_tray(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade import config as C
+    from tkarcade.gui.main_window import MainWindow
 
     prefs = C.load_preferences()
     prefs.tray_enable = True
@@ -514,7 +514,7 @@ def test_bundled_icons_valid(qt_app):
 
     from PySide6.QtSvg import QSvgRenderer
 
-    from tksteamlaunch.gui import icons as iconsmod
+    from tkarcade.gui import icons as iconsmod
 
     for style in ("normal", "mono"):
         path = iconsmod.icon_path(style)
@@ -528,8 +528,8 @@ def test_bundled_icons_valid(qt_app):
 def test_tray_reuse_and_teardown(qt_app, xdg_env, monkeypatch):
     from PySide6 import QtWidgets
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade import config as C
+    from tkarcade.gui.main_window import MainWindow
 
     created = []
 
@@ -588,7 +588,7 @@ def test_quit_shortcut_quits_app(qt_app, xdg_env):
 
     from PySide6.QtWidgets import QApplication
 
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade.gui.main_window import MainWindow
 
     calls = []
     fake = type("FakeApp", (), {"quit": staticmethod(lambda: calls.append(1))})()
@@ -605,8 +605,8 @@ def test_quit_shortcut_quits_app(qt_app, xdg_env):
 def test_close_drops_tray(qt_app, xdg_env, monkeypatch):
     from PySide6 import QtWidgets
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade import config as C
+    from tkarcade.gui.main_window import MainWindow
 
     class FakeSignal:
         def connect(self, *a):
@@ -649,9 +649,9 @@ def test_close_drops_tray(qt_app, xdg_env, monkeypatch):
 
 
 def test_single_instance_secondary_bows_out(qt_app):
-    from tksteamlaunch.gui.app import single_instance
+    from tkarcade.gui.app import single_instance
 
-    name = "tksteamlaunch-gui-test-single"
+    name = "tkarcade-gui-test-single"
     primary = single_instance(name)
     assert primary is not None
     try:
@@ -664,8 +664,8 @@ def test_single_instance_secondary_bows_out(qt_app):
 
 
 def test_show_request_raises_window(qt_app, xdg_env):
-    from tksteamlaunch.gui.app import _on_show_request
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade.gui.app import _on_show_request
+    from tkarcade.gui.main_window import MainWindow
 
     class NoConnections:
         def hasPendingConnections(self):
@@ -679,10 +679,10 @@ def test_show_request_raises_window(qt_app, xdg_env):
 
 
 def test_about_text_contents():
-    from tksteamlaunch.gui.main_window import _about_text
+    from tkarcade.gui.main_window import _about_text
 
     text = _about_text()
-    assert "TKSteamLaunch" in text and "GPL-3.0-or-later" in text
+    assert "TKArcade" in text and "GPL-3.0-or-later" in text
     assert "PySide6" in text and "Config:" in text and "Logs:" in text
     assert "vdf" in text and "jeepney" in text
 
@@ -690,7 +690,7 @@ def test_about_text_contents():
 def test_section_boxes_present(qt_app, xdg_env):
     from PySide6.QtWidgets import QGroupBox, QLabel
 
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade.gui.main_window import MainWindow
 
     w = MainWindow()
     groups = w.findChildren(QGroupBox)
@@ -705,7 +705,7 @@ def test_section_boxes_present(qt_app, xdg_env):
 def test_section_row_centered(qt_app):
     from PySide6.QtWidgets import QGroupBox, QLabel, QPushButton, QSpacerItem
 
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade.gui.main_window import MainWindow
 
     def noop() -> None:
         pass
@@ -726,7 +726,7 @@ def test_section_row_centered(qt_app):
 def test_menu_launch_cancel_and_nolaunch(qt_app, xdg_env):
     from PySide6.QtWidgets import QDialog
 
-    from tksteamlaunch.gui.menu_dialog import MenuDialog
+    from tkarcade.gui.menu_dialog import MenuDialog
 
     m = MenuDialog(None, "77", "Menu Game")
     assert m.launch_requested is False and m.b_launch.isEnabled()
@@ -746,7 +746,7 @@ def test_menu_settings_returns_to_menu(qt_app, xdg_env):
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication, QPushButton
 
-    from tksteamlaunch.gui.menu_dialog import MenuDialog
+    from tkarcade.gui.menu_dialog import MenuDialog
 
     m = MenuDialog(None, "78", "Menu Game")
     m.show()
@@ -769,7 +769,7 @@ def test_edit_menu_cancel_reports_json(qt_app, xdg_env, capsys):
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication, QDialog
 
-    from tksteamlaunch.gui import edit as editmod
+    from tkarcade.gui import edit as editmod
 
     def reject_modal():
         modal = QApplication.activeModalWidget()
@@ -784,7 +784,7 @@ def test_edit_menu_cancel_reports_json(qt_app, xdg_env, capsys):
 def test_dialog_tab_map(qt_app, xdg_env):
     from PySide6.QtWidgets import QTabWidget
 
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     def tabs(dlg):
         tab = dlg.findChild(QTabWidget)
@@ -807,7 +807,7 @@ def test_dialog_tab_map(qt_app, xdg_env):
 def test_preview_group_collapsible(qt_app, xdg_env):
     from PySide6.QtWidgets import QGroupBox
 
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "51", "T")
     groups = [g for g in d.findChildren(QGroupBox) if g.title() == "Launch Command Preview"]
@@ -821,7 +821,7 @@ def test_preview_group_collapsible(qt_app, xdg_env):
 
 
 def test_wrappers_summary_updates(qt_app, xdg_env):
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "52", "T")
     assert d.wrappers_summary.text() == "No wrappers enabled"
@@ -842,8 +842,8 @@ def _visible_labels(d) -> list:
 
 
 def test_all_tabs_always_visible(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "54"
@@ -858,8 +858,8 @@ def test_all_tabs_always_visible(qt_app, xdg_env):
 
 
 def test_env_values_survive_profile_switch(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "55"
@@ -875,8 +875,8 @@ def test_env_values_survive_profile_switch(qt_app, xdg_env):
 
 
 def test_hook_status_actionable(qt_app, xdg_env, tmp_path, monkeypatch):
-    from tksteamlaunch.gui import game_dialog as gd
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui import game_dialog as gd
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "56", "T")
     d.show()
@@ -905,7 +905,7 @@ def test_hook_status_actionable(qt_app, xdg_env, tmp_path, monkeypatch):
 
 
 def test_empty_state_guided(qt_app, xdg_env):
-    from tksteamlaunch.gui import main_window as mw
+    from tkarcade.gui import main_window as mw
 
     w = mw.MainWindow()
     w.show()
@@ -914,7 +914,7 @@ def test_empty_state_guided(qt_app, xdg_env):
     assert w.empty_state.isVisible()
     assert not w.table.isVisible()
     assert w.empty_title.text() == "No games configured yet"
-    assert "tksteamlaunch %command%" in w.empty_steps.text()
+    assert "tkarcade %command%" in w.empty_steps.text()
     assert w.empty_add.text() == "Add Game..."
     assert w.empty_import.text() == "Import..."
     assert w.empty_copy.text() == "Copy Launch Options"
@@ -923,8 +923,8 @@ def test_empty_state_guided(qt_app, xdg_env):
 
 
 def test_empty_state_hides_when_configured(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui import main_window as mw
+    from tkarcade import config as C
+    from tkarcade.gui import main_window as mw
 
     cfg = C.GameConfig()
     cfg.general.appid = "81"
@@ -940,8 +940,8 @@ def test_empty_state_hides_when_configured(qt_app, xdg_env):
 
 
 def test_filter_by_text(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui import main_window as mw
+    from tkarcade import config as C
+    from tkarcade.gui import main_window as mw
 
     monkeypatch.setattr(mw.steammod, "list_games", lambda: [("1", "Alpha"), ("2", "Zulu")])
     for appid in ("1", "2"):
@@ -967,8 +967,8 @@ def test_filter_by_text(qt_app, xdg_env, monkeypatch):
 def test_filter_issues_only(qt_app, xdg_env, monkeypatch):
     from PySide6.QtCore import Qt
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui import main_window as mw
+    from tkarcade import config as C
+    from tkarcade.gui import main_window as mw
 
     monkeypatch.setattr(mw.steammod, "list_games", lambda: [("1", "Alpha"), ("2", "Zulu")])
     good = C.GameConfig()
@@ -996,8 +996,8 @@ def test_filter_issues_only(qt_app, xdg_env, monkeypatch):
 def test_games_sorted_by_default(qt_app, xdg_env, monkeypatch):
     from PySide6.QtCore import Qt
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui import main_window as mw
+    from tkarcade import config as C
+    from tkarcade.gui import main_window as mw
 
     monkeypatch.setattr(mw.steammod, "list_games", lambda: [("2", "Zulu"), ("1", "Alpha")])
     for appid in ("1", "2"):
@@ -1013,7 +1013,7 @@ def test_games_sorted_by_default(qt_app, xdg_env, monkeypatch):
 
 
 def test_dialog_default_size(qt_app, xdg_env):
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     for dlg in (GameDialog(None, "60", "T"), GameDialog(None, defaults_mode=True)):
         assert dlg.width() >= 640 and dlg.height() >= 480
@@ -1023,8 +1023,8 @@ def test_dialog_default_size(qt_app, xdg_env):
 def test_status_grid_packs_visible_first(qt_app, xdg_env, monkeypatch):
     import shutil
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     monkeypatch.setattr(shutil, "which", lambda *a, **k: "/bin/x")
     cfg = C.GameConfig()
@@ -1046,10 +1046,10 @@ def test_status_grid_packs_visible_first(qt_app, xdg_env, monkeypatch):
 def test_menu_dialog_rich_header(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QLabel
 
-    from tksteamlaunch.gui import menu_dialog as md
+    from tkarcade.gui import menu_dialog as md
 
     d = md.MenuDialog(None, "55", "Test Game")
-    assert d.windowTitle() == "TKSteamLaunch — Test Game"
+    assert d.windowTitle() == "TKArcade — Test Game"
     assert d.minimumWidth() >= 400
     pixmaps = [label.pixmap() for label in d.findChildren(QLabel) if label.pixmap() is not None]
     assert pixmaps, "expected a game icon label"
@@ -1059,11 +1059,11 @@ def test_menu_dialog_rich_header(qt_app, xdg_env, monkeypatch):
 
 
 def test_menu_settings_keeps_name(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch.gui import menu_dialog as md
+    from tkarcade.gui import menu_dialog as md
 
     seen = {}
     monkeypatch.setattr(
-        "tksteamlaunch.gui.game_dialog.GameDialog",
+        "tkarcade.gui.game_dialog.GameDialog",
         lambda parent, appid, name="", **kw: (
             seen.update(appid=appid, name=name) or type("D", (), {"exec": lambda self: 0})()
         ),
@@ -1077,10 +1077,10 @@ def test_menu_settings_keeps_name(qt_app, xdg_env, monkeypatch):
 def test_menu_rich_header_and_timeout(qt_app, xdg_env):
     from PySide6.QtWidgets import QLabel, QPushButton
 
-    from tksteamlaunch.gui import menu_dialog as md
+    from tkarcade.gui import menu_dialog as md
 
     d = md.MenuDialog(None, "55", "Test Game", timeout=5)
-    assert d.windowTitle() == "TKSteamLaunch — Test Game"
+    assert d.windowTitle() == "TKArcade — Test Game"
     assert d.minimumWidth() >= 400
     texts = [label.text() for label in d.findChildren(QLabel)]
     assert any("Test Game (55)" in t for t in texts)
@@ -1094,7 +1094,7 @@ def test_menu_rich_header_and_timeout(qt_app, xdg_env):
 
 
 def test_menu_no_timeout_by_default(qt_app, xdg_env):
-    from tksteamlaunch.gui import menu_dialog as md
+    from tkarcade.gui import menu_dialog as md
 
     d = md.MenuDialog(None, "55", "Test Game")
     assert d._remaining == 0 and not d._count_label.isVisibleTo(d)
@@ -1104,10 +1104,10 @@ def test_menu_no_timeout_by_default(qt_app, xdg_env):
 def test_import_chooser_codes(qt_app):
     from PySide6.QtWidgets import QPushButton
 
-    from tksteamlaunch.gui.import_dialog import ImportChooserDialog, StlImportDialog, usage_notice
+    from tkarcade.gui.import_dialog import ImportChooserDialog, StlImportDialog, usage_notice
 
     labels = [b.text() for b in ImportChooserDialog(None).findChildren(QPushButton)]
-    assert "TKSteamLaunch Export..." in labels
+    assert "TKArcade Export..." in labels
     assert "SteamTinkerLaunch..." in labels
     assert usage_notice(["60"], ["61"]).startswith("Imported as the 'steamtinkerlaunch' profile")
     assert "61" in usage_notice(["60"], ["61"])
@@ -1126,9 +1126,9 @@ def test_import_chooser_codes(qt_app):
 def test_stl_import_writes_profile(qt_app, xdg_env, monkeypatch, tmp_path):
     from PySide6.QtCore import QTimer
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch import stl_import as sti
-    from tksteamlaunch.gui.import_dialog import StlImportDialog
+    from tkarcade import config as C
+    from tkarcade import stl_import as sti
+    from tkarcade.gui.import_dialog import StlImportDialog
 
     stl_dir = tmp_path / "steamtinkerlaunch" / "gamecfgs" / "id"
     stl_dir.mkdir(parents=True)
@@ -1147,8 +1147,8 @@ def test_stl_import_writes_profile(qt_app, xdg_env, monkeypatch, tmp_path):
 def test_profile_clone_button(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog, QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "62"
@@ -1164,8 +1164,8 @@ def test_profile_clone_button(qt_app, xdg_env, monkeypatch):
 
 
 def test_active_profile_persists(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "80"
@@ -1183,8 +1183,8 @@ def test_active_profile_persists(qt_app, xdg_env):
 
 
 def test_active_profile_missing_falls_back(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "81"
@@ -1197,7 +1197,7 @@ def test_active_profile_missing_falls_back(qt_app, xdg_env):
 
 
 def test_save_profile_strips_selection(qt_app, xdg_env):
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = "82"
@@ -1209,8 +1209,8 @@ def test_save_profile_strips_selection(qt_app, xdg_env):
 def test_clone_without_selection_confirms(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog, QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "83"
@@ -1229,8 +1229,8 @@ def test_clone_without_selection_confirms(qt_app, xdg_env, monkeypatch):
 def test_profile_delete_confirms_first(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "84"
@@ -1251,8 +1251,8 @@ def test_profile_delete_confirms_first(qt_app, xdg_env, monkeypatch):
 def test_profile_save_overwrite_confirms(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog, QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "85"
@@ -1276,8 +1276,8 @@ def test_profile_save_overwrite_confirms(qt_app, xdg_env, monkeypatch):
 def test_newer_version_save_gated(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     C.game_file("86").parent.mkdir(parents=True, exist_ok=True)
     C.game_file("86").write_text(
@@ -1303,8 +1303,8 @@ def test_focus_refreshes_profile_list(qt_app, xdg_env):
     from PySide6.QtCore import QEvent
     from PySide6.QtGui import QFocusEvent
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "84"
@@ -1318,8 +1318,8 @@ def test_focus_refreshes_profile_list(qt_app, xdg_env):
 
 
 def test_open_loads_persisted_profile_content(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     live = C.GameConfig()
     live.general.appid = "85"
@@ -1337,8 +1337,8 @@ def test_open_loads_persisted_profile_content(qt_app, xdg_env):
 
 
 def test_switch_to_game_defaults_reloads_live(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     live = C.GameConfig()
     live.general.appid = "86"
@@ -1359,8 +1359,8 @@ def test_switch_to_game_defaults_reloads_live(qt_app, xdg_env):
 
 
 def test_is_dirty_tracks_edits(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "87"
@@ -1374,8 +1374,8 @@ def test_is_dirty_tracks_edits(qt_app, xdg_env):
 
 
 def test_switch_cancel_restores_selection(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "88"
@@ -1396,8 +1396,8 @@ def test_switch_cancel_restores_selection(qt_app, xdg_env, monkeypatch):
 def test_switch_save_persists_edits(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "89"
@@ -1415,8 +1415,8 @@ def test_switch_save_persists_edits(qt_app, xdg_env, monkeypatch):
 def test_invalid_config_shows_warning_on_open(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     C.game_file("95").parent.mkdir(parents=True, exist_ok=True)
     C.game_file("95").write_text("[general\nappid = oops", encoding="utf-8")
@@ -1433,8 +1433,8 @@ def test_invalid_config_shows_warning_on_open(qt_app, xdg_env, monkeypatch):
 def test_valid_config_opens_without_warning(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "96"
@@ -1449,8 +1449,8 @@ def test_valid_config_opens_without_warning(qt_app, xdg_env, monkeypatch):
 def test_switch_to_corrupt_profile_warns(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "97"
@@ -1471,8 +1471,8 @@ def test_switch_to_corrupt_profile_warns(qt_app, xdg_env, monkeypatch):
 def test_switch_back_to_corrupt_live_warns(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     live = C.GameConfig()
     live.general.appid = "98"
@@ -1509,8 +1509,8 @@ def test_no_pytest_qt_fixture_leak():
 
 
 def test_save_on_profile_writes_profile_not_live(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "104"
@@ -1535,8 +1535,8 @@ def test_save_on_profile_writes_profile_not_live(qt_app, xdg_env):
 def test_save_on_profile_writes_profile_env_not_live(qt_app, xdg_env):
     from PySide6.QtWidgets import QTableWidgetItem
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "105"
@@ -1561,8 +1561,8 @@ def test_save_on_profile_writes_profile_env_not_live(qt_app, xdg_env):
 def test_switch_save_mirrors_origin_profile(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "106"
@@ -1587,8 +1587,8 @@ def _answer(button):
 def test_reset_persists_defaults_immediately(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     tpl = C.GameConfig()
     tpl.pre_post.pre_command = "/tpl.sh"
@@ -1611,8 +1611,8 @@ def test_reset_persists_defaults_immediately(qt_app, xdg_env, monkeypatch):
 def test_reset_on_profile_keeps_profile_file(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     tpl = C.GameConfig()
     tpl.pre_post.pre_command = "/tpl.sh"
@@ -1643,8 +1643,8 @@ def test_reset_on_profile_keeps_profile_file(qt_app, xdg_env, monkeypatch):
 def test_reset_cancel_changes_nothing(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "116"
@@ -1662,8 +1662,8 @@ def test_reset_cancel_changes_nothing(qt_app, xdg_env, monkeypatch):
 def test_reset_populates_late_fields(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     tpl = C.GameConfig()
     tpl.ludusavi.enable = True
@@ -1691,8 +1691,8 @@ def test_reset_populates_late_fields(qt_app, xdg_env, monkeypatch):
 
 
 def test_switch_populates_late_fields(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     live = C.GameConfig()
     live.general.appid = "118"
@@ -1720,9 +1720,9 @@ def test_switch_populates_late_fields(qt_app, xdg_env):
 
 
 def _main_window_with_game(qt_app, appid="120", monkeypatch=None):
-    from tksteamlaunch import config as C
-    from tksteamlaunch import protondb as pdbmod
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade import config as C
+    from tkarcade import protondb as pdbmod
+    from tkarcade.gui.main_window import MainWindow
 
     if monkeypatch is not None:
         monkeypatch.setattr(pdbmod, "refresh", lambda aid: {"tier": "gold", "total": 5})
@@ -1801,7 +1801,7 @@ def test_context_menu_copy_and_validate(qt_app, xdg_env, monkeypatch):
     assert pasted == ["122"]
     assert "122" in w.status.text()
 
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     monkeypatch.setattr(L, "validate_game", lambda appid: [])
     infos = []
@@ -1837,8 +1837,8 @@ def test_double_click_protondb_opens_url(qt_app, xdg_env, monkeypatch):
 def test_appid_column_sorts_numerically(qt_app, xdg_env, monkeypatch):
     from PySide6.QtCore import Qt
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui import main_window as mw
+    from tkarcade import config as C
+    from tkarcade.gui import main_window as mw
 
     for appid in ("1044620", "80", "9", "vette"):
         cfg = C.GameConfig()
@@ -1861,7 +1861,7 @@ def _select_rows(w, *rows):
 def test_remove_selected_multi(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     for appid in ("130", "131", "132"):
         cfg = C.GameConfig()
@@ -1884,8 +1884,8 @@ def test_remove_selected_multi(qt_app, xdg_env, monkeypatch):
 def test_remove_offers_profile_cleanup(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QDialog, QMessageBox
 
-    import tksteamlaunch.gui.main_window as mw
-    from tksteamlaunch import config as C
+    import tkarcade.gui.main_window as mw
+    from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = "133"
@@ -1918,8 +1918,8 @@ def test_remove_offers_profile_cleanup(qt_app, xdg_env, monkeypatch):
 def test_remove_cleanup_reject_keeps_profiles(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QDialog, QMessageBox
 
-    import tksteamlaunch.gui.main_window as mw
-    from tksteamlaunch import config as C
+    import tkarcade.gui.main_window as mw
+    from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = "134"
@@ -1948,7 +1948,7 @@ def test_remove_cleanup_reject_keeps_profiles(qt_app, xdg_env, monkeypatch):
 def test_cleanup_dialog_selection(qt_app):
     from PySide6.QtCore import Qt
 
-    import tksteamlaunch.gui.main_window as mw
+    import tkarcade.gui.main_window as mw
 
     dlg = mw._ProfileCleanupDialog(None, [("135", "G", 2), ("136", "H", 1)])
     assert dlg.selected() == ["135", "136"]
@@ -1960,7 +1960,7 @@ def test_cleanup_dialog_selection(qt_app):
 def test_reset_selected_multi(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     tpl = C.GameConfig()
     tpl.pre_post.pre_command = "/tpl.sh"
@@ -1988,7 +1988,7 @@ def test_reset_selected_multi(qt_app, xdg_env, monkeypatch):
 
 def test_ensure_row_selected_preserves_multi(qt_app, xdg_env, monkeypatch):
     w = _main_window_with_game(qt_app, "130", monkeypatch)
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     for appid in ("131", "132"):
         cfg = C.GameConfig()
@@ -2004,7 +2004,7 @@ def test_ensure_row_selected_preserves_multi(qt_app, xdg_env, monkeypatch):
 
 
 def test_context_menu_multi_shows_only_multi_actions(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     for appid in ("143", "144"):
         cfg = C.GameConfig()
@@ -2034,8 +2034,8 @@ def test_remove_reset_without_selection_hints(qt_app, xdg_env, monkeypatch):
 def test_clean_profiles_button(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QDialog, QMessageBox
 
-    import tksteamlaunch.gui.main_window as mw
-    from tksteamlaunch import config as C
+    import tkarcade.gui.main_window as mw
+    from tkarcade import config as C
 
     ghost = C.GameConfig()
     ghost.general.appid = "146"
@@ -2065,7 +2065,7 @@ def test_clean_profiles_button(qt_app, xdg_env, monkeypatch):
 
 
 def _write_history(xdg_env, *lines):
-    from tksteamlaunch import xdg as xdgmod
+    from tkarcade import xdg as xdgmod
 
     path = xdgmod.log_file()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -2085,7 +2085,7 @@ def test_played_column_shows_total_time(qt_app, xdg_env, monkeypatch):
 def test_played_column_sorts_by_seconds(qt_app, xdg_env, monkeypatch):
     from PySide6.QtCore import Qt
 
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     _write_history(
         xdg_env,
@@ -2108,7 +2108,7 @@ def test_played_column_sorts_by_seconds(qt_app, xdg_env, monkeypatch):
 def test_history_clear(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch.gui.history_dialog import HistoryDialog
+    from tkarcade.gui.history_dialog import HistoryDialog
 
     path = _write_history(xdg_env, "2026-10-03T10:00:00 appid=150 exit=0 dur=60 cmd=/game\n")
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
@@ -2146,7 +2146,7 @@ def test_header_menu_game_locked_and_reset(qt_app, xdg_env, monkeypatch):
     assert w.table.horizontalHeader().isSectionHidden(1)
     w._reset_columns()
     assert not w.table.horizontalHeader().isSectionHidden(1)
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     assert C.load_preferences().hidden_columns == ""
     assert C.load_preferences().column_order == ""
@@ -2160,7 +2160,7 @@ def test_reordered_columns_keep_actions_working(qt_app, xdg_env, monkeypatch):
     header = w.table.horizontalHeader()
     header.moveSection(header.visualIndex(3), 0)  # ProtonDB visually first
     qt_app.processEvents()
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     assert C.load_preferences().column_order.split(",")[0] == "3"
     tier = w.table.item(0, 3)  # logical index is stable
@@ -2173,8 +2173,8 @@ def test_reordered_columns_keep_actions_working(qt_app, xdg_env, monkeypatch):
 
 
 def test_preferences_dialog_quick_launch(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
+    from tkarcade import config as C
+    from tkarcade.gui.preferences_dialog import PreferencesDialog
 
     prefs = PreferencesDialog(None)
     assert prefs.c_quick.isChecked() is True
@@ -2227,7 +2227,7 @@ def test_launch_steam_rejects_non_numeric(qt_app, xdg_env, monkeypatch):
     from PySide6.QtGui import QDesktopServices
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade.gui.main_window import MainWindow
 
     w = MainWindow()
     opened, warns = [], []
@@ -2244,8 +2244,8 @@ def test_launch_steam_failure_consumes_skip(qt_app, xdg_env, monkeypatch):
     from PySide6.QtGui import QDesktopServices
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import launcher as L
-    from tksteamlaunch.gui.main_window import MainWindow
+    from tkarcade import launcher as L
+    from tkarcade.gui.main_window import MainWindow
 
     w = MainWindow()
     monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: False)
@@ -2260,7 +2260,7 @@ def test_launch_steam_failure_consumes_skip(qt_app, xdg_env, monkeypatch):
 def test_pick_steam_game_rejects_non_numeric(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog, QMessageBox
 
-    from tksteamlaunch.gui import main_window as mw
+    from tkarcade.gui import main_window as mw
 
     w = mw.MainWindow()
     infos = []
@@ -2278,8 +2278,8 @@ def test_pick_steam_game_rejects_non_numeric(qt_app, xdg_env, monkeypatch):
 
 
 def test_scan_library_adds_selected(qt_app, xdg_env, monkeypatch, tmp_path):
-    import tksteamlaunch.gui.main_window as mw
-    from tksteamlaunch import config as C
+    import tkarcade.gui.main_window as mw
+    from tkarcade import config as C
 
     sap = tmp_path / "steamapps"
     sap.mkdir()
@@ -2321,7 +2321,7 @@ def test_scan_library_empty_informs(qt_app, xdg_env, monkeypatch, tmp_path):
 def test_scan_dialog_selection(qt_app):
     from PySide6.QtCore import Qt
 
-    import tksteamlaunch.gui.main_window as mw
+    import tkarcade.gui.main_window as mw
 
     dlg = mw._ScanDialog(None, [("180", "S Game")])
     assert dlg.selected() == ["180"]
@@ -2352,8 +2352,8 @@ def test_clear_shader_cache(qt_app, xdg_env, monkeypatch, tmp_path):
 def test_newer_config_warns_on_open(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "195"
@@ -2374,15 +2374,15 @@ def test_newer_config_warns_on_open(qt_app, xdg_env, monkeypatch):
 def test_app_icons_are_font_free():
     from pathlib import Path
 
-    icons = Path(__file__).parent.parent / "src" / "tksteamlaunch" / "icons"
-    for name in ("tksteamlaunch.svg", "tksteamlaunch-mono.svg"):
+    icons = Path(__file__).parent.parent / "src" / "tkarcade" / "icons"
+    for name in ("tkarcade.svg", "tkarcade-mono.svg"):
         text = (icons / name).read_text()
         assert "<text" not in text and "font-family" not in text
         assert text.index("<svg") == 0
 
 
 def test_bundled_style_only_inside_appimage(monkeypatch):
-    from tksteamlaunch.gui import app as appmod
+    from tkarcade.gui import app as appmod
 
     monkeypatch.delenv("APPIMAGE", raising=False)
     monkeypatch.delenv("QT_STYLE_OVERRIDE", raising=False)
@@ -2396,7 +2396,7 @@ def test_bundled_style_only_inside_appimage(monkeypatch):
 def test_clone_settings_to_game(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QInputDialog, QMessageBox
 
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = "204"
@@ -2420,8 +2420,8 @@ def test_clone_settings_to_game(qt_app, xdg_env, monkeypatch):
 def test_menu_shows_effective_profile_wrappers(qt_app, xdg_env, monkeypatch, tmp_path):
     import os
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.menu_dialog import MenuDialog
+    from tkarcade import config as C
+    from tkarcade.gui.menu_dialog import MenuDialog
 
     live = C.GameConfig()
     live.general.appid = "210"
@@ -2443,7 +2443,7 @@ def test_menu_shows_effective_profile_wrappers(qt_app, xdg_env, monkeypatch, tmp
 def test_history_clear_selected(qt_app, xdg_env, monkeypatch):
     from PySide6.QtWidgets import QMessageBox
 
-    from tksteamlaunch.gui.history_dialog import HistoryDialog
+    from tkarcade.gui.history_dialog import HistoryDialog
 
     _write_history(
         xdg_env,
@@ -2457,7 +2457,7 @@ def test_history_clear_selected(qt_app, xdg_env, monkeypatch):
     ask = dlg._appid_for_row(0)
     dlg._clear_selected()
     assert dlg._table.rowCount() == 1
-    from tksteamlaunch import xdg as xdgmod
+    from tkarcade import xdg as xdgmod
 
     rest = xdgmod.log_file().read_text()
     assert f"appid={ask} " not in rest
@@ -2471,7 +2471,7 @@ def test_main_menu_clear_history(qt_app, xdg_env, monkeypatch):
     w = _main_window_with_game(qt_app, "212", monkeypatch)
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
     w._clear_game_history("212")
-    from tksteamlaunch import xdg as xdgmod
+    from tkarcade import xdg as xdgmod
 
     assert "appid=212" not in xdgmod.log_file().read_text()
     assert "Cleared 1" in w.status.text()
@@ -2481,7 +2481,7 @@ def test_main_menu_clear_history(qt_app, xdg_env, monkeypatch):
 def test_clone_game_from_list(qt_app, xdg_env, monkeypatch, tmp_path):
     from PySide6.QtWidgets import QInputDialog
 
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     sap = tmp_path / "steamapps"
     sap.mkdir()
@@ -2505,9 +2505,9 @@ def test_edit_menu_uses_profile_timeout(qt_app, xdg_env, capsys):
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui import edit as editmod
-    from tksteamlaunch.gui.menu_dialog import MenuDialog
+    from tkarcade import config as C
+    from tkarcade.gui import edit as editmod
+    from tkarcade.gui.menu_dialog import MenuDialog
 
     live = C.GameConfig()
     live.general.appid = "213"
@@ -2535,8 +2535,8 @@ def test_edit_menu_uses_profile_timeout(qt_app, xdg_env, capsys):
 
 
 def test_mode_picker_fills_in_background(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch.backends import display as dispmod
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.backends import display as dispmod
+    from tkarcade.gui.game_dialog import GameDialog
 
     monkeypatch.setattr(dispmod, "offered_modes", lambda *a: [(3, "1920x1080@60", False)])
     d = GameDialog(None, "164", "T")
@@ -2550,8 +2550,8 @@ def test_wedged_display_backend_never_blocks_open(qt_app, xdg_env, monkeypatch):
     import threading
     import time
 
-    from tksteamlaunch.backends import display as dispmod
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.backends import display as dispmod
+    from tkarcade.gui.game_dialog import GameDialog
 
     gate = threading.Event()
 
@@ -2568,18 +2568,18 @@ def test_wedged_display_backend_never_blocks_open(qt_app, xdg_env, monkeypatch):
 
 
 def test_dip_note_only_for_current_mode(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch.backends import display as dispmod
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.backends import display as dispmod
+    from tkarcade.gui.game_dialog import GameDialog
 
     monkeypatch.setattr(
         dispmod,
         "offered_modes",
         lambda *a: [(2, "2560x1440@164.96", True), (3, "1920x1080@60", False)],
     )
-    cfg = __import__("tksteamlaunch.config", fromlist=["x"]).GameConfig()
+    cfg = __import__("tkarcade.config", fromlist=["x"]).GameConfig()
     cfg.general.appid = "167"
     cfg.display.mode = ""
-    __import__("tksteamlaunch.config", fromlist=["x"]).save(cfg)
+    __import__("tkarcade.config", fromlist=["x"]).save(cfg)
     d = GameDialog(None, "167", "T")
     assert d.e_dmode.count() < 2  # no query on open; manual entry works
     d._refresh_display_modes()
@@ -2598,8 +2598,8 @@ def test_dip_note_only_for_current_mode(qt_app, xdg_env, monkeypatch):
 
 
 def test_dip_slider_roundtrip(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "171"
@@ -2619,7 +2619,7 @@ def test_dip_slider_roundtrip(qt_app, xdg_env):
 def test_translations_load_pt_br(qt_app, monkeypatch):
     from PySide6.QtCore import QCoreApplication, QLocale
 
-    from tksteamlaunch.gui import helpers as helpersmod
+    from tkarcade.gui import helpers as helpersmod
 
     monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("pt_BR")))
     app = qt_app
@@ -2633,15 +2633,15 @@ def test_translations_load_pt_br(qt_app, monkeypatch):
 def test_translations_unknown_locale_loads_nothing(qt_app, monkeypatch):
     from PySide6.QtCore import QLocale
 
-    from tksteamlaunch.gui import helpers as helpersmod
+    from tkarcade.gui import helpers as helpersmod
 
     monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("xx_YY")))
     assert helpersmod.install_translations(qt_app) == ""
 
 
 def test_preferences_dialog_language(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.preferences_dialog import PreferencesDialog
+    from tkarcade import config as C
+    from tkarcade.gui.preferences_dialog import PreferencesDialog
 
     prefs = PreferencesDialog(None)
     datas = [prefs.cb_lang.itemData(i) for i in range(prefs.cb_lang.count())]
@@ -2656,7 +2656,7 @@ def test_preferences_dialog_language(qt_app, xdg_env):
 def test_install_translations_explicit_override(qt_app, monkeypatch):
     from PySide6.QtCore import QCoreApplication, QLocale
 
-    from tksteamlaunch.gui import helpers as helpersmod
+    from tkarcade.gui import helpers as helpersmod
 
     monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("pt_BR")))
     assert helpersmod.install_translations(qt_app, "en") == ""
@@ -2667,8 +2667,8 @@ def test_install_translations_explicit_override(qt_app, monkeypatch):
 
 
 def test_preferred_language_falls_back(xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui import helpers as helpersmod
+    from tkarcade import config as C
+    from tkarcade.gui import helpers as helpersmod
 
     assert helpersmod.preferred_language() == "system"
     prefs = C.load_preferences()
@@ -2682,7 +2682,7 @@ def test_preferred_language_falls_back(xdg_env, monkeypatch):
 def test_system_tab_groups(qt_app, xdg_env):
     from PySide6.QtWidgets import QGroupBox
 
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade.gui.game_dialog import GameDialog
 
     d = GameDialog(None, "215", "T")
     groups = set()
@@ -2708,7 +2708,7 @@ def test_play_button_and_menu_launch(qt_app, xdg_env, monkeypatch):
     play.click()
     qt_app.processEvents()
     assert opened == ["steam://rungameid/213"]
-    from tksteamlaunch import launcher as L
+    from tkarcade import launcher as L
 
     assert L.menu_skip_path("213").exists()  # Play plants the one-shot skip
     w.table.clearSelection()

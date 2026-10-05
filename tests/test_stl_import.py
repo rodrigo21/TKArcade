@@ -1,6 +1,6 @@
 """SteamTinkerLaunch importer: parsing, mapping, AppID matching."""
 
-from tksteamlaunch import stl_import as sti
+from tkarcade import stl_import as sti
 
 
 def _write(path, text):

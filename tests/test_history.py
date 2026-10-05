@@ -1,6 +1,6 @@
 """Global log parsing and per-game aggregation."""
 
-from tksteamlaunch import history as H
+from tkarcade import history as H
 
 
 def test_parse_new_and_old_lines(tmp_path):
@@ -40,7 +40,7 @@ def test_summarize_last_is_max_not_file_order(tmp_path):
 
 
 def test_clear_appid_exact_token(tmp_path):
-    from tksteamlaunch import history as H
+    from tkarcade import history as H
 
     log = tmp_path / "launcher.log"
     log.write_text(

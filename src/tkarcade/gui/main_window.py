@@ -111,7 +111,7 @@ def _about_text() -> str:
     except Exception:
         pyside_version, qVersion = "unknown", lambda: "unknown"
     lines = [
-        f"TKSteamLaunch {__version__}",
+        f"TKArcade {__version__}",
         QCoreApplication.translate(
             "MainWindow", "Minimal Steam launch wrapper. License: GPL-3.0-or-later."
         ),
@@ -244,7 +244,7 @@ class _PlayedItem(QTableWidgetItem):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("TKSteamLaunch")
+        self.setWindowTitle("TKArcade")
         self._apply_default_size()
         QShortcut(QKeySequence.StandardKey.Quit, self, self._quit)
 
@@ -308,7 +308,7 @@ class MainWindow(QMainWindow):
         empty_steps = QLabel(
             self.tr(
                 "1. Add a Steam game below · 2. Edit its settings · "
-                "3. Set its Steam launch options to tksteamlaunch %command%"
+                "3. Set its Steam launch options to tkarcade %command%"
             )
         )
         empty_steps.setObjectName("empty_steps")
@@ -332,7 +332,7 @@ class MainWindow(QMainWindow):
         empty_btns.addWidget(self.empty_import)
         self.empty_copy = QPushButton(self.tr("Copy Launch Options"))
         self.empty_copy.setObjectName("empty_copy")
-        self.empty_copy.setToolTip(self.tr("Copy tksteamlaunch %command% for Steam."))
+        self.empty_copy.setToolTip(self.tr("Copy tkarcade %command% for Steam."))
         self.empty_copy.clicked.connect(self._copy_launch)
         empty_btns.addWidget(self.empty_copy)
         empty_btns.addStretch(1)
@@ -604,7 +604,7 @@ class MainWindow(QMainWindow):
     def _show_about(self) -> None:
         from PySide6.QtWidgets import QMessageBox
 
-        QMessageBox.about(self, self.tr("About TKSteamLaunch"), _about_text())
+        QMessageBox.about(self, self.tr("About TKArcade"), _about_text())
 
     def changeEvent(self, event) -> None:
         super().changeEvent(event)
@@ -632,7 +632,7 @@ class MainWindow(QMainWindow):
             return
         if self._tray is None:
             tray = QSystemTrayIcon(iconsmod.app_icon(prefs.tray_icon), self)
-            tray.setToolTip("TKSteamLaunch")
+            tray.setToolTip("TKArcade")
             menu = QMenu(self)
             menu.aboutToShow.connect(self._refresh_tray_menu)
             self._refresh_tray_menu(menu)
@@ -668,13 +668,13 @@ class MainWindow(QMainWindow):
         from ..launcher import consume_menu_skip, plant_menu_skip
 
         if not appid.isdigit():
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Not a Steam App ID: {appid}"))
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Not a Steam App ID: {appid}"))
             return
         plant_menu_skip(appid)
         if not QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")):
             consume_menu_skip(appid)  # failed handoff: never skip a later real menu
             QMessageBox.warning(
-                self, "TKSteamLaunch", self.tr("Could not ask Steam to launch the game.")
+                self, "TKArcade", self.tr("Could not ask Steam to launch the game.")
             )
 
     def _refresh_tray_menu(self, menu=None) -> None:
@@ -880,7 +880,7 @@ class MainWindow(QMainWindow):
 
     def _open_folder(self, path, what: str) -> None:
         if not open_path(str(path)):
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not open {what}."))
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Could not open {what}."))
 
     def _clear_shader_cache(self, appid: str) -> None:
         """Delete a game's precompiled shaders (Steam rebuilds them)."""
@@ -890,7 +890,7 @@ class MainWindow(QMainWindow):
         size = steammod.format_size(steammod.dir_size(target))
         r = QMessageBox.question(
             self,
-            "TKSteamLaunch",
+            "TKArcade",
             self.tr(f"Delete {size} of shader cache for {appid}?\nSteam rebuilds it on demand."),
         )
         if r != QMessageBox.StandardButton.Yes:
@@ -898,7 +898,7 @@ class MainWindow(QMainWindow):
         try:
             shutil.rmtree(target)
         except Exception as e:
-            QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+            QMessageBox.warning(self, "TKArcade", f"{appid}: {e}")
             return
         self.status.setText(self.tr(f"Cleared {size} of shader cache."))
 
@@ -907,16 +907,16 @@ class MainWindow(QMainWindow):
 
         issues = validate_game(appid)
         if issues:
-            QMessageBox.warning(self, "TKSteamLaunch", "\n".join(issues))
+            QMessageBox.warning(self, "TKArcade", "\n".join(issues))
         else:
-            QMessageBox.information(self, "TKSteamLaunch", self.tr("No issues found."))
+            QMessageBox.information(self, "TKArcade", self.tr("No issues found."))
 
     def _clear_game_history(self, appid: str) -> None:
         from .. import history as histmod
 
         r = QMessageBox.question(
             self,
-            "TKSteamLaunch",
+            "TKArcade",
             self.tr(f"Clear session history for {appid}? This cannot be undone."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -926,7 +926,7 @@ class MainWindow(QMainWindow):
         try:
             removed = histmod.clear_appid(xdg.log_file(), appid)
         except Exception as e:
-            QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+            QMessageBox.warning(self, "TKArcade", f"{appid}: {e}")
             return
         self.refresh()
         self.status.setText(self.tr(f"Cleared {removed} session(s)."))
@@ -939,13 +939,13 @@ class MainWindow(QMainWindow):
             return
         if dest == appid:
             QMessageBox.information(
-                self, "TKSteamLaunch", self.tr("Source and target are the same.")
+                self, "TKArcade", self.tr("Source and target are the same.")
             )
             return
         if cfgmod.game_file(dest).exists():
             go = QMessageBox.question(
                 self,
-                "TKSteamLaunch",
+                "TKArcade",
                 self.tr(f"Overwrite the saved settings for {dest}?"),
             )
             if go != QMessageBox.StandardButton.Yes:
@@ -953,7 +953,7 @@ class MainWindow(QMainWindow):
         try:
             cfgmod.clone_game(appid, dest)
         except (OSError, ValueError) as e:
-            QMessageBox.warning(self, "TKSteamLaunch", str(e))
+            QMessageBox.warning(self, "TKArcade", str(e))
             return
         self.refresh()
         self.status.setText(self.tr(f"Cloned {appid} to {dest}."))
@@ -989,7 +989,7 @@ class MainWindow(QMainWindow):
                     return ""
                 if not appid.isdigit():
                     QMessageBox.information(
-                        self, "TKSteamLaunch", self.tr(f"Not a Steam App ID: {choice}")
+                        self, "TKArcade", self.tr(f"Not a Steam App ID: {choice}")
                     )
                     return ""
                 return appid
@@ -999,7 +999,7 @@ class MainWindow(QMainWindow):
             return ""
         if not appid.strip().isdigit():
             QMessageBox.information(
-                self, "TKSteamLaunch", self.tr(f"Not a Steam App ID: {appid.strip()}")
+                self, "TKArcade", self.tr(f"Not a Steam App ID: {appid.strip()}")
             )
             return ""
         return appid.strip()
@@ -1018,7 +1018,7 @@ class MainWindow(QMainWindow):
         if not cands:
             QMessageBox.information(
                 self,
-                "TKSteamLaunch",
+                "TKArcade",
                 self.tr("Every Steam game is already configured."),
             )
             return
@@ -1047,7 +1047,7 @@ class MainWindow(QMainWindow):
     def _edit_selected(self, appid: str = "") -> None:
         appid = appid or self._selected_appid()
         if not appid:
-            QMessageBox.information(self, "TKSteamLaunch", self.tr("Select a game first."))
+            QMessageBox.information(self, "TKArcade", self.tr("Select a game first."))
             return
         dlg = GameDialog(self, appid, self._names().get(appid, ""))
         if dlg.exec():
@@ -1076,7 +1076,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         if not open_path(str(d)):
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not open {d}."))
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Could not open {d}."))
 
     def _export_configs(self) -> None:
         from PySide6.QtWidgets import QFileDialog
@@ -1084,7 +1084,7 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(
             self,
             self.tr("Export Configurations"),
-            "tksteamlaunch-configs.tar.gz",
+            "tkarcade-configs.tar.gz",
             self.tr("Archives (*.tar.gz)"),
         )
         if not path:
@@ -1092,7 +1092,7 @@ class MainWindow(QMainWindow):
         try:
             saved = cfgmod.export_configs(path)
         except (OSError, ValueError) as e:
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Export failed: {e}"))
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Export failed: {e}"))
             return
         self.status.setText(self.tr(f"Exported to {saved}"))
 
@@ -1128,7 +1128,7 @@ class MainWindow(QMainWindow):
         try:
             imported = cfgmod.import_configs(path)
         except (OSError, ValueError) as e:
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Import failed: {e}"))
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Import failed: {e}"))
             return
         self.status.setText(self.tr(f"Imported {len(imported)} game(s)"))
         self.refresh()
@@ -1158,7 +1158,7 @@ class MainWindow(QMainWindow):
         names = self._names()
         label = ", ".join(f"{names.get(a, a)} ({a})" for a in appids)
         what = self.tr("these configurations") if len(appids) > 1 else self.tr("the configuration")
-        r = QMessageBox.question(self, "TKSteamLaunch", self.tr(f"Remove {what} for {label}?"))
+        r = QMessageBox.question(self, "TKArcade", self.tr(f"Remove {what} for {label}?"))
         if r != QMessageBox.StandardButton.Yes:
             return
         errors = []
@@ -1168,7 +1168,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 errors.append(f"{appid}: {e}")
         if errors:
-            QMessageBox.warning(self, "TKSteamLaunch", "\n".join(errors))
+            QMessageBox.warning(self, "TKArcade", "\n".join(errors))
         self._offer_profile_cleanup(appids)
         self.refresh()
 
@@ -1179,7 +1179,7 @@ class MainWindow(QMainWindow):
             (appid, names.get(appid, appid), count) for appid, count in cfgmod.orphaned_profiles()
         ]
         if not entries:
-            QMessageBox.information(self, "TKSteamLaunch", self.tr("No orphaned profiles."))
+            QMessageBox.information(self, "TKArcade", self.tr("No orphaned profiles."))
             return
         dlg = _ProfileCleanupDialog(self, entries)
         if dlg.exec() != QDialog.DialogCode.Accepted:
@@ -1190,7 +1190,7 @@ class MainWindow(QMainWindow):
                 shutil.rmtree(cfgmod.profiles_dir(appid))
                 cleaned += 1
             except Exception as e:
-                QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+                QMessageBox.warning(self, "TKArcade", f"{appid}: {e}")
         self.status.setText(self.tr(f"Cleaned profiles for {cleaned} game(s)."))
 
     def _offer_profile_cleanup(self, appids: list[str]) -> None:
@@ -1213,7 +1213,7 @@ class MainWindow(QMainWindow):
             try:
                 shutil.rmtree(cfgmod.profiles_dir(appid))
             except Exception as e:
-                QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+                QMessageBox.warning(self, "TKArcade", f"{appid}: {e}")
 
     def _reset_selected(self) -> None:
         """Reset every selected game to the Global Defaults template."""
@@ -1225,7 +1225,7 @@ class MainWindow(QMainWindow):
         label = ", ".join(f"{names.get(a, a)} ({a})" for a in appids)
         r = QMessageBox.question(
             self,
-            "TKSteamLaunch",
+            "TKArcade",
             self.tr(
                 f"Reset {len(appids)} game(s) to the Global Defaults template now?\n"
                 f"{label}\nThis overwrites their saved configs (profiles are kept)."
@@ -1250,21 +1250,21 @@ class MainWindow(QMainWindow):
         self.status.setText(self.tr(f"{what} copied to clipboard: {text}"))
 
     def _copy_launch(self) -> None:
-        self._copy_text("tksteamlaunch %command%", self.tr("Launch options"))
+        self._copy_text("tkarcade %command%", self.tr("Launch options"))
 
     def _open_ludusavi(self) -> None:
         exe = shutil.which("ludusavi")
         if not exe:
             QMessageBox.warning(
                 self,
-                "TKSteamLaunch",
+                "TKArcade",
                 self.tr("Ludusavi was not found in PATH."),
             )
             return
         if "/flatpak/" in exe or "flatpak" in exe:
             QMessageBox.warning(
                 self,
-                "TKSteamLaunch",
+                "TKArcade",
                 self.tr(
                     "Flatpak Ludusavi detected: it may not see Proton prefixes. "
                     "Prefer the standalone binary."
@@ -1273,4 +1273,4 @@ class MainWindow(QMainWindow):
         try:
             subprocess.Popen([exe])
         except Exception as e:
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not open Ludusavi: {e}"))
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Could not open Ludusavi: {e}"))

@@ -1,4 +1,4 @@
-"""TKSteamLaunch - minimal Steam launch wrapper (GPLv3)."""
+"""TKArcade - minimal Steam launch wrapper (GPLv3)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ def __getattr__(name: str) -> str:
         from importlib.metadata import PackageNotFoundError, version
 
         try:
-            return version("tksteamlaunch")
+            return version("tkarcade")
         except PackageNotFoundError:
             # Uninstalled source tree (e.g. PYTHONPATH runs): never confuse with a release.
             return "0.0.0+src"

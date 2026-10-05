@@ -4,14 +4,14 @@ import os
 
 import pytest
 
-from tksteamlaunch import config as C
-from tksteamlaunch import steam as S
-from tksteamlaunch.backends import gamemode as gm
-from tksteamlaunch.backends import ludusavi as lu
-from tksteamlaunch.backends import nightlight as nl
-from tksteamlaunch.backends import overlay as ov
-from tksteamlaunch.backends import prepost as pp
-from tksteamlaunch.launcher import (
+from tkarcade import config as C
+from tkarcade import steam as S
+from tkarcade.backends import gamemode as gm
+from tkarcade.backends import ludusavi as lu
+from tkarcade.backends import nightlight as nl
+from tkarcade.backends import overlay as ov
+from tkarcade.backends import prepost as pp
+from tkarcade.launcher import (
     PrefixNotFoundError,
     build_final_command,
     detect_game_type,
@@ -281,7 +281,7 @@ def test_build_prefix_missing_raises(xdg_env, monkeypatch, tmp_path):
 
 
 def test_notify_noop_without_server(xdg_env, monkeypatch, tmp_path):
-    from tksteamlaunch.backends import notify as ntf
+    from tkarcade.backends import notify as ntf
 
     monkeypatch.setenv("PATH", str(tmp_path))
     assert not ntf.available()
@@ -289,7 +289,7 @@ def test_notify_noop_without_server(xdg_env, monkeypatch, tmp_path):
 
 
 def test_notify_calls_server(monkeypatch, tmp_path):
-    from tksteamlaunch.backends import notify as ntf
+    from tkarcade.backends import notify as ntf
 
     bindir = tmp_path / "bin"
     bindir.mkdir()
@@ -310,7 +310,7 @@ def test_notify_calls_server(monkeypatch, tmp_path):
 
 
 def test_launch_summary_shapes():
-    from tksteamlaunch.backends import notify as ntf
+    from tkarcade.backends import notify as ntf
 
     title, body = ntf.launch_summary(
         appid="1",
@@ -320,13 +320,13 @@ def test_launch_summary_shapes():
         custom_executable="/g/dir/game.exe",
         proton_display="Proton 9.0-2",
     )
-    assert title == "TKSteamLaunch — Some Game"
+    assert title == "TKArcade — Some Game"
     assert body.splitlines() == [
         "Proton 9.0-2 · GameMode · MangoHud",
         "Exe: game.exe",
     ]
     title, body = ntf.launch_summary(appid="2", game_type="native")
-    assert (title, body) == ("TKSteamLaunch — 2", "Native")
+    assert (title, body) == ("TKArcade — 2", "Native")
     title, body = ntf.launch_summary(appid="3", game_type="proton")
     assert body == "Proton"
     title, body = ntf.launch_summary(appid="4", game_type="native", runtime="soldier")
@@ -337,7 +337,7 @@ def test_launch_summary_shapes():
 
 
 def test_launch_summary_proton_log_warning():
-    from tksteamlaunch.backends import notify as ntf
+    from tkarcade.backends import notify as ntf
 
     _, body = ntf.launch_summary(appid="5", proton_log=True)
     assert "Proton logging on" in body
@@ -379,7 +379,7 @@ def test_debug_section_roundtrip(xdg_env):
 
 
 def test_format_duration():
-    from tksteamlaunch.backends import notify as ntf
+    from tkarcade.backends import notify as ntf
 
     assert ntf.format_duration(0) == "0s"
     assert ntf.format_duration(38) == "38s"
@@ -390,7 +390,7 @@ def test_format_duration():
 
 
 def test_native_runtime_sniffing():
-    from tksteamlaunch import proton as pm
+    from tkarcade import proton as pm
 
     soldier = [
         "/home/u/.steam/steam/steamapps/common/SteamLinuxRuntime_soldier/_v2-entry-point",
@@ -406,7 +406,7 @@ def test_native_runtime_sniffing():
 
 
 def test_send_icon_and_expiry(monkeypatch, tmp_path):
-    from tksteamlaunch.backends import notify as ntf
+    from tkarcade.backends import notify as ntf
 
     bindir = tmp_path / "bin"
     bindir.mkdir()
@@ -430,7 +430,7 @@ def test_send_icon_and_expiry(monkeypatch, tmp_path):
 def test_proton_version_lookup(monkeypatch, tmp_path, xdg_env):
     import sys
 
-    from tksteamlaunch import proton as pm
+    from tkarcade import proton as pm
 
     root = tmp_path / "steam"
     (root / "config").mkdir(parents=True)
@@ -451,7 +451,7 @@ def test_proton_version_lookup(monkeypatch, tmp_path, xdg_env):
 
 
 def test_mangohud_create_templates(xdg_env):
-    from tksteamlaunch.backends import overlay as ov
+    from tkarcade.backends import overlay as ov
 
     for key in ("minimal", "fps-cap", "full", "empty"):
         path, source, error = ov.create_mangohud_config(f"t-{key}", template=key)
@@ -463,7 +463,7 @@ def test_mangohud_create_templates(xdg_env):
 
 
 def test_gamescope_presets():
-    from tksteamlaunch.backends import overlay as ov
+    from tkarcade.backends import overlay as ov
 
     assert set(ov.GAMESCOPE_PRESETS) == {
         "1080p 144Hz Fullscreen",
@@ -498,7 +498,7 @@ def _write_localconfig(root, uid, apps_body):
 
 def test_launch_options_status(monkeypatch, tmp_path, xdg_env):
     root = tmp_path / "steam"
-    _write_localconfig(root, "u1", '"60"\n{\n"LaunchOptions" "tksteamlaunch %command%"\n}')
+    _write_localconfig(root, "u1", '"60"\n{\n"LaunchOptions" "tkarcade %command%"\n}')
     _write_localconfig(root, "u2", '"61"\n{\n"LaunchOptions" "gamemoderun %command%"\n}')
     monkeypatch.setenv("STEAM_ROOT", str(root))
     assert S.launch_options_status("60")[0] == "ok"
@@ -515,7 +515,7 @@ def test_launch_options_regex_fallback(monkeypatch, tmp_path, xdg_env):
     import sys
 
     root = tmp_path / "steam"
-    _write_localconfig(root, "u1", '"60"\n{\n"LaunchOptions" "TKSTEAMLAUNCH %command%"\n}')
+    _write_localconfig(root, "u1", '"60"\n{\n"LaunchOptions" "TKARCADE %command%"\n}')
     monkeypatch.setenv("STEAM_ROOT", str(root))
     monkeypatch.setitem(sys.modules, "vdf", None)
     assert S.launch_options_status("60")[0] == "ok"
@@ -541,7 +541,7 @@ def test_nightlight_start_idempotent(monkeypatch):
 
 
 def test_split_args_never_raises():
-    from tksteamlaunch.backends import split_args
+    from tkarcade.backends import split_args
 
     assert split_args('foo "bar') == ["foo", '"bar']
     assert split_args("") == []
@@ -549,7 +549,7 @@ def test_split_args_never_raises():
 
 
 def test_coverage_bytes_coercion(monkeypatch):
-    from tksteamlaunch.backends import ludusavi as lu
+    from tkarcade.backends import ludusavi as lu
 
     monkeypatch.setattr(lu, "find", lambda: ("/bin/ludusavi", None))
 
@@ -584,15 +584,15 @@ def test_list_games_cached_per_process(monkeypatch, tmp_path):
 def test_launch_options_real_world_shape(monkeypatch, tmp_path, xdg_env):
     # Faithful to real localconfig.vdf: lowercase "apps" node and a nested
     # "cloud" block between the AppID and its LaunchOptions.
-    from tksteamlaunch.steam import _launch_options_from_text
+    from tkarcade.steam import _launch_options_from_text
 
     body = (
         '"UserLocalConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n'
         '{\n"apps"\n{\n"63"\n{\n"LastPlayed" "1"\n"cloud"\n{\n"last_sync_state"'
-        ' "synchronized"\n}\n"LaunchOptions" "/opt/tksteamlaunch --menu %command%"\n'
+        ' "synchronized"\n}\n"LaunchOptions" "/opt/tkarcade --menu %command%"\n'
         '}\n"64"\n{\n"LastPlayed" "2"\n}\n}\n}\n}\n}\n}\n'
     )
-    assert _launch_options_from_text(body, "63") == "/opt/tksteamlaunch --menu %command%"
+    assert _launch_options_from_text(body, "63") == "/opt/tkarcade --menu %command%"
     assert _launch_options_from_text(body, "64") is None
     assert _launch_options_from_text(body, "65") is None
 
@@ -604,7 +604,7 @@ def test_launch_options_lowercase_apps_status(monkeypatch, tmp_path, xdg_env):
     (confdir / "localconfig.vdf").write_text(
         '"UserLocalConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n'
         '{\n"apps"\n{\n"66"\n{\n"cloud"\n{\n"x" "y"\n}\n"LaunchOptions"'
-        ' "tksteamlaunch --menu %command%"\n}\n}\n}\n}\n}\n}\n'
+        ' "tkarcade --menu %command%"\n}\n}\n}\n}\n}\n}\n'
     )
     monkeypatch.setenv("STEAM_ROOT", str(root))
     assert S.launch_options_status("66")[0] == "ok"
@@ -620,7 +620,7 @@ def test_inhibit_idle_prefix(fake_bin):
     assert cmd[:5] == [
         "systemd-inhibit",
         "--what=idle",
-        "--who=TKSteamLaunch",
+        "--who=TKArcade",
         "--why=67",
         "--",
     ]
@@ -671,8 +671,8 @@ def test_rtupscale_missing_binary(xdg_env, monkeypatch, tmp_path):
 
 
 def test_active_wrappers_lists_enabled():
-    from tksteamlaunch import config as C
-    from tksteamlaunch.launcher import active_wrappers
+    from tkarcade import config as C
+    from tkarcade.launcher import active_wrappers
 
     assert active_wrappers(C.GameConfig()) == []
     cfg = C.GameConfig()
@@ -685,7 +685,7 @@ def test_active_wrappers_lists_enabled():
 
 
 def test_find_game_icon_landscape_pref(monkeypatch, tmp_path, xdg_env):
-    from tksteamlaunch import steam as S
+    from tkarcade import steam as S
 
     root = tmp_path / "steam" / "appcache" / "librarycache" / "76"
     root.mkdir(parents=True)
@@ -712,7 +712,7 @@ def _fake_lib(tmp_path, appid, installdir=None):
 
 
 def test_install_and_prefix_dirs(monkeypatch, tmp_path, xdg_env):
-    from tksteamlaunch import steam as S
+    from tkarcade import steam as S
 
     _fake_lib(tmp_path, "77", "TGame")
     (tmp_path / "steamapps" / "compatdata" / "77").mkdir(parents=True)
@@ -722,7 +722,7 @@ def test_install_and_prefix_dirs(monkeypatch, tmp_path, xdg_env):
 
 
 def test_install_and_prefix_missing(monkeypatch, tmp_path, xdg_env):
-    from tksteamlaunch import steam as S
+    from tkarcade import steam as S
 
     _fake_lib(tmp_path, "78")
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
@@ -733,7 +733,7 @@ def test_install_and_prefix_missing(monkeypatch, tmp_path, xdg_env):
 
 
 def test_unconfigured_games(monkeypatch, tmp_path, xdg_env):
-    from tksteamlaunch import steam as S
+    from tkarcade import steam as S
 
     root = tmp_path / "steamapps"
     root.mkdir()
@@ -745,7 +745,7 @@ def test_unconfigured_games(monkeypatch, tmp_path, xdg_env):
 
 
 def test_shader_dir_and_size(monkeypatch, tmp_path, xdg_env):
-    from tksteamlaunch import steam as S
+    from tkarcade import steam as S
 
     sap = tmp_path / "steamapps"
     (sap / "shadercache" / "77").mkdir(parents=True)
@@ -761,7 +761,7 @@ def test_shader_dir_and_size(monkeypatch, tmp_path, xdg_env):
 
 
 def test_tool_mapping_cached_by_mtime(monkeypatch, tmp_path, xdg_env):
-    from tksteamlaunch import proton as pm
+    from tkarcade import proton as pm
 
     pm.clear_tool_cache()
     root = tmp_path / "steam"

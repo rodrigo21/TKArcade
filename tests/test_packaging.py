@@ -21,7 +21,7 @@ def test_hatchling_backend():
 
 def test_console_scripts():
     scripts = _pyproject()["project"]["scripts"]
-    assert scripts["tksteamlaunch"] == "tksteamlaunch.launcher:main"
+    assert scripts["tkarcade"] == "tkarcade.launcher:main"
     assert len(scripts) == 1
     for target in scripts.values():
         module, _, func = target.partition(":")
@@ -37,9 +37,9 @@ def test_python_floor_and_files():
 
 
 def test_version_single_source():
-    import tksteamlaunch
+    import tkarcade
 
-    assert isinstance(tksteamlaunch.__version__, str) and tksteamlaunch.__version__
+    assert isinstance(tkarcade.__version__, str) and tkarcade.__version__
     # Dynamic versioning: git tags are the single source, not pyproject.
     assert "version" not in _pyproject()["project"]
     assert _pyproject()["tool"]["hatch"]["version"]["source"] == "uv-dynamic-versioning"

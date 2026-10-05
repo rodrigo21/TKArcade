@@ -85,7 +85,7 @@ class HistoryDialog(QDialog):
             return
         answer = QMessageBox.question(
             self,
-            "TKSteamLaunch",
+            "TKArcade",
             self.tr(f"Clear history for {len(appids)} game(s)? This cannot be undone."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -96,7 +96,7 @@ class HistoryDialog(QDialog):
             try:
                 histmod.clear_appid(xdg.log_file(), appid)
             except Exception as e:
-                QMessageBox.warning(self, "TKSteamLaunch", f"{appid}: {e}")
+                QMessageBox.warning(self, "TKArcade", f"{appid}: {e}")
                 return
         self._reload()
 
@@ -106,7 +106,7 @@ class HistoryDialog(QDialog):
 
         answer = QMessageBox.question(
             self,
-            "TKSteamLaunch",
+            "TKArcade",
             self.tr("Clear all session history? This cannot be undone."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
@@ -116,6 +116,6 @@ class HistoryDialog(QDialog):
         try:
             xdg.log_file().write_text("", encoding="utf-8")
         except OSError as e:
-            QMessageBox.warning(self, "TKSteamLaunch", self.tr(f"Could not clear history: {e}"))
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Could not clear history: {e}"))
             return
         self._reload()

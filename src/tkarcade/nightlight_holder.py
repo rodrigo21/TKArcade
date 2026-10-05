@@ -4,7 +4,7 @@ Holds org.kde.KWin.NightLight.inhibit() for the whole game session.
 Requires `jeepney` (MIT). Prints "cookie=N" on stdout when inhibited,
 then waits for SIGTERM/SIGINT and calls uninhibit(cookie).
 
-Usage: python -m tksteamlaunch.nightlight_holder
+Usage: python -m tkarcade.nightlight_holder
 """
 
 from __future__ import annotations

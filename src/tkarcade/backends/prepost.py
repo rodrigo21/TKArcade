@@ -7,7 +7,7 @@ import os
 import shlex
 import subprocess
 
-log = logging.getLogger("tksteamlaunch.prepost")
+log = logging.getLogger("tkarcade.prepost")
 
 
 def build_cmd(command: str, args: list[str], run_in_shell: bool) -> list[str] | str:

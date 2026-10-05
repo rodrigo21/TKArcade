@@ -18,7 +18,7 @@ def _load_extractor():
 
 
 def _ts_entries():
-    tree = ET.parse(str(ROOT / "translations" / "tksteamlaunch_pt_BR.ts"))
+    tree = ET.parse(str(ROOT / "translations" / "tkarcade_pt_BR.ts"))
     return {
         (ctx.findtext("name"), (msg.findtext("source") or "")): (msg.find("translation").text or "")
         for ctx in tree.getroot().findall("context")
@@ -31,7 +31,7 @@ def test_all_tr_literals_translated():
     entries = _ts_entries()
     assert len(entries) > 300
     missing, untranslated = [], []
-    for path in sorted((ROOT / "src" / "tksteamlaunch" / "gui").rglob("*.py")):
+    for path in sorted((ROOT / "src" / "tkarcade" / "gui").rglob("*.py")):
         visitor = ext.Visitor(path)
         visitor.visit(ast.parse(path.read_text(), filename=str(path)))
         for context, source, _rel, _line in visitor.messages:
@@ -44,14 +44,14 @@ def test_all_tr_literals_translated():
 
 
 def test_shipped_qm_covers_ts():
-    shipped = {p.stem for p in (ROOT / "src" / "tksteamlaunch" / "translations").glob("*.qm")}
+    shipped = {p.stem for p in (ROOT / "src" / "tkarcade" / "translations").glob("*.qm")}
     sources = {p.stem for p in (ROOT / "translations").glob("*.ts")}
     assert sources, "no source catalogs found"
     assert sources <= shipped, sources - shipped
 
 
 def test_available_languages_lists_shipped():
-    from tksteamlaunch.gui import helpers as helpersmod
+    from tkarcade.gui import helpers as helpersmod
 
     codes = dict(helpersmod.available_languages())
     assert codes["en"] == "English"
@@ -61,8 +61,8 @@ def test_available_languages_lists_shipped():
 def test_install_translations_corrupt_qm_falls_back(qt_app, tmp_path, monkeypatch):
     import importlib.resources as res
 
-    from tksteamlaunch.gui import helpers as helpersmod
+    from tkarcade.gui import helpers as helpersmod
 
-    (tmp_path / "tksteamlaunch_xx_YY.qm").write_bytes(b"not a qt catalog")
+    (tmp_path / "tkarcade_xx_YY.qm").write_bytes(b"not a qt catalog")
     monkeypatch.setattr(res, "files", lambda package: tmp_path)
     assert helpersmod.install_translations(qt_app, "xx_YY") == ""

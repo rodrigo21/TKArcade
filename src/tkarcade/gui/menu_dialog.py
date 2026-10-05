@@ -37,7 +37,7 @@ class MenuDialog(QDialog):
         self.name = name
         self.launch_requested = False
         self._remaining = max(0, int(timeout or 0))
-        self.setWindowTitle(self.tr(f"TKSteamLaunch — {name or appid or 'game'}"))
+        self.setWindowTitle(self.tr(f"TKArcade — {name or appid or 'game'}"))
         self.setMinimumWidth(480)
 
         layout = QVBoxLayout(self)

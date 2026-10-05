@@ -17,7 +17,7 @@ from typing import NamedTuple
 
 from ..config import DisplayProvider
 
-log = logging.getLogger("tksteamlaunch.display")
+log = logging.getLogger("tkarcade.display")
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _MODE_RE = re.compile(r"^(\d{2,5})x(\d{2,5})(?:@(\d+(?:\.\d+)?))?$")

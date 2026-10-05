@@ -4,7 +4,7 @@ import os
 import shutil
 import stat
 
-from tksteamlaunch.backends import display as D
+from tkarcade.backends import display as D
 
 
 def _bindir(tmp_path, monkeypatch):
@@ -139,8 +139,8 @@ def test_x11_context_manager_restores(tmp_path, monkeypatch):
 
 
 def test_display_fields_collect_and_populate(qt_app, xdg_env):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
 
     cfg = C.GameConfig()
     cfg.general.appid = "161"
@@ -161,7 +161,7 @@ def test_display_fields_collect_and_populate(qt_app, xdg_env):
 
 
 def test_offered_modes_lists_backend_modes(tmp_path, monkeypatch):
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     modes = D.offered_modes("plasma", "")
@@ -176,9 +176,9 @@ def test_offered_modes_lists_backend_modes(tmp_path, monkeypatch):
 
 
 def test_mode_picker_lists_offered_and_keeps_manual(qt_app, xdg_env, monkeypatch):
-    from tksteamlaunch import config as C
-    from tksteamlaunch.backends import display as dispmod
-    from tksteamlaunch.gui.game_dialog import GameDialog
+    from tkarcade import config as C
+    from tkarcade.backends import display as dispmod
+    from tkarcade.gui.game_dialog import GameDialog
 
     monkeypatch.setattr(dispmod, "offered_modes", lambda *a: [(None, "1920x1080@60", False)])
     cfg = C.GameConfig()
@@ -194,7 +194,7 @@ def test_restore_rc_failure_warns(tmp_path, monkeypatch, caplog):
     import logging
     import subprocess
 
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     s = D.DisplaySession(provider="plasma", mode="1920x1080@60")
@@ -205,7 +205,7 @@ def test_restore_rc_failure_warns(tmp_path, monkeypatch, caplog):
         return subprocess.CompletedProcess(a[0], 1, "", "nope")
 
     monkeypatch.setattr(D.subprocess, "run", boom)
-    with caplog.at_level(logging.WARNING, logger="tksteamlaunch.display"):
+    with caplog.at_level(logging.WARNING, logger="tkarcade.display"):
         s.stop()
     assert any("restore" in r.message and "failed" in r.message for r in caplog.records)
 
@@ -214,7 +214,7 @@ def test_no_current_mode_warns_without_restore(tmp_path, monkeypatch, caplog):
     import logging
     import subprocess
 
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     real_run = D.subprocess.run
@@ -228,14 +228,14 @@ def test_no_current_mode_warns_without_restore(tmp_path, monkeypatch, caplog):
 
     unhealthy = D.DisplaySession(provider="plasma", mode="1920x1080@60")
     monkeypatch.setattr(D.subprocess, "run", no_star)
-    with caplog.at_level(logging.WARNING, logger="tksteamlaunch.display"):
+    with caplog.at_level(logging.WARNING, logger="tkarcade.display"):
         assert unhealthy.start() == []
     assert any("without restore" in r.message for r in caplog.records)
     assert unhealthy._prev is None
 
 
 def test_dip_candidate_prefers_same_res_lower_rate():
-    from tksteamlaunch.backends.display import _dip_candidate, _Mode
+    from tkarcade.backends.display import _dip_candidate, _Mode
 
     modes = [
         _Mode(1, 2560, 1440, 120.0, False),
@@ -248,7 +248,7 @@ def test_dip_candidate_prefers_same_res_lower_rate():
 
 def test_same_mode_dips_down_and_back(tmp_path, monkeypatch):
 
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     slept = []
@@ -265,7 +265,7 @@ def test_same_mode_dips_down_and_back(tmp_path, monkeypatch):
 
 def test_same_mode_x11_dips_down_and_back(tmp_path, monkeypatch):
 
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     slept = []
@@ -279,7 +279,7 @@ def test_same_mode_x11_dips_down_and_back(tmp_path, monkeypatch):
 
 
 def test_display_dip_seconds_roundtrip_and_clamp(xdg_env):
-    from tksteamlaunch import config as C
+    from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = "168"
@@ -305,7 +305,7 @@ def _flaky_second_apply(monkeypatch, tmp_path):
     """Real binaries, but the 2nd mode-set (the dip target) fails."""
     from types import SimpleNamespace
 
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     real_run = D.subprocess.run
     sets = []
@@ -322,7 +322,7 @@ def _flaky_second_apply(monkeypatch, tmp_path):
 
 
 def test_partial_dip_restores_plasma(tmp_path, monkeypatch):
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     _flaky_second_apply(monkeypatch, tmp_path)
@@ -338,7 +338,7 @@ def test_partial_dip_restores_plasma(tmp_path, monkeypatch):
 
 
 def test_partial_dip_restores_x11(tmp_path, monkeypatch):
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     _flaky_second_apply(monkeypatch, tmp_path)
@@ -356,7 +356,7 @@ def test_partial_dip_restores_x11(tmp_path, monkeypatch):
 def test_sleep_interrupted_restores_plasma(tmp_path, monkeypatch):
     import pytest
 
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
 
@@ -373,7 +373,7 @@ def test_sleep_interrupted_restores_plasma(tmp_path, monkeypatch):
 
 
 def test_xrandr_keeps_every_rate_on_one_line(tmp_path, monkeypatch):
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     modes = D.current_x11()["DP-3"]
@@ -383,7 +383,7 @@ def test_xrandr_keeps_every_rate_on_one_line(tmp_path, monkeypatch):
 
 
 def test_dip_seconds_plumbing(tmp_path, monkeypatch):
-    from tksteamlaunch.backends import display as D
+    from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
     slept = []
