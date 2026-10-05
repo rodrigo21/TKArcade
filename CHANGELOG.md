@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Play button (Games row) and Launch via Steam (context menu) for
+  launching through the client; Play uses the real selection.
 - In-app language option (Preferences): system default, English, or
   shipped locales — restart to apply, games unaffected (no LC_ALL leak).
 - Display dip delay slider (3-15 s, per game, default 8 s) for the

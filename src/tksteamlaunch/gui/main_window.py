@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from collections.abc import Callable
 
 from PySide6.QtCore import QEvent, QSize, Qt, QThread, Signal
 from PySide6.QtGui import (
@@ -355,6 +354,11 @@ class MainWindow(QMainWindow):
             self._section_row(
                 self.tr("Games"),
                 (
+                    (
+                        self.tr("Play"),
+                        self._play_selected,
+                        QStyle.StandardPixmap.SP_MediaPlay,
+                    ),
                     (self.tr("Add Game..."), self._add),
                     (self.tr("Scan Library..."), self._scan_library),
                     (self.tr("Edit..."), self._edit_selected),
@@ -399,12 +403,14 @@ class MainWindow(QMainWindow):
         apply_default_size(self)
 
     @staticmethod
-    def _section_row(title: str, buttons: tuple[tuple[str, Callable[[], None]], ...]) -> QWidget:
+    def _section_row(title: str, buttons: tuple[tuple, ...]) -> QWidget:
         """Labeled row with its buttons centered in the full row width.
 
-        A trailing spacer mirrors the label so the group centers on the
-        window, not on the space after the label. Untitled group box for
-        a full frame without a top title.
+        Each button is (label, slot[, icon]) where icon is a
+        QStyle.StandardPixmap or None. A trailing spacer mirrors the
+        label so the group centers on the window, not on the space
+        after the label. Untitled group box for a full frame without
+        a top title.
         """
         from PySide6.QtWidgets import QGroupBox
 
@@ -415,8 +421,11 @@ class MainWindow(QMainWindow):
         label.setMinimumWidth(90)
         layout.addWidget(label)
         layout.addStretch(1)
-        for text, slot in buttons:
+        for spec in buttons:
+            text, slot = spec[0], spec[1]
             b = QPushButton(text)
+            if len(spec) > 2 and spec[2] is not None:
+                b.setIcon(b.style().standardIcon(spec[2]))
             b.clicked.connect(slot)
             layout.addWidget(b)
         layout.addStretch(1)
@@ -843,6 +852,7 @@ class MainWindow(QMainWindow):
                 act_shaders.triggered.connect(lambda: self._clear_shader_cache(appid))
             menu.addAction(self.tr("Open ProtonDB Page"), lambda: self._open_protondb_page(appid))
             menu.addAction(self.tr("Validate Game"), lambda: self._validate_selected(appid))
+            menu.addAction(self.tr("Launch via Steam"), lambda: self._launch_steam(appid))
             menu.addAction(self.tr("Clear History"), lambda: self._clear_game_history(appid))
             menu.addAction(self.tr("Clone Settings To..."), lambda: self._clone_game_to(appid))
             menu.addSeparator()
@@ -1000,6 +1010,14 @@ class MainWindow(QMainWindow):
             added += 1
         self.refresh()
         self.status.setText(self.tr(f"Added {added} game(s)."))
+
+    def _play_selected(self) -> None:
+        """Launch the current game through Steam (same as tray quick-launch)."""
+        sel = self._selected_appids()
+        if not sel:
+            self.status.setText(self.tr("Select a game first."))
+            return
+        self._launch_steam(sel[0])
 
     def _edit_selected(self, appid: str = "") -> None:
         appid = appid or self._selected_appid()

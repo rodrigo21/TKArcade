@@ -1641,6 +1641,7 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
         "Clear Shader Cache",
         "Open ProtonDB Page",
         "Validate Game",
+        "Launch via Steam",
         "Clear History",
         "Clone Settings To...",
         "",
@@ -2518,3 +2519,26 @@ def test_system_tab_groups(qt_app, xdg_env):
             groups.add(box.title())
     assert groups == {"Notifications", "Idle Suspend", "Night Light"}
     d.close()
+
+
+def test_play_button_and_menu_launch(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QPushButton
+
+    w = _main_window_with_game(qt_app, "213", monkeypatch)
+    play = next(b for b in w.findChildren(QPushButton) if b.text() == "Play")
+    assert not play.icon().isNull()
+    opened = []
+    monkeypatch.setattr(
+        QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True
+    )
+    w.table.selectRow(0)
+    play.click()
+    qt_app.processEvents()
+    assert opened == ["steam://rungameid/213"]
+    w.table.clearSelection()
+    play.click()
+    assert w.status.text() == "Select a game first."
+    labels = [a.text() for a in w._build_game_menu("213").actions()]
+    assert "Launch via Steam" in labels
+    w.close()

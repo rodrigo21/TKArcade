@@ -1193,26 +1193,26 @@ Adicione entrada custom no Ludusavi para backups.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="277" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="758" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="768" />
             <source>Game</source>
             <translation>Jogo</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="277" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="758" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="818" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="768" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="828" />
             <source>App ID</source>
             <translation>App ID</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="277" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="758" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="768" />
             <source>Played</source>
             <translation>Jogado</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="277" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="758" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="768" />
             <source>ProtonDB</source>
             <translation>ProtonDB</translation>
         </message>
@@ -1228,7 +1228,7 @@ Adicione entrada custom no Ludusavi para backups.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="322" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="358" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="363" />
             <source>Add Game...</source>
             <translation>Adicionar jogo...</translation>
         </message>
@@ -1239,7 +1239,7 @@ Adicione entrada custom no Ludusavi para backups.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="327" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="389" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="394" />
             <source>Import...</source>
             <translation>Importar...</translation>
         </message>
@@ -1250,8 +1250,8 @@ Adicione entrada custom no Ludusavi para backups.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="334" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="372" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="812" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="377" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="822" />
             <source>Copy Launch Options</source>
             <translation>Copiar opções de lançamento</translation>
         </message>
@@ -1267,374 +1267,385 @@ Adicione entrada custom no Ludusavi para backups.</translation>
         </message>
         <message>
             <location filename="src/tksteamlaunch/gui/main_window.py" line="359" />
+            <source>Play</source>
+            <translation>Jogar</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="364" />
             <source>Scan Library...</source>
             <translation>Varrer biblioteca...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="360" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="365" />
             <source>Edit...</source>
             <translation>Editar...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="361" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="366" />
             <source>Remove</source>
             <translation>Remover</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="362" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="367" />
             <source>Reset...</source>
             <translation>Redefinir...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="363" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="368" />
             <source>History...</source>
             <translation>Histórico...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="370" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="375" />
             <source>Tools</source>
             <translation>Ferramentas</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="373" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="378" />
             <source>Open Ludusavi...</source>
             <translation>Abrir Ludusavi...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="374" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="379" />
             <source>Open Logs Folder</source>
             <translation>Abrir pasta de logs</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="375" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="380" />
             <source>Clean Profiles...</source>
             <translation>Limpar profiles...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="376" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="381" />
             <source>Reload</source>
             <translation>Recarregar</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="383" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="388" />
             <source>Application</source>
             <translation>Aplicativo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="385" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="679" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="390" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="689" />
             <source>Global Defaults...</source>
             <translation>Padrões globais...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="386" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="681" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="391" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="691" />
             <source>Preferences...</source>
             <translation>Preferências...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="387" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="683" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="392" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="693" />
             <source>About...</source>
             <translation>Sobre...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="388" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="393" />
             <source>Export...</source>
             <translation>Exportar...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="466" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="476" />
             <source>No recorded sessions</source>
             <translation>Nenhuma sessão registrada</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="471" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="481" />
             <source>{} sessions · last {} · {} failures</source>
             <translation>{} sessões · última {} · {} falhas</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="478" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="488" />
             <source>{} configured · {} Steam games detected</source>
             <translation>{} configurados · {} jogos Steam detectados</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="526" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="536" />
             <source>{} · {} shown</source>
             <translation>{} · {} exibidos</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="539" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="549" />
             <source>{} · {} reports — double-click for protondb.com</source>
             <translation>{} · {} relatos — duplo-clique para protondb.com</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="598" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="608" />
             <source>About TKSteamLaunch</source>
             <translation>Sobre o TKSteamLaunch</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="657" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="667" />
             <source>Could not ask Steam to launch the game.</source>
             <translation>Não foi possível pedir ao Steam para lançar o jogo.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="668" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="678" />
             <source>Show / Hide</source>
             <translation>Mostrar / Ocultar</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="676" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="686" />
             <source>{} ({})</source>
             <translation>{} ({})</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="686" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="696" />
             <source>Quit</source>
             <translation>Sair</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="770" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="780" />
             <source>Reset Columns</source>
             <translation>Restaurar colunas</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="815" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="825" />
             <source>Edit Settings</source>
             <translation>Editar configurações</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="818" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="828" />
             <source>Copy App ID</source>
             <translation>Copiar App ID</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="821" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="831" />
             <source>Copy Game Name</source>
             <translation>Copiar nome do jogo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="822" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="832" />
             <source>Game name</source>
             <translation>Nome do jogo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="826" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="836" />
             <source>Open Install Folder</source>
             <translation>Abrir pasta de instalação</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="830" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="840" />
             <source>install folder</source>
             <translation>pasta de instalação</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="833" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="843" />
             <source>Open Proton Prefix</source>
             <translation>Abrir prefixo Proton</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="837" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="847" />
             <source>Proton prefix</source>
             <translation>prefixo Proton</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="840" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="850" />
             <source>Clear Shader Cache</source>
             <translation>Limpar cache de shaders</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="844" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="854" />
             <source>Open ProtonDB Page</source>
             <translation>Abrir página no ProtonDB</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="845" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="855" />
             <source>Validate Game</source>
             <translation>Validar jogo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="846" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="856" />
+            <source>Launch via Steam</source>
+            <translation>Lançar pelo Steam</translation>
+        </message>
+        <message>
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="857" />
             <source>Clear History</source>
             <translation>Limpar histórico</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="847" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="858" />
             <source>Clone Settings To...</source>
             <translation>Clonar configurações para...</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="851" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="862" />
             <source>Remove {} Game</source>
             <translation>Remover {} jogo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="851" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="862" />
             <source>Remove {} Games</source>
             <translation>Remover {} jogos</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="854" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="865" />
             <source>Reset to Global Defaults</source>
             <translation>Restaurar padrões globais</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="859" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1036" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="870" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1055" />
             <source>Could not open {}.</source>
             <translation>Não foi possível abrir {}.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="870" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="881" />
             <source>Delete {} of shader cache for {}?
 Steam rebuilds it on demand.</source>
             <translation>Apagar {} de cache de shaders de {}?
 O Steam reconstrói sob demanda.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="879" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="890" />
             <source>Cleared {} of shader cache.</source>
             <translation>{} de cache de shaders apagados.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="888" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="899" />
             <source>No issues found.</source>
             <translation>Nenhum problema encontrado.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="896" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="907" />
             <source>Clear session history for {}? This cannot be undone.</source>
             <translation>Limpar histórico de sessões de {}? Não há como desfazer.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="908" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="919" />
             <source>Cleared {} session(s).</source>
             <translation>{} sessão(ões) apagadas.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="912" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="923" />
             <source>Clone Settings</source>
             <translation>Clonar configurações</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="912" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="923" />
             <source>Clone into game:</source>
             <translation>Clonar para o jogo:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="918" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="929" />
             <source>Source and target are the same.</source>
             <translation>Origem e destino são o mesmo.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="925" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="936" />
             <source>Overwrite the saved settings for {}?</source>
             <translation>Sobrescrever as configurações salvas de {}?</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="935" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="946" />
             <source>Cloned {} to {}.</source>
             <translation>{} clonado para {}.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="967" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="978" />
             <source>Steam App ID:</source>
             <translation>App ID do Steam:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="973" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="984" />
             <source>Add Game</source>
             <translation>Adicionar jogo</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="973" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="984" />
             <source>Steam game:</source>
             <translation>Jogo Steam:</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="987" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="998" />
             <source>Every Steam game is already configured.</source>
             <translation>Todo jogo Steam já está configurado.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1002" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1013" />
             <source>Added {} game(s).</source>
             <translation>{} jogo(s) adicionados.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1007" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1019" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1026" />
             <source>Select a game first.</source>
             <translation>Selecione um jogo primeiro.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1043" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1062" />
             <source>Export Configurations</source>
             <translation>Exportar configurações</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1045" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1081" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1064" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1100" />
             <source>Archives (*.tar.gz)</source>
             <translation>Arquivos (*.tar.gz)</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1052" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1071" />
             <source>Export failed: {}</source>
             <translation>Falha ao exportar: {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1054" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1073" />
             <source>Exported to {}</source>
             <translation>Exportado para {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1079" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1098" />
             <source>Import Configurations</source>
             <translation>Importar configurações</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1088" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1107" />
             <source>Import failed: {}</source>
             <translation>Falha ao importar: {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1090" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1109" />
             <source>Imported {} game(s)</source>
             <translation>{} jogo(s) importados</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1113" />
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1179" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1132" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1198" />
             <source>Select games first.</source>
             <translation>Selecione jogos primeiro.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1117" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1136" />
             <source>these configurations</source>
             <translation>estas configurações</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1117" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1136" />
             <source>the configuration</source>
             <translation>a configuração</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1118" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1137" />
             <source>Remove {} for {}?</source>
             <translation>Remover {} de {}?</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1139" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1158" />
             <source>No orphaned profiles.</source>
             <translation>Nenhum profile órfão.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1151" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1170" />
             <source>Cleaned profiles for {} game(s).</source>
             <translation>Profiles de {} jogo(s) limpos.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1187" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1206" />
             <source>Reset {} game(s) to the Global Defaults template now?
 {}
 This overwrites their saved configs (profiles are kept).</source>
@@ -1643,32 +1654,32 @@ This overwrites their saved configs (profiles are kept).</source>
 Isso sobrescreve as configs salvas (profiles mantidos).</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1204" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1223" />
             <source>Clipboard unavailable on this platform.</source>
             <translation>Área de transferência indisponível nesta plataforma.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1207" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1226" />
             <source>{} copied to clipboard: {}</source>
             <translation>{} copiado para a área de transferência: {}</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1210" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1229" />
             <source>Launch options</source>
             <translation>Opções de lançamento</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1218" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1237" />
             <source>Ludusavi was not found in PATH.</source>
             <translation>Ludusavi não encontrado no PATH.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1226" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1245" />
             <source>Flatpak Ludusavi detected: it may not see Proton prefixes. Prefer the standalone binary.</source>
             <translation>Ludusavi Flatpak detectado: pode não enxergar prefixes Proton. Prefira o binário standalone.</translation>
         </message>
         <message>
-            <location filename="src/tksteamlaunch/gui/main_window.py" line="1233" />
+            <location filename="src/tksteamlaunch/gui/main_window.py" line="1252" />
             <source>Could not open Ludusavi: {}</source>
             <translation>Não foi possível abrir o Ludusavi: {}</translation>
         </message>
