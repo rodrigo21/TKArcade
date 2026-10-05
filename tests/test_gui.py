@@ -1630,10 +1630,10 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
     texts = [(a.text(), a.isEnabled()) for a in _menu_actions(w, "120")]
     labels = [t for t, _ in texts]
     assert labels == [
-        "Copy Launch Options",
         "Play",
         "Edit Settings",
         "",
+        "Copy Launch Options",
         "Copy App ID",
         "Copy Game Name",
         "",

@@ -826,12 +826,14 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         sel = self._selected_appids() or [appid]
         multi = len(sel) > 1
-        menu.addAction(self.tr("Copy Launch Options"), lambda: self._copy_launch())
-        if not multi:
+        if multi:
+            menu.addAction(self.tr("Copy Launch Options"), lambda: self._copy_launch())
+        else:
             name = self._names().get(appid, appid)
             menu.addAction(self.tr("Play"), lambda: self._launch_steam(appid))
             menu.addAction(self.tr("Edit Settings"), lambda: self._edit_selected(appid))
             menu.addSeparator()
+            menu.addAction(self.tr("Copy Launch Options"), lambda: self._copy_launch())
             menu.addAction(
                 self.tr("Copy App ID"), lambda: self._copy_text(appid, self.tr("App ID"))
             )
