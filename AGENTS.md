@@ -1,7 +1,7 @@
-# AGENTS.md — instructions for AI coding agents on TKSteamLaunch
+# AGENTS.md — instructions for AI coding agents on TKArcade
 
-TKSteamLaunch is a minimal Steam launch wrapper: per-game TOML configs,
-a stdlib-only launcher CLI (`tksteamlaunch %command%`) and a PySide6 GUI.
+TKArcade is a minimal Steam launch wrapper: per-game TOML configs,
+a stdlib-only launcher CLI (`tkarcade %command%`) and a PySide6 GUI.
 License: GPL-3.0-or-later.
 
 ## Communication
@@ -18,7 +18,7 @@ License: GPL-3.0-or-later.
   `.venv/bin/python`; `ruff` stays the system binary.
 - Exception: `PKGBUILD check()` always uses system packages only
   (no uv in the chroot).
-- The launcher (`src/tksteamlaunch/launcher.py`, `config.py`, `backends/`,
+- The launcher (`src/tkarcade/launcher.py`, `config.py`, `backends/`,
   `proton.py`, `steam.py`, `xdg.py`, `nightlight_holder.py`) must stay
   **stdlib-only**: it runs on every game start. PySide6/vdf/jeepney are
   for GUI/helpers only.

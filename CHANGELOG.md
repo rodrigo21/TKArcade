@@ -1,13 +1,17 @@
 # Changelog
 
-All notable changes to TKSteamLaunch are documented here.
+All notable changes to TKArcade are documented here.
 Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
 ### Changed
+- TKArcade starts here as a standalone repo renamed from
+  TKSteamLaunch 1.1.1 (full history preserved, new remote).
+  **BREAKING**: config/state/cache now live under the `tkarcade`
+  XDG directories, so no settings carry over automatically.
 - AppImage release asset now carries the version
-  (`TKSteamLaunch-<version>.AppImage`).
+  (`TKArcade-<version>.AppImage`).
 
 ## [1.1.1] - 2026-10-05
 

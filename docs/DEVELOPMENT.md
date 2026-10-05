@@ -20,7 +20,7 @@ monkeypatch Qt globals at fixture scope (patch inside the test body so
 teardown hooks see a healthy QApplication). GUI changes need an
 offscreen screenshot check.
 
-The launcher (`src/tksteamlaunch/launcher.py`, `config.py`, `backends/`,
+The launcher (`src/tkarcade/launcher.py`, `config.py`, `backends/`,
 `proton.py`, `steam.py`, `xdg.py`, `nightlight_holder.py`) must stay
 **stdlib-only**: it runs on every game start. PySide6/vdf/jeepney are
 for GUI/helpers only. Exit codes 10-17 are part of the CLI contract.
@@ -42,8 +42,8 @@ changes get a `CHANGELOG.md` entry under Unreleased, with explicit
 
 ## Packaging
 
-* `packaging/arch/tksteamlaunch` — release tarball package.
-* `packaging/arch/tksteamlaunch-git` — VCS package (`pkgver()` from
+* `packaging/arch/tkarcade` — release tarball package.
+* `packaging/arch/tkarcade-git` — VCS package (`pkgver()` from
   `git describe`; the static `pkgver` is build noise, commit the bump
   after `makepkg` runs when it changes).
 * `packaging/arch/linux-rt-upscaler*` — vendored upscaler packages.
@@ -84,8 +84,8 @@ English by design.
 ```bash
 python3 scripts/extract-messages.py  # refresh translations/*.ts
 # translate new strings (Linguist GUI or edit XML), then:
-lrelease6 translations/tksteamlaunch_pt_BR.ts \
-  -qm src/tksteamlaunch/translations/tksteamlaunch_pt_BR.qm
+lrelease6 translations/tkarcade_pt_BR.ts \
+  -qm src/tkarcade/translations/tkarcade_pt_BR.qm
 ```
 
 Commit both `.ts` (source) and `.qm` (runtime payload, travels in the
