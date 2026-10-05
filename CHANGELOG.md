@@ -5,6 +5,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-04
+
 ### Added
 - GUI translations via Qt Linguist, starting with PT-BR (351 strings;
   CLI stays English). New UI strings require `tr()` (enforced by test).
