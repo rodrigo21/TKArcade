@@ -3,6 +3,8 @@
 All notable changes to TKSteamLaunch are documented here.
 Breaking config changes are called out explicitly under `Changed`.
 
+## [Unreleased]
+
 ## [1.1.1] - 2026-10-05
 
 ### Fixed
