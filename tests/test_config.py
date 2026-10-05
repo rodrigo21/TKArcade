@@ -688,3 +688,19 @@ def test_language_prefs_roundtrip_and_clamp(xdg_env):
     prefs.language = "!!!junk!!!"
     C.save_preferences(prefs)
     assert C.load_preferences().language == "system"
+
+
+def test_export_import_includes_preferences(xdg_env, tmp_path):
+    prefs = C.load_preferences()
+    prefs.tray_quick_count = 8
+    prefs.language = "pt_BR"
+    C.save_preferences(prefs)
+    dest = tmp_path / "backup.tar.gz"
+    C.export_configs(dest)
+    prefs2 = C.load_preferences()
+    prefs2.tray_quick_count = 5
+    prefs2.language = "system"
+    C.save_preferences(prefs2)
+    C.import_configs(dest)
+    back = C.load_preferences()
+    assert (back.tray_quick_count, back.language) == (8, "pt_BR")

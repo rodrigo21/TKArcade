@@ -820,7 +820,8 @@ class MainWindow(QMainWindow):
         """Context menu for a game row (split out so tests skip modal exec).
 
         Multiple selection shows only multi-game actions; single-row
-        actions stay on single selection.
+        actions stay on single selection. Order mirrors the button rows
+        below the list (Games, then copies, then tools).
         """
         menu = QMenu(self)
         sel = self._selected_appids() or [appid]
@@ -828,6 +829,7 @@ class MainWindow(QMainWindow):
         menu.addAction(self.tr("Copy Launch Options"), lambda: self._copy_launch())
         if not multi:
             name = self._names().get(appid, appid)
+            menu.addAction(self.tr("Play"), lambda: self._launch_steam(appid))
             menu.addAction(self.tr("Edit Settings"), lambda: self._edit_selected(appid))
             menu.addSeparator()
             menu.addAction(
@@ -859,7 +861,6 @@ class MainWindow(QMainWindow):
                 act_shaders.triggered.connect(lambda: self._clear_shader_cache(appid))
             menu.addAction(self.tr("Open ProtonDB Page"), lambda: self._open_protondb_page(appid))
             menu.addAction(self.tr("Validate Game"), lambda: self._validate_selected(appid))
-            menu.addAction(self.tr("Play"), lambda: self._launch_steam(appid))
             menu.addAction(self.tr("Clear History"), lambda: self._clear_game_history(appid))
             menu.addAction(self.tr("Clone Settings To..."), lambda: self._clone_game_to(appid))
             menu.addSeparator()

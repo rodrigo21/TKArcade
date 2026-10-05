@@ -1631,6 +1631,7 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
     labels = [t for t, _ in texts]
     assert labels == [
         "Copy Launch Options",
+        "Play",
         "Edit Settings",
         "",
         "Copy App ID",
@@ -1641,7 +1642,6 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
         "Clear Shader Cache",
         "Open ProtonDB Page",
         "Validate Game",
-        "Play",
         "Clear History",
         "Clone Settings To...",
         "",

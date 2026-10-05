@@ -9,6 +9,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Play in the game context menu; launching from the program (button,
   tray, menu) skips the pre-launch menu once via a fresh sentinel,
   even with show-menu enabled.
+- Backup now includes preferences.toml; context menu order mirrors
+  the button rows (Play/Edit/Remove/Reset, then copies, then tools).
 
 ### Added
 - Play button (Games row) and Launch via Steam (context menu) for

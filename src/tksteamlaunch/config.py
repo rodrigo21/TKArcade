@@ -806,7 +806,7 @@ def list_appids() -> list[str]:
 
 
 def export_configs(dest: str | Path) -> Path:
-    """Pack games/profiles/defaults TOML files into a tar.gz for migration."""
+    """Pack games/profiles/defaults/preferences TOML files for migration."""
     import tarfile
 
     dest = Path(dest)
@@ -816,6 +816,9 @@ def export_configs(dest: str | Path) -> Path:
         defaults = xdg.defaults_file()
         if defaults.exists():
             tar.add(defaults, arcname="defaults.toml")
+        preferences = xdg.preferences_file()
+        if preferences.exists():
+            tar.add(preferences, arcname="preferences.toml")
         games = xdg.games_dir()
         if games.exists():
             for path in sorted(games.glob("*.toml")):
@@ -830,7 +833,7 @@ def export_configs(dest: str | Path) -> Path:
 
 
 def import_configs(src: str | Path) -> list[str]:
-    """Restore an export tarball. Only defaults/games/profiles TOML accepted.
+    """Restore an export tarball. Only known TOML files accepted.
 
     Returns imported appids. Raises ValueError on invalid archives.
     """
@@ -849,7 +852,7 @@ def import_configs(src: str | Path) -> list[str]:
         for member in tar.getmembers():
             name = member.name
             if (
-                name == "defaults.toml"
+                name in ("defaults.toml", "preferences.toml")
                 or (
                     name.startswith("games/")
                     and name.endswith(".toml")
