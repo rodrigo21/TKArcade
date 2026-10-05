@@ -99,6 +99,48 @@ def test_launch_mode_buttons(qt_app, xdg_env):
     assert not any("Launch" in b.text() for b in plain.findChildren(QPushButton))
 
 
+def test_launch_without_save_persists_selection(qt_app, xdg_env):
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    live = C.GameConfig()
+    live.general.appid = "24"
+    live.gamescope.enable = True
+    C.save(live)
+    prof = C.GameConfig()
+    prof.general.appid = "24"
+    prof.mangohud.enable = True
+    C.save_profile("24", "p1", prof)
+    d = GameDialog(None, "24", "T", launch_mode=True)
+    d.cb_profile.setCurrentIndex(d.cb_profile.findData("p1"))
+    assert d._active_profile == "p1"
+    d._on_launch_without_save()
+    assert d.launch_requested is True
+    reloaded = C.load("24")
+    assert reloaded.general.active_profile == "p1"
+    # Live content untouched: only the selection moved.
+    assert reloaded.gamescope.enable is True
+    assert reloaded.mangohud.enable is False
+    assert C.load_effective("24").mangohud.enable is True
+    d.close()
+
+
+def test_launch_without_save_keeps_corrupt_live(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from tksteamlaunch import config as C
+    from tksteamlaunch.gui.game_dialog import GameDialog
+
+    C.game_file("25").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("25").write_text("[general\nappid = oops", encoding="utf-8")
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
+    d = GameDialog(None, "25", "T", launch_mode=True)
+    d._active_profile = "p1"
+    d._on_launch_without_save()
+    assert C.game_file("25").read_text(encoding="utf-8") == "[general\nappid = oops"
+    d.close()
+
+
 def test_provider_combo_data(qt_app, xdg_env):
     from tksteamlaunch.gui.game_dialog import GameDialog
 

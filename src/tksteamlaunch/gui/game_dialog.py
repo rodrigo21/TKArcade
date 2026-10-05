@@ -1755,7 +1755,32 @@ class GameDialog(QDialog):
                 worker.terminate()
                 worker.wait(2000)
 
+    def _persist_selection_only(self) -> None:
+        """Durably record the profile selection without touching content.
+
+        Launch-without-save promises the saved configuration, but the
+        profile *selection* is memory-only until a save: persist just
+        that field so the launcher resolves what the dialog shows.
+        Never overwrites an unreadable live file on this path.
+        """
+        if self.defaults_mode:
+            return
+        path = cfgmod.game_file(self.appid)
+        if path.exists() and cfgmod.toml_error(path) is not None:
+            return
+        try:
+            live, _warn = cfgmod.load_with_warning(self.appid)
+        except Exception:
+            return
+        if live.general.active_profile != self._active_profile:
+            live.general.active_profile = self._active_profile
+            try:
+                cfgmod.save(live)
+            except OSError:
+                pass
+
     def _on_launch_without_save(self) -> None:
+        self._persist_selection_only()
         self.launch_requested = True
         self._skip_save = True
         self.accept()
