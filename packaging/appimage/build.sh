@@ -7,6 +7,9 @@ cd "$(dirname "$0")/../.."
 
 OUT_DIR="${1:-packaging/appimage/dist}"
 mkdir -p "$OUT_DIR"
+# Drop any previous bundle first: overwriting a running AppImage fails
+# with "Text file busy" (unlinking a running file is fine on Linux).
+rm -f "$OUT_DIR/TKSteamLaunch.AppImage"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
