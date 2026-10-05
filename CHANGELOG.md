@@ -5,11 +5,47 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-10-04
-
 ### Added
 - In-app language option (Preferences): system default, English, or
   shipped locales — restart to apply, games unaffected (no LC_ALL leak).
+- Display dip delay slider (3-15 s, per game, default 8 s) for the
+  same-mode VRAM clock workaround; slider and note show only for
+  the current mode.
+- Display same-mode workaround for the AMD VRAM clock bug: requesting
+  the current mode dips one mode down and back before the game starts
+  (same resolution, closest lower refresh; logged, never aborts).
+- Mode picker shows backend numbers and the current mode, keeps manual
+  entry valid, and warns that same-mode requests dip first.
+- Export/import now carries profiles (whitelist extended, traversal
+  still rejected), and games clone live config plus profiles to
+  another AppID ("Clone Settings To...", picking from the Steam
+  game list, with overwrite confirm).
+- Display mode picker lists detected modes (manual entry kept) with
+  a Refresh button; apply/restore log values and failures loudly.
+- Per-game history clearing: exact token match, atomic rewrite, in
+  the History dialog (Clear Selected) and the game context menu.
+- System tab grouped (Notifications / Idle Suspend / Night Light)
+  with the night-light toggle named; PT-BR strings included.
+
+### Fixed
+- Pre-launch menu shows the active profile's wrappers (it rendered
+  the live file while launching the profile).
+- Display mode goes through kscreen numeric mode IDs (the WxH@rate
+  string form is silently ignored) and the picker lists offered
+  modes sorted by resolution then rate, descending.
+- Mode list fills in a worker thread (a wedged kscreen-doctor once
+  hung dialog construction); dialog open performs zero backend
+  queries, and worker threads stop cleanly on accept/reject.
+- Crafted AppIDs can no longer escape the log/proton-log dirs
+  (`safe_stem` centralized in xdg, applied to every AppID path).
+- Validate and the pre-launch countdown check the effective
+  (profile-resolved) config, not just live.
+- Clone replaces (not merges) destination profiles; export skips
+  hand-placed nested profile junk the importer would refuse.
+
+## [1.0.0] - 2026-10-04
+
+### Added
 - GUI translations via Qt Linguist, starting with PT-BR (351 strings;
   CLI stays English). New UI strings require `tr()` (enforced by test).
 
