@@ -658,9 +658,16 @@ class MainWindow(QMainWindow):
         return [(s.appid, names.get(s.appid, s.appid), s.total_dur) for s in rows[:limit]]
 
     def _launch_steam(self, appid: str) -> None:
-        """Launch through the Steam client (with its time tracking)."""
+        """Launch through the Steam client (with its time tracking).
+
+        Plants a one-shot menu skip so the pre-launch menu does not pop
+        on a launch requested from here, even with show_menu enabled.
+        """
         from PySide6.QtCore import QUrl
 
+        from ..launcher import plant_menu_skip
+
+        plant_menu_skip(appid)
         if not QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")):
             QMessageBox.warning(
                 self, "TKSteamLaunch", self.tr("Could not ask Steam to launch the game.")
@@ -852,7 +859,7 @@ class MainWindow(QMainWindow):
                 act_shaders.triggered.connect(lambda: self._clear_shader_cache(appid))
             menu.addAction(self.tr("Open ProtonDB Page"), lambda: self._open_protondb_page(appid))
             menu.addAction(self.tr("Validate Game"), lambda: self._validate_selected(appid))
-            menu.addAction(self.tr("Launch via Steam"), lambda: self._launch_steam(appid))
+            menu.addAction(self.tr("Play"), lambda: self._launch_steam(appid))
             menu.addAction(self.tr("Clear History"), lambda: self._clear_game_history(appid))
             menu.addAction(self.tr("Clone Settings To..."), lambda: self._clone_game_to(appid))
             menu.addSeparator()

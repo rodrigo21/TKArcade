@@ -121,6 +121,40 @@ def proton_log_dir(appid: str) -> Path:
     return xdg.games_log_dir() / safe / "proton"
 
 
+#: A planted skip file suppresses the pre-launch menu once (Play button,
+#: tray and context menu launch straight through Steam).
+MENU_SKIP_TTL = 300
+
+
+def menu_skip_path(appid: str) -> Path:
+    """Sentinel file consumed by the next launch of this game."""
+    return xdg.app_state_dir() / f"skip-menu-{xdg.safe_stem(appid)}.once"
+
+
+def plant_menu_skip(appid: str) -> None:
+    """Ask the next launch to skip the pre-launch menu (best effort)."""
+    try:
+        path = menu_skip_path(appid)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("1", encoding="utf-8")
+    except OSError as e:
+        log.warning("cannot plant menu skip: %s", e)
+
+
+def consume_menu_skip(appid: str) -> bool:
+    """Use up a planted menu skip; False when absent or stale."""
+    path = menu_skip_path(appid)
+    try:
+        fresh = time.time() - path.stat().st_mtime < MENU_SKIP_TTL
+    except OSError:
+        return False
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return fresh
+
+
 def swap_proton_executable(game_cmd: list[str], custom: str) -> list[str]:
     """Swap exe inside Proton prefix. Keeps 'proton run' wrapper.
 
@@ -711,7 +745,12 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = cfgmod.load_effective(appid)  # refresh: the editor above may have saved changes
 
-    if (args.menu or cfg.general.show_menu) and not args.edit and not menu_shown:
+    if (
+        (args.menu or cfg.general.show_menu)
+        and not args.edit
+        and not menu_shown
+        and not consume_menu_skip(appid)
+    ):
         outcome, picked = run_editor_menu(
             appid,
             for_menu=True,

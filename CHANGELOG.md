@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Play in the game context menu; launching from the program (button,
+  tray, menu) skips the pre-launch menu once via a fresh sentinel,
+  even with show-menu enabled.
+
+### Added
 - Play button (Games row) and Launch via Steam (context menu) for
   launching through the client; Play uses the real selection.
 - In-app language option (Preferences): system default, English, or

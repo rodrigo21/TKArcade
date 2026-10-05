@@ -1641,7 +1641,7 @@ def test_context_menu_actions_no_steam_dirs(qt_app, xdg_env, monkeypatch, tmp_pa
         "Clear Shader Cache",
         "Open ProtonDB Page",
         "Validate Game",
-        "Launch via Steam",
+        "Play",
         "Clear History",
         "Clone Settings To...",
         "",
@@ -2536,9 +2536,13 @@ def test_play_button_and_menu_launch(qt_app, xdg_env, monkeypatch):
     play.click()
     qt_app.processEvents()
     assert opened == ["steam://rungameid/213"]
+    from tksteamlaunch import launcher as L
+
+    assert L.menu_skip_path("213").exists()  # Play plants the one-shot skip
     w.table.clearSelection()
     play.click()
     assert w.status.text() == "Select a game first."
     labels = [a.text() for a in w._build_game_menu("213").actions()]
-    assert "Launch via Steam" in labels
+    assert "Play" in labels
+    assert "Launch via Steam" not in labels
     w.close()

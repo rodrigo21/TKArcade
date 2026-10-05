@@ -420,3 +420,22 @@ def test_validate_checks_effective_profile_content(xdg_env):
     C.save_profile("36", "p1", prof)
     issues = L.validate_game("36")
     assert any("not/here" in i for i in issues)
+
+
+def test_menu_skip_plant_consume_expire(xdg_env, tmp_path):
+    import os
+    import time
+
+    from tksteamlaunch import launcher as L
+
+    assert L.consume_menu_skip("40") is False
+    L.plant_menu_skip("40")
+    assert L.consume_menu_skip("40") is True
+    assert L.consume_menu_skip("40") is False  # one-shot
+    L.plant_menu_skip("41")
+    path = L.menu_skip_path("41")
+    old = time.time() - L.MENU_SKIP_TTL - 10
+    os.utime(path, (old, old))
+    assert L.consume_menu_skip("41") is False
+    assert not path.exists()
+    assert "../" not in str(L.menu_skip_path("../../evil"))
