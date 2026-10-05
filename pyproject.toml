@@ -3,13 +3,13 @@ requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project]
-name = "tksteamlaunch"
+name = "tkarcade"
 dynamic = ["version"]
 description = "Minimal Steam launch wrapper (env, exe override, GameMode, gamescope, MangoHud, ludusavi, pre/post, night light)"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "GPL-3.0-or-later" }
-authors = [{ name = "TKSteamLaunch contributors" }]
+authors = [{ name = "TKArcade contributors" }]
 dependencies = [
   "PySide6",
   "vdf",
@@ -28,10 +28,10 @@ pythonpath = ["src"]
 
 # AppImage (single entry) via pyproject-appimage; see packaging/appimage/.
 [tool.pyproject-appimage]
-script = "tksteamlaunch"
-output = "TKSteamLaunch.AppImage"
-icon = "src/tksteamlaunch/icons/tksteamlaunch.svg"
-desktop-entry = "packaging/tksteamlaunch.desktop"
+script = "tkarcade"
+output = "TKArcade.AppImage"
+icon = "src/tkarcade/icons/tkarcade.svg"
+desktop-entry = "packaging/tkarcade.desktop"
 
 [tool.ruff]
 target-version = "py312"
@@ -46,12 +46,12 @@ line-length = 100
 select = ["E4", "E7", "E9", "F", "I", "UP", "B", "RUF100", "FURB", "PERF"]
 
 [project.scripts]
-tksteamlaunch = "tksteamlaunch.launcher:main"
+tkarcade = "tkarcade.launcher:main"
 
 [tool.hatch.build.targets.wheel]
 # translations/ holds no .py-adjacent code, only .qm catalogs: name the
 # package explicitly so the files ship even if auto-discovery changes.
-packages = ["src/tksteamlaunch"]
+packages = ["src/tkarcade"]
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"

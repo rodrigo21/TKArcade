@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=TKSteamLaunch
+Name=TKArcade
 Comment=Minimal Steam launch wrapper settings
-Exec=tksteamlaunch
-Icon=tksteamlaunch
+Exec=tkarcade
+Icon=tkarcade
 Terminal=false
 Categories=Game;
-StartupWMClass=TKSteamLaunch
+StartupWMClass=TKArcade

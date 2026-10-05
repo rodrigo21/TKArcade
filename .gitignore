@@ -10,15 +10,15 @@ dist/
 .env
 .opencode-model
 # makepkg outputs, per package dir (repo src/ is source, not build dir)
-packaging/arch/tksteamlaunch/pkg/
-packaging/arch/tksteamlaunch/src/
-packaging/arch/tksteamlaunch/*.pkg.tar.zst
-packaging/arch/tksteamlaunch/*.tar.gz
-packaging/arch/tksteamlaunch-git/pkg/
-packaging/arch/tksteamlaunch-git/src/
-packaging/arch/tksteamlaunch-git/tksteamlaunch/
-packaging/arch/tksteamlaunch-git/tksteamlaunch-git/
-packaging/arch/tksteamlaunch-git/*.pkg.tar.zst
+packaging/arch/tkarcade/pkg/
+packaging/arch/tkarcade/src/
+packaging/arch/tkarcade/*.pkg.tar.zst
+packaging/arch/tkarcade/*.tar.gz
+packaging/arch/tkarcade-git/pkg/
+packaging/arch/tkarcade-git/src/
+packaging/arch/tkarcade-git/tkarcade/
+packaging/arch/tkarcade-git/tkarcade-git/
+packaging/arch/tkarcade-git/*.pkg.tar.zst
 packaging/arch/linux-rt-upscaler/pkg/
 packaging/arch/linux-rt-upscaler/src/
 packaging/arch/linux-rt-upscaler/linux-rt-upscaler/

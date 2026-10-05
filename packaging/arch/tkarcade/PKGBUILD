@@ -1,11 +1,11 @@
 # Maintainer: Rodrigo Bezerra <rodrigobezerra21@gmail.com>
 
-pkgname=tksteamlaunch
+pkgname=tkarcade
 pkgver=1.1.1
 pkgrel=1
 pkgdesc='Minimal Steam launch wrapper'
 arch=('any')
-url='https://github.com/rodrigo21/TKSteamLaunch'
+url='https://github.com/rodrigo21/TKArcade'
 license=('GPL-3.0-or-later')
 depends=('hicolor-icon-theme' 'python' 'pyside6' 'python-vdf' 'python-jeepney')
 makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-uv-dynamic-versioning' 'qt6-tools')
@@ -17,27 +17,27 @@ optdepends=('gamemode: Feral GameMode support'
             'protontricks: winetricks verbs support'
             'linux-rt-upscaler: real-time upscaling support (local package)'
             'libnotify: desktop notifications')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/rodrigo21/TKSteamLaunch/archive/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/rodrigo21/TKArcade/archive/v$pkgver.tar.gz")
 sha256sums=('c5152c988dcaa057c78bbab31494cd158b5e0c61d8121140fd9af0da1acdd497')
 
 build() {
-    cd "TKSteamLaunch-$pkgver"
+    cd "TKArcade-$pkgver"
 
     UV_DYNAMIC_VERSIONING_BYPASS=$pkgver python -m build --wheel --no-isolation
 }
 
 check() {
-    cd "TKSteamLaunch-$pkgver"
+    cd "TKArcade-$pkgver"
 
     QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 }
 
 package() {
-    cd "TKSteamLaunch-$pkgver"
+    cd "TKArcade-$pkgver"
 
     python -m installer --destdir="$pkgdir" dist/*.whl
 
-    install -Dm644 packaging/tksteamlaunch.desktop "$pkgdir/usr/share/applications/tksteamlaunch.desktop"
-    install -Dm644 src/tksteamlaunch/icons/tksteamlaunch.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tksteamlaunch.svg"
-    install -Dm644 packaging/man/tksteamlaunch.1 "$pkgdir/usr/share/man/man1/tksteamlaunch.1"
+    install -Dm644 packaging/tkarcade.desktop "$pkgdir/usr/share/applications/tkarcade.desktop"
+    install -Dm644 src/tkarcade/icons/tkarcade.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tkarcade.svg"
+    install -Dm644 packaging/man/tkarcade.1 "$pkgdir/usr/share/man/man1/tkarcade.1"
 }

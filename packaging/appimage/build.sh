@@ -13,12 +13,12 @@ if TAG="$(git describe --tags --exact-match 2>/dev/null)"; then
 elif DESCRIBE="$(git describe --tags 2>/dev/null)"; then
     VER="${DESCRIBE#v}"
 else
-    VER="$(python3 -c 'from importlib.metadata import version; print(version("tksteamlaunch"))' 2>/dev/null || echo dev)"
+    VER="$(python3 -c 'from importlib.metadata import version; print(version("tkarcade"))' 2>/dev/null || echo dev)"
 fi
-NAME="TKSteamLaunch-${VER}.AppImage"
+NAME="TKArcade-${VER}.AppImage"
 # Drop any previous bundle first: overwriting a running AppImage fails
 # with "Text file busy" (unlinking a running file is fine on Linux).
-rm -f "$OUT_DIR"/TKSteamLaunch*.AppImage
+rm -f "$OUT_DIR"/TKArcade*.AppImage
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 

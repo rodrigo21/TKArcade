@@ -1,17 +1,17 @@
-.TH TKSTEAMLAUNCH 1 "October 2026" "TKSteamLaunch" "User Commands"
+.TH TKARCADE 1 "October 2026" "TKArcade" "User Commands"
 .SH NAME
-tksteamlaunch \- minimal Steam launch wrapper
+tkarcade \- minimal Steam launch wrapper
 .SH SYNOPSIS
-.B tksteamlaunch
+.B tkarcade
 [\fIOPTIONS\fR] [\fB--\fR] [\fICOMMAND\fR...]
 .SH DESCRIPTION
 Minimal Steam launch wrapper (inspired by steamtinkerlaunch). Use in
-Steam as \fBtksteamlaunch %command%\fR. The Steam AppID resolves
+Steam as \fBtkarcade %command%\fR. The Steam AppID resolves
 automatically from the Steam environment. Per-game settings live in
-TOML snapshots under \fB$XDG_CONFIG_HOME/tksteamlaunch/\fR; run without
+TOML snapshots under \fB$XDG_CONFIG_HOME/tkarcade/\fR; run without
 arguments (or with \fB--gui\fR) for the settings GUI.
 .PP
-Logs go to \fB$XDG_STATE_HOME/tksteamlaunch/games/<appid>.log\fR (full)
+Logs go to \fB$XDG_STATE_HOME/tkarcade/games/<appid>.log\fR (full)
 plus a one-line entry per run in \fBlauncher.log\fR.
 .SH OPTIONS
 .TP
@@ -60,13 +60,13 @@ found. 15 display needed but missing. 16 export/import failed.
 17 validation issues found.
 .SH FILES
 .TP
-.I $XDG_CONFIG_HOME/tksteamlaunch/games/<appid>.toml
+.I $XDG_CONFIG_HOME/tkarcade/games/<appid>.toml
 Per-game config snapshot (carries a \fBconfig_version\fR stamp).
 .TP
-.I $XDG_CONFIG_HOME/tksteamlaunch/profiles/<appid>/<name>.toml
+.I $XDG_CONFIG_HOME/tkarcade/profiles/<appid>/<name>.toml
 Named per-game profiles.
 .TP
-.I $XDG_CONFIG_HOME/tksteamlaunch/defaults.toml
+.I $XDG_CONFIG_HOME/tkarcade/defaults.toml
 New-game template only.
 .SH "SEE ALSO"
-Project home: https://github.com/rodrigo21/TKSteamLaunch
+Project home: https://github.com/rodrigo21/TKArcade

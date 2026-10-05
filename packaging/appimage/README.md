@@ -1,13 +1,13 @@
 # AppImage (unified entry)
 
-`build.sh` produces `dist/TKSteamLaunch-<version>.AppImage` (git-ignored): the
-single `tksteamlaunch` entry plus its Python runtime and
+`build.sh` produces `dist/TKArcade-<version>.AppImage` (git-ignored): the
+single `tkarcade` entry plus its Python runtime and
 PySide6/vdf/jeepney wheels (~150-250 MB). Run without arguments (or
 `--gui`) for the settings GUI; anything else runs the launcher, so
 Steam Launch Options point at the file itself:
 
 ```
-.../TKSteamLaunch-<version>.AppImage %command%
+.../TKArcade-<version>.AppImage %command%
 ```
 
 Notes and limits:
@@ -21,7 +21,7 @@ Notes and limits:
   `protontricks`, `xdg-open`) stay on the host by design, same as the
   native packages.
 * Running an AppImage needs FUSE (`dev/fuse`). Without it, extract and
-  run directly: `./TKSteamLaunch.AppImage --appimage-extract` then
+  run directly: `./TKArcade.AppImage --appimage-extract` then
   `./squashfs-root/AppRun --version`.
 * The bundle carries our `.desktop` file (needed by appimagetool
   validation) alongside `.DirIcon`; both come from the repo.

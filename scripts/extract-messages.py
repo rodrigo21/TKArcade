@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "src" / "tksteamlaunch" / "gui"
+SRC = ROOT / "src" / "tkarcade" / "gui"
 
 
 def _source_text(node: ast.expr) -> str | None:
@@ -77,7 +77,7 @@ class Visitor(ast.NodeVisitor):
 
 
 def main() -> int:
-    out = ROOT / "translations" / "tksteamlaunch_pt_BR.ts"
+    out = ROOT / "translations" / "tkarcade_pt_BR.ts"
     previous: dict[tuple[str, str], str | None] = {}
     if out.exists():
         old = ET.parse(str(out)).getroot()
