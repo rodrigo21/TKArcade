@@ -1279,8 +1279,8 @@ Adicione entrada custom no Ludusavi para backups.</translation>
         </message>
         <message>
             <location filename="src/tkarcade/gui/main_window.py" line="269" />
-            <source>Configured Games (double-click a game to edit its settings)</source>
-            <translation>Jogos configurados (duplo-clique para editar)</translation>
+            <source>Configured Games (double-click a game to play it)</source>
+            <translation>Jogos configurados (duplo-clique para jogar)</translation>
         </message>
         <message>
             <location filename="src/tkarcade/gui/main_window.py" line="274" />

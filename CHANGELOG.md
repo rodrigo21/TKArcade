@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Double-click plays the game, middle-click opens its settings
+  (ProtonDB column still opens the page).
 - Centered main toolbar actions; window opens at 1280x720 and
   remembers its size across runs (floored at 640x480).
 - View menu with a Main Toolbar toggle; toolbar buttons show icon

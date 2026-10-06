@@ -265,9 +265,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(right)
         self._source_filter = "all"
 
-        layout.addWidget(
-            QLabel(self.tr("Configured Games (double-click a game to edit its settings)"))
-        )
+        layout.addWidget(QLabel(self.tr("Configured Games (double-click a game to play it)")))
         filter_row = QHBoxLayout()
         self.filter_input = QLineEdit()
         self.filter_input.setObjectName("filter_input")
@@ -307,6 +305,7 @@ class MainWindow(QMainWindow):
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table.itemDoubleClicked.connect(self._on_double_click)
+        self.table.viewport().installEventFilter(self)
         header = self.table.horizontalHeader()
         header.setSectionsMovable(True)
         header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -925,13 +924,30 @@ class MainWindow(QMainWindow):
         menu = self._build_header_menu()
         menu.exec(self.table.horizontalHeader().mapToGlobal(pos))
 
+    def eventFilter(self, watched, event) -> bool:
+        """Middle-click a row opens its settings (double-click plays)."""
+        from PySide6.QtCore import QEvent
+
+        if (
+            watched is self.table.viewport()
+            and event.type() == QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.MiddleButton
+        ):
+            item = self.table.itemAt(event.pos())
+            if item is not None:
+                self.table.setCurrentItem(item)
+                self._edit_selected()
+                return True
+        return super().eventFilter(watched, event)
+
     def _on_double_click(self, item: QTableWidgetItem) -> None:
         if item.column() == 3:
             appid = str(item.data(Qt.ItemDataRole.UserRole) or "")
             if appid:
                 self._open_protondb_page(appid)
             return
-        self._edit_selected()
+        self.table.setCurrentItem(item)
+        self._play_selected()
 
     def _open_protondb_page(self, appid: str) -> None:
         from PySide6.QtCore import QUrl

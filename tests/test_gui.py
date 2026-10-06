@@ -1980,6 +1980,40 @@ def test_double_click_protondb_opens_url(qt_app, xdg_env, monkeypatch):
     w.close()
 
 
+def test_double_click_plays_game(qt_app, xdg_env, monkeypatch):
+    w = _main_window_with_game(qt_app, "124", monkeypatch)
+    played = []
+    monkeypatch.setattr(w, "_play_selected", lambda: played.append(True))
+    name = w.table.item(0, 0)
+    assert name is not None
+    w._on_double_click(name)
+    assert played == [True]
+    assert w._selected_appid() == "124"
+    w.close()
+
+
+def test_middle_click_opens_settings(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QMouseEvent
+
+    w = _main_window_with_game(qt_app, "125", monkeypatch)
+    edited = []
+    monkeypatch.setattr(w, "_edit_selected", lambda *a, **k: edited.append(True))
+    name = w.table.item(0, 0)
+    pos = w.table.visualItemRect(name).center()
+    event = QMouseEvent(
+        QEvent.Type.MouseButtonPress,
+        pos,
+        Qt.MouseButton.MiddleButton,
+        Qt.MouseButton.MiddleButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    assert w.eventFilter(w.table.viewport(), event) is True
+    assert edited == [True]
+    assert w._selected_appid() == "125"
+    w.close()
+
+
 def test_appid_column_sorts_numerically(qt_app, xdg_env, monkeypatch):
     from PySide6.QtCore import Qt
 
