@@ -1,0 +1,39 @@
+"""Kirigami GUI entry point (kirigami branch spike)."""
+
+from __future__ import annotations
+
+import os
+import signal
+import sys
+from pathlib import Path
+
+
+def qml_url() -> str:
+    """File URL of the main QML document (kept tiny for tests)."""
+    from PySide6.QtCore import QUrl
+
+    return QUrl.fromLocalFile(str(Path(__file__).parent / "qml" / "main.qml")).toString()
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the Kirigami application (list, add and launch local games)."""
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtQml import QQmlApplicationEngine
+
+    from .model import GameListModel
+
+    if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
+        os.environ["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
+    app = QGuiApplication(sys.argv if argv is None else argv)
+    app.setApplicationName("TKArcade")
+    app.setOrganizationName("TKArcade")
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    engine = QQmlApplicationEngine()
+    engine.rootContext().setContextProperty("gameModel", GameListModel())
+    from PySide6.QtCore import QUrl
+
+    engine.load(QUrl(qml_url()))
+    if not engine.rootObjects():
+        print("tkarcade: could not load the Kirigami interface", file=sys.stderr)
+        return 1
+    return app.exec()
