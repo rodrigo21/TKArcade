@@ -332,7 +332,7 @@ def test_gamemode_conflict_resolved_on_load(qt_app, xdg_env, monkeypatch):
 
 
 def test_add_blank_choice_ignored(qt_app, xdg_env, monkeypatch):
-    from PySide6.QtWidgets import QInputDialog
+    from PySide6.QtWidgets import QDialog, QInputDialog
 
     from tkarcade.gui import main_window as mw
 
@@ -343,6 +343,10 @@ def test_add_blank_choice_ignored(qt_app, xdg_env, monkeypatch):
         raise AssertionError("dialog must not open")
 
     monkeypatch.setattr(mw, "GameDialog", boom)
+    monkeypatch.setattr(
+        "tkarcade.gui.game_dialog.AddSourceDialog.exec",
+        lambda self: QDialog.DialogCode.Accepted,
+    )
     mw.MainWindow()._add()
 
 
@@ -2855,3 +2859,24 @@ def test_local_menu_copies_launch_command(qt_app, xdg_env, monkeypatch):
     ]
     assert "Copy Launch Command" in labels
     assert "Copy Launch Options" not in labels
+
+
+def test_add_chooser_routes_by_source(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtWidgets import QDialog
+
+    from tkarcade.gui import game_dialog as gd
+    from tkarcade.gui import main_window as mw
+
+    w = mw.MainWindow()
+    try:
+        called = []
+        monkeypatch.setattr(mw.MainWindow, "_add_steam", lambda self: called.append("steam"))
+        monkeypatch.setattr(mw.MainWindow, "_add_local", lambda self: called.append("local"))
+        monkeypatch.setattr(gd.AddSourceDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
+        monkeypatch.setattr(gd.AddSourceDialog, "choice", lambda self: gd.AddSourceDialog.STEAM)
+        w._add()
+        monkeypatch.setattr(gd.AddSourceDialog, "choice", lambda self: gd.AddSourceDialog.LOCAL)
+        w._add()
+        assert called == ["steam", "local"]
+    finally:
+        w.close()

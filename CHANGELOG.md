@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Single Add Game entry: a source chooser (Steam / Local Linux)
+  replaces the per-source buttons; room for Wine and UMU later.
 - Local native Linux games: Add Local... (name + executable, unique
   `local-<slug>` ID), direct Play (detached, same logs/history/menu
   skip as Steam), Copy Launch Command, and exe-dir working directory.

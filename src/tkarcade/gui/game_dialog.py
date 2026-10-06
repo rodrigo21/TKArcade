@@ -170,6 +170,31 @@ class BulkEnvDialog(QDialog):
         return self.edit.toPlainText()
 
 
+class AddSourceDialog(QDialog):
+    """One entry point for every game source (Steam, local, ...)."""
+
+    STEAM = "steam"
+    LOCAL = "local"
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Add Game"))
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(self.tr("What kind of game is this?")))
+        self.cb_source = QComboBox()
+        self.cb_source.addItem(self.tr("Steam game"), self.STEAM)
+        self.cb_source.addItem(self.tr("Local Linux game"), self.LOCAL)
+        layout.addWidget(self.cb_source)
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        layout.addWidget(btns)
+
+    def choice(self) -> str:
+        """Selected source key (STEAM/LOCAL)."""
+        return str(self.cb_source.currentData() or self.STEAM)
+
+
 class AddLocalDialog(QDialog):
     """Name + executable for a manually added native Linux game."""
 

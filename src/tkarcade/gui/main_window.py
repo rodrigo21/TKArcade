@@ -328,7 +328,7 @@ class MainWindow(QMainWindow):
         empty_btns.addStretch(1)
         self.empty_add = QPushButton(self.tr("Add Game..."))
         self.empty_add.setObjectName("empty_add")
-        self.empty_add.setToolTip(self.tr("Pick a Steam game to configure."))
+        self.empty_add.setToolTip(self.tr("Add a Steam or local game."))
         self.empty_add.clicked.connect(self._add)
         empty_btns.addWidget(self.empty_add)
         self.empty_import = QPushButton(self.tr("Import..."))
@@ -368,8 +368,7 @@ class MainWindow(QMainWindow):
                         QStyle.StandardPixmap.SP_MediaPlay,
                     ),
                     (self.tr("Add Game..."), self._add),
-                    (self.tr("Add Local..."), self._add_local),
-                    (self.tr("Scan Library..."), self._scan_library),
+                    (self.tr("Scan Steam Library..."), self._scan_library),
                     (self.tr("Edit..."), self._edit_selected),
                     (self.tr("Remove"), self._remove_selected),
                     (self.tr("Reset..."), self._reset_selected),
@@ -1048,6 +1047,18 @@ class MainWindow(QMainWindow):
         return cand
 
     def _add(self) -> None:
+        """Single entry point: pick the source, then run its flow."""
+        from .game_dialog import AddSourceDialog
+
+        dlg = AddSourceDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        if dlg.choice() == AddSourceDialog.LOCAL:
+            self._add_local()
+        else:
+            self._add_steam()
+
+    def _add_steam(self) -> None:
         appid = self._pick_steam_game(self.tr("Add Game"), self.tr("Steam game:"))
         if not appid:
             return
