@@ -933,7 +933,7 @@ class MainWindow(QMainWindow):
             and event.type() == QEvent.Type.MouseButtonPress
             and event.button() == Qt.MouseButton.MiddleButton
         ):
-            item = self.table.itemAt(event.pos())
+            item = self.table.itemAt(event.position().toPoint())
             if item is not None:
                 self.table.setCurrentItem(item)
                 self._edit_selected()

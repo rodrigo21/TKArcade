@@ -1993,22 +1993,21 @@ def test_double_click_plays_game(qt_app, xdg_env, monkeypatch):
 
 
 def test_middle_click_opens_settings(qt_app, xdg_env, monkeypatch):
-    from PySide6.QtCore import QEvent, Qt
-    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
 
     w = _main_window_with_game(qt_app, "125", monkeypatch)
     edited = []
     monkeypatch.setattr(w, "_edit_selected", lambda *a, **k: edited.append(True))
     name = w.table.item(0, 0)
     pos = w.table.visualItemRect(name).center()
-    event = QMouseEvent(
-        QEvent.Type.MouseButtonPress,
-        pos,
-        Qt.MouseButton.MiddleButton,
+    QTest.mouseClick(
+        w.table.viewport(),
         Qt.MouseButton.MiddleButton,
         Qt.KeyboardModifier.NoModifier,
+        pos,
     )
-    assert w.eventFilter(w.table.viewport(), event) is True
+    qt_app.processEvents()
     assert edited == [True]
     assert w._selected_appid() == "125"
     w.close()
