@@ -52,9 +52,7 @@ def test_game_delegate_binds_roles(qgui_app):
     engine = QQmlEngine()
     warnings: list[str] = []
     engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
-    url = QUrl.fromLocalFile(
-        str(pathlib.Path(kapp.__file__).parent / "qml" / "GameDelegate.qml")
-    )
+    url = QUrl.fromLocalFile(str(pathlib.Path(kapp.__file__).parent / "qml" / "GameDelegate.qml"))
     component = QQmlComponent(engine, url)
     assert component.isReady(), component.errorString()
     item = component.createWithInitialProperties(
