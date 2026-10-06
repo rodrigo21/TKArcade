@@ -62,7 +62,9 @@ rewrite pushed history or tags.
   in a commit of its own.
 - Rebuild `-git` locally to verify each batch, but never commit its
   `pkgver` churn (restore the PKGBUILD after); all PKGBUILDs change
-  only on releases.
+  only on releases. On a feature branch the `-git` source pins that
+  branch; at release time check every package for new versions,
+  update every PKGBUILD and build them all.
 - Flatpak Ludusavi cannot see Proton prefixes: always warn, never
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,

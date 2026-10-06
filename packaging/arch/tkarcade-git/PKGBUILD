@@ -20,7 +20,7 @@ optdepends=('gamemode: Feral GameMode support'
             'libnotify: desktop notifications')
 conflicts=('tkarcade')
 provides=("tkarcade=${pkgver}")
-source=("$_basename::git+https://github.com/rodrigo21/TKArcade.git#branch=main")
+source=("$_basename::git+https://github.com/rodrigo21/TKArcade.git#branch=kirigami")
 sha256sums=('SKIP')
 
 pkgver() {
