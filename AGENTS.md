@@ -60,6 +60,9 @@ rewrite pushed history or tags.
   pyproject-appimage) are synced copies from TKSteamLaunch: check
   drift with `diff -r` against it before tagging, copy the winner
   in a commit of its own.
+- Rebuild `-git` locally to verify each batch, but never commit its
+  `pkgver` churn (restore the PKGBUILD after); all PKGBUILDs change
+  only on releases.
 - Flatpak Ludusavi cannot see Proton prefixes: always warn, never
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,
