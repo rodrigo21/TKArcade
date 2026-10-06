@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- New application icon: arcade cabinet with a TK marquee and play
+  screen (monochrome silhouette for the tray).
 - Double-click plays the game, middle-click opens its settings
   (ProtonDB column still opens the page).
 - Centered main toolbar actions; window opens at 1280x720 and
