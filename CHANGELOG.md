@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Menu bar + slim toolbar replace the Games/Tools/Application button
+  rows (File/Game/Tools/Settings/Help; Play/Add/Edit/Remove up front).
+  Copy Launch Options and the rest of the per-game actions live only
+  in the row menu now, shown per source (no ProtonDB page for local
+  games); Validate/Clone guard empty selections.
 - Single Add Game entry: a source chooser (Steam / Local Linux)
   replaces the per-source buttons; room for Wine and UMU later.
 - Local native Linux games: Add Local... (name + executable, unique

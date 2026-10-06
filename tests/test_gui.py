@@ -691,40 +691,60 @@ def test_about_text_contents():
     assert "vdf" in text and "jeepney" in text
 
 
-def test_section_boxes_present(qt_app, xdg_env):
-    from PySide6.QtWidgets import QGroupBox, QLabel
+def test_no_section_button_rows(qt_app, xdg_env):
+    """Button rows are gone: actions live in the menu bar + toolbar."""
+    from PySide6.QtWidgets import QGroupBox, QToolBar
 
     from tkarcade.gui.main_window import MainWindow
 
     w = MainWindow()
-    groups = w.findChildren(QGroupBox)
-    assert len(groups) == 3 and all(box.title() == "" for box in groups)
-    labels = [label.text() for label in w.findChildren(QLabel)]
-    assert {"Games", "Tools", "Application"} <= set(labels)
-    w._apply_default_size()
-    assert w.width() >= 640 and w.height() >= 480
-    w.close()
+    try:
+        assert w.findChildren(QGroupBox) == []
+        assert w.menuBar() is not None
+        assert w.findChild(QToolBar, "main_toolbar") is not None
+    finally:
+        w.close()
 
 
-def test_section_row_centered(qt_app):
-    from PySide6.QtWidgets import QGroupBox, QLabel, QPushButton, QSpacerItem
+def test_menu_bar_and_toolbar_structure(qt_app, xdg_env):
+    from PySide6.QtWidgets import QMenu, QToolBar
 
     from tkarcade.gui.main_window import MainWindow
 
-    def noop() -> None:
-        pass
-
-    row = MainWindow._section_row("T", (("A", noop), ("B", noop), ("C", noop)))
-    assert isinstance(row, QGroupBox)
-    assert row.title() == ""
-    layout = row.layout()
-    assert isinstance(layout.itemAt(0).widget(), QLabel)
-    assert (
-        sum(isinstance(layout.itemAt(i).widget(), QPushButton) for i in range(layout.count())) == 3
-    )
-    spacers = [i for i in range(layout.count()) if isinstance(layout.itemAt(i), QSpacerItem)]
-    assert spacers == [1, layout.count() - 2]  # group centered on the full row width
-    assert layout.itemAt(layout.count() - 1).widget().minimumWidth() == 90
+    w = MainWindow()
+    try:
+        menus = {}
+        for m in w.menuBar().findChildren(QMenu):
+            menus[m.title()] = [a.text() for a in m.actions() if not a.isSeparator()]
+        assert menus["File"] == ["Export...", "Import...", "Quit"]
+        assert menus["Game"] == [
+            "Play",
+            "Add Game...",
+            "Scan Steam Library...",
+            "Edit...",
+            "Clone Settings To...",
+            "Remove",
+            "Reset...",
+            "History...",
+        ]
+        assert menus["Tools"] == [
+            "Validate Game",
+            "Open Ludusavi...",
+            "Open Logs Folder",
+            "Clean Profiles...",
+            "Reload",
+        ]
+        assert menus["Settings"] == ["Global Defaults...", "Preferences..."]
+        assert menus["Help"] == ["About..."]
+        toolbar = w.findChild(QToolBar, "main_toolbar")
+        assert [a.text() for a in toolbar.actions()] == [
+            "Play",
+            "Add Game...",
+            "Edit...",
+            "Remove",
+        ]
+    finally:
+        w.close()
 
 
 def test_menu_launch_cancel_and_nolaunch(qt_app, xdg_env):
@@ -2628,7 +2648,7 @@ def test_translations_load_pt_br(qt_app, monkeypatch):
     monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("pt_BR")))
     app = qt_app
     assert helpersmod.install_translations(app) == "pt_BR"
-    assert QCoreApplication.translate("MainWindow", "Games") == "Jogos"
+    assert QCoreApplication.translate("MainWindow", "Play") == "Jogar"
     assert QCoreApplication.translate("GameDialog", "Save As...") == "Salvar como..."
     assert QCoreApplication.translate("MainWindow", "Nope") == "Nope"
     app.removeTranslator(helpersmod._translators.pop()[1])
@@ -2664,9 +2684,9 @@ def test_install_translations_explicit_override(qt_app, monkeypatch):
 
     monkeypatch.setattr(QLocale, "system", classmethod(lambda cls: QLocale("pt_BR")))
     assert helpersmod.install_translations(qt_app, "en") == ""
-    assert QCoreApplication.translate("MainWindow", "Games") == "Games"
+    assert QCoreApplication.translate("MainWindow", "Play") == "Play"
     assert helpersmod.install_translations(qt_app, "pt_BR") == "pt_BR"
-    assert QCoreApplication.translate("MainWindow", "Games") == "Jogos"
+    assert QCoreApplication.translate("MainWindow", "Play") == "Jogar"
     qt_app.removeTranslator(helpersmod._translators.pop()[1])
 
 
@@ -2699,24 +2719,25 @@ def test_system_tab_groups(qt_app, xdg_env):
 
 def test_play_button_and_menu_launch(qt_app, xdg_env, monkeypatch):
     from PySide6.QtGui import QDesktopServices
-    from PySide6.QtWidgets import QPushButton
+    from PySide6.QtWidgets import QToolBar
 
     w = _main_window_with_game(qt_app, "213", monkeypatch)
-    play = next(b for b in w.findChildren(QPushButton) if b.text() == "Play")
+    toolbar = w.findChild(QToolBar, "main_toolbar")
+    play = next(a for a in toolbar.actions() if a.text() == "Play")
     assert not play.icon().isNull()
     opened = []
     monkeypatch.setattr(
         QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True
     )
     w.table.selectRow(0)
-    play.click()
+    play.trigger()
     qt_app.processEvents()
     assert opened == ["steam://rungameid/213"]
     from tkarcade import launcher as L
 
     assert L.menu_skip_path("213").exists()  # Play plants the one-shot skip
     w.table.clearSelection()
-    play.click()
+    play.trigger()
     assert w.status.text() == "Select a game first."
     labels = [a.text() for a in w._build_game_menu("213").actions()]
     assert "Play" in labels

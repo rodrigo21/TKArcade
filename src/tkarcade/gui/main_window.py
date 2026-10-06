@@ -358,89 +358,84 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.status)
         layout.addSpacing(2)
 
-        layout.addWidget(
-            self._section_row(
-                self.tr("Games"),
-                (
-                    (
-                        self.tr("Play"),
-                        self._play_selected,
-                        QStyle.StandardPixmap.SP_MediaPlay,
-                    ),
-                    (self.tr("Add Game..."), self._add),
-                    (self.tr("Scan Steam Library..."), self._scan_library),
-                    (self.tr("Edit..."), self._edit_selected),
-                    (self.tr("Remove"), self._remove_selected),
-                    (self.tr("Reset..."), self._reset_selected),
-                    (self.tr("History..."), self._show_history),
-                ),
-            )
-        )
-        layout.addSpacing(4)
-        layout.addWidget(
-            self._section_row(
-                self.tr("Tools"),
-                (
-                    (self.tr("Copy Launch Options"), self._copy_launch),
-                    (self.tr("Open Ludusavi..."), self._open_ludusavi),
-                    (self.tr("Open Logs Folder"), self._open_logs),
-                    (self.tr("Clean Profiles..."), self._clean_profiles),
-                    (self.tr("Reload"), self.refresh),
-                ),
-            )
-        )
-        layout.addSpacing(4)
-        layout.addWidget(
-            self._section_row(
-                self.tr("Application"),
-                (
-                    (self.tr("Global Defaults..."), self._edit_defaults),
-                    (self.tr("Preferences..."), self._edit_preferences),
-                    (self.tr("About..."), self._show_about),
-                    (self.tr("Export..."), self._export_configs),
-                    (self.tr("Import..."), self._import_configs),
-                ),
-            )
-        )
+        self._build_menu_bar()
+        self._build_tool_bar()
         self.refresh()
         self._apply_tray()
+
+    def _menu_action(self, menu, text: str, slot) -> None:
+        """Add a menu entry (split out so tests skip modal exec)."""
+        menu.addAction(text, slot)
+
+    def _build_menu_bar(self) -> None:
+        """Top-level menus (KDE-style): global actions live here, per-game
+        actions live in the row context menu."""
+        bar = self.menuBar()
+        file_menu = bar.addMenu(self.tr("File"))
+        self._menu_action(file_menu, self.tr("Export..."), self._export_configs)
+        self._menu_action(file_menu, self.tr("Import..."), self._import_configs)
+        file_menu.addSeparator()
+        self._menu_action(file_menu, self.tr("Quit"), self._quit)
+
+        game_menu = bar.addMenu(self.tr("Game"))
+        self._menu_action(game_menu, self.tr("Play"), self._play_selected)
+        self._menu_action(game_menu, self.tr("Add Game..."), self._add)
+        self._menu_action(game_menu, self.tr("Scan Steam Library..."), self._scan_library)
+        game_menu.addSeparator()
+        self._menu_action(game_menu, self.tr("Edit..."), self._edit_selected)
+        self._menu_action(
+            game_menu,
+            self.tr("Clone Settings To..."),
+            lambda: self._clone_game_to(self._selected_appid()),
+        )
+        self._menu_action(game_menu, self.tr("Remove"), self._remove_selected)
+        self._menu_action(game_menu, self.tr("Reset..."), self._reset_selected)
+        game_menu.addSeparator()
+        self._menu_action(game_menu, self.tr("History..."), self._show_history)
+
+        tools_menu = bar.addMenu(self.tr("Tools"))
+        self._menu_action(
+            tools_menu,
+            self.tr("Validate Game"),
+            lambda: self._validate_selected(self._selected_appid()),
+        )
+        self._menu_action(tools_menu, self.tr("Open Ludusavi..."), self._open_ludusavi)
+        self._menu_action(tools_menu, self.tr("Open Logs Folder"), self._open_logs)
+        self._menu_action(tools_menu, self.tr("Clean Profiles..."), self._clean_profiles)
+        tools_menu.addSeparator()
+        self._menu_action(tools_menu, self.tr("Reload"), self.refresh)
+
+        settings_menu = bar.addMenu(self.tr("Settings"))
+        self._menu_action(settings_menu, self.tr("Global Defaults..."), self._edit_defaults)
+        self._menu_action(settings_menu, self.tr("Preferences..."), self._edit_preferences)
+
+        help_menu = bar.addMenu(self.tr("Help"))
+        self._menu_action(help_menu, self.tr("About..."), self._show_about)
+
+    def _build_tool_bar(self) -> None:
+        """Slim toolbar with the primary actions only."""
+        from PySide6.QtWidgets import QToolBar
+
+        bar = QToolBar(self.tr("Main Toolbar"), self)
+        bar.setObjectName("main_toolbar")
+        play = bar.addAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay),
+            self.tr("Play"),
+            self._play_selected,
+        )
+        play.setObjectName("toolbar_play")
+        add = bar.addAction(self.tr("Add Game..."), self._add)
+        add.setObjectName("toolbar_add")
+        edit = bar.addAction(self.tr("Edit..."), self._edit_selected)
+        edit.setObjectName("toolbar_edit")
+        remove = bar.addAction(self.tr("Remove"), self._remove_selected)
+        remove.setObjectName("toolbar_remove")
+        self.addToolBar(bar)
 
     def _apply_default_size(self) -> None:
         from .helpers import apply_default_size
 
         apply_default_size(self)
-
-    @staticmethod
-    def _section_row(title: str, buttons: tuple[tuple, ...]) -> QWidget:
-        """Labeled row with its buttons centered in the full row width.
-
-        Each button is (label, slot[, icon]) where icon is a
-        QStyle.StandardPixmap or None. A trailing spacer mirrors the
-        label so the group centers on the window, not on the space
-        after the label. Untitled group box for a full frame without
-        a top title.
-        """
-        from PySide6.QtWidgets import QGroupBox
-
-        frame = QGroupBox()
-        layout = QHBoxLayout(frame)
-        layout.setSpacing(8)
-        label = QLabel(title)
-        label.setMinimumWidth(90)
-        layout.addWidget(label)
-        layout.addStretch(1)
-        for spec in buttons:
-            text, slot = spec[0], spec[1]
-            b = QPushButton(text)
-            if len(spec) > 2 and spec[2] is not None:
-                b.setIcon(b.style().standardIcon(spec[2]))
-            b.clicked.connect(slot)
-            layout.addWidget(b)
-        layout.addStretch(1)
-        spacer = QWidget()
-        spacer.setFixedWidth(90)
-        layout.addWidget(spacer)
-        return frame
 
     def _mark_user_sorted(self, *_args) -> None:
         self._user_sorted = True
@@ -888,7 +883,10 @@ class MainWindow(QMainWindow):
             act_shaders.setEnabled(shaders is not None)
             if shaders is not None:
                 act_shaders.triggered.connect(lambda: self._clear_shader_cache(appid))
-            menu.addAction(self.tr("Open ProtonDB Page"), lambda: self._open_protondb_page(appid))
+            if steammod.is_steam_id(appid):
+                menu.addAction(
+                    self.tr("Open ProtonDB Page"), lambda: self._open_protondb_page(appid)
+                )
             menu.addAction(self.tr("Validate Game"), lambda: self._validate_selected(appid))
             menu.addAction(self.tr("Clear History"), lambda: self._clear_game_history(appid))
             menu.addAction(self.tr("Clone Settings To..."), lambda: self._clone_game_to(appid))
@@ -925,9 +923,12 @@ class MainWindow(QMainWindow):
             return
         self.status.setText(self.tr(f"Cleared {size} of shader cache."))
 
-    def _validate_selected(self, appid: str) -> None:
+    def _validate_selected(self, appid: str = "") -> None:
         from ..launcher import validate_game
 
+        if not appid:
+            QMessageBox.information(self, "TKArcade", self.tr("Select a game first."))
+            return
         issues = validate_game(appid)
         if issues:
             QMessageBox.warning(self, "TKArcade", "\n".join(issues))
@@ -954,7 +955,10 @@ class MainWindow(QMainWindow):
         self.refresh()
         self.status.setText(self.tr(f"Cleared {removed} session(s)."))
 
-    def _clone_game_to(self, appid: str) -> None:
+    def _clone_game_to(self, appid: str = "") -> None:
+        if not appid:
+            QMessageBox.information(self, "TKArcade", self.tr("Select a game first."))
+            return
         dest = self._pick_game_id(
             self.tr("Clone Settings"), self.tr("Clone into game:"), exclude={appid}
         )
