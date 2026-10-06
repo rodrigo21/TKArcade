@@ -28,7 +28,7 @@ class ImportChooserDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(self.tr("Import configurations from:")))
         row = QHBoxLayout()
-        b_export = QPushButton(self.tr("TKArcade Export..."))
+        b_export = QPushButton(self.tr("Backup File..."))
         b_export.setToolTip(self.tr("A tarball created by Export..."))
         b_export.clicked.connect(lambda: self.done(1))
         b_stl = QPushButton(self.tr("SteamTinkerLaunch..."))

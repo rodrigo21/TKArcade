@@ -1131,7 +1131,7 @@ def test_import_chooser_codes(qt_app):
     from tkarcade.gui.import_dialog import ImportChooserDialog, StlImportDialog, usage_notice
 
     labels = [b.text() for b in ImportChooserDialog(None).findChildren(QPushButton)]
-    assert "TKArcade Export..." in labels
+    assert "Backup File..." in labels
     assert "SteamTinkerLaunch..." in labels
     assert "TKSteamLaunch..." in labels
     assert usage_notice(["60"], ["61"]).startswith("Imported as the 'steamtinkerlaunch' profile")
@@ -2923,5 +2923,41 @@ def test_import_tksteamlaunch_menu(qt_app, xdg_env, monkeypatch):
         assert infos
         assert "Imported 1 file(s)." in w.status.text()
         assert w.table.rowCount() == 1
+    finally:
+        w.close()
+
+
+def test_source_sidebar_filters_rows(qt_app, xdg_env, monkeypatch):
+    from PySide6.QtCore import Qt
+
+    from tkarcade import config as C
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    C.save(local)
+    w = _main_window_with_game(qt_app, "120", monkeypatch)
+    qt_app.processEvents()
+    try:
+        entries = [
+            (w.source_list.item(i).text(), w.source_list.item(i).data(Qt.ItemDataRole.UserRole))
+            for i in range(w.source_list.count())
+        ]
+        assert entries == [("All Games (2)", "all"), ("Steam (1)", "steam"), ("Local (1)", "local")]
+
+        def shown():
+            return sorted(
+                w.table.item(r, 0).text()
+                for r in range(w.table.rowCount())
+                if not w.table.isRowHidden(r)
+            )
+
+        assert shown() == ["120", "Doom"]
+        w.source_list.setCurrentRow(2)  # Local
+        qt_app.processEvents()
+        assert shown() == ["Doom"]
+        w.source_list.setCurrentRow(1)  # Steam
+        qt_app.processEvents()
+        assert shown() == ["120"]
     finally:
         w.close()

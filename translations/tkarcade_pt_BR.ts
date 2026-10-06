@@ -1187,8 +1187,8 @@ Adicione entrada custom no Ludusavi para backups.</translation>
         </message>
         <message>
             <location filename="src/tkarcade/gui/import_dialog.py" line="31" />
-            <source>TKArcade Export...</source>
-            <translation>Export do TKArcade...</translation>
+            <source>Backup File...</source>
+            <translation>Arquivo de backup...</translation>
         </message>
         <message>
             <location filename="src/tkarcade/gui/import_dialog.py" line="32" />
@@ -1268,561 +1268,581 @@ Adicione entrada custom no Ludusavi para backups.</translation>
     <context>
         <name>MainWindow</name>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="117" />
+            <location filename="src/tkarcade/gui/main_window.py" line="119" />
             <source>Minimal Steam launch wrapper. License: GPL-3.0-or-later.</source>
             <translation>Minimal Steam launch wrapper. Licença: GPL-3.0-or-later.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="257" />
+            <location filename="src/tkarcade/gui/main_window.py" line="260" />
+            <source>Filter games by source.</source>
+            <translation>Filtrar jogos por fonte.</translation>
+        </message>
+        <message>
+            <location filename="src/tkarcade/gui/main_window.py" line="269" />
             <source>Configured Games (double-click a game to edit its settings)</source>
             <translation>Jogos configurados (duplo-clique para editar)</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="262" />
+            <location filename="src/tkarcade/gui/main_window.py" line="274" />
             <source>Filter by name or ID...</source>
             <translation>Filtrar por nome ou ID...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="263" />
+            <location filename="src/tkarcade/gui/main_window.py" line="275" />
             <source>Show only games whose name or ID matches.</source>
             <translation>Mostrar apenas jogos cujo nome ou ID corresponda.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="267" />
+            <location filename="src/tkarcade/gui/main_window.py" line="279" />
             <source>With issues only</source>
             <translation>Só com problemas</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="270" />
+            <location filename="src/tkarcade/gui/main_window.py" line="282" />
             <source>Show only games failing validation (same checks as --validate).</source>
             <translation>Mostrar só jogos que falham na validação (mesmas checagens do --validate).</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="278" />
-            <location filename="src/tkarcade/gui/main_window.py" line="380" />
-            <location filename="src/tkarcade/gui/main_window.py" line="785" />
+            <location filename="src/tkarcade/gui/main_window.py" line="290" />
+            <location filename="src/tkarcade/gui/main_window.py" line="392" />
+            <location filename="src/tkarcade/gui/main_window.py" line="832" />
             <source>Game</source>
             <translation>Jogo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="279" />
-            <location filename="src/tkarcade/gui/main_window.py" line="786" />
-            <location filename="src/tkarcade/gui/main_window.py" line="860" />
+            <location filename="src/tkarcade/gui/main_window.py" line="291" />
+            <location filename="src/tkarcade/gui/main_window.py" line="833" />
+            <location filename="src/tkarcade/gui/main_window.py" line="907" />
             <source>App ID</source>
             <translation>App ID</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="280" />
-            <location filename="src/tkarcade/gui/main_window.py" line="787" />
+            <location filename="src/tkarcade/gui/main_window.py" line="292" />
+            <location filename="src/tkarcade/gui/main_window.py" line="834" />
             <source>Played</source>
             <translation>Jogado</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="281" />
-            <location filename="src/tkarcade/gui/main_window.py" line="788" />
+            <location filename="src/tkarcade/gui/main_window.py" line="293" />
+            <location filename="src/tkarcade/gui/main_window.py" line="835" />
             <source>ProtonDB</source>
             <translation>ProtonDB</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="282" />
-            <location filename="src/tkarcade/gui/main_window.py" line="789" />
+            <location filename="src/tkarcade/gui/main_window.py" line="294" />
+            <location filename="src/tkarcade/gui/main_window.py" line="836" />
             <source>Source</source>
             <translation>Fonte</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="310" />
+            <location filename="src/tkarcade/gui/main_window.py" line="322" />
             <source>No games configured yet</source>
             <translation>Nenhum jogo configurado ainda</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="318" />
+            <location filename="src/tkarcade/gui/main_window.py" line="330" />
             <source>1. Add a Steam game below · 2. Edit its settings · 3. Set its Steam launch options to tkarcade %command%</source>
             <translation>1. Adicione um jogo Steam abaixo · 2. Edite as configurações · 3. Defina as opções de lançamento como tkarcade %command%</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="329" />
-            <location filename="src/tkarcade/gui/main_window.py" line="382" />
-            <location filename="src/tkarcade/gui/main_window.py" line="427" />
+            <location filename="src/tkarcade/gui/main_window.py" line="341" />
+            <location filename="src/tkarcade/gui/main_window.py" line="394" />
+            <location filename="src/tkarcade/gui/main_window.py" line="439" />
             <source>Add Game...</source>
             <translation>Adicionar jogo...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="331" />
+            <location filename="src/tkarcade/gui/main_window.py" line="343" />
             <source>Add a Steam or local game.</source>
             <translation>Adicionar um jogo Steam ou local.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="334" />
-            <location filename="src/tkarcade/gui/main_window.py" line="376" />
+            <location filename="src/tkarcade/gui/main_window.py" line="346" />
+            <location filename="src/tkarcade/gui/main_window.py" line="388" />
             <source>Import...</source>
             <translation>Importar...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="337" />
+            <location filename="src/tkarcade/gui/main_window.py" line="349" />
             <source>Restore from an export tarball or SteamTinkerLaunch.</source>
             <translation>Restaurar de um tarball exportado ou do SteamTinkerLaunch.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="341" />
-            <location filename="src/tkarcade/gui/main_window.py" line="846" />
-            <location filename="src/tkarcade/gui/main_window.py" line="853" />
+            <location filename="src/tkarcade/gui/main_window.py" line="353" />
+            <location filename="src/tkarcade/gui/main_window.py" line="893" />
+            <location filename="src/tkarcade/gui/main_window.py" line="900" />
             <source>Copy Launch Options</source>
             <translation>Copiar opções de lançamento</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="343" />
+            <location filename="src/tkarcade/gui/main_window.py" line="355" />
             <source>Copy tkarcade %command% for Steam.</source>
             <translation>Copia tkarcade %command% para o Steam.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="374" />
+            <location filename="src/tkarcade/gui/main_window.py" line="386" />
             <source>File</source>
             <translation>Arquivo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="375" />
+            <location filename="src/tkarcade/gui/main_window.py" line="387" />
             <source>Export...</source>
             <translation>Exportar...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="378" />
-            <location filename="src/tkarcade/gui/main_window.py" line="712" />
+            <location filename="src/tkarcade/gui/main_window.py" line="390" />
+            <location filename="src/tkarcade/gui/main_window.py" line="759" />
             <source>Quit</source>
             <translation>Sair</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="381" />
-            <location filename="src/tkarcade/gui/main_window.py" line="423" />
-            <location filename="src/tkarcade/gui/main_window.py" line="849" />
+            <location filename="src/tkarcade/gui/main_window.py" line="393" />
+            <location filename="src/tkarcade/gui/main_window.py" line="435" />
+            <location filename="src/tkarcade/gui/main_window.py" line="896" />
             <source>Play</source>
             <translation>Jogar</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="383" />
+            <location filename="src/tkarcade/gui/main_window.py" line="395" />
             <source>Scan Steam Library...</source>
             <translation>Escanear biblioteca Steam...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="385" />
-            <location filename="src/tkarcade/gui/main_window.py" line="429" />
+            <location filename="src/tkarcade/gui/main_window.py" line="397" />
+            <location filename="src/tkarcade/gui/main_window.py" line="441" />
             <source>Edit...</source>
             <translation>Editar...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="388" />
-            <location filename="src/tkarcade/gui/main_window.py" line="892" />
+            <location filename="src/tkarcade/gui/main_window.py" line="400" />
+            <location filename="src/tkarcade/gui/main_window.py" line="939" />
             <source>Clone Settings To...</source>
             <translation>Clonar configurações para...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="391" />
-            <location filename="src/tkarcade/gui/main_window.py" line="431" />
+            <location filename="src/tkarcade/gui/main_window.py" line="403" />
+            <location filename="src/tkarcade/gui/main_window.py" line="443" />
             <source>Remove</source>
             <translation>Remover</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="392" />
+            <location filename="src/tkarcade/gui/main_window.py" line="404" />
             <source>Reset...</source>
             <translation>Redefinir...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="394" />
+            <location filename="src/tkarcade/gui/main_window.py" line="406" />
             <source>History...</source>
             <translation>Histórico...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="396" />
+            <location filename="src/tkarcade/gui/main_window.py" line="408" />
             <source>Tools</source>
             <translation>Ferramentas</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="399" />
-            <location filename="src/tkarcade/gui/main_window.py" line="890" />
+            <location filename="src/tkarcade/gui/main_window.py" line="411" />
+            <location filename="src/tkarcade/gui/main_window.py" line="937" />
             <source>Validate Game</source>
             <translation>Validar jogo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="402" />
+            <location filename="src/tkarcade/gui/main_window.py" line="414" />
             <source>Open Ludusavi...</source>
             <translation>Abrir Ludusavi...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="403" />
+            <location filename="src/tkarcade/gui/main_window.py" line="415" />
             <source>Open Logs Folder</source>
             <translation>Abrir pasta de logs</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="404" />
+            <location filename="src/tkarcade/gui/main_window.py" line="416" />
             <source>Clean Profiles...</source>
             <translation>Limpar profiles...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="406" />
+            <location filename="src/tkarcade/gui/main_window.py" line="418" />
             <source>Reload</source>
             <translation>Recarregar</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="408" />
+            <location filename="src/tkarcade/gui/main_window.py" line="420" />
             <source>Settings</source>
             <translation>Configurações</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="409" />
-            <location filename="src/tkarcade/gui/main_window.py" line="705" />
+            <location filename="src/tkarcade/gui/main_window.py" line="421" />
+            <location filename="src/tkarcade/gui/main_window.py" line="752" />
             <source>Global Defaults...</source>
             <translation>Padrões globais...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="410" />
-            <location filename="src/tkarcade/gui/main_window.py" line="707" />
+            <location filename="src/tkarcade/gui/main_window.py" line="422" />
+            <location filename="src/tkarcade/gui/main_window.py" line="754" />
             <source>Preferences...</source>
             <translation>Preferências...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="412" />
+            <location filename="src/tkarcade/gui/main_window.py" line="424" />
             <source>Help</source>
             <translation>Ajuda</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="413" />
-            <location filename="src/tkarcade/gui/main_window.py" line="709" />
+            <location filename="src/tkarcade/gui/main_window.py" line="425" />
+            <location filename="src/tkarcade/gui/main_window.py" line="756" />
             <source>About...</source>
             <translation>Sobre...</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="419" />
+            <location filename="src/tkarcade/gui/main_window.py" line="431" />
             <source>Main Toolbar</source>
             <translation>Barra principal</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="481" />
+            <location filename="src/tkarcade/gui/main_window.py" line="493" />
             <source>No recorded sessions</source>
             <translation>Nenhuma sessão registrada</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="486" />
+            <location filename="src/tkarcade/gui/main_window.py" line="498" />
             <source>{} sessions · last {} · {} failures</source>
             <translation>{} sessões · última {} · {} falhas</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="493" />
+            <location filename="src/tkarcade/gui/main_window.py" line="505" />
             <source>{} configured · {} Steam games detected</source>
             <translation>{} configurados · {} jogos Steam detectados</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="541" />
+            <location filename="src/tkarcade/gui/main_window.py" line="533" />
+            <source>All Games</source>
+            <translation>Todos os jogos</translation>
+        </message>
+        <message>
+            <location filename="src/tkarcade/gui/main_window.py" line="534" />
+            <source>Steam</source>
+            <translation>Steam</translation>
+        </message>
+        <message>
+            <location filename="src/tkarcade/gui/main_window.py" line="535" />
+            <source>Local</source>
+            <translation>Local</translation>
+        </message>
+        <message>
+            <location filename="src/tkarcade/gui/main_window.py" line="588" />
             <source>{} · {} shown</source>
             <translation>{} · {} exibidos</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="554" />
+            <location filename="src/tkarcade/gui/main_window.py" line="601" />
             <source>{} · {} reports — double-click for protondb.com</source>
             <translation>{} · {} relatos — duplo-clique para protondb.com</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="613" />
+            <location filename="src/tkarcade/gui/main_window.py" line="660" />
             <source>About TKArcade</source>
             <translation>Sobre o TKArcade</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="677" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1019" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1029" />
+            <location filename="src/tkarcade/gui/main_window.py" line="724" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1066" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1076" />
             <source>Not a Steam App ID: {}</source>
             <translation>Não é um App ID Steam: {}</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="683" />
+            <location filename="src/tkarcade/gui/main_window.py" line="730" />
             <source>Could not ask Steam to launch the game.</source>
             <translation>Não foi possível pedir ao Steam para lançar o jogo.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="694" />
+            <location filename="src/tkarcade/gui/main_window.py" line="741" />
             <source>Show / Hide</source>
             <translation>Mostrar / Ocultar</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="702" />
+            <location filename="src/tkarcade/gui/main_window.py" line="749" />
             <source>{} ({})</source>
             <translation>{} ({})</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="802" />
+            <location filename="src/tkarcade/gui/main_window.py" line="849" />
             <source>Reset Columns</source>
             <translation>Restaurar colunas</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="850" />
+            <location filename="src/tkarcade/gui/main_window.py" line="897" />
             <source>Edit Settings</source>
             <translation>Editar configurações</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="856" />
+            <location filename="src/tkarcade/gui/main_window.py" line="903" />
             <source>Copy Launch Command</source>
             <translation>Copiar comando de lançamento</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="857" />
+            <location filename="src/tkarcade/gui/main_window.py" line="904" />
             <source>Launch command</source>
             <translation>Comando de lançamento</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="860" />
+            <location filename="src/tkarcade/gui/main_window.py" line="907" />
             <source>Copy App ID</source>
             <translation>Copiar App ID</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="863" />
+            <location filename="src/tkarcade/gui/main_window.py" line="910" />
             <source>Copy Game Name</source>
             <translation>Copiar nome do jogo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="864" />
+            <location filename="src/tkarcade/gui/main_window.py" line="911" />
             <source>Game name</source>
             <translation>Nome do jogo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="868" />
+            <location filename="src/tkarcade/gui/main_window.py" line="915" />
             <source>Open Install Folder</source>
             <translation>Abrir pasta de instalação</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="872" />
+            <location filename="src/tkarcade/gui/main_window.py" line="919" />
             <source>install folder</source>
             <translation>pasta de instalação</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="875" />
+            <location filename="src/tkarcade/gui/main_window.py" line="922" />
             <source>Open Proton Prefix</source>
             <translation>Abrir prefixo Proton</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="879" />
+            <location filename="src/tkarcade/gui/main_window.py" line="926" />
             <source>Proton prefix</source>
             <translation>prefixo Proton</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="882" />
+            <location filename="src/tkarcade/gui/main_window.py" line="929" />
             <source>Clear Shader Cache</source>
             <translation>Limpar cache de shaders</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="888" />
+            <location filename="src/tkarcade/gui/main_window.py" line="935" />
             <source>Open ProtonDB Page</source>
             <translation>Abrir página no ProtonDB</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="891" />
+            <location filename="src/tkarcade/gui/main_window.py" line="938" />
             <source>Clear History</source>
             <translation>Limpar histórico</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="896" />
+            <location filename="src/tkarcade/gui/main_window.py" line="943" />
             <source>Remove {} Game</source>
             <translation>Remover {} jogo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="896" />
+            <location filename="src/tkarcade/gui/main_window.py" line="943" />
             <source>Remove {} Games</source>
             <translation>Remover {} jogos</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="899" />
+            <location filename="src/tkarcade/gui/main_window.py" line="946" />
             <source>Reset to Global Defaults</source>
             <translation>Restaurar padrões globais</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="904" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1187" />
+            <location filename="src/tkarcade/gui/main_window.py" line="951" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1234" />
             <source>Could not open {}.</source>
             <translation>Não foi possível abrir {}.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="915" />
+            <location filename="src/tkarcade/gui/main_window.py" line="962" />
             <source>Delete {} of shader cache for {}?
 Steam rebuilds it on demand.</source>
             <translation>Apagar {} de cache de shaders de {}?
 O Steam reconstrói sob demanda.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="924" />
+            <location filename="src/tkarcade/gui/main_window.py" line="971" />
             <source>Cleared {} of shader cache.</source>
             <translation>{} de cache de shaders apagados.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="930" />
-            <location filename="src/tkarcade/gui/main_window.py" line="960" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1121" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1158" />
+            <location filename="src/tkarcade/gui/main_window.py" line="977" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1007" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1168" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1205" />
             <source>Select a game first.</source>
             <translation>Selecione um jogo primeiro.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="936" />
+            <location filename="src/tkarcade/gui/main_window.py" line="983" />
             <source>No issues found.</source>
             <translation>Nenhum problema encontrado.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="944" />
+            <location filename="src/tkarcade/gui/main_window.py" line="991" />
             <source>Clear session history for {}? This cannot be undone.</source>
             <translation>Limpar histórico de sessões de {}? Não há como desfazer.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="956" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1003" />
             <source>Cleared {} session(s).</source>
             <translation>{} sessão(ões) apagadas.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="963" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1010" />
             <source>Clone Settings</source>
             <translation>Clonar configurações</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="963" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1010" />
             <source>Clone into game:</source>
             <translation>Clonar para o jogo:</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="968" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1015" />
             <source>Source and target are the same.</source>
             <translation>Origem e destino são o mesmo.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="974" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1021" />
             <source>Overwrite the saved settings for {}?</source>
             <translation>Sobrescrever as configurações salvas de {}?</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="984" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1031" />
             <source>Cloned {} to {}.</source>
             <translation>{} clonado para {}.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1024" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1071" />
             <source>Steam App ID:</source>
             <translation>App ID do Steam:</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1049" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1096" />
             <source>Invalid game ID: {}</source>
             <translation>ID de jogo inválido: {}</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1066" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1113" />
             <source>Add Game</source>
             <translation>Adicionar jogo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1066" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1113" />
             <source>Steam game:</source>
             <translation>Jogo Steam:</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1091" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1138" />
             <source>Added {}.</source>
             <translation>{} adicionado.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1100" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1147" />
             <source>Every Steam game is already configured.</source>
             <translation>Todo jogo Steam já está configurado.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1115" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1162" />
             <source>Added {} game(s).</source>
             <translation>{} jogo(s) adicionados.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1150" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1197" />
             <source>Could not launch game: {}</source>
             <translation>Não foi possível iniciar o jogo: {}</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1153" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1200" />
             <source>Launched {}.</source>
             <translation>{} iniciado.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1194" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1241" />
             <source>Export Configurations</source>
             <translation>Exportar configurações</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1196" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1249" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1243" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1296" />
             <source>Archives (*.tar.gz)</source>
             <translation>Arquivos (*.tar.gz)</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1203" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1250" />
             <source>Export failed: {}</source>
             <translation>Falha ao exportar: {}</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1205" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1252" />
             <source>Exported to {}</source>
             <translation>Exportado para {}</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1233" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1256" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1280" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1303" />
             <source>Import failed: {}</source>
             <translation>Falha ao importar: {}</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1235" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1240" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1282" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1287" />
             <source>Imported {} file(s).</source>
             <translation>{} arquivo(s) importado(s).</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1237" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1284" />
             <source>Skipped {} existing file(s).</source>
             <translation>{} arquivo(s) existente(s) ignorado(s).</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1247" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1294" />
             <source>Import Configurations</source>
             <translation>Importar configurações</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1258" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1305" />
             <source>Imported {} game(s)</source>
             <translation>{} jogo(s) importados</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1281" />
-            <location filename="src/tkarcade/gui/main_window.py" line="1347" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1328" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1394" />
             <source>Select games first.</source>
             <translation>Selecione jogos primeiro.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1285" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1332" />
             <source>these configurations</source>
             <translation>estas configurações</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1285" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1332" />
             <source>the configuration</source>
             <translation>a configuração</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1286" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1333" />
             <source>Remove {} for {}?</source>
             <translation>Remover {} de {}?</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1307" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1354" />
             <source>No orphaned profiles.</source>
             <translation>Nenhum profile órfão.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1319" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1366" />
             <source>Cleaned profiles for {} game(s).</source>
             <translation>Profiles de {} jogo(s) limpos.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1355" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1402" />
             <source>Reset {} game(s) to the Global Defaults template now?
 {}
 This overwrites their saved configs (profiles are kept).</source>
@@ -1831,32 +1851,32 @@ This overwrites their saved configs (profiles are kept).</source>
 Isso sobrescreve as configs salvas (profiles mantidos).</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1372" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1419" />
             <source>Clipboard unavailable on this platform.</source>
             <translation>Área de transferência indisponível nesta plataforma.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1375" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1422" />
             <source>{} copied to clipboard: {}</source>
             <translation>{} copiado para a área de transferência: {}</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1378" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1425" />
             <source>Launch options</source>
             <translation>Opções de lançamento</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1386" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1433" />
             <source>Ludusavi was not found in PATH.</source>
             <translation>Ludusavi não encontrado no PATH.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1394" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1441" />
             <source>Flatpak Ludusavi detected: it may not see Proton prefixes. Prefer the standalone binary.</source>
             <translation>Ludusavi Flatpak detectado: pode não enxergar prefixes Proton. Prefira o binário standalone.</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="1401" />
+            <location filename="src/tkarcade/gui/main_window.py" line="1448" />
             <source>Could not open Ludusavi: {}</source>
             <translation>Não foi possível abrir o Ludusavi: {}</translation>
         </message>
@@ -1864,27 +1884,27 @@ Isso sobrescreve as configs salvas (profiles mantidos).</translation>
     <context>
         <name>_ScanDialog</name>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="155" />
+            <location filename="src/tkarcade/gui/main_window.py" line="157" />
             <source>Add Games</source>
             <translation>Adicionar jogos</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="158" />
+            <location filename="src/tkarcade/gui/main_window.py" line="160" />
             <source>Steam games without a saved configuration:</source>
             <translation>Jogos Steam sem configuração salva:</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="160" />
+            <location filename="src/tkarcade/gui/main_window.py" line="162" />
             <source>Game</source>
             <translation>Jogo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="160" />
+            <location filename="src/tkarcade/gui/main_window.py" line="162" />
             <source>App ID</source>
             <translation>App ID</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="173" />
+            <location filename="src/tkarcade/gui/main_window.py" line="175" />
             <source>Add Selected</source>
             <translation>Adicionar selecionados</translation>
         </message>
@@ -1892,32 +1912,32 @@ Isso sobrescreve as configs salvas (profiles mantidos).</translation>
     <context>
         <name>_ProfileCleanupDialog</name>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="194" />
+            <location filename="src/tkarcade/gui/main_window.py" line="196" />
             <source>Clean Up Profiles</source>
             <translation>Limpar profiles</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="197" />
+            <location filename="src/tkarcade/gui/main_window.py" line="199" />
             <source>These games were removed but still have saved profiles:</source>
             <translation>Estes jogos foram removidos mas ainda têm profiles salvos:</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="199" />
+            <location filename="src/tkarcade/gui/main_window.py" line="201" />
             <source>Game</source>
             <translation>Jogo</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="199" />
+            <location filename="src/tkarcade/gui/main_window.py" line="201" />
             <source>Profiles</source>
             <translation>Profiles</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="211" />
+            <location filename="src/tkarcade/gui/main_window.py" line="213" />
             <source>Clean Selected</source>
             <translation>Limpar selecionados</translation>
         </message>
         <message>
-            <location filename="src/tkarcade/gui/main_window.py" line="212" />
+            <location filename="src/tkarcade/gui/main_window.py" line="214" />
             <source>Keep All</source>
             <translation>Manter todos</translation>
         </message>
