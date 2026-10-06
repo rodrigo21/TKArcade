@@ -1133,6 +1133,7 @@ def test_import_chooser_codes(qt_app):
     labels = [b.text() for b in ImportChooserDialog(None).findChildren(QPushButton)]
     assert "TKArcade Export..." in labels
     assert "SteamTinkerLaunch..." in labels
+    assert "TKSteamLaunch..." in labels
     assert usage_notice(["60"], ["61"]).startswith("Imported as the 'steamtinkerlaunch' profile")
     assert "61" in usage_notice(["60"], ["61"])
     assert usage_notice([], []) == ""
@@ -2899,5 +2900,28 @@ def test_add_chooser_routes_by_source(qt_app, xdg_env, monkeypatch):
         monkeypatch.setattr(gd.AddSourceDialog, "choice", lambda self: gd.AddSourceDialog.LOCAL)
         w._add()
         assert called == ["steam", "local"]
+    finally:
+        w.close()
+
+
+def test_import_tksteamlaunch_menu(qt_app, xdg_env, monkeypatch):
+    import os
+    from pathlib import Path
+
+    from PySide6.QtWidgets import QMessageBox
+
+    from tkarcade.gui.main_window import MainWindow
+
+    legacy = Path(os.environ["XDG_CONFIG_HOME"]) / "tksteamlaunch" / "games"
+    legacy.mkdir(parents=True)
+    (legacy / "213.toml").write_text('[general]\nappid = "213"\n')
+    infos = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: infos.append(a))
+    w = MainWindow()
+    try:
+        w._import_tksteamlaunch()
+        assert infos
+        assert "Imported 1 file(s)." in w.status.text()
+        assert w.table.rowCount() == 1
     finally:
         w.close()

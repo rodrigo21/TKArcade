@@ -1220,7 +1220,24 @@ class MainWindow(QMainWindow):
             if StlImportDialog(self, games).exec():
                 self.refresh()
             return
+        if picked == 3:
+            self._import_tksteamlaunch()
+            return
         self._import_tarball()
+
+    def _import_tksteamlaunch(self) -> None:
+        """Copy predecessor configs (missing files only, never overwrite)."""
+        try:
+            imported, skipped = cfgmod.import_tksteamlaunch()
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Import failed: {e}"))
+            return
+        lines = [self.tr(f"Imported {len(imported)} file(s).")]
+        if skipped:
+            lines.append(self.tr(f"Skipped {len(skipped)} existing file(s)."))
+        QMessageBox.information(self, "TKArcade", "\n".join(lines))
+        self.refresh()
+        self.status.setText(self.tr(f"Imported {len(imported)} file(s)."))
 
     def _import_tarball(self) -> None:
         from PySide6.QtWidgets import QFileDialog

@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- TKSteamLaunch import: one click copies games/profiles/defaults/
+  preferences from the predecessor XDG dirs (missing files only,
+  never overwrites) — do it early, formats still match.
 - Menu bar + slim toolbar replace the Games/Tools/Application button
   rows (File/Game/Tools/Settings/Help; Play/Add/Edit/Remove up front).
   Copy Launch Options and the rest of the per-game actions live only

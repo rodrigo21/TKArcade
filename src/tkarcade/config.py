@@ -831,6 +831,49 @@ def list_appids() -> list[str]:
     return [p.stem for p in sorted(d.glob("*.toml"))]
 
 
+def tksteamlaunch_base() -> Path:
+    """Config dir of the predecessor project (import source, never written)."""
+    return xdg.config_home() / "tksteamlaunch"
+
+
+def import_tksteamlaunch() -> tuple[list[str], list[str]]:
+    """Copy games/profiles/defaults/preferences from TKSteamLaunch.
+
+    Only missing files are copied, never overwritten. Returns
+    (imported, skipped) paths relative to the config dir.
+    Raises ValueError when there is nothing to import.
+    """
+    src = tksteamlaunch_base()
+    wanted: list[Path] = []
+    for name in ("defaults.toml", "preferences.toml"):
+        cand = src / name
+        if cand.is_file():
+            wanted.append(cand)
+    games = src / "games"
+    if games.is_dir():
+        wanted += [p for p in sorted(games.glob("*.toml")) if p.is_file()]
+    profiles = src / "profiles"
+    if profiles.is_dir():
+        wanted += [
+            p
+            for p in sorted(profiles.rglob("*.toml"))
+            if p.is_file() and len(p.relative_to(profiles).parts) == 2
+        ]
+    if not wanted:
+        raise ValueError("no TKSteamLaunch configs found")
+    imported, skipped = [], []
+    for path in wanted:
+        rel = path.relative_to(src)
+        dest = xdg.app_config_dir() / rel
+        if dest.exists():
+            skipped.append(str(rel))
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(path.read_bytes())
+        imported.append(str(rel))
+    return imported, skipped
+
+
 def new_local_id(name: str) -> str:
     """Fresh `local-<slug>` ID for a manually added game (unique, safe)."""
     slug = xdg.safe_stem(name.strip().lower().replace(" ", "-")) or "game"

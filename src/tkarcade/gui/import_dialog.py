@@ -20,7 +20,7 @@ from .. import stl_import as sti
 
 
 class ImportChooserDialog(QDialog):
-    """Pick an import source. Returns 1 (export file) or 2 (STL)."""
+    """Pick an import source. Returns 1 (export file), 2 (STL) or 3 (legacy)."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -34,8 +34,12 @@ class ImportChooserDialog(QDialog):
         b_stl = QPushButton(self.tr("SteamTinkerLaunch..."))
         b_stl.setToolTip(self.tr("Per-game configs as a steamtinkerlaunch profile"))
         b_stl.clicked.connect(lambda: self.done(2))
+        b_legacy = QPushButton(self.tr("TKSteamLaunch..."))
+        b_legacy.setToolTip(self.tr("Copy configs from the predecessor project"))
+        b_legacy.clicked.connect(lambda: self.done(3))
         row.addWidget(b_export)
         row.addWidget(b_stl)
+        row.addWidget(b_legacy)
         layout.addLayout(row)
         btns = QDialogButtonBox(QDialogButtonBox.Cancel)
         btns.rejected.connect(self.reject)

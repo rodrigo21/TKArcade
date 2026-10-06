@@ -774,3 +774,36 @@ def test_new_local_id_unique_slug(xdg_env):
     assert C.new_local_id("Doom") == "local-doom-2"
     assert C.new_local_id("  ") == "local-unknown"
     assert C.new_local_id("213") == "local-213"
+
+
+def test_import_tksteamlaunch_copies_missing_only(xdg_env, tmp_path, monkeypatch):
+    import os
+    from pathlib import Path
+
+    legacy = Path(os.environ["XDG_CONFIG_HOME"]) / "tksteamlaunch"
+    (legacy / "games").mkdir(parents=True)
+    (legacy / "profiles" / "213").mkdir(parents=True)
+    (legacy / "games" / "213.toml").write_text('[general]\nappid = "213"\n')
+    (legacy / "profiles" / "213" / "P.toml").write_text('[general]\nappid = "213"\n')
+    (legacy / "profiles" / "deep" / "x" / "Y.toml").parent.mkdir(parents=True, exist_ok=True)
+    (legacy / "profiles" / "deep" / "x" / "Y.toml").write_text("y = 1\n")
+    (legacy / "defaults.toml").write_text("[general]\n")
+    imported, skipped = C.import_tksteamlaunch()
+    assert skipped == []
+    assert sorted(imported) == [
+        "defaults.toml",
+        "games/213.toml",
+        "profiles/213/P.toml",
+    ]
+    assert C.game_file("213").is_file()
+    imported2, skipped2 = C.import_tksteamlaunch()
+    assert imported2 == []
+    assert sorted(skipped2) == sorted(imported)
+    assert C.load("213").general.appid == "213"
+
+
+def test_import_tksteamlaunch_empty_legacy(xdg_env):
+    import pytest
+
+    with pytest.raises(ValueError):
+        C.import_tksteamlaunch()
