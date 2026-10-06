@@ -737,12 +737,66 @@ def test_menu_bar_and_toolbar_structure(qt_app, xdg_env):
         assert menus["Settings"] == ["Global Defaults...", "Preferences..."]
         assert menus["Help"] == ["About..."]
         toolbar = w.findChild(QToolBar, "main_toolbar")
-        assert [a.text() for a in toolbar.actions()] == [
+        assert [a.text() for a in toolbar.actions() if a.text()] == [
             "Play",
             "Add Game...",
             "Edit...",
             "Remove",
         ]
+    finally:
+        w.close()
+
+
+def test_toolbar_actions_centered(qt_app, xdg_env):
+    from PySide6.QtWidgets import QSizePolicy, QToolBar, QWidget
+
+    from tkarcade.gui.main_window import MainWindow
+
+    w = MainWindow()
+    try:
+        bar = w.findChild(QToolBar, "main_toolbar")
+        lead = bar.findChild(QWidget, "toolbar_lead")
+        tail = bar.findChild(QWidget, "toolbar_tail")
+        expanding = QSizePolicy.Policy.Expanding
+        assert lead.sizePolicy().horizontalPolicy() == expanding
+        assert tail.sizePolicy().horizontalPolicy() == expanding
+        widgets = [bar.widgetForAction(a) for a in bar.actions()]
+        assert widgets[0] is lead and widgets[-1] is tail
+    finally:
+        w.close()
+
+
+def test_main_window_size_default_restore_and_save(qt_app, xdg_env):
+    from tkarcade import config as C
+    from tkarcade.gui.main_window import MainWindow
+
+    w = MainWindow()
+    try:
+        assert (w.width(), w.height()) == (1280, 720)
+    finally:
+        w.close()
+    prefs = C.load_preferences()
+    prefs.main_window_size = "1024x768"
+    C.save_preferences(prefs)
+    w2 = MainWindow()
+    try:
+        assert (w2.width(), w2.height()) == (1024, 768)
+        w2.resize(1400, 900)
+        w2._save_main_size()
+        assert C.load_preferences().main_window_size == "1400x900"
+    finally:
+        w2.close()
+
+
+def test_main_window_size_garbage_falls_back(qt_app, xdg_env):
+    from tkarcade import xdg as xdgmod
+    from tkarcade.gui.main_window import MainWindow
+
+    xdgmod.app_config_dir().mkdir(parents=True, exist_ok=True)
+    xdgmod.preferences_file().write_text('[ui]\nmain_window_size = "junk"\n', encoding="utf-8")
+    w = MainWindow()
+    try:
+        assert (w.width(), w.height()) == (1280, 720)
     finally:
         w.close()
 

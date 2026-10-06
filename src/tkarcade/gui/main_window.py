@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 
-from PySide6.QtCore import QEvent, QSize, Qt, QThread, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -425,11 +425,19 @@ class MainWindow(QMainWindow):
         self._menu_action(help_menu, self.tr("About..."), self._show_about)
 
     def _build_tool_bar(self) -> None:
-        """Slim toolbar with the primary actions only."""
-        from PySide6.QtWidgets import QToolBar
+        """Slim toolbar with the primary actions only, centered."""
+        from PySide6.QtWidgets import QSizePolicy, QToolBar, QWidget
 
         bar = QToolBar(self.tr("Main Toolbar"), self)
         bar.setObjectName("main_toolbar")
+
+        def _spacer(name: str) -> QWidget:
+            w = QWidget()
+            w.setObjectName(name)
+            w.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            return w
+
+        bar.addWidget(_spacer("toolbar_lead"))
         play = bar.addAction(
             self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay),
             self.tr("Play"),
@@ -442,12 +450,44 @@ class MainWindow(QMainWindow):
         edit.setObjectName("toolbar_edit")
         remove = bar.addAction(self.tr("Remove"), self._remove_selected)
         remove.setObjectName("toolbar_remove")
+        bar.addWidget(_spacer("toolbar_tail"))
         self.addToolBar(bar)
 
     def _apply_default_size(self) -> None:
-        from .helpers import apply_default_size
+        """1280x720 (or the saved size), centered on the available geometry."""
+        from PySide6.QtWidgets import QApplication
 
-        apply_default_size(self)
+        size = cfgmod.load_preferences().main_window_size or "1280x720"
+        w, h = (int(x) for x in size.split("x"))
+        self.resize(w, h)
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            area = screen.availableGeometry()
+            frame = self.frameGeometry()
+            frame.moveCenter(area.center())
+            self.move(frame.topLeft())
+        self._size_timer = QTimer(self)
+        self._size_timer.setSingleShot(True)
+        self._size_timer.setInterval(500)
+        self._size_timer.timeout.connect(self._save_main_size)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self.isVisible():  # ignore pre-show layout resizes
+            self._size_timer.start()  # debounced: one write per resize gesture
+
+    def _save_main_size(self) -> None:
+        """Persist the current window size (best effort, never raises)."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return
+        size = self.size()
+        prefs.main_window_size = f"{max(640, size.width())}x{max(480, size.height())}"
+        try:
+            cfgmod.save_preferences(prefs)
+        except OSError:
+            pass
 
     def _mark_user_sorted(self, *_args) -> None:
         self._user_sorted = True

@@ -738,6 +738,20 @@ def test_language_prefs_roundtrip_and_clamp(xdg_env):
     assert C.load_preferences().language == "system"
 
 
+def test_window_size_prefs_roundtrip_and_clamp(xdg_env):
+    prefs = C.load_preferences()
+    assert prefs.main_window_size == ""
+    prefs.main_window_size = "1024x768"
+    C.save_preferences(prefs)
+    assert C.load_preferences().main_window_size == "1024x768"
+    prefs.main_window_size = "100x100"
+    C.save_preferences(prefs)
+    assert C.load_preferences().main_window_size == "640x480"
+    prefs.main_window_size = "junk"
+    C.save_preferences(prefs)
+    assert C.load_preferences().main_window_size == ""
+
+
 def test_export_import_includes_preferences(xdg_env, tmp_path):
     prefs = C.load_preferences()
     prefs.tray_quick_count = 8

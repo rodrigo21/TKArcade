@@ -6,6 +6,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Centered main toolbar actions; window opens at 1280x720 and
+  remembers its size across runs (floored at 640x480).
+
+### Added
 - Source sidebar: All/Steam/Local filter list with counts beside
   the games table (future sources appear there on their own).
 - TKSteamLaunch import: one click copies games/profiles/defaults/

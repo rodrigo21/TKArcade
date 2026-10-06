@@ -162,6 +162,7 @@ class Preferences:
     tray_quick_launch: bool = True  # recent games section in the tray menu
     tray_quick_count: int = 5  # recent games shown (1-10)
     language: str = "system"  # system locale, "en" for English, or a locale code
+    main_window_size: str = ""  # "WxH", "" means the 1280x720 default
 
 
 @dataclass
@@ -688,6 +689,7 @@ def load_preferences() -> Preferences:
     out.language = (
         lang if lang == "system" or re.fullmatch(r"[A-Za-z]+(_[A-Za-z]+)?", lang) else "system"
     )
+    out.main_window_size = _clean_window_size(ui.get("main_window_size", ""))
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -707,6 +709,14 @@ def _clamp_quick_count(value: object) -> int:
         return 5
 
 
+def _clean_window_size(text: object) -> str:
+    """Normalize 'WxH' (floored at 640x480); garbage becomes '' (default)."""
+    m = re.fullmatch(r"\s*(\d+)\s*x\s*(\d+)\s*", str(text or ""))
+    if not m:
+        return ""
+    return f"{max(640, int(m.group(1)))}x{max(480, int(m.group(2)))}"
+
+
 def save_preferences(prefs: Preferences) -> Path:
     """Save program preferences (flat [ui] table)."""
     path = xdg.preferences_file()
@@ -723,6 +733,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "tray_quick_launch": bool(prefs.tray_quick_launch),
             "tray_quick_count": _clamp_quick_count(prefs.tray_quick_count),
             "language": prefs.language if isinstance(prefs.language, str) else "system",
+            "main_window_size": _clean_window_size(prefs.main_window_size),
         }
     }
     _write_atomic(path, _render_toml(data))
