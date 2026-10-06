@@ -24,6 +24,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -251,7 +253,17 @@ class MainWindow(QMainWindow):
 
         central = QWidget()
         self.setCentralWidget(central)
-        layout = QVBoxLayout(central)
+        outer = QHBoxLayout(central)
+        self.source_list = QListWidget()
+        self.source_list.setObjectName("source_list")
+        self.source_list.setMaximumWidth(170)
+        self.source_list.setToolTip(self.tr("Filter games by source."))
+        self.source_list.currentRowChanged.connect(self._on_source_changed)
+        outer.addWidget(self.source_list)
+        right = QWidget()
+        outer.addWidget(right, stretch=1)
+        layout = QVBoxLayout(right)
+        self._source_filter = "all"
 
         layout.addWidget(
             QLabel(self.tr("Configured Games (double-click a game to edit its settings)"))
@@ -492,6 +504,7 @@ class MainWindow(QMainWindow):
         total_steam = len(names)
         self._base_status = self.tr(f"{total_cfg} configured · {total_steam} Steam games detected")
         self._issues_cache: dict[str, list[str]] = {}
+        self._refresh_sources(appids)
         empty = not appids
         self.empty_state.setVisible(empty)
         self.table.setVisible(not empty)
@@ -506,6 +519,34 @@ class MainWindow(QMainWindow):
         self.table.setSortingEnabled(True)
         if not self._user_sorted:
             self.table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+        self._apply_filter()
+
+    def _refresh_sources(self, appids: list[str]) -> None:
+        """Rebuild the source sidebar, keeping the current selection."""
+        steam = sum(1 for a in appids if steammod.is_steam_id(a))
+        local = len(appids) - steam
+        current = self._source_filter
+        self.source_list.blockSignals(True)
+        try:
+            self.source_list.clear()
+            for key, title, count in (
+                ("all", self.tr("All Games"), len(appids)),
+                ("steam", self.tr("Steam"), steam),
+                ("local", self.tr("Local"), local),
+            ):
+                item = QListWidgetItem(f"{title} ({count})")
+                item.setData(Qt.ItemDataRole.UserRole, key)
+                self.source_list.addItem(item)
+            if current not in ("all", "steam", "local"):
+                current = "all"
+            self._source_filter = current
+            self.source_list.setCurrentRow(("all", "steam", "local").index(current))
+        finally:
+            self.source_list.blockSignals(False)
+
+    def _on_source_changed(self, _row: int = 0) -> None:
+        item = self.source_list.currentItem()
+        self._source_filter = str(item.data(Qt.ItemDataRole.UserRole) or "all") if item else "all"
         self._apply_filter()
 
     def _game_issues(self, appid: str) -> list[str]:
@@ -531,6 +572,10 @@ class MainWindow(QMainWindow):
             appid = str(name_item.data(Qt.ItemDataRole.UserRole) or "")
             name = (name_item.text() or "").lower()
             match = not query or query in name or query in appid.lower()
+            if match and self._source_filter != "all":
+                want_steam = self._source_filter == "steam"
+                if steammod.is_steam_id(appid) != want_steam:
+                    match = False
             if match and only_issues and not self._game_issues(appid):
                 match = False
             self.table.setRowHidden(row, not match)

@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Source sidebar: All/Steam/Local filter list with counts beside
+  the games table (future sources appear there on their own).
 - TKSteamLaunch import: one click copies games/profiles/defaults/
   preferences from the predecessor XDG dirs (missing files only,
   never overwrites) — do it early, formats still match.
