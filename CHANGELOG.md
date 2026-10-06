@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Local native Linux games: Add Local... (name + executable, unique
+  `local-<slug>` ID), direct Play (detached, same logs/history/menu
+  skip as Steam), Copy Launch Command, and exe-dir working directory.
+  Settings show the editable name and hide Steam-only bits; clone and
+  validation accept local IDs (missing custom executables flagged).
 - Game identity groundwork for local (non-Steam) games: string IDs
   (`local-<slug>` alongside numeric Steam AppIDs), per-game display
   names, and a Source column (Steam/Local) in the games list.

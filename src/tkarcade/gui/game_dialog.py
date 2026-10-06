@@ -170,6 +170,63 @@ class BulkEnvDialog(QDialog):
         return self.edit.toPlainText()
 
 
+class AddLocalDialog(QDialog):
+    """Name + executable for a manually added native Linux game."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Add Local Game"))
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self.e_name = QLineEdit()
+        self.e_name.setPlaceholderText(self.tr("Game name"))
+        form.addRow(self.tr("Name:"), self.e_name)
+        exe_row = QWidget()
+        exe_layout = QHBoxLayout(exe_row)
+        exe_layout.setContentsMargins(0, 0, 0, 0)
+        self.e_exe = QLineEdit()
+        self.e_exe.setPlaceholderText(self.tr("Full path to the game executable"))
+        browse = QPushButton(self.tr("Browse..."))
+        browse.clicked.connect(self._browse)
+        exe_layout.addWidget(self.e_exe, stretch=1)
+        exe_layout.addWidget(browse)
+        form.addRow(self.tr("Executable:"), exe_row)
+        layout.addLayout(form)
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(self._on_accept)
+        btns.rejected.connect(self.reject)
+        layout.addWidget(btns)
+
+    def _browse(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+
+        path, _ = QFileDialog.getOpenFileName(self, self.tr("Game Executable"))
+        if path:
+            self.e_exe.setText(path)
+            if not self.e_name.text().strip():
+                self.e_name.setText(os.path.splitext(os.path.basename(path))[0])
+
+    def _valid_exe(self, exe: str) -> bool:
+        return bool(exe) and (os.path.isfile(exe) or shutil.which(exe) is not None)
+
+    def _on_accept(self) -> None:
+        from PySide6.QtWidgets import QMessageBox
+
+        name = self.e_name.text().strip()
+        exe = self.e_exe.text().strip()
+        if not name:
+            QMessageBox.warning(self, "TKArcade", self.tr("Give the game a name."))
+            return
+        if not self._valid_exe(exe):
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Executable not found: {exe or '—'}"))
+            return
+        self.accept()
+
+    def values(self) -> tuple[str, str]:
+        """(name, executable), both stripped."""
+        return self.e_name.text().strip(), self.e_exe.text().strip()
+
+
 class GameDialog(QDialog):
     def __init__(
         self,

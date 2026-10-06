@@ -831,6 +831,18 @@ def list_appids() -> list[str]:
     return [p.stem for p in sorted(d.glob("*.toml"))]
 
 
+def new_local_id(name: str) -> str:
+    """Fresh `local-<slug>` ID for a manually added game (unique, safe)."""
+    slug = xdg.safe_stem(name.strip().lower().replace(" ", "-")) or "game"
+    base = f"local-{slug}"
+    taken = set(list_appids())
+    cand, i = base, 2
+    while cand in taken or game_file(cand).exists():
+        cand = f"{base}-{i}"
+        i += 1
+    return cand
+
+
 def export_configs(dest: str | Path) -> Path:
     """Pack games/profiles/defaults/preferences TOML files for migration."""
     import tarfile

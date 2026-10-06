@@ -764,3 +764,13 @@ def test_general_name_roundtrip(xdg_env):
     fresh.general.appid = "214"
     C.save(fresh)
     assert C.load("214").general.name == ""
+
+
+def test_new_local_id_unique_slug(xdg_env):
+    assert C.new_local_id("Doom") == "local-doom"
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    C.save(cfg)
+    assert C.new_local_id("Doom") == "local-doom-2"
+    assert C.new_local_id("  ") == "local-unknown"
+    assert C.new_local_id("213") == "local-213"

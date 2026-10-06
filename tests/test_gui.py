@@ -2404,12 +2404,12 @@ def test_clone_settings_to_game(qt_app, xdg_env, monkeypatch):
     C.save(cfg)
     C.save_profile("204", "p1", cfg)
     w = _main_window_with_game(qt_app, "209", monkeypatch)
-    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("205", True))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *a, **k: ("205", True))
     w._clone_game_to("204")
     assert C.load("205").env.vars == {"A": "1"}
     assert C.load_profile("205", "p1").env.vars == {"A": "1"}
     assert "Cloned" in w.status.text()
-    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("204", True))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *a, **k: ("204", True))
     infos = []
     monkeypatch.setattr(QMessageBox, "information", lambda *a: infos.append(a))
     w._clone_game_to("204")
@@ -2493,10 +2493,10 @@ def test_clone_game_from_list(qt_app, xdg_env, monkeypatch, tmp_path):
     w = _main_window_with_game(qt_app, "209", monkeypatch)
     picked = []
     monkeypatch.setattr(
-        QInputDialog, "getItem", lambda *a, **k: picked.append(a[3]) or ("C Game [206]", True)
+        QInputDialog, "getItem", lambda *a, **k: picked.append(a[3]) or ("206", True)
     )
     w._clone_game_to("204")
-    assert picked and "C Game [206]" in picked[0]
+    assert picked and "209 [209]" in picked[0]  # source excluded, others listed
     assert C.game_file("206").exists()
     w.close()
 
@@ -2763,3 +2763,95 @@ def test_game_dialog_local_guards(qt_app, xdg_env):
         assert d.cfg.general.name == "Doom II"
     finally:
         d.close()
+
+
+def test_add_local_dialog_validation(qt_app, xdg_env, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QDialog, QMessageBox
+
+    from tkarcade.gui.game_dialog import AddLocalDialog
+
+    warns = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warns.append(a))
+    d = AddLocalDialog()
+    try:
+        d._on_accept()
+        assert warns  # empty name refused
+        assert d.result() != QDialog.DialogCode.Accepted
+        d.e_name.setText("Doom")
+        d.e_exe.setText("/nonexistent/doom")
+        d._on_accept()
+        assert len(warns) == 2  # missing exe refused
+        exe = tmp_path / "doom"
+        exe.write_text("#!/bin/sh\n")
+        d.e_exe.setText(str(exe))
+        d._on_accept()
+        assert d.result() == QDialog.DialogCode.Accepted
+        assert d.values() == ("Doom", str(exe))
+    finally:
+        d.close()
+
+
+def test_add_local_creates_native_config(qt_app, xdg_env, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QDialog
+
+    from tkarcade import config as C
+    from tkarcade.gui import game_dialog as gd
+    from tkarcade.gui import main_window as mw
+
+    exe = tmp_path / "doom"
+    exe.write_text("#!/bin/sh\n")
+    picks = []
+    monkeypatch.setattr(
+        gd.AddLocalDialog, "exec", lambda self: picks.append(self) or QDialog.DialogCode.Accepted
+    )
+    monkeypatch.setattr(gd.AddLocalDialog, "values", lambda self: ("Doom", str(exe)))
+    monkeypatch.setattr(mw.GameDialog, "exec", lambda self: QDialog.DialogCode.Rejected)
+    w = mw.MainWindow()
+    try:
+        w._add_local()
+        cfg = C.load("local-doom")
+        assert (cfg.general.name, cfg.general.game_type) == ("Doom", "native")
+        assert cfg.general.custom_executable == str(exe)
+        assert "Added Doom." in w.status.text()
+    finally:
+        w.close()
+
+
+def test_play_routes_local_to_subprocess(qt_app, xdg_env, monkeypatch, tmp_path):
+    from tkarcade import config as C
+    from tkarcade.gui import main_window as mw
+
+    exe = tmp_path / "doom"
+    exe.write_text("#!/bin/sh\n")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = str(exe)
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    calls = []
+    monkeypatch.setattr(mw.subprocess, "Popen", lambda *a, **k: calls.append((a, k)))
+    launched = []
+    monkeypatch.setattr(mw.MainWindow, "_launch_steam", lambda self, a: launched.append(a))
+    w = _main_window_with_game(qt_app, "120", monkeypatch)
+    try:
+        w._play_game("120")
+        assert launched == ["120"] and not calls
+        w._play_game("local-doom")
+        assert launched == ["120"] and len(calls) == 1
+        (args, kwargs) = calls[0]
+        assert args[0][1:] == ["--appid", "local-doom"]
+        assert kwargs.get("start_new_session") is True
+    finally:
+        w.close()
+
+
+def test_local_menu_copies_launch_command(qt_app, xdg_env, monkeypatch):
+    labels = [
+        a.text()
+        for a in _main_window_with_game(qt_app, "120", monkeypatch)
+        ._build_game_menu("local-doom")
+        .actions()
+    ]
+    assert "Copy Launch Command" in labels
+    assert "Copy Launch Options" not in labels

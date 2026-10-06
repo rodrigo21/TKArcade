@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 
 from PySide6.QtCore import QEvent, QSize, Qt, QThread, Signal
 from PySide6.QtGui import (
@@ -367,6 +368,7 @@ class MainWindow(QMainWindow):
                         QStyle.StandardPixmap.SP_MediaPlay,
                     ),
                     (self.tr("Add Game..."), self._add),
+                    (self.tr("Add Local..."), self._add_local),
                     (self.tr("Scan Library..."), self._scan_library),
                     (self.tr("Edit..."), self._edit_selected),
                     (self.tr("Remove"), self._remove_selected),
@@ -704,7 +706,7 @@ class MainWindow(QMainWindow):
                 menu.addSeparator()
                 for appid, name, total in recents:
                     act = menu.addAction(self.tr(f"{name} ({format_duration(total)})"))
-                    act.triggered.connect(lambda _=False, a=appid: self._launch_steam(a))
+                    act.triggered.connect(lambda _=False, a=appid: self._play_game(a))
         menu.addSeparator()
         defaults_action = menu.addAction(self.tr("Global Defaults..."))
         defaults_action.triggered.connect(self._edit_defaults)
@@ -850,10 +852,16 @@ class MainWindow(QMainWindow):
             menu.addAction(self.tr("Copy Launch Options"), lambda: self._copy_launch())
         else:
             name = self._names().get(appid, appid)
-            menu.addAction(self.tr("Play"), lambda: self._launch_steam(appid))
+            menu.addAction(self.tr("Play"), lambda: self._play_game(appid))
             menu.addAction(self.tr("Edit Settings"), lambda: self._edit_selected(appid))
             menu.addSeparator()
-            menu.addAction(self.tr("Copy Launch Options"), lambda: self._copy_launch())
+            if steammod.is_steam_id(appid):
+                menu.addAction(self.tr("Copy Launch Options"), lambda: self._copy_launch())
+            else:
+                menu.addAction(
+                    self.tr("Copy Launch Command"),
+                    lambda: self._copy_text(f"tkarcade --appid {appid}", self.tr("Launch command")),
+                )
             menu.addAction(
                 self.tr("Copy App ID"), lambda: self._copy_text(appid, self.tr("App ID"))
             )
@@ -948,7 +956,7 @@ class MainWindow(QMainWindow):
         self.status.setText(self.tr(f"Cleared {removed} session(s)."))
 
     def _clone_game_to(self, appid: str) -> None:
-        dest = self._pick_steam_game(
+        dest = self._pick_game_id(
             self.tr("Clone Settings"), self.tr("Clone into game:"), exclude={appid}
         )
         if not dest:
@@ -1020,6 +1028,25 @@ class MainWindow(QMainWindow):
             return ""
         return appid.strip()
 
+    def _pick_game_id(self, title: str, label: str, exclude=frozenset()) -> str:
+        """Pick any configured game, else a manual ID. "" when cancelled."""
+        from PySide6.QtWidgets import QInputDialog
+
+        names = self._names()
+        configured = sorted(set(cfgmod.list_appids()) - set(exclude))
+        labels = [f"{names.get(a, a)} [{a}]" for a in configured]
+        choice, ok = QInputDialog.getItem(self, title, label, labels, 0, True)
+        if not ok or not choice:
+            return ""
+        import re
+
+        m = re.search(r"\[(.+)\]\s*$", choice)
+        cand = (m.group(1) if m else choice).strip()
+        if not cand or xdg.safe_stem(cand) != cand:
+            QMessageBox.information(self, "TKArcade", self.tr(f"Invalid game ID: {choice}"))
+            return ""
+        return cand
+
     def _add(self) -> None:
         appid = self._pick_steam_game(self.tr("Add Game"), self.tr("Steam game:"))
         if not appid:
@@ -1027,6 +1054,26 @@ class MainWindow(QMainWindow):
         dlg = GameDialog(self, appid, self._names().get(appid, ""))
         if dlg.exec():
             self.refresh()
+
+    def _add_local(self) -> None:
+        """Add a manually installed native Linux game (name + executable)."""
+        from .game_dialog import AddLocalDialog
+
+        dlg = AddLocalDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        name, exe = dlg.values()
+        appid = cfgmod.new_local_id(name)
+        cfg = cfgmod.load_defaults()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = exe
+        cfg.general.game_type = "native"
+        cfgmod.save(cfg)
+        settings = GameDialog(self, appid, name)
+        settings.exec()
+        self.refresh()
+        self.status.setText(self.tr(f"Added {name}."))
 
     def _scan_library(self) -> None:
         """Batch-add Steam games without a saved config (defaults template)."""
@@ -1053,12 +1100,42 @@ class MainWindow(QMainWindow):
         self.status.setText(self.tr(f"Added {added} game(s)."))
 
     def _play_selected(self) -> None:
-        """Launch the current game through Steam (same as tray quick-launch)."""
+        """Play the current game (Steam client or direct local launch)."""
         sel = self._selected_appids()
         if not sel:
             self.status.setText(self.tr("Select a game first."))
             return
-        self._launch_steam(sel[0])
+        self._play_game(sel[0])
+
+    def _play_game(self, appid: str) -> None:
+        """Play routing: Steam IDs go through the client, local IDs run direct."""
+        if steammod.is_steam_id(appid):
+            self._launch_steam(appid)
+        else:
+            self._launch_local(appid)
+
+    def _launch_local(self, appid: str) -> None:
+        """Run a local game detached through this same launcher.
+
+        Logs, history and the one-shot menu skip apply exactly like a
+        Steam launch; only the client handoff is missing.
+        """
+        from ..launcher import plant_menu_skip
+
+        runner = shutil.which("tkarcade") or sys.argv[0]
+        plant_menu_skip(appid)
+        try:
+            subprocess.Popen(
+                [runner, "--appid", appid],
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as e:
+            QMessageBox.warning(self, "TKArcade", self.tr(f"Could not launch game: {e}"))
+            return
+        name = self._names().get(appid, appid)
+        self.status.setText(self.tr(f"Launched {name}."))
 
     def _edit_selected(self, appid: str = "") -> None:
         appid = appid or self._selected_appid()

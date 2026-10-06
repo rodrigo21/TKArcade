@@ -439,3 +439,45 @@ def test_menu_skip_plant_consume_expire(xdg_env, tmp_path):
     assert L.consume_menu_skip("41") is False
     assert not path.exists()
     assert "../" not in str(L.menu_skip_path("../../evil"))
+
+
+def test_validate_flags_missing_custom_executable(xdg_env):
+    from tkarcade import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.custom_executable = "/nonexistent/doom"
+    C.save(cfg)
+    assert L.validate_game("local-doom") == [
+        "local-doom: custom_executable not found: /nonexistent/doom"
+    ]
+
+
+def test_local_run_cwd(xdg_env, tmp_path):
+    from tkarcade import launcher as L
+
+    cfg = C.GameConfig()
+    exe = tmp_path / "doom"
+    exe.write_text("#!/bin/sh\n")
+    cfg.general.custom_executable = str(exe)
+    assert L.local_run_cwd("local-doom", cfg) == str(tmp_path)
+    cfg.general.custom_executable = "/nonexistent/doom"
+    assert L.local_run_cwd("local-doom", cfg) is None
+    assert L.local_run_cwd("213", cfg) is None
+
+
+def test_local_dry_run_uses_custom_executable(xdg_env, tmp_path, capsys):
+    from tkarcade import launcher as L
+
+    exe = tmp_path / "doom"
+    exe.write_text("#!/bin/sh\n")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = str(exe)
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    assert L.main(["--appid", "local-doom", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "AppID: local-doom" in out
+    assert str(exe) in out

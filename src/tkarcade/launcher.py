@@ -115,6 +115,19 @@ def write_global_log(
         log.error("cannot write global log: %s", e)
 
 
+def local_run_cwd(appid: str, cfg: cfgmod.GameConfig) -> str | None:
+    """Working directory for local games: the executable's own folder.
+
+    None means inherit (all Steam launches and path-less commands).
+    """
+    if steammod.is_steam_id(appid):
+        return None
+    exe = (cfg.general.custom_executable or "").strip()
+    if exe and Path(exe).is_file():
+        return str(Path(exe).parent) or None
+    return None
+
+
 def proton_log_dir(appid: str) -> Path:
     """Directory for PROTON_LOG output of one game (created at launch)."""
     safe = xdg.safe_stem((appid or "").strip())
@@ -406,6 +419,9 @@ def validate_game(appid: str) -> list[str]:
     check_exe("pre_command", eff.pre_post.pre_command)
     check_exe("post_command", eff.pre_post.post_command)
     check_exe("custom_prefix", eff.general.custom_prefix)
+    custom = eff.general.custom_executable.strip()
+    if custom and not shutil.which(custom) and not Path(custom).is_file():
+        issues.append(f"{appid}: custom_executable not found: {custom}")
     if eff.display.mode.strip() and disp_backend.parse_mode(eff.display.mode) is None:
         issues.append(
             f"{appid}: invalid display mode {eff.display.mode.strip()!r}; use WIDTHxHEIGHT[@RATE]"
@@ -877,8 +893,11 @@ def main(argv: list[str] | None = None) -> int:
             env.update({k: str(v) for k, v in extra_env.items()})
             log.info("exec: %s", shlex.join(final_cmd))
             start = time.monotonic()
+            run_cwd = local_run_cwd(appid, cfg)
+            if run_cwd:
+                log.info("cwd: %s", run_cwd)
             try:
-                proc = subprocess.run(final_cmd, env=env)
+                proc = subprocess.run(final_cmd, env=env, cwd=run_cwd)
                 game_rc = proc.returncode
                 if rc_file:
                     game_rc = _read_wrap_rc_file(rc_file, game_rc)
