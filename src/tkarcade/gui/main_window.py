@@ -370,8 +370,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.status)
         layout.addSpacing(2)
 
-        self._build_menu_bar()
         self._build_tool_bar()
+        self._build_menu_bar()
         self.refresh()
         self._apply_tray()
 
@@ -405,6 +405,9 @@ class MainWindow(QMainWindow):
         game_menu.addSeparator()
         self._menu_action(game_menu, self.tr("History..."), self._show_history)
 
+        view_menu = bar.addMenu(self.tr("View"))
+        view_menu.addAction(self._tool_bar.toggleViewAction())
+
         tools_menu = bar.addMenu(self.tr("Tools"))
         self._menu_action(
             tools_menu,
@@ -430,12 +433,18 @@ class MainWindow(QMainWindow):
 
         bar = QToolBar(self.tr("Main Toolbar"), self)
         bar.setObjectName("main_toolbar")
+        bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._tool_bar = bar
 
         def _spacer(name: str) -> QWidget:
             w = QWidget()
             w.setObjectName(name)
             w.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             return w
+
+        def _icon(theme: str, fallback: QStyle.StandardPixmap) -> QIcon:
+            icon = QIcon.fromTheme(theme)
+            return icon if not icon.isNull() else self.style().standardIcon(fallback)
 
         bar.addWidget(_spacer("toolbar_lead"))
         play = bar.addAction(
@@ -444,11 +453,23 @@ class MainWindow(QMainWindow):
             self._play_selected,
         )
         play.setObjectName("toolbar_play")
-        add = bar.addAction(self.tr("Add Game..."), self._add)
+        add = bar.addAction(
+            _icon("list-add", QStyle.StandardPixmap.SP_FileDialogNewFolder),
+            self.tr("Add Game..."),
+            self._add,
+        )
         add.setObjectName("toolbar_add")
-        edit = bar.addAction(self.tr("Edit..."), self._edit_selected)
+        edit = bar.addAction(
+            _icon("document-edit", QStyle.StandardPixmap.SP_DialogOpenButton),
+            self.tr("Edit..."),
+            self._edit_selected,
+        )
         edit.setObjectName("toolbar_edit")
-        remove = bar.addAction(self.tr("Remove"), self._remove_selected)
+        remove = bar.addAction(
+            _icon("edit-delete", QStyle.StandardPixmap.SP_TrashIcon),
+            self.tr("Remove"),
+            self._remove_selected,
+        )
         remove.setObjectName("toolbar_remove")
         bar.addWidget(_spacer("toolbar_tail"))
         self.addToolBar(bar)

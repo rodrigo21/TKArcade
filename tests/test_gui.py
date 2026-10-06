@@ -736,6 +736,7 @@ def test_menu_bar_and_toolbar_structure(qt_app, xdg_env):
         ]
         assert menus["Settings"] == ["Global Defaults...", "Preferences..."]
         assert menus["Help"] == ["About..."]
+        assert "Main Toolbar" in menus["View"]
         toolbar = w.findChild(QToolBar, "main_toolbar")
         assert [a.text() for a in toolbar.actions() if a.text()] == [
             "Play",
@@ -762,6 +763,45 @@ def test_toolbar_actions_centered(qt_app, xdg_env):
         assert tail.sizePolicy().horizontalPolicy() == expanding
         widgets = [bar.widgetForAction(a) for a in bar.actions()]
         assert widgets[0] is lead and widgets[-1] is tail
+    finally:
+        w.close()
+
+
+def test_view_menu_toggles_toolbar(qt_app, xdg_env):
+    from PySide6.QtWidgets import QMenu, QToolBar
+
+    from tkarcade.gui.main_window import MainWindow
+
+    w = MainWindow()
+    w.show()
+    try:
+        bar = w.findChild(QToolBar, "main_toolbar")
+        view = next(m for m in w.menuBar().findChildren(QMenu) if m.title() == "View")
+        assert bar.isVisible()
+        view.actions()[0].trigger()
+        assert not bar.isVisible()
+        view.actions()[0].trigger()
+        assert bar.isVisible()
+    finally:
+        w.close()
+
+
+def test_toolbar_buttons_have_icon_and_text(qt_app, xdg_env):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QToolBar
+
+    from tkarcade.gui.main_window import MainWindow
+
+    w = MainWindow()
+    try:
+        bar = w.findChild(QToolBar, "main_toolbar")
+        assert bar.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        buttons = {
+            a.objectName(): a for a in bar.actions() if a.objectName().startswith("toolbar_")
+        }
+        for name in ("toolbar_play", "toolbar_add", "toolbar_edit", "toolbar_remove"):
+            assert buttons[name].text()
+            assert not buttons[name].icon().isNull(), name
     finally:
         w.close()
 

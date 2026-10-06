@@ -1880,6 +1880,11 @@ Isso sobrescreve as configs salvas (profiles mantidos).</translation>
             <source>Could not open Ludusavi: {}</source>
             <translation>Não foi possível abrir o Ludusavi: {}</translation>
         </message>
+        <message>
+            <location filename="src/tkarcade/gui/main_window.py" line="408" />
+            <source>View</source>
+            <translation>Exibir</translation>
+        </message>
     </context>
     <context>
         <name>_ScanDialog</name>
