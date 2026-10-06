@@ -8,6 +8,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Added
 - Centered main toolbar actions; window opens at 1280x720 and
   remembers its size across runs (floored at 640x480).
+- View menu with a Main Toolbar toggle; toolbar buttons show icon
+  beside text.
+- `TKARCADE_NO_NOTIFY` kill-switch: the test suite sets it, so test
+  runs (and PKGBUILD checks) never pop desktop notifications.
 
 ### Added
 - Source sidebar: All/Steam/Local filter list with counts beside

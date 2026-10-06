@@ -11,6 +11,8 @@ log = logging.getLogger("tkarcade.notify")
 
 
 def available() -> bool:
+    if "TKARCADE_NO_NOTIFY" in os.environ:
+        return False  # kill-switch for tests, builds and quiet sessions
     return bool(shutil.which("notify-send")) and bool(
         os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
     )

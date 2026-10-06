@@ -288,6 +288,24 @@ def test_notify_noop_without_server(xdg_env, monkeypatch, tmp_path):
     ntf.send("hi")  # must not raise
 
 
+def test_suite_silences_notifications_by_default(xdg_env, monkeypatch, tmp_path):
+    """The autouse fixture keeps real notifications out of test runs."""
+    import os
+    import stat
+
+    from tkarcade.backends import notify as ntf
+
+    assert os.environ.get("TKARCADE_NO_NOTIFY") == "1"
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    fake = bindir / "notify-send"
+    fake.write_text("#!/bin/sh\nexit 0\n")
+    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setenv("PATH", str(bindir))
+    monkeypatch.setenv("DISPLAY", ":0")
+    assert not ntf.available()  # kill-switch wins over binary + server
+
+
 def test_notify_calls_server(monkeypatch, tmp_path):
     from tkarcade.backends import notify as ntf
 
@@ -299,6 +317,7 @@ def test_notify_calls_server(monkeypatch, tmp_path):
     script.chmod(0o755)
     monkeypatch.setenv("PATH", str(bindir))
     monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.delenv("TKARCADE_NO_NOTIFY", raising=False)  # opt out of suite silence
     ntf.send("summary", "body", "critical")
     for _ in range(100):
         if logged.exists():
@@ -416,6 +435,7 @@ def test_send_icon_and_expiry(monkeypatch, tmp_path):
     script.chmod(0o755)
     monkeypatch.setenv("PATH", str(bindir))
     monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.delenv("TKARCADE_NO_NOTIFY", raising=False)  # opt out of suite silence
     ntf.send("t", "b", icon="/i.png", expire_ms=5000)
     for _ in range(100):
         if logged.exists():

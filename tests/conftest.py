@@ -17,6 +17,16 @@ if os.environ.get("TKARCADE_TEST_LOCALE") != "1":
     os.environ["LC_ALL"] = "C"
 
 
+@pytest.fixture(autouse=True)
+def _silence_notifications(monkeypatch):
+    """Never pop real desktop notifications from the suite.
+
+    Tests asserting notification delivery opt back out explicitly
+    (delenv / drop from the subprocess env).
+    """
+    monkeypatch.setenv("TKARCADE_NO_NOTIFY", "1")
+
+
 @pytest.fixture(scope="module")
 def qt_app():
     """Single offscreen QApplication shared by GUI tests in a module."""
