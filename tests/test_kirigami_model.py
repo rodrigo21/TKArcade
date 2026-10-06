@@ -81,3 +81,10 @@ def test_launch_local_detached_spawns(xdg_env, monkeypatch):
     (args, kwargs) = calls[0]
     assert args[0] == ["/usr/bin/tkarcade", "--appid", "local-doom"]
     assert kwargs.get("start_new_session") is True
+
+
+def test_model_role_names_are_game_prefixed(qgui_app):
+    from tkarcade.gui.model import GameListModel
+
+    roles = GameListModel().roleNames()
+    assert sorted(roles.values()) == [b"gameId", b"gameName", b"gameSource"]

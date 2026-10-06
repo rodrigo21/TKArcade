@@ -67,6 +67,7 @@ def _pick_via(conn, title: str, accept_label: str, timeout: float) -> str:
     # open_dbus_connection already said Hello: the name is on the conn.
     unique = (getattr(conn, "unique_name", "") or "").lstrip(":").replace(".", "_")
     if not unique:
+        log.debug("portal: saying Hello")
         hello = conn.send_and_get_reply(new_method_call(bus, "Hello"), timeout=10)
         unique = (hello.body[0] if hello.body else "").lstrip(":").replace(".", "_")
     if not unique:
@@ -74,6 +75,7 @@ def _pick_via(conn, title: str, accept_label: str, timeout: float) -> str:
     token = f"tkarcade{random.randrange(1 << 30)}"
     req_path = f"/org/freedesktop/portal/desktop/request/{unique}/{token}"
     match = f"type='signal',interface='{_REQUEST_IFACE}',member='Response',path='{req_path}'"
+    log.debug("portal: AddMatch %s", req_path)
     conn.send_and_get_reply(new_method_call(bus, "AddMatch", "s", (match,)), timeout=10)
 
     portal = DBusAddress(_DESKTOP[1], _DESKTOP[0], _DESKTOP[0])
@@ -82,6 +84,7 @@ def _pick_via(conn, title: str, accept_label: str, timeout: float) -> str:
         "accept_label": ("s", accept_label),
         "modal": ("b", True),
     }
+    log.debug("portal: OpenFile %r", title)
     reply = conn.send_and_get_reply(
         new_method_call(portal, "OpenFile", "ssa{sv}", ("", title, options)),
         timeout=30,
@@ -89,6 +92,7 @@ def _pick_via(conn, title: str, accept_label: str, timeout: float) -> str:
     handle = reply.body[0] if reply.body else ""
     # The reply handle is the request path (spec); trust it over our guess.
     req_path = handle or req_path
+    log.debug("portal: waiting for Response on %s", req_path)
     deadline = time.monotonic() + max(timeout, 1.0)
     while True:
         remaining = deadline - time.monotonic()

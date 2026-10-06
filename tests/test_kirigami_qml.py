@@ -38,3 +38,31 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
     assert view is not None
     qgui_app.processEvents()
     assert view.property("count") == 1
+
+
+def test_game_delegate_binds_roles(qgui_app):
+    """The delegate compiles and binds: this is what broke on Qt6 (`model.`)."""
+    import pathlib
+
+    from PySide6.QtCore import QUrl
+    from PySide6.QtQml import QQmlComponent, QQmlEngine
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    engine = QQmlEngine()
+    warnings: list[str] = []
+    engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
+    url = QUrl.fromLocalFile(
+        str(pathlib.Path(kapp.__file__).parent / "qml" / "GameDelegate.qml")
+    )
+    component = QQmlComponent(engine, url)
+    assert component.isReady(), component.errorString()
+    item = component.createWithInitialProperties(
+        {"gameName": "Doom", "gameId": "local-doom", "gameSource": "Local"}
+    )
+    assert item is not None
+    qgui_app.processEvents()
+    assert item.property("title") == "Doom"
+    assert item.property("subtitle") == "local-doom · Local"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []

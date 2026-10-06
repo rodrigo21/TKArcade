@@ -31,16 +31,8 @@ Kirigami.ApplicationWindow {
                 id: gameList
                 objectName: "gameList"
                 model: gameModel
-                delegate: Delegates.TitleSubtitleWithActions {
-                    title: model.name
-                    subtitle: model.gameId + " · " + model.source
-                    actions: [
-                        Kirigami.Action {
-                            text: qsTr("Play")
-                            icon.name: "media-playback-start"
-                            onTriggered: gameModel.play(model.gameId)
-                        }
-                    ]
+                delegate: GameDelegate {
+                    onPlayRequested: (gid) => gameModel.play(gid)
                 }
                 Kirigami.PlaceholderMessage {
                     anchors.centerIn: parent

@@ -41,10 +41,12 @@ class GameListModel(QAbstractListModel):
         self.refresh()
 
     def roleNames(self) -> dict:
+        # game-prefixed: bare Qt6 delegate properties must never collide
+        # with the delegate item's own properties (name/source do).
         return {
             GameListModel.IdRole: b"gameId",
-            GameListModel.NameRole: b"name",
-            GameListModel.SourceRole: b"source",
+            GameListModel.NameRole: b"gameName",
+            GameListModel.SourceRole: b"gameSource",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
