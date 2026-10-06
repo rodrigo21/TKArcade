@@ -491,6 +491,7 @@ class MainWindow(QMainWindow):
         self._size_timer.setSingleShot(True)
         self._size_timer.setInterval(500)
         self._size_timer.timeout.connect(self._save_main_size)
+        self._shown_once = False
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -498,17 +499,29 @@ class MainWindow(QMainWindow):
             self._size_timer.start()  # debounced: one write per resize gesture
 
     def _save_main_size(self) -> None:
-        """Persist the current window size (best effort, never raises)."""
+        """Persist the current window size/state (best effort, never raises)."""
         try:
             prefs = cfgmod.load_preferences()
         except Exception:
             return
-        size = self.size()
-        prefs.main_window_size = f"{max(640, size.width())}x{max(480, size.height())}"
+        prefs.main_window_maximized = self.isMaximized()
+        if not prefs.main_window_maximized:
+            size = self.size()
+            prefs.main_window_size = f"{max(640, size.width())}x{max(480, size.height())}"
         try:
             cfgmod.save_preferences(prefs)
         except OSError:
             pass
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if not self._shown_once:
+            self._shown_once = True
+            try:
+                if cfgmod.load_preferences().main_window_maximized:
+                    self.showMaximized()
+            except Exception:
+                pass
 
     def _mark_user_sorted(self, *_args) -> None:
         self._user_sorted = True

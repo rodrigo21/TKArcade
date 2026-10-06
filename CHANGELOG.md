@@ -12,6 +12,15 @@ Breaking config changes are called out explicitly under `Changed`.
   beside text.
 - `TKARCADE_NO_NOTIFY` kill-switch: the test suite sets it, so test
   runs (and PKGBUILD checks) never pop desktop notifications.
+- Main window restores maximized state across runs (size kept
+  separately, never overwritten while maximized).
+- Dependency Status hides Steam-only entries for local games.
+- Display modes load on first opening the Display tab (Refresh and
+  provider/output edits still re-query).
+
+### Fixed
+- Diff vs Defaults ignores identity fields (appid, name) and the
+  profile selection memory.
 
 ### Added
 - Source sidebar: All/Steam/Local filter list with counts beside

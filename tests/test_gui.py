@@ -828,6 +828,33 @@ def test_main_window_size_default_restore_and_save(qt_app, xdg_env):
         w2.close()
 
 
+def test_main_window_maximized_roundtrip(qt_app, xdg_env):
+    from tkarcade import config as C
+    from tkarcade.gui.main_window import MainWindow
+
+    w = MainWindow()
+    w.show()
+    try:
+        w.showMaximized()
+        assert w.isMaximized()
+        w._save_main_size()
+        prefs = C.load_preferences()
+        assert prefs.main_window_maximized is True
+        assert prefs.main_window_size in ("", "1280x720")  # size untouched
+    finally:
+        w.close()
+    w2 = MainWindow()
+    w2.show()
+    try:
+        qt_app.processEvents()
+        assert w2.isMaximized()
+        w2.showNormal()
+        w2._save_main_size()
+        assert C.load_preferences().main_window_maximized is False
+    finally:
+        w2.close()
+
+
 def test_main_window_size_garbage_falls_back(qt_app, xdg_env):
     from tkarcade import xdg as xdgmod
     from tkarcade.gui.main_window import MainWindow
@@ -2881,6 +2908,49 @@ def test_game_dialog_local_guards(qt_app, xdg_env):
         d.e_name.setText("Doom II")
         d._collect()
         assert d.cfg.general.name == "Doom II"
+    finally:
+        d.close()
+
+
+def test_local_dialog_hides_steam_status(qt_app, xdg_env):
+    from tkarcade import config as C
+    from tkarcade.gui.game_dialog import GameDialog
+
+    for appid, name in (("local-doom", "Doom"), ("130", "")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        C.save(cfg)
+    d = GameDialog(None, "local-doom", "")
+    d.show()
+    try:
+        assert "steam-options" not in d._status_labels
+        assert not d._status_labels["ludusavi"].isHidden()
+    finally:
+        d.close()
+
+
+def test_display_modes_queried_on_first_tab_open(qt_app, xdg_env, monkeypatch):
+    from tkarcade import config as C
+    from tkarcade.backends import display as dispmod
+    from tkarcade.gui.game_dialog import GameDialog
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "131"
+    C.save(cfg)
+    calls = []
+    monkeypatch.setattr(dispmod, "offered_modes", lambda *a: calls.append(a) or [])
+    d = GameDialog(None, "131", "T")
+    try:
+        assert calls == []  # no query on open
+        idx = next(i for i in range(d._tabs.count()) if d._tabs.widget(i) is d._disp_page)
+        d._tabs.setCurrentIndex(idx)
+        qt_app.processEvents()
+        assert len(calls) == 1  # queried once on first open
+        d._tabs.setCurrentIndex(0)
+        d._tabs.setCurrentIndex(idx)
+        qt_app.processEvents()
+        assert len(calls) == 1  # never again
     finally:
         d.close()
 
