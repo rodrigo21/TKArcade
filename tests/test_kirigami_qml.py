@@ -22,8 +22,12 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
     engine = QQmlApplicationEngine()
     warnings: list[str] = []
     engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
-    model = GameListModel()  # keep a Python ref: QML does not own it
+    model = GameListModel(engine)  # parented: survives without the Python ref
     engine.rootContext().setContextProperty("gameModel", model)
+    del model
+    import gc
+
+    gc.collect()
     engine.load(QUrl(qml_url()))
     assert len(engine.rootObjects()) == 1
     real = [w for w in warnings if not any(n in w for n in OFFSCREEN_NOISE)]

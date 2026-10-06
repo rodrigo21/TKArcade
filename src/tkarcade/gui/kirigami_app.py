@@ -29,7 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     app.setOrganizationName("TKArcade")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     engine = QQmlApplicationEngine()
-    engine.rootContext().setContextProperty("gameModel", GameListModel())
+    # Parent to the engine: QML takes no ownership, so an unparented
+    # model would die with its Python wrapper (GC) and read as null.
+    model = GameListModel(engine)
+    engine.rootContext().setContextProperty("gameModel", model)
     from PySide6.QtCore import QUrl
 
     engine.load(QUrl(qml_url()))
