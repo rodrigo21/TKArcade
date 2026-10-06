@@ -635,6 +635,8 @@ class GameDialog(QDialog):
         disp_layout.addWidget(rt_box)
         disp_layout.addStretch(1)
         tabs.addTab(_scroll_page(disp), self.tr("Display"))
+        self._disp_page = tabs.widget(tabs.count() - 1)
+        self._dmodes_queried = False
 
         # --- Ludusavi ---
         lu = QWidget()
@@ -789,8 +791,8 @@ class GameDialog(QDialog):
             "rt-upscale",
             "ludusavi",
         ]
-        if not defaults_mode:
-            # per-game only: Steam launch options need an AppID.
+        if not defaults_mode and self._is_steam:
+            # Steam launch options are meaningless for local games.
             status_keys.append("steam-options")
         layout.addWidget(self._status_box(self.tr("Dependency Status"), status_keys))
 
@@ -884,6 +886,7 @@ class GameDialog(QDialog):
         self.e_post.textChanged.connect(self._refresh_hook_statuses)
         self.e_dmode.currentTextChanged.connect(lambda _t: self._update_dip_ui())
         tabs.currentChanged.connect(self._refresh_preview)
+        tabs.currentChanged.connect(self._maybe_query_display_modes)
         self._show_load_warning()
         # No query on open (subprocess I/O stays behind Refresh and
         # provider/output edits); manual mode entry always works.
@@ -1437,6 +1440,12 @@ class GameDialog(QDialog):
             return bool(cfgmod.load_preferences().show_preview)
         except Exception:
             return True
+
+    def _maybe_query_display_modes(self, index: int) -> None:
+        """Query offered modes once, on first opening the Display tab."""
+        if not self._dmodes_queried and self._tabs.widget(index) is self._disp_page:
+            self._dmodes_queried = True
+            self._refresh_display_modes()
 
     def _refresh_display_modes(self) -> None:
         """(Re)query offered modes in the background; manual entry always works."""
