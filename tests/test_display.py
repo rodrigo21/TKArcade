@@ -49,6 +49,50 @@ def _logs(tmp_path):
     return [ln for ln in k if ln], [ln for ln in x if ln]
 
 
+def _stub_run(tmp_path, monkeypatch):
+    """In-process fake binaries (same outputs/logs as _bindir scripts).
+
+    subprocess.run(..., timeout=...) polls with tiny time.sleep() calls
+    while waiting; with D.time.sleep patched those pollute `slept`.
+    Stubbing run keeps dip tests deterministic under any load.
+    """
+    from types import SimpleNamespace
+
+    from tkarcade.backends import display as D
+
+    kscreen_out = (
+        "Output: 1 DP-3 04cbfa0a-uuid\n\tenabled\n\tconnected\n\tpriority 1\n"
+        "\tModes:  1:2560x1440@120.00!  2:\x1b[32m2560x1440@164.96*\x1b[0m"
+        "  3:1920x1080@60.00\n"
+        "Output: 2 HDMI-1 other-uuid\n\tdisabled\n\tdisconnected\n"
+        "\tModes:  1:1920x1080@60.00\n"
+    )
+    xrandr_out = (
+        "DP-3 connected primary 2560x1440+0+0\n"
+        "   2560x1440    164.96*+  60.00\n   1920x1080    60.00\n"
+        "HDMI-1 disconnected\n"
+    )
+
+    def fake_run(cmd, **kw):
+        if cmd[0].endswith("kscreen-doctor"):
+            if cmd[1:2] == ["-o"]:
+                return SimpleNamespace(returncode=0, stdout=kscreen_out, stderr="")
+            (tmp_path / "kscreen.log").write_text(
+                (tmp_path / "kscreen.log").read_text() + " ".join(cmd[1:]) + "\n"
+            )
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[0].endswith("xrandr"):
+            if cmd[1:2] == ["--query"]:
+                return SimpleNamespace(returncode=0, stdout=xrandr_out, stderr="")
+            (tmp_path / "xrandr.log").write_text(
+                (tmp_path / "xrandr.log").read_text() + " ".join(cmd[1:]) + "\n"
+            )
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(D.subprocess, "run", fake_run)
+
+
 def test_parse_mode():
     assert D.parse_mode("1920x1080") == (1920, 1080, None)
     assert D.parse_mode("1920x1080@60") == (1920, 1080, 60.0)
@@ -251,6 +295,7 @@ def test_same_mode_dips_down_and_back(tmp_path, monkeypatch):
     from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
+    _stub_run(tmp_path, monkeypatch)
     slept = []
     monkeypatch.setattr(D.time, "sleep", lambda s: slept.append(s))
     s = D.DisplaySession(provider="plasma", mode="2560x1440@164.96")
@@ -268,6 +313,7 @@ def test_same_mode_x11_dips_down_and_back(tmp_path, monkeypatch):
     from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
+    _stub_run(tmp_path, monkeypatch)
     slept = []
     monkeypatch.setattr(D.time, "sleep", lambda s: slept.append(s))
     s = D.DisplaySession(provider="x11", mode="2560x1440")
@@ -386,6 +432,7 @@ def test_dip_seconds_plumbing(tmp_path, monkeypatch):
     from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
+    _stub_run(tmp_path, monkeypatch)
     slept = []
     monkeypatch.setattr(D.time, "sleep", lambda s: slept.append(s))
     s = D.DisplaySession(provider="plasma", mode="2560x1440@164.96", dip_seconds=5)
