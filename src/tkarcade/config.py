@@ -163,6 +163,7 @@ class Preferences:
     tray_quick_count: int = 5  # recent games shown (1-10)
     language: str = "system"  # system locale, "en" for English, or a locale code
     main_window_size: str = ""  # "WxH", "" means the 1280x720 default
+    main_window_maximized: bool = False  # restore maximized on open
 
 
 @dataclass
@@ -690,6 +691,7 @@ def load_preferences() -> Preferences:
         lang if lang == "system" or re.fullmatch(r"[A-Za-z]+(_[A-Za-z]+)?", lang) else "system"
     )
     out.main_window_size = _clean_window_size(ui.get("main_window_size", ""))
+    out.main_window_maximized = _as_bool(ui.get("main_window_maximized", False), False)
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -734,6 +736,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "tray_quick_count": _clamp_quick_count(prefs.tray_quick_count),
             "language": prefs.language if isinstance(prefs.language, str) else "system",
             "main_window_size": _clean_window_size(prefs.main_window_size),
+            "main_window_maximized": bool(prefs.main_window_maximized),
         }
     }
     _write_atomic(path, _render_toml(data))
@@ -822,8 +825,12 @@ def diff_vs_defaults(cfg: GameConfig) -> str:
 
     base = to_toml_dict(load_defaults())
     full = to_toml_dict(cfg)
-    base.get("general", {}).pop("appid", None)
-    full.get("general", {}).pop("appid", None)
+    for section in (base, full):
+        general = section.get("general", {})
+        # Identity and selection memory, not settings: never diff noise.
+        general.pop("appid", None)
+        general.pop("name", None)
+        general.pop("active_profile", None)
     return "\n".join(
         difflib.unified_diff(
             _render_toml(base).splitlines(),

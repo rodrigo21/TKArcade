@@ -309,6 +309,14 @@ def test_diff_vs_defaults(xdg_env):
     assert '"A" = "1"' in diff and diff.startswith("---")
 
 
+def test_diff_hides_identity_fields(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "91"
+    cfg.general.name = "My Game"
+    cfg.general.active_profile = "p1"
+    assert C.diff_vs_defaults(cfg) == ""
+
+
 def test_flavor_prefix_boundaries():
     from tkarcade import proton as pm
 
