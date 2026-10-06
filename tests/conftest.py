@@ -27,13 +27,13 @@ def _silence_notifications(monkeypatch):
     monkeypatch.setenv("TKARCADE_NO_NOTIFY", "1")
 
 
-@pytest.fixture(scope="module")
-def qt_app():
-    """Single offscreen QApplication shared by GUI tests in a module."""
-    pytest.importorskip("PySide6.QtWidgets")
-    from PySide6.QtWidgets import QApplication
+@pytest.fixture(scope="session")
+def qgui_app():
+    """Single offscreen QGuiApplication for headless Qt tests (no widgets)."""
+    pytest.importorskip("PySide6.QtGui")
+    from PySide6.QtGui import QGuiApplication
 
-    app = QApplication.instance() or QApplication([])
+    app = QGuiApplication.instance() or QGuiApplication([])
     yield app
 
 

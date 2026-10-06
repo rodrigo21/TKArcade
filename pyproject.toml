@@ -36,6 +36,8 @@ desktop-entry = "packaging/tkarcade.desktop"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+# Parked widgets reference (kirigami branch): not built, not collected.
+exclude = ["tests/gui_widgets_reference.py"]
 
 [tool.ruff.lint]
 # E4/E7/E9/F: syntax/style basics (E501 line length intentionally off).
