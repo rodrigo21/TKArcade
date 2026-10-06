@@ -94,6 +94,13 @@ class GameListModel(QAbstractListModel):
         self.refresh()
         return appid
 
+    @Slot(result=str)
+    def browseExecutable(self) -> str:
+        """Native file picker. Returns a path, or '' when cancelled."""
+        from ..backends import portal as portalmod
+
+        return portalmod.pick_file("Game executable", "Select")
+
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:
         """Play routing: Steam ids via the client, local ids direct."""

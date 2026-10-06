@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
-import QtQuick.Dialogs as Dialogs
 import org.kde.kirigami as Kirigami
 import org.kde.kirigami.delegates as Delegates
 
@@ -74,7 +73,16 @@ Kirigami.ApplicationWindow {
                 }
                 Controls.Button {
                     text: qsTr("Browse…")
-                    onClicked: filePicker.open()
+                    onClicked: {
+                        var picked = gameModel.browseExecutable()
+                        if (picked !== "") {
+                            exeField.text = picked
+                            if (nameField.text === "") {
+                                var parts = picked.split("/")
+                                nameField.text = parts[parts.length - 1]
+                            }
+                        }
+                    }
                 }
             }
             Controls.Label {
@@ -84,21 +92,8 @@ Kirigami.ApplicationWindow {
             }
         }
 
-        Dialogs.FileDialog {
-            id: filePicker
-            title: qsTr("Game executable")
-            onAccepted: {
-                exeField.text = filePicker.selectedFile.toString().replace("file://", "")
-                if (nameField.text === "") {
-                    var parts = exeField.text.split("/")
-                    nameField.text = parts[parts.length - 1]
-                }
-            }
-        }
-
         footer: RowLayout {
             Layout.fillWidth: true
-            Item { Layout.fillWidth: true }
             Controls.Button {
                 text: qsTr("Add")
                 onClicked: {

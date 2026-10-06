@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Native file picker: the Add dialog uses the desktop's own picker
+  via xdg-desktop-portal (jeepney) instead of the Qt fallback.
 - Kirigami spike (branch only): QtWidgets parked under `widgets/`
   as reference, new Kirigami list/add/launch UI in `gui/` reusing
   the stdlib core untouched; `--gui` opens it, `--edit`/`--menu`
