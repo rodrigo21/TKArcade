@@ -1,24 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="#241543"/>
-  <!-- marquee with block-letter TK -->
-  <rect x="18" y="6" width="28" height="12" rx="2.5" fill="#f7530b"/>
-  <rect x="22.5" y="8.5" width="7" height="2.4" fill="#241543"/>
-  <rect x="25.3" y="10.9" width="2.4" height="4.6" fill="#241543"/>
-  <rect x="32.5" y="8.5" width="2.4" height="7" fill="#241543"/>
-  <polygon points="34.9,12.2 39.3,8.5 39.3,11.2" fill="#241543"/>
-  <polygon points="34.9,13.8 39.3,15.5 39.3,12.8" fill="#241543"/>
-  <!-- screen -->
-  <rect x="19" y="20" width="26" height="17" rx="2" fill="#120b26"/>
-  <rect x="21.5" y="22.5" width="21" height="12" rx="1" fill="#0f2a4a"/>
-  <path d="M28 24.5 L28 32.5 L36 28.5 Z" fill="#f7530b"/>
+  <!-- play triangle crowning the cabinet -->
+  <polygon points="26,5 26,19 44,12" fill="#f7530b"/>
+  <!-- screen with symmetric block-letter TK -->
+  <rect x="19" y="22" width="26" height="17" rx="2" fill="#031e65"/>
+  <rect x="21.5" y="24.5" width="21" height="12" rx="1" fill="#0a1230"/>
+  <rect x="24.5" y="26" width="6" height="2" fill="#f7530b"/>
+  <rect x="26.6" y="28" width="1.8" height="6.5" fill="#f7530b"/>
+  <rect x="33" y="26" width="1.8" height="8.5" fill="#f7530b"/>
+  <polygon points="33.4,30.7 36.11,26 38.43,26 33.4,34.7" fill="#f7530b"/>
+  <polygon points="33.4,29.8 36.11,34.5 38.43,34.5 33.4,25.8" fill="#f7530b"/>
   <!-- control deck -->
-  <rect x="16" y="39" width="32" height="6" rx="1.5" fill="#37256b"/>
-  <circle cx="24" cy="42.5" r="2" fill="#ff5d5d"/>
-  <circle cx="40" cy="42.5" r="2" fill="#43d17c"/>
-  <rect x="31.3" y="38.8" width="1.4" height="3.4" fill="#cfd3da"/>
-  <circle cx="32" cy="38" r="1.8" fill="#f7530b"/>
+  <rect x="16" y="41" width="32" height="6" rx="1.5" fill="#12307c"/>
+  <circle cx="24" cy="44" r="2" fill="#ff5d5d"/>
+  <circle cx="40" cy="44" r="2" fill="#43d17c"/>
+  <rect x="31.3" y="40.3" width="1.4" height="3.2" fill="#cfd3da"/>
+  <circle cx="32" cy="39.5" r="1.8" fill="#f7530b"/>
   <!-- base with coin slot -->
-  <rect x="19" y="47" width="26" height="11" rx="1.5" fill="#1b1038"/>
-  <rect x="28" y="48.5" width="8" height="6" rx="1" fill="#0e0820"/>
-  <rect x="31.2" y="50" width="1.6" height="3" fill="#f7530b"/>
+  <rect x="19" y="49" width="26" height="11" rx="1.5" fill="#031e65"/>
+  <rect x="28" y="51" width="8" height="6" rx="1" fill="#010a29"/>
+  <rect x="31.2" y="52.5" width="1.6" height="3" fill="#f7530b"/>
 </svg>
