@@ -6,6 +6,12 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Kirigami spike (branch only): QtWidgets parked under `widgets/`
+  as reference, new Kirigami list/add/launch UI in `gui/` reusing
+  the stdlib core untouched; `--gui` opens it, `--edit`/`--menu`
+  report unavailable until its settings UI lands.
+
+### Added
 - New application icon: arcade cabinet with TK screen and play
   triangle (monochrome outline variant for the tray).
 - Double-click plays the game, middle-click opens its settings

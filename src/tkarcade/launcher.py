@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import json
 import logging
 import logging.handlers
 import os
@@ -543,7 +542,7 @@ def _has_cli_action(args: argparse.Namespace) -> bool:
 
 def _run_gui() -> int:
     try:
-        from .gui.app import main as gui_main
+        from .gui.kirigami_app import main as gui_main
     except ImportError:
         print("tkarcade: GUI needs PySide6 installed", file=sys.stderr)
         return 15
@@ -581,85 +580,31 @@ def clean_gui_env(env: dict[str, str]) -> dict[str, str]:
 
 
 def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True) -> tuple[str, str]:
-    """Open the game settings dialog in a sanitized subprocess.
+    """Widget settings editor, retired on the kirigami branch.
 
-    Returns (outcome, appid). Outcomes: 'launch', 'saved', 'cancelled'
-    or 'unavailable'. A child crash is treated as 'cancelled' (never
-    launch on unknown user intent). Falls back to in-process display
-    when the child cannot even spawn.
+    Always 'unavailable': --menu launches directly and --edit exits 15
+    through the existing handling until the Kirigami settings UI lands.
     """
-    cmd = [sys.executable, "-m", "tkarcade.gui.edit"]
-    if (appid or "").strip():
-        cmd += ["--appid", appid.strip()]
-    else:
-        cmd += ["--pick"]
-    cmd += ["--can-launch" if can_launch else "--no-can-launch"]
-    if for_menu:
-        cmd.append("--menu")
-    try:
-        proc = subprocess.run(
-            cmd, env=clean_gui_env(dict(os.environ)), capture_output=True, text=True
-        )
-    except OSError as e:
-        log.warning("settings editor subprocess failed to spawn (%s); trying in-process", e)
-        return _run_editor_inprocess(appid, for_menu, can_launch)
-    if proc.stderr.strip():
-        for line in proc.stderr.strip().splitlines():
-            log.debug("editor child stderr: %s", line)
-    if proc.returncode == 2:
-        return "unavailable", appid
-    if proc.returncode != 0:
-        log.error("settings editor crashed (exit %s); launch cancelled", proc.returncode)
-        return "cancelled", appid
-    try:
-        data = json.loads(proc.stdout.strip().splitlines()[-1])
-        outcome = str(data.get("outcome", "cancelled"))
-        picked = str(data.get("appid", "") or appid)
-    except (ValueError, IndexError, AttributeError) as e:
-        log.error("settings editor sent bad output (%s); launch cancelled", e)
-        return "cancelled", appid
-    if outcome not in ("launch", "saved", "cancelled"):
-        log.error("settings editor sent bad outcome %r; launch cancelled", outcome)
-        return "cancelled", appid
-    return outcome, picked
-
-
-def _run_editor_inprocess(appid: str, for_menu: bool, can_launch: bool) -> tuple[str, str]:
-    """Legacy in-process fallback when the editor subprocess cannot spawn."""
     tool = "--menu" if for_menu else "--edit"
-    try:
-        from PySide6.QtWidgets import QApplication, QDialog
-    except ImportError:
-        print(f"tkarcade: {tool} needs PySide6 installed", file=sys.stderr)
-        return "unavailable", appid
-    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-        print(f"tkarcade: {tool} needs a display", file=sys.stderr)
-        return "unavailable", appid
-    from .gui.edit import pick_game_appid
+    print(f"tkarcade: {tool} needs the settings UI (not on this branch)", file=sys.stderr)
+    return "unavailable", appid
 
-    # Reference kept alive: the dialog needs a living QApplication during exec.
-    app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841
-    if not appid:
-        appid = pick_game_appid()
-        if not appid:
-            return "cancelled", ""
-    names = {a: n for a, n in steammod.list_games()}
-    names.update(steammod.local_names())
-    if for_menu:
-        from .gui.menu_dialog import MenuDialog
 
-        menu = MenuDialog(None, appid, names.get(appid, ""), can_launch=can_launch)
-        result = menu.exec()
-        if int(result) != int(QDialog.DialogCode.Accepted):
-            return "cancelled", appid
-        return ("launch" if menu.launch_requested else "saved"), appid
-    from .gui.game_dialog import GameDialog
+def launch_local_detached(appid: str) -> None:
+    """Spawn `tkarcade --appid ...` detached for a local game.
 
-    dlg = GameDialog(None, appid, names.get(appid, ""), launch_mode=True, can_launch=can_launch)
-    result = dlg.exec()
-    if int(result) != int(QDialog.DialogCode.Accepted):
-        return "cancelled", appid
-    return ("launch" if dlg.launch_requested else "saved"), appid
+    Shared Play path for every toolkit: logs, history and the one-shot
+    menu skip apply; only the Steam client handoff is missing.
+    Raises OSError when the spawn itself fails.
+    """
+    plant_menu_skip(appid)
+    runner = shutil.which("tkarcade") or sys.argv[0]
+    subprocess.Popen(
+        [runner, "--appid", appid],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -671,6 +616,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.list:
         names = dict(steammod.list_games())
+        names.update(steammod.local_names())
         configured = cfgmod.list_appids()
         print("Configured:")
         for appid in configured:

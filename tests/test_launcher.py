@@ -249,79 +249,6 @@ def test_clean_gui_env():
     assert "LD_LIBRARY_PATH" not in clean_gui_env(only_steam)
 
 
-def test_edit_child_headless(xdg_env, monkeypatch):
-    monkeypatch.delenv("DISPLAY", raising=False)
-    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
-    r = _run(_env(xdg_env), "-m", "tkarcade.gui.edit", "--appid", "1")
-    assert r.returncode == 2
-
-
-def test_editor_menu_parsing(monkeypatch):
-    import subprocess as sp
-
-    from tkarcade import launcher as L
-
-    seen = {}
-
-    def fake_run(cmd, **kw):
-        seen["cmd"] = cmd
-        seen["env"] = kw.get("env", {})
-
-        class P:
-            returncode = 0
-            stdout = '{"outcome": "launch", "appid": "42"}\n'
-            stderr = ""
-
-        return P()
-
-    monkeypatch.setattr(sp, "run", fake_run)
-    assert L.run_editor_menu("42") == ("launch", "42")
-    assert "-m" in seen["cmd"] and "tkarcade.gui.edit" in seen["cmd"]
-    assert "LD_LIBRARY_PATH" not in seen["env"] or "steam-runtime" not in seen["env"].get(
-        "LD_LIBRARY_PATH", ""
-    )
-
-
-def test_editor_menu_crash_means_cancelled(monkeypatch):
-    import subprocess as sp
-
-    from tkarcade import launcher as L
-
-    class P:
-        returncode = 1
-        stdout = ""
-        stderr = "boom"
-
-    monkeypatch.setattr(sp, "run", lambda *a, **k: P())
-    assert L.run_editor_menu("42") == ("cancelled", "42")
-
-
-def test_editor_menu_bad_output_cancelled(monkeypatch):
-    import subprocess as sp
-
-    from tkarcade import launcher as L
-
-    class P:
-        returncode = 0
-        stdout = "not json\n"
-        stderr = ""
-
-    monkeypatch.setattr(sp, "run", lambda *a, **k: P())
-    assert L.run_editor_menu("42") == ("cancelled", "42")
-
-
-def test_editor_menu_spawn_fallback_headless(monkeypatch):
-    from tkarcade import launcher as L
-
-    def boom(*a, **k):
-        raise OSError("noexec")
-
-    monkeypatch.setattr("subprocess.run", boom)
-    monkeypatch.delenv("DISPLAY", raising=False)
-    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
-    assert L.run_editor_menu("42") == ("unavailable", "42")
-
-
 def test_help_documents_exit_codes(xdg_env):
     r = _run(_env(xdg_env), "--help")
     assert r.returncode == 0
@@ -396,7 +323,7 @@ def test_launcher_gui_dispatch(xdg_env, monkeypatch):
     from tkarcade import launcher as L
 
     calls = []
-    monkeypatch.setattr("tkarcade.gui.app.main", lambda: calls.append("gui") or 0)
+    monkeypatch.setattr("tkarcade.gui.kirigami_app.main", lambda *a: calls.append("gui") or 0)
     monkeypatch.setenv("DISPLAY", ":0")
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     monkeypatch.setattr(sys, "argv", ["tkarcade"])
