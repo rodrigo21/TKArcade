@@ -65,6 +65,10 @@ rewrite pushed history or tags.
 - Addon table cells do not wrap for tests: assert through the
   selectionModel, header component props and measured metrics
   (contentHeight/rowCount), never through delegate objects.
+- Table delegates bind the Loader-provided `model` roles directly
+  (`model.gameIcon`, never `rowData(row)` which desyncs on sort);
+  `model` is null transiently, so every dereference needs optional
+  chaining plus fallback (`model?.gameIcon ?? ""`).
 
 ## Project policies (do not regress)
 

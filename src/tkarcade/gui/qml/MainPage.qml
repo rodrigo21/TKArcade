@@ -499,9 +499,7 @@ Kirigami.Page {
     header: ColumnLayout {
         RowLayout {
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
+            spacing: Kirigami.Units.smallSpacing
             Controls.ToolButton {
                 objectName: "actionPlay"
                 text: qsTr("Play")
@@ -532,12 +530,6 @@ Kirigami.Page {
                 display: Controls.AbstractButton.TextBesideIcon
                 onClicked: gamesPage.openRemoveDialog()
             }
-            Item {
-                Layout.fillWidth: true
-            }
-        }
-        RowLayout {
-            Layout.fillWidth: true
             Kirigami.SearchField {
                 id: searchField
                 Layout.fillWidth: true
@@ -976,7 +968,6 @@ Kirigami.Page {
             itemDelegate: Item {
                 implicitWidth: hcGame.width
                 implicitHeight: Kirigami.Units.gridUnit * 2
-                property var info: gameFilter.rowData(row)
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.RightButton
@@ -992,13 +983,13 @@ Kirigami.Page {
                         Layout.alignment: Qt.AlignVCenter
                         Image {
                             anchors.fill: parent
-                            visible: (info.gameIcon ?? "") !== ""
-                            source: visible ? "file://" + info.gameIcon : ""
+                            visible: (model?.gameIcon ?? "") !== ""
+                            source: visible ? "file://" + model?.gameIcon : ""
                             fillMode: Image.PreserveAspectFit
                         }
                         Kirigami.Icon {
                             anchors.centerIn: parent
-                            visible: (info.gameIcon ?? "") === ""
+                            visible: (model?.gameIcon ?? "") === ""
                             source: "applications-games"
                             width: 20
                             height: 20
@@ -1007,7 +998,6 @@ Kirigami.Page {
                     Controls.Label {
                         Layout.fillWidth: true
                         verticalAlignment: Text.AlignVCenter
-                        font.bold: true
                         text: modelData ?? ""
                         elide: Text.ElideRight
                     }
@@ -1035,12 +1025,11 @@ Kirigami.Page {
                 verticalAlignment: Text.AlignVCenter
                 text: modelData ?? ""
                 elide: Text.ElideRight
-                property var info: gameFilter.rowData(row)
                 HoverHandler {
                     id: playedHover
                 }
                 Controls.ToolTip.visible: playedHover.hovered
-                Controls.ToolTip.text: info.gamePlayedTip ?? ""
+                Controls.ToolTip.text: model?.gamePlayedTip ?? ""
             }
         }
         KAddons.HeaderComponent {
@@ -1054,16 +1043,15 @@ Kirigami.Page {
             itemDelegate: Controls.ToolButton {
                 text: modelData ?? ""
                 font.bold: true
-                property var info: gameFilter.rowData(row)
                 background: Rectangle {
-                    color: (info.gameTier ?? "") !== "" ? info.gameTierBg : "transparent"
+                    color: (model?.gameTier ?? "") !== "" ? model?.gameTierBg : "transparent"
                     radius: 4
                 }
                 contentItem: Controls.Label {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     text: modelData ?? ""
-                    color: (info.gameTier ?? "") !== "" ? info.gameTierFg : Kirigami.Theme.textColor
+                    color: (model?.gameTier ?? "") !== "" ? model?.gameTierFg : Kirigami.Theme.textColor
                     elide: Text.ElideRight
                 }
                 onClicked: gamesPage.select(gameFilter.idAt(row))
@@ -1071,7 +1059,7 @@ Kirigami.Page {
                 HoverHandler {
                     id: tierHover
                 }
-                Controls.ToolTip.visible: tierHover.hovered && (info.gameTier ?? "") !== ""
+                Controls.ToolTip.visible: tierHover.hovered && (model?.gameTier ?? "") !== ""
                 Controls.ToolTip.text: qsTr("Open ProtonDB page")
             }
         }

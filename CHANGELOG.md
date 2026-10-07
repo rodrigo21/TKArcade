@@ -6,17 +6,20 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Table delegates bind live model roles, so icons, tooltips and tier
+  colors track their rows through sorts (row-index lookups froze
+  them in place); transient null models use optional chaining.
 - Kirigami count properties live on the QMetaObject (drawer and
   status counts rendered `undefined` before); Steam play validates
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
-- Centered Play/Add/Edit/Remove toolbar row, per-row Play removed
+- Slim systemmonitor-style toolbar row (actions left, search stretch,
+  view/tools/columns right), per-row Play removed
   (play via double-click, toolbar or menu), Ctrl+Q quit shortcut.
 - List is a native table (Addons ListTableView): real header with
   relief, centered titles and sort indicator, row selection with
-  highlight, gutter numbers; needs kirigami-addons at runtime
-  (packaging follows at release).
+  highlight, gutter numbers; needs kirigami-addons at runtime.
 - Movable data columns (Move left/right menu, Reset Columns) with
   order and visibility persisted to prefs; Game stays first.
 - Tools menu (Scan Steam Library, History viewer, Ludusavi, Logs,

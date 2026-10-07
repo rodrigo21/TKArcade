@@ -1190,8 +1190,8 @@ def test_column_layout_persists(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_toolbar_buttons_centered_and_quit_shortcut(qgui_app, xdg_env):
-    """Primary buttons sit in a centered row; Ctrl+Q shortcut exists."""
+def test_toolbar_buttons_left_aligned_and_quit_shortcut(qgui_app, xdg_env):
+    """Primary buttons sit left-aligned in one slim row; Ctrl+Q exists."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
@@ -1207,12 +1207,27 @@ def test_toolbar_buttons_centered_and_quit_shortcut(qgui_app, xdg_env):
         assert button is not None, name
         buttons.append(button.property("x") + button.property("width") / 2)
     page = win.findChild(QObject, "gamesPage")
-    middle = page.property("width") / 2
-    assert max(buttons) - min(buttons) < page.property("width") / 2
-    assert abs(sum(buttons) / len(buttons) - middle) < 60
+    xs = sorted(buttons)
+    assert xs == buttons  # Play, Add, Edit, Remove in order
+    assert xs[-1] < page.property("width") / 2  # left-aligned row, not centered
     assert win.findChild(QObject, "quitShortcut") is not None
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_table_delegates_never_lookup_by_visual_row():
+    """Icons/tooltips must bind model roles: rowData(row) desyncs on sort."""
+    import pathlib
+    import re
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    offenders = []
+    for path in sorted((pathlib.Path(kapp.__file__).parent / "qml").glob("*.qml")):
+        for i, line in enumerate(path.read_text().splitlines(), 1):
+            if re.search(r"rowData\s*\(\s*row\s*\)", line):
+                offenders.append(f"{path.name}:{i}")
+    assert offenders == []
