@@ -19,7 +19,8 @@ Item {
     property bool selected: false
 
     signal playRequested(string gid)
-    signal rowTapped(string gid)
+    signal rowTapped(string gid, int modifiers)
+    signal menuRequested(string gid)
 
     Rectangle {
         anchors.fill: parent
@@ -28,10 +29,21 @@ Item {
         visible: iconCell.selected
     }
 
-    TapHandler {
-        acceptedButtons: Qt.LeftButton
-        onTapped: (eventPoint) => iconCell.rowTapped(iconCell.gameId)
-        onDoubleTapped: (eventPoint) => iconCell.playRequested(iconCell.gameId)
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                iconCell.menuRequested(iconCell.gameId)
+            } else {
+                iconCell.rowTapped(iconCell.gameId, mouse.modifiers)
+            }
+        }
+        onDoubleClicked: (mouse) => {
+            if (mouse.button === Qt.LeftButton) {
+                iconCell.playRequested(iconCell.gameId)
+            }
+        }
     }
 
     ColumnLayout {

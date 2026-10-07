@@ -29,7 +29,8 @@ Item {
     // gamePlayedSecs role exists on the model; sorting only.
 
     signal playRequested(string gid)
-    signal rowTapped(string gid)
+    signal rowTapped(string gid, int modifiers)
+    signal menuRequested(string gid)
 
     height: (ListView.view?.rowHeight ?? 40)
 
@@ -40,10 +41,21 @@ Item {
         visible: gameRow.selected
     }
 
-    TapHandler {
-        acceptedButtons: Qt.LeftButton
-        onTapped: (eventPoint) => gameRow.rowTapped(gameRow.gameId)
-        onDoubleTapped: (eventPoint) => gameRow.playRequested(gameRow.gameId)
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                gameRow.menuRequested(gameRow.gameId)
+            } else {
+                gameRow.rowTapped(gameRow.gameId, mouse.modifiers)
+            }
+        }
+        onDoubleClicked: (mouse) => {
+            if (mouse.button === Qt.LeftButton) {
+                gameRow.playRequested(gameRow.gameId)
+            }
+        }
     }
 
     RowLayout {
@@ -109,7 +121,7 @@ Item {
                 color: gameRow.gameTierFg
                 elide: Text.ElideRight
             }
-            onClicked: gameRow.rowTapped(gameRow.gameId)
+            onClicked: gameRow.rowTapped(gameRow.gameId, 0)
             onDoubleClicked: gameModel.openProtonDB(gameRow.gameId)
             Controls.ToolTip.visible: hovered && gameRow.gameTier !== ""
             Controls.ToolTip.text: qsTr("Open ProtonDB page")

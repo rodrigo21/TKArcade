@@ -11,6 +11,10 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- Multi-selection (Ctrl toggles, Shift extends, single tap resets)
+  with toolbar Play/Add/Edit/Remove, per-game context menu (copies,
+  install/prefix folders, shader cache, ProtonDB, validate, clear
+  history, remove with profile cleanup), footer notices.
 - List matches the widgets table: plain left-aligned headers over
   the data, single-line names (no played sub-line), row numbers in
   an outside gutter, played hover tooltip, tier badge opens ProtonDB

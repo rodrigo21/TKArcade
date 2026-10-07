@@ -225,6 +225,164 @@ class GameListModel(QAbstractListModel):
             log.warning("openProtonDB(%s) failed: %s", appid, e)
             return False
 
+    @Slot(str, result=str)
+    def copyText(self, text: str) -> str:
+        """Copy text to the clipboard; returns the status message."""
+        from PySide6.QtGui import QGuiApplication
+
+        try:
+            clipboard = QGuiApplication.clipboard()
+        except Exception:
+            clipboard = None
+        if clipboard is None:  # e.g. offscreen/minimal platform
+            return "Clipboard unavailable on this platform."
+        clipboard.setText(text)
+        return f"Copied to clipboard: {text}"
+
+    @Slot(str, result=str)
+    def installDir(self, appid: str) -> str:
+        """Install folder path, or '' when unknown."""
+        try:
+            target = steammod.install_dir(appid)
+        except Exception:
+            target = None
+        return str(target) if target is not None else ""
+
+    @Slot(str, result=str)
+    def prefixDir(self, appid: str) -> str:
+        """Proton prefix path, or '' when unknown."""
+        try:
+            target = steammod.prefix_dir(appid)
+        except Exception:
+            target = None
+        return str(target) if target is not None else ""
+
+    @Slot(str, result=str)
+    def shaderDir(self, appid: str) -> str:
+        """Shader cache path, or '' when unknown."""
+        try:
+            target = steammod.shader_dir(appid)
+        except Exception:
+            target = None
+        return str(target) if target is not None else ""
+
+    @Slot(str, result=str)
+    def shaderSize(self, appid: str) -> str:
+        """Human shader cache size, or '' when unknown."""
+        try:
+            target = steammod.shader_dir(appid)
+        except Exception:
+            return ""
+        if target is None:
+            return ""
+        try:
+            return steammod.format_size(steammod.dir_size(target))
+        except Exception:
+            return ""
+
+    @Slot(str, result=bool)
+    def openPath(self, path: str) -> bool:
+        """Open a folder with the desktop default app, with fallbacks."""
+        import subprocess
+
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        try:
+            if QDesktopServices.openUrl(QUrl.fromLocalFile(path)):
+                return True
+        except Exception:
+            pass
+        xdg_open = shutil.which("xdg-open")
+        if xdg_open:
+            try:
+                subprocess.Popen([xdg_open, path])
+                return True
+            except Exception:
+                pass
+        return False
+
+    @Slot(str, result=str)
+    def clearShaderCache(self, appid: str) -> str:
+        """Delete precompiled shaders (Steam rebuilds); status message."""
+        try:
+            target = steammod.shader_dir(appid)
+        except Exception:
+            return ""
+        if target is None:
+            return ""
+        try:
+            size = steammod.format_size(steammod.dir_size(target))
+            shutil.rmtree(target)
+        except Exception as e:
+            return f"{appid}: {e}"
+        return f"Cleared {size} of shader cache."
+
+    @Slot(str, result=list)
+    def validateGame(self, appid: str) -> list:
+        """Validation issues for one game (same checks as --validate)."""
+        from ..launcher import validate_game
+
+        try:
+            return list(validate_game(appid))
+        except Exception as e:
+            return [str(e)]
+
+    @Slot(str, result=int)
+    def clearHistory(self, appid: str) -> int:
+        """Delete session history for one game; returns sessions removed."""
+        try:
+            removed = histmod.clear_appid(xdg.log_file(), appid)
+        except Exception as e:
+            log.warning("clearHistory(%s) failed: %s", appid, e)
+            return 0
+        self.refresh()
+        return int(removed)
+
+    @Slot(list, result=list)
+    def gameNames(self, appids: list) -> list:
+        """Display names for AppIDs (dialog labels)."""
+        names = {a: n for a, n in steammod.list_games()}
+        names.update(steammod.local_names())
+        return [names.get(str(a), str(a)) for a in appids]
+
+    @Slot(list, result=str)
+    def removeGames(self, appids: list) -> str:
+        """Delete configs; returns '' or joined errors. Refreshes the list."""
+        errors = []
+        for appid in [str(a) for a in appids]:
+            try:
+                cfgmod.game_file(appid).unlink(missing_ok=True)
+            except Exception as e:
+                errors.append(f"{appid}: {e}")
+        self.refresh()
+        return "\n".join(errors)
+
+    @Slot(list, result=list)
+    def leftoverProfiles(self, appids: list) -> list:
+        """Subset of appids still holding saved profiles."""
+        out = []
+        for appid in [str(a) for a in appids]:
+            try:
+                left = [p for p in cfgmod.profiles_dir(appid).glob("*.toml") if p.is_file()]
+            except Exception:
+                left = []
+            if left:
+                out.append(appid)
+        return out
+
+    @Slot(list, result=int)
+    def cleanProfiles(self, appids: list) -> int:
+        """Delete saved profiles; returns games cleaned."""
+        cleaned = 0
+        for appid in [str(a) for a in appids]:
+            try:
+                shutil.rmtree(cfgmod.profiles_dir(appid))
+                cleaned += 1
+            except Exception as e:
+                log.warning("cleanProfiles(%s) failed: %s", appid, e)
+        return cleaned
+
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:
         """Play routing: Steam ids via the client, local ids direct."""

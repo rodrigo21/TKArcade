@@ -21,7 +21,8 @@ Kirigami.Card {
     property bool selected: false
 
     signal playRequested(string gid)
-    signal rowTapped(string gid)
+    signal rowTapped(string gid, int modifiers)
+    signal menuRequested(string gid)
 
     Layout.maximumWidth: Kirigami.Units.gridUnit * 18
 
@@ -81,5 +82,11 @@ Kirigami.Card {
     }
 
     showClickFeedback: true
-    onClicked: gameCard.rowTapped(gameCard.gameId)
+    onClicked: (mouse) => {
+        if (mouse.button === Qt.RightButton) {
+            gameCard.menuRequested(gameCard.gameId)
+        } else {
+            gameCard.rowTapped(gameCard.gameId, mouse.modifiers)
+        }
+    }
 }

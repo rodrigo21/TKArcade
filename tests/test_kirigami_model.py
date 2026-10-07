@@ -206,7 +206,9 @@ def test_open_protondb_handoff(qgui_app, xdg_env, monkeypatch):
     from tkarcade.gui.model import GameListModel
 
     opened = []
-    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True)
+    monkeypatch.setattr(
+        QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True
+    )
     assert GameListModel().openProtonDB("42") is True
     assert opened == ["https://www.protondb.com/app/42"]
 

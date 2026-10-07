@@ -676,3 +676,168 @@ def test_tier_double_click_opens_protondb(qgui_app, xdg_env):
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
+
+
+def _click_row(qgui_app, win, row, modifier=None):
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtTest import QTest
+
+    center = row.mapToScene(QPointF(row.property("width") / 2, 10)).toPoint()
+    QTest.mouseClick(
+        win,
+        Qt.MouseButton.LeftButton,
+        modifier or Qt.KeyboardModifier.NoModifier,
+        center,
+    )
+    qgui_app.processEvents()
+
+
+def test_multi_select_ctrl_shift(qgui_app, xdg_env):
+    """Ctrl toggles rows, Shift extends from the anchor, plain resets."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid in ("b-game", "a-game", "c-game"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    view = win.findChild(QQuickItem, "gameList")
+    rows = sorted(_delegate_rows(view), key=lambda c: c.y())
+    assert [r.property("gameId") for r in rows] == ["a-game", "b-game", "c-game"]
+
+    def selected():
+        return sorted(page.property("selectedIds").toVariant())
+
+    _click_row(qgui_app, win, rows[1], Qt.KeyboardModifier.ControlModifier)
+    assert selected() == ["a-game", "b-game"]
+    _click_row(qgui_app, win, rows[2], Qt.KeyboardModifier.ShiftModifier)
+    assert selected() == ["b-game", "c-game"]  # anchored at b-game
+    _click_row(qgui_app, win, rows[0])
+    assert selected() == ["a-game"]
+    _click_row(qgui_app, win, rows[0], Qt.KeyboardModifier.ControlModifier)
+    assert selected() == []
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
+    """Toolbar Play launches the first selected game."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid in ("b-game", "a-game"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    played = []
+    model.play = lambda gid: played.append(gid) or True
+    view = win.findChild(QQuickItem, "gameList")
+    rows = sorted(_delegate_rows(view), key=lambda c: c.y())
+    _click_row(qgui_app, win, rows[0])
+    _click_row(qgui_app, win, rows[1], Qt.KeyboardModifier.ControlModifier)
+    action = win.findChild(QObject, "actionPlay")
+    assert action is not None
+    action.trigger(action)
+    qgui_app.processEvents()
+    assert played == ["a-game"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_context_menu_opens_for_row(qgui_app, xdg_env):
+    """Right-click selects the row (preserving multi) and opens the menu."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid in ("b-game", "a-game"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    view = win.findChild(QQuickItem, "gameList")
+    rows = sorted(_delegate_rows(view), key=lambda c: c.y())
+    _click_row(qgui_app, win, rows[0])
+    _click_row(qgui_app, win, rows[1], Qt.KeyboardModifier.ControlModifier)
+    second = rows[1]
+    center = second.mapToScene(QPointF(second.property("width") / 2, 10)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, center)
+    qgui_app.processEvents()
+    menu = win.findChild(QObject, "gameMenu")
+    assert menu.property("visible") is True
+    assert page.property("menuGid") == "b-game"
+    # Multi-selection preserved: a-game stays selected.
+    assert sorted(page.property("selectedIds").toVariant()) == ["a-game", "b-game"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_remove_flow_with_profiles(qgui_app, xdg_env):
+    """Remove asks, deletes configs, then offers profile cleanup."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid in ("local-doom", "local-quake"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    profiles = C.profiles_dir("local-doom")
+    profiles.mkdir(parents=True, exist_ok=True)
+    (profiles / "default.toml").write_text("[general]\n")
+    assert C.game_file("local-doom").exists()
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    view = win.findChild(QQuickItem, "gameList")
+    rows = sorted(_delegate_rows(view), key=lambda c: c.y())
+    assert len(rows) == 2
+    page = win.findChild(QObject, "gamesPage")
+    _click_row(qgui_app, win, rows[0])
+    _click_row(qgui_app, win, rows[1], Qt.KeyboardModifier.ControlModifier)
+    assert len(page.property("selectedIds").toVariant()) == 2
+    remove = win.findChild(QObject, "actionRemove")
+    remove.trigger(remove)
+    qgui_app.processEvents()
+    dialog = win.findChild(QObject, "removeDialog")
+    assert dialog.property("visible") is True
+    confirm = win.findChild(QQuickItem, "removeConfirm")
+    pos = confirm.mapToScene(QPointF(confirm.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert not C.game_file("local-doom").exists()
+    assert not C.game_file("local-quake").exists()
+    assert proxy.rowCount() == 0
+    cleanup = win.findChild(QObject, "cleanupDialog")
+    assert cleanup.property("visible") is True
+    assert cleanup.property("leftovers") == ["local-doom"]
+    wipe = win.findChild(QQuickItem, "cleanupConfirm")
+    pos = wipe.mapToScene(QPointF(wipe.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert not profiles.exists()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
