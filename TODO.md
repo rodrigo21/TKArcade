@@ -40,3 +40,42 @@
   `S` (subprocess is the whole project), `EM`/`TRY` (readable raise style),
   `T201` (print is the CLI interface), `SLF` (tests touch privates),
   `D`/`ANN` (churn, much later).
+
+## Kirigami parity (widgets → Kirigami, branch `kirigami`)
+
+Goal: visual consistency with the widgets version, then drop widgets.
+Rule: always prefer the Kirigami/Addons equivalent, never reinvent.
+Status: list/icons/cards views, drawer modes, toolbar Play/Add/Edit/Remove,
+game context menu, Tools menu, prefs/about/history/scan dialogs,
+issues-only filter, geometry + column prefs, movable columns — all pushed
+to `kirigami` (see git log).
+
+### Equivalence map (audit 2026-10-07)
+- [x] QMainWindow → ApplicationWindow
+- [x] QListWidget sources → GlobalDrawer actions
+- [x] QMenu/QToolBar → Action + menus (toolbar still needs centering)
+- [x] QDialog+ButtonBox → Kirigami.Dialog
+- [x] QComboBox/Spin/Slider/Check/LineEdit → QQC2 direct
+- [ ] QTableWidget+QHeaderView → Addons KTableView (+ kirigami-addons dep;
+  code now, PKGBUILD/AppImage at release; keep game* roles via textRole,
+  sort through existing sortBy, selectionModel replaces selectedIds)
+- [ ] QToolBar centered → centered RowLayout in page header; drop per-row Play
+- [ ] QMessageBox → Kirigami.PromptDialog (base kirigami, revise our confirms)
+- [ ] QFormLayout (prefs) → Addons FormCard (same new dep, zero extra cost)
+- [ ] QShortcut Quit → QML Shortcut (Ctrl+Q, missing)
+- [ ] QTabWidget (future settings UI) → pageStack pages + TabBar
+- [ ] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
+- [ ] QSystemTrayIcon → needs QApplication migration (deferred)
+
+### Drawer (after tableview)
+- [ ] Drawer Mode… into GlobalDrawer `footer:` (bottom, space reserved above)
+- [ ] Persist mode (modal/collapsible/collapsed) in prefs, restore on start
+- [ ] Test close→reopen keeps mode (nothing in Kirigami resets `modal`)
+
+### Qt 6.11 QML landmines (AGENTS.md has the full list)
+- Repeater models must stay JS arrays (QVariantList from setProperty
+  lays out at zero width); test via moveColumn(), never setProperty.
+- QEventPoint has no modifiers → MouseArea for Ctrl/Shift rows.
+- Tests: structure-aware lookup only (rowColumn objectNames + parent
+  modelData match); pump frames until delegates settle; XDG_CACHE_HOME
+  already isolated per test, do NOT disable disk cache (breaks layout).
