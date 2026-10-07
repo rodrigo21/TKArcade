@@ -69,11 +69,33 @@ def test_pick_file_ignores_foreign_signals():
 
 
 def test_model_browse_delegates_to_portal(qgui_app, monkeypatch):
+    import threading
+
     from tkarcade.backends import portal as portalmod
     from tkarcade.gui.model import GameListModel
 
     monkeypatch.setattr(portalmod, "pick_file", lambda *a, **k: "/tmp/doom")
-    assert GameListModel().browseExecutable() == "/tmp/doom"
+    model = GameListModel()
+    done, paths = threading.Event(), []
+    model.browseFinished.connect(lambda p: (paths.append(p), done.set()))
+    model.browseExecutable()  # returns at once; the worker reports back
+    import time
+
+    deadline = time.monotonic() + 10
+    while not done.is_set() and time.monotonic() < deadline:
+        qgui_app.processEvents()
+        done.wait(0.05)
+    assert paths == ["/tmp/doom"]
+
+
+def test_verbose_requested(qgui_app, monkeypatch):
+    from tkarcade.gui import kirigami_app as kapp
+
+    monkeypatch.delenv("TKARCADE_VERBOSE", raising=False)
+    assert kapp.verbose_requested([]) is False
+    assert kapp.verbose_requested(["--verbose"]) is True
+    monkeypatch.setenv("TKARCADE_VERBOSE", "1")
+    assert kapp.verbose_requested([]) is True
 
 
 def test_pick_file_reuses_existing_bus_name():

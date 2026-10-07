@@ -15,13 +15,24 @@ def qml_url() -> str:
     return QUrl.fromLocalFile(str(Path(__file__).parent / "qml" / "main.qml")).toString()
 
 
+def verbose_requested(argv: list[str] | None = None) -> bool:
+    """Debug logging switch, so portal: lines show up when diagnosing."""
+    return "--verbose" in (argv if argv is not None else sys.argv) or bool(
+        os.environ.get("TKARCADE_VERBOSE")
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the Kirigami application (list, add and launch local games)."""
+    import logging
+
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
 
     from .model import GameListModel
 
+    if verbose_requested(argv):
+        logging.basicConfig(level=logging.DEBUG)
     if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
         os.environ["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
     app = QGuiApplication(sys.argv if argv is None else argv)

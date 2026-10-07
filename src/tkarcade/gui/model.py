@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import threading
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, Signal, Slot
 
@@ -34,6 +35,7 @@ class GameListModel(QAbstractListModel):
     SourceRole = Qt.ItemDataRole.UserRole + 3
 
     refreshed = Signal()
+    browseFinished = Signal(str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -96,12 +98,24 @@ class GameListModel(QAbstractListModel):
         self.refresh()
         return appid
 
-    @Slot(result=str)
-    def browseExecutable(self) -> str:
-        """Native file picker. Returns a path, or '' when cancelled."""
+    @Slot()
+    def browseExecutable(self) -> None:
+        """Native file picker off the GUI thread; result via browseFinished.
+
+        Blocking D-Bus round-trips must never freeze the interface: the
+        worker reports back ("" included) through the signal.
+        """
+        threading.Thread(target=self._browse_worker, daemon=True).start()
+
+    def _browse_worker(self) -> None:
         from ..backends import portal as portalmod
 
-        return portalmod.pick_file("Game executable", "Select")
+        try:
+            path = portalmod.pick_file("Game executable", "Select")
+        except Exception as e:  # never kill the thread pool on a picker bug
+            log.warning("browse worker failed: %s", e)
+            path = ""
+        self.browseFinished.emit(path)
 
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:

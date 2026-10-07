@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Async native file picker: Browse never freezes the UI (worker
+  thread + result signal); `TKARCADE_VERBOSE=1` (or `--verbose`)
+  shows portal handshake debug lines.
 - Native file picker: the Add dialog uses the desktop's own picker
   via xdg-desktop-portal (jeepney) instead of the Qt fallback.
 - Kirigami spike (branch only): QtWidgets parked under `widgets/`

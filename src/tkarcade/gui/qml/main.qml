@@ -1,4 +1,5 @@
 import QtQuick
+import QtQml
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
@@ -65,8 +66,11 @@ Kirigami.ApplicationWindow {
                 }
                 Controls.Button {
                     text: qsTr("Browse…")
-                    onClicked: {
-                        var picked = gameModel.browseExecutable()
+                    onClicked: gameModel.browseExecutable()
+                }
+                Connections {
+                    target: gameModel
+                    function onBrowseFinished(picked) {
                         if (picked !== "") {
                             exeField.text = picked
                             if (nameField.text === "") {
