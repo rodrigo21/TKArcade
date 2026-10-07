@@ -5,6 +5,11 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Fixed
+- Kirigami count properties live on the QMetaObject (drawer and
+  status counts rendered `undefined` before); Steam play validates
+  the AppID and drops the menu skip when the handoff fails.
+
 ### Added
 - Main-window UI parity in Kirigami: source drawer with counts,
   search field, rich rows (name, ID · played, tier badge), status

@@ -59,6 +59,23 @@ class GameListModel(QAbstractListModel):
         self._steam_detected = 0
         self.refresh()
 
+    def _count_total(self) -> int:
+        return len(self._rows)
+
+    def _count_steam(self) -> int:
+        return sum(1 for row in self._rows if steammod.is_steam_id(row[0]))
+
+    def _count_local(self) -> int:
+        return sum(1 for row in self._rows if not steammod.is_steam_id(row[0]))
+
+    def _count_steam_detected(self) -> int:
+        return self._steam_detected
+
+    totalCount = Property(int, _count_total, notify=refreshed)
+    steamCount = Property(int, _count_steam, notify=refreshed)
+    localCount = Property(int, _count_local, notify=refreshed)
+    steamDetectedCount = Property(int, _count_steam_detected, notify=refreshed)
+
     def roleNames(self) -> dict:
         # game-prefixed: bare Qt6 delegate properties must never collide
         # with the delegate item's own properties (name/source do).
@@ -156,36 +173,22 @@ class GameListModel(QAbstractListModel):
         """Play routing: Steam ids via the client, local ids direct."""
         try:
             if steammod.is_steam_id(appid):
+                if not appid.isdigit():
+                    log.warning("play refused: not a Steam App ID: %s", appid)
+                    return False
                 from PySide6.QtCore import QUrl
                 from PySide6.QtGui import QDesktopServices
 
                 launchermod.plant_menu_skip(appid)
-                return bool(QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")))
+                ok = bool(QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")))
+                if not ok:
+                    launchermod.consume_menu_skip(appid)
+                return ok
             launchermod.launch_local_detached(appid)
             return True
         except Exception as e:  # never crash the list on a launch failure
             log.warning("play(%s) failed: %s", appid, e)
             return False
-
-
-def _counts_property(kind: str):
-    """Count accessor factory (kept tiny: steam/local/total/steam-detected)."""
-
-    def get(self) -> int:
-        if kind == "steam-detected":
-            return self._steam_detected
-        if kind == "total":
-            return len(self._rows)
-        want_steam = kind == "steam"
-        return sum(1 for row in self._rows if steammod.is_steam_id(row[0]) == want_steam)
-
-    return Property(int, get, notify=GameListModel.refreshed)
-
-
-GameListModel.totalCount = _counts_property("total")
-GameListModel.steamCount = _counts_property("steam")
-GameListModel.localCount = _counts_property("local")
-GameListModel.steamDetectedCount = _counts_property("steam-detected")
 
 
 class GameFilterModel(QSortFilterProxyModel):

@@ -114,6 +114,27 @@ def test_model_counts(qgui_app, xdg_env):
     assert (model.totalCount, model.steamCount, model.localCount) == (3, 1, 2)
 
 
+def test_model_counts_visible_to_qml(qgui_app, xdg_env):
+    """Count properties must live on the QMetaObject (post-hoc fails QML)."""
+    from tkarcade.gui.model import GameListModel
+
+    meta = GameListModel.staticMetaObject
+    names = {meta.property(i).name() for i in range(meta.propertyCount())}
+    assert {"totalCount", "steamCount", "localCount", "steamDetectedCount"} <= names
+
+
+def test_model_play_failure_consumes_skip(qgui_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+
+    from tkarcade import launcher as L
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: False)
+    assert model.play("213") is False
+    assert not L.menu_skip_path("213").exists()
+
+
 def test_filter_model_source_and_text(qgui_app, xdg_env):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 
