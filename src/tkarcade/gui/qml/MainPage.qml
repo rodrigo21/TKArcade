@@ -4,32 +4,76 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-// Games list page: view switcher + search on top, sortable column
-// header, rows below, counts at the bottom. Future views (icons,
-// covers, banner) plug into viewMode/viewSizes; only "list" renders.
-Kirigami.ScrollablePage {
+// Games page: search + view split-button on top, the selected view
+// below (details list, icons grid, or gallery-style cards), counts at
+// the bottom. Plain Page (not ScrollablePage): ScrollablePage adopts a
+// single Flickable child, so three switchable views need explicit
+// geometry instead. Zoom and sort live in the arrow popup, Lutris-style.
+Kirigami.Page {
     id: gamesPage
     objectName: "gamesPage"
     title: qsTr("Games")
 
     property string viewMode: "list"
-    property var viewSizes: ({list: 40})
-    property int rowHeight: viewSizes[viewMode] || 40
+    property var viewSizes: ({list: 40, icons: 96})
+    property int rowHeight: viewSizes["list"] || 40
+    property int iconSize: viewSizes["icons"] || 96
+    property string selectedId: ""
     property string sortRole: "gameName"
     property bool sortDescending: false
 
+    function viewName() {
+        if (viewMode === "icons") {
+            return qsTr("Icons")
+        }
+        if (viewMode === "cards") {
+            return qsTr("Cards")
+        }
+        return qsTr("List")
+    }
+
+    function cycleView() {
+        if (viewMode === "list") {
+            viewMode = "icons"
+        } else if (viewMode === "icons") {
+            viewMode = "cards"
+        } else {
+            viewMode = "list"
+        }
+    }
+
+    function setViewSize(value) {
+        var sizes = {}
+        for (var k in viewSizes) {
+            sizes[k] = viewSizes[k]
+        }
+        sizes[viewMode] = value
+        viewSizes = sizes
+    }
+
+    function setSort(role, descending) {
+        sortRole = role
+        sortDescending = descending
+        gameFilter.sortBy(sortRole, sortDescending)
+    }
+
     function toggleSort(role) {
         if (sortRole === role) {
-            sortDescending = !sortDescending
+            setSort(role, !sortDescending)
         } else {
-            sortRole = role
-            sortDescending = false
+            setSort(role, false)
         }
-        gameFilter.sortBy(sortRole, sortDescending)
     }
 
     function sortMark(role) {
         return sortRole === role ? (sortDescending ? "▼ " : "▲ ") : ""
+    }
+
+    function select(gid) {
+        selectedId = gid
+        var row = gameFilter.indexOf(gid)
+        gameList.currentIndex = row
+        iconGrid.currentIndex = row
     }
 
     actions: [
@@ -49,35 +93,19 @@ Kirigami.ScrollablePage {
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
             }
-            Controls.ComboBox {
-                id: viewPicker
-                objectName: "viewPicker"
-                Layout.preferredWidth: 140
-                model: [qsTr("List"), qsTr("Icons (soon)"), qsTr("Covers (soon)"), qsTr("Banner (soon)")]
-                onActivated: (index) => {
-                    if (index === 0) {
-                        gamesPage.viewMode = "list"
-                    } else {
-                        // Future views land here; bounce back for now.
-                        viewPicker.currentIndex = 0
-                    }
+            RowLayout {
+                spacing: 0
+                Controls.ToolButton {
+                    id: viewButton
+                    objectName: "viewButton"
+                    text: gamesPage.viewName()
+                    onClicked: gamesPage.cycleView()
                 }
-            }
-            Controls.Slider {
-                id: sizeSlider
-                objectName: "sizeSlider"
-                Layout.preferredWidth: 120
-                from: 32
-                to: 64
-                stepSize: 4
-                value: gamesPage.rowHeight
-                onMoved: {
-                    var sizes = {}
-                    for (var k in gamesPage.viewSizes) {
-                        sizes[k] = gamesPage.viewSizes[k]
-                    }
-                    sizes[gamesPage.viewMode] = value
-                    gamesPage.viewSizes = sizes
+                Controls.ToolButton {
+                    id: viewArrow
+                    objectName: "viewArrow"
+                    text: "▼"
+                    onClicked: viewOptions.open()
                 }
             }
             Controls.ToolButton {
@@ -115,17 +143,114 @@ Kirigami.ScrollablePage {
         }
     }
 
+    Controls.Popup {
+        id: viewOptions
+        objectName: "viewOptions"
+        parent: viewArrow
+        x: viewArrow.width - width
+        y: viewArrow.height + Kirigami.Units.smallSpacing
+        closePolicy: Controls.Popup.CloseOnEscape | Controls.Popup.CloseOnPressOutside
+        padding: Kirigami.Units.largeSpacing
+        contentItem: ColumnLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Controls.Label {
+                text: qsTr("View")
+                font.bold: true
+            }
+            Controls.RadioButton {
+                text: qsTr("List")
+                checked: gamesPage.viewMode === "list"
+                Controls.ButtonGroup.group: viewGroup
+                onToggled: gamesPage.viewMode = "list"
+            }
+            Controls.RadioButton {
+                text: qsTr("Icons")
+                checked: gamesPage.viewMode === "icons"
+                Controls.ButtonGroup.group: viewGroup
+                onToggled: gamesPage.viewMode = "icons"
+            }
+            Controls.RadioButton {
+                text: qsTr("Cards")
+                checked: gamesPage.viewMode === "cards"
+                Controls.ButtonGroup.group: viewGroup
+                onToggled: gamesPage.viewMode = "cards"
+            }
+            Controls.Label {
+                text: qsTr("Zoom")
+                font.bold: true
+            }
+            Controls.Slider {
+                objectName: "zoomSlider"
+                Layout.fillWidth: true
+                enabled: gamesPage.viewMode !== "cards"
+                from: gamesPage.viewMode === "list" ? 32 : 64
+                to: gamesPage.viewMode === "list" ? 64 : 192
+                stepSize: gamesPage.viewMode === "list" ? 4 : 8
+                value: gamesPage.viewMode === "list" ? gamesPage.rowHeight : gamesPage.iconSize
+                onMoved: gamesPage.setViewSize(value)
+            }
+            Controls.Label {
+                text: qsTr("Sort by")
+                font.bold: true
+            }
+            Controls.RadioButton {
+                text: qsTr("Name")
+                checked: gamesPage.sortRole === "gameName"
+                Controls.ButtonGroup.group: sortGroup
+                onToggled: gamesPage.setSort("gameName", gamesPage.sortDescending)
+            }
+            Controls.RadioButton {
+                text: qsTr("App ID")
+                checked: gamesPage.sortRole === "gameId"
+                Controls.ButtonGroup.group: sortGroup
+                onToggled: gamesPage.setSort("gameId", gamesPage.sortDescending)
+            }
+            Controls.RadioButton {
+                text: qsTr("Played")
+                checked: gamesPage.sortRole === "gamePlayedSecs"
+                Controls.ButtonGroup.group: sortGroup
+                onToggled: gamesPage.setSort("gamePlayedSecs", gamesPage.sortDescending)
+            }
+            Controls.RadioButton {
+                text: qsTr("ProtonDB")
+                checked: gamesPage.sortRole === "gameTier"
+                Controls.ButtonGroup.group: sortGroup
+                onToggled: gamesPage.setSort("gameTier", gamesPage.sortDescending)
+            }
+            Controls.RadioButton {
+                text: qsTr("Source")
+                checked: gamesPage.sortRole === "gameSource"
+                Controls.ButtonGroup.group: sortGroup
+                onToggled: gamesPage.setSort("gameSource", gamesPage.sortDescending)
+            }
+            Controls.CheckBox {
+                text: qsTr("Reverse order")
+                checked: gamesPage.sortDescending
+                onToggled: gamesPage.setSort(gamesPage.sortRole, checked)
+            }
+        }
+        Controls.ButtonGroup {
+            id: viewGroup
+        }
+        Controls.ButtonGroup {
+            id: sortGroup
+        }
+    }
+
     ListView {
         id: gameList
         objectName: "gameList"
+        anchors.fill: parent
+        visible: gamesPage.viewMode === "list"
         model: gameFilter
         property int rowHeight: gamesPage.rowHeight
         property var colW: ({appId: 90, played: 90, tier: 110, source: 80})
+        clip: true
         focus: true
-        highlightFollowsCurrentItem: true
-        highlight: Rectangle {
-            color: Kirigami.Theme.highlightColor
-            opacity: 0.3
+        onCurrentIndexChanged: {
+            if (gameList.currentIndex >= 0) {
+                gamesPage.selectedId = gameFilter.idAt(gameList.currentIndex)
+            }
         }
         Keys.onUpPressed: {
             gameList.currentIndex = Math.max(0, gameList.currentIndex - 1)
@@ -154,16 +279,16 @@ Kirigami.ScrollablePage {
             id: headerRow
             anchors.fill: parent
             spacing: Kirigami.Units.largeSpacing
-            Item {
-                Layout.preferredWidth: gamesPage.rowHeight - 8
-                Layout.preferredHeight: 1
-            }
             Controls.Label {
                 Layout.preferredWidth: 36
                 horizontalAlignment: Text.AlignHCenter
                 color: Kirigami.Theme.disabledTextColor
                 font.bold: true
                 text: "#"
+            }
+            Item {
+                Layout.preferredWidth: gamesPage.rowHeight - 8
+                Layout.preferredHeight: 1
             }
             Controls.Label {
                 Layout.fillWidth: true
@@ -231,16 +356,80 @@ Kirigami.ScrollablePage {
         }
         delegate: GameDelegate {
             width: ListView.view ? ListView.view.width : 100
+            selected: gamesPage.selectedId === gameId
             onPlayRequested: (gid) => gameModel.play(gid)
-            onRowTapped: (gid) => {
-                gameList.currentIndex = gameFilter.indexOf(gid)
-            }
+            onRowTapped: (gid) => gamesPage.select(gid)
         }
         Kirigami.PlaceholderMessage {
             anchors.centerIn: parent
             visible: gameList.count === 0
             text: qsTr("No games yet")
             explanation: qsTr("Add a native Linux game to get started.")
+        }
+    }
+
+    GridView {
+        id: iconGrid
+        objectName: "iconGrid"
+        anchors.fill: parent
+        visible: gamesPage.viewMode === "icons"
+        model: gameFilter
+        clip: true
+        cellWidth: gamesPage.iconSize + Kirigami.Units.largeSpacing * 2
+        cellHeight: gamesPage.iconSize + 64
+        onCurrentIndexChanged: {
+            if (iconGrid.currentIndex >= 0) {
+                gamesPage.selectedId = gameFilter.idAt(iconGrid.currentIndex)
+            }
+        }
+        Keys.onUpPressed: iconGrid.moveCurrentIndexUp()
+        Keys.onDownPressed: iconGrid.moveCurrentIndexDown()
+        Keys.onLeftPressed: iconGrid.moveCurrentIndexLeft()
+        Keys.onRightPressed: iconGrid.moveCurrentIndexRight()
+        delegate: GameIconDelegate {
+            width: GridView.view ? GridView.view.cellWidth : 100
+            height: GridView.view ? GridView.view.cellHeight : 100
+            cellSize: gamesPage.iconSize
+            selected: gamesPage.selectedId === gameId
+            onPlayRequested: (gid) => gameModel.play(gid)
+            onRowTapped: (gid) => gamesPage.select(gid)
+        }
+        Kirigami.PlaceholderMessage {
+            anchors.centerIn: parent
+            visible: iconGrid.count === 0
+            text: qsTr("No games yet")
+            explanation: qsTr("Add a native Linux game to get started.")
+        }
+    }
+
+    Controls.ScrollView {
+        id: cardScroller
+        objectName: "cardScroller"
+        anchors.fill: parent
+        visible: gamesPage.viewMode === "cards"
+        clip: true
+        ColumnLayout {
+            width: cardScroller.availableWidth
+            Kirigami.CardsLayout {
+                id: cardLayout
+                objectName: "cardLayout"
+                Layout.fillWidth: true
+                Layout.topMargin: Kirigami.Units.largeSpacing
+                Repeater {
+                    model: gameFilter
+                    delegate: GameCard {
+                        selected: gamesPage.selectedId === gameId
+                        onPlayRequested: (gid) => gameModel.play(gid)
+                        onRowTapped: (gid) => gamesPage.select(gid)
+                    }
+                }
+            }
+            Kirigami.PlaceholderMessage {
+                Layout.fillWidth: true
+                visible: gameFilter.rowCount() === 0
+                text: qsTr("No games yet")
+                explanation: qsTr("Add a native Linux game to get started.")
+            }
         }
     }
 

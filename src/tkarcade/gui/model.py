@@ -311,6 +311,13 @@ class GameFilterModel(QSortFilterProxyModel):
                 return row
         return -1
 
+    @Slot(int, result=str)
+    def idAt(self, row: int) -> str:
+        """AppID at a proxy row ('' out of range). Keeps highlight on keys."""
+        if 0 <= row < self.rowCount():
+            return str(self.data(self.index(row, 0), GameListModel.IdRole) or "")
+        return ""
+
     @Slot(str, bool)
     def sortBy(self, roleName: str, descending: bool) -> None:
         """Sort by a role name (header clicks); numeric-aware."""
