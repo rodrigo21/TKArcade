@@ -237,11 +237,107 @@ Kirigami.Page {
         }
     }
 
+    ColumnLayout {
+        anchors.fill: parent
+        visible: gamesPage.viewMode === "list"
+        spacing: 0
+        RowLayout {
+            id: headerRow
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.largeSpacing
+            Item {
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 1
+            }
+            Item {
+                Layout.preferredWidth: gamesPage.rowHeight - 8
+                Layout.preferredHeight: 1
+            }
+            Controls.Label {
+                Layout.fillWidth: true
+                font.bold: true
+                text: gamesPage.sortMark("gameName") + qsTr("Game")
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.PointingHandCursor
+                    onTapped: gamesPage.toggleSort("gameName")
+                }
+            }
+            Controls.Label {
+                visible: gameFilter.showAppId
+                Layout.preferredWidth: 90
+                font.bold: true
+                text: gamesPage.sortMark("gameId") + qsTr("App ID")
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.PointingHandCursor
+                    onTapped: gamesPage.toggleSort("gameId")
+                }
+            }
+            Controls.Label {
+                visible: gameFilter.showPlayed
+                Layout.preferredWidth: 90
+                font.bold: true
+                text: gamesPage.sortMark("gamePlayedSecs") + qsTr("Played")
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.PointingHandCursor
+                    onTapped: gamesPage.toggleSort("gamePlayedSecs")
+                }
+            }
+            Controls.Label {
+                visible: gameFilter.showTier
+                Layout.preferredWidth: 110
+                font.bold: true
+                text: gamesPage.sortMark("gameTier") + qsTr("ProtonDB")
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.PointingHandCursor
+                    onTapped: gamesPage.toggleSort("gameTier")
+                }
+            }
+            Controls.Label {
+                visible: gameFilter.showSource
+                Layout.preferredWidth: 80
+                font.bold: true
+                text: gamesPage.sortMark("gameSource") + qsTr("Source")
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: Qt.PointingHandCursor
+                    onTapped: gamesPage.toggleSort("gameSource")
+                }
+            }
+            Item {
+                Layout.preferredWidth: 40
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 0
+            ListView {
+                id: rowGutter
+                objectName: "rowGutter"
+                Layout.preferredWidth: 36
+                Layout.fillHeight: true
+                model: gameFilter
+                interactive: false
+                contentY: gameList.contentY
+                delegate: Controls.Label {
+                    objectName: "gutterNumber"
+                    width: 36
+                    height: gamesPage.rowHeight
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    color: Kirigami.Theme.disabledTextColor
+                    text: index + 1
+                }
+            }
     ListView {
         id: gameList
         objectName: "gameList"
-        anchors.fill: parent
-        visible: gamesPage.viewMode === "list"
+        Layout.fillWidth: true
+        Layout.fillHeight: true
         model: gameFilter
         property int rowHeight: gamesPage.rowHeight
         property var colW: ({appId: 90, played: 90, tier: 110, source: 80})
@@ -260,100 +356,6 @@ Kirigami.Page {
             gameList.currentIndex = Math.min(gameList.count - 1, gameList.currentIndex + 1)
             gameList.positionViewAtIndex(gameList.currentIndex, ListView.Contain)
         }
-        header: Item {
-            width: gameList.width
-            height: headerRow.height
-            Rectangle {
-                anchors.fill: parent
-                color: Kirigami.Theme.alternateBackgroundColor
-            }
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: 1
-                color: Kirigami.Theme.disabledTextColor
-                opacity: 0.4
-            }
-        RowLayout {
-            id: headerRow
-            anchors.fill: parent
-            spacing: Kirigami.Units.largeSpacing
-            Controls.Label {
-                Layout.preferredWidth: 36
-                horizontalAlignment: Text.AlignHCenter
-                color: Kirigami.Theme.disabledTextColor
-                font.bold: true
-                text: "#"
-            }
-            Item {
-                Layout.preferredWidth: gamesPage.rowHeight - 8
-                Layout.preferredHeight: 1
-            }
-            Controls.Label {
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
-                font.bold: true
-                text: gamesPage.sortMark("gameName") + qsTr("Game")
-                TapHandler {
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape: Qt.PointingHandCursor
-                    onTapped: gamesPage.toggleSort("gameName")
-                }
-            }
-            Controls.Label {
-                visible: gameFilter.showAppId
-                Layout.preferredWidth: 90
-                horizontalAlignment: Text.AlignHCenter
-                font.bold: true
-                text: gamesPage.sortMark("gameId") + qsTr("App ID")
-                TapHandler {
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape: Qt.PointingHandCursor
-                    onTapped: gamesPage.toggleSort("gameId")
-                }
-            }
-            Controls.Label {
-                visible: gameFilter.showPlayed
-                Layout.preferredWidth: 90
-                horizontalAlignment: Text.AlignHCenter
-                font.bold: true
-                text: gamesPage.sortMark("gamePlayedSecs") + qsTr("Played")
-                TapHandler {
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape: Qt.PointingHandCursor
-                    onTapped: gamesPage.toggleSort("gamePlayedSecs")
-                }
-            }
-            Controls.Label {
-                visible: gameFilter.showTier
-                Layout.preferredWidth: 110
-                horizontalAlignment: Text.AlignHCenter
-                font.bold: true
-                text: gamesPage.sortMark("gameTier") + qsTr("ProtonDB")
-                TapHandler {
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape: Qt.PointingHandCursor
-                    onTapped: gamesPage.toggleSort("gameTier")
-                }
-            }
-            Controls.Label {
-                visible: gameFilter.showSource
-                Layout.preferredWidth: 80
-                horizontalAlignment: Text.AlignHCenter
-                font.bold: true
-                text: gamesPage.sortMark("gameSource") + qsTr("Source")
-                TapHandler {
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape: Qt.PointingHandCursor
-                    onTapped: gamesPage.toggleSort("gameSource")
-                }
-            }
-            Item {
-                Layout.preferredWidth: 40
-            }
-        }
-        }
         delegate: GameDelegate {
             width: ListView.view ? ListView.view.width : 100
             selected: gamesPage.selectedId === gameId
@@ -365,6 +367,8 @@ Kirigami.Page {
             visible: gameList.count === 0
             text: qsTr("No games yet")
             explanation: qsTr("Add a native Linux game to get started.")
+        }
+    }
         }
     }
 

@@ -70,6 +70,7 @@ def test_game_delegate_binds_roles(qgui_app):
             "gameName": "Doom",
             "gameId": "local-doom",
             "gamePlayed": "38s",
+            "gamePlayedTip": "1 sessions · last x · 0 failures",
             "gameSource": "Local",
             "gameTier": "Gold",
             "gameTierBg": "#FFC107",
@@ -80,19 +81,7 @@ def test_game_delegate_binds_roles(qgui_app):
     assert item is not None
     qgui_app.processEvents()
 
-    def texts(obj):
-        out = []
-        try:
-            text = obj.property("text")
-        except Exception:
-            text = None
-        if isinstance(text, str) and text:
-            out.append(text)
-        for child in obj.childItems():
-            out += texts(child)
-        return out
-
-    got = set(texts(item))
+    got = {_named_label(item, name) for name in ("nameLabel", "playedLabel", "tierLabel")}
     assert {"Doom", "38s", "Gold"} <= got
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -261,14 +250,28 @@ def _named_label(delegate, name):
         return None
 
 
-def _row_numbers(view):
-    """Row-number label texts via findChild (no tree walk)."""
-    return [
-        text
-        for delegate in _delegate_rows(view)
-        for text in [_named_label(delegate, "rowNumber")]
-        if text is not None and text.strip()
-    ]
+def _gutter_numbers(gutter):
+    """Gutter number texts (one level, live labels only)."""
+    import shiboken6
+    from PySide6.QtQuick import QQuickItem
+
+    try:
+        kids = list(gutter.property("contentItem").childItems())
+    except Exception:
+        return []
+    out = []
+    for child in kids:
+        try:
+            if not shiboken6.isValid(child) or not isinstance(child, QQuickItem):
+                continue
+            if child.property("objectName") != "gutterNumber":
+                continue
+            text = child.property("text")
+            if isinstance(text, str) and text.strip():
+                out.append(text.strip())
+        except Exception:
+            continue
+    return out
 
 
 def _delegate_label_visible(view, text):
@@ -277,7 +280,7 @@ def _delegate_label_visible(view, text):
     from PySide6.QtQuick import QQuickItem
 
     for delegate in _delegate_rows(view):
-        for name in ("nameLabel", "appIdLabel", "iconName", "iconPlayed", "rowNumber"):
+        for name in ("nameLabel", "appIdLabel", "playedLabel", "iconName", "iconPlayed"):
             try:
                 label = delegate.findChild(QQuickItem, name)
                 if label is None or not shiboken6.isValid(label):
@@ -364,11 +367,12 @@ def test_row_numbers_follow_proxy_order(qgui_app, xdg_env):
         cfg.general.appid = appid
         C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
-    view = win.findChild(QQuickItem, "gameList")
-    assert sorted(_row_numbers(view)) == ["1", "2"]
+    gutter = win.findChild(QQuickItem, "rowGutter")
+    assert gutter is not None
+    assert sorted(_gutter_numbers(gutter)) == ["1", "2"]
     proxy.sortBy("gameId", True)
     qgui_app.processEvents()
-    assert sorted(_row_numbers(view)) == ["1", "2"]  # positional rows
+    assert sorted(_gutter_numbers(gutter)) == ["1", "2"]  # positional rows
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -637,5 +641,38 @@ def test_game_icon_delegate_binds_roles(qgui_app):
     )
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tier_double_click_opens_protondb(qgui_app, xdg_env):
+    """Double-clicking the tier badge opens ProtonDB (never plays)."""
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "42"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    played, opened = [], []
+    model.play = lambda gid: played.append(gid) or True
+    model.openProtonDB = lambda gid: opened.append(gid) or True
+    view = win.findChild(QQuickItem, "gameList")
+    rows = _delegate_rows(view)
+    assert len(rows) == 1
+    button = rows[0].findChild(QQuickItem, "tierButton")
+    assert button is not None
+    pos = button.mapToScene(QPointF(button.property("width") / 2, 5)).toPoint()
+    QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert opened == ["42"]
+    assert played == []
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
     engine.deleteLater()
     qgui_app.processEvents()

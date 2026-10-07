@@ -52,6 +52,7 @@ class GameListModel(QAbstractListModel):
     TierFgRole = Qt.ItemDataRole.UserRole + 7
     IconRole = Qt.ItemDataRole.UserRole + 8
     PlayedSecsRole = Qt.ItemDataRole.UserRole + 9
+    PlayedTipRole = Qt.ItemDataRole.UserRole + 10
 
     ROLE_NAMES = (
         "gameId",
@@ -63,6 +64,7 @@ class GameListModel(QAbstractListModel):
         "gameTierFg",
         "gameIcon",
         "gamePlayedSecs",
+        "gamePlayedTip",
     )
 
     refreshed = Signal()
@@ -104,6 +106,7 @@ class GameListModel(QAbstractListModel):
             GameListModel.TierFgRole: b"gameTierFg",
             GameListModel.IconRole: b"gameIcon",
             GameListModel.PlayedSecsRole: b"gamePlayedSecs",
+            GameListModel.PlayedTipRole: b"gamePlayedTip",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -123,6 +126,7 @@ class GameListModel(QAbstractListModel):
             GameListModel.TierFgRole: 6,
             GameListModel.IconRole: 7,
             GameListModel.PlayedSecsRole: 8,
+            GameListModel.PlayedTipRole: 9,
         }
         return row[cols[role]] if role in cols else None
 
@@ -142,6 +146,11 @@ class GameListModel(QAbstractListModel):
             st = stats.get(appid)
             played = format_duration(st.total_dur) if st is not None else "—"
             played_secs = st.total_dur if st is not None else -1
+            if st is None:
+                played_tip = "No recorded sessions"
+            else:
+                last = st.last.replace("T", " ")
+                played_tip = f"{st.runs} sessions · last {last} · {st.fails} failures"
             icon = artmod.resolve_icon(appid)
             data, _fresh = pdbmod.cached(appid)
             tier = str(((data or {}).get("tier", "")) or "").lower()
@@ -157,6 +166,7 @@ class GameListModel(QAbstractListModel):
                     fg,
                     str(icon) if icon else "",
                     played_secs,
+                    played_tip,
                 )
             )
         rows.sort(key=lambda r: r[1].lower())
@@ -200,6 +210,20 @@ class GameListModel(QAbstractListModel):
             log.warning("browse worker failed: %s", e)
             path = ""
         self.browseFinished.emit(path)
+
+    @Slot(str, result=bool)
+    def openProtonDB(self, appid: str) -> bool:
+        """Open the ProtonDB page for a Steam game in the browser."""
+        try:
+            if not steammod.is_steam_id(appid) or not appid.isdigit():
+                return False
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+
+            return bool(QDesktopServices.openUrl(QUrl(pdbmod.GAME_URL.format(appid=appid))))
+        except Exception as e:  # never crash the list on a browser failure
+            log.warning("openProtonDB(%s) failed: %s", appid, e)
+            return False
 
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:

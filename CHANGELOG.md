@@ -11,6 +11,10 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- List matches the widgets table: plain left-aligned headers over
+  the data, single-line names (no played sub-line), row numbers in
+  an outside gutter, played hover tooltip, tier badge opens ProtonDB
+  on double-click, `gamePlayedTip` role and `openProtonDB` slot.
 - Gallery-style drawer modes (Overlay/Sidebar/Collapsible Sidebar
   with collapse header) and gallery-style views: details list,
   icons grid and cards (Kirigami CardsLayout) behind a split-button

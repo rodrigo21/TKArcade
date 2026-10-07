@@ -98,6 +98,7 @@ def test_model_role_names_are_game_prefixed(qgui_app):
         b"gameName",
         b"gamePlayed",
         b"gamePlayedSecs",
+        b"gamePlayedTip",
         b"gameSource",
         b"gameTier",
         b"gameTierBg",
@@ -191,3 +192,33 @@ def test_filter_model_source_and_text(qgui_app, xdg_env):
     assert shown() == ["local-doom", "local-quake"]
     proxy.textQuery = ""
     assert shown() == ["213", "local-doom", "local-quake"]
+
+
+def test_open_protondb_rejects_local(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    assert GameListModel().openProtonDB("local-doom") is False
+
+
+def test_open_protondb_handoff(qgui_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+
+    from tkarcade.gui.model import GameListModel
+
+    opened = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True)
+    assert GameListModel().openProtonDB("42") is True
+    assert opened == ["https://www.protondb.com/app/42"]
+
+
+def test_played_tip_role(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    C.save(cfg)
+    model = GameListModel()
+    proxy = GameFilterModel()
+    proxy.setSourceModel(model)
+    tip = proxy.data(proxy.index(0, 0), GameListModel.PlayedTipRole)
+    assert tip == "No recorded sessions"
