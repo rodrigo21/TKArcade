@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Main-window UI parity in Kirigami: source drawer with counts,
+  search field, rich rows (name, ID · played, tier badge), status
+  counts. Filtering runs through a proxy model (tested in Python).
 - Async native file picker: Browse never freezes the UI (worker
   thread + result signal); `TKARCADE_VERBOSE=1` (or `--verbose`)
   shows portal handshake debug lines.

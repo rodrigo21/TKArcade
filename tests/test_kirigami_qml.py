@@ -10,7 +10,7 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
 
     from tkarcade import config as C
     from tkarcade.gui.kirigami_app import qml_url
-    from tkarcade.gui.model import GameListModel
+    from tkarcade.gui.model import GameFilterModel, GameListModel
 
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
@@ -24,7 +24,11 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
     engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
     model = GameListModel(engine)  # parented: survives without the Python ref
     engine.rootContext().setContextProperty("gameModel", model)
+    game_filter = GameFilterModel(engine)
+    game_filter.setSourceModel(model)
+    engine.rootContext().setContextProperty("gameFilter", game_filter)
     del model
+    del game_filter
     import gc
 
     gc.collect()
@@ -56,11 +60,31 @@ def test_game_delegate_binds_roles(qgui_app):
     component = QQmlComponent(engine, url)
     assert component.isReady(), component.errorString()
     item = component.createWithInitialProperties(
-        {"gameName": "Doom", "gameId": "local-doom", "gameSource": "Local"}
+        {
+            "gameName": "Doom",
+            "gameId": "local-doom",
+            "gamePlayed": "38s",
+            "gameTier": "Gold",
+            "gameTierBg": "#FFC107",
+            "gameTierFg": "#000000",
+        }
     )
     assert item is not None
     qgui_app.processEvents()
-    assert item.property("title") == "Doom"
-    assert item.property("subtitle") == "local-doom · Local"
+
+    def texts(obj):
+        out = []
+        try:
+            text = obj.property("text")
+        except Exception:
+            text = None
+        if isinstance(text, str) and text:
+            out.append(text)
+        for child in obj.childItems():
+            out += texts(child)
+        return out
+
+    got = set(texts(item))
+    assert {"Doom", "local-doom · 38s", "Gold"} <= got
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []

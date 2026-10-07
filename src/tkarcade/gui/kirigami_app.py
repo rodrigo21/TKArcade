@@ -29,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
 
-    from .model import GameListModel
+    from .model import GameFilterModel, GameListModel
 
     if verbose_requested(argv):
         logging.basicConfig(level=logging.DEBUG)
@@ -44,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     # model would die with its Python wrapper (GC) and read as null.
     model = GameListModel(engine)
     engine.rootContext().setContextProperty("gameModel", model)
+    game_filter = GameFilterModel(engine)
+    game_filter.setSourceModel(model)
+    engine.rootContext().setContextProperty("gameFilter", game_filter)
     from PySide6.QtCore import QUrl
 
     engine.load(QUrl(qml_url()))

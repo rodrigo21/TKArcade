@@ -15,6 +15,8 @@ def _rows(model):
             model.data(model.index(i), model.IdRole),
             model.data(model.index(i), model.NameRole),
             model.data(model.index(i), model.SourceRole),
+            model.data(model.index(i), model.PlayedRole),
+            model.data(model.index(i), model.TierRole),
         )
         for i in range(model.rowCount())
     ]
@@ -31,7 +33,10 @@ def test_model_lists_steam_and_local_sorted(qgui_app, xdg_env):
     local.general.game_type = "native"
     C.save(local)
     rows = _rows(_model(qgui_app))
-    assert rows == [("213", "213", "Steam"), ("local-zebra", "Zebra", "Local")]
+    assert rows == [
+        ("213", "213", "Steam", "—", ""),
+        ("local-zebra", "Zebra", "Local", "—", ""),
+    ]
 
 
 def test_model_add_local_validation(qgui_app, xdg_env, tmp_path):
@@ -87,4 +92,54 @@ def test_model_role_names_are_game_prefixed(qgui_app):
     from tkarcade.gui.model import GameListModel
 
     roles = GameListModel().roleNames()
-    assert sorted(roles.values()) == [b"gameId", b"gameName", b"gameSource"]
+    assert sorted(roles.values()) == [
+        b"gameId",
+        b"gameName",
+        b"gamePlayed",
+        b"gameSource",
+        b"gameTier",
+        b"gameTierBg",
+        b"gameTierFg",
+    ]
+
+
+def test_model_counts(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    for appid in ("213", "local-a", "local-b"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    model = GameListModel()
+    assert (model.totalCount, model.steamCount, model.localCount) == (3, 1, 2)
+
+
+def test_filter_model_source_and_text(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    for appid, name in (("213", ""), ("local-doom", "Doom"), ("local-quake", "Quake")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        C.save(cfg)
+    source = GameListModel()
+    proxy = GameFilterModel()
+    proxy.setSourceModel(source)
+
+    def shown():
+        return sorted(
+            proxy.data(proxy.index(i, 0), GameListModel.IdRole) for i in range(proxy.rowCount())
+        )
+
+    assert shown() == ["213", "local-doom", "local-quake"]
+    proxy.sourceKey = "local"
+    assert shown() == ["local-doom", "local-quake"]
+    proxy.sourceKey = "steam"
+    assert shown() == ["213"]
+    proxy.sourceKey = "all"
+    proxy.textQuery = "doom"
+    assert shown() == ["local-doom"]
+    proxy.textQuery = "LOCAL-"
+    assert shown() == ["local-doom", "local-quake"]
+    proxy.textQuery = ""
+    assert shown() == ["213", "local-doom", "local-quake"]
