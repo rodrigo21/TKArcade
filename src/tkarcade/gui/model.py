@@ -234,6 +234,7 @@ class GameFilterModel(QSortFilterProxyModel):
         super().__init__(parent)
         self._source = "all"
         self._text = ""
+        self._flags: dict[str, bool] = {}
         self._sort_role = "gameName"
         self._sort_role_id = GameListModel.NameRole
         self._sort_descending = False
@@ -261,6 +262,54 @@ class GameFilterModel(QSortFilterProxyModel):
             self.textChanged.emit()
 
     textQuery = Property(str, _get_text, _set_text, notify=textChanged)
+
+    columnsChanged = Signal()
+
+    def _get_flag(self, name: str) -> bool:
+        return bool(self._flags.get(name, True))
+
+    def _set_flag(self, name: str, value: bool) -> None:
+        value = bool(value)
+        if self._flags.get(name, True) != value:
+            self._flags[name] = value
+            self.columnsChanged.emit()
+
+    def _get_showAppId(self) -> bool:
+        return self._get_flag("showAppId")
+
+    def _set_showAppId(self, value: bool) -> None:
+        self._set_flag("showAppId", value)
+
+    def _get_showPlayed(self) -> bool:
+        return self._get_flag("showPlayed")
+
+    def _set_showPlayed(self, value: bool) -> None:
+        self._set_flag("showPlayed", value)
+
+    def _get_showTier(self) -> bool:
+        return self._get_flag("showTier")
+
+    def _set_showTier(self, value: bool) -> None:
+        self._set_flag("showTier", value)
+
+    def _get_showSource(self) -> bool:
+        return self._get_flag("showSource")
+
+    def _set_showSource(self, value: bool) -> None:
+        self._set_flag("showSource", value)
+
+    showAppId = Property(bool, _get_showAppId, _set_showAppId, notify=columnsChanged)
+    showPlayed = Property(bool, _get_showPlayed, _set_showPlayed, notify=columnsChanged)
+    showTier = Property(bool, _get_showTier, _set_showTier, notify=columnsChanged)
+    showSource = Property(bool, _get_showSource, _set_showSource, notify=columnsChanged)
+
+    @Slot(str, result=int)
+    def indexOf(self, appid: str) -> int:
+        """Proxy row for an AppID (-1 when filtered out). Drives selection."""
+        for row in range(self.rowCount()):
+            if str(self.data(self.index(row, 0), GameListModel.IdRole) or "") == appid:
+                return row
+        return -1
 
     @Slot(str, bool)
     def sortBy(self, roleName: str, descending: bool) -> None:

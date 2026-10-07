@@ -80,6 +80,38 @@ Kirigami.ScrollablePage {
                     gamesPage.viewSizes = sizes
                 }
             }
+            Controls.ToolButton {
+                objectName: "columnsButton"
+                text: qsTr("Columns")
+                onClicked: columnsMenu.open()
+                Controls.Menu {
+                    id: columnsMenu
+                    Controls.MenuItem {
+                        text: qsTr("App ID")
+                        checkable: true
+                        checked: gameFilter.showAppId
+                        onTriggered: gameFilter.showAppId = !gameFilter.showAppId
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("Played")
+                        checkable: true
+                        checked: gameFilter.showPlayed
+                        onTriggered: gameFilter.showPlayed = !gameFilter.showPlayed
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("ProtonDB")
+                        checkable: true
+                        checked: gameFilter.showTier
+                        onTriggered: gameFilter.showTier = !gameFilter.showTier
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("Source")
+                        checkable: true
+                        checked: gameFilter.showSource
+                        onTriggered: gameFilter.showSource = !gameFilter.showSource
+                    }
+                }
+            }
         }
     }
 
@@ -89,15 +121,54 @@ Kirigami.ScrollablePage {
         model: gameFilter
         property int rowHeight: gamesPage.rowHeight
         property var colW: ({appId: 90, played: 90, tier: 110, source: 80})
-        header: RowLayout {
+        focus: true
+        highlightFollowsCurrentItem: true
+        highlight: Rectangle {
+            color: Kirigami.Theme.highlightColor
+            opacity: 0.3
+        }
+        Keys.onUpPressed: {
+            gameList.currentIndex = Math.max(0, gameList.currentIndex - 1)
+            gameList.positionViewAtIndex(gameList.currentIndex, ListView.Contain)
+        }
+        Keys.onDownPressed: {
+            gameList.currentIndex = Math.min(gameList.count - 1, gameList.currentIndex + 1)
+            gameList.positionViewAtIndex(gameList.currentIndex, ListView.Contain)
+        }
+        header: Item {
             width: gameList.width
+            height: headerRow.height
+            Rectangle {
+                anchors.fill: parent
+                color: Kirigami.Theme.alternateBackgroundColor
+            }
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: Kirigami.Theme.disabledTextColor
+                opacity: 0.4
+            }
+        RowLayout {
+            id: headerRow
+            anchors.fill: parent
             spacing: Kirigami.Units.largeSpacing
             Item {
                 Layout.preferredWidth: gamesPage.rowHeight - 8
                 Layout.preferredHeight: 1
             }
             Controls.Label {
+                Layout.preferredWidth: 36
+                horizontalAlignment: Text.AlignHCenter
+                color: Kirigami.Theme.disabledTextColor
+                font.bold: true
+                text: "#"
+            }
+            Controls.Label {
                 Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                font.bold: true
                 text: gamesPage.sortMark("gameName") + qsTr("Game")
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
@@ -106,7 +177,10 @@ Kirigami.ScrollablePage {
                 }
             }
             Controls.Label {
+                visible: gameFilter.showAppId
                 Layout.preferredWidth: 90
+                horizontalAlignment: Text.AlignHCenter
+                font.bold: true
                 text: gamesPage.sortMark("gameId") + qsTr("App ID")
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
@@ -115,7 +189,10 @@ Kirigami.ScrollablePage {
                 }
             }
             Controls.Label {
+                visible: gameFilter.showPlayed
                 Layout.preferredWidth: 90
+                horizontalAlignment: Text.AlignHCenter
+                font.bold: true
                 text: gamesPage.sortMark("gamePlayedSecs") + qsTr("Played")
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
@@ -124,7 +201,10 @@ Kirigami.ScrollablePage {
                 }
             }
             Controls.Label {
+                visible: gameFilter.showTier
                 Layout.preferredWidth: 110
+                horizontalAlignment: Text.AlignHCenter
+                font.bold: true
                 text: gamesPage.sortMark("gameTier") + qsTr("ProtonDB")
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
@@ -133,7 +213,10 @@ Kirigami.ScrollablePage {
                 }
             }
             Controls.Label {
+                visible: gameFilter.showSource
                 Layout.preferredWidth: 80
+                horizontalAlignment: Text.AlignHCenter
+                font.bold: true
                 text: gamesPage.sortMark("gameSource") + qsTr("Source")
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
@@ -145,9 +228,13 @@ Kirigami.ScrollablePage {
                 Layout.preferredWidth: 40
             }
         }
+        }
         delegate: GameDelegate {
             width: ListView.view ? ListView.view.width : 100
             onPlayRequested: (gid) => gameModel.play(gid)
+            onRowTapped: (gid) => {
+                gameList.currentIndex = gameFilter.indexOf(gid)
+            }
         }
         Kirigami.PlaceholderMessage {
             anchors.centerIn: parent

@@ -11,6 +11,9 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- List view selection (tap + arrow keys + highlight), positional
+  `#` column, Columns menu (App ID/Played/ProtonDB/Source driven
+  by proxy flags), styled header with sort indicators.
 - Main-window UI parity in Kirigami: source drawer with counts,
   search field, rich rows (name, ID · played, tier badge), status
   counts. Filtering runs through a proxy model (tested in Python).

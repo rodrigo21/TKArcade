@@ -11,6 +11,7 @@ import org.kde.kirigami as Kirigami
 // bind straight to the model roles (Qt6 has no `model` object in
 // delegates).
 RowLayout {
+    objectName: "gameRow"
     required property string gameName
     required property string gameId
     required property string gamePlayed
@@ -22,13 +23,23 @@ RowLayout {
     // gamePlayedSecs role exists on the model; sorting only.
 
     signal playRequested(string gid)
+    signal rowTapped(string gid)
 
     spacing: Kirigami.Units.largeSpacing
     height: (ListView.view?.rowHeight ?? 40)
 
     TapHandler {
         acceptedButtons: Qt.LeftButton
+        onTapped: (eventPoint) => rowTapped(gameId)
         onDoubleTapped: (eventPoint) => playRequested(gameId)
+    }
+
+    Controls.Label {
+        objectName: "rowNumber"
+        text: gameFilter.indexOf(gameId) + 1
+        color: Kirigami.Theme.disabledTextColor
+        horizontalAlignment: Text.AlignHCenter
+        Layout.preferredWidth: 36
     }
 
     Item {
@@ -47,29 +58,34 @@ RowLayout {
         Layout.fillWidth: true
         spacing: 0
         Controls.Label {
+            objectName: "nameLabel"
             text: gameName
             font.bold: true
             elide: Text.ElideRight
             Layout.fillWidth: true
         }
         Controls.Label {
-            text: gameName === gameId ? gamePlayed : gameId + " · " + gamePlayed
+            text: gamePlayed
             opacity: 0.7
             elide: Text.ElideRight
             Layout.fillWidth: true
         }
     }
     Controls.Label {
+        objectName: "appIdLabel"
+        visible: gameFilter.showAppId
         text: gameId
         elide: Text.ElideRight
         Layout.preferredWidth: (ListView.view?.colW ?? {}).appId ?? 90
     }
     Controls.Label {
+        visible: gameFilter.showPlayed
         text: gamePlayed
         elide: Text.ElideRight
         Layout.preferredWidth: (ListView.view?.colW ?? {}).played ?? 90
     }
     Rectangle {
+        visible: gameFilter.showTier
         color: gameTier !== "" ? gameTierBg : "transparent"
         radius: 4
         Layout.preferredWidth: (ListView.view?.colW ?? {}).tier ?? 110
@@ -82,6 +98,7 @@ RowLayout {
         }
     }
     Controls.Label {
+        visible: gameFilter.showSource
         text: gameSource
         opacity: 0.7
         elide: Text.ElideRight
