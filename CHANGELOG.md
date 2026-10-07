@@ -11,6 +11,8 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- Movable data columns (Move left/right menu, Reset Columns) with
+  order and visibility persisted to prefs; Game stays first.
 - Tools menu (Scan Steam Library, History viewer, Ludusavi, Logs,
   Clean Profiles, Reload, Preferences, About, Quit), issues-only
   filter, shown count in the footer, 3-button empty state, and

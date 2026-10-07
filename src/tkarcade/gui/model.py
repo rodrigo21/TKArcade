@@ -555,6 +555,45 @@ class GameListModel(QAbstractListModel):
             self._issues_cache[appid] = list(self.validateGame(appid))
         return self._issues_cache[appid]
 
+    @Slot(result=list)
+    def columnOrder(self) -> list:
+        """Persisted column order (logical, Game first); defaults 0..4."""
+        try:
+            order = [int(x) for x in cfgmod.load_preferences().column_order.split(",")]
+        except Exception:
+            return [0, 1, 2, 3, 4]
+        order = [x for x in order if x in (0, 1, 2, 3, 4)]
+        if sorted(order) != [0, 1, 2, 3, 4]:
+            return [0, 1, 2, 3, 4]
+        return order
+
+    @Slot(result=list)
+    def hiddenColumns(self) -> list:
+        """Persisted hidden data columns (subset of 1..4)."""
+        try:
+            hidden = {int(x) for x in cfgmod.load_preferences().hidden_columns.split(",")}
+        except Exception:
+            return []
+        return sorted(hidden & {1, 2, 3, 4})
+
+    @Slot(list, list, result=bool)
+    def saveColumns(self, order, hidden) -> bool:
+        """Persist column order/visibility (best effort)."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return False
+        clean_order = [int(x) for x in list(order) if int(x) in (0, 1, 2, 3, 4)]
+        if sorted(clean_order) == [0, 1, 2, 3, 4]:
+            prefs.column_order = ",".join(map(str, clean_order))
+        clean_hidden = sorted({int(x) for x in list(hidden)} & {1, 2, 3, 4})
+        prefs.hidden_columns = ",".join(map(str, clean_hidden))
+        try:
+            cfgmod.save_preferences(prefs)
+        except OSError:
+            return False
+        return True
+
     @Slot(result="QVariantMap")
     def loadPrefs(self) -> dict:
         """App preferences for the QML form."""

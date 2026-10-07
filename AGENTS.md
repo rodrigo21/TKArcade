@@ -48,6 +48,21 @@ rewrite pushed history or tags.
 - User-facing changes get a `CHANGELOG.md` entry under Unreleased, with
   explicit **BREAKING** notes.
 
+## Kirigami/QML rules (hard-won, do not regress)
+
+- Repeater models must stay JS arrays end to end: a QVariantList
+  injected from Python (e.g. via setProperty) lays out at zero
+  width on Qt 6.11. All QML writers build fresh JS arrays.
+- Row clicks need modifiers (Ctrl/Shift multi-select): QEventPoint
+  carries none, so rows use MouseArea (below the content, accepted
+  Left|Right) instead of TapHandler.
+- QML tests: never walk childItems() blindly (aborts on dead
+  pooled/delegate wrappers) and never use findChildren for
+  Repeater-nested items (QObject tree misses them). Navigate known
+  structure only (objectName'd column roots + direct cells),
+  match cells by parent modelData, and pump frames until delegates
+  settle (Repeater columns instantiate asynchronously).
+
 ## Project policies (do not regress)
 
 - No config migration/compat shims (pre-1.0): incompatible configs load

@@ -25,8 +25,22 @@ Item {
     required property string gameTierBg
     required property string gameTierFg
     required property string gameIcon
+    property var columnOrder: [1, 2, 3, 4]
     property bool selected: false
     // gamePlayedSecs role exists on the model; sorting only.
+
+    function columnShown(logical) {
+        if (logical === 1) {
+            return gameFilter.showAppId
+        }
+        if (logical === 2) {
+            return gameFilter.showPlayed
+        }
+        if (logical === 3) {
+            return gameFilter.showTier
+        }
+        return gameFilter.showSource
+    }
 
     signal playRequested(string gid)
     signal rowTapped(string gid, int modifiers)
@@ -82,56 +96,69 @@ Item {
             font.bold: true
             elide: Text.ElideRight
         }
-        Controls.Label {
-            objectName: "appIdLabel"
-            visible: gameFilter.showAppId
-            text: gameRow.gameId
-            elide: Text.ElideRight
-            Layout.preferredWidth: (ListView.view?.colW ?? {}).appId ?? 90
-        }
-        Controls.Label {
-            objectName: "playedLabel"
-            visible: gameFilter.showPlayed
-            text: gameRow.gamePlayed
-            elide: Text.ElideRight
-            Layout.preferredWidth: (ListView.view?.colW ?? {}).played ?? 90
-            HoverHandler {
-                id: playedHover
+        Repeater {
+            objectName: "rowCells"
+            model: gameRow.columnOrder
+            delegate: Item {
+                objectName: "rowColumn"
+                required property int modelData
+                Layout.preferredWidth: modelData === 3 ? 110 : modelData === 4 ? 80 : 90
+                Layout.fillHeight: true
+                visible: gameRow.columnShown(modelData)
+                Controls.Label {
+                    objectName: "appIdLabel"
+                    anchors.fill: parent
+                    visible: modelData === 1
+                    verticalAlignment: Text.AlignVCenter
+                    text: gameRow.gameId
+                    elide: Text.ElideRight
+                }
+                Controls.Label {
+                    objectName: "playedLabel"
+                    anchors.fill: parent
+                    visible: modelData === 2
+                    verticalAlignment: Text.AlignVCenter
+                    text: gameRow.gamePlayed
+                    elide: Text.ElideRight
+                    HoverHandler {
+                        id: playedHover
+                    }
+                    Controls.ToolTip.visible: playedHover.hovered
+                    Controls.ToolTip.text: gameRow.gamePlayedTip
+                }
+                Controls.ToolButton {
+                    objectName: "tierButton"
+                    anchors.fill: parent
+                    visible: modelData === 3
+                    text: gameRow.gameTier
+                    font.bold: true
+                    background: Rectangle {
+                        color: gameRow.gameTier !== "" ? gameRow.gameTierBg : "transparent"
+                        radius: 4
+                    }
+                    contentItem: Controls.Label {
+                        id: tierLabel
+                        objectName: "tierLabel"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        text: gameRow.gameTier
+                        color: gameRow.gameTierFg
+                        elide: Text.ElideRight
+                    }
+                    onClicked: gameRow.rowTapped(gameRow.gameId, 0)
+                    onDoubleClicked: gameModel.openProtonDB(gameRow.gameId)
+                    Controls.ToolTip.visible: hovered && gameRow.gameTier !== ""
+                    Controls.ToolTip.text: qsTr("Open ProtonDB page")
+                }
+                Controls.Label {
+                    anchors.fill: parent
+                    visible: modelData === 4
+                    verticalAlignment: Text.AlignVCenter
+                    text: gameRow.gameSource
+                    opacity: 0.7
+                    elide: Text.ElideRight
+                }
             }
-            Controls.ToolTip.visible: playedHover.hovered
-            Controls.ToolTip.text: gameRow.gamePlayedTip
-        }
-        Controls.ToolButton {
-            objectName: "tierButton"
-            visible: gameFilter.showTier
-            Layout.preferredWidth: (ListView.view?.colW ?? {}).tier ?? 110
-            Layout.preferredHeight: tierLabel.implicitHeight + Kirigami.Units.smallSpacing
-            text: gameRow.gameTier
-            font.bold: true
-            background: Rectangle {
-                color: gameRow.gameTier !== "" ? gameRow.gameTierBg : "transparent"
-                radius: 4
-            }
-            contentItem: Controls.Label {
-                id: tierLabel
-                objectName: "tierLabel"
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                text: gameRow.gameTier
-                color: gameRow.gameTierFg
-                elide: Text.ElideRight
-            }
-            onClicked: gameRow.rowTapped(gameRow.gameId, 0)
-            onDoubleClicked: gameModel.openProtonDB(gameRow.gameId)
-            Controls.ToolTip.visible: hovered && gameRow.gameTier !== ""
-            Controls.ToolTip.text: qsTr("Open ProtonDB page")
-        }
-        Controls.Label {
-            visible: gameFilter.showSource
-            text: gameRow.gameSource
-            opacity: 0.7
-            elide: Text.ElideRight
-            Layout.preferredWidth: (ListView.view?.colW ?? {}).source ?? 80
         }
         Controls.ToolButton {
             icon.name: "media-playback-start"

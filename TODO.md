@@ -1,5 +1,18 @@
 # TODO — deferred ideas
 
+- [ ] Kirigami game settings (deferred while the rest lands): port
+  GameDialog to QML — real Edit/Clone/Reset/Global Defaults, Steam
+  add flow with picker, AddSource chooser. Until then Edit opens the
+  local name+executable dialog as a stand-in.
+- [ ] Kirigami File Export/Import (tarball, SteamTinkerLaunch,
+  predecessor copy). Scan Steam Library already exists.
+- [ ] System tray with recent games (needs QGuiApplication to
+  QApplication migration; tray prefs already exist).
+- [ ] Column drag-reorder in the QML header (the Move left/right
+  menu covers reordering; drag is fragile in QML layouts).
+- [ ] QML i18n catalog (pt_BR for the strings added since the
+  Kirigami work started; QML `qsTr` calls are in place).
+
 - [ ] Per-game display mode: save current resolution/refresh, apply the
   game's, restore afterwards (same save/restore pattern as nightlight).
   Providers with auto-detect: Plasma (`kscreen-doctor`), GNOME

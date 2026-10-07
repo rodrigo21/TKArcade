@@ -309,3 +309,16 @@ def test_clear_history_removes_log_lines(qgui_app, xdg_env):
     assert GameListModel().clearHistory("42") == 1
     assert "appid=42" not in log.read_text(encoding="utf-8")
     assert "appid=43" in log.read_text(encoding="utf-8")
+
+
+def test_column_prefs_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.columnOrder() == [0, 1, 2, 3, 4]
+    assert model.hiddenColumns() == []
+    assert model.saveColumns([0, 2, 1, 3, 4], [2, 9]) is True
+    assert model.columnOrder() == [0, 2, 1, 3, 4]
+    assert model.hiddenColumns() == [2]
+    assert model.saveColumns([9, 9], []) is True  # garbage order ignored
+    assert model.columnOrder() == [0, 2, 1, 3, 4]
