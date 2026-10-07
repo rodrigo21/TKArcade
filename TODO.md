@@ -61,10 +61,11 @@ to `kirigami` (see git log).
   sort through existing sortBy, selectionModel replaces selectedIds).
   Use ListTableView, never KTableView (its inner TableView spins the
   offscreen event loop forever).
-- [ ] QToolBar centered → centered RowLayout in page header; drop per-row Play
+- [x] QMenu/QToolBar → Action + menus, centered toolbar row, per-row
+  Play removed (play via double-click, toolbar or menu)
+- [x] QShortcut Quit → QML Shortcut (Ctrl+Q)
 - [ ] QMessageBox → Kirigami.PromptDialog (base kirigami, revise our confirms)
 - [ ] QFormLayout (prefs) → Addons FormCard (same new dep, zero extra cost)
-- [ ] QShortcut Quit → QML Shortcut (Ctrl+Q, missing)
 - [ ] QTabWidget (future settings UI) → pageStack pages + TabBar
 - [ ] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
 - [ ] QSystemTrayIcon → needs QApplication migration (deferred)

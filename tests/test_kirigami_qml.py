@@ -802,8 +802,9 @@ def test_multi_select_ctrl_shift(qgui_app, xdg_env):
 
 def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
     """Toolbar Play launches the first selected game."""
-    from PySide6.QtCore import QObject
+    from PySide6.QtCore import QObject, Qt
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -822,9 +823,12 @@ def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.toggleSelect("b-game")
     qgui_app.processEvents()
-    action = win.findChild(QObject, "actionPlay")
+    action = win.findChild(QQuickItem, "actionPlay")
     assert action is not None
-    action.trigger(action)
+    from PySide6.QtCore import QPointF
+
+    pos = action.mapToScene(QPointF(action.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
     assert played == ["a-game"]
     real = [w for w in warnings if "graphics scene" not in w]
@@ -899,8 +903,10 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     page.toggleSelect("local-quake")
     qgui_app.processEvents()
     assert len(_selected_ids(table, proxy)) == 2
-    remove = win.findChild(QObject, "actionRemove")
-    remove.trigger(remove)
+    remove = win.findChild(QQuickItem, "actionRemove")
+    assert remove is not None
+    pos = remove.mapToScene(QPointF(remove.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
     dialog = win.findChild(QObject, "removeDialog")
     assert dialog.property("visible") is True
@@ -1181,4 +1187,32 @@ def test_column_layout_persists(qgui_app, xdg_env):
     assert real == []
     win.close()
     engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_toolbar_buttons_centered_and_quit_shortcut(qgui_app, xdg_env):
+    """Primary buttons sit in a centered row; Ctrl+Q shortcut exists."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    buttons = []
+    for name in ("actionPlay", "actionAdd", "actionEdit", "actionRemove"):
+        button = win.findChild(QQuickItem, name)
+        assert button is not None, name
+        buttons.append(button.property("x") + button.property("width") / 2)
+    page = win.findChild(QObject, "gamesPage")
+    middle = page.property("width") / 2
+    assert max(buttons) - min(buttons) < page.property("width") / 2
+    assert abs(sum(buttons) / len(buttons) - middle) < 60
+    assert win.findChild(QObject, "quitShortcut") is not None
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
     qgui_app.processEvents()

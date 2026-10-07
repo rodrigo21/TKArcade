@@ -306,35 +306,6 @@ Kirigami.Page {
         gameMenu.popup()
     }
 
-    actions: [
-        Kirigami.Action {
-            objectName: "actionPlay"
-            text: qsTr("Play")
-            icon.name: "media-playback-start"
-            onTriggered: gamesPage.playSelected()
-        },
-        Kirigami.Action {
-            objectName: "actionAdd"
-            text: qsTr("Add game")
-            icon.name: "list-add"
-            onTriggered: addDialog.open()
-        },
-        Kirigami.Action {
-            // TEMPORARY: opens the local add dialog until the QML
-            // game settings UI lands.
-            objectName: "actionEdit"
-            text: qsTr("Edit...")
-            icon.name: "document-edit"
-            onTriggered: addDialog.open()
-        },
-        Kirigami.Action {
-            objectName: "actionRemove"
-            text: qsTr("Remove")
-            icon.name: "edit-delete"
-            onTriggered: gamesPage.openRemoveDialog()
-        }
-    ]
-
     Component.onCompleted: {
         gamesPage.loadColumns()
         gameModel.fetchMissing()
@@ -526,6 +497,45 @@ Kirigami.Page {
     }
 
     header: ColumnLayout {
+        RowLayout {
+            Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
+            Controls.ToolButton {
+                objectName: "actionPlay"
+                text: qsTr("Play")
+                icon.name: "media-playback-start"
+                display: Controls.AbstractButton.TextBesideIcon
+                onClicked: gamesPage.playSelected()
+            }
+            Controls.ToolButton {
+                objectName: "actionAdd"
+                text: qsTr("Add game")
+                icon.name: "list-add"
+                display: Controls.AbstractButton.TextBesideIcon
+                onClicked: addDialog.open()
+            }
+            Controls.ToolButton {
+                // TEMPORARY: opens the local add dialog until the QML
+                // game settings UI lands.
+                objectName: "actionEdit"
+                text: qsTr("Edit...")
+                icon.name: "document-edit"
+                display: Controls.AbstractButton.TextBesideIcon
+                onClicked: addDialog.open()
+            }
+            Controls.ToolButton {
+                objectName: "actionRemove"
+                text: qsTr("Remove")
+                icon.name: "edit-delete"
+                display: Controls.AbstractButton.TextBesideIcon
+                onClicked: gamesPage.openRemoveDialog()
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+        }
         RowLayout {
             Layout.fillWidth: true
             Kirigami.SearchField {

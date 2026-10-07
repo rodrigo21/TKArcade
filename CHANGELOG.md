@@ -11,6 +11,8 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- Centered Play/Add/Edit/Remove toolbar row, per-row Play removed
+  (play via double-click, toolbar or menu), Ctrl+Q quit shortcut.
 - List is a native table (Addons ListTableView): real header with
   relief, centered titles and sort indicator, row selection with
   highlight, gutter numbers; needs kirigami-addons at runtime

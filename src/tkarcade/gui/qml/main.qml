@@ -13,6 +13,12 @@ Kirigami.ApplicationWindow {
     width: minimumWidth
     height: minimumHeight
 
+    Shortcut {
+        objectName: "quitShortcut"
+        sequence: StandardKey.Quit
+        onActivated: Qt.quit()
+    }
+
     globalDrawer: Kirigami.GlobalDrawer {
         id: sourceDrawer
         objectName: "sourceDrawer"
