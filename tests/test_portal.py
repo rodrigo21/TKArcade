@@ -20,7 +20,9 @@ def _conn(replies, signals):
         def send_and_get_reply(self, msg, timeout=None):
             out = replies[state["n"]]
             state["n"] += 1
-            return SimpleNamespace(body=out)
+            reply = SimpleNamespace(body=out)
+            reply.header = SimpleNamespace(message_type=MessageType.method_return)
+            return reply
 
         def receive(self, timeout=None):
             return signals.pop(0) if signals else None
@@ -45,7 +47,7 @@ def test_pick_file_success_takes_first_file():
 def test_pick_file_cancel_gives_empty():
     from tkarcade.backends import portal as P
 
-    conn = _conn([(":1.7",), (), ("req",)], [_signal("req", 1, ["file:///tmp/doom"])])
+    conn = _conn([(":1.7",), (), ("/req",)], [_signal("/req", 1, ["file:///tmp/doom"])])
     assert P.pick_file(_open=lambda: conn) == ""
 
 
@@ -62,8 +64,11 @@ def test_pick_file_ignores_foreign_signals():
     from tkarcade.backends import portal as P
 
     conn = _conn(
-        [(":1.7",), (), ("req",)],
-        [_signal("other-path", 0, ["file:///evil"]), _signal("req", 0, ["file:///good"])],
+        [(":1.7",), (), ("/req",)],
+        [
+            _signal("other-path", 0, ["file:///evil"]),
+            _signal("/req", 0, ["file:///good"]),
+        ],
     )
     assert P.pick_file(_open=lambda: conn) == "/good"
 
@@ -110,7 +115,9 @@ def test_pick_file_reuses_existing_bus_name():
             members.append(msg.header.fields.get(3, ""))
             if members[-1] == "Hello":
                 raise AssertionError("must not re-Hello")
-            return SimpleNamespace(body=("req",))
+            reply = SimpleNamespace(body=("req",))
+            reply.header = SimpleNamespace(message_type=MessageType.method_return)
+            return reply
 
         def receive(self, timeout=None):
             return None
@@ -121,3 +128,33 @@ def test_pick_file_reuses_existing_bus_name():
     assert P.pick_file(_open=lambda: Conn()) == ""
     assert "Hello" not in members
     assert members[0] == "AddMatch"
+
+
+def test_pick_file_error_reply_gives_empty_without_waiting():
+    """A D-Bus error (e.g. wrong interface) is never used as a handle."""
+    from tkarcade.backends import portal as P
+
+    received = []
+
+    class Conn:
+        unique_name = ":9.9"
+
+        def send_and_get_reply(self, msg, timeout=None):
+            member = msg.header.fields.get(3, "")
+            if member == "OpenFile":
+                reply = SimpleNamespace(body=("No such interface (fake)",))
+                reply.header = SimpleNamespace(message_type=MessageType.error)
+                return reply
+            reply = SimpleNamespace(body=())
+            reply.header = SimpleNamespace(message_type=MessageType.method_return)
+            return reply
+
+        def receive(self, timeout=None):
+            received.append(timeout)
+            return None
+
+        def close(self):
+            pass
+
+    assert P.pick_file(_open=lambda: Conn()) == ""
+    assert received == []  # returned before waiting on a bogus path

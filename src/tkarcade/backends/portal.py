@@ -78,7 +78,10 @@ def _pick_via(conn, title: str, accept_label: str, timeout: float) -> str:
     log.debug("portal: AddMatch %s", req_path)
     conn.send_and_get_reply(new_method_call(bus, "AddMatch", "s", (match,)), timeout=10)
 
-    portal = DBusAddress(_DESKTOP[1], _DESKTOP[0], _DESKTOP[0])
+    # NB: the bus NAME is ...portal.Desktop, but OpenFile lives on the
+    # FileChooser interface of the same object (wrong interface yields a
+    # D-Bus error whose text must never be mistaken for a handle).
+    portal = DBusAddress(_DESKTOP[1], _DESKTOP[0], "org.freedesktop.portal.FileChooser")
     options = {
         "handle_token": ("s", token),
         "accept_label": ("s", accept_label),
@@ -89,9 +92,16 @@ def _pick_via(conn, title: str, accept_label: str, timeout: float) -> str:
         new_method_call(portal, "OpenFile", "ssa{sv}", ("", title, options)),
         timeout=30,
     )
+    if reply.header.message_type == MessageType.error:
+        log.warning("portal: OpenFile failed: %s", reply.body)
+        return ""
     handle = reply.body[0] if reply.body else ""
+    if not handle or not str(handle).startswith("/"):
+        log.warning("portal: bad OpenFile handle: %r", handle)
+        return ""
     # The reply handle is the request path (spec); trust it over our guess.
-    req_path = handle or req_path
+    req_path = handle
+    log.debug("portal: waiting for Response on %s", req_path)
     log.debug("portal: waiting for Response on %s", req_path)
     deadline = time.monotonic() + max(timeout, 1.0)
     while True:
