@@ -11,6 +11,10 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- List is a native table (Addons ListTableView): real header with
+  relief, centered titles and sort indicator, row selection with
+  highlight, gutter numbers; needs kirigami-addons at runtime
+  (packaging follows at release).
 - Movable data columns (Move left/right menu, Reset Columns) with
   order and visibility persisted to prefs; Game stays first.
 - Tools menu (Scan Steam Library, History viewer, Ludusavi, Logs,

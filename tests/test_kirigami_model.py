@@ -322,3 +322,29 @@ def test_column_prefs_roundtrip(qgui_app, xdg_env):
     assert model.hiddenColumns() == [2]
     assert model.saveColumns([9, 9], []) is True  # garbage order ignored
     assert model.columnOrder() == [0, 2, 1, 3, 4]
+
+
+def test_role_id_maps_names(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.roleId("gameId") == GameListModel.IdRole
+    assert model.roleId("gameName") == GameListModel.NameRole
+    assert model.roleId("nope") == -1
+
+
+def test_row_data_roundtrip(qgui_app, xdg_env):
+    from tkarcade import config as C
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    model = GameListModel()
+    proxy = GameFilterModel()
+    proxy.setSourceModel(model)
+    row = proxy.rowData(0)
+    assert row["gameId"] == "local-doom"
+    assert row["gameName"] == "Doom"
+    assert proxy.rowData(99) == {}

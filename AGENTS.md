@@ -62,6 +62,9 @@ rewrite pushed history or tags.
   structure only (objectName'd column roots + direct cells),
   match cells by parent modelData, and pump frames until delegates
   settle (Repeater columns instantiate asynchronously).
+- Addon table cells do not wrap for tests: assert through the
+  selectionModel, header component props and measured metrics
+  (contentHeight/rowCount), never through delegate objects.
 
 ## Project policies (do not regress)
 

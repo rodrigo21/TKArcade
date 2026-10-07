@@ -56,9 +56,11 @@ to `kirigami` (see git log).
 - [x] QMenu/QToolBar → Action + menus (toolbar still needs centering)
 - [x] QDialog+ButtonBox → Kirigami.Dialog
 - [x] QComboBox/Spin/Slider/Check/LineEdit → QQC2 direct
-- [ ] QTableWidget+QHeaderView → Addons KTableView (+ kirigami-addons dep;
+- [x] QTableWidget+QHeaderView → Addons ListTableView (+ kirigami-addons dep;
   code now, PKGBUILD/AppImage at release; keep game* roles via textRole,
-  sort through existing sortBy, selectionModel replaces selectedIds)
+  sort through existing sortBy, selectionModel replaces selectedIds).
+  Use ListTableView, never KTableView (its inner TableView spins the
+  offscreen event loop forever).
 - [ ] QToolBar centered → centered RowLayout in page header; drop per-row Play
 - [ ] QMessageBox → Kirigami.PromptDialog (base kirigami, revise our confirms)
 - [ ] QFormLayout (prefs) → Addons FormCard (same new dep, zero extra cost)

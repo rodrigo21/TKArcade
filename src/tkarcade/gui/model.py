@@ -70,6 +70,12 @@ class GameListModel(QAbstractListModel):
     refreshed = Signal()
     browseFinished = Signal(str)
 
+    @Slot(str, result=int)
+    def roleId(self, roleName: str) -> int:
+        """Numeric role id for a game* role name (-1 when unknown)."""
+        ids = {bytes(v).decode(): k for k, v in self.roleNames().items()}
+        return int(ids.get(roleName, -1))
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._rows: list[tuple[str, ...]] = []
@@ -130,6 +136,25 @@ class GameListModel(QAbstractListModel):
             GameListModel.PlayedTipRole: 9,
         }
         return row[cols[role]] if role in cols else None
+
+    @Slot(int, result="QVariantMap")
+    def rowData(self, row: int) -> dict:
+        """Display roles for one source row (feeds the proxy rowData)."""
+        keys = (
+            "gameId",
+            "gameName",
+            "gameSource",
+            "gamePlayed",
+            "gameTier",
+            "gameTierBg",
+            "gameTierFg",
+            "gameIcon",
+            "gamePlayedSecs",
+            "gamePlayedTip",
+        )
+        if not 0 <= row < len(self._rows):
+            return {}
+        return dict(zip(keys, self._rows[row], strict=True))
 
     @Slot()
     def refresh(self) -> None:
@@ -752,6 +777,28 @@ class GameFilterModel(QSortFilterProxyModel):
     showPlayed = Property(bool, _get_showPlayed, _set_showPlayed, notify=columnsChanged)
     showTier = Property(bool, _get_showTier, _set_showTier, notify=columnsChanged)
     showSource = Property(bool, _get_showSource, _set_showSource, notify=columnsChanged)
+
+    @Slot(int, result="QVariantMap")
+    def rowData(self, row: int) -> dict:
+        """Display roles for one proxy row (QML table delegates)."""
+        model = self.sourceModel()
+        if model is None or not 0 <= row < self.rowCount():
+            return {}
+        try:
+            source_row = self.mapToSource(self.index(row, 0)).row()
+        except Exception:
+            return {}
+        try:
+            return dict(model.rowData(source_row))
+        except Exception:
+            return {}
+
+    @Slot(int, result="QModelIndex")
+    def proxyIndex(self, row: int):
+        """Index for a proxy row (QML-callable; index() defaults misfire)."""
+        if 0 <= row < self.rowCount():
+            return self.index(row, 0)
+        return QModelIndex()
 
     @Slot(str, result=int)
     def indexOf(self, appid: str) -> int:

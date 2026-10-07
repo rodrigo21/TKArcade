@@ -1,8 +1,10 @@
 import QtQuick
 import QtQml
+import QtQml.Models as QQmlModels
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
+import org.kde.kirigamiaddons.tableview as KAddons
 
 // Games page: search + view split-button on top, the selected view
 // below (details list, icons grid, or gallery-style cards), counts at
@@ -15,14 +17,39 @@ Kirigami.Page {
     title: qsTr("Games")
 
     property string viewMode: "list"
-    property var viewSizes: ({list: 40, icons: 96})
-    property int rowHeight: viewSizes["list"] || 40
+    property var viewSizes: ({icons: 96})
     property int iconSize: viewSizes["icons"] || 96
     property var selectedIds: []
     property string anchorId: ""
     property string sortRole: "gameName"
     property bool sortDescending: false
     property string notice: ""
+
+    onViewModeChanged: {
+        if (viewMode === "list") {
+            gamesPage.applySelectionToTable()
+        }
+    }
+
+    function applySelectionToTable() {
+        gameTable.selectionModel.clearSelection()
+        for (var i = 0; i < selectedIds.length; i++) {
+            var row = gameFilter.indexOf(selectedIds[i])
+            if (row >= 0) {
+                gameTable.selectionModel.select(
+                    gameFilter.proxyIndex(row),
+                    QQmlModels.ItemSelectionModel.Select | selectFlags())
+            }
+        }
+        if (selectedIds.length > 0) {
+            var first = gameFilter.indexOf(selectedIds[0])
+            if (first >= 0) {
+                gameTable.selectionModel.setCurrentIndex(
+                    gameFilter.proxyIndex(first),
+                    QQmlModels.ItemSelectionModel.NoUpdate)
+            }
+        }
+    }
 
     function notify(text) {
         notice = text
@@ -78,8 +105,63 @@ Kirigami.Page {
         }
     }
 
-    function sortMark(role) {
-        return sortRole === role ? (sortDescending ? "▼ " : "▲ ") : ""
+    function selectFlags() {
+        return QQmlModels.ItemSelectionModel.Rows
+    }
+
+    function tableRowHeight() {
+        return Kirigami.Units.gridUnit * 2
+    }
+
+    function scrollTableTo(row) {
+        var target = tableRowHeight() * (row + 1) - gameTable.height / 2
+        gameTable.contentY = Math.max(0, target)
+    }
+
+    function tableSingleSelect(row) {
+        if (row < 0 || row >= gameFilter.rowCount()) {
+            return
+        }
+        var index = gameFilter.proxyIndex(row)
+        gameTable.selectionModel.setCurrentIndex(
+            index,
+            QQmlModels.ItemSelectionModel.ClearAndSelect | selectFlags())
+        gamesPage.scrollTableTo(row)
+    }
+
+    function tableToggleRow(row) {
+        if (row < 0 || row >= gameFilter.rowCount()) {
+            return
+        }
+        var index = gameFilter.proxyIndex(row)
+        gameTable.selectionModel.setCurrentIndex(
+            index, QQmlModels.ItemSelectionModel.Toggle | selectFlags())
+        gamesPage.scrollTableTo(row)
+    }
+
+    function tableRangeSelect(row) {
+        var anchor = gameFilter.indexOf(anchorId)
+        if (anchor < 0 || row < 0 || row >= gameFilter.rowCount()) {
+            return
+        }
+        var from = Math.min(anchor, row)
+        var to = Math.max(anchor, row)
+        gameTable.selectionModel.clearSelection()
+        for (var r = from; r <= to; r++) {
+            gameTable.selectionModel.select(
+                gameFilter.proxyIndex(r),
+                QQmlModels.ItemSelectionModel.Select | selectFlags())
+        }
+        gameTable.selectionModel.setCurrentIndex(
+            gameFilter.proxyIndex(row), QQmlModels.ItemSelectionModel.NoUpdate)
+        gamesPage.scrollTableTo(row)
+    }
+
+    function moveTableSelection(delta) {
+        var current = gameTable.selectionModel.currentIndex
+        var row = current !== undefined && current.valid ? current.row : 0
+        row = Math.max(0, Math.min(gameFilter.rowCount() - 1, row + delta))
+        tableSingleSelect(row)
     }
 
     function select(gid) {
@@ -90,8 +172,11 @@ Kirigami.Page {
 
     function syncIndexes(gid) {
         var row = gameFilter.indexOf(gid)
-        gameList.currentIndex = row
-        iconGrid.currentIndex = row
+        if (gamesPage.viewMode === "list") {
+            tableSingleSelect(row)
+        } else {
+            iconGrid.currentIndex = row
+        }
     }
 
     function toggleSelect(gid) {
@@ -106,7 +191,11 @@ Kirigami.Page {
         }
         selectedIds = kept
         anchorId = gid
-        syncIndexes(gid)
+        if (gamesPage.viewMode === "list") {
+            tableToggleRow(gameFilter.indexOf(gid))
+        } else {
+            iconGrid.currentIndex = gameFilter.indexOf(gid)
+        }
     }
 
     function extendSelect(gid) {
@@ -116,6 +205,10 @@ Kirigami.Page {
             select(gid)
             return
         }
+        if (gamesPage.viewMode === "list") {
+            tableRangeSelect(target)
+            return
+        }
         var from = Math.min(anchor, target)
         var to = Math.max(anchor, target)
         var range = []
@@ -123,7 +216,20 @@ Kirigami.Page {
             range.push(gameFilter.idAt(row))
         }
         selectedIds = range
-        syncIndexes(gid)
+        iconGrid.currentIndex = target
+    }
+
+    function syncSelectedIds() {
+        var rows = gameTable.selectionModel.selectedRows()
+        var ids = []
+        for (var i = 0; i < rows.length; i++) {
+            ids.push(gameFilter.idAt(rows[i].row))
+        }
+        selectedIds = ids
+        var current = gameTable.selectionModel.currentIndex
+        if (current !== undefined && current.valid) {
+            anchorId = gameFilter.idAt(current.row)
+        }
     }
 
     function tapGame(gid, mods) {
@@ -137,13 +243,15 @@ Kirigami.Page {
     }
 
     function ensureSelection() {
-        var kept = []
-        for (var i = 0; i < selectedIds.length; i++) {
-            if (gameFilter.indexOf(selectedIds[i]) >= 0) {
-                kept.push(selectedIds[i])
+        var actual = []
+        var rows = gameTable.selectionModel.selectedRows()
+        for (var i = 0; i < rows.length; i++) {
+            var gid = gameFilter.idAt(rows[i].row)
+            if (gid !== "" && gameFilter.indexOf(gid) >= 0) {
+                actual.push(gid)
             }
         }
-        selectedIds = kept
+        selectedIds = actual
         if (selectedIds.length === 0 && gameFilter.rowCount() > 0) {
             select(gameFilter.idAt(0))
         }
@@ -229,14 +337,31 @@ Kirigami.Page {
 
     Component.onCompleted: {
         gamesPage.loadColumns()
-        gamesPage.ensureSelection()
         gameModel.fetchMissing()
+        Qt.callLater(gamesPage.ensureSelection)
+    }
+
+    Connections {
+        target: gameTable.selectionModel
+        function onSelectionChanged() {
+            gamesPage.syncSelectedIds()
+        }
     }
 
     Connections {
         target: gameFilter
         function onColumnsChanged() {
             gamesPage.saveColumns()
+            gamesPage.fitGameColumn()
+        }
+        function onRowsInserted() {
+            gamesPage.ensureSelection()
+        }
+        function onRowsRemoved() {
+            gamesPage.ensureSelection()
+        }
+        function onModelReset() {
+            gamesPage.ensureSelection()
         }
     }
 
@@ -305,10 +430,12 @@ Kirigami.Page {
         order[pos] = columnOrder[swap]
         order[swap] = logical
         columnOrder = order
+        gamesPage.applyColumnOrder()
     }
 
     function resetColumns() {
         columnOrder = [1, 2, 3, 4]
+        gamesPage.applyColumnOrder()
         gameFilter.showAppId = true
         gameFilter.showPlayed = true
         gameFilter.showTier = true
@@ -325,12 +452,60 @@ Kirigami.Page {
         }
         if (data.length === 4) {
             columnOrder = data
+            gamesPage.applyColumnOrder()
         }
         var hidden = gameModel.hiddenColumns()
         gameFilter.showAppId = hidden.indexOf(1) < 0
         gameFilter.showPlayed = hidden.indexOf(2) < 0
         gameFilter.showTier = hidden.indexOf(3) < 0
         gameFilter.showSource = hidden.indexOf(4) < 0
+    }
+
+    function fixedColumnsWidth() {
+        var total = 36
+        if (gameFilter.showAppId) {
+            total += 90
+        }
+        if (gameFilter.showPlayed) {
+            total += 90
+        }
+        if (gameFilter.showTier) {
+            total += 110
+        }
+        if (gameFilter.showSource) {
+            total += 80
+        }
+        return total
+    }
+
+    function fitGameColumn() {
+        if (gameTable.width > 0) {
+            hcGame.width = Math.max(120, gameTable.width - fixedColumnsWidth())
+        }
+    }
+
+    function columnComponent(logical) {
+        if (logical === 0) {
+            return hcGame
+        }
+        if (logical === 1) {
+            return hcAppId
+        }
+        if (logical === 2) {
+            return hcPlayed
+        }
+        if (logical === 3) {
+            return hcTier
+        }
+        return hcSource
+    }
+
+    function applyColumnOrder() {
+        var comps = [hcNum, hcGame]
+        for (var i = 0; i < columnOrder.length; i++) {
+            comps.push(columnComponent(columnOrder[i]))
+        }
+        gameTable.headerComponents = comps
     }
 
     function saveColumns() {
@@ -601,11 +776,11 @@ Kirigami.Page {
             Controls.Slider {
                 objectName: "zoomSlider"
                 Layout.fillWidth: true
-                enabled: gamesPage.viewMode !== "cards"
-                from: gamesPage.viewMode === "list" ? 32 : 64
-                to: gamesPage.viewMode === "list" ? 64 : 192
-                stepSize: gamesPage.viewMode === "list" ? 4 : 8
-                value: gamesPage.viewMode === "list" ? gamesPage.rowHeight : gamesPage.iconSize
+                enabled: gamesPage.viewMode === "icons"
+                from: 64
+                to: 192
+                stepSize: 8
+                value: gamesPage.iconSize
                 onMoved: gamesPage.setViewSize(value)
             }
             Controls.Label {
@@ -746,140 +921,192 @@ Kirigami.Page {
         }
     }
 
-    ColumnLayout {
+    KAddons.ListTableView {
+        id: gameTable
+        objectName: "gameTable"
         anchors.fill: parent
         visible: gamesPage.viewMode === "list"
-        spacing: 0
-        RowLayout {
-            id: headerRow
-            objectName: "headerRow"
-            Layout.fillWidth: true
-            spacing: Kirigami.Units.largeSpacing
-            Item {
-                Layout.preferredWidth: 36
-                Layout.preferredHeight: 1
-            }
-            Item {
-                Layout.preferredWidth: gamesPage.rowHeight - 8
-                Layout.preferredHeight: 1
-            }
-            Controls.Label {
-                Layout.fillWidth: true
-                font.bold: true
-                text: gamesPage.sortMark("gameName") + qsTr("Game")
-                TapHandler {
-                    acceptedButtons: Qt.LeftButton
-                    cursorShape: Qt.PointingHandCursor
-                    onTapped: gamesPage.toggleSort("gameName")
-                }
-            }
-            Repeater {
-                model: gamesPage.columnOrder
-                delegate: Controls.Label {
-                    required property int modelData
-                    Layout.preferredWidth: gamesPage.columnWidth(modelData)
-                    visible: gamesPage.columnVisible(modelData)
-                    verticalAlignment: Text.AlignVCenter
-                    font.bold: true
-                    text: gamesPage.sortMark(gamesPage.columnSortRole(modelData))
-                        + gamesPage.columnTitle(modelData)
-                    TapHandler {
-                        acceptedButtons: Qt.LeftButton
-                        cursorShape: Qt.PointingHandCursor
-                        onTapped: gamesPage.toggleSort(
-                            gamesPage.columnSortRole(modelData))
-                    }
-                }
-            }
-            Item {
-                Layout.preferredWidth: 40
+        model: gameFilter
+        selectionBehavior: TableView.SelectRows
+        selectionMode: TableView.ExtendedSelection
+        sortRole: gameModel.roleId(gamesPage.sortRole)
+        sortOrder: gamesPage.sortDescending ? Qt.DescendingOrder : Qt.AscendingOrder
+        onWidthChanged: gamesPage.fitGameColumn()
+        onRowDoubleClicked: (row) => gameModel.play(gameFilter.idAt(row))
+        onColumnClicked: (column, hc) => {
+            if (hc.textRole !== undefined && hc.textRole !== "") {
+                gamesPage.toggleSort(hc.textRole)
             }
         }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
-            ListView {
-                id: rowGutter
-                objectName: "rowGutter"
-                Layout.preferredWidth: 36
-                Layout.fillHeight: true
-                model: gameFilter
-                interactive: false
-                contentY: gameList.contentY
-                delegate: Controls.Label {
-                    objectName: "gutterNumber"
-                    width: 36
-                    height: gamesPage.rowHeight
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    color: Kirigami.Theme.disabledTextColor
-                    text: index + 1
-                }
-            }
-    ListView {
-        id: gameList
-        objectName: "gameList"
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        model: gameFilter
-        property int rowHeight: gamesPage.rowHeight
-        property var colW: ({appId: 90, played: 90, tier: 110, source: 80})
-        clip: true
-        focus: true
-        onCountChanged: gamesPage.ensureSelection()
         Keys.onUpPressed: {
-            gameList.currentIndex = Math.max(0, gameList.currentIndex - 1)
-            gamesPage.select(gameFilter.idAt(gameList.currentIndex))
-            gameList.positionViewAtIndex(gameList.currentIndex, ListView.Contain)
+            gamesPage.moveTableSelection(-1)
         }
         Keys.onDownPressed: {
-            gameList.currentIndex = Math.min(gameList.count - 1, gameList.currentIndex + 1)
-            gamesPage.select(gameFilter.idAt(gameList.currentIndex))
-            gameList.positionViewAtIndex(gameList.currentIndex, ListView.Contain)
+            gamesPage.moveTableSelection(1)
         }
-        delegate: GameDelegate {
-            width: ListView.view ? ListView.view.width : 100
-            columnOrder: gamesPage.columnOrder
-            selected: gamesPage.selectedIds.indexOf(gameId) >= 0
-            onPlayRequested: (gid) => gameModel.play(gid)
-            onRowTapped: (gid, mods) => gamesPage.tapGame(gid, mods)
-            onMenuRequested: (gid) => gamesPage.openGameMenu(gid)
-        }
-        Kirigami.PlaceholderMessage {
-            anchors.centerIn: parent
-            visible: gameList.count === 0
-            text: qsTr("No games configured yet")
-            explanation: qsTr("Add a game, scan the Steam library, or copy the launch options.")
-        }
-        RowLayout {
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: 80
-            visible: gameList.count === 0
-            Controls.Button {
-                text: qsTr("Add Game...")
-                onClicked: addDialog.open()
+        KAddons.HeaderComponent {
+            id: hcNum
+            objectName: "hcNum"
+            title: "#"
+            width: 36
+            itemDelegate: Controls.Label {
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                color: Kirigami.Theme.disabledTextColor
+                text: row + 1
             }
-            Controls.Button {
-                objectName: "emptyScan"
-                text: qsTr("Scan...")
-                onClicked: {
-                    var cands = gameModel.scanCandidates()
-                    if (cands.length === 0) {
-                        gamesPage.notify(
-                            qsTr("Every Steam game is already configured."))
-                        return
+        }
+        KAddons.HeaderComponent {
+            id: hcGame
+            objectName: "hcGame"
+            title: qsTr("Game")
+            textRole: "gameName"
+            role: gameModel.roleId("gameName")
+            width: 400
+            itemDelegate: Item {
+                implicitWidth: hcGame.width
+                implicitHeight: Kirigami.Units.gridUnit * 2
+                property var info: gameFilter.rowData(row)
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    onClicked: (mouse) => gamesPage.openGameMenu(gameFilter.idAt(row))
+                }
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Kirigami.Units.smallSpacing
+                    spacing: Kirigami.Units.smallSpacing
+                    Item {
+                        Layout.preferredWidth: 32
+                        Layout.preferredHeight: 32
+                        Layout.alignment: Qt.AlignVCenter
+                        Image {
+                            anchors.fill: parent
+                            visible: (info.gameIcon ?? "") !== ""
+                            source: visible ? "file://" + info.gameIcon : ""
+                            fillMode: Image.PreserveAspectFit
+                        }
+                        Kirigami.Icon {
+                            anchors.centerIn: parent
+                            visible: (info.gameIcon ?? "") === ""
+                            source: "applications-games"
+                            width: 20
+                            height: 20
+                        }
                     }
-                    scanDialog.candidates = cands
-                    scanDialog.open()
+                    Controls.Label {
+                        Layout.fillWidth: true
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                        text: modelData ?? ""
+                        elide: Text.ElideRight
+                    }
                 }
             }
-            Controls.Button {
-                text: qsTr("Copy Launch Options")
-                onClicked: gamesPage.notify(gameModel.copyText("tkarcade %command%"))
+        }
+        KAddons.HeaderComponent {
+            id: hcAppId
+            objectName: "hcAppId"
+            title: qsTr("App ID")
+            textRole: "gameId"
+            role: gameModel.roleId("gameId")
+            width: 90
+            visible: gameFilter.showAppId
+        }
+        KAddons.HeaderComponent {
+            id: hcPlayed
+            objectName: "hcPlayed"
+            title: qsTr("Played")
+            textRole: "gamePlayed"
+            role: gameModel.roleId("gamePlayedSecs")
+            width: 90
+            visible: gameFilter.showPlayed
+            itemDelegate: Controls.Label {
+                verticalAlignment: Text.AlignVCenter
+                text: modelData ?? ""
+                elide: Text.ElideRight
+                property var info: gameFilter.rowData(row)
+                HoverHandler {
+                    id: playedHover
+                }
+                Controls.ToolTip.visible: playedHover.hovered
+                Controls.ToolTip.text: info.gamePlayedTip ?? ""
             }
         }
+        KAddons.HeaderComponent {
+            id: hcTier
+            objectName: "hcTier"
+            title: qsTr("ProtonDB")
+            textRole: "gameTier"
+            role: gameModel.roleId("gameTier")
+            width: 110
+            visible: gameFilter.showTier
+            itemDelegate: Controls.ToolButton {
+                text: modelData ?? ""
+                font.bold: true
+                property var info: gameFilter.rowData(row)
+                background: Rectangle {
+                    color: (info.gameTier ?? "") !== "" ? info.gameTierBg : "transparent"
+                    radius: 4
+                }
+                contentItem: Controls.Label {
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    text: modelData ?? ""
+                    color: (info.gameTier ?? "") !== "" ? info.gameTierFg : Kirigami.Theme.textColor
+                    elide: Text.ElideRight
+                }
+                onClicked: gamesPage.select(gameFilter.idAt(row))
+                onDoubleClicked: gameModel.openProtonDB(gameFilter.idAt(row))
+                HoverHandler {
+                    id: tierHover
+                }
+                Controls.ToolTip.visible: tierHover.hovered && (info.gameTier ?? "") !== ""
+                Controls.ToolTip.text: qsTr("Open ProtonDB page")
+            }
+        }
+        KAddons.HeaderComponent {
+            id: hcSource
+            objectName: "hcSource"
+            title: qsTr("Source")
+            textRole: "gameSource"
+            role: gameModel.roleId("gameSource")
+            width: 80
+            visible: gameFilter.showSource
+        }
+        headerComponents: [hcNum, hcGame, hcAppId, hcPlayed, hcTier, hcSource]
     }
+    Kirigami.PlaceholderMessage {
+        anchors.centerIn: parent
+        visible: gamesPage.viewMode === "list" && gameTable.rowCount === 0
+        text: qsTr("No games configured yet")
+        explanation: qsTr("Add a game, scan the Steam library, or copy the launch options.")
+    }
+    RowLayout {
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: 80
+        visible: gamesPage.viewMode === "list" && gameTable.rowCount === 0
+        Controls.Button {
+            text: qsTr("Add Game...")
+            onClicked: addDialog.open()
+        }
+        Controls.Button {
+            objectName: "emptyScan"
+            text: qsTr("Scan...")
+            onClicked: {
+                var cands = gameModel.scanCandidates()
+                if (cands.length === 0) {
+                    gamesPage.notify(
+                        qsTr("Every Steam game is already configured."))
+                    return
+                }
+                scanDialog.candidates = cands
+                scanDialog.open()
+            }
+        }
+        Controls.Button {
+            text: qsTr("Copy Launch Options")
+            onClicked: gamesPage.notify(gameModel.copyText("tkarcade %command%"))
         }
     }
 
