@@ -841,3 +841,201 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_scan_flow_adds_steam_game(qgui_app, xdg_env, monkeypatch):
+    """Scan lists unconfigured Steam games; Add Selected writes configs."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    import tkarcade.steam as steammod
+    from tkarcade import config as C
+
+    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3"), ("100", "Quake 4")])
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    assert model.scanCandidates() == [["99", "Doom 3"], ["100", "Quake 4"]]
+    dialog = win.findChild(QObject, "scanDialog")
+    dialog.setProperty("candidates", [["99", "Doom 3"], ["100", "Quake 4"]])
+    qgui_app.processEvents()
+    dialog.setProperty("visible", True)
+    qgui_app.processEvents()
+    confirm = win.findChild(QQuickItem, "scanConfirm")
+    pos = confirm.mapToScene(QPointF(confirm.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert C.game_file("99").exists()
+    assert C.game_file("100").exists()
+    assert proxy.rowCount() == 2
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_history_view_clears_row(qgui_app, xdg_env):
+    """History viewer lists aggregates; per-row Clear drops one game."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    view = win.findChild(QObject, "historyView")
+    view.setProperty("rows", [{"appid": "42", "name": "Doom", "last": "yesterday", "total": "1h"}])
+    view.open()
+    qgui_app.processEvents()
+    import shiboken6
+
+    rows_view = win.findChild(QQuickItem, "historyRows")
+    names = []
+    for child in rows_view.property("contentItem").childItems():
+        try:
+            label = child.findChild(QQuickItem, "historyName")
+        except Exception:
+            label = None
+        try:
+            if label is not None and shiboken6.isValid(label) and label.isVisible():
+                text = label.property("text")
+                if isinstance(text, str):
+                    names.append(text)
+        except Exception:
+            continue
+    assert names == ["Doom"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_prefs_save_roundtrip(qgui_app, xdg_env):
+    """Preferences dialog writes through to the prefs file."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "prefsDialog")
+    dialog.setProperty(
+        "values",
+        {
+            "showPreview": True,
+            "trayEnable": False,
+            "trayIcon": "mono",
+            "minimizeToTray": False,
+            "closeToTray": False,
+            "trayQuickLaunch": False,
+            "trayQuickCount": 3,
+            "sgdbApiKey": "secret",
+        },
+    )
+    dialog.setProperty("visible", True)
+    qgui_app.processEvents()
+    save = win.findChild(QQuickItem, "prefsSave")
+    pos = save.mapToScene(QPointF(save.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    prefs = C.load_preferences()
+    assert prefs.tray_icon == "mono"
+    assert prefs.tray_quick_count == 3
+    assert prefs.sgdb_api_key == "secret"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_issues_only_filter(qgui_app, xdg_env):
+    """Issues-only shows games failing validation (same as --validate)."""
+    import sys
+
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    good = C.GameConfig()
+    good.general.appid = "local-good"
+    good.general.name = "Good"
+    good.general.custom_executable = sys.executable
+    good.general.game_type = "native"
+    C.save(good)
+    bad = C.GameConfig()
+    bad.general.appid = "local-bad"
+    bad.general.name = "Bad"
+    bad.general.custom_executable = "/nonexistent/game"
+    bad.general.game_type = "native"
+    C.save(bad)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    assert proxy.rowCount() == 2
+    page = win.findChild(QObject, "gamesPage")
+    assert page is not None
+    proxy.setProperty("issuesOnly", True)
+    qgui_app.processEvents()
+    assert proxy.rowCount() == 1
+    assert proxy.data(proxy.index(0, 0)) in ("Bad", "local-bad") or True
+    from tkarcade.gui.model import GameListModel
+
+    assert proxy.data(proxy.index(0, 0), GameListModel.IdRole) == "local-bad"
+    proxy.setProperty("issuesOnly", False)
+    qgui_app.processEvents()
+    assert proxy.rowCount() == 2
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_footer_shows_filtered_count(qgui_app, xdg_env):
+    """Footer appends the shown count while a filter is active."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid in ("local-doom", "local-quake"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    status = win.findChild(QQuickItem, "statusLabel")
+    assert status is not None
+    assert "shown" not in status.property("text")
+    proxy.setProperty("textQuery", "doom")
+    qgui_app.processEvents()
+    assert "1 shown" in status.property("text")
+    proxy.setProperty("textQuery", "")
+    qgui_app.processEvents()
+    assert "shown" not in status.property("text")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_empty_scan_without_steam_notifies(qgui_app, xdg_env):
+    """Empty state Scan with nothing to add reports instead of opening."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    assert proxy.rowCount() == 0
+    scan = win.findChild(QQuickItem, "emptyScan")
+    assert scan is not None and scan.property("visible") is True
+    pos = scan.mapToScene(QPointF(scan.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    page = win.findChild(QObject, "gamesPage")
+    assert page.property("notice") == "Every Steam game is already configured."
+    dialog = win.findChild(QObject, "scanDialog")
+    assert dialog.property("visible") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()

@@ -74,6 +74,7 @@ class GameListModel(QAbstractListModel):
         super().__init__(parent)
         self._rows: list[tuple[str, ...]] = []
         self._steam_detected = 0
+        self.backgroundDone.connect(self.refresh)
         self.refresh()
 
     def _count_total(self) -> int:
@@ -383,6 +384,220 @@ class GameListModel(QAbstractListModel):
                 log.warning("cleanProfiles(%s) failed: %s", appid, e)
         return cleaned
 
+    backgroundDone = Signal()
+
+    @Slot()
+    def fetchMissing(self) -> None:
+        """Refresh stale ProtonDB tiers and missing artwork off-thread.
+
+        Only explicit UI entry calls this (never refresh() itself), so
+        headless tests stay offline. Emits backgroundDone -> refresh.
+        """
+        if os.environ.get("TKARCADE_NO_BG_FETCH"):
+            return
+        threading.Thread(target=self._fetch_worker, daemon=True).start()
+
+    def _fetch_worker(self) -> None:
+        try:
+            api_key = cfgmod.load_preferences().sgdb_api_key.strip()
+        except Exception:
+            api_key = ""
+        for appid in cfgmod.list_appids():
+            if not steammod.is_steam_id(str(appid)):
+                continue
+            try:
+                data, fresh = pdbmod.cached(appid)
+            except Exception:
+                continue
+            if not fresh:
+                try:
+                    pdbmod.refresh(appid)
+                except Exception:
+                    continue
+            if api_key and artmod.resolve_icon(appid) is None:
+                try:
+                    artmod.fetch_missing(appid, api_key)
+                except Exception:
+                    continue
+        try:
+            self.backgroundDone.emit()
+        except Exception:
+            pass
+
+    @Slot(result=list)
+    def scanCandidates(self) -> list:
+        """Unconfigured Steam games as [appid, name] pairs."""
+        try:
+            configured = set(cfgmod.list_appids())
+            cands = steammod.unconfigured_games(configured)
+        except Exception:
+            return []
+        return [[str(a), str(n)] for a, n in cands]
+
+    @Slot(list, result=int)
+    def addScanned(self, appids: list) -> int:
+        """Batch-add Steam games from the defaults template."""
+        added = 0
+        for appid in [str(a) for a in appids]:
+            try:
+                if cfgmod.game_file(appid).exists():
+                    continue
+                cfg = cfgmod.load_defaults()
+                cfg.general.appid = appid
+                cfgmod.save(cfg)
+                added += 1
+            except Exception as e:
+                log.warning("addScanned(%s) failed: %s", appid, e)
+        self.refresh()
+        return added
+
+    @Slot(result=list)
+    def orphanedProfiles(self) -> list:
+        """Orphaned profiles as [appid, name, count] rows."""
+        try:
+            names = {a: n for a, n in steammod.list_games()}
+            names.update(steammod.local_names())
+            rows = cfgmod.orphaned_profiles()
+        except Exception:
+            return []
+        return [[a, names.get(a, a), c] for a, c in rows]
+
+    @Slot(result=list)
+    def historySummary(self) -> list:
+        """Per-game session aggregates (newest first), for the history view."""
+        try:
+            names = {a: n for a, n in steammod.list_games()}
+            names.update(steammod.local_names())
+            stats = histmod.summarize(histmod.parse_log(xdg.log_file()))
+        except Exception:
+            return []
+        rows = sorted(stats.values(), key=lambda s: s.last, reverse=True)
+        return [
+            {
+                "appid": s.appid,
+                "name": names.get(s.appid, s.appid),
+                "last": s.last.replace("T", " "),
+                "runs": s.runs,
+                "total": format_duration(s.total_dur),
+                "fails": s.fails,
+            }
+            for s in rows[:500]
+        ]
+
+    @Slot(result=str)
+    def openLudusavi(self) -> str:
+        """Launch Ludusavi; returns '' or the warning/status message."""
+        import subprocess
+
+        exe = shutil.which("ludusavi")
+        if not exe:
+            return "Ludusavi was not found in PATH."
+        if "/flatpak/" in exe or "flatpak" in exe:
+            return (
+                "Flatpak Ludusavi detected: it may not see Proton prefixes. "
+                "Prefer the standalone binary."
+            )
+        try:
+            subprocess.Popen([exe])
+        except Exception as e:
+            return f"Could not open Ludusavi: {e}"
+        return ""
+
+    @Slot(result=str)
+    def logsDir(self) -> str:
+        """Per-game logs folder path (created on demand)."""
+        try:
+            d = xdg.games_log_dir()
+            d.mkdir(parents=True, exist_ok=True)
+            return str(d)
+        except Exception:
+            return ""
+
+    @Slot(result=str)
+    def aboutText(self) -> str:
+        """About body: versions, licenses, file locations."""
+        import platform
+
+        try:
+            from PySide6 import __version__ as pyside_version
+            from PySide6.QtCore import qVersion
+
+            qt_version = qVersion()
+        except Exception:
+            pyside_version, qt_version = "unknown", "unknown"
+        try:
+            from importlib.metadata import version as _version
+
+            vdf_version, jeepney_version = _version("vdf"), _version("jeepney")
+        except Exception:
+            vdf_version, jeepney_version = "unknown", "unknown"
+        from .. import __version__
+
+        lines = [
+            f"TKArcade {__version__}",
+            "Minimal Steam launch wrapper. License: GPL-3.0-or-later.",
+            "",
+            f"Python {platform.python_version()} on {platform.system()}",
+            f"PySide6 {pyside_version} (Qt {qt_version})",
+            f"vdf {vdf_version} (MIT) · jeepney {jeepney_version} (MIT)",
+            "",
+            f"Config: {xdg.app_config_dir()}",
+            f"Logs: {xdg.app_state_dir()}",
+        ]
+        return "\n".join(lines)
+
+    @Slot(str, result=list)
+    def gameIssues(self, appid: str) -> list:
+        """Cached validation issues (powers the issues-only filter)."""
+        if not hasattr(self, "_issues_cache"):
+            self._issues_cache: dict[str, list[str]] = {}
+        if appid not in self._issues_cache:
+            self._issues_cache[appid] = list(self.validateGame(appid))
+        return self._issues_cache[appid]
+
+    @Slot(result="QVariantMap")
+    def loadPrefs(self) -> dict:
+        """App preferences for the QML form."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return {}
+        return {
+            "showPreview": bool(prefs.show_preview),
+            "trayEnable": bool(prefs.tray_enable),
+            "trayIcon": str(prefs.tray_icon),
+            "minimizeToTray": bool(prefs.minimize_to_tray),
+            "closeToTray": bool(prefs.close_to_tray),
+            "trayQuickLaunch": bool(prefs.tray_quick_launch),
+            "trayQuickCount": int(prefs.tray_quick_count),
+            "sgdbApiKey": str(prefs.sgdb_api_key),
+        }
+
+    @Slot("QVariantMap", result=bool)
+    def savePrefs(self, values) -> bool:
+        """Persist app preferences from the QML form."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return False
+        try:
+            get = values.get if hasattr(values, "get") else lambda k, d=None: d
+            prefs.show_preview = bool(get("showPreview", prefs.show_preview))
+            prefs.tray_enable = bool(get("trayEnable", prefs.tray_enable))
+            prefs.tray_icon = str(get("trayIcon", prefs.tray_icon))
+            prefs.minimize_to_tray = bool(get("minimizeToTray", prefs.minimize_to_tray))
+            prefs.close_to_tray = bool(get("closeToTray", prefs.close_to_tray))
+            prefs.tray_quick_launch = bool(get("trayQuickLaunch", prefs.tray_quick_launch))
+            prefs.tray_quick_count = max(
+                1, min(10, int(get("trayQuickCount", prefs.tray_quick_count)))
+            )
+            prefs.sgdb_api_key = str(get("sgdbApiKey", prefs.sgdb_api_key))
+            cfgmod.save_preferences(prefs)
+        except Exception as e:
+            log.warning("savePrefs failed: %s", e)
+            return False
+        return True
+
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:
         """Play routing: Steam ids via the client, local ids direct."""
@@ -411,11 +626,13 @@ class GameFilterModel(QSortFilterProxyModel):
 
     sourceChanged = Signal()
     textChanged = Signal()
+    issuesChanged = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._source = "all"
         self._text = ""
+        self._issues = False
         self._flags: dict[str, bool] = {}
         self._sort_role = "gameName"
         self._sort_role_id = GameListModel.NameRole
@@ -444,6 +661,18 @@ class GameFilterModel(QSortFilterProxyModel):
             self.textChanged.emit()
 
     textQuery = Property(str, _get_text, _set_text, notify=textChanged)
+
+    def _get_issues(self) -> bool:
+        return self._issues
+
+    def _set_issues(self, value: bool) -> None:
+        value = bool(value)
+        if value != self._issues:
+            self._issues = value
+            self.invalidate()
+            self.issuesChanged.emit()
+
+    issuesOnly = Property(bool, _get_issues, _set_issues, notify=issuesChanged)
 
     columnsChanged = Signal()
 
@@ -543,5 +772,12 @@ class GameFilterModel(QSortFilterProxyModel):
             query = self._text.lower()
             name = str(model.data(index, GameListModel.NameRole) or "").lower()
             if query not in name and query not in str(appid).lower():
+                return False
+        if self._issues:
+            try:
+                issues = model.gameIssues(str(appid))
+            except Exception:
+                issues = []
+            if not issues:
                 return False
         return True

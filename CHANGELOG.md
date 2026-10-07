@@ -11,6 +11,10 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- Tools menu (Scan Steam Library, History viewer, Ludusavi, Logs,
+  Clean Profiles, Reload, Preferences, About, Quit), issues-only
+  filter, shown count in the footer, 3-button empty state, and
+  background ProtonDB/artwork refresh with an offline kill-switch.
 - Drawer options below a separator (sources stay on top) and
   window geometry: 1280x720 default, last size/maximized restored
   and persisted debounced.

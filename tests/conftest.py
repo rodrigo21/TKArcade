@@ -25,6 +25,9 @@ def _silence_notifications(monkeypatch):
     (delenv / drop from the subprocess env).
     """
     monkeypatch.setenv("TKARCADE_NO_NOTIFY", "1")
+    # Same for background network: the Kirigami page calls
+    # fetchMissing() on load; tests stay offline unless they delenv.
+    monkeypatch.setenv("TKARCADE_NO_BG_FETCH", "1")
 
 
 @pytest.fixture(scope="session")

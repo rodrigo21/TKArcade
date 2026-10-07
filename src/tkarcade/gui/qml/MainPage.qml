@@ -227,7 +227,10 @@ Kirigami.Page {
         }
     ]
 
-    Component.onCompleted: gamesPage.ensureSelection()
+    Component.onCompleted: {
+        gamesPage.ensureSelection()
+        gameModel.fetchMissing()
+    }
 
     header: ColumnLayout {
         RowLayout {
@@ -237,6 +240,12 @@ Kirigami.Page {
                 Layout.fillWidth: true
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
+            }
+            Controls.CheckBox {
+                objectName: "issuesOnly"
+                text: qsTr("With issues only")
+                checked: gameFilter.issuesOnly
+                onToggled: gameFilter.issuesOnly = checked
             }
             RowLayout {
                 spacing: 0
@@ -251,6 +260,95 @@ Kirigami.Page {
                     objectName: "viewArrow"
                     text: "▼"
                     onClicked: viewOptions.open()
+                }
+            }
+            Controls.ToolButton {
+                objectName: "toolsButton"
+                text: qsTr("Tools")
+                onClicked: toolsMenu.open()
+                Controls.Menu {
+                    id: toolsMenu
+                    Controls.MenuItem {
+                        text: qsTr("Scan Steam Library...")
+                        onTriggered: {
+                            var cands = gameModel.scanCandidates()
+                            if (cands.length === 0) {
+                                gamesPage.notify(
+                                    qsTr("Every Steam game is already configured."))
+                                return
+                            }
+                            scanDialog.candidates = cands
+                            scanDialog.open()
+                        }
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("History...")
+                        onTriggered: {
+                            historyView.rows = gameModel.historySummary()
+                            historyView.open()
+                        }
+                    }
+                    Controls.MenuSeparator {
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("Open Ludusavi...")
+                        onTriggered: {
+                            var msg = gameModel.openLudusavi()
+                            if (msg !== "") {
+                                gamesPage.notify(msg)
+                            }
+                        }
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("Open Logs Folder")
+                        onTriggered: {
+                            if (!gameModel.openPath(gameModel.logsDir())) {
+                                gamesPage.notify(qsTr("Could not open the logs folder."))
+                            }
+                        }
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("Clean Profiles...")
+                        onTriggered: {
+                            var rows = gameModel.orphanedProfiles()
+                            if (rows.length === 0) {
+                                gamesPage.notify(qsTr("No orphaned profiles."))
+                                return
+                            }
+                            var ids = []
+                            for (var i = 0; i < rows.length; i++) {
+                                ids.push(rows[i][0])
+                            }
+                            cleanupDialog.leftovers = ids
+                            cleanupDialog.open()
+                        }
+                    }
+                    Controls.MenuSeparator {
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("Reload")
+                        onTriggered: {
+                            gameModel.refresh()
+                            gamesPage.ensureSelection()
+                        }
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("Preferences...")
+                        onTriggered: {
+                            prefsDialog.load()
+                            prefsDialog.open()
+                        }
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("About...")
+                        onTriggered: aboutDialog.open()
+                    }
+                    Controls.MenuSeparator {
+                    }
+                    Controls.MenuItem {
+                        text: qsTr("Quit")
+                        onTriggered: Qt.quit()
+                    }
                 }
             }
             Controls.ToolButton {
@@ -599,8 +697,35 @@ Kirigami.Page {
         Kirigami.PlaceholderMessage {
             anchors.centerIn: parent
             visible: gameList.count === 0
-            text: qsTr("No games yet")
-            explanation: qsTr("Add a native Linux game to get started.")
+            text: qsTr("No games configured yet")
+            explanation: qsTr("Add a game, scan the Steam library, or copy the launch options.")
+        }
+        RowLayout {
+            anchors.centerIn: parent
+            anchors.verticalCenterOffset: 80
+            visible: gameList.count === 0
+            Controls.Button {
+                text: qsTr("Add Game...")
+                onClicked: addDialog.open()
+            }
+            Controls.Button {
+                objectName: "emptyScan"
+                text: qsTr("Scan...")
+                onClicked: {
+                    var cands = gameModel.scanCandidates()
+                    if (cands.length === 0) {
+                        gamesPage.notify(
+                            qsTr("Every Steam game is already configured."))
+                        return
+                    }
+                    scanDialog.candidates = cands
+                    scanDialog.open()
+                }
+            }
+            Controls.Button {
+                text: qsTr("Copy Launch Options")
+                onClicked: gamesPage.notify(gameModel.copyText("tkarcade %command%"))
+            }
         }
     }
         }
@@ -677,9 +802,21 @@ Kirigami.Page {
 
     footer: RowLayout {
         Controls.Label {
-            text: gamesPage.notice !== ""
-                ? gamesPage.notice
-                : qsTr("%1 configured · %2 Steam games detected").arg(gameModel.totalCount).arg(gameModel.steamDetectedCount)
+            objectName: "statusLabel"
+            text: {
+                if (gamesPage.notice !== "") {
+                    return gamesPage.notice
+                }
+                var base = qsTr("%1 configured · %2 Steam games detected").arg(
+                    gameModel.totalCount).arg(gameModel.steamDetectedCount)
+                var filtered = gameFilter.textQuery !== ""
+                    || gameFilter.issuesOnly
+                    || gameFilter.sourceKey !== "all"
+                if (filtered) {
+                    return base + qsTr(" · %1 shown").arg(gameFilter.rowCount())
+                }
+                return base
+            }
         }
     }
 
@@ -930,6 +1067,236 @@ Kirigami.Page {
             Controls.Button {
                 text: qsTr("Close")
                 onClicked: validateDialog.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: scanDialog
+        objectName: "scanDialog"
+        title: qsTr("Add Games")
+        padding: Kirigami.Units.largeSpacing
+        property var candidates: []
+        property var picked: []
+        onCandidatesChanged: {
+            var all = []
+            for (var i = 0; i < candidates.length; i++) {
+                all.push(candidates[i][0])
+            }
+            picked = all
+        }
+        ColumnLayout {
+            Controls.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: qsTr("Steam games without a saved configuration:")
+            }
+            Repeater {
+                model: scanDialog.candidates
+                Controls.CheckBox {
+                    required property var modelData
+                    text: modelData[1] + " [" + modelData[0] + "]"
+                    checked: scanDialog.picked.indexOf(modelData[0]) >= 0
+                    onToggled: {
+                        var kept = []
+                        for (var i = 0; i < scanDialog.picked.length; i++) {
+                            if (scanDialog.picked[i] !== modelData[0]) {
+                                kept.push(scanDialog.picked[i])
+                            }
+                        }
+                        if (checked) {
+                            kept.push(modelData[0])
+                        }
+                        scanDialog.picked = kept
+                    }
+                }
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "scanConfirm"
+                text: qsTr("Add Selected")
+                onClicked: {
+                    var n = gameModel.addScanned(scanDialog.picked)
+                    gamesPage.notify(qsTr("Added %1 game(s).").arg(n))
+                    scanDialog.close()
+                }
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: scanDialog.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: historyView
+        objectName: "historyView"
+        title: qsTr("Session History")
+        padding: Kirigami.Units.largeSpacing
+        property var rows: []
+        ColumnLayout {
+            ListView {
+                objectName: "historyRows"
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 32
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 16
+                clip: true
+                model: historyView.rows
+                delegate: RowLayout {
+                    required property var modelData
+                    width: ListView.view ? ListView.view.width : 100
+                    Controls.Label {
+                        objectName: "historyName"
+                        Layout.fillWidth: true
+                        text: modelData.name
+                        elide: Text.ElideRight
+                    }
+                    Controls.Label {
+                        text: modelData.last
+                        opacity: 0.7
+                    }
+                    Controls.Label {
+                        text: modelData.total
+                    }
+                    Controls.ToolButton {
+                        objectName: "historyClear"
+                        text: qsTr("Clear")
+                        onClicked: {
+                            gameModel.clearHistory(modelData.appid)
+                            historyView.rows = gameModel.historySummary()
+                        }
+                    }
+                }
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                text: qsTr("Close")
+                onClicked: historyView.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: prefsDialog
+        objectName: "prefsDialog"
+        title: qsTr("Preferences")
+        padding: Kirigami.Units.largeSpacing
+        property var values: ({})
+        function load() {
+            values = gameModel.loadPrefs()
+            quickSpin.value = values.trayQuickCount ?? 5
+        }
+        function setPref(key, value) {
+            var copy = {}
+            for (var k in values) {
+                copy[k] = values[k]
+            }
+            copy[key] = value
+            values = copy
+        }
+        ColumnLayout {
+            Controls.CheckBox {
+                text: qsTr("Show launch command preview")
+                checked: prefsDialog.values.showPreview ?? true
+                onToggled: prefsDialog.setPref("showPreview", checked)
+            }
+            Controls.CheckBox {
+                text: qsTr("Enable status bar icon")
+                checked: prefsDialog.values.trayEnable ?? false
+                onToggled: prefsDialog.setPref("trayEnable", checked)
+            }
+            RowLayout {
+                Controls.Label {
+                    text: qsTr("Tray icon style:")
+                }
+                Controls.ComboBox {
+                    model: [qsTr("Normal"), qsTr("Monochrome")]
+                    currentIndex: prefsDialog.values.trayIcon === "mono" ? 1 : 0
+                    onActivated: (index) => prefsDialog.setPref(
+                        "trayIcon", index === 1 ? "mono" : "normal")
+                }
+            }
+            Controls.CheckBox {
+                text: qsTr("Minimize to tray")
+                checked: prefsDialog.values.minimizeToTray ?? false
+                onToggled: prefsDialog.setPref("minimizeToTray", checked)
+            }
+            Controls.CheckBox {
+                text: qsTr("Close to tray")
+                checked: prefsDialog.values.closeToTray ?? false
+                onToggled: prefsDialog.setPref("closeToTray", checked)
+            }
+            Controls.CheckBox {
+                text: qsTr("Show recent games in tray menu")
+                checked: prefsDialog.values.trayQuickLaunch ?? false
+                onToggled: prefsDialog.setPref("trayQuickLaunch", checked)
+            }
+            RowLayout {
+                Controls.Label {
+                    text: qsTr("Recent games:")
+                }
+                Controls.SpinBox {
+                    id: quickSpin
+                    from: 1
+                    to: 10
+                    onValueChanged: prefsDialog.setPref("trayQuickCount", value)
+                }
+            }
+            RowLayout {
+                Controls.Label {
+                    text: qsTr("SteamGridDB key:")
+                }
+                Controls.TextField {
+                    echoMode: Controls.TextField.Password
+                    placeholderText: qsTr("Free key from steamgriddb.com")
+                    text: prefsDialog.values.sgdbApiKey ?? ""
+                    onTextChanged: {
+                        if (prefsDialog.values.sgdbApiKey !== text) {
+                            prefsDialog.setPref("sgdbApiKey", text)
+                        }
+                    }
+                }
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "prefsSave"
+                text: qsTr("Save")
+                onClicked: {
+                    if (gameModel.savePrefs(prefsDialog.values)) {
+                        prefsDialog.close()
+                    } else {
+                        gamesPage.notify(qsTr("Could not save preferences."))
+                    }
+                }
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: prefsDialog.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: aboutDialog
+        objectName: "aboutDialog"
+        title: qsTr("About TKArcade")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Kirigami.SelectableLabel {
+                Layout.fillWidth: true
+                text: gameModel.aboutText()
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                text: qsTr("Close")
+                onClicked: aboutDialog.close()
             }
         }
     }
