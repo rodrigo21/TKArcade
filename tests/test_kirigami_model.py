@@ -93,9 +93,11 @@ def test_model_role_names_are_game_prefixed(qgui_app):
 
     roles = GameListModel().roleNames()
     assert sorted(roles.values()) == [
+        b"gameIcon",
         b"gameId",
         b"gameName",
         b"gamePlayed",
+        b"gamePlayedSecs",
         b"gameSource",
         b"gameTier",
         b"gameTierBg",
@@ -133,6 +135,31 @@ def test_model_play_failure_consumes_skip(qgui_app, xdg_env, monkeypatch):
     monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: False)
     assert model.play("213") is False
     assert not L.menu_skip_path("213").exists()
+
+
+def test_proxy_sort_by_role(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    for appid in ("b-game", "a-game"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    model = GameListModel()
+    proxy = GameFilterModel()
+    proxy.setSourceModel(model)
+
+    def ids():
+        return [
+            proxy.data(proxy.index(r, 0), GameListModel.IdRole) for r in range(proxy.rowCount())
+        ]
+
+    assert ids() == ["a-game", "b-game"]  # source order (name-sorted)
+    proxy.sortBy("gameId", False)
+    assert ids() == ["a-game", "b-game"]
+    proxy.sortBy("gameId", True)
+    assert ids() == ["b-game", "a-game"]
+    proxy.sortBy("nope", False)  # unknown role falls back to name
+    assert ids() == ["a-game", "b-game"]
 
 
 def test_filter_model_source_and_text(qgui_app, xdg_env):

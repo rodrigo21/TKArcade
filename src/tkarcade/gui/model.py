@@ -17,6 +17,7 @@ from PySide6.QtCore import (
     Slot,
 )
 
+from .. import artwork as artmod
 from .. import config as cfgmod
 from .. import history as histmod
 from .. import launcher as launchermod
@@ -49,6 +50,20 @@ class GameListModel(QAbstractListModel):
     TierRole = Qt.ItemDataRole.UserRole + 5
     TierBgRole = Qt.ItemDataRole.UserRole + 6
     TierFgRole = Qt.ItemDataRole.UserRole + 7
+    IconRole = Qt.ItemDataRole.UserRole + 8
+    PlayedSecsRole = Qt.ItemDataRole.UserRole + 9
+
+    ROLE_NAMES = (
+        "gameId",
+        "gameName",
+        "gameSource",
+        "gamePlayed",
+        "gameTier",
+        "gameTierBg",
+        "gameTierFg",
+        "gameIcon",
+        "gamePlayedSecs",
+    )
 
     refreshed = Signal()
     browseFinished = Signal(str)
@@ -87,6 +102,8 @@ class GameListModel(QAbstractListModel):
             GameListModel.TierRole: b"gameTier",
             GameListModel.TierBgRole: b"gameTierBg",
             GameListModel.TierFgRole: b"gameTierFg",
+            GameListModel.IconRole: b"gameIcon",
+            GameListModel.PlayedSecsRole: b"gamePlayedSecs",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -104,6 +121,8 @@ class GameListModel(QAbstractListModel):
             GameListModel.TierRole: 4,
             GameListModel.TierBgRole: 5,
             GameListModel.TierFgRole: 6,
+            GameListModel.IconRole: 7,
+            GameListModel.PlayedSecsRole: 8,
         }
         return row[cols[role]] if role in cols else None
 
@@ -122,10 +141,24 @@ class GameListModel(QAbstractListModel):
             source = "Steam" if steammod.is_steam_id(appid) else "Local"
             st = stats.get(appid)
             played = format_duration(st.total_dur) if st is not None else "—"
+            played_secs = st.total_dur if st is not None else -1
+            icon = artmod.resolve_icon(appid)
             data, _fresh = pdbmod.cached(appid)
             tier = str(((data or {}).get("tier", "")) or "").lower()
             bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
-            rows.append((appid, names.get(appid, appid), source, played, tier.title(), bg, fg))
+            rows.append(
+                (
+                    appid,
+                    names.get(appid, appid),
+                    source,
+                    played,
+                    tier.title(),
+                    bg,
+                    fg,
+                    str(icon) if icon else "",
+                    played_secs,
+                )
+            )
         rows.sort(key=lambda r: r[1].lower())
         self.beginResetModel()
         self._rows = rows
@@ -201,6 +234,9 @@ class GameFilterModel(QSortFilterProxyModel):
         super().__init__(parent)
         self._source = "all"
         self._text = ""
+        self._sort_role = "gameName"
+        self._sort_role_id = GameListModel.NameRole
+        self._sort_descending = False
 
     def _get_source(self) -> str:
         return self._source
@@ -225,6 +261,35 @@ class GameFilterModel(QSortFilterProxyModel):
             self.textChanged.emit()
 
     textQuery = Property(str, _get_text, _set_text, notify=textChanged)
+
+    @Slot(str, bool)
+    def sortBy(self, roleName: str, descending: bool) -> None:
+        """Sort by a role name (header clicks); numeric-aware."""
+        self._sort_role = roleName if roleName in GameListModel.ROLE_NAMES else "gameName"
+        model = self.sourceModel()
+        ids = (
+            {bytes(v).decode(): k for k, v in model.roleNames().items()}
+            if model is not None
+            else {}
+        )
+        self._sort_role_id = ids.get(self._sort_role, GameListModel.NameRole)
+        self._sort_descending = bool(descending)
+        self.sort(
+            0,
+            Qt.SortOrder.DescendingOrder if descending else Qt.SortOrder.AscendingOrder,
+        )
+
+    def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
+        model = self.sourceModel()
+        if model is None:
+            return False
+        role = self._sort_role_id
+        lang = str(model.data(left, role) or "")
+        rang = str(model.data(right, role) or "")
+        try:
+            return float(lang) < float(rang)
+        except (TypeError, ValueError):
+            return lang.lower() < rang.lower()
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
         model = self.sourceModel()

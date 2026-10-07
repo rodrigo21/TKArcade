@@ -64,9 +64,11 @@ def test_game_delegate_binds_roles(qgui_app):
             "gameName": "Doom",
             "gameId": "local-doom",
             "gamePlayed": "38s",
+            "gameSource": "Local",
             "gameTier": "Gold",
             "gameTierBg": "#FFC107",
             "gameTierFg": "#000000",
+            "gameIcon": "",
         }
     )
     assert item is not None
@@ -86,5 +88,107 @@ def test_game_delegate_binds_roles(qgui_app):
 
     got = set(texts(item))
     assert {"Doom", "local-doom · 38s", "Gold"} <= got
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+
+
+def test_list_row_double_click_plays(qgui_app, xdg_env, monkeypatch):
+    """Double-clicking a row invokes play() with that game's id."""
+    from PySide6.QtCore import Qt, QUrl
+    from PySide6.QtQml import QQmlApplicationEngine
+    from PySide6.QtQuick import QQuickItem, QQuickWindow
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+    from tkarcade.gui.kirigami_app import qml_url
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "77"
+    C.save(cfg)
+    engine = QQmlApplicationEngine()
+    warnings = []
+    engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
+    model = GameListModel(engine)
+    engine.rootContext().setContextProperty("gameModel", model)
+    game_filter = GameFilterModel(engine)
+    game_filter.setSourceModel(model)
+    engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.load(QUrl(qml_url()))
+    assert len(engine.rootObjects()) == 1
+    played = []
+    monkeypatch.setattr(model, "play", lambda gid: played.append(gid) or True)
+    win = engine.rootObjects()[0]
+    assert isinstance(win, QQuickWindow)
+    win.setProperty("width", 1280)
+    win.setProperty("height", 720)
+    win.show()
+    qgui_app.processEvents()
+    view = win.findChild(QQuickItem, "gameList")
+    assert view is not None
+    row = view.childItems()[0]
+    from PySide6.QtCore import QPointF
+
+    pos = row.mapToScene(QPointF((row.property("width") or 200) / 2, 10)).toPoint()
+    QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert played == ["77"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+
+
+def test_header_sort_toggles_indicator_and_order(qgui_app, xdg_env):
+    """Header taps drive proxy sort; the indicator follows the state."""
+    from PySide6.QtCore import QObject, QUrl
+    from PySide6.QtQml import QQmlApplicationEngine
+    from PySide6.QtQuick import QQuickItem, QQuickWindow
+
+    from tkarcade import config as C
+    from tkarcade.gui.kirigami_app import qml_url
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    for appid in ("b-game", "a-game"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    engine = QQmlApplicationEngine()
+    warnings = []
+    engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
+    model = GameListModel(engine)
+    engine.rootContext().setContextProperty("gameModel", model)
+    game_filter = GameFilterModel(engine)
+    game_filter.setSourceModel(model)
+    engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.load(QUrl(qml_url()))
+    assert len(engine.rootObjects()) == 1
+    win = engine.rootObjects()[0]
+    assert isinstance(win, QQuickWindow)
+    win.setProperty("width", 1280)
+    win.setProperty("height", 720)
+    win.show()
+    qgui_app.processEvents()
+    page = win.findChild(QObject, "gamesPage")
+    assert page is not None
+    labels = [
+        o for o in page.findChildren(QObject) if o.property("text") in ("Game", "▲ Game", "▼ Game")
+    ]
+    assert labels, "Game header label missing"
+    page.toggleSort("gameId")
+    qgui_app.processEvents()
+    assert page.property("sortRole") == "gameId"
+    texts = [o.property("text") for o in page.findChildren(QObject) if isinstance(o, QQuickItem)]
+    assert any(str(t).startswith("▲") and "App ID" in str(t) for t in texts if t)
+    rows = [
+        game_filter.data(game_filter.index(r, 0), GameListModel.IdRole)
+        for r in range(game_filter.rowCount())
+    ]
+    assert rows == ["a-game", "b-game"]
+    page.toggleSort("gameId")
+    qgui_app.processEvents()
+    rows = [
+        game_filter.data(game_filter.index(r, 0), GameListModel.IdRole)
+        for r in range(game_filter.rowCount())
+    ]
+    assert rows == ["b-game", "a-game"]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
