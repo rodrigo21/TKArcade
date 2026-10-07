@@ -15,7 +15,28 @@ Kirigami.ApplicationWindow {
 
     globalDrawer: Kirigami.GlobalDrawer {
         id: sourceDrawer
+        objectName: "sourceDrawer"
         title: qsTr("TKArcade")
+        showHeaderWhenCollapsed: true
+        header: Controls.ToolBar {
+            contentItem: RowLayout {
+                Layout.fillWidth: true
+                Controls.ToolButton {
+                    objectName: "drawerCollapseButton"
+                    icon.name: "sidebar-collapse-left"
+                    visible: sourceDrawer.collapsible
+                    checked: !sourceDrawer.collapsed
+                    checkable: true
+                    onClicked: sourceDrawer.collapsed = !sourceDrawer.collapsed
+                }
+                Controls.Label {
+                    visible: !sourceDrawer.collapsed
+                    Layout.fillWidth: true
+                    text: qsTr("Library")
+                    font.bold: true
+                }
+            }
+        }
         actions: [
             Kirigami.Action {
                 text: qsTr("All Games (%1)").arg(gameModel.totalCount)
@@ -31,6 +52,42 @@ Kirigami.ApplicationWindow {
                 text: qsTr("Local (%1)").arg(gameModel.localCount)
                 checked: gameFilter.sourceKey === "local"
                 onTriggered: gameFilter.sourceKey = "local"
+            },
+            Kirigami.Action {
+                text: qsTr("Drawer Mode…")
+                icon.name: "sidebar-collapse-left"
+                visible: !Kirigami.Settings.isMobile
+                expandible: true
+                Kirigami.Action {
+                    objectName: "drawerModeOverlay"
+                    text: qsTr("Overlay Drawer")
+                    checked: sourceDrawer.modal && !sourceDrawer.collapsible
+                    onTriggered: {
+                        sourceDrawer.modal = true
+                        sourceDrawer.collapsible = false
+                        sourceDrawer.collapsed = false
+                    }
+                }
+                Kirigami.Action {
+                    objectName: "drawerModeSidebar"
+                    text: qsTr("Sidebar Drawer")
+                    checked: !sourceDrawer.modal && !sourceDrawer.collapsible
+                    onTriggered: {
+                        sourceDrawer.modal = false
+                        sourceDrawer.collapsible = false
+                        sourceDrawer.collapsed = false
+                    }
+                }
+                Kirigami.Action {
+                    objectName: "drawerModeCollapsible"
+                    text: qsTr("Collapsible Sidebar Drawer")
+                    checked: !sourceDrawer.modal && sourceDrawer.collapsible
+                    onTriggered: {
+                        sourceDrawer.modal = false
+                        sourceDrawer.collapsible = true
+                        sourceDrawer.collapsed = true
+                    }
+                }
             }
         ]
     }

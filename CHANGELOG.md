@@ -11,6 +11,12 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- Gallery-style drawer modes (Overlay/Sidebar/Collapsible Sidebar
+  with collapse header) and gallery-style views: details list,
+  icons grid and cards (Kirigami CardsLayout) behind a split-button
+  view switcher (button cycles, arrow opens the Zoom/Sort panel);
+  uniform delegate selection overlay across views, `idAt` proxy
+  slot so keyboard navigation follows the highlight.
 - List view selection (tap + arrow keys + highlight), positional
   `#` column, Columns menu (App ID/Played/ProtonDB/Source driven
   by proxy flags), styled header with sort indicators.
@@ -18,8 +24,7 @@ Breaking config changes are called out explicitly under `Changed`.
   search field, rich rows (name, ID · played, tier badge), status
   counts. Filtering runs through a proxy model (tested in Python).
 - List view like the widgets table (Game/App ID/Played/ProtonDB/
-  Source, clickable headers, per-view row height, view switcher
-  with Icons/Covers/Banner marked soon).
+  Source, clickable headers, per-view row height).
 - Async native file picker: Browse never freezes the UI (worker
   thread + result signal); `TKARCADE_VERBOSE=1` (or `--verbose`)
   shows portal handshake debug lines.
