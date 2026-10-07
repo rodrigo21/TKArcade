@@ -53,16 +53,15 @@ to `kirigami` (see git log).
 ### Equivalence map (audit 2026-10-07)
 - [x] QMainWindow → ApplicationWindow
 - [x] QListWidget sources → GlobalDrawer actions
-- [x] QMenu/QToolBar → Action + menus (toolbar still needs centering)
+- [x] QMenu/QToolBar → Action + menus, centered toolbar row, per-row
+  Play removed (play via double-click, toolbar or menu)
 - [x] QDialog+ButtonBox → Kirigami.Dialog
 - [x] QComboBox/Spin/Slider/Check/LineEdit → QQC2 direct
-- [x] QTableWidget+QHeaderView → Addons ListTableView (+ kirigami-addons dep;
-  code now, PKGBUILD/AppImage at release; keep game* roles via textRole,
+- [x] QTableWidget+QHeaderView → Addons ListTableView (+ kirigami-addons
+  dep, landed with the import; keep game* roles via textRole,
   sort through existing sortBy, selectionModel replaces selectedIds).
   Use ListTableView, never KTableView (its inner TableView spins the
   offscreen event loop forever).
-- [x] QMenu/QToolBar → Action + menus, centered toolbar row, per-row
-  Play removed (play via double-click, toolbar or menu)
 - [x] QShortcut Quit → QML Shortcut (Ctrl+Q)
 - [ ] QMessageBox → Kirigami.PromptDialog (base kirigami, revise our confirms)
 - [ ] QFormLayout (prefs) → Addons FormCard (same new dep, zero extra cost)
