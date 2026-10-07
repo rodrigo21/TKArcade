@@ -15,6 +15,70 @@ def qml_url() -> str:
     return QUrl.fromLocalFile(str(Path(__file__).parent / "qml" / "main.qml")).toString()
 
 
+DEFAULT_SIZE = (1280, 720)
+
+
+def saved_size() -> tuple[int, int]:
+    """Last window size, or the 1280x720 default (never raises)."""
+    from .. import config as cfgmod
+
+    try:
+        raw = cfgmod.load_preferences().main_window_size or ""
+        w, h = (int(x) for x in raw.split("x"))
+        return max(640, w), max(480, h)
+    except Exception:
+        return DEFAULT_SIZE
+
+
+def apply_window_geometry(win) -> None:
+    """1280x720 (or the saved size), maximized when last closed so."""
+    from PySide6.QtCore import QTimer
+
+    from .. import config as cfgmod
+
+    width, height = saved_size()
+    win.setProperty("width", width)
+    win.setProperty("height", height)
+    try:
+        if cfgmod.load_preferences().main_window_maximized:
+            win.showMaximized()
+    except Exception:
+        pass
+    timer = QTimer(win)
+    timer.setSingleShot(True)
+    timer.setInterval(500)
+    timer.timeout.connect(lambda: save_window_geometry(win))
+    win.widthChanged.connect(lambda _w: timer.start())
+    win.heightChanged.connect(lambda _h: timer.start())
+
+
+def save_window_geometry(win) -> None:
+    """Persist size/maximized state (best effort, never raises)."""
+    from PySide6.QtGui import QWindow
+
+    from .. import config as cfgmod
+
+    try:
+        prefs = cfgmod.load_preferences()
+    except Exception:
+        return
+    try:
+        maximized = win.visibility() == QWindow.Visibility.Maximized
+    except Exception:
+        maximized = False
+    prefs.main_window_maximized = maximized
+    if not maximized:
+        try:
+            width, height = int(win.property("width")), int(win.property("height"))
+        except Exception:
+            return
+        prefs.main_window_size = f"{max(640, width)}x{max(480, height)}"
+    try:
+        cfgmod.save_preferences(prefs)
+    except OSError:
+        pass
+
+
 def verbose_requested(argv: list[str] | None = None) -> bool:
     """Debug logging switch, so portal: lines show up when diagnosing."""
     return "--verbose" in (argv if argv is not None else sys.argv) or bool(
@@ -53,4 +117,5 @@ def main(argv: list[str] | None = None) -> int:
     if not engine.rootObjects():
         print("tkarcade: could not load the Kirigami interface", file=sys.stderr)
         return 1
+    apply_window_geometry(engine.rootObjects()[0])
     return app.exec()

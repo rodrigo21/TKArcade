@@ -54,6 +54,9 @@ Kirigami.ApplicationWindow {
                 onTriggered: gameFilter.sourceKey = "local"
             },
             Kirigami.Action {
+                separator: true
+            },
+            Kirigami.Action {
                 text: qsTr("Drawer Mode…")
                 icon.name: "sidebar-collapse-left"
                 visible: !Kirigami.Settings.isMobile

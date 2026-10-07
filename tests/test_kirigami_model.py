@@ -224,3 +224,112 @@ def test_played_tip_role(qgui_app, xdg_env):
     proxy.setSourceModel(model)
     tip = proxy.data(proxy.index(0, 0), GameListModel.PlayedTipRole)
     assert tip == "No recorded sessions"
+
+
+def test_window_geometry_defaults(qgui_app, xdg_env):
+    from tkarcade.gui import kirigami_app as kapp
+
+    assert kapp.saved_size() == (1280, 720)
+
+
+def test_window_geometry_roundtrip(qgui_app, xdg_env):
+    from PySide6.QtQuick import QQuickWindow
+
+    from tkarcade import config as C
+    from tkarcade.gui import kirigami_app as kapp
+
+    win = QQuickWindow()
+    win.setProperty("width", 1400)
+    win.setProperty("height", 900)
+    kapp.save_window_geometry(win)
+    assert C.load_preferences().main_window_size == "1400x900"
+    assert kapp.saved_size() == (1400, 900)
+    win.setProperty("width", 100)
+    win.setProperty("height", 100)
+    kapp.save_window_geometry(win)
+    assert C.load_preferences().main_window_size == "640x480"
+
+
+def test_ludusavi_missing_reports(qgui_app, xdg_env, monkeypatch):
+    import shutil
+
+    from tkarcade.gui.model import GameListModel
+
+    monkeypatch.setattr(shutil, "which", lambda _name: None)
+    assert GameListModel().openLudusavi() == "Ludusavi was not found in PATH."
+
+
+def test_about_text_names_program(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    body = GameListModel().aboutText()
+    assert "TKArcade" in body and "GPL-3.0-or-later" in body
+
+
+def test_history_summary_empty_without_log(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    assert GameListModel().historySummary() == []
+
+
+def test_copy_text_roundtrip(qgui_app, xdg_env):
+    from PySide6.QtGui import QGuiApplication
+
+    from tkarcade.gui.model import GameListModel
+
+    clipboard = QGuiApplication.clipboard()
+    if clipboard is None:
+        assert "unavailable" in GameListModel().copyText("x").lower()
+    else:
+        assert GameListModel().copyText("tkarcade %command%").startswith("Copied")
+        assert clipboard.text() == "tkarcade %command%"
+
+
+def test_fetch_missing_killswitch(qgui_app, xdg_env, monkeypatch):
+    import os
+    import threading
+
+    from tkarcade.gui.model import GameListModel
+
+    calls = []
+    monkeypatch.setattr(threading, "Thread", lambda **kw: calls.append(kw) or FakeThread())
+    os.environ.pop("TKARCADE_NO_BG_FETCH", None)
+
+    class FakeThread:
+        def start(self):
+            pass
+
+    GameListModel().fetchMissing()
+    assert len(calls) == 1
+
+
+def test_remove_and_profiles_roundtrip(qgui_app, xdg_env):
+    from tkarcade import config as C
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    C.save(cfg)
+    profiles = C.profiles_dir("local-doom")
+    profiles.mkdir(parents=True, exist_ok=True)
+    (profiles / "default.toml").write_text("[general]\n")
+    model = GameListModel()
+    assert model.leftoverProfiles(["local-doom"]) == ["local-doom"]
+    assert model.cleanProfiles(["local-doom"]) == 1
+    assert model.removeGames(["local-doom"]) == ""
+    assert not C.game_file("local-doom").exists()
+
+
+def test_clear_history_removes_log_lines(qgui_app, xdg_env):
+    from tkarcade import xdg
+    from tkarcade.gui.model import GameListModel
+
+    log = xdg.log_file()
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(
+        "2026-01-01T10:00:00 appid=42 exit=0 dur=60\n2026-01-01T11:00:00 appid=43 exit=0 dur=30\n",
+        encoding="utf-8",
+    )
+    assert GameListModel().clearHistory("42") == 1
+    assert "appid=42" not in log.read_text(encoding="utf-8")
+    assert "appid=43" in log.read_text(encoding="utf-8")

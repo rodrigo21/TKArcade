@@ -11,6 +11,9 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- Drawer options below a separator (sources stay on top) and
+  window geometry: 1280x720 default, last size/maximized restored
+  and persisted debounced.
 - Multi-selection (Ctrl toggles, Shift extends, single tap resets)
   with toolbar Play/Add/Edit/Remove, per-game context menu (copies,
   install/prefix folders, shader cache, ProtonDB, validate, clear
