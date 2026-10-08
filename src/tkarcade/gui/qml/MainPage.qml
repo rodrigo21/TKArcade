@@ -1022,7 +1022,7 @@ Kirigami.Page {
                         Controls.Label {
                             Layout.fillWidth: true
                             text: gamesPage.columnTitle(logical)
-                            horizontalAlignment: Text.AlignHCenter
+                            horizontalAlignment: (logical === 0 || logical === 4) ? Text.AlignHCenter : Text.AlignLeft
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
                             font.bold: true

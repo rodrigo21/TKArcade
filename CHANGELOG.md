@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Header titles match body alignment (left for text columns, centered
+  over the number gutter and tier badge); centered titles over
+  left-aligned text read as misaligned columns.
 - View button is icon-only like Dolphin (icons per mode plus
   Ctrl+1/2/3); menu button uses the existing overflow-menu icon;
   geometry dump behind TKARCADE_DEBUG_GEOMETRY=1.
