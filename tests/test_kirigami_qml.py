@@ -1397,3 +1397,81 @@ def test_header_titles_share_styled_delegate():
     # would shift every title/divider away from its column
     strip = text.split("id: tableHeader")[1].split("Repeater {")[0]
     assert "Margin" not in strip
+
+
+def test_header_cells_tile_from_zero(qgui_app, xdg_env):
+    """Header cells start at x=0 with the same widths as the body."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    header = win.findChild(QQuickItem, "tableHeader")
+    found = {}
+
+    def walk(item):
+        try:
+            name = item.objectName()
+        except Exception:
+            return
+        if name.startswith("headerCell"):
+            try:
+                found[name] = (round(item.property("x"), 1), round(item.property("width"), 1))
+            except Exception:
+                pass
+        try:
+            kids = item.childItems()
+        except Exception:
+            return
+        for kid in kids:
+            walk(kid)
+
+    walk(header)
+    assert found.get("headerCell0") == (0.0, 36.0), found
+    xs = [x for _, (x, _w) in sorted(found.items())]
+    assert xs == sorted(xs), found  # no overlaps/gaps out of order
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_view_switcher_has_icons_and_shortcuts(qgui_app, xdg_env):
+    """View modes show Dolphin-style icons; Ctrl+1/2/3 switch directly."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    assert page is not None
+    for name, sequence in (
+        ("viewShortcutList", "Ctrl+1"),
+        ("viewShortcutIcons", "Ctrl+2"),
+        ("viewShortcutCards", "Ctrl+3"),
+    ):
+        found = win.findChild(QObject, name)
+        assert found is not None, name
+        assert found.property("sequence") == sequence, name
+    button = win.findChild(QQuickItem, "viewButton")
+    assert button is not None
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    for icon in ("view-list-details", "view-list-icons", "view-grid"):
+        assert icon in src, icon
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()

@@ -7,7 +7,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ### Fixed
 - Header strip shares the body x origin (stray outer margins had
-  shifted every title and divider away from its column).
+  shifted every title and divider away from its column); header
+  geometry locked by test.
 - Number gutter frames rows like the widgets vertical header
   (Button set, follows selection highlight).
 - Selected rows paint highlightColor behind highlightedTextColor
@@ -39,6 +40,8 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
+- View switcher with per-view icons and Ctrl+1/2/3 shortcuts;
+  menu button uses the vertical ellipsis.
 - Single-row toolbar (title, centered actions, search, views,
   columns gear, hamburger); Tools lives in the hamburger with a
   persisted Drawer Mode section; Configure Columns dialog

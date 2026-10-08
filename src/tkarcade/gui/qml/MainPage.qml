@@ -98,6 +98,32 @@ Kirigami.Page {
         return qsTr("List")
     }
 
+    function viewIcon() {
+        if (viewMode === "icons") {
+            return "view-list-icons"
+        }
+        if (viewMode === "cards") {
+            return "view-grid"
+        }
+        return "view-list-details"
+    }
+
+    Shortcut {
+        objectName: "viewShortcutList"
+        sequence: "Ctrl+1"
+        onActivated: gamesPage.viewMode = "list"
+    }
+    Shortcut {
+        objectName: "viewShortcutIcons"
+        sequence: "Ctrl+2"
+        onActivated: gamesPage.viewMode = "icons"
+    }
+    Shortcut {
+        objectName: "viewShortcutCards"
+        sequence: "Ctrl+3"
+        onActivated: gamesPage.viewMode = "cards"
+    }
+
     function cycleView() {
         if (viewMode === "list") {
             viewMode = "icons"
@@ -563,6 +589,7 @@ Kirigami.Page {
                     id: viewButton
                     objectName: "viewButton"
                     text: gamesPage.viewName()
+                    icon.name: gamesPage.viewIcon()
                     onClicked: gamesPage.cycleView()
                 }
                 Controls.ToolButton {
@@ -582,7 +609,7 @@ Kirigami.Page {
         Kirigami.Action {
             displayComponent: Controls.ToolButton {
                 objectName: "hamburgerButton"
-                icon.name: "application-menu"
+                icon.name: "view-more"
                 onClicked: hamburgerMenu.popup()
                                 Controls.Menu {
                                     id: hamburgerMenu
@@ -719,18 +746,21 @@ Kirigami.Page {
             }
             Controls.RadioButton {
                 text: qsTr("List")
+                icon.name: "view-list-details"
                 checked: gamesPage.viewMode === "list"
                 Controls.ButtonGroup.group: viewGroup
                 onToggled: gamesPage.viewMode = "list"
             }
             Controls.RadioButton {
                 text: qsTr("Icons")
+                icon.name: "view-list-icons"
                 checked: gamesPage.viewMode === "icons"
                 Controls.ButtonGroup.group: viewGroup
                 onToggled: gamesPage.viewMode = "icons"
             }
             Controls.RadioButton {
                 text: qsTr("Cards")
+                icon.name: "view-grid"
                 checked: gamesPage.viewMode === "cards"
                 Controls.ButtonGroup.group: viewGroup
                 onToggled: gamesPage.viewMode = "cards"
