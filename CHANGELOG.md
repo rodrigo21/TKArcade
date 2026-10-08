@@ -10,8 +10,8 @@ Breaking config changes are called out explicitly under `Changed`.
   height and meets the header lines (a ToolBar header makes Kirigami
   inset it around the header zone); status text steps right off the
   divider tip.
-- List view sits inside an outer frame (border outside header plus
-  table); status text clears the footer separator and window edge.
+- List view frame removed again (its top edge read as a second header
+  separator); table back to the plain look, status keeps its padding.
 - Drawer Library bar shares the Kirigami global toolbar height, so its
   separator meets the Games header line; header heights locked by test.
 - Header titles match body alignment (left for text columns, centered

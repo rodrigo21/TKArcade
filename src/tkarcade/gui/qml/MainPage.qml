@@ -964,22 +964,11 @@ Kirigami.Page {
         }
     }
 
-    Item {
+    ColumnLayout {
+        id: listLayout
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.smallSpacing
         visible: gamesPage.viewMode === "list"
-        Rectangle {
-            objectName: "listFrame"
-            anchors.fill: parent
-            color: "transparent"
-            border.width: 1
-            border.color: Kirigami.Theme.textColor
-            opacity: 0.25
-        }
-        ColumnLayout {
-            id: listLayout
-            anchors.fill: parent
-            spacing: 0
+        spacing: 0
 
         Item {
             id: tableHeader
@@ -1243,7 +1232,6 @@ Kirigami.Page {
                 gamesPage.moveTableSelection(1)
             }
             onWidthChanged: gamesPage.fitGameColumn()
-        }
         }
     }
     Controls.Menu {
