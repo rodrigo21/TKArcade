@@ -518,9 +518,14 @@ Kirigami.Page {
         gameModel.saveColumns([0].concat(columnOrder), hidden)
     }
 
-    // Window-header actions (systemmonitor-style): primaries, search,
-    // view switcher, columns gear and hamburger — no content toolbar.
+    // Window-header actions (systemmonitor-style): title is automatic,
+    // the button group stays centered via symmetric spacers.
     actions: [
+        Kirigami.Action {
+            displayComponent: Item {
+                Layout.fillWidth: true
+            }
+        },
         Kirigami.Action {
             objectName: "actionPlay"
             text: qsTr("Play")
@@ -546,6 +551,11 @@ Kirigami.Page {
             text: qsTr("Remove")
             icon.name: "edit-delete"
             onTriggered: gamesPage.openRemoveDialog()
+        },
+        Kirigami.Action {
+            displayComponent: Item {
+                Layout.fillWidth: true
+            }
         },
         Kirigami.Action {
             displayComponent: Kirigami.SearchField {
@@ -925,10 +935,10 @@ Kirigami.Page {
                 horizontalAlignment: Text.AlignHCenter
                 leftPadding: Kirigami.Units.smallSpacing
                 rightPadding: Kirigami.Units.smallSpacing
-                font.bold: true
+                font.bold: false
                 Kirigami.Theme.inherit: false
                 Kirigami.Theme.colorSet: Kirigami.Theme.Button
-                color: Kirigami.Theme.highlightColor
+                color: Kirigami.Theme.textColor
             }
         }
         KAddons.HeaderComponent {
@@ -942,11 +952,6 @@ Kirigami.Page {
                 verticalAlignment: Text.AlignVCenter
                 color: Kirigami.Theme.disabledTextColor
                 text: row + 1
-                RowDivider {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                }
             }
         }
         KAddons.HeaderComponent {
@@ -1006,11 +1011,6 @@ Kirigami.Page {
                         elide: Text.ElideRight
                     }
                 }
-                RowDivider {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                }
             }
         }
         KAddons.HeaderComponent {
@@ -1038,11 +1038,6 @@ Kirigami.Page {
                     }
                 }
                 color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
-                RowDivider {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                }
             }
         }
         KAddons.HeaderComponent {
@@ -1075,11 +1070,6 @@ Kirigami.Page {
                 }
                 Controls.ToolTip.visible: playedHover.hovered
                 Controls.ToolTip.text: model?.gamePlayedTip ?? ""
-                RowDivider {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                }
             }
         }
         KAddons.HeaderComponent {
@@ -1123,11 +1113,6 @@ Kirigami.Page {
                 }
                 Controls.ToolTip.visible: tierHover.hovered && (model?.gameTier ?? "") !== ""
                 Controls.ToolTip.text: qsTr("Open ProtonDB page")
-                RowDivider {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                }
             }
         }
         KAddons.HeaderComponent {
@@ -1155,11 +1140,6 @@ Kirigami.Page {
                     }
                 }
                 color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
-                RowDivider {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                }
             }
         }
         headerComponents: [hcNum, hcGame, hcAppId, hcPlayed, hcTier, hcSource]

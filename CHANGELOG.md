@@ -7,12 +7,12 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ### Fixed
 - Header actions (Play/Add/Edit/Remove, search, views, columns,
-  hamburger) live in the window header like plasma-systemmonitor.
+  hamburger) live in the window header like plasma-systemmonitor,
+  buttons centered with symmetric spacers.
 - Hamburger menu no longer overlaps (popup at cursor); header
-  titles use the toolbar Button set; selected rows use highlighted
-  text; icons and tooltips track rows through sorts.
-- Body rows carry dividers and no alternating tint, like
-  plasma-systemmonitor (hamburger nesting bug fixed on the way).
+  titles use the toolbar Button set, semibold off; selected rows
+  use highlighted text; icons and tooltips track rows through sorts.
+- Invented row dividers removed again; alternating tint stays off.
 - Kirigami count properties live on the QMetaObject (drawer and
   status counts rendered `undefined` before); Steam play validates
   the AppID and drops the menu skip when the handoff fails.
