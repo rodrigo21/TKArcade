@@ -1389,3 +1389,7 @@ def test_header_titles_share_styled_delegate():
     assert text.count("headerDelegate") == 0  # no addon header leftovers
     for title in ("#", "Game", "App ID", "Played", "ProtonDB", "Source"):
         assert title in text
+    # number gutter shares the header look (vertical-header framing)
+    gutter = text.split("// number gutter")[1].split("// game: icon plus name")[0]
+    assert "colorSet: Kirigami.Theme.Button" in gutter
+    assert "highlightColor" in gutter

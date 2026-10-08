@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Number gutter frames rows like the widgets vertical header
+  (Button set, follows selection highlight).
 - Selected rows paint highlightColor behind highlightedTextColor
   text (tier badge joins the highlight); selection state lives on
   the delegate via selectedIds, no row index involved.

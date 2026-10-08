@@ -1026,14 +1026,25 @@ Kirigami.Page {
                     visible: isSelected
                     color: Kirigami.Theme.highlightColor
                 }
-                // number gutter
-                Controls.Label {
+                // number gutter: vertical-header look (Button set,
+                // like the column titles), clicks still select the row
+                Item {
                     visible: logical === 0
                     anchors.fill: parent
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    color: Kirigami.Theme.disabledTextColor
-                    text: row + 1
+                    Kirigami.Theme.colorSet: Kirigami.Theme.Button
+                    Kirigami.Theme.inherit: false
+                    Rectangle {
+                        anchors.fill: parent
+                        color: isSelected ? Kirigami.Theme.highlightColor : Kirigami.Theme.backgroundColor
+                    }
+                    Controls.Label {
+                        anchors.fill: parent
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        font.bold: true
+                        color: isSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                        text: row + 1
+                    }
                     RowClickHandler {
                         page: gamesPage
                         gid: model?.gameId ?? ""
