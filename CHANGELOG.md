@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Gutter header has no "#" title and no divider stub into the game
+  column (TKS has no gutter column); the divider is a sibling overlay
+  above delegates and highlight, spanning rows and empty area.
 - Grid lines in the original divider style: full-width line under the
   header row plus the gutter divider running the whole table height
   (rows and empty area, never scrolls).

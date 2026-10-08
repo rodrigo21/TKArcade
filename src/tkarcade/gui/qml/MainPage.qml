@@ -497,7 +497,8 @@ Kirigami.Page {
 
     function columnTitle(logical) {
         if (logical === 0) {
-            return "#"
+            // No title cell over the number gutter (TKS has none).
+            return ""
         }
         if (logical === 1) {
             return qsTr("Game")
@@ -1054,6 +1055,10 @@ Kirigami.Page {
                         color: Kirigami.Theme.textColor
                     }
                     Rectangle {
+                        // No stub between gutter and game columns (TKS
+                        // has no gutter column); the corner junction of
+                        // header line and body line marks the edge.
+                        visible: logical !== 0
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
@@ -1094,18 +1099,6 @@ Kirigami.Page {
             model: gameFilter
             selectionModel: QQmlModels.ItemSelectionModel {
                 model: gameFilter
-            }
-            // Grid line down the gutter edge through rows AND the empty
-            // area below: a TableView child, so it never scrolls. Its box
-            // matches the per-cell dividers ([gutter - 1, gutter]).
-            Rectangle {
-                objectName: "gutterFullLine"
-                x: gamesPage.tableColumnWidth(0) - 1
-                y: 0
-                width: 1
-                height: gameTable.height
-                color: Kirigami.Theme.textColor
-                opacity: 0.18
             }
             columnWidthProvider: function(column) {
                 return gamesPage.tableColumnWidth(gameFilter.columnLogical(column))
@@ -1273,6 +1266,18 @@ Kirigami.Page {
             }
             onWidthChanged: gamesPage.fitGameColumn()
         }
+        }
+        // Gutter divider overlay: above delegates and highlight, never
+        // scrolls; same box as the per-cell dividers ([gutter - 1, gutter]).
+        Rectangle {
+            objectName: "gutterFullLine"
+            anchors.top: listLayout.top
+            anchors.topMargin: tableHeader.height
+            anchors.bottom: listLayout.bottom
+            x: gamesPage.tableColumnWidth(0) - 1
+            width: 1
+            color: Kirigami.Theme.textColor
+            opacity: 0.18
         }
     }
     Controls.Menu {

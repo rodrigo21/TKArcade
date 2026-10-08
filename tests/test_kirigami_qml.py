@@ -95,7 +95,7 @@ def test_table_headers(qgui_app, xdg_env):
             walk(kid)
 
     walk(header)
-    assert {"#", "Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
+    assert {"Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -1397,8 +1397,10 @@ def test_header_titles_share_styled_delegate():
     text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert "colorSet: Kirigami.Theme.Button" in text
     assert text.count("headerDelegate") == 0  # no addon header leftovers
-    for title in ("#", "Game", "App ID", "Played", "ProtonDB", "Source"):
+    for title in ("Game", "App ID", "Played", "ProtonDB", "Source"):
         assert title in text
+    # no "#" gutter title (TKS has none); the framed numbers stay
+    assert 'return "#"' not in text
     # number gutter shares the header look (vertical-header framing)
     gutter = text.split("// number gutter")[1].split("// game: icon plus name")[0]
     assert "colorSet: Kirigami.Theme.Button" in gutter
@@ -1621,10 +1623,29 @@ def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
     assert line.property("width") == 1
     # Same box as the per-cell dividers: gutter width (36) minus 1px.
     assert line.property("x") == 36 - 1
-    assert line.property("y") == 0
-    assert abs(line.property("height") - table.property("height")) <= 1
+    # Overlay sibling of the table: same top and bottom, never scrolls.
+    assert abs(line.property("y") - table.property("y")) <= 1
+    assert (
+        abs(
+            line.property("y")
+            + line.property("height")
+            - table.property("y")
+            - table.property("height")
+        )
+        <= 1
+    )
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_no_gutter_game_header_stub():
+    """No divider stub between gutter and game header cells (TKS)."""
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    assert "visible: logical !== 0" in src
