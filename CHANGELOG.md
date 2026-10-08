@@ -14,7 +14,7 @@ Breaking config changes are called out explicitly under `Changed`.
   margins, so its top edge never reads as a second header separator.
 - Drawer Library bar shares the Kirigami global toolbar height, so its
   separator meets the Games header line; header heights locked by test.
-- Header titles are centered TKS-style with a small ∧/∨ mark overlaid
+- Header titles are centered TKS-style with a small ▲/▼ mark overlaid
   at the top right corner (the frame and dividers mark the columns).
 - View button is icon-only like Dolphin (icons per mode plus
   Ctrl+1/2/3); menu button uses the existing overflow-menu icon;

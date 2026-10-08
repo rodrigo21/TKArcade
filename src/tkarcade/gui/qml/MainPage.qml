@@ -485,7 +485,7 @@ Kirigami.Page {
         if (logical === 0 || columnSortRole(logical) !== sortRole) {
             return ""
         }
-        return sortDescending ? "\u2228" : "\u2227"
+        return sortDescending ? "\u25BC" : "\u25B2"
     }
 
     function headerClicked(logical) {

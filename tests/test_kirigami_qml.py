@@ -85,7 +85,7 @@ def test_table_headers(qgui_app, xdg_env):
             text = item.property("text")
         except Exception:
             text = None
-        if isinstance(text, str) and text and text not in ("∧", "∨"):
+        if isinstance(text, str) and text and text not in ("▲", "▼"):
             titles.add(text)
         try:
             kids = item.childItems()
