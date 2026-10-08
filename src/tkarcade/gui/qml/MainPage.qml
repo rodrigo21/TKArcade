@@ -497,8 +497,7 @@ Kirigami.Page {
 
     function columnTitle(logical) {
         if (logical === 0) {
-            // TKS look: the number gutter has no title cell.
-            return ""
+            return "#"
         }
         if (logical === 1) {
             return qsTr("Game")
@@ -1121,22 +1120,23 @@ Kirigami.Page {
                     visible: isSelected
                     color: Kirigami.Theme.highlightColor
                 }
-                // number gutter: TKS look with transparent background
-                // and an accent number; clicks still select the row
+                // number gutter: vertical-header look (Button set,
+                // like the column titles), clicks still select the row
                 Item {
                     visible: logical === 0
                     anchors.fill: parent
+                    Kirigami.Theme.colorSet: Kirigami.Theme.Button
+                    Kirigami.Theme.inherit: false
                     Rectangle {
                         anchors.fill: parent
-                        visible: isSelected
-                        color: Kirigami.Theme.highlightColor
+                        color: isSelected ? Kirigami.Theme.highlightColor : Kirigami.Theme.backgroundColor
                     }
                     Controls.Label {
                         anchors.fill: parent
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         font.bold: true
-                        color: isSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.linkColor
+                        color: isSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                         text: row + 1
                     }
                     RowClickHandler {

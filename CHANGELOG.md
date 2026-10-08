@@ -22,8 +22,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Header strip shares the body x origin (stray outer margins had
   shifted every title and divider away from its column); header
   geometry locked by test.
-- Number gutter is TKS-style: no title cell, transparent background,
-  accent number (still joins the selection highlight).
+- Number gutter frames rows like the widgets vertical header
+  (Button set, follows selection highlight).
 - Selected rows paint highlightColor behind highlightedTextColor
   text (tier badge joins the highlight); selection state lives on
   the delegate via selectedIds, no row index involved.
