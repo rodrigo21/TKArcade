@@ -111,6 +111,9 @@ def main(argv: list[str] | None = None) -> int:
     game_filter = GameFilterModel(engine)
     game_filter.setSourceModel(model)
     engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.rootContext().setContextProperty(
+        "TKARCADE_DEBUG_CLICKS", os.environ.get("TKARCADE_DEBUG_CLICKS", "")
+    )
     from PySide6.QtCore import QUrl
 
     engine.load(QUrl(qml_url()))

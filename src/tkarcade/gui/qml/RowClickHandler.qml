@@ -8,6 +8,9 @@ MouseArea {
     anchors.fill: parent
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     onClicked: (mouse) => {
+        if (TKARCADE_DEBUG_CLICKS === "1") {
+            console.log("RowClickHandler clicked row=" + row + " button=" + mouse.button)
+        }
         var gid = gameFilter.idAt(row)
         if (gid === "") {
             return

@@ -31,6 +31,7 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
     game_filter = GameFilterModel(engine)
     game_filter.setSourceModel(model)
     engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.rootContext().setContextProperty("TKARCADE_DEBUG_CLICKS", "")
     import gc
 
     gc.collect()
@@ -123,6 +124,7 @@ def test_list_row_double_click_plays(qgui_app, xdg_env, monkeypatch):
     game_filter = GameFilterModel(engine)
     game_filter.setSourceModel(model)
     engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.rootContext().setContextProperty("TKARCADE_DEBUG_CLICKS", "")
     engine.load(QUrl(qml_url()))
     assert len(engine.rootObjects()) == 1
     played = []
@@ -169,6 +171,7 @@ def test_header_sort_toggles_indicator_and_order(qgui_app, xdg_env):
     game_filter = GameFilterModel(engine)
     game_filter.setSourceModel(model)
     engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.rootContext().setContextProperty("TKARCADE_DEBUG_CLICKS", "")
     engine.load(QUrl(qml_url()))
     assert len(engine.rootObjects()) == 1
     win = engine.rootObjects()[0]
@@ -394,6 +397,7 @@ def _load_main(qgui_app, engine_out=None):
     game_filter = GameFilterModel(engine)
     game_filter.setSourceModel(model)
     engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.rootContext().setContextProperty("TKARCADE_DEBUG_CLICKS", "")
     engine.load(QUrl(qml_url()))
     assert len(engine.rootObjects()) == 1
     win = engine.rootObjects()[0]

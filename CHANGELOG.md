@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Table delegates size to their visible columns (text painted
+  outside a wrong box, but clicks never landed); click tracing
+  behind TKARCADE_DEBUG_CLICKS=1.
 - List view migrated from Addons ListTableView to plain QtQuick
   TableView with a custom Button-set header bar (full-bleed
   background, centered bold titles, sort indicators, tap-to-sort

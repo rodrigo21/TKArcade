@@ -998,7 +998,24 @@ Kirigami.Page {
                 required property int row
                 required property int column
                 property int logical: gameFilter.columnLogical(column)
-                implicitWidth: 90
+                implicitWidth: {
+                    // Match the visible cell: text paints outside a wrong
+                    // box, but clicks do not land. Keep in sync with the
+                    // header widths above.
+                    if (logical === 0) {
+                        return 36
+                    }
+                    if (logical === 1) {
+                        return gamesPage.gameColumnWidth
+                    }
+                    if (logical === 2 || logical === 3) {
+                        return 90
+                    }
+                    if (logical === 4) {
+                        return 110
+                    }
+                    return 80
+                }
                 implicitHeight: Kirigami.Units.gridUnit * 2
                 property bool rowSelected: false
                 function refreshSelected() {
