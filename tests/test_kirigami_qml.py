@@ -95,7 +95,7 @@ def test_table_headers(qgui_app, xdg_env):
             walk(kid)
 
     walk(header)
-    assert {"#", "Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
+    assert {"Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -1397,12 +1397,13 @@ def test_header_titles_share_styled_delegate():
     text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert "colorSet: Kirigami.Theme.Button" in text
     assert text.count("headerDelegate") == 0  # no addon header leftovers
-    for title in ("#", "Game", "App ID", "Played", "ProtonDB", "Source"):
+    for title in ("Game", "App ID", "Played", "ProtonDB", "Source"):
         assert title in text
-    # number gutter shares the header look (vertical-header framing)
+    # number gutter is TKS-style: no "#" title, transparent background,
+    # accent number joining the selection highlight when selected
     gutter = text.split("// number gutter")[1].split("// game: icon plus name")[0]
-    assert "colorSet: Kirigami.Theme.Button" in gutter
-    assert "highlightColor" in gutter
+    assert "linkColor" in gutter
+    assert "colorSet: Kirigami.Theme.Button" not in gutter
     # header strip shares the body's x origin: no outer margins that
     # would shift every title/divider away from its column
     strip = text.split("id: tableHeader")[1].split("Repeater {")[0]
