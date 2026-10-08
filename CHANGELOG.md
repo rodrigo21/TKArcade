@@ -14,9 +14,10 @@ Breaking config changes are called out explicitly under `Changed`.
   the AppID and drops the menu skip when the handoff fails.
 
 ### Added
-- Slim systemmonitor-style toolbar row (actions left, search stretch,
-  view/tools/columns right), per-row Play removed
-  (play via double-click, toolbar or menu), Ctrl+Q quit shortcut.
+- Single-row toolbar (title, centered actions, search, views,
+  columns gear, hamburger); Tools lives in the hamburger with a
+  persisted Drawer Mode section; alternating rows; Configure
+  Columns dialog (show/hide + Up/Down) plus header right-click.
 - List is a native table (Addons ListTableView): real header with
   relief, centered titles and sort indicator, row selection with
   highlight, gutter numbers; needs kirigami-addons at runtime.

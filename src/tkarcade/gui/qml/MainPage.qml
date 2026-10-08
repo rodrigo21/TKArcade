@@ -24,6 +24,27 @@ Kirigami.Page {
     property string sortRole: "gameName"
     property bool sortDescending: false
     property string notice: ""
+    property var appDrawer: null
+
+    function setDrawerMode(mode) {
+        if (appDrawer === null) {
+            return
+        }
+        if (mode === "overlay") {
+            appDrawer.modal = true
+            appDrawer.collapsible = false
+            appDrawer.collapsed = false
+        } else if (mode === "collapsible") {
+            appDrawer.modal = false
+            appDrawer.collapsible = true
+            appDrawer.collapsed = true
+        } else {
+            appDrawer.modal = false
+            appDrawer.collapsible = false
+            appDrawer.collapsed = false
+        }
+        gameModel.saveDrawerMode(mode)
+    }
 
     onViewModeChanged: {
         if (viewMode === "list") {
@@ -500,6 +521,16 @@ Kirigami.Page {
         RowLayout {
             Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
+            Kirigami.SearchField {
+                id: searchField
+                Layout.fillWidth: true
+                Layout.maximumWidth: 420
+                placeholderText: qsTr("Filter by name or ID…")
+                onTextChanged: gameFilter.textQuery = text
+            }
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.ToolButton {
                 objectName: "actionPlay"
                 text: qsTr("Play")
@@ -530,11 +561,8 @@ Kirigami.Page {
                 display: Controls.AbstractButton.TextBesideIcon
                 onClicked: gamesPage.openRemoveDialog()
             }
-            Kirigami.SearchField {
-                id: searchField
+            Item {
                 Layout.fillWidth: true
-                placeholderText: qsTr("Filter by name or ID…")
-                onTextChanged: gameFilter.textQuery = text
             }
             Controls.CheckBox {
                 objectName: "issuesOnly"
@@ -558,11 +586,13 @@ Kirigami.Page {
                 }
             }
             Controls.ToolButton {
-                objectName: "toolsButton"
-                text: qsTr("Tools")
-                onClicked: toolsMenu.open()
+                objectName: "hamburgerButton"
+                icon.name: "application-menu"
+                display: Controls.AbstractButton.IconOnly
+                onClicked: hamburgerMenu.open()
                 Controls.Menu {
-                    id: toolsMenu
+                    id: hamburgerMenu
+                    objectName: "hamburgerMenu"
                     Controls.MenuItem {
                         text: qsTr("Scan Steam Library...")
                         onTriggered: {
@@ -644,97 +674,41 @@ Kirigami.Page {
                         text: qsTr("Quit")
                         onTriggered: Qt.quit()
                     }
+                    Controls.MenuSeparator {
+                    }
+                    Controls.MenuItem {
+                        enabled: false
+                        text: qsTr("Drawer Mode")
+                    }
+                    Controls.MenuItem {
+                        objectName: "drawerModeOverlay"
+                        text: qsTr("Overlay Drawer")
+                        checkable: true
+                        checked: gamesPage.appDrawer !== null && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible
+                        onTriggered: gamesPage.setDrawerMode("overlay")
+                    }
+                    Controls.MenuItem {
+                        objectName: "drawerModeSidebar"
+                        text: qsTr("Sidebar Drawer")
+                        checkable: true
+                        checked: gamesPage.appDrawer !== null && !gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible
+                        onTriggered: gamesPage.setDrawerMode("sidebar")
+                    }
+                    Controls.MenuItem {
+                        objectName: "drawerModeCollapsible"
+                        text: qsTr("Collapsible Sidebar Drawer")
+                        checkable: true
+                        checked: gamesPage.appDrawer !== null && !gamesPage.appDrawer.modal && gamesPage.appDrawer.collapsible
+                        onTriggered: gamesPage.setDrawerMode("collapsible")
+                    }
                 }
             }
             Controls.ToolButton {
                 objectName: "columnsButton"
+                icon.name: "view-column"
+                display: Controls.AbstractButton.IconOnly
                 text: qsTr("Columns")
-                onClicked: columnsMenu.open()
-                Controls.Menu {
-                    id: columnsMenu
-                    Controls.Menu {
-                        title: qsTr("App ID")
-                        Controls.MenuItem {
-                            text: qsTr("Show")
-                            checkable: true
-                            checked: gameFilter.showAppId
-                            onTriggered: gameFilter.showAppId = !gameFilter.showAppId
-                        }
-                        Controls.MenuItem {
-                            text: qsTr("Move left")
-                            enabled: gamesPage.columnOrder.indexOf(1) > 0
-                            onTriggered: gamesPage.moveColumn(1, -1)
-                        }
-                        Controls.MenuItem {
-                            text: qsTr("Move right")
-                            enabled: gamesPage.columnOrder.indexOf(1) < 3
-                            onTriggered: gamesPage.moveColumn(1, 1)
-                        }
-                    }
-                    Controls.Menu {
-                        title: qsTr("Played")
-                        Controls.MenuItem {
-                            text: qsTr("Show")
-                            checkable: true
-                            checked: gameFilter.showPlayed
-                            onTriggered: gameFilter.showPlayed = !gameFilter.showPlayed
-                        }
-                        Controls.MenuItem {
-                            text: qsTr("Move left")
-                            enabled: gamesPage.columnOrder.indexOf(2) > 0
-                            onTriggered: gamesPage.moveColumn(2, -1)
-                        }
-                        Controls.MenuItem {
-                            text: qsTr("Move right")
-                            enabled: gamesPage.columnOrder.indexOf(2) < 3
-                            onTriggered: gamesPage.moveColumn(2, 1)
-                        }
-                    }
-                    Controls.Menu {
-                        title: qsTr("ProtonDB")
-                        Controls.MenuItem {
-                            text: qsTr("Show")
-                            checkable: true
-                            checked: gameFilter.showTier
-                            onTriggered: gameFilter.showTier = !gameFilter.showTier
-                        }
-                        Controls.MenuItem {
-                            text: qsTr("Move left")
-                            enabled: gamesPage.columnOrder.indexOf(3) > 0
-                            onTriggered: gamesPage.moveColumn(3, -1)
-                        }
-                        Controls.MenuItem {
-                            text: qsTr("Move right")
-                            enabled: gamesPage.columnOrder.indexOf(3) < 3
-                            onTriggered: gamesPage.moveColumn(3, 1)
-                        }
-                    }
-                    Controls.Menu {
-                        title: qsTr("Source")
-                        Controls.MenuItem {
-                            text: qsTr("Show")
-                            checkable: true
-                            checked: gameFilter.showSource
-                            onTriggered: gameFilter.showSource = !gameFilter.showSource
-                        }
-                        Controls.MenuItem {
-                            text: qsTr("Move left")
-                            enabled: gamesPage.columnOrder.indexOf(4) > 0
-                            onTriggered: gamesPage.moveColumn(4, -1)
-                        }
-                        Controls.MenuItem {
-                            text: qsTr("Move right")
-                            enabled: gamesPage.columnOrder.indexOf(4) < 3
-                            onTriggered: gamesPage.moveColumn(4, 1)
-                        }
-                    }
-                    Controls.MenuSeparator {
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("Reset Columns")
-                        onTriggered: gamesPage.resetColumns()
-                    }
-                }
+                onClicked: columnsDialog.open()
             }
         }
     }
@@ -929,6 +903,7 @@ Kirigami.Page {
         anchors.fill: parent
         visible: gamesPage.viewMode === "list"
         model: gameFilter
+        alternatingRows: true
         selectionBehavior: TableView.SelectRows
         selectionMode: TableView.ExtendedSelection
         sortRole: gameModel.roleId(gamesPage.sortRole)
@@ -1074,6 +1049,50 @@ Kirigami.Page {
         }
         headerComponents: [hcNum, hcGame, hcAppId, hcPlayed, hcTier, hcSource]
     }
+    MouseArea {
+        // Right-clicks on the header strip only (left passes to sort).
+        objectName: "headerRightClick"
+        anchors.top: gameTable.top
+        anchors.left: gameTable.left
+        anchors.right: gameTable.right
+        height: gameTable.__rowHeight > 0 ? gameTable.__rowHeight : 36
+        acceptedButtons: Qt.RightButton
+        onClicked: headerMenu.popup()
+    }
+    Controls.Menu {
+        id: headerMenu
+        objectName: "headerMenu"
+        Controls.MenuItem {
+            text: qsTr("Show App ID")
+            checkable: true
+            checked: gameFilter.showAppId
+            onTriggered: gameFilter.showAppId = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show Played")
+            checkable: true
+            checked: gameFilter.showPlayed
+            onTriggered: gameFilter.showPlayed = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show ProtonDB")
+            checkable: true
+            checked: gameFilter.showTier
+            onTriggered: gameFilter.showTier = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show Source")
+            checkable: true
+            checked: gameFilter.showSource
+            onTriggered: gameFilter.showSource = checked
+        }
+        Controls.MenuSeparator {
+        }
+        Controls.MenuItem {
+            text: qsTr("Configure Columns…")
+            onTriggered: columnsDialog.open()
+        }
+    }
     Kirigami.PlaceholderMessage {
         anchors.centerIn: parent
         visible: gamesPage.viewMode === "list" && gameTable.rowCount === 0
@@ -1195,6 +1214,12 @@ Kirigami.Page {
                 return base
             }
         }
+    }
+
+    ColumnsDialog {
+        id: columnsDialog
+        objectName: "columnsDialog"
+        page: gamesPage
     }
 
     Kirigami.Dialog {

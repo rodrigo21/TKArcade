@@ -19,6 +19,24 @@ Kirigami.ApplicationWindow {
         onActivated: Qt.quit()
     }
 
+    function applyDrawerMode(mode) {
+        if (mode === "overlay") {
+            sourceDrawer.modal = true
+            sourceDrawer.collapsible = false
+            sourceDrawer.collapsed = false
+        } else if (mode === "collapsible") {
+            sourceDrawer.modal = false
+            sourceDrawer.collapsible = true
+            sourceDrawer.collapsed = true
+        } else {
+            sourceDrawer.modal = false
+            sourceDrawer.collapsible = false
+            sourceDrawer.collapsed = false
+        }
+    }
+
+    Component.onCompleted: applyDrawerMode(gameModel.drawerMode())
+
     globalDrawer: Kirigami.GlobalDrawer {
         id: sourceDrawer
         objectName: "sourceDrawer"
@@ -58,48 +76,11 @@ Kirigami.ApplicationWindow {
                 text: qsTr("Local (%1)").arg(gameModel.localCount)
                 checked: gameFilter.sourceKey === "local"
                 onTriggered: gameFilter.sourceKey = "local"
-            },
-            Kirigami.Action {
-                separator: true
-            },
-            Kirigami.Action {
-                text: qsTr("Drawer Mode…")
-                icon.name: "sidebar-collapse-left"
-                visible: !Kirigami.Settings.isMobile
-                expandible: true
-                Kirigami.Action {
-                    objectName: "drawerModeOverlay"
-                    text: qsTr("Overlay Drawer")
-                    checked: sourceDrawer.modal && !sourceDrawer.collapsible
-                    onTriggered: {
-                        sourceDrawer.modal = true
-                        sourceDrawer.collapsible = false
-                        sourceDrawer.collapsed = false
-                    }
-                }
-                Kirigami.Action {
-                    objectName: "drawerModeSidebar"
-                    text: qsTr("Sidebar Drawer")
-                    checked: !sourceDrawer.modal && !sourceDrawer.collapsible
-                    onTriggered: {
-                        sourceDrawer.modal = false
-                        sourceDrawer.collapsible = false
-                        sourceDrawer.collapsed = false
-                    }
-                }
-                Kirigami.Action {
-                    objectName: "drawerModeCollapsible"
-                    text: qsTr("Collapsible Sidebar Drawer")
-                    checked: !sourceDrawer.modal && sourceDrawer.collapsible
-                    onTriggered: {
-                        sourceDrawer.modal = false
-                        sourceDrawer.collapsible = true
-                        sourceDrawer.collapsed = true
-                    }
-                }
             }
         ]
     }
 
-    pageStack.initialPage: MainPage {}
+    pageStack.initialPage: MainPage {
+        appDrawer: sourceDrawer
+    }
 }

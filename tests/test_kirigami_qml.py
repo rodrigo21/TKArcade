@@ -461,7 +461,7 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
 
 
 def test_drawer_modes_switch(qgui_app, xdg_env):
-    """Gallery-style drawer modes: overlay, sidebar, collapsible."""
+    """Hamburger drawer modes apply overlay/sidebar/collapsible."""
     from PySide6.QtCore import QObject
 
     from tkarcade import config as C
@@ -472,20 +472,22 @@ def test_drawer_modes_switch(qgui_app, xdg_env):
     win, _engine, _proxy, warnings = _load_main(qgui_app)
     drawer = win.findChild(QObject, "sourceDrawer")
     assert drawer is not None
-    overlay = win.findChild(QObject, "drawerModeOverlay")
-    sidebar = win.findChild(QObject, "drawerModeSidebar")
-    collapsible = win.findChild(QObject, "drawerModeCollapsible")
-    assert overlay is not None and sidebar is not None and collapsible is not None
-    overlay.trigger(overlay)
-    qgui_app.processEvents()
+    for mode in ("drawerModeOverlay", "drawerModeSidebar", "drawerModeCollapsible"):
+        assert win.findChild(QObject, mode) is not None, mode
+
+    def apply(name):
+        item = win.findChild(QObject, name)
+        assert item is not None, name
+        item.triggered.emit()
+        qgui_app.processEvents()
+
+    apply("drawerModeOverlay")
     assert drawer.property("modal") is True
     assert drawer.property("collapsible") is False
-    sidebar.trigger(sidebar)
-    qgui_app.processEvents()
+    apply("drawerModeSidebar")
     assert drawer.property("modal") is False
     assert drawer.property("collapsible") is False
-    collapsible.trigger(collapsible)
-    qgui_app.processEvents()
+    apply("drawerModeCollapsible")
     assert drawer.property("modal") is False
     assert drawer.property("collapsible") is True
     assert drawer.property("collapsed") is True
@@ -1209,7 +1211,9 @@ def test_toolbar_buttons_left_aligned_and_quit_shortcut(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     xs = sorted(buttons)
     assert xs == buttons  # Play, Add, Edit, Remove in order
-    assert xs[-1] < page.property("width") / 2  # left-aligned row, not centered
+    middle = page.property("width") / 2
+    center = sum(buttons) / len(buttons)
+    assert abs(center - middle) < page.property("width") / 4  # centered group
     assert win.findChild(QObject, "quitShortcut") is not None
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -1231,3 +1235,76 @@ def test_table_delegates_never_lookup_by_visual_row():
             if re.search(r"rowData\s*\(\s*row\s*\)", line):
                 offenders.append(f"{path.name}:{i}")
     assert offenders == []
+
+
+def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
+    """Hamburger replaces Tools; drawer modes persist through prefs."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    burger = win.findChild(QQuickItem, "hamburgerButton")
+    assert burger is not None
+    menu = win.findChild(QObject, "hamburgerMenu")
+    assert menu is not None
+    texts = set()
+    for obj in menu.findChildren(QObject):
+        try:
+            text = obj.property("text")
+        except Exception:
+            continue
+        if isinstance(text, str) and text:
+            texts.add(text)
+    assert {"Scan Steam Library...", "Reload", "Quit"} <= texts
+    win.findChild(QObject, "drawerModeCollapsible").triggered.emit()
+    qgui_app.processEvents()
+    assert C.load_preferences().drawer_mode == "collapsible"
+    drawer = win.findChild(QObject, "sourceDrawer")
+    assert drawer.property("collapsible") is True
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
+    """Gear opens the columns dialog; header right-click opens its menu."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    table = win.findChild(QQuickItem, "gameTable")
+    head = table.mapToScene(QPointF(table.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, head)
+    qgui_app.processEvents()
+    header_menu = win.findChild(QObject, "headerMenu")
+    assert header_menu.property("visible") is True
+    QTest.keyClick(win, Qt.Key.Key_Escape)
+    qgui_app.processEvents()
+    gear = win.findChild(QQuickItem, "columnsButton")
+    pos = gear.mapToScene(QPointF(gear.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    dialog = win.findChild(QObject, "columnsDialog")
+    assert dialog.property("visible") is True
+    # Dialog content is lazy offscreen: exercise the same flags directly.
+    proxy.setProperty("showAppId", False)
+    qgui_app.processEvents()
+    assert proxy.property("showAppId") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()

@@ -662,6 +662,27 @@ class GameListModel(QAbstractListModel):
             return False
         return True
 
+    @Slot(result=str)
+    def drawerMode(self) -> str:
+        """Persisted Kirigami drawer mode (overlay|sidebar|collapsible)."""
+        try:
+            return cfgmod.load_preferences().drawer_mode
+        except Exception:
+            return "sidebar"
+
+    @Slot(str)
+    def saveDrawerMode(self, mode: str) -> None:
+        """Persist the drawer mode (best effort, never raises)."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            prefs = cfgmod.Preferences()
+        prefs.drawer_mode = mode if mode in ("overlay", "sidebar", "collapsible") else "sidebar"
+        try:
+            cfgmod.save_preferences(prefs)
+        except Exception as e:
+            log.warning("saveDrawerMode failed: %s", e)
+
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:
         """Play routing: Steam ids via the client, local ids direct."""

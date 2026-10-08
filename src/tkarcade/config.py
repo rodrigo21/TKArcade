@@ -164,6 +164,7 @@ class Preferences:
     language: str = "system"  # system locale, "en" for English, or a locale code
     main_window_size: str = ""  # "WxH", "" means the 1280x720 default
     main_window_maximized: bool = False  # restore maximized on open
+    drawer_mode: str = "sidebar"  # overlay|sidebar|collapsible (Kirigami drawer)
 
 
 @dataclass
@@ -692,6 +693,8 @@ def load_preferences() -> Preferences:
     )
     out.main_window_size = _clean_window_size(ui.get("main_window_size", ""))
     out.main_window_maximized = _as_bool(ui.get("main_window_maximized", False), False)
+    mode = str(ui.get("drawer_mode", "sidebar") or "sidebar").strip()
+    out.drawer_mode = mode if mode in ("overlay", "sidebar", "collapsible") else "sidebar"
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -737,6 +740,11 @@ def save_preferences(prefs: Preferences) -> Path:
             "language": prefs.language if isinstance(prefs.language, str) else "system",
             "main_window_size": _clean_window_size(prefs.main_window_size),
             "main_window_maximized": bool(prefs.main_window_maximized),
+            "drawer_mode": (
+                prefs.drawer_mode
+                if prefs.drawer_mode in ("overlay", "sidebar", "collapsible")
+                else "sidebar"
+            ),
         }
     }
     _write_atomic(path, _render_toml(data))

@@ -348,3 +348,15 @@ def test_row_data_roundtrip(qgui_app, xdg_env):
     assert row["gameId"] == "local-doom"
     assert row["gameName"] == "Doom"
     assert proxy.rowData(99) == {}
+
+
+def test_drawer_mode_roundtrip(qgui_app, xdg_env):
+    from tkarcade import config as C
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.drawerMode() == "sidebar"
+    model.saveDrawerMode("collapsible")
+    assert C.load_preferences().drawer_mode == "collapsible"
+    model.saveDrawerMode("bogus")
+    assert C.load_preferences().drawer_mode == "sidebar"
