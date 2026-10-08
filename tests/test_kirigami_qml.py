@@ -1479,3 +1479,39 @@ def test_view_switcher_has_icons_and_shortcuts(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_drawer_and_page_headers_share_height(qgui_app, xdg_env):
+    """Drawer "Library" bar matches the page header so separators align."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    drawer_bar = win.findChild(QQuickItem, "drawerHeaderBar")
+    assert drawer_bar is not None
+    page_headers = []
+    for child in win.findChildren(QObject):
+        try:
+            class_name = child.metaObject().className()
+        except Exception:
+            continue
+        if "ToolBarPageHeader" in class_name:
+            try:
+                page_headers.append(child.property("height"))
+            except Exception:
+                continue
+    assert page_headers, "no Kirigami page header found"
+    drawer_h = drawer_bar.property("height")
+    page_h = max(h for h in page_headers if h is not None)
+    assert drawer_h > 0 and page_h > 0
+    assert abs(drawer_h - page_h) <= 1, (drawer_h, page_h)
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()

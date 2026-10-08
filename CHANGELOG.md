@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Drawer Library bar shares the Kirigami global toolbar height, so its
+  separator meets the Games header line; header heights locked by test.
 - Header titles match body alignment (left for text columns, centered
   over the number gutter and tier badge); centered titles over
   left-aligned text read as misaligned columns.

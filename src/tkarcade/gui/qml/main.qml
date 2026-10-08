@@ -43,12 +43,20 @@ Kirigami.ApplicationWindow {
         title: qsTr("TKArcade")
         showHeaderWhenCollapsed: true
         header: Controls.ToolBar {
+            objectName: "drawerHeaderBar"
+            // Same height source the Kirigami page headers clamp to, so
+            // both separator lines meet (native, no magic numbers).
+            implicitHeight: pageStack.globalToolBar.preferredHeight
             contentItem: RowLayout {
                 Layout.fillWidth: true
+                // Reserve the button slot even when not collapsible so
+                // this bar matches the page header height (both are then
+                // driven by a ToolButton) and the separator lines align.
                 Controls.ToolButton {
                     objectName: "drawerCollapseButton"
                     icon.name: "sidebar-collapse-left"
-                    visible: sourceDrawer.collapsible
+                    opacity: sourceDrawer.collapsible ? 1 : 0
+                    enabled: sourceDrawer.collapsible
                     checked: !sourceDrawer.collapsed
                     checkable: true
                     onClicked: sourceDrawer.collapsed = !sourceDrawer.collapsed
@@ -56,6 +64,7 @@ Kirigami.ApplicationWindow {
                 Controls.Label {
                     visible: !sourceDrawer.collapsed
                     Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
                     text: qsTr("Library")
                     font.bold: true
                 }
