@@ -363,6 +363,7 @@ Kirigami.Page {
         gameModel.fetchMissing()
         Qt.callLater(gamesPage.ensureSelection)
         if (TKARCADE_DEBUG_GEOMETRY === "1") {
+            console.log("TKARCADE_GEOMETRY armed")
             geometryTimer.start()
         }
     }
@@ -384,22 +385,10 @@ Kirigami.Page {
     function dumpGeometry() {
         var parts = []
         parts.push("table=" + gameTable.width + "x" + gameTable.height)
-        for (var i = 0; i < gamesPage.columnOrder.length; i++) {
-            var logical = gamesPage.columnOrder[i]
-            var cell = null
-            var stack = tableHeader.childItems()
-            while (stack.length > 0) {
-                var item = stack.pop()
-                if (item.objectName === "headerCell" + logical) {
-                    cell = item
-                    break
-                }
-                stack = stack.concat(item.childItems())
-            }
+        for (var i = 0; i < headerRepeater.count; i++) {
+            var cell = headerRepeater.itemAt(i)
             if (cell !== null) {
-                parts.push(logical + ":" + Math.round(cell.x) + "+" + Math.round(cell.width))
-            } else {
-                parts.push(logical + ":missing")
+                parts.push(cell.logical + ":" + Math.round(cell.x) + "+" + Math.round(cell.width))
             }
         }
         console.log("TKARCADE_GEOMETRY " + parts.join(" "))
@@ -980,6 +969,7 @@ Kirigami.Page {
                 anchors.fill: parent
                 spacing: 0
             Repeater {
+                id: headerRepeater
                 model: gamesPage.columnOrder
                 delegate: Item {
                     required property int modelData
