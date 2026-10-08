@@ -907,8 +907,6 @@ Kirigami.Page {
             }
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: Kirigami.Units.smallSpacing
-                anchors.rightMargin: Kirigami.Units.smallSpacing
                 spacing: 0
             Repeater {
                 model: gamesPage.columnOrder

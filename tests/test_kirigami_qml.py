@@ -1393,3 +1393,7 @@ def test_header_titles_share_styled_delegate():
     gutter = text.split("// number gutter")[1].split("// game: icon plus name")[0]
     assert "colorSet: Kirigami.Theme.Button" in gutter
     assert "highlightColor" in gutter
+    # header strip shares the body's x origin: no outer margins that
+    # would shift every title/divider away from its column
+    strip = text.split("id: tableHeader")[1].split("Repeater {")[0]
+    assert "Margin" not in strip

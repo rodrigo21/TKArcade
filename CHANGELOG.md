@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Header strip shares the body x origin (stray outer margins had
+  shifted every title and divider away from its column).
 - Number gutter frames rows like the widgets vertical header
   (Button set, follows selection highlight).
 - Selected rows paint highlightColor behind highlightedTextColor
