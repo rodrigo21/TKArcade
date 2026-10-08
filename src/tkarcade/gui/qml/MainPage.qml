@@ -979,6 +979,24 @@ Kirigami.Page {
             opacity: 0.25
             radius: Kirigami.Units.smallSpacing / 2
         }
+        // Gutter back strip, full table height: the framed number
+        // column continues through rows and the empty area (TKS).
+        // Declared below the table so delegates (and selection)
+        // paint above it.
+        Item {
+            objectName: "gutterBackStrip"
+            anchors.top: listLayout.top
+            anchors.topMargin: tableHeader.height
+            anchors.bottom: listLayout.bottom
+            anchors.left: parent.left
+            width: gamesPage.tableColumnWidth(0)
+            Kirigami.Theme.colorSet: Kirigami.Theme.Button
+            Kirigami.Theme.inherit: false
+            Rectangle {
+                anchors.fill: parent
+                color: Kirigami.Theme.backgroundColor
+            }
+        }
         ColumnLayout {
             id: listLayout
             anchors.fill: parent

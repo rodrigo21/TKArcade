@@ -1649,3 +1649,37 @@ def test_no_gutter_game_header_stub():
 
     src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert "visible: logical !== 0" in src
+
+
+def test_gutter_back_strip_runs_full_height(qgui_app, xdg_env):
+    """The framed gutter continues through rows and empty area (TKS)."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    strip = win.findChild(QQuickItem, "gutterBackStrip")
+    assert strip is not None
+    table = win.findChild(QQuickItem, "gameTable")
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert table is not None and header is not None
+    assert strip.property("x") == 0
+    assert strip.property("width") == 36
+    assert abs(strip.property("y") - header.property("height")) <= 1
+    assert (
+        abs(
+            strip.property("y")
+            + strip.property("height")
+            - table.property("y")
+            - table.property("height")
+        )
+        <= 1
+    )
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()

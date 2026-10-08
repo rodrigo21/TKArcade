@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Gutter back strip runs the full table height behind rows and empty
+  area, so the framed number column stays complete with zero games.
 - Gutter header has no "#" title and no divider stub into the game
   column (TKS has no gutter column); the divider is a sibling overlay
   above delegates and highlight, spanning rows and empty area.
