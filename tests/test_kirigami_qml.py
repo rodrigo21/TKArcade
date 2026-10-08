@@ -1552,3 +1552,28 @@ def test_status_label_clears_footer_lines(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_list_frame_is_flush_and_rounded(qgui_app, xdg_env):
+    """The TKS-style frame hugs the table: no margins, rounded corners."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    frame = win.findChild(QQuickItem, "listFrame")
+    assert frame is not None
+    assert frame.property("x") == 0 and frame.property("y") == 0
+    parent = frame.parent()
+    assert parent is not None
+    assert frame.property("width") == parent.property("width")
+    assert frame.property("height") == parent.property("height")
+    assert frame.property("radius") > 0
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()

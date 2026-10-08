@@ -964,11 +964,24 @@ Kirigami.Page {
         }
     }
 
-    ColumnLayout {
-        id: listLayout
+    // Flush rounded frame around the table (TKS look): no margins, so
+    // its top edge never reads as a second header separator.
+    Item {
         anchors.fill: parent
         visible: gamesPage.viewMode === "list"
-        spacing: 0
+        Rectangle {
+            objectName: "listFrame"
+            anchors.fill: parent
+            color: "transparent"
+            border.width: 1
+            border.color: Kirigami.Theme.textColor
+            opacity: 0.25
+            radius: Kirigami.Units.smallSpacing / 2
+        }
+        ColumnLayout {
+            id: listLayout
+            anchors.fill: parent
+            spacing: 0
 
         Item {
             id: tableHeader
@@ -1232,6 +1245,7 @@ Kirigami.Page {
                 gamesPage.moveTableSelection(1)
             }
             onWidthChanged: gamesPage.fitGameColumn()
+        }
         }
     }
     Controls.Menu {
