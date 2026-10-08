@@ -7,12 +7,12 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ### Fixed
 - Header actions (Play/Add/Edit/Remove, search, views, columns,
-  hamburger) live in the window header like plasma-systemmonitor;
+  hamburger) live in the window header like plasma-systemmonitor.
 - Hamburger menu no longer overlaps (popup at cursor); header
-  titles use the toolbar Button set; body rows carry dividers and
-  no alternating tint, like plasma-systemmonitor.
-  hamburger opens at the cursor; headers use the toolbar Button
-  set; selected rows use highlighted text; icons track sorts.
+  titles use the toolbar Button set; selected rows use highlighted
+  text; icons and tooltips track rows through sorts.
+- Body rows carry dividers and no alternating tint, like
+  plasma-systemmonitor (hamburger nesting bug fixed on the way).
 - Kirigami count properties live on the QMetaObject (drawer and
   status counts rendered `undefined` before); Steam play validates
   the AppID and drops the menu skip when the handoff fails.
@@ -20,8 +20,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Added
 - Single-row toolbar (title, centered actions, search, views,
   columns gear, hamburger); Tools lives in the hamburger with a
-  persisted Drawer Mode section; alternating rows; Configure
-  Columns dialog (show/hide + Up/Down) plus header right-click.
+  persisted Drawer Mode section; Configure Columns dialog
+  (show/hide + Up/Down) plus header right-click.
 - List is a native table (Addons ListTableView): real header with
   relief, centered titles and sort indicator, row selection with
   highlight, gutter numbers; needs kirigami-addons at runtime.
