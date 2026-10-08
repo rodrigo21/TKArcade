@@ -12,11 +12,11 @@ def _model(qgui_app):
 def _rows(model):
     return [
         (
-            model.data(model.index(i), model.IdRole),
-            model.data(model.index(i), model.NameRole),
-            model.data(model.index(i), model.SourceRole),
-            model.data(model.index(i), model.PlayedRole),
-            model.data(model.index(i), model.TierRole),
+            model.data(model.index(i, 0), model.IdRole),
+            model.data(model.index(i, 0), model.NameRole),
+            model.data(model.index(i, 0), model.SourceRole),
+            model.data(model.index(i, 0), model.PlayedRole),
+            model.data(model.index(i, 0), model.TierRole),
         )
         for i in range(model.rowCount())
     ]
@@ -312,16 +312,20 @@ def test_clear_history_removes_log_lines(qgui_app, xdg_env):
 
 
 def test_column_prefs_roundtrip(qgui_app, xdg_env):
-    from tkarcade.gui.model import GameListModel
+    from tkarcade.gui.model import GameFilterModel, GameListModel
 
-    model = GameListModel()
-    assert model.columnOrder() == [0, 1, 2, 3, 4]
-    assert model.hiddenColumns() == []
-    assert model.saveColumns([0, 2, 1, 3, 4], [2, 9]) is True
-    assert model.columnOrder() == [0, 2, 1, 3, 4]
-    assert model.hiddenColumns() == [2]
-    assert model.saveColumns([9, 9], []) is True  # garbage order ignored
-    assert model.columnOrder() == [0, 2, 1, 3, 4]
+    source = GameListModel()
+    proxy = GameFilterModel()
+    proxy.setSourceModel(source)
+    assert proxy.columnLogical(0) == 0
+    proxy.moveColumn(2, 1)
+    assert [proxy.columnLogical(c) for c in range(6)] == [0, 1, 3, 2, 4, 5]
+    assert C.load_preferences().column_order.split(",")[:3] == ["0", "1", "3"]
+    proxy.showAppId = False
+    assert "2" in C.load_preferences().hidden_columns.split(",")
+    proxy.resetColumns()
+    assert [proxy.columnLogical(c) for c in range(6)] == [0, 1, 2, 3, 4, 5]
+    assert C.load_preferences().hidden_columns == ""
 
 
 def test_role_id_maps_names(qgui_app, xdg_env):
@@ -360,3 +364,62 @@ def test_drawer_mode_roundtrip(qgui_app, xdg_env):
     assert C.load_preferences().drawer_mode == "collapsible"
     model.saveDrawerMode("bogus")
     assert C.load_preferences().drawer_mode == "sidebar"
+
+
+def _filtered(qgui_app, appids=("213", "local-doom")):
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    for appid in appids:
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        if not appid[0].isdigit():
+            cfg.general.name = "Doom"
+        C.save(cfg)
+    source = GameListModel()
+    proxy = GameFilterModel()
+    proxy.setSourceModel(source)
+    return proxy
+
+
+def test_proxy_is_six_column_table(qgui_app, xdg_env):
+    from PySide6.QtCore import Qt
+
+    proxy = _filtered(qgui_app)
+    assert proxy.columnCount() == 6
+    assert proxy.columnCount(proxy.index(0, 0)) == 0
+    assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(6)] == [
+        "#",
+        "Game",
+        "App ID",
+        "Played",
+        "ProtonDB",
+        "Source",
+    ]
+    assert proxy.data(proxy.index(0, 0)) == "1"
+    assert proxy.data(proxy.index(0, 1)) == "213"
+    assert proxy.data(proxy.index(1, 2)) == "local-doom"
+    assert proxy.data(proxy.index(1, 5)) == "Local"
+    assert proxy.data(proxy.index(9, 0)) is None
+    # custom roles stay row-based: delegates keep working per column
+    from tkarcade.gui.model import GameListModel
+
+    assert proxy.data(proxy.index(1, 4), GameListModel.IdRole) == "local-doom"
+
+
+def test_proxy_move_hide_reset_columns(qgui_app, xdg_env):
+    proxy = _filtered(qgui_app)
+    proxy.moveColumn(2, 1)
+    assert proxy.columnCount() == 6
+    assert (
+        proxy.headerData(2, __import__("PySide6.QtCore", fromlist=["x"]).Qt.Orientation.Horizontal)
+        == "Played"
+    )
+    assert C.load_preferences().column_order.split(",")[:3] == ["0", "1", "3"]
+    proxy.showAppId = False
+    assert proxy.columnCount() == 6  # hidden columns keep mapped slots
+    assert "2" in C.load_preferences().hidden_columns.split(",")
+    proxy.resetColumns()
+    assert proxy.columnCount() == 6
+    assert C.load_preferences().hidden_columns == ""
+    proxy.moveColumn(0, -1)  # edge: no-op, stays valid
+    assert proxy.columnCount() == 6

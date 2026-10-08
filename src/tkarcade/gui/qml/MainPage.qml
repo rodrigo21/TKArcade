@@ -4,7 +4,6 @@ import QtQml.Models as QQmlModels
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
-import org.kde.kirigamiaddons.tableview as KAddons
 
 // Games page: search + view split-button on top, the selected view
 // below (details list, icons grid, or gallery-style cards), counts at
@@ -334,7 +333,7 @@ Kirigami.Page {
     }
 
     Component.onCompleted: {
-        gamesPage.loadColumns()
+        gamesPage.refreshColumnOrder()
         gameModel.fetchMissing()
         Qt.callLater(gamesPage.ensureSelection)
     }
@@ -349,7 +348,7 @@ Kirigami.Page {
     Connections {
         target: gameFilter
         function onColumnsChanged() {
-            gamesPage.saveColumns()
+            gamesPage.refreshColumnOrder()
             gamesPage.fitGameColumn()
         }
         function onRowsInserted() {
@@ -363,7 +362,6 @@ Kirigami.Page {
         }
     }
 
-    onColumnOrderChanged: gamesPage.saveColumns()
 
     function columnWidth(logical) {
         if (logical === 3) {
@@ -376,87 +374,111 @@ Kirigami.Page {
     }
 
     function columnVisible(logical) {
-        if (logical === 1) {
+        if (logical === 2) {
             return gameFilter.showAppId
         }
-        if (logical === 2) {
+        if (logical === 3) {
             return gameFilter.showPlayed
         }
-        if (logical === 3) {
+        if (logical === 4) {
             return gameFilter.showTier
         }
-        return gameFilter.showSource
+        if (logical === 5) {
+            return gameFilter.showSource
+        }
+        return true
     }
 
     function columnSortRole(logical) {
         if (logical === 1) {
-            return "gameId"
+            return "gameName"
         }
         if (logical === 2) {
-            return "gamePlayedSecs"
+            return "gameId"
         }
         if (logical === 3) {
+            return "gamePlayedSecs"
+        }
+        if (logical === 4) {
             return "gameTier"
         }
-        return "gameSource"
+        if (logical === 5) {
+            return "gameSource"
+        }
+        return ""
+    }
+
+    function sortGlyph(logical) {
+        if (logical === 0 || columnSortRole(logical) !== sortRole) {
+            return ""
+        }
+        return sortDescending ? "\u25BC" : "\u25B2"
+    }
+
+    function headerClicked(logical) {
+        var role = columnSortRole(logical)
+        if (role !== "") {
+            toggleSort(role)
+        }
     }
 
     function columnTitle(logical) {
+        if (logical === 0) {
+            return "#"
+        }
         if (logical === 1) {
-            return qsTr("App ID")
+            return qsTr("Game")
         }
         if (logical === 2) {
-            return qsTr("Played")
+            return qsTr("App ID")
         }
         if (logical === 3) {
+            return qsTr("Played")
+        }
+        if (logical === 4) {
             return qsTr("ProtonDB")
         }
         return qsTr("Source")
     }
 
-    property var columnOrder: [1, 2, 3, 4] // JS array only: Repeater models
-    // must stay JS (a QVariantList injected from outside lays out at
-    // zero width). All writers below build fresh JS arrays.
+    property var columnOrder: [0, 1, 2, 3, 4, 5] // JS mirror of the proxy
+    // order (fresh JS array from JSON: QVariantList lays out at zero
+    // width). Refreshed on start and on every columnsChanged.
+    property int gameColumnWidth: 400
+
+    function refreshColumnOrder() {
+        columnOrder = JSON.parse(gameFilter.columnOrderJson())
+    }
 
     function moveColumn(logical, dir) {
-        var pos = columnOrder.indexOf(logical)
-        var swap = pos + dir
-        if (pos < 0 || swap < 0 || swap >= columnOrder.length) {
-            return
-        }
-        var order = columnOrder.slice()
-        order[pos] = columnOrder[swap]
-        order[swap] = logical
-        columnOrder = order
-        gamesPage.applyColumnOrder()
+        gameFilter.moveColumn(logical, dir)
     }
 
     function resetColumns() {
-        columnOrder = [1, 2, 3, 4]
-        gamesPage.applyColumnOrder()
+        gameFilter.resetColumns()
         gameFilter.showAppId = true
         gameFilter.showPlayed = true
         gameFilter.showTier = true
         gameFilter.showSource = true
     }
 
-    function loadColumns() {
-        var order = gameModel.columnOrder()
-        var data = []
-        for (var i = 0; i < order.length; i++) {
-            if (order[i] !== 0) {
-                data.push(order[i])
-            }
+    function tableColumnWidth(logical) {
+        if (!columnVisible(logical)) {
+            return 0
         }
-        if (data.length === 4) {
-            columnOrder = data
-            gamesPage.applyColumnOrder()
+        if (logical === 0) {
+            return 36
         }
-        var hidden = gameModel.hiddenColumns()
-        gameFilter.showAppId = hidden.indexOf(1) < 0
-        gameFilter.showPlayed = hidden.indexOf(2) < 0
-        gameFilter.showTier = hidden.indexOf(3) < 0
-        gameFilter.showSource = hidden.indexOf(4) < 0
+        if (logical === 1) {
+            return gameColumnWidth
+        }
+        if (logical === 2 || logical === 3) {
+            return 90
+        }
+        if (logical === 4) {
+            return 110
+        }
+        return 80
     }
 
     function fixedColumnsWidth() {
@@ -478,49 +500,9 @@ Kirigami.Page {
 
     function fitGameColumn() {
         if (gameTable.width > 0) {
-            hcGame.width = Math.max(120, gameTable.width - fixedColumnsWidth())
+            gameColumnWidth = Math.max(120, gameTable.width - fixedColumnsWidth())
         }
-    }
-
-    function columnComponent(logical) {
-        if (logical === 0) {
-            return hcGame
-        }
-        if (logical === 1) {
-            return hcAppId
-        }
-        if (logical === 2) {
-            return hcPlayed
-        }
-        if (logical === 3) {
-            return hcTier
-        }
-        return hcSource
-    }
-
-    function applyColumnOrder() {
-        var comps = [hcNum, hcGame]
-        for (var i = 0; i < columnOrder.length; i++) {
-            comps.push(columnComponent(columnOrder[i]))
-        }
-        gameTable.headerComponents = comps
-    }
-
-    function saveColumns() {
-        var hidden = []
-        if (!gameFilter.showAppId) {
-            hidden.push(1)
-        }
-        if (!gameFilter.showPlayed) {
-            hidden.push(2)
-        }
-        if (!gameFilter.showTier) {
-            hidden.push(3)
-        }
-        if (!gameFilter.showSource) {
-            hidden.push(4)
-        }
-        gameModel.saveColumns([0].concat(columnOrder), hidden)
+        gameTable.forceLayout()
     }
 
     // Window-header actions (systemmonitor-style): title is automatic,
@@ -905,61 +887,118 @@ Kirigami.Page {
         }
     }
 
-    KAddons.ListTableView {
-        id: gameTable
-        objectName: "gameTable"
+    ColumnLayout {
+        id: listLayout
         anchors.fill: parent
         visible: gamesPage.viewMode === "list"
-        model: gameFilter
-        alternatingRows: false
-        selectionBehavior: TableView.SelectRows
-        selectionMode: TableView.ExtendedSelection
-        sortRole: gameModel.roleId(gamesPage.sortRole)
-        sortOrder: gamesPage.sortDescending ? Qt.DescendingOrder : Qt.AscendingOrder
-        onWidthChanged: gamesPage.fitGameColumn()
-        onRowDoubleClicked: (row) => gameModel.play(gameFilter.idAt(row))
-        onColumnClicked: (column, hc) => {
-            if (hc.textRole !== undefined && hc.textRole !== "") {
-                gamesPage.toggleSort(hc.textRole)
+        spacing: 0
+
+        Item {
+            id: tableHeader
+            objectName: "tableHeader"
+            Layout.fillWidth: true
+            Layout.preferredHeight: Kirigami.Units.gridUnit * 2
+            Kirigami.Theme.colorSet: Kirigami.Theme.Button
+            Kirigami.Theme.inherit: false
+            Rectangle {
+                // Full-bleed bar behind the titles (covers the row).
+                anchors.fill: parent
+                color: Kirigami.Theme.backgroundColor
+            }
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Kirigami.Units.smallSpacing
+                anchors.rightMargin: Kirigami.Units.smallSpacing
+                spacing: 0
+            Repeater {
+                model: gamesPage.columnOrder
+                delegate: Item {
+                    required property int modelData
+                    property int logical: modelData
+                    objectName: "headerCell" + logical
+                    // Inline expression (reactive): a tableColumnWidth()
+                    // call would freeze at first evaluation.
+                    Layout.preferredWidth: {
+                        if (logical === 0) {
+                            return 36
+                        }
+                        if (logical === 1) {
+                            return gamesPage.gameColumnWidth
+                        }
+                        if (logical === 2) {
+                            return gameFilter.showAppId ? 90 : 0
+                        }
+                        if (logical === 3) {
+                            return gameFilter.showPlayed ? 90 : 0
+                        }
+                        if (logical === 4) {
+                            return gameFilter.showTier ? 110 : 0
+                        }
+                        return gameFilter.showSource ? 80 : 0
+                    }
+                    Layout.fillHeight: true
+                    visible: Layout.preferredWidth > 0
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: Kirigami.Units.smallSpacing
+                        anchors.rightMargin: Kirigami.Units.smallSpacing
+                        spacing: Kirigami.Units.smallSpacing
+                        Controls.Label {
+                            Layout.fillWidth: true
+                            text: gamesPage.columnTitle(logical)
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                            font.bold: true
+                            color: Kirigami.Theme.textColor
+                        }
+                        Controls.Label {
+                            text: gamesPage.sortGlyph(logical)
+                            visible: text !== ""
+                            verticalAlignment: Text.AlignVCenter
+                            color: Kirigami.Theme.textColor
+                        }
+                    }
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: 1
+                        color: Kirigami.Theme.textColor
+                        opacity: 0.18
+                    }
+                    TapHandler {
+                        acceptedButtons: Qt.LeftButton
+                        onTapped: gamesPage.headerClicked(logical)
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.RightButton
+                        onClicked: headerMenu.popup()
+                    }
+                }
             }
         }
-        Keys.onUpPressed: {
-            gamesPage.moveTableSelection(-1)
         }
-        Keys.onDownPressed: {
-            gamesPage.moveTableSelection(1)
-        }
-        // One shared instance per column would share state: use the
-        // HeaderTitle file through this component (see HeaderTitle.qml
-        // for the implicit-size rationale).
-        Component {
-            id: headerTitle
-            HeaderTitle {
+
+        TableView {
+            id: gameTable
+            objectName: "gameTable"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            model: gameFilter
+            selectionModel: QQmlModels.ItemSelectionModel {
+                model: gameFilter
             }
-        }
-        KAddons.HeaderComponent {
-            id: hcNum
-            objectName: "hcNum"
-            title: "#"
-            width: 36
-            headerDelegate: headerTitle
-            itemDelegate: Controls.Label {
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                color: Kirigami.Theme.disabledTextColor
-                text: row + 1
+            columnWidthProvider: function(column) {
+                return gamesPage.tableColumnWidth(gameFilter.columnLogical(column))
             }
-        }
-        KAddons.HeaderComponent {
-            id: hcGame
-            objectName: "hcGame"
-            title: qsTr("Game")
-            headerDelegate: headerTitle
-            textRole: "gameName"
-            role: gameModel.roleId("gameName")
-            width: 400
-            itemDelegate: Item {
-                implicitWidth: hcGame.width
+            delegate: Item {
+                required property int row
+                required property int column
+                property int logical: gameFilter.columnLogical(column)
+                implicitWidth: 90
                 implicitHeight: Kirigami.Units.gridUnit * 2
                 property bool rowSelected: false
                 function refreshSelected() {
@@ -972,183 +1011,122 @@ Kirigami.Page {
                         refreshSelected()
                     }
                 }
-                MouseArea {
+                // number gutter
+                Controls.Label {
+                    visible: logical === 0
                     anchors.fill: parent
-                    acceptedButtons: Qt.RightButton
-                    onClicked: (mouse) => gamesPage.openGameMenu(gameFilter.idAt(row))
-                }
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: Kirigami.Units.smallSpacing
-                    spacing: Kirigami.Units.smallSpacing
-                    Item {
-                        Layout.preferredWidth: 32
-                        Layout.preferredHeight: 32
-                        Layout.alignment: Qt.AlignVCenter
-                        Image {
-                            anchors.fill: parent
-                            visible: (model?.gameIcon ?? "") !== ""
-                            source: visible ? "file://" + model?.gameIcon : ""
-                            fillMode: Image.PreserveAspectFit
-                        }
-                        Kirigami.Icon {
-                            anchors.centerIn: parent
-                            visible: (model?.gameIcon ?? "") === ""
-                            source: "applications-games"
-                            width: 20
-                            height: 20
-                        }
-                    }
-                    Controls.Label {
-                        Layout.fillWidth: true
-                        verticalAlignment: Text.AlignVCenter
-                        text: modelData ?? ""
-                        color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
-                        elide: Text.ElideRight
-                    }
-                }
-            }
-        }
-        KAddons.HeaderComponent {
-            id: hcAppId
-            objectName: "hcAppId"
-            title: qsTr("App ID")
-            headerDelegate: headerTitle
-            textRole: "gameId"
-            role: gameModel.roleId("gameId")
-            width: 90
-            visible: gameFilter.showAppId
-            itemDelegate: Controls.Label {
-                verticalAlignment: Text.AlignVCenter
-                text: modelData ?? ""
-                elide: Text.ElideRight
-                property bool rowSelected: false
-                function refreshSelected() {
-                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
-                }
-                Component.onCompleted: refreshSelected()
-                Connections {
-                    target: gameTable.selectionModel
-                    function onSelectionChanged() {
-                        refreshSelected()
-                    }
-                }
-                color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
-            }
-        }
-        KAddons.HeaderComponent {
-            id: hcPlayed
-            objectName: "hcPlayed"
-            title: qsTr("Played")
-            headerDelegate: headerTitle
-            textRole: "gamePlayed"
-            role: gameModel.roleId("gamePlayedSecs")
-            width: 90
-            visible: gameFilter.showPlayed
-            itemDelegate: Controls.Label {
-                verticalAlignment: Text.AlignVCenter
-                text: modelData ?? ""
-                elide: Text.ElideRight
-                property bool rowSelected: false
-                function refreshSelected() {
-                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
-                }
-                Component.onCompleted: refreshSelected()
-                Connections {
-                    target: gameTable.selectionModel
-                    function onSelectionChanged() {
-                        refreshSelected()
-                    }
-                }
-                color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
-                HoverHandler {
-                    id: playedHover
-                }
-                Controls.ToolTip.visible: playedHover.hovered
-                Controls.ToolTip.text: model?.gamePlayedTip ?? ""
-            }
-        }
-        KAddons.HeaderComponent {
-            id: hcTier
-            objectName: "hcTier"
-            title: qsTr("ProtonDB")
-            headerDelegate: headerTitle
-            textRole: "gameTier"
-            role: gameModel.roleId("gameTier")
-            width: 110
-            visible: gameFilter.showTier
-            itemDelegate: Controls.ToolButton {
-                text: modelData ?? ""
-                font.bold: true
-                property bool rowSelected: false
-                function refreshSelected() {
-                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
-                }
-                Component.onCompleted: refreshSelected()
-                Connections {
-                    target: gameTable.selectionModel
-                    function onSelectionChanged() {
-                        refreshSelected()
-                    }
-                }
-                background: Rectangle {
-                    color: (model?.gameTier ?? "") !== "" ? model?.gameTierBg : "transparent"
-                    radius: 4
-                }
-                contentItem: Controls.Label {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    text: modelData ?? ""
-                    color: rowSelected ? Kirigami.Theme.highlightedTextColor : ((model?.gameTier ?? "") !== "" ? model?.gameTierFg : Kirigami.Theme.textColor)
-                    elide: Text.ElideRight
-                }
-                onClicked: gamesPage.select(gameFilter.idAt(row))
-                onDoubleClicked: gameModel.openProtonDB(gameFilter.idAt(row))
-                HoverHandler {
-                    id: tierHover
-                }
-                Controls.ToolTip.visible: tierHover.hovered && (model?.gameTier ?? "") !== ""
-                Controls.ToolTip.text: qsTr("Open ProtonDB page")
-            }
-        }
-        KAddons.HeaderComponent {
-            id: hcSource
-            objectName: "hcSource"
-            title: qsTr("Source")
-            headerDelegate: headerTitle
-            textRole: "gameSource"
-            role: gameModel.roleId("gameSource")
-            width: 80
-            visible: gameFilter.showSource
-            itemDelegate: Controls.Label {
-                verticalAlignment: Text.AlignVCenter
-                text: modelData ?? ""
-                elide: Text.ElideRight
-                property bool rowSelected: false
-                function refreshSelected() {
-                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
-                }
-                Component.onCompleted: refreshSelected()
-                Connections {
-                    target: gameTable.selectionModel
-                    function onSelectionChanged() {
-                        refreshSelected()
+                    color: Kirigami.Theme.disabledTextColor
+                    text: row + 1
+                    RowClickHandler {
+                        row: row
                     }
                 }
-                color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                // game: icon plus name
+                Item {
+                    visible: logical === 1
+                    anchors.fill: parent
+                    RowClickHandler {
+                        row: row
+                    }
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: Kirigami.Units.smallSpacing
+                        spacing: Kirigami.Units.smallSpacing
+                        Item {
+                            Layout.preferredWidth: 32
+                            Layout.preferredHeight: 32
+                            Layout.alignment: Qt.AlignVCenter
+                            Image {
+                                anchors.fill: parent
+                                visible: (model?.gameIcon ?? "") !== ""
+                                source: visible ? "file://" + model?.gameIcon : ""
+                                fillMode: Image.PreserveAspectFit
+                            }
+                            Kirigami.Icon {
+                                anchors.centerIn: parent
+                                visible: (model?.gameIcon ?? "") === ""
+                                source: "applications-games"
+                                width: 20
+                                height: 20
+                            }
+                        }
+                        Controls.Label {
+                            Layout.fillWidth: true
+                            verticalAlignment: Text.AlignVCenter
+                            text: model?.gameName ?? ""
+                            color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+                // plain text columns
+                Controls.Label {
+                    visible: logical === 2 || logical === 5
+                    anchors.fill: parent
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: Kirigami.Units.smallSpacing
+                    text: logical === 2 ? (model?.gameId ?? "") : (model?.gameSource ?? "")
+                    color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                    elide: Text.ElideRight
+                    RowClickHandler {
+                        row: row
+                    }
+                }
+                // played (with session tooltip)
+                Controls.Label {
+                    visible: logical === 3
+                    anchors.fill: parent
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: Kirigami.Units.smallSpacing
+                    text: model?.gamePlayed ?? ""
+                    color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                    elide: Text.ElideRight
+                    RowClickHandler {
+                        row: row
+                    }
+                    HoverHandler {
+                        id: playedHover
+                    }
+                    Controls.ToolTip.visible: playedHover.hovered
+                    Controls.ToolTip.text: model?.gamePlayedTip ?? ""
+                }
+                // ProtonDB tier badge
+                Controls.ToolButton {
+                    visible: logical === 4
+                    anchors.fill: parent
+                    text: model?.gameTier ?? ""
+                    font.bold: true
+                    background: Rectangle {
+                        color: (model?.gameTier ?? "") !== "" ? model?.gameTierBg : "transparent"
+                        radius: 4
+                    }
+                    contentItem: Controls.Label {
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        text: model?.gameTier ?? ""
+                        color: rowSelected ? Kirigami.Theme.highlightedTextColor : ((model?.gameTier ?? "") !== "" ? model?.gameTierFg : Kirigami.Theme.textColor)
+                        elide: Text.ElideRight
+                    }
+                    onClicked: gamesPage.select(gameFilter.idAt(row))
+                    onDoubleClicked: gameModel.openProtonDB(gameFilter.idAt(row))
+                    HoverHandler {
+                        id: tierHover
+                    }
+                    Controls.ToolTip.visible: tierHover.hovered && (model?.gameTier ?? "") !== ""
+                    Controls.ToolTip.text: qsTr("Open ProtonDB page")
+                }
+                // source (logical 5 shares the plain label above)
             }
+            Keys.onUpPressed: {
+                gamesPage.moveTableSelection(-1)
+            }
+            Keys.onDownPressed: {
+                gamesPage.moveTableSelection(1)
+            }
+            onWidthChanged: gamesPage.fitGameColumn()
         }
-        headerComponents: [hcNum, hcGame, hcAppId, hcPlayed, hcTier, hcSource]
-    }
-    MouseArea {
-        // Right-clicks on the header strip only (left passes to sort).
-        objectName: "headerRightClick"
-        anchors.top: gameTable.top
-        anchors.left: gameTable.left
-        anchors.right: gameTable.right
-        height: gameTable.__rowHeight > 0 ? gameTable.__rowHeight : 36
-        acceptedButtons: Qt.RightButton
-        onClicked: headerMenu.popup()
     }
     Controls.Menu {
         id: headerMenu
@@ -1186,14 +1164,14 @@ Kirigami.Page {
     }
     Kirigami.PlaceholderMessage {
         anchors.centerIn: parent
-        visible: gamesPage.viewMode === "list" && gameTable.rowCount === 0
+        visible: gamesPage.viewMode === "list" && gameFilter.rowCount() === 0
         text: qsTr("No games configured yet")
         explanation: qsTr("Add a game, scan the Steam library, or copy the launch options.")
     }
     RowLayout {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: 80
-        visible: gamesPage.viewMode === "list" && gameTable.rowCount === 0
+        visible: gamesPage.viewMode === "list" && gameFilter.rowCount() === 0
         Controls.Button {
             text: qsTr("Add Game...")
             onClicked: addDialog.open()
