@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- List view sits inside an outer frame (border outside header plus
+  table); status text clears the footer separator and window edge.
 - Drawer Library bar shares the Kirigami global toolbar height, so its
   separator meets the Games header line; header heights locked by test.
 - Header titles match body alignment (left for text columns, centered

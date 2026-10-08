@@ -964,11 +964,22 @@ Kirigami.Page {
         }
     }
 
-    ColumnLayout {
-        id: listLayout
+    Item {
         anchors.fill: parent
+        anchors.margins: Kirigami.Units.smallSpacing
         visible: gamesPage.viewMode === "list"
-        spacing: 0
+        Rectangle {
+            objectName: "listFrame"
+            anchors.fill: parent
+            color: "transparent"
+            border.width: 1
+            border.color: Kirigami.Theme.textColor
+            opacity: 0.25
+        }
+        ColumnLayout {
+            id: listLayout
+            anchors.fill: parent
+            spacing: 0
 
         Item {
             id: tableHeader
@@ -1233,6 +1244,7 @@ Kirigami.Page {
             }
             onWidthChanged: gamesPage.fitGameColumn()
         }
+        }
     }
     Controls.Menu {
         id: headerMenu
@@ -1374,6 +1386,9 @@ Kirigami.Page {
     footer: RowLayout {
         Controls.Label {
             objectName: "statusLabel"
+            // Clear the footer separator above and the window edge below.
+            topPadding: Kirigami.Units.smallSpacing
+            bottomPadding: Kirigami.Units.smallSpacing
             text: {
                 if (gamesPage.notice !== "") {
                     return gamesPage.notice

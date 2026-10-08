@@ -510,11 +510,17 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
     assert cell(2).property("visible") is True
     game_w = cell(1).property("width")
     proxy.setProperty("showAppId", False)
-    qgui_app.processEvents()
+    for _ in range(20):
+        qgui_app.processEvents()
+        if cell(1).property("width") == game_w + 90:
+            break
     assert cell(2).property("visible") is False
     assert cell(1).property("width") == game_w + 90
     proxy.setProperty("showAppId", True)
-    qgui_app.processEvents()
+    for _ in range(20):
+        qgui_app.processEvents()
+        if cell(1).property("width") == game_w:
+            break
     assert cell(2).property("visible") is True
     assert cell(1).property("width") == game_w
     real = [w for w in warnings if "graphics scene" not in w]
@@ -1510,6 +1516,62 @@ def test_drawer_and_page_headers_share_height(qgui_app, xdg_env):
     page_h = max(h for h in page_headers if h is not None)
     assert drawer_h > 0 and page_h > 0
     assert abs(drawer_h - page_h) <= 1, (drawer_h, page_h)
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_list_frame_encloses_table(qgui_app, xdg_env):
+    """The list view carries an outer frame around header plus table."""
+    import pathlib
+
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+    from tkarcade.gui import kirigami_app as kapp
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    frame = win.findChild(QQuickItem, "listFrame")
+    assert frame is not None
+    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    assert "listFrame" in src and "border.width: 1" in src
+    table = win.findChild(QQuickItem, "gameTable")
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert table is not None and header is not None
+    fx, fy = frame.property("x"), frame.property("y")
+    fw, fh = frame.property("width"), frame.property("height")
+    for item, name in ((header, "header"), (table, "table")):
+        ix, iy = item.property("x"), item.property("y")
+        iw = item.property("width")
+        assert ix >= fx and iy >= fy, (name, ix, iy, fx, fy)
+        assert ix + iw <= fx + fw + 1, (name, ix + iw, fx + fw)
+    assert fy + fh >= table.property("y") + table.property("height") - 1
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_status_label_clears_footer_lines(qgui_app, xdg_env):
+    """Status text keeps padding from the separator above and edge below."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    label = win.findChild(QObject, "statusLabel")
+    assert label is not None
+    assert label.property("topPadding") > 0
+    assert label.property("bottomPadding") > 0
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
