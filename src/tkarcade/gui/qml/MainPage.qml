@@ -1073,6 +1073,16 @@ Kirigami.Page {
                 }
             }
         }
+        // Grid line under the whole header row, full width.
+        Rectangle {
+            objectName: "tableHeaderBottomLine"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: Kirigami.Theme.textColor
+            opacity: 0.18
+        }
         }
 
         TableView {
@@ -1084,6 +1094,18 @@ Kirigami.Page {
             model: gameFilter
             selectionModel: QQmlModels.ItemSelectionModel {
                 model: gameFilter
+            }
+            // Grid line down the gutter edge through rows AND the empty
+            // area below: a TableView child, so it never scrolls. Its box
+            // matches the per-cell dividers ([gutter - 1, gutter]).
+            Rectangle {
+                objectName: "gutterFullLine"
+                x: gamesPage.tableColumnWidth(0) - 1
+                y: 0
+                width: 1
+                height: gameTable.height
+                color: Kirigami.Theme.textColor
+                opacity: 0.18
             }
             columnWidthProvider: function(column) {
                 return gamesPage.tableColumnWidth(gameFilter.columnLogical(column))

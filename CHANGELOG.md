@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Grid lines in the original divider style: full-width line under the
+  header row plus the gutter divider running the whole table height
+  (rows and empty area, never scrolls).
 - Drawer header is a plain Item so the drawer-edge separator runs full
   height and meets the header lines (a ToolBar header makes Kirigami
   inset it around the header zone); status text steps right off the

@@ -1577,3 +1577,54 @@ def test_list_frame_is_flush_and_rounded(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_table_header_bottom_line_spans_width(qgui_app, xdg_env):
+    """A grid line closes the header row across every column."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    line = win.findChild(QQuickItem, "tableHeaderBottomLine")
+    assert line is not None
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
+    assert line.property("height") == 1
+    assert abs(line.property("width") - header.property("width")) <= 1
+    bottom = line.property("y") + line.property("height")
+    assert abs(bottom - header.property("height")) <= 1, (bottom, header.property("height"))
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
+    """The gutter divider crosses rows and the empty area below."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    line = win.findChild(QQuickItem, "gutterFullLine")
+    assert line is not None
+    table = win.findChild(QQuickItem, "gameTable")
+    assert table is not None
+    assert line.property("width") == 1
+    # Same box as the per-cell dividers: gutter width (36) minus 1px.
+    assert line.property("x") == 36 - 1
+    assert line.property("y") == 0
+    assert abs(line.property("height") - table.property("height")) <= 1
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
