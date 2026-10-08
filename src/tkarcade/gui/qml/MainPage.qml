@@ -929,28 +929,12 @@ Kirigami.Page {
         Keys.onDownPressed: {
             gamesPage.moveTableSelection(1)
         }
-        // Shared header titles: full-bleed Button background (the
-        // lighter toolbar bar) with bold centered toolbar text.
+        // One shared instance per column would share state: use the
+        // HeaderTitle file through this component (see HeaderTitle.qml
+        // for the implicit-size rationale).
         Component {
             id: headerTitle
-            Item {
-                Kirigami.Theme.inherit: false
-                Kirigami.Theme.colorSet: Kirigami.Theme.Button
-                Rectangle {
-                    anchors.fill: parent
-                    color: Kirigami.Theme.backgroundColor
-                }
-                Controls.Label {
-                    anchors.fill: parent
-                    text: modelData ?? ""
-                    elide: Text.ElideRight
-                    verticalAlignment: Text.AlignVCenter
-                    horizontalAlignment: Text.AlignHCenter
-                    leftPadding: Kirigami.Units.smallSpacing
-                    rightPadding: Kirigami.Units.smallSpacing
-                    font.bold: true
-                    color: Kirigami.Theme.textColor
-                }
+            HeaderTitle {
             }
         }
         KAddons.HeaderComponent {

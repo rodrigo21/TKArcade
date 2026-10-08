@@ -1330,3 +1330,37 @@ def test_header_titles_share_styled_delegate():
     titled = [b for b in blocks if "title:" in b]
     assert len(titled) == 6
     assert all("headerDelegate: headerTitle" in b for b in titled)
+
+
+def test_header_title_has_size_and_toolbar_colors(qgui_app):
+    """Header delegate never collapses: implicit size plus Button set."""
+    import pathlib
+
+    from PySide6.QtCore import QUrl
+    from PySide6.QtQml import QQmlComponent, QQmlContext, QQmlEngine
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    engine = QQmlEngine()
+    warnings: list[str] = []
+    engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
+    url = QUrl.fromLocalFile(str(pathlib.Path(kapp.__file__).parent / "qml" / "HeaderTitle.qml"))
+    component = QQmlComponent(engine, url)
+    assert component.isReady(), component.errorString()
+    context = QQmlContext(engine.rootContext())
+    context.setContextProperty("modelData", "Game")
+    item = component.create(context)
+    assert item is not None
+    qgui_app.processEvents()
+    assert item.property("implicitWidth") > 0
+    assert item.property("implicitHeight") > 0
+    labels = [
+        o
+        for o in item.findChildren(QQuickItem)
+        if isinstance(o.property("text"), str) and o.property("text") == "Game"
+    ]
+    assert len(labels) == 1
+    assert labels[0].property("font").bold() is True
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []

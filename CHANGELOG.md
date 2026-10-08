@@ -11,7 +11,8 @@ Breaking config changes are called out explicitly under `Changed`.
   buttons centered with symmetric spacers.
 - Header bar borrows the toolbar background (full-bleed Button
   set, bold titles) and the table sits flush under the window
-  toolbar, like plasma-systemmonitor.
+  toolbar, like plasma-systemmonitor. The delegate carries its
+  own implicit size (zero-size collapse hid text and background).
 - Hamburger menu no longer overlaps (popup at cursor); header
   titles use the toolbar Button set, semibold off; selected rows
   use highlighted text; icons and tooltips track rows through sorts.
