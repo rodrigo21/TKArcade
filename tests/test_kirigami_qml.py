@@ -1278,9 +1278,15 @@ def test_table_delegates_never_lookup_by_visual_row():
                 "for (var row" in prev for prev in src[max(0, i - 4) : i]
             ):
                 offenders.append(f"{path.name}:{i}")
-    # RowClickHandler instances must pass gid:, never row:
+    # RowClickHandler instances must pass gid: (never row) plus page:
+    # QML ids are file-scoped, so a bare gamesPage reference inside
+    # RowClickHandler.qml resolves to nothing and clicks die silent.
     text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
-    assert "RowClickHandler {\n                        gid:" in text
+    assert "RowClickHandler {\n                        gid:" not in text
+    assert text.count("RowClickHandler {\n                        page: gamesPage") == 4
+    handler = (pathlib.Path(kapp.__file__).parent / "qml" / "RowClickHandler.qml").read_text()
+    assert "required property var page" in handler
+    assert "gamesPage." not in handler
     assert offenders == []
 
 

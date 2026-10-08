@@ -1029,6 +1029,7 @@ Kirigami.Page {
                     color: Kirigami.Theme.disabledTextColor
                     text: row + 1
                     RowClickHandler {
+                        page: gamesPage
                         gid: model?.gameId ?? ""
                     }
                 }
@@ -1037,6 +1038,7 @@ Kirigami.Page {
                     visible: logical === 1
                     anchors.fill: parent
                     RowClickHandler {
+                        page: gamesPage
                         gid: model?.gameId ?? ""
                     }
                     RowLayout {
@@ -1080,6 +1082,7 @@ Kirigami.Page {
                     color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                     elide: Text.ElideRight
                     RowClickHandler {
+                        page: gamesPage
                         gid: model?.gameId ?? ""
                     }
                 }
@@ -1093,6 +1096,7 @@ Kirigami.Page {
                     color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                     elide: Text.ElideRight
                     RowClickHandler {
+                        page: gamesPage
                         gid: model?.gameId ?? ""
                     }
                     HoverHandler {

@@ -6,9 +6,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
-- Row clicks carry the game id instead of the visual row (TableView
-  leaves delegate `row` at 0, so every click selected the first
-  game); selection highlighting reads page state directly.
+- Row clicks pass the page explicitly (QML ids are file-scoped, so
+  the bare `gamesPage` reference inside RowClickHandler.qml resolved
+  to nothing and every click died silent: no selection, no
+  highlight, no multi-select).
 - List view migrated from Addons ListTableView to plain QtQuick
   TableView with a custom Button-set header bar (full-bleed
   background, centered bold titles, sort indicators, tap-to-sort

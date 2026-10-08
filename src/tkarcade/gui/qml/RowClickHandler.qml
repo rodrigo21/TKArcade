@@ -4,10 +4,12 @@ import QtQuick
 // Ctrl/Shift behavior identical everywhere (the view itself selects
 // nothing). Double-click plays, right-click opens the game menu.
 //
-// Takes the game id directly: the delegate `row` property does not
-// update in TableView delegates (every click reported row 0).
+// Takes gid + page explicitly: QML ids are file-scoped, so a bare
+// `gamesPage` reference here resolves to nothing (clicks silently
+// die). Context properties (gameFilter, gameModel) are fine as-is.
 MouseArea {
     required property string gid
+    required property var page
     anchors.fill: parent
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     onClicked: (mouse) => {
@@ -18,9 +20,9 @@ MouseArea {
             return
         }
         if (mouse.button === Qt.RightButton) {
-            gamesPage.openGameMenu(gid)
+            page.openGameMenu(gid)
         } else {
-            gamesPage.tapGame(gid, mouse.modifiers)
+            page.tapGame(gid, mouse.modifiers)
         }
     }
     onDoubleClicked: (mouse) => {
