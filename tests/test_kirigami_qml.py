@@ -330,6 +330,14 @@ def _settle_table(table, qgui_app, count, limit=100):
         qgui_app.processEvents()
 
 
+def _fire(item):
+    """Emit triggered with or without a source arg (Action vs MenuItem)."""
+    try:
+        item.triggered.emit(item)
+    except TypeError:
+        item.triggered.emit()
+
+
 def _load_main(qgui_app, engine_out=None):
     from PySide6.QtCore import QUrl
     from PySide6.QtQml import QQmlApplicationEngine
@@ -478,7 +486,7 @@ def test_drawer_modes_switch(qgui_app, xdg_env):
     def apply(name):
         item = win.findChild(QObject, name)
         assert item is not None, name
-        item.triggered.emit()
+        _fire(item)
         qgui_app.processEvents()
 
     apply("drawerModeOverlay")
@@ -500,9 +508,7 @@ def test_drawer_modes_switch(qgui_app, xdg_env):
 
 def test_view_button_cycles_modes(qgui_app, xdg_env):
     """Split-button main click cycles list -> icons -> cards -> list."""
-    from PySide6.QtCore import QObject, QPointF, Qt
-    from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
+    from PySide6.QtCore import QObject
 
     from tkarcade import config as C
 
@@ -511,20 +517,18 @@ def test_view_button_cycles_modes(qgui_app, xdg_env):
     C.save(cfg)
     win, _engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    button = win.findChild(QQuickItem, "viewButton")
-    assert button is not None
+    from PySide6.QtCore import QMetaObject
 
-    def click():
-        pos = button.mapToScene(QPointF(button.property("width") / 2, 5)).toPoint()
-        QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    def cycle():
+        assert QMetaObject.invokeMethod(page, "cycleView")
         qgui_app.processEvents()
 
     assert page.property("viewMode") == "list"
-    click()
+    cycle()
     assert page.property("viewMode") == "icons"
-    click()
+    cycle()
     assert page.property("viewMode") == "cards"
-    click()
+    cycle()
     assert page.property("viewMode") == "list"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -804,9 +808,8 @@ def test_multi_select_ctrl_shift(qgui_app, xdg_env):
 
 def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
     """Toolbar Play launches the first selected game."""
-    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -825,12 +828,9 @@ def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.toggleSelect("b-game")
     qgui_app.processEvents()
-    action = win.findChild(QQuickItem, "actionPlay")
+    action = win.findChild(QObject, "actionPlay")
     assert action is not None
-    from PySide6.QtCore import QPointF
-
-    pos = action.mapToScene(QPointF(action.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _fire(action)
     qgui_app.processEvents()
     assert played == ["a-game"]
     real = [w for w in warnings if "graphics scene" not in w]
@@ -905,10 +905,9 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     page.toggleSelect("local-quake")
     qgui_app.processEvents()
     assert len(_selected_ids(table, proxy)) == 2
-    remove = win.findChild(QQuickItem, "actionRemove")
+    remove = win.findChild(QObject, "actionRemove")
     assert remove is not None
-    pos = remove.mapToScene(QPointF(remove.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _fire(remove)
     qgui_app.processEvents()
     dialog = win.findChild(QObject, "removeDialog")
     assert dialog.property("visible") is True
@@ -1192,10 +1191,9 @@ def test_column_layout_persists(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_toolbar_buttons_left_aligned_and_quit_shortcut(qgui_app, xdg_env):
-    """Primary buttons sit left-aligned in one slim row; Ctrl+Q exists."""
+def test_toolbar_actions_in_header_and_quit_shortcut(qgui_app, xdg_env):
+    """Primary actions live in the window header; Ctrl+Q shortcut exists."""
     from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
 
@@ -1203,17 +1201,15 @@ def test_toolbar_buttons_left_aligned_and_quit_shortcut(qgui_app, xdg_env):
     cfg.general.appid = "1"
     C.save(cfg)
     win, _engine, _proxy, warnings = _load_main(qgui_app)
-    buttons = []
-    for name in ("actionPlay", "actionAdd", "actionEdit", "actionRemove"):
-        button = win.findChild(QQuickItem, name)
-        assert button is not None, name
-        buttons.append(button.property("x") + button.property("width") / 2)
-    page = win.findChild(QObject, "gamesPage")
-    xs = sorted(buttons)
-    assert xs == buttons  # Play, Add, Edit, Remove in order
-    middle = page.property("width") / 2
-    center = sum(buttons) / len(buttons)
-    assert abs(center - middle) < page.property("width") / 4  # centered group
+    for name, label in (
+        ("actionPlay", "Play"),
+        ("actionAdd", "Add game"),
+        ("actionEdit", "Edit..."),
+        ("actionRemove", "Remove"),
+    ):
+        found = win.findChild(QObject, name)
+        assert found is not None, name
+        assert found.property("text") == label, name
     assert win.findChild(QObject, "quitShortcut") is not None
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -1261,7 +1257,8 @@ def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
         if isinstance(text, str) and text:
             texts.add(text)
     assert {"Scan Steam Library...", "Reload", "Quit"} <= texts
-    win.findChild(QObject, "drawerModeCollapsible").triggered.emit()
+    _collapsible = win.findChild(QObject, "drawerModeCollapsible")
+    _fire(_collapsible)
     qgui_app.processEvents()
     assert C.load_preferences().drawer_mode == "collapsible"
     drawer = win.findChild(QObject, "sourceDrawer")
@@ -1293,9 +1290,9 @@ def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     assert header_menu.property("visible") is True
     QTest.keyClick(win, Qt.Key.Key_Escape)
     qgui_app.processEvents()
-    gear = win.findChild(QQuickItem, "columnsButton")
-    pos = gear.mapToScene(QPointF(gear.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    gear = win.findChild(QObject, "columnsButton")
+    assert gear is not None
+    _fire(gear)
     qgui_app.processEvents()
     dialog = win.findChild(QObject, "columnsDialog")
     assert dialog.property("visible") is True
@@ -1308,3 +1305,14 @@ def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_selected_row_uses_highlight_text_color():
+    """Custom cells must track selection (offscreen delegates never spawn)."""
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    assert text.count("highlightedTextColor") >= 3
+    assert "onSelectionChanged" in text

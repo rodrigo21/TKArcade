@@ -6,9 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
-- Table delegates bind live model roles, so icons, tooltips and tier
-  colors track their rows through sorts (row-index lookups froze
-  them in place); transient null models use optional chaining.
+- Header actions (Play/Add/Edit/Remove, search, views, columns,
+  hamburger) live in the window header like plasma-systemmonitor;
+  selected rows use highlighted text; icons track sorts.
 - Kirigami count properties live on the QMetaObject (drawer and
   status counts rendered `undefined` before); Steam play validates
   the AppID and drops the menu skip when the handoff fails.

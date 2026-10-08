@@ -25,6 +25,7 @@ Kirigami.Page {
     property bool sortDescending: false
     property string notice: ""
     property var appDrawer: null
+    property var viewArrowItem: null
 
     function setDrawerMode(mode) {
         if (appDrawer === null) {
@@ -517,61 +518,50 @@ Kirigami.Page {
         gameModel.saveColumns([0].concat(columnOrder), hidden)
     }
 
-    header: ColumnLayout {
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Kirigami.Units.smallSpacing
-            Kirigami.SearchField {
-                id: searchField
-                Layout.fillWidth: true
-                Layout.maximumWidth: 420
+    // Window-header actions (systemmonitor-style): primaries, search,
+    // view switcher, columns gear and hamburger — no content toolbar.
+    actions: [
+        Kirigami.Action {
+            objectName: "actionPlay"
+            text: qsTr("Play")
+            icon.name: "media-playback-start"
+            onTriggered: gamesPage.playSelected()
+        },
+        Kirigami.Action {
+            objectName: "actionAdd"
+            text: qsTr("Add game")
+            icon.name: "list-add"
+            onTriggered: addDialog.open()
+        },
+        Kirigami.Action {
+            // TEMPORARY: opens the local add dialog until the QML
+            // game settings UI lands.
+            objectName: "actionEdit"
+            text: qsTr("Edit...")
+            icon.name: "document-edit"
+            onTriggered: addDialog.open()
+        },
+        Kirigami.Action {
+            objectName: "actionRemove"
+            text: qsTr("Remove")
+            icon.name: "edit-delete"
+            onTriggered: gamesPage.openRemoveDialog()
+        },
+        Kirigami.Action {
+            displayComponent: Kirigami.SearchField {
+                objectName: "searchField"
+                implicitWidth: Kirigami.Units.gridUnit * 16
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
             }
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.ToolButton {
-                objectName: "actionPlay"
-                text: qsTr("Play")
-                icon.name: "media-playback-start"
-                display: Controls.AbstractButton.TextBesideIcon
-                onClicked: gamesPage.playSelected()
-            }
-            Controls.ToolButton {
-                objectName: "actionAdd"
-                text: qsTr("Add game")
-                icon.name: "list-add"
-                display: Controls.AbstractButton.TextBesideIcon
-                onClicked: addDialog.open()
-            }
-            Controls.ToolButton {
-                // TEMPORARY: opens the local add dialog until the QML
-                // game settings UI lands.
-                objectName: "actionEdit"
-                text: qsTr("Edit...")
-                icon.name: "document-edit"
-                display: Controls.AbstractButton.TextBesideIcon
-                onClicked: addDialog.open()
-            }
-            Controls.ToolButton {
-                objectName: "actionRemove"
-                text: qsTr("Remove")
-                icon.name: "edit-delete"
-                display: Controls.AbstractButton.TextBesideIcon
-                onClicked: gamesPage.openRemoveDialog()
-            }
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.CheckBox {
-                objectName: "issuesOnly"
-                text: qsTr("With issues only")
-                checked: gameFilter.issuesOnly
-                onToggled: gameFilter.issuesOnly = checked
-            }
-            RowLayout {
+        },
+        Kirigami.Action {
+            displayComponent: RowLayout {
                 spacing: 0
+                Component.onCompleted: {
+                    // displayComponent scope hides ids: publish for popups.
+                    gamesPage.viewArrowItem = viewArrow
+                }
                 Controls.ToolButton {
                     id: viewButton
                     objectName: "viewButton"
@@ -585,140 +575,147 @@ Kirigami.Page {
                     onClicked: viewOptions.open()
                 }
             }
-            Controls.ToolButton {
+        },
+        Kirigami.Action {
+            objectName: "columnsButton"
+            icon.name: "view-column"
+            text: qsTr("Columns")
+            onTriggered: columnsDialog.open()
+        },
+        Kirigami.Action {
+            displayComponent: Controls.ToolButton {
                 objectName: "hamburgerButton"
                 icon.name: "application-menu"
-                display: Controls.AbstractButton.IconOnly
                 onClicked: hamburgerMenu.open()
-                Controls.Menu {
-                    id: hamburgerMenu
-                    objectName: "hamburgerMenu"
-                    Controls.MenuItem {
-                        text: qsTr("Scan Steam Library...")
-                        onTriggered: {
-                            var cands = gameModel.scanCandidates()
-                            if (cands.length === 0) {
-                                gamesPage.notify(
-                                    qsTr("Every Steam game is already configured."))
-                                return
-                            }
-                            scanDialog.candidates = cands
-                            scanDialog.open()
-                        }
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("History...")
-                        onTriggered: {
-                            historyView.rows = gameModel.historySummary()
-                            historyView.open()
-                        }
-                    }
-                    Controls.MenuSeparator {
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("Open Ludusavi...")
-                        onTriggered: {
-                            var msg = gameModel.openLudusavi()
-                            if (msg !== "") {
-                                gamesPage.notify(msg)
-                            }
-                        }
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("Open Logs Folder")
-                        onTriggered: {
-                            if (!gameModel.openPath(gameModel.logsDir())) {
-                                gamesPage.notify(qsTr("Could not open the logs folder."))
-                            }
-                        }
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("Clean Profiles...")
-                        onTriggered: {
-                            var rows = gameModel.orphanedProfiles()
-                            if (rows.length === 0) {
-                                gamesPage.notify(qsTr("No orphaned profiles."))
-                                return
-                            }
-                            var ids = []
-                            for (var i = 0; i < rows.length; i++) {
-                                ids.push(rows[i][0])
-                            }
-                            cleanupDialog.leftovers = ids
-                            cleanupDialog.open()
-                        }
-                    }
-                    Controls.MenuSeparator {
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("Reload")
-                        onTriggered: {
-                            gameModel.refresh()
-                            gamesPage.ensureSelection()
-                        }
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("Preferences...")
-                        onTriggered: {
-                            prefsDialog.load()
-                            prefsDialog.open()
-                        }
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("About...")
-                        onTriggered: aboutDialog.open()
-                    }
-                    Controls.MenuSeparator {
-                    }
-                    Controls.MenuItem {
-                        text: qsTr("Quit")
-                        onTriggered: Qt.quit()
-                    }
-                    Controls.MenuSeparator {
-                    }
-                    Controls.MenuItem {
-                        enabled: false
-                        text: qsTr("Drawer Mode")
-                    }
-                    Controls.MenuItem {
-                        objectName: "drawerModeOverlay"
-                        text: qsTr("Overlay Drawer")
+                                Controls.Menu {
+                                    id: hamburgerMenu
+                                    objectName: "hamburgerMenu"
+                                    Controls.MenuItem {
+                                        text: qsTr("Scan Steam Library...")
+                                        onTriggered: {
+                                            var cands = gameModel.scanCandidates()
+                                            if (cands.length === 0) {
+                                                gamesPage.notify(
+                                                    qsTr("Every Steam game is already configured."))
+                                                return
+                                            }
+                                            scanDialog.candidates = cands
+                                            scanDialog.open()
+                                        }
+                                    }
+                                    Controls.MenuItem {
+                                        text: qsTr("History...")
+                                        onTriggered: {
+                                            historyView.rows = gameModel.historySummary()
+                                            historyView.open()
+                                        }
+                                    Controls.MenuItem {
+                        objectName: "issuesOnly"
+                        text: qsTr("With issues only")
                         checkable: true
-                        checked: gamesPage.appDrawer !== null && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible
-                        onTriggered: gamesPage.setDrawerMode("overlay")
+                        checked: gameFilter.issuesOnly
+                        onTriggered: gameFilter.issuesOnly = checked
                     }
-                    Controls.MenuItem {
-                        objectName: "drawerModeSidebar"
-                        text: qsTr("Sidebar Drawer")
-                        checkable: true
-                        checked: gamesPage.appDrawer !== null && !gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible
-                        onTriggered: gamesPage.setDrawerMode("sidebar")
-                    }
-                    Controls.MenuItem {
-                        objectName: "drawerModeCollapsible"
-                        text: qsTr("Collapsible Sidebar Drawer")
-                        checkable: true
-                        checked: gamesPage.appDrawer !== null && !gamesPage.appDrawer.modal && gamesPage.appDrawer.collapsible
-                        onTriggered: gamesPage.setDrawerMode("collapsible")
-                    }
-                }
-            }
-            Controls.ToolButton {
-                objectName: "columnsButton"
-                icon.name: "view-column"
-                display: Controls.AbstractButton.IconOnly
-                text: qsTr("Columns")
-                onClicked: columnsDialog.open()
+                                    }
+                                    Controls.MenuSeparator {
+                                    }
+                                    Controls.MenuItem {
+                                        text: qsTr("Open Ludusavi...")
+                                        onTriggered: {
+                                            var msg = gameModel.openLudusavi()
+                                            if (msg !== "") {
+                                                gamesPage.notify(msg)
+                                            }
+                                        }
+                                    }
+                                    Controls.MenuItem {
+                                        text: qsTr("Open Logs Folder")
+                                        onTriggered: {
+                                            if (!gameModel.openPath(gameModel.logsDir())) {
+                                                gamesPage.notify(qsTr("Could not open the logs folder."))
+                                            }
+                                        }
+                                    }
+                                    Controls.MenuItem {
+                                        text: qsTr("Clean Profiles...")
+                                        onTriggered: {
+                                            var rows = gameModel.orphanedProfiles()
+                                            if (rows.length === 0) {
+                                                gamesPage.notify(qsTr("No orphaned profiles."))
+                                                return
+                                            }
+                                            var ids = []
+                                            for (var i = 0; i < rows.length; i++) {
+                                                ids.push(rows[i][0])
+                                            }
+                                            cleanupDialog.leftovers = ids
+                                            cleanupDialog.open()
+                                        }
+                                    }
+                                    Controls.MenuSeparator {
+                                    }
+                                    Controls.MenuItem {
+                                        text: qsTr("Reload")
+                                        onTriggered: {
+                                            gameModel.refresh()
+                                            gamesPage.ensureSelection()
+                                        }
+                                    }
+                                    Controls.MenuItem {
+                                        text: qsTr("Preferences...")
+                                        onTriggered: {
+                                            prefsDialog.load()
+                                            prefsDialog.open()
+                                        }
+                                    }
+                                    Controls.MenuItem {
+                                        text: qsTr("About...")
+                                        onTriggered: aboutDialog.open()
+                                    }
+                                    Controls.MenuSeparator {
+                                    }
+                                    Controls.MenuItem {
+                                        text: qsTr("Quit")
+                                        onTriggered: Qt.quit()
+                                    }
+                                    Controls.MenuSeparator {
+                                    }
+                                    Controls.MenuItem {
+                                        enabled: false
+                                        text: qsTr("Drawer Mode")
+                                    }
+                                    Controls.MenuItem {
+                                        objectName: "drawerModeOverlay"
+                                        text: qsTr("Overlay Drawer")
+                                        checkable: true
+                                        checked: gamesPage.appDrawer !== null && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible
+                                        onTriggered: gamesPage.setDrawerMode("overlay")
+                                    }
+                                    Controls.MenuItem {
+                                        objectName: "drawerModeSidebar"
+                                        text: qsTr("Sidebar Drawer")
+                                        checkable: true
+                                        checked: gamesPage.appDrawer !== null && !gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible
+                                        onTriggered: gamesPage.setDrawerMode("sidebar")
+                                    }
+                                    Controls.MenuItem {
+                                        objectName: "drawerModeCollapsible"
+                                        text: qsTr("Collapsible Sidebar Drawer")
+                                        checkable: true
+                                        checked: gamesPage.appDrawer !== null && !gamesPage.appDrawer.modal && gamesPage.appDrawer.collapsible
+                                        onTriggered: gamesPage.setDrawerMode("collapsible")
+                                    }
+                                }
             }
         }
-    }
+    ]
 
     Controls.Popup {
         id: viewOptions
         objectName: "viewOptions"
-        parent: viewArrow
-        x: viewArrow.width - width
-        y: viewArrow.height + Kirigami.Units.smallSpacing
+        parent: viewArrowItem
+        x: viewArrowItem !== null ? viewArrowItem.width - width : 0
+        y: viewArrowItem !== null ? viewArrowItem.height + Kirigami.Units.smallSpacing : 0
         closePolicy: Controls.Popup.CloseOnEscape | Controls.Popup.CloseOnPressOutside
         padding: Kirigami.Units.largeSpacing
         contentItem: ColumnLayout {
@@ -943,6 +940,17 @@ Kirigami.Page {
             itemDelegate: Item {
                 implicitWidth: hcGame.width
                 implicitHeight: Kirigami.Units.gridUnit * 2
+                property bool rowSelected: false
+                function refreshSelected() {
+                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
+                }
+                Component.onCompleted: refreshSelected()
+                Connections {
+                    target: gameTable.selectionModel
+                    function onSelectionChanged() {
+                        refreshSelected()
+                    }
+                }
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.RightButton
@@ -974,6 +982,7 @@ Kirigami.Page {
                         Layout.fillWidth: true
                         verticalAlignment: Text.AlignVCenter
                         text: modelData ?? ""
+                        color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                         elide: Text.ElideRight
                     }
                 }
@@ -1000,6 +1009,18 @@ Kirigami.Page {
                 verticalAlignment: Text.AlignVCenter
                 text: modelData ?? ""
                 elide: Text.ElideRight
+                property bool rowSelected: false
+                function refreshSelected() {
+                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
+                }
+                Component.onCompleted: refreshSelected()
+                Connections {
+                    target: gameTable.selectionModel
+                    function onSelectionChanged() {
+                        refreshSelected()
+                    }
+                }
+                color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                 HoverHandler {
                     id: playedHover
                 }
@@ -1018,6 +1039,17 @@ Kirigami.Page {
             itemDelegate: Controls.ToolButton {
                 text: modelData ?? ""
                 font.bold: true
+                property bool rowSelected: false
+                function refreshSelected() {
+                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
+                }
+                Component.onCompleted: refreshSelected()
+                Connections {
+                    target: gameTable.selectionModel
+                    function onSelectionChanged() {
+                        refreshSelected()
+                    }
+                }
                 background: Rectangle {
                     color: (model?.gameTier ?? "") !== "" ? model?.gameTierBg : "transparent"
                     radius: 4
@@ -1026,7 +1058,7 @@ Kirigami.Page {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     text: modelData ?? ""
-                    color: (model?.gameTier ?? "") !== "" ? model?.gameTierFg : Kirigami.Theme.textColor
+                    color: rowSelected ? Kirigami.Theme.highlightedTextColor : ((model?.gameTier ?? "") !== "" ? model?.gameTierFg : Kirigami.Theme.textColor)
                     elide: Text.ElideRight
                 }
                 onClicked: gamesPage.select(gameFilter.idAt(row))
