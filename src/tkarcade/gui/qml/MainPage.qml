@@ -362,6 +362,47 @@ Kirigami.Page {
         gamesPage.refreshColumnOrder()
         gameModel.fetchMissing()
         Qt.callLater(gamesPage.ensureSelection)
+        if (TKARCADE_DEBUG_GEOMETRY === "1") {
+            geometryTimer.start()
+        }
+    }
+
+    Timer {
+        id: geometryTimer
+        interval: 500
+        repeat: true
+        property int shots: 0
+        onTriggered: {
+            gamesPage.dumpGeometry()
+            shots += 1
+            if (shots >= 3) {
+                stop()
+            }
+        }
+    }
+
+    function dumpGeometry() {
+        var parts = []
+        parts.push("table=" + gameTable.width + "x" + gameTable.height)
+        for (var i = 0; i < gamesPage.columnOrder.length; i++) {
+            var logical = gamesPage.columnOrder[i]
+            var cell = null
+            var stack = tableHeader.childItems()
+            while (stack.length > 0) {
+                var item = stack.pop()
+                if (item.objectName === "headerCell" + logical) {
+                    cell = item
+                    break
+                }
+                stack = stack.concat(item.childItems())
+            }
+            if (cell !== null) {
+                parts.push(logical + ":" + Math.round(cell.x) + "+" + Math.round(cell.width))
+            } else {
+                parts.push(logical + ":missing")
+            }
+        }
+        console.log("TKARCADE_GEOMETRY " + parts.join(" "))
     }
 
     Connections {
@@ -588,8 +629,8 @@ Kirigami.Page {
                 Controls.ToolButton {
                     id: viewButton
                     objectName: "viewButton"
-                    text: gamesPage.viewName()
                     icon.name: gamesPage.viewIcon()
+                    display: Controls.AbstractButton.IconOnly
                     onClicked: gamesPage.cycleView()
                 }
                 Controls.ToolButton {
@@ -609,7 +650,7 @@ Kirigami.Page {
         Kirigami.Action {
             displayComponent: Controls.ToolButton {
                 objectName: "hamburgerButton"
-                icon.name: "view-more"
+                icon.name: "overflow-menu"
                 onClicked: hamburgerMenu.popup()
                                 Controls.Menu {
                                     id: hamburgerMenu

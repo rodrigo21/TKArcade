@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- View button is icon-only like Dolphin (icons per mode plus
+  Ctrl+1/2/3); menu button uses the existing overflow-menu icon;
+  geometry dump behind TKARCADE_DEBUG_GEOMETRY=1.
 - Header strip shares the body x origin (stray outer margins had
   shifted every title and divider away from its column); header
   geometry locked by test.

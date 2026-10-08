@@ -114,6 +114,9 @@ def main(argv: list[str] | None = None) -> int:
     engine.rootContext().setContextProperty(
         "TKARCADE_DEBUG_CLICKS", os.environ.get("TKARCADE_DEBUG_CLICKS", "")
     )
+    engine.rootContext().setContextProperty(
+        "TKARCADE_DEBUG_GEOMETRY", os.environ.get("TKARCADE_DEBUG_GEOMETRY", "")
+    )
     from PySide6.QtCore import QUrl
 
     engine.load(QUrl(qml_url()))
