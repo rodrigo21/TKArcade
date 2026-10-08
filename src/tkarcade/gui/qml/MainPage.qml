@@ -391,6 +391,23 @@ Kirigami.Page {
                 parts.push(cell.logical + ":" + Math.round(cell.x) + "+" + Math.round(cell.width))
             }
         }
+        var body = {}
+        var stack = Array.prototype.slice.call(gameTable.children)
+        while (stack.length > 0) {
+            var item = stack.pop()
+            if (item.row !== undefined && item.column !== undefined && item.row === 0
+                    && body[item.column] === undefined && item.width > 0) {
+                body[item.column] = Math.round(item.x) + "+" + Math.round(item.width)
+            }
+            var kids = item.children
+            for (var k = 0; k < kids.length; k++) {
+                stack.push(kids[k])
+            }
+        }
+        var cols = Object.keys(body).sort(function(a, b) { return a - b })
+        for (var c = 0; c < cols.length; c++) {
+            parts.push("b" + cols[c] + ":" + body[cols[c]])
+        }
         console.log("TKARCADE_GEOMETRY " + parts.join(" "))
     }
 
