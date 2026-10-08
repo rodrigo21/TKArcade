@@ -1316,3 +1316,19 @@ def test_selected_row_uses_highlight_text_color():
     text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert text.count("highlightedTextColor") >= 3
     assert "onSelectionChanged" in text
+
+
+def test_header_titles_share_styled_delegate():
+    """Every table header uses the Button-set title delegate (contrast)."""
+    import pathlib
+    import re
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    blocks = re.findall(
+        r"KAddons\.HeaderComponent \{(.*?)\n        \}", text, flags=re.DOTALL
+    )
+    titled = [b for b in blocks if "title:" in b]
+    assert len(titled) == 6
+    assert all("headerDelegate: headerTitle" in b for b in titled)

@@ -586,7 +586,7 @@ Kirigami.Page {
             displayComponent: Controls.ToolButton {
                 objectName: "hamburgerButton"
                 icon.name: "application-menu"
-                onClicked: hamburgerMenu.open()
+                onClicked: hamburgerMenu.popup()
                                 Controls.Menu {
                                     id: hamburgerMenu
                                     objectName: "hamburgerMenu"
@@ -679,10 +679,6 @@ Kirigami.Page {
                                         onTriggered: Qt.quit()
                                     }
                                     Controls.MenuSeparator {
-                                    }
-                                    Controls.MenuItem {
-                                        enabled: false
-                                        text: qsTr("Drawer Mode")
                                     }
                                     Controls.MenuItem {
                                         objectName: "drawerModeOverlay"
@@ -918,11 +914,29 @@ Kirigami.Page {
         Keys.onDownPressed: {
             gamesPage.moveTableSelection(1)
         }
+        // Shared header titles: Button color set like the toolbar,
+        // centered and bold for header contrast.
+        Component {
+            id: headerTitle
+            Controls.Label {
+                text: modelData ?? ""
+                elide: Text.ElideRight
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignHCenter
+                leftPadding: Kirigami.Units.smallSpacing
+                rightPadding: Kirigami.Units.smallSpacing
+                font.bold: true
+                Kirigami.Theme.inherit: false
+                Kirigami.Theme.colorSet: Kirigami.Theme.Button
+                color: Kirigami.Theme.textColor
+            }
+        }
         KAddons.HeaderComponent {
             id: hcNum
             objectName: "hcNum"
             title: "#"
             width: 36
+            headerDelegate: headerTitle
             itemDelegate: Controls.Label {
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
@@ -934,6 +948,7 @@ Kirigami.Page {
             id: hcGame
             objectName: "hcGame"
             title: qsTr("Game")
+            headerDelegate: headerTitle
             textRole: "gameName"
             role: gameModel.roleId("gameName")
             width: 400
@@ -992,6 +1007,7 @@ Kirigami.Page {
             id: hcAppId
             objectName: "hcAppId"
             title: qsTr("App ID")
+            headerDelegate: headerTitle
             textRole: "gameId"
             role: gameModel.roleId("gameId")
             width: 90
@@ -1001,6 +1017,7 @@ Kirigami.Page {
             id: hcPlayed
             objectName: "hcPlayed"
             title: qsTr("Played")
+            headerDelegate: headerTitle
             textRole: "gamePlayed"
             role: gameModel.roleId("gamePlayedSecs")
             width: 90
@@ -1032,6 +1049,7 @@ Kirigami.Page {
             id: hcTier
             objectName: "hcTier"
             title: qsTr("ProtonDB")
+            headerDelegate: headerTitle
             textRole: "gameTier"
             role: gameModel.roleId("gameTier")
             width: 110
@@ -1074,6 +1092,7 @@ Kirigami.Page {
             id: hcSource
             objectName: "hcSource"
             title: qsTr("Source")
+            headerDelegate: headerTitle
             textRole: "gameSource"
             role: gameModel.roleId("gameSource")
             width: 80
