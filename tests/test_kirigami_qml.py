@@ -1366,14 +1366,16 @@ def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
 
 
 def test_selected_row_uses_highlight_text_color():
-    """Custom cells must track selection (offscreen delegates never spawn)."""
+    """Selection pairs highlightColor bg with highlightedTextColor text."""
     import pathlib
 
     from tkarcade.gui import kirigami_app as kapp
 
     text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert text.count("highlightedTextColor") >= 3
-    assert "onSelectionChanged" in text
+    assert "property bool isSelected" in text
+    # tier badge joins the highlight instead of keeping its island color
+    assert "isSelected ? Kirigami.Theme.highlightColor" in text
 
 
 def test_header_titles_share_styled_delegate():

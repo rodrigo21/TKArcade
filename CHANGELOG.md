@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Selected rows paint highlightColor behind highlightedTextColor
+  text (tier badge joins the highlight); selection state lives on
+  the delegate via selectedIds, no row index involved.
 - Row clicks pass the page explicitly (QML ids are file-scoped, so
   the bare `gamesPage` reference inside RowClickHandler.qml resolved
   to nothing and every click died silent: no selection, no

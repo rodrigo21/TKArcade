@@ -1020,6 +1020,12 @@ Kirigami.Page {
                 // Selection highlighting reads page state directly:
                 // selectedIds is the single source of truth and stays
                 // reactive without any row index.
+                property bool isSelected: gamesPage.selectedIds.indexOf(model?.gameId ?? "") >= 0
+                Rectangle {
+                    anchors.fill: parent
+                    visible: isSelected
+                    color: Kirigami.Theme.highlightColor
+                }
                 // number gutter
                 Controls.Label {
                     visible: logical === 0
@@ -1112,7 +1118,7 @@ Kirigami.Page {
                     text: model?.gameTier ?? ""
                     font.bold: true
                     background: Rectangle {
-                        color: (model?.gameTier ?? "") !== "" ? model?.gameTierBg : "transparent"
+                        color: isSelected ? Kirigami.Theme.highlightColor : ((model?.gameTier ?? "") !== "" ? model?.gameTierBg : "transparent")
                         radius: 4
                     }
                     contentItem: Controls.Label {
