@@ -1258,7 +1258,7 @@ def test_toolbar_actions_in_header_and_quit_shortcut(qgui_app, xdg_env):
 
 
 def test_table_delegates_never_lookup_by_visual_row():
-    """Icons/tooltips must bind model roles: rowData(row) desyncs on sort."""
+    """Delegates bind model roles/ids, never the visual row (stuck at 0)."""
     import pathlib
     import re
 
@@ -1266,9 +1266,21 @@ def test_table_delegates_never_lookup_by_visual_row():
 
     offenders = []
     for path in sorted((pathlib.Path(kapp.__file__).parent / "qml").glob("*.qml")):
-        for i, line in enumerate(path.read_text().splitlines(), 1):
+        if path.name == "RowClickHandler.qml":
+            continue  # takes gid, never row (checked below)
+        src = path.read_text().splitlines()
+        for i, line in enumerate(src, 1):
             if re.search(r"rowData\s*\(\s*row\s*\)", line):
                 offenders.append(f"{path.name}:{i}")
+            # idAt(row) is only safe with a declared JS loop var
+            # (extendSelect); delegates must use model.gameId instead.
+            if re.search(r"idAt\s*\(\s*row\s*\)", line) and not any(
+                "for (var row" in prev for prev in src[max(0, i - 4) : i]
+            ):
+                offenders.append(f"{path.name}:{i}")
+    # RowClickHandler instances must pass gid:, never row:
+    text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    assert "RowClickHandler {\n                        gid:" in text
     assert offenders == []
 
 

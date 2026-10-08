@@ -1017,17 +1017,9 @@ Kirigami.Page {
                     return 80
                 }
                 implicitHeight: Kirigami.Units.gridUnit * 2
-                property bool rowSelected: false
-                function refreshSelected() {
-                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
-                }
-                Component.onCompleted: refreshSelected()
-                Connections {
-                    target: gameTable.selectionModel
-                    function onSelectionChanged() {
-                        refreshSelected()
-                    }
-                }
+                // Selection highlighting reads page state directly:
+                // selectedIds is the single source of truth and stays
+                // reactive without any row index.
                 // number gutter
                 Controls.Label {
                     visible: logical === 0
@@ -1037,7 +1029,7 @@ Kirigami.Page {
                     color: Kirigami.Theme.disabledTextColor
                     text: row + 1
                     RowClickHandler {
-                        row: row
+                        gid: model?.gameId ?? ""
                     }
                 }
                 // game: icon plus name
@@ -1045,7 +1037,7 @@ Kirigami.Page {
                     visible: logical === 1
                     anchors.fill: parent
                     RowClickHandler {
-                        row: row
+                        gid: model?.gameId ?? ""
                     }
                     RowLayout {
                         anchors.fill: parent
@@ -1073,7 +1065,7 @@ Kirigami.Page {
                             Layout.fillWidth: true
                             verticalAlignment: Text.AlignVCenter
                             text: model?.gameName ?? ""
-                            color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                            color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                             elide: Text.ElideRight
                         }
                     }
@@ -1085,10 +1077,10 @@ Kirigami.Page {
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: Kirigami.Units.smallSpacing
                     text: logical === 2 ? (model?.gameId ?? "") : (model?.gameSource ?? "")
-                    color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                    color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                     elide: Text.ElideRight
                     RowClickHandler {
-                        row: row
+                        gid: model?.gameId ?? ""
                     }
                 }
                 // played (with session tooltip)
@@ -1098,10 +1090,10 @@ Kirigami.Page {
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: Kirigami.Units.smallSpacing
                     text: model?.gamePlayed ?? ""
-                    color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                    color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                     elide: Text.ElideRight
                     RowClickHandler {
-                        row: row
+                        gid: model?.gameId ?? ""
                     }
                     HoverHandler {
                         id: playedHover
@@ -1123,11 +1115,11 @@ Kirigami.Page {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         text: model?.gameTier ?? ""
-                        color: rowSelected ? Kirigami.Theme.highlightedTextColor : ((model?.gameTier ?? "") !== "" ? model?.gameTierFg : Kirigami.Theme.textColor)
+                        color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : ((model?.gameTier ?? "") !== "" ? model?.gameTierFg : Kirigami.Theme.textColor)
                         elide: Text.ElideRight
                     }
-                    onClicked: gamesPage.select(gameFilter.idAt(row))
-                    onDoubleClicked: gameModel.openProtonDB(gameFilter.idAt(row))
+                    onClicked: gamesPage.select(model?.gameId ?? "")
+                    onDoubleClicked: gameModel.openProtonDB(model?.gameId ?? "")
                     HoverHandler {
                         id: tierHover
                     }
