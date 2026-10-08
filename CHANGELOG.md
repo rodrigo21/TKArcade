@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Drawer header is a plain Item so the drawer-edge separator runs full
+  height and meets the header lines (a ToolBar header makes Kirigami
+  inset it around the header zone); grid lines close the header row
+  and run down the number gutter; status text steps right off the
+  divider tip.
 - List view sits inside an outer frame (border outside header plus
   table); status text clears the footer separator and window edge.
 - Drawer Library bar shares the Kirigami global toolbar height, so its

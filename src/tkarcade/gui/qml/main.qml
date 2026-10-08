@@ -42,18 +42,29 @@ Kirigami.ApplicationWindow {
         objectName: "sourceDrawer"
         title: qsTr("TKArcade")
         showHeaderWhenCollapsed: true
-        header: Controls.ToolBar {
+        // Plain Item (not a ToolBar): with a toolbar header Kirigami
+        // insets the drawer-edge separator around the header zone, so
+        // the vertical line never meets the header lines. A plain
+        // header keeps the full-height edge separator, which crosses
+        // the header lines at the corner.
+        header: Item {
             objectName: "drawerHeaderBar"
             // Same height source the Kirigami page headers clamp to, so
             // both separator lines meet (native, no magic numbers).
             implicitHeight: pageStack.globalToolBar.preferredHeight
-            contentItem: RowLayout {
-                Layout.fillWidth: true
+            Kirigami.Theme.colorSet: Kirigami.Theme.Header
+            Kirigami.Theme.inherit: false
+            Rectangle {
+                anchors.fill: parent
+                color: Kirigami.Theme.backgroundColor
+            }
+            RowLayout {
+                anchors.fill: parent
                 // Reserve the button slot even when not collapsible so
-                // this bar matches the page header height (both are then
-                // driven by a ToolButton) and the separator lines align.
+                // the Library label keeps its x in every drawer mode.
                 Controls.ToolButton {
                     objectName: "drawerCollapseButton"
+                    Layout.alignment: Qt.AlignVCenter
                     icon.name: "sidebar-collapse-left"
                     opacity: sourceDrawer.collapsible ? 1 : 0
                     enabled: sourceDrawer.collapsible
@@ -67,7 +78,16 @@ Kirigami.ApplicationWindow {
                     Layout.alignment: Qt.AlignVCenter
                     text: qsTr("Library")
                     font.bold: true
+                    color: Kirigami.Theme.textColor
                 }
+            }
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: Kirigami.Theme.textColor
+                opacity: 0.18
             }
         }
         actions: [

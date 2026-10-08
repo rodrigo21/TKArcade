@@ -1066,6 +1066,17 @@ Kirigami.Page {
                 }
             }
         }
+            // Grid line under the whole header row (continues the
+            // #|Game divider rightward across every column).
+            Rectangle {
+                objectName: "tableHeaderBottomLine"
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: Kirigami.Theme.textColor
+                opacity: 0.18
+            }
         }
 
         TableView {
@@ -1131,6 +1142,17 @@ Kirigami.Page {
                         font.bold: true
                         color: isSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                         text: row + 1
+                    }
+                    // Grid line down the gutter edge (continues the
+                    // #|Game divider through every body row).
+                    Rectangle {
+                        objectName: "gutterDivider" + row
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: 1
+                        color: Kirigami.Theme.textColor
+                        opacity: 0.18
                     }
                     RowClickHandler {
                         page: gamesPage
@@ -1386,7 +1408,9 @@ Kirigami.Page {
     footer: RowLayout {
         Controls.Label {
             objectName: "statusLabel"
-            // Clear the footer separator above and the window edge below.
+            // Clear the footer separator above and the window edge below;
+            // left offset steps off the drawer divider tip.
+            leftPadding: Kirigami.Units.smallSpacing
             topPadding: Kirigami.Units.smallSpacing
             bottomPadding: Kirigami.Units.smallSpacing
             text: {

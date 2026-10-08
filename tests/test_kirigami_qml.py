@@ -1489,10 +1489,13 @@ def test_view_switcher_has_icons_and_shortcuts(qgui_app, xdg_env):
 
 def test_drawer_and_page_headers_share_height(qgui_app, xdg_env):
     """Drawer "Library" bar matches the page header so separators align."""
+    import pathlib
+
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
+    from tkarcade.gui import kirigami_app as kapp
 
     cfg = C.GameConfig()
     cfg.general.appid = "1"
@@ -1516,6 +1519,12 @@ def test_drawer_and_page_headers_share_height(qgui_app, xdg_env):
     page_h = max(h for h in page_headers if h is not None)
     assert drawer_h > 0 and page_h > 0
     assert abs(drawer_h - page_h) <= 1, (drawer_h, page_h)
+    # Plain Item header (never a ToolBar): a toolbar header makes
+    # Kirigami inset the drawer-edge separator around the header zone,
+    # leaving the vertical line short of the header lines.
+    main_src = (pathlib.Path(kapp.__file__).parent / "qml" / "main.qml").read_text()
+    assert "header: Item {" in main_src
+    assert "header: Controls.ToolBar" not in main_src
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -1570,6 +1579,7 @@ def test_status_label_clears_footer_lines(qgui_app, xdg_env):
     win, _engine, _proxy, warnings = _load_main(qgui_app)
     label = win.findChild(QObject, "statusLabel")
     assert label is not None
+    assert label.property("leftPadding") > 0
     assert label.property("topPadding") > 0
     assert label.property("bottomPadding") > 0
     real = [w for w in warnings if "graphics scene" not in w]
@@ -1577,3 +1587,38 @@ def test_status_label_clears_footer_lines(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_table_header_bottom_line_spans_width(qgui_app, xdg_env):
+    """A grid line closes the header row across every column."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    line = win.findChild(QQuickItem, "tableHeaderBottomLine")
+    assert line is not None
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
+    assert line.property("height") == 1
+    assert abs(line.property("width") - header.property("width")) <= 1
+    bottom = line.property("y") + line.property("height")
+    assert abs(bottom - header.property("height")) <= 1, (bottom, header.property("height"))
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_gutter_divider_in_source():
+    """The # column carries its divider down through the body rows."""
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    assert "gutterDivider" in src
