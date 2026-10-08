@@ -14,22 +14,22 @@ Kirigami.Dialog {
     property var page: null
 
     function flagFor(logical) {
-        if (logical === 1) {
+        if (logical === 2) {
             return "showAppId"
-        } else if (logical === 2) {
-            return "showPlayed"
         } else if (logical === 3) {
+            return "showPlayed"
+        } else if (logical === 4) {
             return "showTier"
         }
         return "showSource"
     }
 
     function titleFor(logical) {
-        if (logical === 1) {
+        if (logical === 2) {
             return qsTr("App ID")
-        } else if (logical === 2) {
-            return qsTr("Played")
         } else if (logical === 3) {
+            return qsTr("Played")
+        } else if (logical === 4) {
             return qsTr("ProtonDB")
         }
         return qsTr("Source")
@@ -41,7 +41,7 @@ Kirigami.Dialog {
         }
         Repeater {
             // Static literal: JS array end to end, never a QVariantList.
-            model: [1, 2, 3, 4]
+            model: [2, 3, 4, 5]
             delegate: RowLayout {
                 required property int modelData
                 property int logical: modelData
@@ -59,14 +59,14 @@ Kirigami.Dialog {
                     icon.name: "go-up"
                     text: qsTr("Move up")
                     display: Controls.AbstractButton.IconOnly
-                    enabled: page !== null && page.columnOrder.indexOf(logical) > 0
+                    enabled: page !== null && page.columnOrder.indexOf(logical) > 2
                     onClicked: page.moveColumn(logical, -1)
                 }
                 Controls.ToolButton {
                     icon.name: "go-down"
                     text: qsTr("Move down")
                     display: Controls.AbstractButton.IconOnly
-                    enabled: page !== null && page.columnOrder.indexOf(logical) < 3
+                    enabled: page !== null && page.columnOrder.indexOf(logical) < 5
                     onClicked: page.moveColumn(logical, 1)
                 }
             }

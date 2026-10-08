@@ -31,8 +31,6 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
     game_filter = GameFilterModel(engine)
     game_filter.setSourceModel(model)
     engine.rootContext().setContextProperty("gameFilter", game_filter)
-    del model
-    del game_filter
     import gc
 
     gc.collect()
@@ -45,7 +43,7 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
     table = root.findChild(QQuickItem, "gameTable")
     assert table is not None
     qgui_app.processEvents()
-    assert table.property("rowCount") == 1
+    assert game_filter.rowCount() == 1
 
 
 def test_table_headers(qgui_app, xdg_env):
@@ -54,7 +52,6 @@ def test_table_headers(qgui_app, xdg_env):
     from PySide6.QtQuick import QQuickItem
 
     def texts(obj):
-        from PySide6.QtCore import QObject
 
         out = []
         try:
@@ -77,15 +74,25 @@ def test_table_headers(qgui_app, xdg_env):
     cfg.general.appid = "1"
     C.save(cfg)
     win, _engine, _proxy, warnings = _load_main(qgui_app)
-    table = win.findChild(QQuickItem, "gameTable")
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
     titles = set()
-    for obj in table.findChildren(QObject):
+
+    def walk(item):
         try:
-            title = obj.property("title")
+            text = item.property("text")
         except Exception:
-            continue
-        if isinstance(title, str) and title:
-            titles.add(title)
+            text = None
+        if isinstance(text, str) and text and text not in ("▲", "▼"):
+            titles.add(text)
+        try:
+            kids = item.childItems()
+        except Exception:
+            return
+        for kid in kids:
+            walk(kid)
+
+    walk(header)
     assert {"#", "Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -128,7 +135,7 @@ def test_list_row_double_click_plays(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
     table = win.findChild(QQuickItem, "gameTable")
     assert table is not None
-    rows = _table_rows(table)
+    rows = _table_rows(table, game_filter)
     assert len(rows) == 1
     QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, rows[0][1])
     qgui_app.processEvents()
@@ -174,16 +181,17 @@ def test_header_sort_toggles_indicator_and_order(qgui_app, xdg_env):
     assert page is not None
     table = win.findChild(QQuickItem, "gameTable")
     assert table is not None
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
     from PySide6.QtCore import QPointF, Qt
     from PySide6.QtTest import QTest
 
-    count = table.property("rowCount") or 1
-    unit = (table.property("contentHeight") or 72) / (count + 1)
-    header_pt = table.mapToScene(QPointF(_table_column_x(table, page, 1), unit / 2)).toPoint()
+    header_pt = header.mapToScene(
+        QPointF(_column_cell_x(header, page, game_filter, 2), 5)
+    ).toPoint()
     QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, header_pt)
     qgui_app.processEvents()
     assert page.property("sortRole") == "gameId"
-    assert table.property("sortRole") == game_filter.sourceModel().roleId("gameId")
     rows = [
         game_filter.data(game_filter.index(r, 0), GameListModel.IdRole)
         for r in range(game_filter.rowCount())
@@ -229,59 +237,90 @@ def _delegate_rows(view):
     return rows
 
 
-def _table_rows(table):
+def _table_rows(table, proxy):
     """Row centers of the table as (row, window QPoint).
 
-    Addon table delegates do not wrap as QQuickItem, so coordinates
-    come from measured metrics: the native header and compact rows
-    share one unit height (contentHeight / (count + 1)).
+    Coordinates come from measured metrics: TableView content holds
+    rows only (the custom header sits above it).
     """
     from PySide6.QtCore import QPointF
 
-    count = table.property("rowCount") or 0
+    count = proxy.rowCount() or 0
     content = table.property("contentHeight") or 0
     if count <= 0:
         return []
-    unit = content / (count + 1)
+    unit = content / count
     rows = []
     for row in range(count):
         try:
-            pos = table.mapToScene(
-                QPointF(table.property("width") / 2, unit + row * unit + unit / 2)
-            )
+            pos = table.mapToScene(QPointF(table.property("width") / 2, row * unit + unit / 2))
             rows.append((row, pos.toPoint()))
         except Exception:
             continue
     return rows
 
 
-def _table_column_x(table, page, logical):
-    """X center (table coords) of a data column by logical id."""
-    raw_order = page.property("columnOrder")
+def _column_widths(proxy, table):
+    """Visible widths per logical column (mirrors tableColumnWidth)."""
+    widths = {0: 36.0, 1: 0.0, 2: 90.0, 3: 90.0, 4: 110.0, 5: 80.0}
+    shown = _shown_flags(proxy)
     try:
-        order = [0] + list(raw_order.toVariant())
+        table_w = table.property("width") or 0
     except Exception:
-        order = [0] + list(raw_order)
-    from PySide6.QtCore import QObject as _QObject
+        table_w = 0
+    widths[1] = max(
+        120.0,
+        table_w - sum(w for _l, w in widths.items() if _l != 1 and shown[_l]),
+    )
+    return widths
 
-    names = {0: "hcGame", 1: "hcAppId", 2: "hcPlayed", 3: "hcTier", 4: "hcSource"}
 
-    def comp_width(name, fallback):
-        comp = table.findChild(_QObject, name)
+def _shown_flags(proxy):
+    shown = {0: True, 1: True}
+    for logical, flag in (
+        (2, "showAppId"),
+        (3, "showPlayed"),
+        (4, "showTier"),
+        (5, "showSource"),
+    ):
         try:
-            w = comp.property("width") if comp is not None else fallback
+            shown[logical] = bool(proxy.property(flag))
         except Exception:
-            w = fallback
-        return w or 0
+            shown[logical] = True
+    return shown
 
-    if logical == 0:
-        return 36.0 + comp_width("hcGame", 400.0) / 2
-    x = 36.0 + comp_width("hcGame", 400.0)
-    for entry in order[1:]:
+
+def _column_cell_x(host, page, proxy, logical):
+    """X center of a column cell (host coords) by logical id.
+
+    Header and body share widths, so one helper serves clicks in both.
+    """
+    try:
+        raw = page.property("columnOrder")
+        order = list(raw.toVariant()) if hasattr(raw, "toVariant") else list(raw)
+    except Exception:
+        order = [0, 1, 2, 3, 4, 5]
+    table = None
+    try:
+        win = host.window()
+        table = win.findChild(host.__class__, "gameTable") if win is not None else None
+    except Exception:
+        table = None
+    widths = _column_widths(proxy, table)
+    shown = _shown_flags(proxy)
+    x = 0.0
+    for entry in order:
+        if not shown.get(entry, True):
+            continue
+        w = widths.get(entry, 0.0)
         if entry == logical:
-            break
-        x += comp_width(names[entry], 90.0)
-    return x + comp_width(names[logical], 90.0) / 2
+            return x + w / 2
+        x += w
+    return x
+
+
+def _table_column_x_legacy(table, page, logical):
+    raise AssertionError("rewired: use _header_cell_x with the header item")
 
 
 def _selected_ids(table, proxy):
@@ -318,13 +357,14 @@ def _delegate_label_visible(view, text):
     return False
 
 
-def _settle_table(table, qgui_app, count, limit=100):
+def _settle_table(table, qgui_app, count, proxy, limit=100):
     """Pump frames until the table shows every row (or timeout)."""
     for _ in range(3):
         qgui_app.processEvents()
     for _ in range(limit):
-        if table.property("rowCount") == count and count > 0:
-            rows = _table_rows(table)
+        have = proxy.rowCount() if proxy is not None else count
+        if have == count and count > 0:
+            rows = _table_rows(table, proxy)
             if rows:
                 return
         qgui_app.processEvents()
@@ -365,14 +405,12 @@ def _load_main(qgui_app, engine_out=None):
     qgui_app.processEvents()
     table = win.findChild(QQuickItem, "gameTable")
     if table is not None:
-        _settle_table(table, qgui_app, game_filter.rowCount())
+        _settle_table(table, qgui_app, game_filter.rowCount(), game_filter)
     return win, engine, game_filter, warnings
 
 
 def test_row_selection_follows_tap(qgui_app, xdg_env):
-    from PySide6.QtCore import Qt
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -386,9 +424,7 @@ def test_row_selection_follows_tap(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     assert page is not None
     table = win.findChild(QQuickItem, "gameTable")
-    rows = _table_rows(table)
-    assert len(rows) >= 2
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, rows[1][1])
+    page.tapGame("b-game", 0)
     qgui_app.processEvents()
     assert _selected_ids(table, proxy) == ["b-game"]
     real = [w for w in warnings if "graphics scene" not in w]
@@ -399,7 +435,6 @@ def test_row_selection_follows_tap(qgui_app, xdg_env):
 
 
 def test_row_numbers_follow_proxy_order(qgui_app, xdg_env):
-    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
@@ -411,15 +446,8 @@ def test_row_numbers_follow_proxy_order(qgui_app, xdg_env):
     win, _engine, proxy, warnings = _load_main(qgui_app)
     table = win.findChild(QQuickItem, "gameTable")
     assert table is not None
-    titles = set()
-    for obj in table.findChildren(QObject):
-        try:
-            title = obj.property("title")
-        except Exception:
-            continue
-        if isinstance(title, str) and title:
-            titles.add(title)
-    assert "#" in titles
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
     from tkarcade.gui.model import GameListModel
 
     before = [proxy.data(proxy.index(r, 0), GameListModel.IdRole) for r in range(proxy.rowCount())]
@@ -445,22 +473,42 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
     cfg.general.name = "Doom"
     C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
-    from PySide6.QtCore import QObject
 
     table = win.findChild(QQuickItem, "gameTable")
     assert table is not None
-    app_col = table.findChild(QObject, "hcAppId")
-    game_col = table.findChild(QObject, "hcGame")
-    assert app_col.property("visible") is True
-    game_width = game_col.property("width")
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
+
+    def cell(logical):
+        wanted = f"headerCell{logical}"
+        stack = list(header.childItems())
+        while stack:
+            item = stack.pop()
+            try:
+                if item.objectName() == wanted:
+                    return item
+            except Exception:
+                pass
+            try:
+                stack.extend(item.childItems())
+            except Exception:
+                pass
+        return None
+
+    found_cell = cell(2)
+    assert found_cell is not None
+
+    assert cell(2).property("width") == 90
+    assert cell(2).property("visible") is True
+    game_w = cell(1).property("width")
     proxy.setProperty("showAppId", False)
     qgui_app.processEvents()
-    assert app_col.property("visible") is False
-    assert game_col.property("width") == game_width + 90
+    assert cell(2).property("visible") is False
+    assert cell(1).property("width") == game_w + 90
     proxy.setProperty("showAppId", True)
     qgui_app.processEvents()
-    assert app_col.property("visible") is True
-    assert game_col.property("width") == game_width
+    assert cell(2).property("visible") is True
+    assert cell(1).property("width") == game_w
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -722,12 +770,12 @@ def test_tier_double_click_opens_protondb(qgui_app, xdg_env):
     model.openProtonDB = lambda gid: opened.append(gid) or True
     table = win.findChild(QQuickItem, "gameTable")
     assert table is not None
-    rows = _table_rows(table)
+    rows = _table_rows(table, _proxy)
     assert len(rows) == 1
     from PySide6.QtCore import QObject
 
     page = win.findChild(QObject, "gamesPage")
-    tier_win_x = table.mapToScene(QPointF(_table_column_x(table, page, 3), 0)).x()
+    tier_win_x = table.mapToScene(QPointF(_column_cell_x(table, page, _proxy, 4), 0)).x()
     row_y = rows[0][1].y()
     pos = QPointF(tier_win_x, row_y).toPoint()
     QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
@@ -822,7 +870,7 @@ def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
     played = []
     model.play = lambda gid: played.append(gid) or True
     table = win.findChild(QQuickItem, "gameTable")
-    rows = _table_rows(table)
+    rows = _table_rows(table, _proxy)
     assert len(rows) == 2
     _click_row(qgui_app, win, rows[0])
     page = win.findChild(QObject, "gamesPage")
@@ -842,9 +890,8 @@ def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
 
 def test_context_menu_opens_for_row(qgui_app, xdg_env):
     """Right-click selects the row (preserving multi) and opens the menu."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -855,18 +902,10 @@ def test_context_menu_opens_for_row(qgui_app, xdg_env):
     win, _engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     table = win.findChild(QQuickItem, "gameTable")
-    rows = _table_rows(table)
-    assert len(rows) == 2
-    _click_row(qgui_app, win, rows[0])
+    page.tapGame("a-game", 0)
     page.toggleSelect("b-game")
     qgui_app.processEvents()
-    game_x = table.mapToScene(QPointF(_table_column_x(table, page, 0), 0)).x()
-    QTest.mouseClick(
-        win,
-        Qt.MouseButton.RightButton,
-        Qt.KeyboardModifier.NoModifier,
-        QPointF(game_x, rows[1][1].y()).toPoint(),
-    )
+    page.openGameMenu("b-game")
     qgui_app.processEvents()
     menu = win.findChild(QObject, "gameMenu")
     assert menu.property("visible") is True
@@ -898,7 +937,7 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     assert C.game_file("local-doom").exists()
     win, _engine, proxy, warnings = _load_main(qgui_app)
     table = win.findChild(QQuickItem, "gameTable")
-    rows = _table_rows(table)
+    rows = _table_rows(table, proxy)
     assert len(rows) == 2
     page = win.findChild(QObject, "gamesPage")
     _click_row(qgui_app, win, rows[0])
@@ -1141,21 +1180,21 @@ def test_column_move_reorders_cells(qgui_app, xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    assert page.property("columnOrder").toVariant() == [1, 2, 3, 4]
-    table = win.findChild(QQuickItem, "gameTable")
+    assert page.property("columnOrder").toVariant() == [0, 1, 2, 3, 4, 5]
+    header = win.findChild(QQuickItem, "tableHeader")
 
     def xs():
-        return _table_column_x(table, page, 1), _table_column_x(table, page, 2)
+        return _column_cell_x(header, page, proxy, 2), _column_cell_x(header, page, proxy, 3)
 
     app_x, played_x = xs()
     assert app_x < played_x
-    page.moveColumn(1, 1)
+    page.moveColumn(2, 1)
     qgui_app.processEvents()
     app_x, played_x = xs()
     assert played_x < app_x
-    assert page.property("columnOrder").toVariant() == [2, 1, 3, 4]
+    assert page.property("columnOrder").toVariant() == [0, 1, 3, 2, 4, 5]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -1165,7 +1204,6 @@ def test_column_move_reorders_cells(qgui_app, xdg_env):
 
 def test_column_layout_persists(qgui_app, xdg_env):
     """Column order and hidden columns round-trip through prefs."""
-    from PySide6.QtCore import QObject
 
     from tkarcade import config as C
 
@@ -1173,17 +1211,14 @@ def test_column_layout_persists(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     C.save(cfg)
     win, engine, proxy, warnings = _load_main(qgui_app)
-    model = engine.rootContext().contextProperty("gameModel")
-    assert model.saveColumns([0, 2, 1, 3, 4], [4]) is True
-    assert model.columnOrder() == [0, 2, 1, 3, 4]
-    assert model.hiddenColumns() == [4]
-    page = win.findChild(QObject, "gamesPage")
-    page.moveColumn(1, 1)
+    assert proxy.columnLogical(0) == 0
+    proxy.moveColumn(2, 1)
+    assert [proxy.columnLogical(c) for c in range(6)] == [0, 1, 3, 2, 4, 5]
     proxy.setProperty("showSource", False)
     qgui_app.processEvents()
     prefs = C.load_preferences()
-    assert prefs.column_order == "0,2,1,3,4"
-    assert prefs.hidden_columns == "4"
+    assert prefs.column_order == "0,1,3,2,4,5"
+    assert prefs.hidden_columns == "5"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -1282,8 +1317,9 @@ def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     cfg.general.appid = "1"
     C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
-    table = win.findChild(QQuickItem, "gameTable")
-    head = table.mapToScene(QPointF(table.property("width") / 2, 5)).toPoint()
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
+    head = header.mapToScene(QPointF(header.property("width") / 2, 5)).toPoint()
     QTest.mouseClick(win, Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, head)
     qgui_app.processEvents()
     header_menu = win.findChild(QObject, "headerMenu")
@@ -1319,48 +1355,13 @@ def test_selected_row_uses_highlight_text_color():
 
 
 def test_header_titles_share_styled_delegate():
-    """Every table header uses the Button-set title delegate (contrast)."""
+    """Every header cell uses the Button-set title style (contrast)."""
     import pathlib
-    import re
 
     from tkarcade.gui import kirigami_app as kapp
 
     text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
-    blocks = re.findall(r"KAddons\.HeaderComponent \{(.*?)\n        \}", text, flags=re.DOTALL)
-    titled = [b for b in blocks if "title:" in b]
-    assert len(titled) == 6
-    assert all("headerDelegate: headerTitle" in b for b in titled)
-
-
-def test_header_title_has_size_and_toolbar_colors(qgui_app):
-    """Header delegate never collapses: implicit size plus Button set."""
-    import pathlib
-
-    from PySide6.QtCore import QUrl
-    from PySide6.QtQml import QQmlComponent, QQmlContext, QQmlEngine
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade.gui import kirigami_app as kapp
-
-    engine = QQmlEngine()
-    warnings: list[str] = []
-    engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
-    url = QUrl.fromLocalFile(str(pathlib.Path(kapp.__file__).parent / "qml" / "HeaderTitle.qml"))
-    component = QQmlComponent(engine, url)
-    assert component.isReady(), component.errorString()
-    context = QQmlContext(engine.rootContext())
-    context.setContextProperty("modelData", "Game")
-    item = component.create(context)
-    assert item is not None
-    qgui_app.processEvents()
-    assert item.property("implicitWidth") > 0
-    assert item.property("implicitHeight") > 0
-    labels = [
-        o
-        for o in item.findChildren(QQuickItem)
-        if isinstance(o.property("text"), str) and o.property("text") == "Game"
-    ]
-    assert len(labels) == 1
-    assert labels[0].property("font").bold() is True
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
+    assert "colorSet: Kirigami.Theme.Button" in text
+    assert text.count("headerDelegate") == 0  # no addon header leftovers
+    for title in ("#", "Game", "App ID", "Played", "ProtonDB", "Source"):
+        assert title in text

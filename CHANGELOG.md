@@ -6,6 +6,12 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- List view migrated from Addons ListTableView to plain QtQuick
+  TableView with a custom Button-set header bar (full-bleed
+  background, centered bold titles, sort indicators, tap-to-sort
+  and right-click column menu). The proxy is now a real 6-column
+  table model with order/visibility mapping, so icons and cells
+  always track their rows through sorts.
 - Header actions (Play/Add/Edit/Remove, search, views, columns,
   hamburger) live in the window header like plasma-systemmonitor,
   buttons centered with symmetric spacers.

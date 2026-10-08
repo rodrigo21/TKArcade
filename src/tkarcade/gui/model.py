@@ -9,7 +9,7 @@ import threading
 
 from PySide6.QtCore import (
     Property,
-    QAbstractListModel,
+    QAbstractTableModel,
     QModelIndex,
     QSortFilterProxyModel,
     Qt,
@@ -40,7 +40,7 @@ def validate_local_game(name: str, exe: str) -> str:
     return ""
 
 
-class GameListModel(QAbstractListModel):
+class GameListModel(QAbstractTableModel):
     """Configured games for QML (id, name and source roles)."""
 
     IdRole = Qt.ItemDataRole.UserRole + 1
@@ -118,6 +118,18 @@ class GameListModel(QAbstractListModel):
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
         return 0 if (parent is not None and parent.isValid()) else len(self._rows)
+
+    def columnCount(self, parent: QModelIndex | None = None) -> int:
+        # Fixed logical columns (proxy permutes/hides them for the view).
+        return 0 if (parent is not None and parent.isValid()) else 6
+
+    def index(self, row: int, column: int, parent: QModelIndex | None = None):
+        # Table models own their indexes (unlike proxy mapping, this is safe).
+        if parent is not None and parent.isValid():
+            return QModelIndex()
+        if 0 <= row < len(self._rows) and 0 <= column < 6:
+            return self.createIndex(row, column)
+        return QModelIndex()
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not 0 <= index.row() < len(self._rows):
@@ -580,45 +592,6 @@ class GameListModel(QAbstractListModel):
             self._issues_cache[appid] = list(self.validateGame(appid))
         return self._issues_cache[appid]
 
-    @Slot(result=list)
-    def columnOrder(self) -> list:
-        """Persisted column order (logical, Game first); defaults 0..4."""
-        try:
-            order = [int(x) for x in cfgmod.load_preferences().column_order.split(",")]
-        except Exception:
-            return [0, 1, 2, 3, 4]
-        order = [x for x in order if x in (0, 1, 2, 3, 4)]
-        if sorted(order) != [0, 1, 2, 3, 4]:
-            return [0, 1, 2, 3, 4]
-        return order
-
-    @Slot(result=list)
-    def hiddenColumns(self) -> list:
-        """Persisted hidden data columns (subset of 1..4)."""
-        try:
-            hidden = {int(x) for x in cfgmod.load_preferences().hidden_columns.split(",")}
-        except Exception:
-            return []
-        return sorted(hidden & {1, 2, 3, 4})
-
-    @Slot(list, list, result=bool)
-    def saveColumns(self, order, hidden) -> bool:
-        """Persist column order/visibility (best effort)."""
-        try:
-            prefs = cfgmod.load_preferences()
-        except Exception:
-            return False
-        clean_order = [int(x) for x in list(order) if int(x) in (0, 1, 2, 3, 4)]
-        if sorted(clean_order) == [0, 1, 2, 3, 4]:
-            prefs.column_order = ",".join(map(str, clean_order))
-        clean_hidden = sorted({int(x) for x in list(hidden)} & {1, 2, 3, 4})
-        prefs.hidden_columns = ",".join(map(str, clean_hidden))
-        try:
-            cfgmod.save_preferences(prefs)
-        except OSError:
-            return False
-        return True
-
     @Slot(result="QVariantMap")
     def loadPrefs(self) -> dict:
         """App preferences for the QML form."""
@@ -707,21 +680,159 @@ class GameListModel(QAbstractListModel):
 
 
 class GameFilterModel(QSortFilterProxyModel):
-    """Source + text filter over a GameListModel (drawer + search drive it)."""
+    """Source + text filter over a GameListModel (drawer + search drive it).
+
+    Also a real table model for QtQuick TableView: fixed logical columns
+    [#, name, appid, played, tier, source] with order/visibility owned
+    here (persisted to the same prefs keys). Custom roles stay
+    row-based (column-independent), so delegates keep working.
+    """
 
     sourceChanged = Signal()
     textChanged = Signal()
     issuesChanged = Signal()
+
+    TABLE_COLUMNS = ("#", "gameName", "gameId", "gamePlayed", "gameTier", "gameSource")
+    COLUMN_TITLES = {
+        "#": "#",
+        "gameName": "Game",
+        "gameId": "App ID",
+        "gamePlayed": "Played",
+        "gameTier": "ProtonDB",
+        "gameSource": "Source",
+    }
+    _COLUMN_ROLES = (
+        None,
+        "gameName",
+        "gameId",
+        "gamePlayed",
+        "gameTier",
+        "gameSource",
+    )
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._source = "all"
         self._text = ""
         self._issues = False
-        self._flags: dict[str, bool] = {}
+        self._order, self._hidden = self._load_columns()
         self._sort_role = "gameName"
         self._sort_role_id = GameListModel.NameRole
         self._sort_descending = False
+
+    @staticmethod
+    def _load_columns() -> tuple[list[int], set[int]]:
+        """Column order + hidden set from prefs (garbage means defaults)."""
+        try:
+            order = [int(x) for x in cfgmod.load_preferences().column_order.split(",")]
+        except Exception:
+            order = []
+        if sorted(order) != [0, 1, 2, 3, 4, 5]:
+            order = [0, 1, 2, 3, 4, 5]
+        try:
+            hidden = {int(x) for x in cfgmod.load_preferences().hidden_columns.split(",")}
+        except Exception:
+            hidden = set()
+        return order, {h for h in hidden if h in (1, 2, 3, 4, 5)}
+
+    def _view_columns(self) -> list[int]:
+        """Logical columns in view order (hidden stay mapped, QML widths them 0)."""
+        return list(self._order)
+
+    def _save_columns(self) -> None:
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return
+        prefs.column_order = ",".join(map(str, self._order))
+        prefs.hidden_columns = ",".join(map(str, sorted(self._hidden)))
+        try:
+            cfgmod.save_preferences(prefs)
+        except OSError:
+            pass
+
+    def columnCount(self, parent: QModelIndex | None = None) -> int:
+        if parent is not None and parent.isValid():
+            return 0
+        return len(self.TABLE_COLUMNS)
+
+    @Slot(int, result=int)
+    def columnLogical(self, section: int) -> int:
+        """Logical column at a view position (-1 when out of range)."""
+        order = self._view_columns()
+        return order[section] if 0 <= section < len(order) else -1
+
+    @Slot(result=str)
+    def columnOrderJson(self) -> str:
+        """View column order as JSON (QML parses to a fresh JS array).
+
+        A Property(list) would arrive as QVariantList, which lays out
+        at zero width on Qt 6.11 — never feed Repeaters from Python.
+        """
+        import json
+
+        return json.dumps(list(self._order))
+
+    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
+        # Presentation permutation only: view column c shows logical
+        # _order[c]; rows/filters/sorts stay base-mapped, so no
+        # index/map overrides exist (hand-made indexes segfault).
+        if not index.isValid():
+            return None
+        order = self._view_columns()
+        if not (0 <= index.row() < self.rowCount() and 0 <= index.column() < len(order)):
+            return None
+        if role == Qt.ItemDataRole.DisplayRole:
+            logical = order[index.column()]
+            if logical == 0:
+                return str(index.row() + 1)
+            model = self.sourceModel()
+            sidx = super().mapToSource(index)
+            if model is None or not sidx.isValid():
+                return None
+            roles = {
+                1: GameListModel.NameRole,
+                2: GameListModel.IdRole,
+                3: GameListModel.PlayedRole,
+                4: GameListModel.TierRole,
+                5: GameListModel.SourceRole,
+            }
+            return str(model.data(sidx, roles[logical]) or "")
+        return super().data(index, role)
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = 0):
+        if orientation == Qt.Orientation.Horizontal and role in (
+            Qt.ItemDataRole.DisplayRole,
+            0,
+        ):
+            order = self._view_columns()
+            if 0 <= section < len(order):
+                return self.COLUMN_TITLES[self.TABLE_COLUMNS[order[section]]]
+        return None
+
+    @Slot(int, int)
+    def moveColumn(self, logical: int, direction: int) -> None:
+        """Swap a logical column with its neighbour (-1 left, +1 right)."""
+        order = list(self._order)
+        if logical not in order:
+            return
+        pos, swap = order.index(logical), order.index(logical) + int(direction)
+        if not 0 <= swap < len(order):
+            return
+        order[pos], order[swap] = order[swap], order[pos]
+        self._order = order
+        self._save_columns()
+        self.layoutChanged.emit()
+        self.columnsChanged.emit()
+
+    @Slot()
+    def resetColumns(self) -> None:
+        """Default order, everything visible."""
+        self._order = [0, 1, 2, 3, 4, 5]
+        self._hidden = set()
+        self._save_columns()
+        self.layoutChanged.emit()
+        self.columnsChanged.emit()
 
     def _get_source(self) -> str:
         return self._source
@@ -761,14 +872,28 @@ class GameFilterModel(QSortFilterProxyModel):
 
     columnsChanged = Signal()
 
+    _FLAG_COLUMNS = {
+        "showAppId": 2,
+        "showPlayed": 3,
+        "showTier": 4,
+        "showSource": 5,
+    }
+
     def _get_flag(self, name: str) -> bool:
-        return bool(self._flags.get(name, True))
+        return self._FLAG_COLUMNS[name] not in self._hidden
 
     def _set_flag(self, name: str, value: bool) -> None:
+        logical = self._FLAG_COLUMNS[name]
         value = bool(value)
-        if self._flags.get(name, True) != value:
-            self._flags[name] = value
-            self.columnsChanged.emit()
+        if (logical in self._hidden) == (not value):
+            return
+        if value:
+            self._hidden.discard(logical)
+        else:
+            self._hidden.add(logical)
+        self._save_columns()
+        self.layoutChanged.emit()
+        self.columnsChanged.emit()
 
     def _get_showAppId(self) -> bool:
         return self._get_flag("showAppId")
