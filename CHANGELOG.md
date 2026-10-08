@@ -9,6 +9,9 @@ Breaking config changes are called out explicitly under `Changed`.
 - Header actions (Play/Add/Edit/Remove, search, views, columns,
   hamburger) live in the window header like plasma-systemmonitor,
   buttons centered with symmetric spacers.
+- Header bar borrows the toolbar background (full-bleed Button
+  set, bold titles) and the table sits flush under the window
+  toolbar, like plasma-systemmonitor.
 - Hamburger menu no longer overlaps (popup at cursor); header
   titles use the toolbar Button set, semibold off; selected rows
   use highlighted text; icons and tooltips track rows through sorts.

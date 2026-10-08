@@ -15,6 +15,11 @@ Kirigami.Page {
     id: gamesPage
     objectName: "gamesPage"
     title: qsTr("Games")
+    // Flush against the window toolbar, like plasma-systemmonitor.
+    topPadding: 0
+    leftPadding: 0
+    rightPadding: 0
+    bottomPadding: 0
 
     property string viewMode: "list"
     property var viewSizes: ({icons: 96})
@@ -924,21 +929,28 @@ Kirigami.Page {
         Keys.onDownPressed: {
             gamesPage.moveTableSelection(1)
         }
-        // Shared header titles: Button color set like the toolbar,
-        // centered and bold for header contrast.
+        // Shared header titles: full-bleed Button background (the
+        // lighter toolbar bar) with bold centered toolbar text.
         Component {
             id: headerTitle
-            Controls.Label {
-                text: modelData ?? ""
-                elide: Text.ElideRight
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                leftPadding: Kirigami.Units.smallSpacing
-                rightPadding: Kirigami.Units.smallSpacing
-                font.bold: false
+            Item {
                 Kirigami.Theme.inherit: false
                 Kirigami.Theme.colorSet: Kirigami.Theme.Button
-                color: Kirigami.Theme.textColor
+                Rectangle {
+                    anchors.fill: parent
+                    color: Kirigami.Theme.backgroundColor
+                }
+                Controls.Label {
+                    anchors.fill: parent
+                    text: modelData ?? ""
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                    horizontalAlignment: Text.AlignHCenter
+                    leftPadding: Kirigami.Units.smallSpacing
+                    rightPadding: Kirigami.Units.smallSpacing
+                    font.bold: true
+                    color: Kirigami.Theme.textColor
+                }
             }
         }
         KAddons.HeaderComponent {
