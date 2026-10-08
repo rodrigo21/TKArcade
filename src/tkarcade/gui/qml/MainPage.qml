@@ -485,7 +485,7 @@ Kirigami.Page {
         if (logical === 0 || columnSortRole(logical) !== sortRole) {
             return ""
         }
-        return sortDescending ? "\u25BC" : "\u25B2"
+        return sortDescending ? "\u2228" : "\u2227"
     }
 
     function headerClicked(logical) {
@@ -1031,22 +1031,27 @@ Kirigami.Page {
                         anchors.fill: parent
                         anchors.leftMargin: Kirigami.Units.smallSpacing
                         anchors.rightMargin: Kirigami.Units.smallSpacing
-                        spacing: Kirigami.Units.smallSpacing
                         Controls.Label {
                             Layout.fillWidth: true
                             text: gamesPage.columnTitle(logical)
-                            horizontalAlignment: (logical === 0 || logical === 4) ? Text.AlignHCenter : Text.AlignLeft
+                            horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
                             font.bold: true
                             color: Kirigami.Theme.textColor
                         }
-                        Controls.Label {
-                            text: gamesPage.sortGlyph(logical)
-                            visible: text !== ""
-                            verticalAlignment: Text.AlignVCenter
-                            color: Kirigami.Theme.textColor
-                        }
+                    }
+                    // TKS-style sort mark: small, overlaid at the top
+                    // right corner so the title stays truly centered.
+                    Controls.Label {
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.topMargin: Kirigami.Units.smallSpacing / 2
+                        anchors.rightMargin: Kirigami.Units.smallSpacing
+                        text: gamesPage.sortGlyph(logical)
+                        visible: text !== ""
+                        font: Kirigami.Theme.smallFont
+                        color: Kirigami.Theme.textColor
                     }
                     Rectangle {
                         anchors.right: parent.right
