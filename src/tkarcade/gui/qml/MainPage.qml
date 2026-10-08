@@ -609,13 +609,13 @@ Kirigami.Page {
                                             historyView.rows = gameModel.historySummary()
                                             historyView.open()
                                         }
+                                    }
                                     Controls.MenuItem {
-                        objectName: "issuesOnly"
-                        text: qsTr("With issues only")
-                        checkable: true
-                        checked: gameFilter.issuesOnly
-                        onTriggered: gameFilter.issuesOnly = checked
-                    }
+                                        objectName: "issuesOnly"
+                                        text: qsTr("With issues only")
+                                        checkable: true
+                                        checked: gameFilter.issuesOnly
+                                        onTriggered: gameFilter.issuesOnly = checked
                                     }
                                     Controls.MenuSeparator {
                                     }
@@ -896,7 +896,7 @@ Kirigami.Page {
         anchors.fill: parent
         visible: gamesPage.viewMode === "list"
         model: gameFilter
-        alternatingRows: true
+        alternatingRows: false
         selectionBehavior: TableView.SelectRows
         selectionMode: TableView.ExtendedSelection
         sortRole: gameModel.roleId(gamesPage.sortRole)
@@ -928,7 +928,7 @@ Kirigami.Page {
                 font.bold: true
                 Kirigami.Theme.inherit: false
                 Kirigami.Theme.colorSet: Kirigami.Theme.Button
-                color: Kirigami.Theme.textColor
+                color: Kirigami.Theme.highlightColor
             }
         }
         KAddons.HeaderComponent {
@@ -942,6 +942,11 @@ Kirigami.Page {
                 verticalAlignment: Text.AlignVCenter
                 color: Kirigami.Theme.disabledTextColor
                 text: row + 1
+                RowDivider {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                }
             }
         }
         KAddons.HeaderComponent {
@@ -1001,6 +1006,11 @@ Kirigami.Page {
                         elide: Text.ElideRight
                     }
                 }
+                RowDivider {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                }
             }
         }
         KAddons.HeaderComponent {
@@ -1012,6 +1022,28 @@ Kirigami.Page {
             role: gameModel.roleId("gameId")
             width: 90
             visible: gameFilter.showAppId
+            itemDelegate: Controls.Label {
+                verticalAlignment: Text.AlignVCenter
+                text: modelData ?? ""
+                elide: Text.ElideRight
+                property bool rowSelected: false
+                function refreshSelected() {
+                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
+                }
+                Component.onCompleted: refreshSelected()
+                Connections {
+                    target: gameTable.selectionModel
+                    function onSelectionChanged() {
+                        refreshSelected()
+                    }
+                }
+                color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                RowDivider {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                }
+            }
         }
         KAddons.HeaderComponent {
             id: hcPlayed
@@ -1043,6 +1075,11 @@ Kirigami.Page {
                 }
                 Controls.ToolTip.visible: playedHover.hovered
                 Controls.ToolTip.text: model?.gamePlayedTip ?? ""
+                RowDivider {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                }
             }
         }
         KAddons.HeaderComponent {
@@ -1086,6 +1123,11 @@ Kirigami.Page {
                 }
                 Controls.ToolTip.visible: tierHover.hovered && (model?.gameTier ?? "") !== ""
                 Controls.ToolTip.text: qsTr("Open ProtonDB page")
+                RowDivider {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                }
             }
         }
         KAddons.HeaderComponent {
@@ -1097,6 +1139,28 @@ Kirigami.Page {
             role: gameModel.roleId("gameSource")
             width: 80
             visible: gameFilter.showSource
+            itemDelegate: Controls.Label {
+                verticalAlignment: Text.AlignVCenter
+                text: modelData ?? ""
+                elide: Text.ElideRight
+                property bool rowSelected: false
+                function refreshSelected() {
+                    rowSelected = gameTable.selectionModel.isSelected(gameFilter.index(row, 0))
+                }
+                Component.onCompleted: refreshSelected()
+                Connections {
+                    target: gameTable.selectionModel
+                    function onSelectionChanged() {
+                        refreshSelected()
+                    }
+                }
+                color: rowSelected ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                RowDivider {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                }
+            }
         }
         headerComponents: [hcNum, hcGame, hcAppId, hcPlayed, hcTier, hcSource]
     }

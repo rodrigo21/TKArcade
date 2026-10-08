@@ -8,6 +8,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Fixed
 - Header actions (Play/Add/Edit/Remove, search, views, columns,
   hamburger) live in the window header like plasma-systemmonitor;
+- Hamburger menu no longer overlaps (popup at cursor); header
+  titles use the toolbar Button set; body rows carry dividers and
+  no alternating tint, like plasma-systemmonitor.
   hamburger opens at the cursor; headers use the toolbar Button
   set; selected rows use highlighted text; icons track sorts.
 - Kirigami count properties live on the QMetaObject (drawer and
