@@ -38,6 +38,7 @@ Kirigami.Page {
     property string notice: ""
     property var appDrawer: null
     property var viewArrowItem: null
+    property var toolbarIconsItem: null
 
     function setDrawerMode(mode) {
         if (appDrawer === null) {
@@ -416,20 +417,7 @@ Kirigami.Page {
         for (var c = 0; c < cols.length; c++) {
             parts.push("b" + cols[c] + ":" + body[cols[c]])
         }
-        var bar = null
-        var queue = [gamesPage]
-        while (queue.length > 0 && bar === null) {
-            var node = queue.pop()
-            var nodeKids = node.children
-            for (var n = 0; n < nodeKids.length; n++) {
-                var kid = nodeKids[n]
-                if (kid.objectName === "toolbarIcons") {
-                    bar = kid.parent
-                    break
-                }
-                queue.push(kid)
-            }
-        }
+        var bar = gamesPage.toolbarIconsItem !== null ? gamesPage.toolbarIconsItem.parent : null
         if (bar === null) {
             parts.push("bar=missing")
             console.log("TKARCADE_GEOMETRY " + parts.join(" "))
@@ -688,6 +676,7 @@ Kirigami.Page {
                 Component.onCompleted: {
                     // displayComponent scope hides ids: publish for popups.
                     gamesPage.viewArrowItem = viewArrow
+                    gamesPage.toolbarIconsItem = iconsRow
                 }
                 Controls.ToolButton {
                     id: viewButton
