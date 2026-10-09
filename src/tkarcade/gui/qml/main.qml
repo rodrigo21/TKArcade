@@ -8,8 +8,8 @@ import org.kde.kirigami as Kirigami
 Kirigami.ApplicationWindow {
     id: root
     title: qsTr("TKArcade")
-    minimumWidth: Kirigami.Units.gridUnit * 30
-    minimumHeight: Kirigami.Units.gridUnit * 20
+    minimumWidth: 1280
+    minimumHeight: 720
     width: minimumWidth
     height: minimumHeight
 

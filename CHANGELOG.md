@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Window minimum forced to 1280x720 so the toolbar never crowds into
+  the overflow chaos on small windows.
 - Header grid line starts past the gutter and stops at the vertical
   encounter (that segment does not exist in TKS); footer line kept.
 - Header toolbar: action row right-pins the corner icons; the filter

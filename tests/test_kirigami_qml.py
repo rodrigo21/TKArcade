@@ -1805,3 +1805,20 @@ def test_toolbar_icons_pinned_and_filter_fills(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_window_minimum_size(qgui_app, xdg_env):
+    """The window never shrinks below 1280x720 (crowding guard)."""
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    assert win.property("minimumWidth") == 1280
+    assert win.property("minimumHeight") == 720
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
