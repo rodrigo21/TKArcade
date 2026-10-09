@@ -1613,7 +1613,9 @@ def test_table_header_bottom_line_spans_width(qgui_app, xdg_env):
     header = win.findChild(QQuickItem, "tableHeader")
     assert header is not None
     assert line.property("height") == 1
-    assert abs(line.property("width") - header.property("width")) <= 1
+    # Starts past the gutter (TKS has no gutter column).
+    assert line.property("x") == 36
+    assert abs(line.property("width") - (header.property("width") - 36)) <= 1
     bottom = line.property("y") + line.property("height")
     assert abs(bottom - header.property("height")) <= 1, (bottom, header.property("height"))
     real = [w for w in warnings if "graphics scene" not in w]
