@@ -138,8 +138,18 @@ def main(argv: list[str] | None = None) -> int:
         ]
         print("TKARCADE_ICONS theme=" + QIcon.themeName(), flush=True)
         for name in names:
+            icon = QIcon.fromTheme(name)
+            sizes = sorted({s.width() for s in icon.availableSizes()})
+            pixnull = icon.pixmap(22, 22).isNull()
             print(
-                "TKARCADE_ICONS " + name + "=" + ("ok" if QIcon.hasThemeIcon(name) else "MISSING"),
+                "TKARCADE_ICONS "
+                + name
+                + "="
+                + ("ok" if QIcon.hasThemeIcon(name) else "MISSING")
+                + " sizes="
+                + ",".join(map(str, sizes))
+                + " nullpix="
+                + str(pixnull),
                 flush=True,
             )
     from PySide6.QtCore import QUrl

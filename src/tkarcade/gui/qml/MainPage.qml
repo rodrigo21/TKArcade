@@ -427,11 +427,7 @@ Kirigami.Page {
         var drawerW = gamesPage.appDrawer !== null ? Math.round(gamesPage.appDrawer.width) : -1
         parts.push("win=" + Math.round(gamesPage.width + (drawerW < 0 ? 0 : drawerW)))
         parts.push("bar=" + Math.round(barbar.width) + "/" + Math.round(bar.width))
-        try {
-            parts.push("hidden=" + bar.hiddenActions.length)
-        } catch (e) {
-            parts.push("hidden=?")
-        }
+        var counts = {}
         var kids = bar.children
         for (var d = 0; d < kids.length; d++) {
             var dit = kids[d]
@@ -443,9 +439,17 @@ Kirigami.Page {
                 label = dit.text
             }
             if (label === "") {
-                label = "item"
+                var asText = String(dit)
+                var paren = asText.indexOf("(")
+                label = (paren > 0 ? asText.substring(0, paren) : asText) + "?button"
             }
-            parts.push("t:" + label + "=" + Math.round(dit.x) + "+" + Math.round(dit.width))
+            var key = label + "=" + Math.round(dit.x) + "+" + Math.round(dit.width)
+            counts[key] = (counts[key] || 0) + 1
+        }
+        var seen = Object.keys(counts).sort()
+        for (var s = 0; s < seen.length; s++) {
+            var times = counts[seen[s]]
+            parts.push("t:" + seen[s] + (times > 1 ? "x" + times : ""))
         }
         console.log("TKARCADE_GEOMETRY " + parts.join(" "))
     }
@@ -660,8 +664,8 @@ Kirigami.Page {
             displayComponent: Kirigami.SearchField {
                 objectName: "searchField"
                 // Proportional width: the growing mechanism honored here
-                // (fraction of the toolbar row; mirror copies it).
-                implicitWidth: (parent ? parent.width : 0) * 0.31
+                // (fraction of the toolbar row).
+                implicitWidth: (parent ? parent.width : 0) * 0.28
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
             }
@@ -671,7 +675,7 @@ Kirigami.Page {
             displayComponent: RowLayout {
                 id: iconsRow
                 objectName: "toolbarIcons"
-                Layout.minimumWidth: implicitWidth
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 6
                 spacing: 0
                 Component.onCompleted: {
                     // displayComponent scope hides ids: publish for popups.
