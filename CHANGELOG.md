@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Columns button back to `view-column`: the supra-theme audit proved
+  wrong (the chain here ships it, not `table`); toolbar icon names are
+  theme-relative, so no local audit test.
+- Toolbar popups open deferred past the release click, which dismissed
+  them instantly on a real display.
 - Columns button uses the `table` icon: `view-column` ships in no icon
   theme and rendered an empty button; a test audits every toolbar icon
   against the Breeze actions set.

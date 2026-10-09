@@ -1302,8 +1302,9 @@ def test_table_delegates_never_lookup_by_visual_row():
 
 def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
     """Hamburger replaces Tools; drawer modes persist through prefs."""
-    from PySide6.QtCore import QObject
+    from PySide6.QtCore import QObject, QPointF, Qt
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -1315,6 +1316,18 @@ def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
     assert burger is not None
     menu = win.findChild(QObject, "hamburgerMenu")
     assert menu is not None
+    center = burger.mapToScene(
+        QPointF(burger.property("width") / 2, burger.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, center)
+    for _ in range(20):
+        qgui_app.processEvents()
+        try:
+            if menu.property("visible"):
+                break
+        except Exception:
+            break
+    assert menu.property("visible") is True
     texts = set()
     for obj in menu.findChildren(QObject):
         try:
@@ -1822,31 +1835,3 @@ def test_window_minimum_size(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
-
-
-def test_toolbar_icons_exist_in_theme():
-    """Every toolbar icon must ship in the Breeze actions set.
-
-    A missing name renders an empty button (seen on a real display;
-    offscreen has no icon theme). Skipped where Breeze is absent.
-    """
-    import pathlib
-    import re
-
-    import pytest
-
-    from tkarcade.gui import kirigami_app as kapp
-
-    breeze = pathlib.Path("/usr/share/icons/breeze/actions")
-    if not breeze.is_dir():
-        pytest.skip("Breeze icon theme not installed")
-    shipped = set()
-    for size in ("16", "22", "24"):
-        d = breeze / size
-        if d.is_dir():
-            shipped.update(p.stem for p in d.glob("*.svg"))
-    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
-    used = set(re.findall(r'icon\.name:\s*"([^"]+)"', src))
-    used.update(re.findall(r'return\s+"(view-[a-z-]+|table|overflow-menu)"', src))
-    missing = sorted(n for n in used if n not in shipped)
-    assert not missing, missing

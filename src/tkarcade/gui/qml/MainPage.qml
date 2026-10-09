@@ -657,18 +657,21 @@ Kirigami.Page {
                     id: viewArrow
                     objectName: "viewArrow"
                     text: "▼"
-                    onClicked: viewOptions.open()
+                    // Deferred past the release: opening synchronously
+                    // lets the same release dismiss the popup instantly.
+                    onClicked: Qt.callLater(viewOptions.open)
                 }
                 Controls.ToolButton {
                     objectName: "columnsButton"
-                    icon.name: "table"
+                    icon.name: "view-column"
                     display: Controls.AbstractButton.IconOnly
                     onClicked: columnsDialog.open()
                 }
                 Controls.ToolButton {
                     objectName: "hamburgerButton"
                     icon.name: "overflow-menu"
-                    onClicked: hamburgerMenu.popup()
+                    // Same release-dismiss race as above.
+                    onClicked: Qt.callLater(hamburgerMenu.popup)
                     Controls.Menu {
                                     id: hamburgerMenu
                                     objectName: "hamburgerMenu"
