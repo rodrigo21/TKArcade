@@ -4,6 +4,7 @@ import QtQml.Models as QQmlModels
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
+import org.kde.kirigami.layouts as KL
 
 // Games page: search + view split-button on top, the selected view
 // below (details list, icons grid, or gallery-style cards), counts at
@@ -14,6 +15,25 @@ Kirigami.Page {
     id: gamesPage
     objectName: "gamesPage"
     title: qsTr("Games")
+    // Same look as the Kirigami default delegate (a Heading), owned
+    // here so the right spacer can mirror its exact width and keep
+    // the action buttons exactly centered.
+    titleDelegate: Item {
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.maximumWidth: implicitWidth
+        implicitWidth: Math.ceil(titleHeading.implicitWidth)
+        implicitHeight: Math.ceil(titleHeading.implicitHeight)
+        Kirigami.Heading {
+            id: titleHeading
+            objectName: "pageTitleHeading"
+            anchors.fill: parent
+            maximumLineCount: 1
+            elide: Text.ElideRight
+            textFormat: Text.PlainText
+            text: gamesPage.title
+        }
+    }
     // Flush against the window toolbar, like plasma-systemmonitor.
     topPadding: 0
     leftPadding: 0
@@ -581,17 +601,34 @@ Kirigami.Page {
     }
 
     // Window-header actions (systemmonitor-style): title is automatic,
-    // the button group stays centered via symmetric spacers.
+    // the four buttons stay exactly centered via a mirror spacer that
+    // tracks the right icon block width; the filter grows to them.
     actions: [
         Kirigami.Action {
-            displayComponent: Item {
-                Layout.fillWidth: true
+            // Invisible copy of the right fixed block (search plus
+            // icons): with the title copy on the right, both sides
+            // balance around the stretch spacers. Keep in sync.
+            // Hidden on narrow toolbars so content never crowds.
+            displayComponent: RowLayout {
+                objectName: "toolbarMirror"
+                visible: parent !== null && parent.width > 1000
+                spacing: 0
+                opacity: 0
+                enabled: false
+                Kirigami.SearchField {
+                    implicitWidth: Kirigami.Units.gridUnit * 16
+                }
+                Controls.ToolButton { icon.name: "view-list-details" }
+                Controls.ToolButton { text: "▼" }
+                Controls.ToolButton { icon.name: "view-column" }
+                Controls.ToolButton { icon.name: "overflow-menu" }
             }
         },
         Kirigami.Action {
             objectName: "actionPlay"
             text: qsTr("Play")
             icon.name: "media-playback-start"
+            displayHint: KL.DisplayHint.KeepVisible
             onTriggered: gamesPage.playSelected()
         },
         Kirigami.Action {
@@ -616,19 +653,34 @@ Kirigami.Page {
         },
         Kirigami.Action {
             displayComponent: Item {
+                objectName: "toolbarStretchB"
                 Layout.fillWidth: true
             }
         },
         Kirigami.Action {
+            displayComponent: Item {
+                Layout.fillWidth: true
+            }
+        },
+        // Filter and view controls stay reachable the longest on
+        // narrow windows; the text buttons overflow into the menu.
+        Kirigami.Action {
+            displayHint: KL.DisplayHint.KeepVisible
             displayComponent: Kirigami.SearchField {
                 objectName: "searchField"
+                // Squeezable on narrow windows instead of crowding out.
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 6
                 implicitWidth: Kirigami.Units.gridUnit * 16
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
             }
         },
         Kirigami.Action {
+            displayHint: KL.DisplayHint.KeepVisible
             displayComponent: RowLayout {
+                id: iconsRow
+                objectName: "toolbarIcons"
+                Layout.minimumWidth: implicitWidth
                 spacing: 0
                 Component.onCompleted: {
                     // displayComponent scope hides ids: publish for popups.
@@ -647,20 +699,17 @@ Kirigami.Page {
                     text: "▼"
                     onClicked: viewOptions.open()
                 }
-            }
-        },
-        Kirigami.Action {
-            objectName: "columnsButton"
-            icon.name: "view-column"
-            text: qsTr("Columns")
-            onTriggered: columnsDialog.open()
-        },
-        Kirigami.Action {
-            displayComponent: Controls.ToolButton {
-                objectName: "hamburgerButton"
-                icon.name: "overflow-menu"
-                onClicked: hamburgerMenu.popup()
-                                Controls.Menu {
+                Controls.ToolButton {
+                    objectName: "columnsButton"
+                    icon.name: "view-column"
+                    display: Controls.AbstractButton.IconOnly
+                    onClicked: columnsDialog.open()
+                }
+                Controls.ToolButton {
+                    objectName: "hamburgerButton"
+                    icon.name: "overflow-menu"
+                    onClicked: hamburgerMenu.popup()
+                    Controls.Menu {
                                     id: hamburgerMenu
                                     objectName: "hamburgerMenu"
                                     Controls.MenuItem {
@@ -775,8 +824,31 @@ Kirigami.Page {
                                         onTriggered: gamesPage.setDrawerMode("collapsible")
                                     }
                                 }
+                }
             }
-        }
+        },
+        Kirigami.Action {
+            displayComponent: RowLayout {
+                visible: parent !== null && parent.width > 1000
+                spacing: 0
+                // Leading pad mirrors the header left padding in front
+                // of the title, so both sides balance (themed unit).
+                Item {
+                    Layout.preferredWidth: Kirigami.Units.mediumSpacing
+                    Layout.preferredHeight: 1
+                }
+                Kirigami.Heading {
+                    id: mirrorHeading
+                    objectName: "toolbarTitleMirror"
+                    maximumLineCount: 1
+                    elide: Text.ElideRight
+                    textFormat: Text.PlainText
+                    text: gamesPage.title
+                    opacity: 0
+                    enabled: false
+                }
+            }
+        },
     ]
 
     Controls.Popup {

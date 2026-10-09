@@ -1358,9 +1358,20 @@ def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     assert header_menu.property("visible") is True
     QTest.keyClick(win, Qt.Key.Key_Escape)
     qgui_app.processEvents()
-    gear = win.findChild(QObject, "columnsButton")
+    gear = None
+    for candidate in win.findChildren(QQuickItem, "columnsButton"):
+        try:
+            if candidate.property("visible"):
+                gear = candidate
+                break
+        except Exception:
+            continue
     assert gear is not None
-    _fire(gear)
+    assert gear.property("text") == ""  # icon-only, no text label
+    center = gear.mapToScene(
+        QPointF(gear.property("width") / 2, gear.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, center)
     qgui_app.processEvents()
     dialog = win.findChild(QObject, "columnsDialog")
     assert dialog.property("visible") is True
@@ -1574,6 +1585,12 @@ def test_list_frame_is_flush_and_rounded(qgui_app, xdg_env):
     assert frame.property("width") == parent.property("width")
     assert frame.property("height") == parent.property("height")
     assert frame.property("radius") > 0
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    assert "border.width: 1" in src
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -1711,6 +1728,82 @@ def test_row_hover_tracks_mouse(qgui_app, xdg_env):
             break
     assert page.property("hoveredRow") == 0
     assert page.property("selectedIds").toVariant() == selected_before
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_toolbar_buttons_centered_and_filter_grows(qgui_app, xdg_env):
+    """Mirror spacer matches the icon block; the filter stretches."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+
+    # ActionToolBar instantiates displayComponents twice (toolbar row
+    # plus hidden overflow twin): measure the visible instances.
+    def visible(name):
+        items = win.findChildren(QQuickItem, name)
+        for item in items:
+            try:
+                if item.property("visible"):
+                    return item
+            except Exception:
+                continue
+        return None
+
+    mirror = visible("toolbarMirror")
+    icons = visible("toolbarIcons")
+    search = visible("searchField")
+    assert mirror is not None and icons is not None and search is not None
+    for _ in range(20):
+        qgui_app.processEvents()
+        if abs(mirror.property("width") - icons.property("width")) <= 1:
+            break
+    assert mirror.property("width") > 0
+    # Mirror carries the search copy plus the icon copy.
+    expected = search.property("implicitWidth") + icons.property("width")
+    assert abs(mirror.property("width") - expected) <= 2, (
+        mirror.property("width"),
+        expected,
+    )
+    assert search.property("width") >= search.property("implicitWidth")
+    # The four action buttons sit exactly centered in the content area
+    # (drawer edge to window edge): mirror plus title copy balance right.
+    from PySide6.QtCore import QObject as _QObject
+    from PySide6.QtCore import QPointF as _QPointF
+
+    group_left, group_right = None, None
+    for item in win.findChildren(QQuickItem):
+        try:
+            if not item.property("visible"):
+                continue
+            label = item.property("text")
+        except Exception:
+            continue
+        if label not in ("Play", "Add game", "Edit...", "Remove"):
+            continue
+        try:
+            left = item.mapToScene(_QPointF(0, 0)).x()
+            right = item.mapToScene(_QPointF(item.property("width"), 0)).x()
+        except Exception:
+            continue
+        group_left = left if group_left is None else min(group_left, left)
+        group_right = right if group_right is None else max(group_right, right)
+    assert group_left is not None and group_right is not None
+    drawer = win.findChild(_QObject, "sourceDrawer")
+    content_left = drawer.property("width")
+    content_center = content_left + (win.property("width") - content_left) / 2
+    assert abs((group_left + group_right) / 2 - content_center) <= 5, (
+        (group_left + group_right) / 2,
+        content_center,
+    )
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

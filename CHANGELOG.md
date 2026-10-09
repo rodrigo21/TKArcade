@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Header toolbar: four action buttons exactly centered via balancing
+  mirrors (invisible icon/title copies, off on narrow windows), filter
+  adjacent to the buttons, icon-only Columns, KeepVisible priorities
+  plus minimum widths so narrow windows degrade to the overflow menu
+  instead of crowding.
 - Gutter back strip runs the full table height behind rows and empty
   area, so the framed number column stays complete with zero games.
 - Gutter header has no "#" title and no divider stub into the game
