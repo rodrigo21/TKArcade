@@ -661,7 +661,7 @@ Kirigami.Page {
                 }
                 Controls.ToolButton {
                     objectName: "columnsButton"
-                    icon.name: "view-column"
+                    icon.name: "table"
                     display: Controls.AbstractButton.IconOnly
                     onClicked: columnsDialog.open()
                 }

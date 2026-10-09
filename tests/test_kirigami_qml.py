@@ -1822,3 +1822,31 @@ def test_window_minimum_size(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_toolbar_icons_exist_in_theme():
+    """Every toolbar icon must ship in the Breeze actions set.
+
+    A missing name renders an empty button (seen on a real display;
+    offscreen has no icon theme). Skipped where Breeze is absent.
+    """
+    import pathlib
+    import re
+
+    import pytest
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    breeze = pathlib.Path("/usr/share/icons/breeze/actions")
+    if not breeze.is_dir():
+        pytest.skip("Breeze icon theme not installed")
+    shipped = set()
+    for size in ("16", "22", "24"):
+        d = breeze / size
+        if d.is_dir():
+            shipped.update(p.stem for p in d.glob("*.svg"))
+    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    used = set(re.findall(r'icon\.name:\s*"([^"]+)"', src))
+    used.update(re.findall(r'return\s+"(view-[a-z-]+|table|overflow-menu)"', src))
+    missing = sorted(n for n in used if n not in shipped)
+    assert not missing, missing

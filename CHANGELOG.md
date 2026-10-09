@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Columns button uses the `table` icon: `view-column` ships in no icon
+  theme and rendered an empty button; a test audits every toolbar icon
+  against the Breeze actions set.
 - Window minimum forced to 1280x720 so the toolbar never crowds into
   the overflow chaos on small windows.
 - Header grid line starts past the gutter and stops at the vertical
