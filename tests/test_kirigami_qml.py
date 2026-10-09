@@ -1683,3 +1683,36 @@ def test_gutter_back_strip_runs_full_height(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_row_hover_tracks_mouse(qgui_app, xdg_env):
+    """Hovering a row washes it lightly (TKS) without selecting."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "77"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    assert page is not None
+    table = win.findChild(QQuickItem, "gameTable")
+    rows = _table_rows(table, proxy)
+    assert len(rows) == 1
+    assert page.property("hoveredRow") == -1
+    selected_before = page.property("selectedIds").toVariant()
+    QTest.mouseMove(win, rows[0][1])
+    for _ in range(20):
+        qgui_app.processEvents()
+        if page.property("hoveredRow") == 0:
+            break
+    assert page.property("hoveredRow") == 0
+    assert page.property("selectedIds").toVariant() == selected_before
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()

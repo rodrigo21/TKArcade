@@ -25,6 +25,7 @@ Kirigami.Page {
     property int iconSize: viewSizes["icons"] || 96
     property var selectedIds: []
     property string anchorId: ""
+    property int hoveredRow: -1
     property string sortRole: "gameName"
     property bool sortDescending: false
     property string notice: ""
@@ -1153,6 +1154,22 @@ Kirigami.Page {
                     visible: isSelected
                     color: Kirigami.Theme.highlightColor
                 }
+                // TKS-style hover: light wash behind unselected rows.
+                Rectangle {
+                    anchors.fill: parent
+                    visible: !isSelected && gamesPage.hoveredRow === row
+                    color: Kirigami.Theme.highlightColor
+                    opacity: 0.25
+                }
+                HoverHandler {
+                    onHoveredChanged: {
+                        if (hovered) {
+                            gamesPage.hoveredRow = row
+                        } else if (gamesPage.hoveredRow === row) {
+                            gamesPage.hoveredRow = -1
+                        }
+                    }
+                }
                 // number gutter: vertical-header look (Button set,
                 // like the column titles), clicks still select the row
                 Item {
@@ -1163,6 +1180,12 @@ Kirigami.Page {
                     Rectangle {
                         anchors.fill: parent
                         color: isSelected ? Kirigami.Theme.highlightColor : Kirigami.Theme.backgroundColor
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: !isSelected && gamesPage.hoveredRow === row
+                        color: Kirigami.Theme.highlightColor
+                        opacity: 0.25
                     }
                     Controls.Label {
                         anchors.fill: parent
