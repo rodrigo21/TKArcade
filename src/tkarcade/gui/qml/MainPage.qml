@@ -416,6 +416,49 @@ Kirigami.Page {
         for (var c = 0; c < cols.length; c++) {
             parts.push("b" + cols[c] + ":" + body[cols[c]])
         }
+        var bar = null
+        var queue = [gamesPage]
+        while (queue.length > 0 && bar === null) {
+            var node = queue.pop()
+            var nodeKids = node.children
+            for (var n = 0; n < nodeKids.length; n++) {
+                var kid = nodeKids[n]
+                if (kid.objectName === "toolbarIcons") {
+                    bar = kid.parent
+                    break
+                }
+                queue.push(kid)
+            }
+        }
+        if (bar === null) {
+            parts.push("bar=missing")
+            console.log("TKARCADE_GEOMETRY " + parts.join(" "))
+            return
+        }
+        var barbar = bar.parent
+        var drawerW = gamesPage.appDrawer !== null ? Math.round(gamesPage.appDrawer.width) : -1
+        parts.push("win=" + Math.round(gamesPage.width + (drawerW < 0 ? 0 : drawerW)))
+        parts.push("bar=" + Math.round(barbar.width) + "/" + Math.round(bar.width))
+        try {
+            parts.push("hidden=" + bar.hiddenActions.length)
+        } catch (e) {
+            parts.push("hidden=?")
+        }
+        var kids = bar.children
+        for (var d = 0; d < kids.length; d++) {
+            var dit = kids[d]
+            if (!dit.visible || !(dit.width > 0)) {
+                continue
+            }
+            var label = dit.objectName
+            if (label === "" && typeof dit.text === "string" && dit.text !== "") {
+                label = dit.text
+            }
+            if (label === "") {
+                label = "item"
+            }
+            parts.push("t:" + label + "=" + Math.round(dit.x) + "+" + Math.round(dit.width))
+        }
         console.log("TKARCADE_GEOMETRY " + parts.join(" "))
     }
 

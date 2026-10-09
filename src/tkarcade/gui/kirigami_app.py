@@ -117,6 +117,31 @@ def main(argv: list[str] | None = None) -> int:
     engine.rootContext().setContextProperty(
         "TKARCADE_DEBUG_GEOMETRY", os.environ.get("TKARCADE_DEBUG_GEOMETRY", "")
     )
+    if os.environ.get("TKARCADE_DEBUG_GEOMETRY") == "1":
+        from PySide6.QtGui import QIcon
+
+        names = [
+            "view-list-details",
+            "view-list-icons",
+            "view-grid",
+            "view-column",
+            "table",
+            "overflow-menu",
+            "sidebar-collapse-left",
+            "media-playback-start",
+            "list-add",
+            "document-edit",
+            "edit-delete",
+            "applications-games",
+            "go-down",
+            "go-up",
+        ]
+        print("TKARCADE_ICONS theme=" + QIcon.themeName(), flush=True)
+        for name in names:
+            print(
+                "TKARCADE_ICONS " + name + "=" + ("ok" if QIcon.hasThemeIcon(name) else "MISSING"),
+                flush=True,
+            )
     from PySide6.QtCore import QUrl
 
     engine.load(QUrl(qml_url()))

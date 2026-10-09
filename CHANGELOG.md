@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Geometry dump also logs the toolbar row (bar widths, visible
+  delegates, hidden count) and the icon theme lookup, for real-display
+  diagnosis in one run.
 - Columns button back to `view-column`: the supra-theme audit proved
   wrong (the chain here ships it, not `table`); toolbar icon names are
   theme-relative, so no local audit test.
