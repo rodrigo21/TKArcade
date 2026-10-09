@@ -15,24 +15,11 @@ Kirigami.Page {
     id: gamesPage
     objectName: "gamesPage"
     title: qsTr("Games")
-    // Same look as the Kirigami default delegate (a Heading), owned
-    // here so the right spacer can mirror its exact width and keep
-    // the action buttons exactly centered.
+    // No visible header title (TKS has none): an invisible delegate
+    // takes no layout space, so the action row centers in the full
+    // content width with no dead corner balancing it.
     titleDelegate: Item {
-        Layout.fillWidth: true
-        Layout.minimumWidth: 0
-        Layout.maximumWidth: implicitWidth
-        implicitWidth: Math.ceil(titleHeading.implicitWidth)
-        implicitHeight: Math.ceil(titleHeading.implicitHeight)
-        Kirigami.Heading {
-            id: titleHeading
-            objectName: "pageTitleHeading"
-            anchors.fill: parent
-            maximumLineCount: 1
-            elide: Text.ElideRight
-            textFormat: Text.PlainText
-            text: gamesPage.title
-        }
+        visible: false
     }
     // Flush against the window toolbar, like plasma-systemmonitor.
     topPadding: 0
@@ -605,7 +592,7 @@ Kirigami.Page {
     actions: [
         Kirigami.Action {
             // Invisible copy of the right fixed block (search plus
-            // icons): with the title copy on the right, both sides
+            // icons): with no header title taking space, both sides
             // balance around the centered unit. Keep in sync.
             // Hidden on narrow toolbars so content never crowds.
             displayComponent: RowLayout {
@@ -663,10 +650,8 @@ Kirigami.Page {
             displayHint: KL.DisplayHint.KeepVisible
             displayComponent: Kirigami.SearchField {
                 objectName: "searchField"
-                // Proportional width: ToolBarLayout ignores fillWidth and
-                // preferredWidth on controls, but honors implicitWidth,
-                // and parent.width works in any scope. The filter truly
-                // grows with the window (mirror copies the fraction).
+                // Proportional width: the growing mechanism honored here
+                // (fraction of the toolbar row; mirror copies it).
                 implicitWidth: (parent ? parent.width : 0) * 0.2
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
@@ -823,29 +808,7 @@ Kirigami.Page {
                                 }
                 }
             }
-        },
-        Kirigami.Action {
-            displayComponent: RowLayout {
-                visible: parent !== null && parent.width > 850
-                spacing: 0
-                // Leading pad mirrors the header left padding in front
-                // of the title, so both sides balance (themed unit).
-                Item {
-                    Layout.preferredWidth: Kirigami.Units.mediumSpacing
-                    Layout.preferredHeight: 1
-                }
-                Kirigami.Heading {
-                    id: mirrorHeading
-                    objectName: "toolbarTitleMirror"
-                    maximumLineCount: 1
-                    elide: Text.ElideRight
-                    textFormat: Text.PlainText
-                    text: gamesPage.title
-                    opacity: 0
-                    enabled: false
-                }
-            }
-        },
+        }
     ]
 
     Controls.Popup {

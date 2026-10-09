@@ -8,9 +8,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Fixed
 - Header grid line starts past the gutter and stops at the vertical
   encounter (that segment does not exist in TKS); footer line kept.
-- Header toolbar: action row centered as a unit with balancing
-  mirrors (invisible icon/title copies, off on narrow windows), so the
-  four buttons sit centered at any width; filter fills to the corner
+- Header toolbar: action row centered as a unit with a balancing
+  mirror (invisible search/icon copies, off on narrow windows), so the
+  four buttons sit centered at any width; no header title (TKS has
+  none), so no dead corner balancing it; filter fills to the corner
   icons and grows with the window (proportional width, mirrored);
   icon-only Columns, KeepVisible priorities plus minimums for narrow.
 - Gutter back strip runs the full table height behind rows and empty

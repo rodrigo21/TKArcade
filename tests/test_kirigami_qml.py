@@ -1770,7 +1770,7 @@ def test_toolbar_buttons_centered_and_filter_grows(qgui_app, xdg_env):
             break
     assert mirror.property("width") > 0
     # Mirror carries the search copy plus the icon copy.
-    expected = search.property("implicitWidth") + icons.property("width")
+    expected = search.property("width") + icons.property("width")
     assert abs(mirror.property("width") - expected) <= 2, (
         mirror.property("width"),
         expected,
