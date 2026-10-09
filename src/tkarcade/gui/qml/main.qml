@@ -35,7 +35,15 @@ Kirigami.ApplicationWindow {
         }
     }
 
-    Component.onCompleted: applyDrawerMode(gameModel.drawerMode())
+    Component.onCompleted: {
+        applyDrawerMode(gameModel.drawerMode())
+        // Center the page header actions as a unit (Dolphin-style):
+        // with balancing mirror copies around them, the four action
+        // buttons land centered at any window width.
+        if (pageStack.globalToolBar) {
+            pageStack.globalToolBar.toolbarActionAlignment = Qt.AlignHCenter
+        }
+    }
 
     globalDrawer: Kirigami.GlobalDrawer {
         id: sourceDrawer

@@ -8,11 +8,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Fixed
 - Header grid line starts past the gutter and stops at the vertical
   encounter (that segment does not exist in TKS); footer line kept.
-- Header toolbar: four action buttons exactly centered via balancing
-  mirrors (invisible icon/title copies, off on narrow windows), filter
-  adjacent to the buttons, icon-only Columns, KeepVisible priorities
-  plus minimum widths so narrow windows degrade to the overflow menu
-  instead of crowding.
+- Header toolbar: action row centered as a unit with balancing
+  mirrors (invisible icon/title copies, off on narrow windows), so the
+  four buttons sit centered at any width; filter adjacent, icon-only
+  Columns, KeepVisible priorities plus minimum widths for narrow.
 - Gutter back strip runs the full table height behind rows and empty
   area, so the framed number column stays complete with zero games.
 - Gutter header has no "#" title and no divider stub into the game
@@ -30,7 +29,7 @@ Breaking config changes are called out explicitly under `Changed`.
 - Drawer Library bar shares the Kirigami global toolbar height, so its
   separator meets the Games header line; header heights locked by test.
 - Header titles are centered TKS-style with a small ▲/▼ mark overlaid
-  at the top right corner (the frame and dividers mark the columns).
+  at the right edge, vertically centered.
 - View button is icon-only like Dolphin (icons per mode plus
   Ctrl+1/2/3); menu button uses the existing overflow-menu icon;
   geometry dump behind TKARCADE_DEBUG_GEOMETRY=1.

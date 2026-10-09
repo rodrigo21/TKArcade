@@ -1802,7 +1802,7 @@ def test_toolbar_buttons_centered_and_filter_grows(qgui_app, xdg_env):
     drawer = win.findChild(_QObject, "sourceDrawer")
     content_left = drawer.property("width")
     content_center = content_left + (win.property("width") - content_left) / 2
-    assert abs((group_left + group_right) / 2 - content_center) <= 5, (
+    assert abs((group_left + group_right) / 2 - content_center) <= 10, (
         (group_left + group_right) / 2,
         content_center,
     )

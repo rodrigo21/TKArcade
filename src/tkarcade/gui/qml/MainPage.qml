@@ -600,23 +600,22 @@ Kirigami.Page {
         gameTable.forceLayout()
     }
 
-    // Window-header actions (systemmonitor-style): title is automatic,
-    // the four buttons stay exactly centered via a mirror spacer that
-    // tracks the right icon block width; the filter grows to them.
+    // Window-header actions: the row centers as a unit and the
+    // balancing mirrors keep the four buttons centered in it.
     actions: [
         Kirigami.Action {
             // Invisible copy of the right fixed block (search plus
             // icons): with the title copy on the right, both sides
-            // balance around the stretch spacers. Keep in sync.
+            // balance around the centered unit. Keep in sync.
             // Hidden on narrow toolbars so content never crowds.
             displayComponent: RowLayout {
                 objectName: "toolbarMirror"
-                visible: parent !== null && parent.width > 1000
+                visible: parent !== null && parent.width > 850
                 spacing: 0
                 opacity: 0
                 enabled: false
                 Kirigami.SearchField {
-                    implicitWidth: Kirigami.Units.gridUnit * 16
+                    implicitWidth: Kirigami.Units.gridUnit * 10
                 }
                 Controls.ToolButton { icon.name: "view-list-details" }
                 Controls.ToolButton { text: "▼" }
@@ -653,12 +652,6 @@ Kirigami.Page {
         },
         Kirigami.Action {
             displayComponent: Item {
-                objectName: "toolbarStretchB"
-                Layout.fillWidth: true
-            }
-        },
-        Kirigami.Action {
-            displayComponent: Item {
                 Layout.fillWidth: true
             }
         },
@@ -668,9 +661,8 @@ Kirigami.Page {
             displayHint: KL.DisplayHint.KeepVisible
             displayComponent: Kirigami.SearchField {
                 objectName: "searchField"
-                // Squeezable on narrow windows instead of crowding out.
-                Layout.minimumWidth: Kirigami.Units.gridUnit * 6
-                implicitWidth: Kirigami.Units.gridUnit * 16
+                Layout.minimumWidth: implicitWidth
+                implicitWidth: Kirigami.Units.gridUnit * 10
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
             }
@@ -829,7 +821,7 @@ Kirigami.Page {
         },
         Kirigami.Action {
             displayComponent: RowLayout {
-                visible: parent !== null && parent.width > 1000
+                visible: parent !== null && parent.width > 850
                 spacing: 0
                 // Leading pad mirrors the header left padding in front
                 // of the title, so both sides balance (themed unit).
@@ -1133,12 +1125,11 @@ Kirigami.Page {
                             color: Kirigami.Theme.textColor
                         }
                     }
-                    // TKS-style sort mark: small, overlaid at the top
-                    // right corner so the title stays truly centered.
+                    // TKS-style sort mark: small, overlaid at the right
+                    // edge, vertically centered, so the title stays put.
                     Controls.Label {
-                        anchors.top: parent.top
                         anchors.right: parent.right
-                        anchors.topMargin: Kirigami.Units.smallSpacing / 2
+                        anchors.verticalCenter: parent.verticalCenter
                         anchors.rightMargin: Kirigami.Units.smallSpacing
                         text: gamesPage.sortGlyph(logical)
                         visible: text !== ""
