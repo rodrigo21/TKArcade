@@ -10,8 +10,9 @@ Breaking config changes are called out explicitly under `Changed`.
   encounter (that segment does not exist in TKS); footer line kept.
 - Header toolbar: action row centered as a unit with balancing
   mirrors (invisible icon/title copies, off on narrow windows), so the
-  four buttons sit centered at any width; filter adjacent, icon-only
-  Columns, KeepVisible priorities plus minimum widths for narrow.
+  four buttons sit centered at any width; filter fills to the corner
+  icons and grows with the window (proportional width, mirrored);
+  icon-only Columns, KeepVisible priorities plus minimums for narrow.
 - Gutter back strip runs the full table height behind rows and empty
   area, so the framed number column stays complete with zero games.
 - Gutter header has no "#" title and no divider stub into the game

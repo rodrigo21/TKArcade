@@ -615,7 +615,9 @@ Kirigami.Page {
                 opacity: 0
                 enabled: false
                 Kirigami.SearchField {
-                    implicitWidth: Kirigami.Units.gridUnit * 10
+                    // Same fraction of the toolbar row as the real
+                    // filter (parent chain: copy -> mirror row -> bar).
+                    implicitWidth: (parent && parent.parent ? parent.parent.width : 0) * 0.2
                 }
                 Controls.ToolButton { icon.name: "view-list-details" }
                 Controls.ToolButton { text: "▼" }
@@ -661,8 +663,11 @@ Kirigami.Page {
             displayHint: KL.DisplayHint.KeepVisible
             displayComponent: Kirigami.SearchField {
                 objectName: "searchField"
-                Layout.minimumWidth: implicitWidth
-                implicitWidth: Kirigami.Units.gridUnit * 10
+                // Proportional width: ToolBarLayout ignores fillWidth and
+                // preferredWidth on controls, but honors implicitWidth,
+                // and parent.width works in any scope. The filter truly
+                // grows with the window (mirror copies the fraction).
+                implicitWidth: (parent ? parent.width : 0) * 0.2
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
             }
