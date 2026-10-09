@@ -587,31 +587,9 @@ Kirigami.Page {
         gameTable.forceLayout()
     }
 
-    // Window-header actions: the row centers as a unit and the
-    // balancing mirrors keep the four buttons centered in it.
+    // Option A: action row right-aligned so the corner icons pin
+    // to the edge; the filter fraction fills buttons-to-icons.
     actions: [
-        Kirigami.Action {
-            // Invisible copy of the right fixed block (search plus
-            // icons): with no header title taking space, both sides
-            // balance around the centered unit. Keep in sync.
-            // Hidden on narrow toolbars so content never crowds.
-            displayComponent: RowLayout {
-                objectName: "toolbarMirror"
-                visible: parent !== null && parent.width > 850
-                spacing: 0
-                opacity: 0
-                enabled: false
-                Kirigami.SearchField {
-                    // Same fraction of the toolbar row as the real
-                    // filter (parent chain: copy -> mirror row -> bar).
-                    implicitWidth: (parent && parent.parent ? parent.parent.width : 0) * 0.2
-                }
-                Controls.ToolButton { icon.name: "view-list-details" }
-                Controls.ToolButton { text: "▼" }
-                Controls.ToolButton { icon.name: "view-column" }
-                Controls.ToolButton { icon.name: "overflow-menu" }
-            }
-        },
         Kirigami.Action {
             objectName: "actionPlay"
             text: qsTr("Play")
@@ -652,7 +630,7 @@ Kirigami.Page {
                 objectName: "searchField"
                 // Proportional width: the growing mechanism honored here
                 // (fraction of the toolbar row; mirror copies it).
-                implicitWidth: (parent ? parent.width : 0) * 0.2
+                implicitWidth: (parent ? parent.width : 0) * 0.31
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
             }

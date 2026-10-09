@@ -8,12 +8,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Fixed
 - Header grid line starts past the gutter and stops at the vertical
   encounter (that segment does not exist in TKS); footer line kept.
-- Header toolbar: action row centered as a unit with a balancing
-  mirror (invisible search/icon copies, off on narrow windows), so the
-  four buttons sit centered at any width; no header title (TKS has
-  none), so no dead corner balancing it; filter fills to the corner
-  icons and grows with the window (proportional width, mirrored);
-  icon-only Columns, KeepVisible priorities plus minimums for narrow.
+- Header toolbar: action row right-pins the corner icons; the filter
+  fills buttons-to-icons and grows proportionally; no header title and
+  no balancing dead weight, so no blank corner anywhere.
 - Gutter back strip runs the full table height behind rows and empty
   area, so the framed number column stays complete with zero games.
 - Gutter header has no "#" title and no divider stub into the game

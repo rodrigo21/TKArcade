@@ -41,7 +41,7 @@ Kirigami.ApplicationWindow {
         // with balancing mirror copies around them, the four action
         // buttons land centered at any window width.
         if (pageStack.globalToolBar) {
-            pageStack.globalToolBar.toolbarActionAlignment = Qt.AlignHCenter
+            pageStack.globalToolBar.toolbarActionAlignment = Qt.AlignRight
         }
     }
 

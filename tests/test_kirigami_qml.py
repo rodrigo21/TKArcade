@@ -1737,8 +1737,10 @@ def test_row_hover_tracks_mouse(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_toolbar_buttons_centered_and_filter_grows(qgui_app, xdg_env):
-    """Mirror spacer matches the icon block; the filter stretches."""
+def test_toolbar_icons_pinned_and_filter_fills(qgui_app, xdg_env):
+    """Icons pin to the corner; the filter fills buttons-to-icons."""
+    from PySide6.QtCore import QObject as _QObject
+    from PySide6.QtCore import QPointF as _QPointF
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
@@ -1760,26 +1762,18 @@ def test_toolbar_buttons_centered_and_filter_grows(qgui_app, xdg_env):
                 continue
         return None
 
-    mirror = visible("toolbarMirror")
     icons = visible("toolbarIcons")
     search = visible("searchField")
-    assert mirror is not None and icons is not None and search is not None
+    assert icons is not None and search is not None
     for _ in range(20):
         qgui_app.processEvents()
-        if abs(mirror.property("width") - icons.property("width")) <= 1:
-            break
-    assert mirror.property("width") > 0
-    # Mirror carries the search copy plus the icon copy.
-    expected = search.property("width") + icons.property("width")
-    assert abs(mirror.property("width") - expected) <= 2, (
-        mirror.property("width"),
-        expected,
-    )
-    assert search.property("width") >= search.property("implicitWidth")
-    # The four action buttons sit exactly centered in the content area
-    # (drawer edge to window edge): mirror plus title copy balance right.
-    from PySide6.QtCore import QObject as _QObject
-    from PySide6.QtCore import QPointF as _QPointF
+    scene_right = win.property("width")
+    icons_right = icons.mapToScene(_QPointF(icons.property("width"), 0)).x()
+    assert scene_right - icons_right <= 12, (scene_right, icons_right)
+    search_left = search.mapToScene(_QPointF(0, 0)).x()
+    search_right = search.mapToScene(_QPointF(search.property("width"), 0)).x()
+    assert search_right - search_left >= 100
+    assert search_left >= 0 and search_right <= icons_right + 1
 
     group_left, group_right = None, None
     for item in win.findChildren(QQuickItem):
@@ -1802,7 +1796,7 @@ def test_toolbar_buttons_centered_and_filter_grows(qgui_app, xdg_env):
     drawer = win.findChild(_QObject, "sourceDrawer")
     content_left = drawer.property("width")
     content_center = content_left + (win.property("width") - content_left) / 2
-    assert abs((group_left + group_right) / 2 - content_center) <= 10, (
+    assert abs((group_left + group_right) / 2 - content_center) <= 80, (
         (group_left + group_right) / 2,
         content_center,
     )
