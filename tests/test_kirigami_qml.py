@@ -1531,6 +1531,53 @@ def test_header_divider_double_click_autofits_column(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_table_hscroll_appears_on_overflow(qgui_app, xdg_env):
+    """A horizontal bar rescues columns dragged past the edge."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    bar = win.findChild(QQuickItem, "tableHScroll")
+    assert bar is not None
+    table = win.findChild(QQuickItem, "gameTable")
+    for _ in range(10):
+        qgui_app.processEvents()
+    assert bar.property("size") == 1.0  # fits: nothing to scroll
+    proxy.setColumnWidth(1, 1200)
+    for _ in range(30):
+        qgui_app.processEvents()
+        if bar.property("size") < 1.0:
+            break
+    assert bar.property("size") < 1.0
+    bar.setProperty("position", 1.0)
+    for _ in range(10):
+        qgui_app.processEvents()
+    assert table.property("contentX") > 0  # outer columns reachable
+    header = win.findChild(QQuickItem, "tableHeader")
+    rows = [
+        k
+        for k in header.childItems()
+        if k.metaObject().className() in ("QQuickRow", "QQuickRowLayout")
+    ]
+    assert len(rows) == 1
+    assert rows[0].property("x") == -table.property("contentX")
+    proxy.resetColumns()
+    for _ in range(30):
+        qgui_app.processEvents()
+        if bar.property("size") == 1.0:
+            break
+    assert bar.property("size") == 1.0
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_header_divider_drag_resizes_and_persists(qgui_app, xdg_env):
     """Dragging a header separator resizes live, persisting on release."""
     from PySide6.QtCore import QPoint, QPointF, Qt

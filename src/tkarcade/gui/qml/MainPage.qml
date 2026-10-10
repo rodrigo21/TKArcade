@@ -1137,6 +1137,7 @@ Kirigami.Page {
             objectName: "tableHeader"
             Layout.fillWidth: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 2
+            clip: true
             Kirigami.Theme.colorSet: Kirigami.Theme.Button
             Kirigami.Theme.inherit: false
             Rectangle {
@@ -1146,7 +1147,11 @@ Kirigami.Page {
             }
             Row {
                 id: headerRow
-                anchors.fill: parent
+                // Follows the table sideways so titles stay over
+                // their columns when the bar scrolls past the edge.
+                x: -gameTable.contentX
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
                 spacing: 0
             Repeater {
                 id: headerRepeater
@@ -1299,6 +1304,12 @@ Kirigami.Page {
             Layout.fillHeight: true
             clip: true
             model: gameFilter
+            // Drag/autofit can push content past the edge: an
+            // as-needed bar brings the outer columns back.
+            Controls.ScrollBar.horizontal: Controls.ScrollBar {
+                objectName: "tableHScroll"
+                policy: Controls.ScrollBar.AsNeeded
+            }
             selectionModel: QQmlModels.ItemSelectionModel {
                 model: gameFilter
             }

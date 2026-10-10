@@ -11,7 +11,9 @@ Breaking config changes are called out explicitly under `Changed`.
   header cells ride a positional Row so fitted widths apply live.
   Separators also drag-resize (live preview, persists on release),
   the fit counts the sort glyph and the game icon, and the game
-  column absorbs leftover width so fitted tables still fill up.
+  column absorbs leftover width so fitted tables still fill up. A
+  horizontal bar rescues columns dragged past the edge, with the
+  header row following the scroll.
 
 ### Fixed
 - Preferences dialog uses FormCard delegates (native settings look);
