@@ -53,8 +53,10 @@ to `kirigami` (see git log).
 ### Equivalence map (audit 2026-10-07)
 - [x] QMainWindow → ApplicationWindow
 - [x] QListWidget sources → GlobalDrawer actions
-- [x] QMenu/QToolBar → Action + menus, centered toolbar row, per-row
-  Play removed (play via double-click, toolbar or menu)
+- [x] QMenu/QToolBar → title row (buttons + centered filter) + actions
+  row (view icons pinned right); per-row Play removed (play via
+  double-click, toolbar or menu); header separator double-click
+  autofits the column (measured on the model, persisted per column)
 - [x] QDialog+ButtonBox → Kirigami.Dialog
 - [x] QComboBox/Spin/Slider/Check/LineEdit → QQC2 direct
 - [x] QTableWidget+QHeaderView → Addons ListTableView (+ kirigami-addons
@@ -64,7 +66,8 @@ to `kirigami` (see git log).
   offscreen event loop forever).
 - [x] QShortcut Quit → QML Shortcut (Ctrl+Q)
 - [ ] QMessageBox → Kirigami.PromptDialog (base kirigami, revise our confirms)
-- [ ] QFormLayout (prefs) → Addons FormCard (same new dep, zero extra cost)
+- [x] QFormLayout (prefs) → Addons FormCard (API key row stays
+  plain: FormTextFieldDelegate needs a KLocalizedContext)
 - [ ] QTabWidget (future settings UI) → pageStack pages + TabBar
 - [ ] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
 - [ ] QSystemTrayIcon → needs QApplication migration (deferred)

@@ -566,6 +566,16 @@ def test_column_layout_prefs_roundtrip(xdg_env):
     assert C.load_preferences().hidden_columns == "1,2"
 
 
+def test_column_width_prefs_roundtrip(xdg_env):
+    prefs = C.load_preferences()
+    prefs.column_widths = "1=210,2=90"
+    C.save_preferences(prefs)
+    assert C.load_preferences().column_widths == "1=210,2=90"
+    prefs.column_widths = "x,1=5,2=99,9=50,3=3000"
+    C.save_preferences(prefs)
+    assert C.load_preferences().column_widths == "2=99"
+
+
 def test_tray_quick_prefs_roundtrip(xdg_env):
     prefs = C.load_preferences()
     assert prefs.tray_quick_launch is True and prefs.tray_quick_count == 5

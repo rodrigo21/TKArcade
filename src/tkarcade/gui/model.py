@@ -716,6 +716,7 @@ class GameFilterModel(QSortFilterProxyModel):
         self._text = ""
         self._issues = False
         self._order, self._hidden = self._load_columns()
+        self._widths = self._load_widths()
         self._sort_role = "gameName"
         self._sort_role_id = GameListModel.NameRole
         self._sort_descending = False
@@ -739,6 +740,26 @@ class GameFilterModel(QSortFilterProxyModel):
         """Logical columns in view order (hidden stay mapped, QML widths them 0)."""
         return list(self._order)
 
+    @staticmethod
+    def _load_widths() -> dict[int, int]:
+        """Fitted column widths from prefs (garbage means no overrides)."""
+        widths: dict[int, int] = {}
+        try:
+            raw = cfgmod.load_preferences().column_widths
+        except Exception:
+            return widths
+        for part in str(raw or "").split(","):
+            if "=" not in part:
+                continue
+            left, _, right = part.partition("=")
+            try:
+                logical, width = int(left.strip()), int(right.strip())
+            except ValueError:
+                continue
+            if 0 <= logical <= 5 and 20 <= width <= 2000:
+                widths[logical] = width
+        return widths
+
     def _save_columns(self) -> None:
         try:
             prefs = cfgmod.load_preferences()
@@ -746,6 +767,7 @@ class GameFilterModel(QSortFilterProxyModel):
             return
         prefs.column_order = ",".join(map(str, self._order))
         prefs.hidden_columns = ",".join(map(str, sorted(self._hidden)))
+        prefs.column_widths = ",".join(f"{k}={v}" for k, v in sorted(self._widths.items()))
         try:
             cfgmod.save_preferences(prefs)
         except OSError:
@@ -772,6 +794,64 @@ class GameFilterModel(QSortFilterProxyModel):
         import json
 
         return json.dumps(list(self._order))
+
+    @Slot(result=str)
+    def columnWidthsJson(self) -> str:
+        """Fitted widths as JSON ({logical: px}); empty object by default.
+
+        Fresh JS object per call (same QVariantList rule as the order).
+        """
+        import json
+
+        return json.dumps({str(k): v for k, v in sorted(self._widths.items())})
+
+    @Slot(int, result=int)
+    def columnWidth(self, logical: int) -> int:
+        """Fitted width for a logical column (0 means default sizing)."""
+        try:
+            return int(self._widths.get(int(logical), 0))
+        except (TypeError, ValueError):
+            return 0
+
+    @Slot(int, result=int)
+    def autofitColumn(self, logical: int) -> int:
+        """Fit a column to its contents (header + every row), persist it.
+
+        Measures the exact DisplayRole strings the delegates show, so no
+        delegate instantiation (the view virtualizes rows). Returns the
+        stored width.
+        """
+        try:
+            logical = int(logical)
+        except (TypeError, ValueError):
+            return 0
+        if logical not in (0, 1, 2, 3, 4, 5):
+            return 0
+        try:
+            from PySide6.QtGui import QFontMetrics, QGuiApplication
+
+            metrics = QFontMetrics(QGuiApplication.font())
+        except Exception:
+            return self.columnWidth(logical)
+        order = self._view_columns()
+        try:
+            section = order.index(logical)
+        except ValueError:
+            return 0
+        widest = 0
+        rows = self.rowCount()
+        for row in range(rows):
+            text = self.data(self.index(row, section))
+            if text:
+                widest = max(widest, metrics.horizontalAdvance(str(text)))
+        title = self.COLUMN_TITLES.get(self.TABLE_COLUMNS[logical], "")
+        if title:
+            widest = max(widest, metrics.horizontalAdvance(title))
+        width = min(1200, max(40, widest + 24))
+        self._widths[logical] = width
+        self._save_columns()
+        self.widthsChanged.emit()
+        return width
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         # Presentation permutation only: view column c shows logical
@@ -827,12 +907,14 @@ class GameFilterModel(QSortFilterProxyModel):
 
     @Slot()
     def resetColumns(self) -> None:
-        """Default order, everything visible."""
+        """Default order, everything visible, no fitted widths."""
         self._order = [0, 1, 2, 3, 4, 5]
         self._hidden = set()
+        self._widths = {}
         self._save_columns()
         self.layoutChanged.emit()
         self.columnsChanged.emit()
+        self.widthsChanged.emit()
 
     def _get_source(self) -> str:
         return self._source
@@ -871,6 +953,7 @@ class GameFilterModel(QSortFilterProxyModel):
     issuesOnly = Property(bool, _get_issues, _set_issues, notify=issuesChanged)
 
     columnsChanged = Signal()
+    widthsChanged = Signal()
 
     _FLAG_COLUMNS = {
         "showAppId": 2,

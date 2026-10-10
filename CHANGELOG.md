@@ -5,7 +5,15 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Added
+- Header separator double-click autofits the column to its contents
+  (measured on the model, persisted per column, survives restarts);
+  header widths now ride a positional Row so fitted values apply live.
+
 ### Fixed
+- Preferences dialog uses FormCard delegates (native settings look);
+  the API key row stays plain (FormTextFieldDelegate needs a
+  KLocalizedContext the engine does not install).
 - Header toolbar split in three zones: buttons + centered filter live
   in the title row (plain RowLayout honors fill), view icons stay in
   the actions row pinned right at any window width. Narrow windows

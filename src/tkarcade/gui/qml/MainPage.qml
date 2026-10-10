@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 import org.kde.kirigami.layouts as KL
+import org.kde.kirigamiaddons.formcard as FormCard
 
 // Games page: search + view split-button on top, the selected view
 // below (details list, icons grid, or gallery-style cards), counts at
@@ -446,6 +447,7 @@ Kirigami.Page {
 
     Component.onCompleted: {
         gamesPage.refreshColumnOrder()
+        gamesPage.refreshColumnWidths()
         gameModel.fetchMissing()
         Qt.callLater(gamesPage.ensureSelection)
         if (TKARCADE_DEBUG_GEOMETRY === "1") {
@@ -544,6 +546,10 @@ Kirigami.Page {
             gamesPage.refreshColumnOrder()
             gamesPage.fitGameColumn()
         }
+        function onWidthsChanged() {
+            gamesPage.refreshColumnWidths()
+            gamesPage.fitGameColumn()
+        }
         function onRowsInserted() {
             gamesPage.ensureSelection()
         }
@@ -555,16 +561,6 @@ Kirigami.Page {
         }
     }
 
-
-    function columnWidth(logical) {
-        if (logical === 3) {
-            return 110
-        }
-        if (logical === 4) {
-            return 80
-        }
-        return 90
-    }
 
     function columnVisible(logical) {
         if (logical === 2) {
@@ -638,10 +634,22 @@ Kirigami.Page {
     property var columnOrder: [0, 1, 2, 3, 4, 5] // JS mirror of the proxy
     // order (fresh JS array from JSON: QVariantList lays out at zero
     // width). Refreshed on start and on every columnsChanged.
+    property var fittedColumnWidths: ({}) // logical -> px, same mirror rule
+    property int fittedColumnWidthsRev: 0 // bumped with the mirror:
+    // element reads on a var do not retrack reassignment alone
     property int gameColumnWidth: 400
 
     function refreshColumnOrder() {
         columnOrder = JSON.parse(gameFilter.columnOrderJson())
+    }
+
+    function refreshColumnWidths() {
+        fittedColumnWidths = JSON.parse(gameFilter.columnWidthsJson())
+        fittedColumnWidthsRev += 1
+    }
+
+    function autofitColumn(logical) {
+        gameFilter.autofitColumn(logical)
     }
 
     function moveColumn(logical, dir) {
@@ -660,6 +668,10 @@ Kirigami.Page {
         if (!columnVisible(logical)) {
             return 0
         }
+        var fitted = gameFilter.columnWidth(logical)
+        if (fitted > 0) {
+            return fitted
+        }
         if (logical === 0) {
             return 36
         }
@@ -676,25 +688,26 @@ Kirigami.Page {
     }
 
     function fixedColumnsWidth() {
-        var total = 36
+        var total = tableColumnWidth(0)
         if (gameFilter.showAppId) {
-            total += 90
+            total += tableColumnWidth(2)
         }
         if (gameFilter.showPlayed) {
-            total += 90
+            total += tableColumnWidth(3)
         }
         if (gameFilter.showTier) {
-            total += 110
+            total += tableColumnWidth(4)
         }
         if (gameFilter.showSource) {
-            total += 80
+            total += tableColumnWidth(5)
         }
         return total
     }
 
     function fitGameColumn() {
         if (gameTable.width > 0) {
-            gameColumnWidth = Math.max(120, gameTable.width - fixedColumnsWidth())
+            var fitted = gameFilter.columnWidth(1)
+            gameColumnWidth = fitted > 0 ? fitted : Math.max(120, gameTable.width - fixedColumnsWidth())
         }
         gameTable.forceLayout()
     }
@@ -1128,7 +1141,8 @@ Kirigami.Page {
                 anchors.fill: parent
                 color: Kirigami.Theme.backgroundColor
             }
-            RowLayout {
+            Row {
+                id: headerRow
                 anchors.fill: parent
                 spacing: 0
             Repeater {
@@ -1138,9 +1152,18 @@ Kirigami.Page {
                     required property int modelData
                     property int logical: modelData
                     objectName: "headerCell" + logical
-                    // Inline expression (reactive): a tableColumnWidth()
-                    // call would freeze at first evaluation.
-                    Layout.preferredWidth: {
+                    // Plain width (not Layout.preferredWidth): Row
+                    // repositions on width changes, while the row
+                    // layout proved deaf to preferredWidth edits.
+                    width: {
+                        gamesPage.fittedColumnWidthsRev
+                        if (!columnVisible(logical)) {
+                            return 0
+                        }
+                        var fw = gamesPage.fittedColumnWidths[logical] || 0
+                        if (fw > 0) {
+                            return fw
+                        }
                         if (logical === 0) {
                             return 36
                         }
@@ -1158,8 +1181,8 @@ Kirigami.Page {
                         }
                         return gameFilter.showSource ? 80 : 0
                     }
-                    Layout.fillHeight: true
-                    visible: Layout.preferredWidth > 0
+                    height: parent.height
+                    visible: width > 0
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: Kirigami.Units.smallSpacing
@@ -1197,9 +1220,33 @@ Kirigami.Page {
                         color: Kirigami.Theme.textColor
                         opacity: 0.18
                     }
+                    MouseArea {
+                        // Hover cursor only (acceptedButtons: none, so it
+                        // never steals taps); the cell TapHandler below
+                        // fires autofit on double-tap over this strip.
+                        objectName: "headerDivider" + logical
+                        visible: logical !== 0
+                        z: 10
+                        anchors.right: parent.right
+                        anchors.rightMargin: -4
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: 9
+                        acceptedButtons: Qt.NoButton
+                        hoverEnabled: true
+                        cursorShape: Qt.SplitHCursor
+                    }
                     TapHandler {
                         acceptedButtons: Qt.LeftButton
                         onTapped: gamesPage.headerClicked(logical)
+                        // Widgets-style autofit on the divider strip
+                        // (the two taps also toggle sort twice, which
+                        // nets back to the starting order).
+                        onDoubleTapped: {
+                            if (point.position.x >= width - 9) {
+                                gamesPage.autofitColumn(logical)
+                            }
+                        }
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -1245,6 +1292,14 @@ Kirigami.Page {
                     // Match the visible cell: text paints outside a wrong
                     // box, but clicks do not land. Keep in sync with the
                     // header widths above.
+                    gamesPage.fittedColumnWidthsRev
+                    if (!gamesPage.columnVisible(logical)) {
+                        return 0
+                    }
+                    var fw = gamesPage.fittedColumnWidths[logical] || 0
+                    if (fw > 0) {
+                        return fw
+                    }
                     if (logical === 0) {
                         return 36
                     }
@@ -1982,58 +2037,57 @@ Kirigami.Page {
             values = copy
         }
         ColumnLayout {
-            Controls.CheckBox {
-                text: qsTr("Show launch command preview")
-                checked: prefsDialog.values.showPreview ?? true
-                onToggled: prefsDialog.setPref("showPreview", checked)
-            }
-            Controls.CheckBox {
-                text: qsTr("Enable status bar icon")
-                checked: prefsDialog.values.trayEnable ?? false
-                onToggled: prefsDialog.setPref("trayEnable", checked)
-            }
-            RowLayout {
-                Controls.Label {
-                    text: qsTr("Tray icon style:")
+            FormCard.FormCard {
+                Layout.fillWidth: true
+                FormCard.FormCheckDelegate {
+                    text: qsTr("Show launch command preview")
+                    checked: prefsDialog.values.showPreview ?? true
+                    onClicked: prefsDialog.setPref("showPreview", checked)
                 }
-                Controls.ComboBox {
+                FormCard.FormCheckDelegate {
+                    text: qsTr("Enable status bar icon")
+                    checked: prefsDialog.values.trayEnable ?? false
+                    onClicked: prefsDialog.setPref("trayEnable", checked)
+                }
+                FormCard.FormComboBoxDelegate {
+                    text: qsTr("Tray icon style:")
                     model: [qsTr("Normal"), qsTr("Monochrome")]
                     currentIndex: prefsDialog.values.trayIcon === "mono" ? 1 : 0
                     onActivated: (index) => prefsDialog.setPref(
                         "trayIcon", index === 1 ? "mono" : "normal")
                 }
-            }
-            Controls.CheckBox {
-                text: qsTr("Minimize to tray")
-                checked: prefsDialog.values.minimizeToTray ?? false
-                onToggled: prefsDialog.setPref("minimizeToTray", checked)
-            }
-            Controls.CheckBox {
-                text: qsTr("Close to tray")
-                checked: prefsDialog.values.closeToTray ?? false
-                onToggled: prefsDialog.setPref("closeToTray", checked)
-            }
-            Controls.CheckBox {
-                text: qsTr("Show recent games in tray menu")
-                checked: prefsDialog.values.trayQuickLaunch ?? false
-                onToggled: prefsDialog.setPref("trayQuickLaunch", checked)
-            }
-            RowLayout {
-                Controls.Label {
-                    text: qsTr("Recent games:")
+                FormCard.FormCheckDelegate {
+                    text: qsTr("Minimize to tray")
+                    checked: prefsDialog.values.minimizeToTray ?? false
+                    onClicked: prefsDialog.setPref("minimizeToTray", checked)
                 }
-                Controls.SpinBox {
+                FormCard.FormCheckDelegate {
+                    text: qsTr("Close to tray")
+                    checked: prefsDialog.values.closeToTray ?? false
+                    onClicked: prefsDialog.setPref("closeToTray", checked)
+                }
+                FormCard.FormCheckDelegate {
+                    text: qsTr("Show recent games in tray menu")
+                    checked: prefsDialog.values.trayQuickLaunch ?? false
+                    onClicked: prefsDialog.setPref("trayQuickLaunch", checked)
+                }
+                FormCard.FormSpinBoxDelegate {
                     id: quickSpin
+                    label: qsTr("Recent games:")
                     from: 1
                     to: 10
-                    onValueChanged: prefsDialog.setPref("trayQuickCount", value)
+                    onValueModified: prefsDialog.setPref("trayQuickCount", value)
                 }
             }
+            // Plain row: FormTextFieldDelegate calls bare i18ndc(),
+            // which needs a KLocalizedContext our engine does not
+            // install (works, but logs warnings).
             RowLayout {
                 Controls.Label {
                     text: qsTr("SteamGridDB key:")
                 }
                 Controls.TextField {
+                    Layout.fillWidth: true
                     echoMode: Controls.TextField.Password
                     placeholderText: qsTr("Free key from steamgriddb.com")
                     text: prefsDialog.values.sgdbApiKey ?? ""

@@ -159,6 +159,7 @@ class Preferences:
     sgdb_api_key: str = ""
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
+    column_widths: str = ""  # fitted widths, e.g. "1=210,2=90"
     tray_quick_launch: bool = True  # recent games section in the tray menu
     tray_quick_count: int = 5  # recent games shown (1-10)
     language: str = "system"  # system locale, "en" for English, or a locale code
@@ -685,6 +686,7 @@ def load_preferences() -> Preferences:
     out.sgdb_api_key = str(ui.get("sgdb_api_key", "") or "")
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
+    out.column_widths = _clean_width_map(str(ui.get("column_widths", "") or ""))
     out.tray_quick_launch = _as_bool(ui.get("tray_quick_launch", True), True)
     out.tray_quick_count = _clamp_quick_count(ui.get("tray_quick_count", 5))
     lang = str(ui.get("language", "system") or "system").strip()
@@ -704,6 +706,20 @@ def load_preferences() -> Preferences:
 def _clean_int_list(text: str) -> str:
     """Normalize a comma list to digits-only, preserving order ("" stays "")."""
     return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdigit())
+
+
+def _clean_width_map(text: str) -> str:
+    """Normalize 'logical=px' pairs (logical 0-5, px 20-2000)."""
+    out = []
+    for part in (x.strip() for x in text.split(",")):
+        if "=" not in part:
+            continue
+        left, _, right = part.partition("=")
+        if left.strip().isdigit() and right.strip().isdigit():
+            logical, width = int(left.strip()), int(right.strip())
+            if 0 <= logical <= 5 and 20 <= width <= 2000:
+                out.append(f"{logical}={width}")
+    return ",".join(out)
 
 
 def _clamp_quick_count(value: object) -> int:
@@ -735,6 +751,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "sgdb_api_key": prefs.sgdb_api_key,
             "column_order": _clean_int_list(prefs.column_order),
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
+            "column_widths": _clean_width_map(prefs.column_widths),
             "tray_quick_launch": bool(prefs.tray_quick_launch),
             "tray_quick_count": _clamp_quick_count(prefs.tray_quick_count),
             "language": prefs.language if isinstance(prefs.language, str) else "system",

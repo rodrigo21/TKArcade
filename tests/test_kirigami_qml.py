@@ -1476,6 +1476,61 @@ def test_header_cells_tile_from_zero(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_header_divider_double_click_autofits_column(qgui_app, xdg_env):
+    """Double-clicking a header separator fits that column to contents."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+
+    header = win.findChild(QQuickItem, "tableHeader")
+    rows = [
+        k
+        for k in header.childItems()
+        if k.metaObject().className() in ("QQuickRow", "QQuickRowLayout")
+    ]
+    assert len(rows) == 1
+    cells = {c.objectName(): c for c in rows[0].childItems()}
+    cell = cells.get("headerCell2")
+    assert cell is not None
+    assert cell.property("width") == 90
+    divider = {d.objectName(): d for d in cell.childItems() if isinstance(d, QQuickItem)}.get(
+        "headerDivider2"
+    )
+    assert divider is not None
+    # Inside the 9px strip but also inside the cell: the strip
+    # straddles the cell edge, and past-the-edge lands next door.
+    pos = cell.mapToScene(QPointF(cell.property("width") - 3, 5)).toPoint()
+    QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    fitted = proxy.columnWidth(2)
+    assert fitted != 90 and fitted >= 40  # measured, not the default
+    found = None
+    for _ in range(30):
+        qgui_app.processEvents()
+        # Re-walk every pass: width changes may rebuild delegates,
+        # leaving the previously held item stale.
+        cells = {c.objectName(): c for c in rows[0].childItems() if isinstance(c, QQuickItem)}
+        found = cells.get("headerCell2")
+        if found is not None and found.property("width") == fitted:
+            break
+    assert found is not None
+    assert found.property("width") == fitted
+    page = win.findChild(QObject, "gamesPage")
+    assert dict(page.property("fittedColumnWidths").toVariant()) == {"2": fitted}
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_view_switcher_has_icons_and_shortcuts(qgui_app, xdg_env):
     """View modes show Dolphin-style icons; Ctrl+1/2/3 switch directly."""
     from PySide6.QtCore import QObject
