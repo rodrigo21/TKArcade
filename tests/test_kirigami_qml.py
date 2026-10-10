@@ -1524,6 +1524,10 @@ def test_header_divider_double_click_autofits_column(qgui_app, xdg_env):
     assert found.property("width") == fitted
     page = win.findChild(QObject, "gamesPage")
     assert dict(page.property("fittedColumnWidths").toVariant()) == {"2": fitted}
+    # Divider gestures never sort (single taps there are swallowed
+    # by the strip, double taps autofit).
+    assert page.property("sortRole") == "gameName"
+    assert page.property("sortDescending") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

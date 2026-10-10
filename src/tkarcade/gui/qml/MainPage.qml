@@ -1251,6 +1251,10 @@ Kirigami.Page {
                         preventStealing: true
                         property real dragStartX: 0
                         property int dragStartW: 0
+                        // Double-click autofits on second press; the
+                        // release that follows must not re-apply the
+                        // drag position over it.
+                        property bool autofitted: false
                         onPressed: (mouse) => {
                             dragStartX = mouse.x
                             dragStartW = gamesPage.tableColumnWidth(logical)
@@ -1261,6 +1265,10 @@ Kirigami.Page {
                             }
                         }
                         onReleased: (mouse) => {
+                            if (autofitted) {
+                                autofitted = false
+                                return
+                            }
                             // Re-apply at release: the final move can
                             // coalesce behind the release event.
                             gameFilter.setColumnWidth(logical, Math.round(Math.max(40, dragStartW + mouse.x - dragStartX)))
@@ -1268,11 +1276,20 @@ Kirigami.Page {
                         }
                         // Double-click autofits (the TapHandler below
                         // never sees this strip: the press is ours).
-                        onDoubleClicked: gamesPage.autofitColumn(logical)
+                        onDoubleClicked: {
+                            autofitted = true
+                            gamesPage.autofitColumn(logical)
+                        }
                     }
                     TapHandler {
                         acceptedButtons: Qt.LeftButton
-                        onTapped: gamesPage.headerClicked(logical)
+                        // Never sort from the divider strip (a stray
+                        // press there belongs to resize/autofit).
+                        onTapped: {
+                            if (point.position.x < parent.width - 9) {
+                                gamesPage.headerClicked(logical)
+                            }
+                        }
                     }
                     MouseArea {
                         anchors.fill: parent
