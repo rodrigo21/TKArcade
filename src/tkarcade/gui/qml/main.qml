@@ -37,9 +37,7 @@ Kirigami.ApplicationWindow {
 
     Component.onCompleted: {
         applyDrawerMode(gameModel.drawerMode())
-        // Center the page header actions as a unit (Dolphin-style):
-        // with balancing mirror copies around them, the four action
-        // buttons land centered at any window width.
+        // Actions row holds the view icons only: right-pin them.
         if (pageStack.globalToolBar) {
             pageStack.globalToolBar.toolbarActionAlignment = Qt.AlignRight
         }

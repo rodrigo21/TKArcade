@@ -15,11 +15,77 @@ Kirigami.Page {
     id: gamesPage
     objectName: "gamesPage"
     title: qsTr("Games")
-    // No visible header title (TKS has none): an invisible delegate
-    // takes no layout space, so the action row centers in the full
-    // content width with no dead corner balancing it.
-    titleDelegate: Item {
-        visible: false
+    // Title slot carries buttons + filter (TKS has no title text): a
+    // plain RowLayout honors fillWidth, so the filter stays centered
+    // while the actions row (view icons) pins right at any width.
+    titleDelegate: RowLayout {
+        // Content-sized (no fill/preferred tug-of-war with the toolbar):
+        // fixed elastics + fixed filter keep geometry identical at any
+        // width, so nothing ever hides or overflows.
+        spacing: Kirigami.Units.smallSpacing
+        Controls.ToolButton {
+            id: btnPlay
+            objectName: "titlePlay"
+            text: actionPlay.text
+            icon.name: actionPlay.icon.name
+            display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
+            Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
+            Controls.ToolTip.visible: hovered
+            onClicked: gamesPage.playSelected()
+        }
+        Controls.ToolButton {
+            id: btnAdd
+            objectName: "titleAdd"
+            text: actionAdd.text
+            icon.name: actionAdd.icon.name
+            display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
+            Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
+            Controls.ToolTip.visible: hovered
+            onClicked: addDialog.open()
+        }
+        Controls.ToolButton {
+            id: btnEdit
+            objectName: "titleEdit"
+            text: actionEdit.text
+            icon.name: actionEdit.icon.name
+            display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
+            Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
+            Controls.ToolTip.visible: hovered
+            onClicked: addDialog.open()
+        }
+        Controls.ToolButton {
+            id: btnRemove
+            objectName: "titleRemove"
+            text: actionRemove.text
+            icon.name: actionRemove.icon.name
+            display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
+            Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
+            Controls.ToolTip.visible: hovered
+            onClicked: gamesPage.openRemoveDialog()
+        }
+        Item {
+            objectName: "toolbarSpacerA"
+            // Smaller twin: equal elastics center the filter B/2 off
+            // (the buttons width pushes it right), so the left one
+            // absorbs the buttons width back out.
+            implicitWidth: Math.max(0, (gamesPage.width - titleReserve - 2 * (btnPlay.width + btnAdd.width + btnEdit.width + btnRemove.width
+                + 3 * Kirigami.Units.smallSpacing) - gamesPage.titleFilterWidth) / 2)
+        }
+        Kirigami.SearchField {
+            objectName: "searchField"
+            // Page-based (never our own row width: that loops). Narrow
+            // pages get a shorter filter so the icons still fit.
+            // Shared with the elastics below (single source of truth).
+            implicitWidth: gamesPage.titleFilterWidth
+            placeholderText: qsTr("Filter by name or ID…")
+            onTextChanged: gameFilter.textQuery = text
+        }
+        Item {
+            objectName: "toolbarSpacerB"
+            // Larger twin (see spacerA): with buttons+filter+title all
+            // fixed, the icons toolbar keeps a constant ~170px room.
+            implicitWidth: Math.max(0, (gamesPage.width - titleReserve - gamesPage.titleFilterWidth) / 2)
+        }
     }
     // Flush against the window toolbar, like plasma-systemmonitor.
     topPadding: 0
@@ -39,6 +105,17 @@ Kirigami.Page {
     property var appDrawer: null
     property var viewArrowItem: null
     property var toolbarIconsItem: null
+    // Narrow windows show the four action buttons icon-only so the
+    // filter and view icons still fit. Window-based (not page-based):
+    // a collapsed drawer must not flip narrow windows back to text.
+    property bool compactToolbar: (Controls.ApplicationWindow.window?.width ?? 0) < 1600
+    // Title-row geometry (single source of truth). The reserve keeps
+    // room for the icons toolbar at any size; the filter clamps to
+    // [600, 1200] with a fit cap so the corner never overflows.
+    property int titleReserve: 170
+    property int titleButtonsGuess: compactToolbar ? 170 : 380
+    property int titleFilterWant: Math.min(1200, Math.max(gamesPage.width < 1000 ? 240 : 600, gamesPage.width * 0.45))
+    property int titleFilterWidth: gamesPage.width < 1000 ? 240 : Math.min(titleFilterWant, gamesPage.width - titleReserve - 2 * titleButtonsGuess - 20)
 
     function setDrawerMode(mode) {
         if (appDrawer === null) {
@@ -622,54 +699,41 @@ Kirigami.Page {
         gameTable.forceLayout()
     }
 
-    // Option A: action row right-aligned so the corner icons pin
-    // to the edge; the filter fraction fills buttons-to-icons.
+    // Trigger targets feeding the title buttons (labels/icons stay
+    // in one place). Only the icons row lives in the actions toolbar.
+    Kirigami.Action {
+        id: actionPlay
+        objectName: "actionPlay"
+        text: qsTr("Play")
+        icon.name: "media-playback-start"
+        onTriggered: gamesPage.playSelected()
+    }
+    Kirigami.Action {
+        id: actionAdd
+        objectName: "actionAdd"
+        text: qsTr("Add game")
+        icon.name: "list-add"
+        onTriggered: addDialog.open()
+    }
+    Kirigami.Action {
+        // TEMPORARY: opens the local add dialog until the QML
+        // game settings UI lands.
+        id: actionEdit
+        objectName: "actionEdit"
+        text: qsTr("Edit...")
+        icon.name: "document-edit"
+        onTriggered: addDialog.open()
+    }
+    Kirigami.Action {
+        id: actionRemove
+        objectName: "actionRemove"
+        text: qsTr("Remove")
+        icon.name: "edit-delete"
+        onTriggered: gamesPage.openRemoveDialog()
+    }
+    // View controls only: toolbarActionAlignment pins them right at any
+    // window width; buttons + filter live in the title row.
     actions: [
-        Kirigami.Action {
-            objectName: "actionPlay"
-            text: qsTr("Play")
-            icon.name: "media-playback-start"
-            displayHint: KL.DisplayHint.KeepVisible
-            onTriggered: gamesPage.playSelected()
-        },
-        Kirigami.Action {
-            objectName: "actionAdd"
-            text: qsTr("Add game")
-            icon.name: "list-add"
-            onTriggered: addDialog.open()
-        },
-        Kirigami.Action {
-            // TEMPORARY: opens the local add dialog until the QML
-            // game settings UI lands.
-            objectName: "actionEdit"
-            text: qsTr("Edit...")
-            icon.name: "document-edit"
-            onTriggered: addDialog.open()
-        },
-        Kirigami.Action {
-            objectName: "actionRemove"
-            text: qsTr("Remove")
-            icon.name: "edit-delete"
-            onTriggered: gamesPage.openRemoveDialog()
-        },
-        Kirigami.Action {
-            displayComponent: Item {
-                Layout.fillWidth: true
-            }
-        },
-        // Filter and view controls stay reachable the longest on
-        // narrow windows; the text buttons overflow into the menu.
-        Kirigami.Action {
-            displayHint: KL.DisplayHint.KeepVisible
-            displayComponent: Kirigami.SearchField {
-                objectName: "searchField"
-                // Proportional width: the growing mechanism honored here
-                // (fraction of the toolbar row).
-                implicitWidth: (parent ? parent.width : 0) * 0.24
-                placeholderText: qsTr("Filter by name or ID…")
-                onTextChanged: gameFilter.textQuery = text
-            }
-        },
         Kirigami.Action {
             displayHint: KL.DisplayHint.KeepVisible
             displayComponent: RowLayout {

@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
+- Header toolbar split in three zones: buttons + centered filter live
+  in the title row (plain RowLayout honors fill), view icons stay in
+  the actions row pinned right at any window width. Narrow windows
+  show icon-only buttons; the filter clamps to 600–1200px and the
+  icons never hide or overflow into a menu.
 - Narrow toolbar fits without hiding the icon row (honest minimum
   width, slimmer filter fraction); the toolbar test now asserts the
   right-aligned order instead of the retired centering. The geometry
