@@ -6,10 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Fixed
-- Toolbar survives narrow windows without collapsing the icon row
-  (explicit minimum width, slightly slimmer filter); the geometry dump
-  now identifies each row item by class, and the icon dump reports
-  rendered sizes plus null pixmaps.
+- Narrow toolbar fits without hiding the icon row (honest minimum
+  width, slimmer filter fraction); the toolbar test now asserts the
+  right-aligned order instead of the retired centering. The geometry
+  dump still identifies each row item by class, and the icon dump
+  reports rendered sizes plus null pixmaps.
 - Geometry dump also logs the toolbar row (bar widths, visible
   delegates, hidden count) and the icon theme lookup, for real-display
   diagnosis in one run.

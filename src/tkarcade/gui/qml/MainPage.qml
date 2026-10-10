@@ -665,7 +665,7 @@ Kirigami.Page {
                 objectName: "searchField"
                 // Proportional width: the growing mechanism honored here
                 // (fraction of the toolbar row).
-                implicitWidth: (parent ? parent.width : 0) * 0.28
+                implicitWidth: (parent ? parent.width : 0) * 0.24
                 placeholderText: qsTr("Filter by name or ID…")
                 onTextChanged: gameFilter.textQuery = text
             }
@@ -675,7 +675,7 @@ Kirigami.Page {
             displayComponent: RowLayout {
                 id: iconsRow
                 objectName: "toolbarIcons"
-                Layout.minimumWidth: Kirigami.Units.gridUnit * 6
+                Layout.minimumWidth: implicitWidth
                 spacing: 0
                 Component.onCompleted: {
                     // displayComponent scope hides ids: publish for popups.

@@ -1752,7 +1752,6 @@ def test_row_hover_tracks_mouse(qgui_app, xdg_env):
 
 def test_toolbar_icons_pinned_and_filter_fills(qgui_app, xdg_env):
     """Icons pin to the corner; the filter fills buttons-to-icons."""
-    from PySide6.QtCore import QObject as _QObject
     from PySide6.QtCore import QPointF as _QPointF
     from PySide6.QtQuick import QQuickItem
 
@@ -1806,13 +1805,9 @@ def test_toolbar_icons_pinned_and_filter_fills(qgui_app, xdg_env):
         group_left = left if group_left is None else min(group_left, left)
         group_right = right if group_right is None else max(group_right, right)
     assert group_left is not None and group_right is not None
-    drawer = win.findChild(_QObject, "sourceDrawer")
-    content_left = drawer.property("width")
-    content_center = content_left + (win.property("width") - content_left) / 2
-    assert abs((group_left + group_right) / 2 - content_center) <= 80, (
-        (group_left + group_right) / 2,
-        content_center,
-    )
+    # Right-aligned row: buttons sit left of the filter with no overlap.
+    assert group_right <= search_left + 1, (group_left, group_right, search_left)
+    assert group_left >= 0
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
