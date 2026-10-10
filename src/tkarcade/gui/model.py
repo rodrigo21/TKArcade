@@ -813,6 +813,24 @@ class GameFilterModel(QSortFilterProxyModel):
         except (TypeError, ValueError):
             return 0
 
+    @Slot(int, int)
+    def setColumnWidth(self, logical: int, width: int) -> None:
+        """Store a width without saving (drag preview; save on release)."""
+        try:
+            logical, width = int(logical), int(width)
+        except (TypeError, ValueError):
+            return
+        if logical not in (1, 2, 3, 4, 5) or not 20 <= width <= 2000:
+            return
+        if self._widths.get(logical) != width:
+            self._widths[logical] = width
+            self.widthsChanged.emit()
+
+    @Slot()
+    def saveColumnWidths(self) -> None:
+        """Persist the current widths (drag release)."""
+        self._save_columns()
+
     @Slot(int, result=int)
     def autofitColumn(self, logical: int) -> int:
         """Fit a column to its contents (header + every row), persist it.
@@ -846,7 +864,13 @@ class GameFilterModel(QSortFilterProxyModel):
                 widest = max(widest, metrics.horizontalAdvance(str(text)))
         title = self.COLUMN_TITLES.get(self.TABLE_COLUMNS[logical], "")
         if title:
-            widest = max(widest, metrics.horizontalAdvance(title))
+            # Title plus the sort glyph room: a fitted sort column must
+            # never print under its own triangle.
+            glyph = metrics.horizontalAdvance("▲")
+            widest = max(widest, metrics.horizontalAdvance(title) + glyph + 8)
+        if logical == 1:
+            # Game cells lead with a 32px icon plus row margins.
+            widest += 48
         width = min(1200, max(40, widest + 24))
         self._widths[logical] = width
         self._save_columns()

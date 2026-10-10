@@ -1531,6 +1531,52 @@ def test_header_divider_double_click_autofits_column(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_header_divider_drag_resizes_and_persists(qgui_app, xdg_env):
+    """Dragging a header separator resizes live, persisting on release."""
+    from PySide6.QtCore import QPoint, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    header = win.findChild(QQuickItem, "tableHeader")
+    rows = [
+        k
+        for k in header.childItems()
+        if k.metaObject().className() in ("QQuickRow", "QQuickRowLayout")
+    ]
+    assert len(rows) == 1
+    cells = {c.objectName(): c for c in rows[0].childItems()}
+    cell = cells.get("headerCell2")
+    assert cell is not None
+    start = cell.mapToScene(QPointF(cell.property("width") - 3, 5)).toPoint()
+    QTest.mousePress(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, start)
+    qgui_app.processEvents()
+    # Small delays defeat synthetic event compression (real input
+    # streams every move).
+    for step in (10, 25, 40):
+        QTest.mouseMove(win, start + QPoint(step, 0), 20)
+        qgui_app.processEvents()
+    QTest.mouseRelease(
+        win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, start + QPoint(40, 0)
+    )
+    qgui_app.processEvents()
+    # Synthetic moves compress (positions lag), so assert direction,
+    # live preview without saving, then persistence on release.
+    grown = proxy.columnWidth(2)
+    assert grown >= 100
+    assert C.load_preferences().column_widths == f"2={grown}"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_view_switcher_has_icons_and_shortcuts(qgui_app, xdg_env):
     """View modes show Dolphin-style icons; Ctrl+1/2/3 switch directly."""
     from PySide6.QtCore import QObject

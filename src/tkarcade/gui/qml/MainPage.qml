@@ -668,15 +668,16 @@ Kirigami.Page {
         if (!columnVisible(logical)) {
             return 0
         }
+        // Game always rides gameColumnWidth (fitted floor, fills rest).
+        if (logical === 1) {
+            return gameColumnWidth
+        }
         var fitted = gameFilter.columnWidth(logical)
         if (fitted > 0) {
             return fitted
         }
         if (logical === 0) {
             return 36
-        }
-        if (logical === 1) {
-            return gameColumnWidth
         }
         if (logical === 2 || logical === 3) {
             return 90
@@ -706,8 +707,10 @@ Kirigami.Page {
 
     function fitGameColumn() {
         if (gameTable.width > 0) {
+            // Fitted width is a minimum: the game column always
+            // absorbs the leftover so no dead space trails Source.
             var fitted = gameFilter.columnWidth(1)
-            gameColumnWidth = fitted > 0 ? fitted : Math.max(120, gameTable.width - fixedColumnsWidth())
+            gameColumnWidth = Math.max(fitted, Math.max(120, gameTable.width - fixedColumnsWidth()))
         }
         gameTable.forceLayout()
     }
@@ -1160,6 +1163,10 @@ Kirigami.Page {
                         if (!columnVisible(logical)) {
                             return 0
                         }
+                        // Game always rides gameColumnWidth (see above).
+                        if (logical === 1) {
+                            return gamesPage.gameColumnWidth
+                        }
                         var fw = gamesPage.fittedColumnWidths[logical] || 0
                         if (fw > 0) {
                             return fw
@@ -1221,9 +1228,10 @@ Kirigami.Page {
                         opacity: 0.18
                     }
                     MouseArea {
-                        // Hover cursor only (acceptedButtons: none, so it
-                        // never steals taps); the cell TapHandler below
-                        // fires autofit on double-tap over this strip.
+                        // Separator interaction: hover cursor, drag to
+                        // resize, double-click to autofit. Accepts the
+                        // press, so the cell TapHandler never sees this
+                        // 9px strip (no sorting from the divider).
                         objectName: "headerDivider" + logical
                         visible: logical !== 0
                         z: 10
@@ -1232,21 +1240,34 @@ Kirigami.Page {
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         width: 9
-                        acceptedButtons: Qt.NoButton
+                        acceptedButtons: Qt.LeftButton
                         hoverEnabled: true
                         cursorShape: Qt.SplitHCursor
+                        preventStealing: true
+                        property real dragStartX: 0
+                        property int dragStartW: 0
+                        onPressed: (mouse) => {
+                            dragStartX = mouse.x
+                            dragStartW = gamesPage.tableColumnWidth(logical)
+                        }
+                        onPositionChanged: (mouse) => {
+                            if (pressed) {
+                                gameFilter.setColumnWidth(logical, Math.round(Math.max(40, dragStartW + mouse.x - dragStartX)))
+                            }
+                        }
+                        onReleased: (mouse) => {
+                            // Re-apply at release: the final move can
+                            // coalesce behind the release event.
+                            gameFilter.setColumnWidth(logical, Math.round(Math.max(40, dragStartW + mouse.x - dragStartX)))
+                            gameFilter.saveColumnWidths()
+                        }
+                        // Double-click autofits (the TapHandler below
+                        // never sees this strip: the press is ours).
+                        onDoubleClicked: gamesPage.autofitColumn(logical)
                     }
                     TapHandler {
                         acceptedButtons: Qt.LeftButton
                         onTapped: gamesPage.headerClicked(logical)
-                        // Widgets-style autofit on the divider strip
-                        // (the two taps also toggle sort twice, which
-                        // nets back to the starting order).
-                        onDoubleTapped: {
-                            if (point.position.x >= width - 9) {
-                                gamesPage.autofitColumn(logical)
-                            }
-                        }
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -1295,6 +1316,10 @@ Kirigami.Page {
                     gamesPage.fittedColumnWidthsRev
                     if (!gamesPage.columnVisible(logical)) {
                         return 0
+                    }
+                    // Game always rides gameColumnWidth (see above).
+                    if (logical === 1) {
+                        return gamesPage.gameColumnWidth
                     }
                     var fw = gamesPage.fittedColumnWidths[logical] || 0
                     if (fw > 0) {

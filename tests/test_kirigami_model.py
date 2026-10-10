@@ -349,6 +349,20 @@ def test_column_width_autofit_persists(qgui_app, xdg_env):
     assert C.load_preferences().column_widths == ""
 
 
+def test_column_width_drag_preview_then_save(qgui_app, xdg_env):
+
+    proxy = _filtered(qgui_app)
+    proxy.setColumnWidth(2, 150)
+    assert proxy.columnWidth(2) == 150
+    assert C.load_preferences().column_widths == ""  # preview: no save yet
+    proxy.saveColumnWidths()
+    assert C.load_preferences().column_widths == "2=150"
+    proxy.setColumnWidth(2, 5)  # below minimum: rejected
+    assert proxy.columnWidth(2) == 150
+    proxy.setColumnWidth(9, 150)  # unknown column: rejected
+    assert proxy.columnWidth(9) == 0
+
+
 def test_role_id_maps_names(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 
