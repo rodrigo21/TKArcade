@@ -8,7 +8,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Added
 - Header separator double-click autofits the column to its contents
   (measured on the model, persisted per column, survives restarts);
-  header cells ride a positional Row so fitted widths apply live.
+  fresh profiles and resets start fitted capped at 300px instead of
+  the old fixed widths. Header cells tile manually so fitted widths
+  apply live.
   Separators also drag-resize (live preview, persists on release),
   the fit counts the sort glyph and the game icon, and the game
   column absorbs leftover width so fitted tables still fill up. A

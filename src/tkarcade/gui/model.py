@@ -831,29 +831,21 @@ class GameFilterModel(QSortFilterProxyModel):
         """Persist the current widths (drag release)."""
         self._save_columns()
 
-    @Slot(int, result=int)
-    def autofitColumn(self, logical: int) -> int:
-        """Fit a column to its contents (header + every row), persist it.
+    #: Fresh/reset default: fit every column, capped so one monster
+    #: cell cannot eat the table.
+    DEFAULT_FIT_MAX = 300
 
-        Measures the exact DisplayRole strings the delegates show, so no
-        delegate instantiation (the view virtualizes rows). Returns the
-        stored width.
-        """
-        try:
-            logical = int(logical)
-        except (TypeError, ValueError):
-            return 0
-        if logical not in (0, 1, 2, 3, 4, 5):
-            return 0
+    def _measure_column(self, logical: int) -> int:
+        """Content width (rows + title/glyph/icon), unclamped, 0 on error."""
         try:
             from PySide6.QtGui import QFontMetrics, QGuiApplication
 
             metrics = QFontMetrics(QGuiApplication.font())
         except Exception:
-            return self.columnWidth(logical)
+            return 0
         order = self._view_columns()
         try:
-            section = order.index(logical)
+            section = order.index(int(logical))
         except ValueError:
             return 0
         widest = 0
@@ -871,11 +863,40 @@ class GameFilterModel(QSortFilterProxyModel):
         if logical == 1:
             # Game cells lead with a 32px icon plus row margins.
             widest += 48
-        width = min(1200, max(40, widest + 24))
+        return widest + 24
+
+    @Slot(int, result=int)
+    def autofitColumn(self, logical: int) -> int:
+        """Fit a column to its contents (header + every row), persist it.
+
+        Measures the exact DisplayRole strings the delegates show, so no
+        delegate instantiation (the view virtualizes rows). Returns the
+        stored width.
+        """
+        try:
+            logical = int(logical)
+        except (TypeError, ValueError):
+            return 0
+        if logical not in (0, 1, 2, 3, 4, 5):
+            return 0
+        measured = self._measure_column(logical)
+        if not measured:
+            return self.columnWidth(logical)
+        width = min(1200, max(40, measured))
         self._widths[logical] = width
         self._save_columns()
         self.widthsChanged.emit()
         return width
+
+    @Slot()
+    def fitDefaults(self) -> None:
+        """Fit columns 1-5 capped: fresh starts and resets show content."""
+        for logical in (1, 2, 3, 4, 5):
+            measured = self._measure_column(logical)
+            if measured:
+                self._widths[logical] = min(max(40, measured), self.DEFAULT_FIT_MAX)
+        self._save_columns()
+        self.widthsChanged.emit()
 
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         # Presentation permutation only: view column c shows logical
@@ -931,14 +952,14 @@ class GameFilterModel(QSortFilterProxyModel):
 
     @Slot()
     def resetColumns(self) -> None:
-        """Default order, everything visible, no fitted widths."""
+        """Default order, everything visible, columns fitted capped."""
         self._order = [0, 1, 2, 3, 4, 5]
         self._hidden = set()
         self._widths = {}
         self._save_columns()
         self.layoutChanged.emit()
         self.columnsChanged.emit()
-        self.widthsChanged.emit()
+        self.fitDefaults()
 
     def _get_source(self) -> str:
         return self._source

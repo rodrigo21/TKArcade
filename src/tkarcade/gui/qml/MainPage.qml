@@ -448,6 +448,10 @@ Kirigami.Page {
     Component.onCompleted: {
         gamesPage.refreshColumnOrder()
         gamesPage.refreshColumnWidths()
+        // Fresh profile (nothing fitted yet): show content, capped.
+        if (gameFilter.columnWidthsJson() === "{}") {
+            gameFilter.fitDefaults()
+        }
         gameModel.fetchMissing()
         Qt.callLater(gamesPage.ensureSelection)
         if (TKARCADE_DEBUG_GEOMETRY === "1") {
@@ -646,6 +650,21 @@ Kirigami.Page {
     function refreshColumnWidths() {
         fittedColumnWidths = JSON.parse(gameFilter.columnWidthsJson())
         fittedColumnWidthsRev += 1
+    }
+
+    function headerCellX(logical) {
+        // Cumulative offset in view order (hidden columns take no
+        // space). Reads live widths every run; callers pin a rev
+        // read so the binding reschedules on width changes.
+        var x = 0
+        var order = columnOrder
+        for (var i = 0; i < order.length; i++) {
+            if (order[i] === logical) {
+                return x
+            }
+            x += tableColumnWidth(order[i])
+        }
+        return x
     }
 
     function autofitColumn(logical) {
@@ -1145,14 +1164,16 @@ Kirigami.Page {
                 anchors.fill: parent
                 color: Kirigami.Theme.backgroundColor
             }
-            Row {
+            Item {
                 id: headerRow
+                objectName: "headerRow"
+                // Manual x per cell below (headerCellX): neither Row
+                // nor RowLayout reschedules on child width edits.
                 // Follows the table sideways so titles stay over
                 // their columns when the bar scrolls past the edge.
                 x: -gameTable.contentX
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                spacing: 0
             Repeater {
                 id: headerRepeater
                 model: gamesPage.columnOrder
@@ -1160,9 +1181,14 @@ Kirigami.Page {
                     required property int modelData
                     property int logical: modelData
                     objectName: "headerCell" + logical
-                    // Plain width (not Layout.preferredWidth): Row
-                    // repositions on width changes, while the row
-                    // layout proved deaf to preferredWidth edits.
+                    // Manual tiling: positioners do not reschedule on
+                    // child width edits, so x tracks the live widths.
+                    x: {
+                        gamesPage.fittedColumnWidthsRev
+                        return gamesPage.headerCellX(logical)
+                    }
+                    // Plain width tracked live (see x above); kept out
+                    // of any positioner on purpose.
                     width: {
                         gamesPage.fittedColumnWidthsRev
                         if (!columnVisible(logical)) {

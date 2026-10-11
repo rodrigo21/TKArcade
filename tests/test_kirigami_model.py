@@ -344,9 +344,12 @@ def test_column_width_autofit_persists(qgui_app, xdg_env):
     fresh = GameFilterModel()
     fresh.setSourceModel(GameListModel())
     assert fresh.columnWidth(1) == width
+    fresh.fitDefaults()
+    assert 40 <= fresh.columnWidth(1) <= 300
+    assert 40 <= fresh.columnWidth(2) <= 300
     proxy.resetColumns()
-    assert proxy.columnWidth(1) == 0
-    assert C.load_preferences().column_widths == ""
+    assert 40 <= proxy.columnWidth(1) <= 300  # reset fits, capped
+    assert C.load_preferences().column_widths != ""
 
 
 def test_column_width_drag_preview_then_save(qgui_app, xdg_env):

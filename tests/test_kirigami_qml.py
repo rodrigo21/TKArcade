@@ -267,17 +267,28 @@ def _table_rows(table, proxy):
 
 
 def _column_widths(proxy, table):
-    """Visible widths per logical column (mirrors tableColumnWidth)."""
-    widths = {0: 36.0, 1: 0.0, 2: 90.0, 3: 90.0, 4: 110.0, 5: 80.0}
+    """Visible widths per logical column (mirrors tableColumnWidth).
+
+    Reads live fitted widths so fresh-start autofit does not stale
+    click coordinates; falls back to the static defaults.
+    """
+    defaults = {0: 36.0, 2: 90.0, 3: 90.0, 4: 110.0, 5: 80.0}
+    try:
+        live = {lg: float(proxy.columnWidth(lg) or 0) for lg in defaults}
+    except Exception:
+        live = {}
+    widths = {lg: (live[lg] if live.get(lg, 0) > 0 else d) for lg, d in defaults.items()}
     shown = _shown_flags(proxy)
     try:
         table_w = table.property("width") or 0
     except Exception:
         table_w = 0
-    widths[1] = max(
-        120.0,
-        table_w - sum(w for _l, w in widths.items() if _l != 1 and shown[_l]),
-    )
+    fixed = widths[0] + sum(w for _l, w in widths.items() if _l != 1 and shown.get(_l, True))
+    try:
+        fitted1 = float(proxy.columnWidth(1) or 0)
+    except Exception:
+        fitted1 = 0
+    widths[1] = max(fitted1, 120.0, table_w - fixed)
     return widths
 
 
@@ -506,16 +517,17 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
     found_cell = cell(2)
     assert found_cell is not None
 
-    assert cell(2).property("width") == 90
+    w2 = cell(2).property("width")
+    assert w2 >= 40  # fresh profiles autofit on load; never the old 90
     assert cell(2).property("visible") is True
     game_w = cell(1).property("width")
     proxy.setProperty("showAppId", False)
     for _ in range(20):
         qgui_app.processEvents()
-        if cell(1).property("width") == game_w + 90:
+        if cell(1).property("width") == game_w + w2:
             break
     assert cell(2).property("visible") is False
-    assert cell(1).property("width") == game_w + 90
+    assert cell(1).property("width") == game_w + w2
     proxy.setProperty("showAppId", True)
     for _ in range(20):
         qgui_app.processEvents()
@@ -1490,16 +1502,17 @@ def test_header_divider_double_click_autofits_column(qgui_app, xdg_env):
     win, _engine, proxy, warnings = _load_main(qgui_app)
 
     header = win.findChild(QQuickItem, "tableHeader")
-    rows = [
-        k
-        for k in header.childItems()
-        if k.metaObject().className() in ("QQuickRow", "QQuickRowLayout")
-    ]
-    assert len(rows) == 1
-    cells = {c.objectName(): c for c in rows[0].childItems()}
+    row = header.findChild(QQuickItem, "headerRow")
+    assert row is not None
+    cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
     cell = cells.get("headerCell2")
     assert cell is not None
-    assert cell.property("width") == 90
+    # Fresh profiles autofit on load: start from a known width so the
+    # double-click has something to change.
+    proxy.setColumnWidth(2, 200)
+    for _ in range(10):
+        qgui_app.processEvents()
+    assert cell.property("width") == 200
     divider = {d.objectName(): d for d in cell.childItems() if isinstance(d, QQuickItem)}.get(
         "headerDivider2"
     )
@@ -1514,16 +1527,15 @@ def test_header_divider_double_click_autofits_column(qgui_app, xdg_env):
     found = None
     for _ in range(30):
         qgui_app.processEvents()
-        # Re-walk every pass: width changes may rebuild delegates,
-        # leaving the previously held item stale.
-        cells = {c.objectName(): c for c in rows[0].childItems() if isinstance(c, QQuickItem)}
+        # Re-walk every pass: widths move cells around.
+        cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
         found = cells.get("headerCell2")
         if found is not None and found.property("width") == fitted:
             break
     assert found is not None
     assert found.property("width") == fitted
     page = win.findChild(QObject, "gamesPage")
-    assert dict(page.property("fittedColumnWidths").toVariant()) == {"2": fitted}
+    assert dict(page.property("fittedColumnWidths").toVariant())["2"] == fitted
     # Divider gestures never sort (single taps there are swallowed
     # by the strip, double taps autofit).
     assert page.property("sortRole") == "gameName"
@@ -1562,13 +1574,9 @@ def test_table_hscroll_appears_on_overflow(qgui_app, xdg_env):
         qgui_app.processEvents()
     assert table.property("contentX") > 0  # outer columns reachable
     header = win.findChild(QQuickItem, "tableHeader")
-    rows = [
-        k
-        for k in header.childItems()
-        if k.metaObject().className() in ("QQuickRow", "QQuickRowLayout")
-    ]
-    assert len(rows) == 1
-    assert rows[0].property("x") == -table.property("contentX")
+    row = header.findChild(QQuickItem, "headerRow")
+    assert row is not None
+    assert row.property("x") == -table.property("contentX")
     proxy.resetColumns()
     for _ in range(30):
         qgui_app.processEvents()
@@ -1595,15 +1603,13 @@ def test_header_divider_drag_resizes_and_persists(qgui_app, xdg_env):
     C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
     header = win.findChild(QQuickItem, "tableHeader")
-    rows = [
-        k
-        for k in header.childItems()
-        if k.metaObject().className() in ("QQuickRow", "QQuickRowLayout")
-    ]
-    assert len(rows) == 1
-    cells = {c.objectName(): c for c in rows[0].childItems()}
+    row = header.findChild(QQuickItem, "headerRow")
+    assert row is not None
+    cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
     cell = cells.get("headerCell2")
     assert cell is not None
+    w0 = proxy.columnWidth(2)
+    assert w0 >= 40
     start = cell.mapToScene(QPointF(cell.property("width") - 3, 5)).toPoint()
     QTest.mousePress(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, start)
     qgui_app.processEvents()
@@ -1619,8 +1625,8 @@ def test_header_divider_drag_resizes_and_persists(qgui_app, xdg_env):
     # Synthetic moves compress (positions lag), so assert direction,
     # live preview without saving, then persistence on release.
     grown = proxy.columnWidth(2)
-    assert grown >= 100
-    assert C.load_preferences().column_widths == f"2={grown}"
+    assert w0 < grown <= w0 + 40
+    assert f"2={grown}" in C.load_preferences().column_widths.split(",")
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
