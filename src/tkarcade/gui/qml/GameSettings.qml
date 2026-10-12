@@ -3,15 +3,14 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-// Per-game settings (widgets GameDialog parity, tab by tab: General and
-// Notes first, the rest follow). Edit opens for a game, Add opens blank;
-// the text prompt below replaces QInputDialog for profile names.
-Kirigami.Dialog {
+// Per-game settings page (widgets GameDialog parity, tab by tab: General
+// and Notes first, the rest follow). Pushed on the pageStack like a real
+// window (a dialog is too small and cannot resize); the text prompt below
+// replaces QInputDialog for profile names.
+Kirigami.Page {
     id: gameSettings
     objectName: "gameSettings"
     title: editAppid === "" ? qsTr("Add game") : qsTr("Edit game")
-    padding: Kirigami.Units.largeSpacing
-    preferredWidth: Kirigami.Units.gridUnit * 30
 
     property string editAppid: ""
     property var fields: ({})
@@ -40,7 +39,6 @@ Kirigami.Dialog {
         reload()
         errorText = ""
         tabBar.currentIndex = 0
-        open()
     }
 
     function openNew() {
@@ -49,7 +47,12 @@ Kirigami.Dialog {
         pushToControls()
         errorText = ""
         tabBar.currentIndex = 0
-        open()
+    }
+
+    function closePage() {
+        if (page !== null) {
+            page.closeGameSettings()
+        }
     }
 
     function reload() {
@@ -97,7 +100,7 @@ Kirigami.Dialog {
         if (editAppid === "" && page !== null) {
             page.select(created)
         }
-        close()
+        closePage()
     }
 
     function askProfileName(purpose) {
@@ -129,6 +132,8 @@ Kirigami.Dialog {
     }
 
     ColumnLayout {
+        anchors.fill: parent
+        spacing: Kirigami.Units.smallSpacing
         Controls.TabBar {
             id: tabBar
             objectName: "settingsTabs"
@@ -142,10 +147,25 @@ Kirigami.Dialog {
         }
         StackLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: Kirigami.Units.gridUnit * 20
+            Layout.fillHeight: true
             currentIndex: tabBar.currentIndex
-            ColumnLayout {
-                spacing: Kirigami.Units.smallSpacing
+            Controls.ScrollView {
+                clip: true
+                objectName: "settingsGeneralScroll"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Item {
+                    width: parent.width
+                    height: generalForm.implicitHeight
+                    ColumnLayout {
+                    id: generalForm
+                    objectName: "settingsGeneralForm"
+                    // Centered readable column (widgets-dialog feel),
+                    // capped — never full-bleed. Anchored: a raw x is
+                    // reset by the ScrollView content management.
+                    width: Math.min(parent.width, Kirigami.Units.gridUnit * 38)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: Kirigami.Units.smallSpacing
                 Controls.Label {
                     visible: editAppid !== ""
                     text: qsTr("Steam App ID:")
@@ -272,8 +292,12 @@ Kirigami.Dialog {
                         }
                     }
                 }
+                }
+            }
             }
             ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 Controls.TextArea {
                     id: notesArea
                     objectName: "settingsNotes"
@@ -303,7 +327,7 @@ Kirigami.Dialog {
         }
         Controls.Button {
             text: qsTr("Cancel")
-            onClicked: gameSettings.close()
+            onClicked: gameSettings.closePage()
         }
     }
 

@@ -1,9 +1,11 @@
 # TODO — deferred ideas
 
-- [ ] Kirigami game settings (shell + General/Notes landed, with
-  TabBar, load/save/profile slots and the profile-name prompt; Edit
-  and Add open it): remaining tabs, Clone/Reset/Global Defaults,
-  Steam add flow with picker, AddSource chooser.
+- [x] Kirigami game settings shell (General/Notes page on the
+  pageStack, TabBar, load/save/profile slots, profile-name prompt;
+  Edit and Add push it, full-width single column, centered capped
+  scrolling form)
+- [ ] Remaining settings tabs, Clone/Reset/Global Defaults, Steam add
+  flow with picker, AddSource chooser.
 - [ ] Kirigami File Export/Import (tarball, SteamTinkerLaunch,
   predecessor copy; local library import from Lutris/Playnite/Faugus
   file formats, investigation first). Scan Steam Library already exists.

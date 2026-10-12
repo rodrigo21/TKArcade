@@ -69,6 +69,16 @@ rewrite pushed history or tags.
   (`model.gameIcon`, never `rowData(row)` which desyncs on sort);
   `model` is null transiently, so every dereference needs optional
   chaining plus fallback (`model?.gameIcon ?? ""`).
+- `Controls.ScrollView` manages its content x/y itself: never position
+  content with `x` or anchors (silently reset, no warning) — wrap in a
+  plain Item and anchor/center inside that instead.
+- `StackLayout` children do not auto-fill: every tab needs explicit
+  `Layout.fillWidth/Height`, else it collapses to implicit size.
+- Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
+  transition before synthetic clicks, or clicks land mid-slide.
+- Content pages (settings and friends) take the whole row: the window
+  binds `pageStack.defaultColumnWidth` to its own width, so no second
+  column ever squeezes the list at minimum width.
 
 ## Project policies (do not regress)
 

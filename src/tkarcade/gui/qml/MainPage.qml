@@ -42,7 +42,7 @@ Kirigami.Page {
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
             Controls.ToolTip.visible: hovered
-            onClicked: gameSettings.openNew()
+            onClicked: gamesPage.openNewGameSettings()
         }
         Controls.ToolButton {
             id: btnEdit
@@ -392,7 +392,7 @@ Kirigami.Page {
             gamesPage.notify(qsTr("Select a game first."))
             return
         }
-        gameSettings.openFor(selectedIds[0])
+        gamesPage.openGameSettings(selectedIds[0])
     }
 
     function openRemoveDialog() {
@@ -746,7 +746,7 @@ Kirigami.Page {
         objectName: "actionAdd"
         text: qsTr("Add game")
         icon.name: "list-add"
-        onTriggered: gameSettings.openNew()
+        onTriggered: gamesPage.openNewGameSettings()
     }
     Kirigami.Action {
         id: actionEdit
@@ -1009,7 +1009,7 @@ Kirigami.Page {
         Controls.MenuItem {
             visible: gamesPage.selectedIds.length <= 1
             text: qsTr("Edit Settings")
-            onTriggered: gameSettings.openFor(gamesPage.menuGid)
+            onTriggered: gamesPage.openGameSettings(gamesPage.menuGid)
         }
         Controls.MenuSeparator {
             visible: gamesPage.selectedIds.length <= 1
@@ -1572,7 +1572,7 @@ Kirigami.Page {
         visible: gamesPage.viewMode === "list" && gameFilter.rowCount() === 0
         Controls.Button {
             text: qsTr("Add Game...")
-            onClicked: gameSettings.openNew()
+            onClicked: gamesPage.openNewGameSettings()
         }
         Controls.Button {
             objectName: "emptyScan"
@@ -1696,7 +1696,47 @@ Kirigami.Page {
 
     GameSettings {
         id: gameSettings
-        page: gamesPage
+    }
+
+    function appPageStack() {
+        var win = Controls.ApplicationWindow.window
+        return win ? win.pageStack : null
+    }
+
+    function openGameSettings(appid) {
+        var stack = appPageStack()
+        if (stack === null) {
+            return
+        }
+        gameSettings.page = gamesPage
+        if (stack.currentItem !== gameSettings) {
+            stack.push(gameSettings)
+        }
+        gameSettings.openFor(appid)
+    }
+
+    function openNewGameSettings() {
+        var stack = appPageStack()
+        if (stack === null) {
+            return
+        }
+        gameSettings.page = gamesPage
+        if (stack.currentItem !== gameSettings) {
+            stack.push(gameSettings)
+        }
+        gameSettings.openNew()
+    }
+
+    function closeGameSettings() {
+        var stack = appPageStack()
+        if (stack !== null) {
+            stack.pop()
+        }
+    }
+
+    function settingsOnTop() {
+        var stack = appPageStack()
+        return stack !== null && stack.currentItem === gameSettings
     }
 
     Kirigami.Dialog {

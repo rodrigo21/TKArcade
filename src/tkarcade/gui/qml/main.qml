@@ -39,6 +39,10 @@ Kirigami.ApplicationWindow {
         if (pageStack.globalToolBar) {
             pageStack.globalToolBar.toolbarActionAlignment = Qt.AlignRight
         }
+        // Pushed pages (settings and friends) take the whole row like
+        // widgets windows: a second column would crush the list at the
+        // minimum width.
+        pageStack.defaultColumnWidth = Qt.binding(function() { return root.width })
     }
 
     globalDrawer: Kirigami.GlobalDrawer {
