@@ -1226,7 +1226,7 @@ Kirigami.Page {
                         anchors.bottom: parent.bottom
                         width: 1
                         color: Kirigami.Theme.textColor
-                        opacity: 0.18
+                        opacity: 0.25
                     }
                     MouseArea {
                         // Separator interaction: hover cursor, drag to
@@ -1306,7 +1306,7 @@ Kirigami.Page {
             anchors.bottom: parent.bottom
             height: 1
             color: Kirigami.Theme.textColor
-            opacity: 0.18
+            opacity: 0.25
         }
         }
 
@@ -1516,6 +1516,17 @@ Kirigami.Page {
             onWidthChanged: gamesPage.fitGameColumn()
         }
         }
+        // Foot rule above the status line: same hairline family as
+        // the header lines (the status label reserves its padding).
+        Rectangle {
+            objectName: "tableFooterTopLine"
+            anchors.left: listLayout.left
+            anchors.right: listLayout.right
+            anchors.bottom: listLayout.bottom
+            height: 1
+            color: Kirigami.Theme.textColor
+            opacity: 0.25
+        }
         // Gutter divider overlay: above delegates and highlight, never
         // scrolls; same box as the per-cell dividers ([gutter - 1, gutter]).
         Rectangle {
@@ -1526,7 +1537,7 @@ Kirigami.Page {
             x: gamesPage.tableColumnWidth(0) - 1
             width: 1
             color: Kirigami.Theme.textColor
-            opacity: 0.18
+            opacity: 0.25
         }
     }
     Controls.Menu {

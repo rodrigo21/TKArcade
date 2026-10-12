@@ -2007,6 +2007,37 @@ def test_no_gutter_game_header_stub():
     assert "visible: logical !== 0" in src
 
 
+def test_hairlines_share_single_style_and_footer_rule(qgui_app, xdg_env):
+    """All hairlines are 1px/0.25; a rule closes the table above status."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    for name in ("tableHeaderBottomLine", "gutterFullLine", "tableFooterTopLine"):
+        line = win.findChild(QQuickItem, name)
+        assert line is not None, name
+        assert line.property("height") == 1 or line.property("width") == 1, name
+        assert line.property("opacity") == 0.25, name
+    table = win.findChild(QQuickItem, "gameTable")
+    foot = win.findChild(QQuickItem, "tableFooterTopLine")
+    assert round(float(foot.property("width") or 0), 1) == round(
+        float(table.property("width") or 0), 1
+    )
+    table_bottom = table.mapToScene(QPointF(0, 0)).y() + float(table.property("height") or 0)
+    foot_bottom = foot.mapToScene(QPointF(0, 0)).y() + float(foot.property("height") or 0)
+    assert abs(foot_bottom - table_bottom) <= 1
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_gutter_back_strip_runs_full_height(qgui_app, xdg_env):
     """The framed gutter continues through rows and empty area (TKS)."""
     from PySide6.QtQuick import QQuickItem
