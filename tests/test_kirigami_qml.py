@@ -565,6 +565,7 @@ def test_drawer_modes_switch(qgui_app, xdg_env):
     win, _engine, _proxy, warnings = _load_main(qgui_app)
     drawer = win.findChild(QObject, "sourceDrawer")
     assert drawer is not None
+    assert drawer.property("collapseButtonVisible") is False
     for mode in ("drawerModeOverlay", "drawerModeSidebar", "drawerModeCollapsible"):
         assert win.findChild(QObject, mode) is None, mode
 

@@ -45,6 +45,8 @@ Kirigami.ApplicationWindow {
         objectName: "sourceDrawer"
         title: qsTr("TKArcade")
         showHeaderWhenCollapsed: true
+        // No built-in close row: the header gamepad toggles collapse.
+        collapseButtonVisible: false
         // Plain Item (not a ToolBar): with a toolbar header Kirigami
         // insets the drawer-edge separator around the header zone, so
         // the vertical line never meets the header lines. A plain
@@ -71,7 +73,7 @@ Kirigami.ApplicationWindow {
                 Controls.ToolButton {
                     objectName: "drawerHeaderButton"
                     Layout.alignment: Qt.AlignVCenter
-                    icon.name: "applications-games"
+                    icon.name: "input-gamepad"
                     enabled: sourceDrawer.collapsible
                     Controls.ToolTip.text: sourceDrawer.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
                     Controls.ToolTip.visible: hovered
@@ -118,6 +120,9 @@ Kirigami.ApplicationWindow {
         // Hidden with a collapsed drawer (nothing fits its 50px).
         footer: RowLayout {
             visible: !sourceDrawer.collapsed
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.ToolButton {
                 objectName: "drawerModeOverlayButton"
                 icon.name: "view-fullscreen"
@@ -141,6 +146,9 @@ Kirigami.ApplicationWindow {
                     applyDrawerMode("collapsible")
                     gameModel.saveDrawerMode("collapsible")
                 }
+            }
+            Item {
+                Layout.fillWidth: true
             }
         }
     }

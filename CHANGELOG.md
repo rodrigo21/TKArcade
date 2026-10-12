@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Drawer header without the collapse button: gamepad icon toggles,
+  centered Library, Kirigami built-in close row off, footer buttons
+  centered.
 - Drawer mode switch in the drawer footer as icon buttons (reachable
   when the toolbar overflows; hidden with a collapsed drawer); tiny
   pages collapse the title spacers so the icons never hide.
