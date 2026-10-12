@@ -637,11 +637,11 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(result=str)
     def drawerMode(self) -> str:
-        """Persisted Kirigami drawer mode (overlay|sidebar|collapsible)."""
+        """Persisted Kirigami drawer mode (overlay|collapsible)."""
         try:
             return cfgmod.load_preferences().drawer_mode
         except Exception:
-            return "sidebar"
+            return "collapsible"
 
     @Slot(str)
     def saveDrawerMode(self, mode: str) -> None:
@@ -650,7 +650,7 @@ class GameListModel(QAbstractTableModel):
             prefs = cfgmod.load_preferences()
         except Exception:
             prefs = cfgmod.Preferences()
-        prefs.drawer_mode = mode if mode in ("overlay", "sidebar", "collapsible") else "sidebar"
+        prefs.drawer_mode = mode if mode in ("overlay", "collapsible") else "collapsible"
         try:
             cfgmod.save_preferences(prefs)
         except Exception as e:

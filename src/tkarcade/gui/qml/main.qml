@@ -24,14 +24,11 @@ Kirigami.ApplicationWindow {
             sourceDrawer.modal = true
             sourceDrawer.collapsible = false
             sourceDrawer.collapsed = false
-        } else if (mode === "collapsible") {
+        } else {
+            // Collapsible is the only sidebar: anything else falls here.
             sourceDrawer.modal = false
             sourceDrawer.collapsible = true
             sourceDrawer.collapsed = true
-        } else {
-            sourceDrawer.modal = false
-            sourceDrawer.collapsible = false
-            sourceDrawer.collapsed = false
         }
     }
 
@@ -66,22 +63,25 @@ Kirigami.ApplicationWindow {
             }
             RowLayout {
                 anchors.fill: parent
-                // Reserve the button slot even when not collapsible so
-                // the Library label keeps its x in every drawer mode.
+                anchors.leftMargin: Kirigami.Units.smallSpacing
+                anchors.rightMargin: Kirigami.Units.smallSpacing
+                // Doubles as the collapse toggle (the footer switch
+                // hides with a collapsed drawer, so this stays the
+                // only way back out).
                 Controls.ToolButton {
-                    objectName: "drawerCollapseButton"
+                    objectName: "drawerHeaderButton"
                     Layout.alignment: Qt.AlignVCenter
-                    icon.name: "sidebar-collapse-left"
-                    opacity: sourceDrawer.collapsible ? 1 : 0
+                    icon.name: "applications-games"
                     enabled: sourceDrawer.collapsible
-                    checked: !sourceDrawer.collapsed
-                    checkable: true
+                    Controls.ToolTip.text: sourceDrawer.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
+                    Controls.ToolTip.visible: hovered
                     onClicked: sourceDrawer.collapsed = !sourceDrawer.collapsed
                 }
                 Controls.Label {
-                    visible: !sourceDrawer.collapsed
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignVCenter
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideRight
                     text: qsTr("Library")
                     font.bold: true
                     color: Kirigami.Theme.textColor
@@ -128,18 +128,6 @@ Kirigami.ApplicationWindow {
                 onClicked: {
                     applyDrawerMode("overlay")
                     gameModel.saveDrawerMode("overlay")
-                }
-            }
-            Controls.ToolButton {
-                objectName: "drawerModeSidebarButton"
-                icon.name: "sidebar-expand-left"
-                checkable: true
-                checked: !sourceDrawer.modal && !sourceDrawer.collapsible
-                Controls.ToolTip.text: qsTr("Sidebar Drawer")
-                Controls.ToolTip.visible: hovered
-                onClicked: {
-                    applyDrawerMode("sidebar")
-                    gameModel.saveDrawerMode("sidebar")
                 }
             }
             Controls.ToolButton {

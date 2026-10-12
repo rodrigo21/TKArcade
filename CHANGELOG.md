@@ -18,7 +18,9 @@ Breaking config changes are called out explicitly under `Changed`.
   the fit counts the sort glyph and the game icon, and the game
   column absorbs leftover width so fitted tables still fill up. A
   horizontal bar rescues columns dragged past the edge, with the
-  header row following the scroll. Divider gestures never sort, and
+  header row following the scroll. Narrow windows shrink fitted
+  columns to fit (24px floors) instead of overflowing. Divider
+  gestures never sort, and
   the release after a double-click no longer re-applies the drag
   width over the fresh autofit.
 

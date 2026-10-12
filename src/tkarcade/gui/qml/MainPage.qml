@@ -129,14 +129,11 @@ Kirigami.Page {
             appDrawer.modal = true
             appDrawer.collapsible = false
             appDrawer.collapsed = false
-        } else if (mode === "collapsible") {
+        } else {
+            // Collapsible is the only sidebar.
             appDrawer.modal = false
             appDrawer.collapsible = true
             appDrawer.collapsed = true
-        } else {
-            appDrawer.modal = false
-            appDrawer.collapsible = false
-            appDrawer.collapsed = false
         }
         gameModel.saveDrawerMode(mode)
     }
@@ -644,6 +641,7 @@ Kirigami.Page {
     property var fittedColumnWidths: ({}) // logical -> px, same mirror rule
     property int fittedColumnWidthsRev: 0 // bumped with the mirror:
     // element reads on a var do not retrack reassignment alone
+    property real columnShrink: 1.0 // <1 squeezes fixed columns to fit
     property int gameColumnWidth: 400
 
     function refreshColumnOrder() {
@@ -686,20 +684,18 @@ Kirigami.Page {
         gameFilter.showSource = true
     }
 
-    function tableColumnWidth(logical) {
-        if (!columnVisible(logical)) {
+    function baseColumnWidth(logical) {
+        // Unshrunk fitted-or-default (0 when hidden); game excluded,
+        // it fills elastically with its fitted value as floor.
+        if (!columnVisible(logical) || logical === 1) {
             return 0
         }
-        // Game always rides gameColumnWidth (fitted floor, fills rest).
-        if (logical === 1) {
-            return gameColumnWidth
+        if (logical === 0) {
+            return 36
         }
         var fitted = gameFilter.columnWidth(logical)
         if (fitted > 0) {
             return fitted
-        }
-        if (logical === 0) {
-            return 36
         }
         if (logical === 2 || logical === 3) {
             return 90
@@ -710,30 +706,38 @@ Kirigami.Page {
         return 80
     }
 
-    function fixedColumnsWidth() {
-        var total = tableColumnWidth(0)
-        if (gameFilter.showAppId) {
-            total += tableColumnWidth(2)
+    function tableColumnWidth(logical) {
+        if (!columnVisible(logical)) {
+            return 0
         }
-        if (gameFilter.showPlayed) {
-            total += tableColumnWidth(3)
+        // Game always rides gameColumnWidth (fitted floor, fills rest).
+        if (logical === 1) {
+            return gameColumnWidth
         }
-        if (gameFilter.showTier) {
-            total += tableColumnWidth(4)
-        }
-        if (gameFilter.showSource) {
-            total += tableColumnWidth(5)
-        }
-        return total
+        return Math.max(24, baseColumnWidth(logical) * columnShrink)
     }
 
     function fitGameColumn() {
-        if (gameTable.width > 0) {
-            // Fitted width is a minimum: the game column always
-            // absorbs the leftover so no dead space trails Source.
-            var fitted = gameFilter.columnWidth(1)
-            gameColumnWidth = Math.max(fitted, Math.max(120, gameTable.width - fixedColumnsWidth()))
+        if (gameTable.width <= 0) {
+            return
         }
+        var base = 0
+        for (var l of [2, 3, 4, 5]) {
+            base += baseColumnWidth(l)
+        }
+        var gameFit = gameFilter.columnWidth(1)
+        var gameMin = gameFit > 0 ? gameFit : 120
+        var avail = gameTable.width - 36 - gameMin
+        columnShrink = (base <= 0 || avail >= base) ? 1.0 : Math.max(0.15, avail / base)
+        var fixed = 36
+        for (var l2 of [2, 3, 4, 5]) {
+            // Hidden columns take no space (the 24px floor is for
+            // visible narrow columns only).
+            if (columnVisible(l2)) {
+                fixed += Math.max(24, baseColumnWidth(l2) * columnShrink)
+            }
+        }
+        gameColumnWidth = Math.max(gameMin, gameTable.width - fixed)
         gameTable.forceLayout()
     }
 
@@ -900,29 +904,6 @@ Kirigami.Page {
                                     Controls.MenuItem {
                                         text: qsTr("Quit")
                                         onTriggered: Qt.quit()
-                                    }
-                                    Controls.MenuSeparator {
-                                    }
-                                    Controls.MenuItem {
-                                        objectName: "drawerModeOverlay"
-                                        text: qsTr("Overlay Drawer")
-                                        checkable: true
-                                        checked: gamesPage.appDrawer !== null && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible
-                                        onTriggered: gamesPage.setDrawerMode("overlay")
-                                    }
-                                    Controls.MenuItem {
-                                        objectName: "drawerModeSidebar"
-                                        text: qsTr("Sidebar Drawer")
-                                        checkable: true
-                                        checked: gamesPage.appDrawer !== null && !gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible
-                                        onTriggered: gamesPage.setDrawerMode("sidebar")
-                                    }
-                                    Controls.MenuItem {
-                                        objectName: "drawerModeCollapsible"
-                                        text: qsTr("Collapsible Sidebar Drawer")
-                                        checkable: true
-                                        checked: gamesPage.appDrawer !== null && !gamesPage.appDrawer.modal && gamesPage.appDrawer.collapsible
-                                        onTriggered: gamesPage.setDrawerMode("collapsible")
                                     }
                                 }
                 }
@@ -1197,30 +1178,16 @@ Kirigami.Page {
                         if (!columnVisible(logical)) {
                             return 0
                         }
+                        if (logical === 0) {
+                            return 36
+                        }
                         // Game always rides gameColumnWidth (see above).
                         if (logical === 1) {
                             return gamesPage.gameColumnWidth
                         }
                         var fw = gamesPage.fittedColumnWidths[logical] || 0
-                        if (fw > 0) {
-                            return fw
-                        }
-                        if (logical === 0) {
-                            return 36
-                        }
-                        if (logical === 1) {
-                            return gamesPage.gameColumnWidth
-                        }
-                        if (logical === 2) {
-                            return gameFilter.showAppId ? 90 : 0
-                        }
-                        if (logical === 3) {
-                            return gameFilter.showPlayed ? 90 : 0
-                        }
-                        if (logical === 4) {
-                            return gameFilter.showTier ? 110 : 0
-                        }
-                        return gameFilter.showSource ? 80 : 0
+                        var base = fw > 0 ? fw : (logical === 4 ? 110 : (logical === 5 ? 80 : 90))
+                        return Math.max(24, base * gamesPage.columnShrink)
                     }
                     height: parent.height
                     visible: width > 0
@@ -1374,27 +1341,16 @@ Kirigami.Page {
                     if (!gamesPage.columnVisible(logical)) {
                         return 0
                     }
+                    if (logical === 0) {
+                        return 36
+                    }
                     // Game always rides gameColumnWidth (see above).
                     if (logical === 1) {
                         return gamesPage.gameColumnWidth
                     }
                     var fw = gamesPage.fittedColumnWidths[logical] || 0
-                    if (fw > 0) {
-                        return fw
-                    }
-                    if (logical === 0) {
-                        return 36
-                    }
-                    if (logical === 1) {
-                        return gamesPage.gameColumnWidth
-                    }
-                    if (logical === 2 || logical === 3) {
-                        return 90
-                    }
-                    if (logical === 4) {
-                        return 110
-                    }
-                    return 80
+                    var base = fw > 0 ? fw : (logical === 4 ? 110 : (logical === 5 ? 80 : 90))
+                    return Math.max(24, base * gamesPage.columnShrink)
                 }
                 implicitHeight: Kirigami.Units.gridUnit * 2
                 // Selection highlighting reads page state directly:

@@ -266,18 +266,26 @@ def _table_rows(table, proxy):
     return rows
 
 
-def _column_widths(proxy, table):
+def _column_widths(proxy, table, page=None):
     """Visible widths per logical column (mirrors tableColumnWidth).
 
-    Reads live fitted widths so fresh-start autofit does not stale
-    click coordinates; falls back to the static defaults.
+    Reads live fitted widths and the shrink factor so fresh-start
+    autofit does not stale click coordinates; falls back to the
+    static defaults.
     """
     defaults = {0: 36.0, 2: 90.0, 3: 90.0, 4: 110.0, 5: 80.0}
     try:
         live = {lg: float(proxy.columnWidth(lg) or 0) for lg in defaults}
     except Exception:
         live = {}
-    widths = {lg: (live[lg] if live.get(lg, 0) > 0 else d) for lg, d in defaults.items()}
+    try:
+        shrink = float(page.property("columnShrink")) if page is not None else 1.0
+    except Exception:
+        shrink = 1.0
+    widths = {}
+    for lg, d in defaults.items():
+        base = live[lg] if live.get(lg, 0) > 0 else d
+        widths[lg] = 36.0 if lg == 0 else max(24.0, base * shrink)
     shown = _shown_flags(proxy)
     try:
         table_w = table.property("width") or 0
@@ -288,7 +296,8 @@ def _column_widths(proxy, table):
         fitted1 = float(proxy.columnWidth(1) or 0)
     except Exception:
         fitted1 = 0
-    widths[1] = max(fitted1, 120.0, table_w - fixed)
+    game_min = fitted1 if fitted1 > 0 else 120.0
+    widths[1] = max(game_min, table_w - fixed)
     return widths
 
 
@@ -323,7 +332,7 @@ def _column_cell_x(host, page, proxy, logical):
         table = win.findChild(host.__class__, "gameTable") if win is not None else None
     except Exception:
         table = None
-    widths = _column_widths(proxy, table)
+    widths = _column_widths(proxy, table, page)
     shown = _shown_flags(proxy)
     x = 0.0
     for entry in order:
@@ -543,45 +552,7 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
 
 
 def test_drawer_modes_switch(qgui_app, xdg_env):
-    """Hamburger drawer modes apply overlay/sidebar/collapsible."""
-    from PySide6.QtCore import QObject
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    drawer = win.findChild(QObject, "sourceDrawer")
-    assert drawer is not None
-    for mode in ("drawerModeOverlay", "drawerModeSidebar", "drawerModeCollapsible"):
-        assert win.findChild(QObject, mode) is not None, mode
-
-    def apply(name):
-        item = win.findChild(QObject, name)
-        assert item is not None, name
-        _fire(item)
-        qgui_app.processEvents()
-
-    apply("drawerModeOverlay")
-    assert drawer.property("modal") is True
-    assert drawer.property("collapsible") is False
-    apply("drawerModeSidebar")
-    assert drawer.property("modal") is False
-    assert drawer.property("collapsible") is False
-    apply("drawerModeCollapsible")
-    assert drawer.property("modal") is False
-    assert drawer.property("collapsible") is True
-    assert drawer.property("collapsed") is True
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_drawer_footer_buttons_mirror_and_save_mode(qgui_app, xdg_env):
-    """The drawer footer switch stays reachable outside overflow menus."""
+    """Drawer modes switch from the footer (overlay/collapsible only)."""
     from PySide6.QtCore import QObject, QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
@@ -594,28 +565,28 @@ def test_drawer_footer_buttons_mirror_and_save_mode(qgui_app, xdg_env):
     win, _engine, _proxy, warnings = _load_main(qgui_app)
     drawer = win.findChild(QObject, "sourceDrawer")
     assert drawer is not None
-    for name in (
-        "drawerModeOverlayButton",
-        "drawerModeSidebarButton",
-        "drawerModeCollapsibleButton",
-    ):
-        assert win.findChild(QQuickItem, name) is not None, name
+    for mode in ("drawerModeOverlay", "drawerModeSidebar", "drawerModeCollapsible"):
+        assert win.findChild(QObject, mode) is None, mode
 
     def click(name):
-        button = win.findChild(QQuickItem, name)
-        pos = button.mapToScene(QPointF(button.property("width") / 2, 5)).toPoint()
+        item = win.findChild(QQuickItem, name)
+        assert item is not None, name
+        pos = item.mapToScene(QPointF(item.property("width") / 2, 5)).toPoint()
         QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
         qgui_app.processEvents()
 
+    # Fresh drawers start collapsed: expand through the header icon,
+    # which is also the only way back once collapsed.
+    click("drawerHeaderButton")
+    assert drawer.property("collapsed") is False
     click("drawerModeOverlayButton")
     assert drawer.property("modal") is True
-    assert C.load_preferences().drawer_mode == "overlay"
-    click("drawerModeSidebarButton")
-    assert drawer.property("modal") is False
     assert drawer.property("collapsible") is False
-    assert C.load_preferences().drawer_mode == "sidebar"
+    assert C.load_preferences().drawer_mode == "overlay"
     click("drawerModeCollapsibleButton")
+    assert drawer.property("modal") is False
     assert drawer.property("collapsible") is True
+    assert drawer.property("collapsed") is True
     assert C.load_preferences().drawer_mode == "collapsible"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -1433,8 +1404,15 @@ def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
         if isinstance(text, str) and text:
             texts.add(text)
     assert {"Scan Steam Library...", "Reload", "Quit"} <= texts
-    _collapsible = win.findChild(QObject, "drawerModeCollapsible")
-    _fire(_collapsible)
+    assert win.findChild(QObject, "drawerModeCollapsible") is None
+    assert win.findChild(QObject, "drawerModeSidebar") is None
+    assert win.findChild(QObject, "drawerModeOverlay") is None
+    switch = win.findChild(QQuickItem, "drawerModeCollapsibleButton")
+    assert switch is not None
+    center = switch.mapToScene(
+        QPointF(switch.property("width") / 2, switch.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, center)
     qgui_app.processEvents()
     assert C.load_preferences().drawer_mode == "collapsible"
     drawer = win.findChild(QObject, "sourceDrawer")
@@ -1711,6 +1689,47 @@ def test_header_divider_drag_resizes_and_persists(qgui_app, xdg_env):
     grown = proxy.columnWidth(2)
     assert w0 < grown <= w0 + 40
     assert f"2={grown}" in C.load_preferences().column_widths.split(",")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_narrow_window_shrinks_columns_to_fit(qgui_app, xdg_env):
+    """Fitted columns scale down instead of overflowing small windows."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    win.setProperty("width", 900)
+    win.setProperty("height", 720)
+    for logical in (2, 3, 4, 5):
+        proxy.setColumnWidth(logical, 300)
+    found_shrink = None
+    for _ in range(30):
+        qgui_app.processEvents()
+        page = win.findChild(QObject, "gamesPage")
+        shrink = page.property("columnShrink")
+        if shrink < 1.0:
+            found_shrink = shrink
+            break
+    assert found_shrink is not None
+    assert 0.15 <= found_shrink <= 1.0
+    header = win.findChild(QQuickItem, "tableHeader")
+    row = header.findChild(QQuickItem, "headerRow")
+    cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
+    assert cells["headerCell2"].property("width") == max(24.0, 300 * found_shrink)
+    table = win.findChild(QQuickItem, "gameTable")
+    total = sum(cells[f"headerCell{logical}"].property("width") for logical in (0, 1, 2, 3, 4, 5))
+    assert total <= table.property("width") + 1.0
+    bar = win.findChild(QQuickItem, "tableHScroll")
+    assert bar.property("size") == 1.0  # fits: no scroll needed
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
