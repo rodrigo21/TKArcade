@@ -74,6 +74,7 @@ Kirigami.ApplicationWindow {
                 // only way back out).
                 Controls.ToolButton {
                     objectName: "drawerHeaderButton"
+                    id: drawerHeaderButton
                     Layout.alignment: Qt.AlignVCenter
                     icon.name: "input-gamepad"
                     enabled: sourceDrawer.collapsible
@@ -89,6 +90,11 @@ Kirigami.ApplicationWindow {
                     text: qsTr("Library")
                     font.bold: true
                     color: Kirigami.Theme.textColor
+                }
+                // Balances the header button so Library sits on the
+                // true center instead of the remaining space.
+                Item {
+                    Layout.preferredWidth: drawerHeaderButton.width
                 }
             }
             Rectangle {

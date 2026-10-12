@@ -7,8 +7,8 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ### Added
 - Drawer header without the collapse button: gamepad icon toggles,
-  centered Library, Kirigami built-in close row off, footer buttons
-  centered.
+  centered Library (balanced spacer), Kirigami built-in close row
+  off, footer buttons centered.
 - Gamepad icon (`input-gamepad`) for icon-less games and the drawer
   handle: `applications-games` renders as card suits in some themes.
 - Drawer mode switch in the drawer footer as icon buttons (reachable

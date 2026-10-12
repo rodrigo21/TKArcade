@@ -596,6 +596,44 @@ def test_drawer_modes_switch(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_drawer_header_library_centered(qgui_app, xdg_env):
+    """Library sits on the header center (button balanced both sides)."""
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    btn = win.findChild(QQuickItem, "drawerHeaderButton")
+    assert btn is not None
+    pos = btn.mapToScene(QPointF(btn.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    for _ in range(10):
+        qgui_app.processEvents()
+    bar = win.findChild(QQuickItem, "drawerHeaderBar")
+    label = None
+    for item in bar.findChildren(QQuickItem):
+        try:
+            if item.property("visible") and item.property("text") == "Library":
+                label = item
+                break
+        except Exception:
+            continue
+    assert label is not None
+    bar_cx = bar.mapToScene(QPointF(0, 0)).x() + float(bar.property("width") or 0) / 2
+    label_cx = label.mapToScene(QPointF(0, 0)).x() + float(label.property("width") or 0) / 2
+    assert abs(label_cx - bar_cx) <= 1.0
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_overlay_drawer_keeps_toolbar_icons(qgui_app, xdg_env):
     """Overlay mode must not push the view icons into overflow."""
     from PySide6.QtCore import QObject, QPointF
