@@ -68,8 +68,9 @@ Kirigami.Page {
             objectName: "toolbarSpacerA"
             // Smaller twin: equal elastics center the filter B/2 off
             // (the buttons width pushes it right), so the left one
-            // absorbs the buttons width back out.
-            implicitWidth: Math.max(0, (gamesPage.width - titleReserve - 2 * (btnPlay.width + btnAdd.width + btnEdit.width + btnRemove.width
+            // absorbs the buttons width back out. Zeroed on tiny
+            // pages: fitting beats centering there.
+            implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - 2 * (btnPlay.width + btnAdd.width + btnEdit.width + btnRemove.width
                 + 3 * Kirigami.Units.smallSpacing) - gamesPage.titleFilterWidth) / 2)
         }
         Kirigami.SearchField {
@@ -85,7 +86,8 @@ Kirigami.Page {
             objectName: "toolbarSpacerB"
             // Larger twin (see spacerA): with buttons+filter+title all
             // fixed, the icons toolbar keeps a constant ~170px room.
-            implicitWidth: Math.max(0, (gamesPage.width - titleReserve - gamesPage.titleFilterWidth) / 2)
+            // Zeroed on tiny pages with its twin.
+            implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - gamesPage.titleFilterWidth) / 2)
         }
     }
     // Flush against the window toolbar, like plasma-systemmonitor.

@@ -580,6 +580,77 @@ def test_drawer_modes_switch(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_drawer_footer_combo_mirrors_and_saves_mode(qgui_app, xdg_env):
+    """The drawer footer switch stays reachable outside overflow menus."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    combo = win.findChild(QQuickItem, "drawerModeCombo")
+    assert combo is not None
+    page = win.findChild(QObject, "gamesPage")
+    page.setDrawerMode("overlay")
+    qgui_app.processEvents()
+    assert combo.property("currentIndex") == 0
+    page.setDrawerMode("sidebar")
+    qgui_app.processEvents()
+    assert combo.property("currentIndex") == 1
+    assert C.load_preferences().drawer_mode == "sidebar"
+    page.setDrawerMode("collapsible")
+    qgui_app.processEvents()
+    assert combo.property("currentIndex") == 2
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_overlay_drawer_keeps_toolbar_icons(qgui_app, xdg_env):
+    """Overlay mode must not push the view icons into overflow."""
+    from PySide6.QtCore import QObject, QPointF
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    for width in (900, 1280):
+        win, _engine, _proxy, warnings = _load_main(qgui_app)
+        win.setProperty("width", width)
+        win.setProperty("height", 720)
+        page = win.findChild(QObject, "gamesPage")
+        page.setDrawerMode("overlay")
+        for _ in range(12):
+            qgui_app.processEvents()
+
+        def vis(name, host=win):
+            out = []
+            for it in host.findChildren(QQuickItem, name):
+                try:
+                    if it.property("visible"):
+                        x = it.mapToScene(QPointF(0, 0)).x()
+                        out.append((round(x, 1), round(float(it.property("width") or 0), 1)))
+                except Exception:
+                    continue
+            return out
+
+        assert vis("toolbarIcons"), width
+        assert vis("searchField"), width
+        real = [w for w in warnings if "graphics scene" not in w]
+        assert real == [], (width, real)
+        win.close()
+        _engine.deleteLater()
+        for _ in range(3):
+            qgui_app.processEvents()
+
+
 def test_view_button_cycles_modes(qgui_app, xdg_env):
     """Split-button main click cycles list -> icons -> cards -> list."""
     from PySide6.QtCore import QObject

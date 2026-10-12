@@ -113,6 +113,24 @@ Kirigami.ApplicationWindow {
                 onTriggered: gameFilter.sourceKey = "local"
             }
         ]
+        // Escape hatch: the hamburger menu (with the drawer switch)
+        // can hide inside the overflow button; the footer never does.
+        footer: RowLayout {
+            Controls.Label {
+                text: qsTr("Drawer:")
+            }
+            Controls.ComboBox {
+                objectName: "drawerModeCombo"
+                Layout.fillWidth: true
+                model: [qsTr("Overlay"), qsTr("Sidebar"), qsTr("Collapsible")]
+                currentIndex: sourceDrawer.modal ? 0 : (sourceDrawer.collapsible ? 2 : 1)
+                onActivated: (index) => {
+                    var mode = index === 0 ? "overlay" : (index === 1 ? "sidebar" : "collapsible")
+                    applyDrawerMode(mode)
+                    gameModel.saveDrawerMode(mode)
+                }
+            }
+        }
     }
 
     pageStack.initialPage: MainPage {

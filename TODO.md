@@ -73,7 +73,8 @@ to `kirigami` (see git log).
 - [ ] QSystemTrayIcon → needs QApplication migration (deferred)
 
 ### Drawer (after tableview)
-- [ ] Drawer Mode… into GlobalDrawer `footer:` (bottom, space reserved above)
+- [x] Drawer Mode… into GlobalDrawer `footer:` (ComboBox, always
+  reachable even when the toolbar overflows into its menu)
 - [ ] Persist mode (modal/collapsible/collapsed) in prefs, restore on start
 - [ ] Test close→reopen keeps mode (nothing in Kirigami resets `modal`)
 
