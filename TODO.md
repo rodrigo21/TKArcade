@@ -5,13 +5,29 @@
   add flow with picker, AddSource chooser. Until then Edit opens the
   local name+executable dialog as a stand-in.
 - [ ] Kirigami File Export/Import (tarball, SteamTinkerLaunch,
-  predecessor copy). Scan Steam Library already exists.
+  predecessor copy; local library import from Lutris/Playnite/Faugus
+  file formats, investigation first). Scan Steam Library already exists.
+  Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB, incl. VNDB)
+  is deferred research for when the import work starts.
 - [ ] System tray with recent games (needs QGuiApplication to
   QApplication migration; tray prefs already exist).
 - [ ] Column drag-reorder in the QML header (the Move left/right
   menu covers reordering; drag is fragile in QML layouts).
 - [ ] QML i18n catalog (pt_BR for the strings added since the
-  Kirigami work started; QML `qsTr` calls are in place).
+  Kirigami work started; QML `qsTr` calls are in place; deferred
+  for now, after the rest).
+- [ ] Manual artwork per game (icon, cover, banner), for non-Steam
+  and Steam (local override); non-Steam games may reuse Steam art
+  via name search or a donor AppID.
+- [ ] More columns, Lutris parity (candidates: last played, total
+  time, platform, runner, version/wine, install dir, category);
+  define the data source per column (manual, history, auto-detect,
+  ProtonDB).
+- [ ] Categories/tags (multiple per game, drawer filter, bulk edit);
+  online sources à la Playnite are deferred research.
+- [ ] Windows game management: prefix per game (point/create/clear),
+  version selector (system Wine, Proton, custom path), runner
+  (native/Wine/Proton) + args/cwd, winetricks per prefix.
 
 - [ ] Per-game display mode: save current resolution/refresh, apply the
   game's, restore afterwards (same save/restore pattern as nightlight).
@@ -45,6 +61,8 @@
 
 Goal: visual consistency with the widgets version, then drop widgets.
 Rule: always prefer the Kirigami/Addons equivalent, never reinvent.
+Parity order (agreed, i18n last): pickers+tabs → settings →
+export/import → PromptDialog → tray → drag-reorder.
 Status: list/icons/cards views, drawer modes, toolbar Play/Add/Edit/Remove,
 game context menu, Tools menu, prefs/about/history/scan dialogs,
 issues-only filter, geometry + column prefs, movable columns — all pushed
