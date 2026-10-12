@@ -249,6 +249,144 @@ class GameListModel(QAbstractTableModel):
             path = ""
         self.browseFinished.emit(path)
 
+    @Slot(str, result="QVariantMap")
+    def loadGame(self, appid: str) -> dict:
+        """General-section fields plus profile names for the settings UI."""
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception as e:  # unknown id: empty form, never a traceback
+            log.warning("loadGame(%s) failed: %s", appid, e)
+            return {}
+        try:
+            profiles = cfgmod.list_profiles(appid)
+        except Exception:
+            profiles = []
+        g = cfg.general
+        return {
+            "appid": g.appid,
+            "name": g.name,
+            "custom_executable": g.custom_executable,
+            "game_type": g.game_type if g.game_type in ("auto", "proton", "native") else "auto",
+            "show_menu": bool(g.show_menu),
+            "menu_timeout": max(0, min(600, int(g.menu_timeout or 0))),
+            "custom_prefix": g.custom_prefix,
+            "active_profile": g.active_profile,
+            "notes": cfg.notes.text,
+            "profiles": profiles,
+            "is_steam": bool(steammod.is_steam_id(appid)),
+        }
+
+    @Slot(str, "QVariantMap", result=str)
+    def saveGame(self, appid: str, values) -> str:
+        """Persist the General-section fields. Returns the id, or ''."""
+        data = dict(values or {})
+        if not appid:
+            err = validate_local_game(
+                str(data.get("name", "")), str(data.get("custom_executable", ""))
+            )
+            if err:
+                log.warning("saveGame create rejected: %s", err)
+                return ""
+            appid = cfgmod.new_local_id(str(data.get("name", "")).strip())
+            cfg = cfgmod.load_defaults()
+            cfg.general.appid = appid
+            cfg.general.name = str(data.get("name", "")).strip()
+        else:
+            if not cfgmod.game_file(appid).is_file():
+                log.warning("saveGame(%s) rejected: unknown game", appid)
+                return ""
+            try:
+                cfg = cfgmod.load(appid)
+            except Exception as e:
+                log.warning("saveGame(%s) failed: %s", appid, e)
+                return ""
+            if not steammod.is_steam_id(appid):
+                cfg.general.name = str(data.get("name", "")).strip()
+        cfg.general.custom_executable = str(data.get("custom_executable", "")).strip()
+        game_type = str(data.get("game_type", "auto"))
+        cfg.general.game_type = game_type if game_type in ("auto", "proton", "native") else "auto"
+        cfg.general.show_menu = bool(data.get("show_menu", False))
+        try:
+            cfg.general.menu_timeout = max(0, min(600, int(data.get("menu_timeout", 0) or 0)))
+        except (TypeError, ValueError):
+            cfg.general.menu_timeout = 0
+        cfg.general.custom_prefix = str(data.get("custom_prefix", "")).strip()
+        cfg.notes.text = str(data.get("notes", ""))
+        try:
+            cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("saveGame(%s) failed: %s", appid, e)
+            return ""
+        self.refresh()
+        return appid
+
+    @Slot(str, str, result=bool)
+    def loadGameProfile(self, appid: str, name: str) -> bool:
+        """Switch the live config to a saved profile snapshot."""
+        name = str(name or "").strip()
+        try:
+            known = cfgmod.list_profiles(appid)
+        except Exception:
+            known = []
+        if not appid or not name or name not in known:
+            return False
+        try:
+            cfg = cfgmod.load_profile(appid, name)
+            cfg.general.appid = appid
+            cfg.general.active_profile = name
+            cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("loadGameProfile failed: %s", e)
+            return False
+        self.refresh()
+        return True
+
+    @Slot(str, str, result=bool)
+    def saveGameProfile(self, appid: str, name: str) -> bool:
+        """Snapshot the live config as a named profile."""
+        name = str(name or "").strip()
+        if not appid or not name:
+            return False
+        try:
+            cfgmod.save_profile(appid, name, cfgmod.load(appid))
+        except Exception as e:
+            log.warning("saveGameProfile failed: %s", e)
+            return False
+        return True
+
+    @Slot(str, str, str, result=bool)
+    def cloneGameProfile(self, appid: str, src: str, dest: str) -> bool:
+        """Copy profile snapshot src to a new name dest."""
+        src, dest = str(src or "").strip(), str(dest or "").strip()
+        if not appid or not src or not dest or src == dest:
+            return False
+        try:
+            if src not in cfgmod.list_profiles(appid):
+                return False
+            cfgmod.save_profile(appid, dest, cfgmod.load_profile(appid, src))
+        except Exception as e:
+            log.warning("cloneGameProfile failed: %s", e)
+            return False
+        return True
+
+    @Slot(str, str, result=bool)
+    def deleteGameProfile(self, appid: str, name: str) -> bool:
+        """Delete a profile snapshot (clears the active marker with it)."""
+        name = str(name or "").strip()
+        if not appid or not name:
+            return False
+        try:
+            cfgmod.delete_profile(appid, name)
+            cfg = cfgmod.load(appid)
+            if cfg.general.active_profile == name:
+                cfg.general.active_profile = ""
+                cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("deleteGameProfile failed: %s", e)
+            return False
+        self.refresh()
+        return True
+
     @Slot(str, result=bool)
     def openProtonDB(self, appid: str) -> bool:
         """Open the ProtonDB page for a Steam game in the browser."""

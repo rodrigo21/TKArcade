@@ -414,6 +414,58 @@ def test_drawer_collapsed_roundtrip(qgui_app, xdg_env):
     assert GameListModel().drawerCollapsed() is False
 
 
+def test_settings_load_save_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    model = GameListModel()
+    fields = model.loadGame("local-doom")
+    assert fields["name"] == "Doom"
+    assert fields["game_type"] == "native"
+    assert fields["is_steam"] is False
+    assert fields["profiles"] == []
+    out = dict(fields)
+    out["name"] = "Doom II"
+    out["menu_timeout"] = 30
+    out["notes"] = "rip and tear"
+    assert model.saveGame("local-doom", out) == "local-doom"
+    reloaded = C.load("local-doom")
+    assert reloaded.general.name == "Doom II"
+    assert reloaded.general.menu_timeout == 30
+    assert reloaded.notes.text == "rip and tear"
+    assert model.saveGame("nope-missing", {}) == ""
+    assert model.loadGame("nope-missing")["name"] == ""
+    assert model.saveGame("", {"name": "", "custom_executable": "/bin/true"}) == ""
+
+
+def test_settings_create_and_profiles(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    created = model.saveGame(
+        "", {"name": "Doom", "custom_executable": "/bin/true", "game_type": "native"}
+    )
+    assert created.startswith("local-")
+    assert C.load(created).general.name == "Doom"
+    assert model.saveGameProfile(created, "fast") is True
+    assert model.loadGame(created)["profiles"] == ["fast"]
+    assert model.saveGameProfile(created, "") is False
+    assert model.cloneGameProfile(created, "fast", "faster") is True
+    assert model.cloneGameProfile(created, "missing", "x") is False
+    assert model.cloneGameProfile(created, "fast", "fast") is False
+    assert model.loadGameProfile(created, "fast") is True
+    assert C.load(created).general.active_profile == "fast"
+    assert model.loadGameProfile(created, "missing") is False
+    assert model.deleteGameProfile(created, "fast") is True
+    assert C.load(created).general.active_profile == ""
+    assert model.loadGame(created)["profiles"] == ["faster"]
+
+
 def _filtered(qgui_app, appids=("213", "local-doom")):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 

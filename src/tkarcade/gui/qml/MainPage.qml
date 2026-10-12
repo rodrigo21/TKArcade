@@ -42,7 +42,7 @@ Kirigami.Page {
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
             Controls.ToolTip.visible: hovered
-            onClicked: addDialog.open()
+            onClicked: gameSettings.openNew()
         }
         Controls.ToolButton {
             id: btnEdit
@@ -52,7 +52,7 @@ Kirigami.Page {
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
             Controls.ToolTip.visible: hovered
-            onClicked: addDialog.open()
+            onClicked: gamesPage.openSettingsForSelection()
         }
         Controls.ToolButton {
             id: btnRemove
@@ -385,6 +385,14 @@ Kirigami.Page {
             return
         }
         gameModel.play(selectedIds[0])
+    }
+
+    function openSettingsForSelection() {
+        if (selectedIds.length === 0) {
+            gamesPage.notify(qsTr("Select a game first."))
+            return
+        }
+        gameSettings.openFor(selectedIds[0])
     }
 
     function openRemoveDialog() {
@@ -738,16 +746,14 @@ Kirigami.Page {
         objectName: "actionAdd"
         text: qsTr("Add game")
         icon.name: "list-add"
-        onTriggered: addDialog.open()
+        onTriggered: gameSettings.openNew()
     }
     Kirigami.Action {
-        // TEMPORARY: opens the local add dialog until the QML
-        // game settings UI lands.
         id: actionEdit
         objectName: "actionEdit"
         text: qsTr("Edit...")
         icon.name: "document-edit"
-        onTriggered: addDialog.open()
+        onTriggered: gamesPage.openSettingsForSelection()
     }
     Kirigami.Action {
         id: actionRemove
@@ -1003,7 +1009,7 @@ Kirigami.Page {
         Controls.MenuItem {
             visible: gamesPage.selectedIds.length <= 1
             text: qsTr("Edit Settings")
-            onTriggered: addDialog.open()
+            onTriggered: gameSettings.openFor(gamesPage.menuGid)
         }
         Controls.MenuSeparator {
             visible: gamesPage.selectedIds.length <= 1
@@ -1566,7 +1572,7 @@ Kirigami.Page {
         visible: gamesPage.viewMode === "list" && gameFilter.rowCount() === 0
         Controls.Button {
             text: qsTr("Add Game...")
-            onClicked: addDialog.open()
+            onClicked: gameSettings.openNew()
         }
         Controls.Button {
             objectName: "emptyScan"
@@ -1688,70 +1694,9 @@ Kirigami.Page {
         page: gamesPage
     }
 
-    Kirigami.Dialog {
-        id: addDialog
-        objectName: "addDialog"
-        title: qsTr("Add local game")
-        padding: Kirigami.Units.largeSpacing
-
-        ColumnLayout {
-            Controls.TextField {
-                id: nameField
-                placeholderText: qsTr("Game name")
-                Layout.fillWidth: true
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Controls.TextField {
-                    id: exeField
-                    placeholderText: qsTr("Game executable")
-                    Layout.fillWidth: true
-                }
-                Controls.Button {
-                    text: qsTr("Browse…")
-                    onClicked: gameModel.browseExecutable()
-                }
-                Connections {
-                    target: gameModel
-                    function onBrowseFinished(picked) {
-                        if (picked !== "") {
-                            exeField.text = picked
-                            if (nameField.text === "") {
-                                var parts = picked.split("/")
-                                nameField.text = parts[parts.length - 1]
-                            }
-                        }
-                    }
-                }
-            }
-            Controls.Label {
-                id: addError
-                visible: text !== ""
-                color: Kirigami.Theme.negativeTextColor
-            }
-        }
-
-        footer: RowLayout {
-            Layout.fillWidth: true
-            Controls.Button {
-                text: qsTr("Add")
-                onClicked: {
-                    var created = gameModel.addLocal(nameField.text, exeField.text)
-                    if (created === "") {
-                        addError.text = qsTr("Name and a valid executable are required.")
-                    } else {
-                        nameField.text = ""
-                        exeField.text = ""
-                        addError.text = ""
-                        addDialog.close()
-                    }
-                }
-            }
-            Controls.Button {
-                text: qsTr("Cancel")
-                onClicked: addDialog.close()
-            }
-        }
+    GameSettings {
+        id: gameSettings
+        page: gamesPage
     }
 
     Kirigami.Dialog {

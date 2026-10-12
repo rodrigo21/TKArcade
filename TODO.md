@@ -1,9 +1,9 @@
 # TODO — deferred ideas
 
-- [ ] Kirigami game settings (deferred while the rest lands): port
-  GameDialog to QML — real Edit/Clone/Reset/Global Defaults, Steam
-  add flow with picker, AddSource chooser. Until then Edit opens the
-  local name+executable dialog as a stand-in.
+- [ ] Kirigami game settings (shell + General/Notes landed, with
+  TabBar, load/save/profile slots and the profile-name prompt; Edit
+  and Add open it): remaining tabs, Clone/Reset/Global Defaults,
+  Steam add flow with picker, AddSource chooser.
 - [ ] Kirigami File Export/Import (tarball, SteamTinkerLaunch,
   predecessor copy; local library import from Lutris/Playnite/Faugus
   file formats, investigation first). Scan Steam Library already exists.

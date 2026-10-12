@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Per-game settings shell (steps 1–2 of the parity order): `GameSettings`
+  dialog with TabBar (General + Notes), model load/save/profile slots,
+  text prompt replacing QInputDialog for profile names; Edit/Add open
+  it, retiring the name+executable stand-in. Portal file picking
+  (Browse) was already in place and stays.
 - Drawer collapsed state persists: closing open reopens open (was
   always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.

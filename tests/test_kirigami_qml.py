@@ -2043,6 +2043,78 @@ def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_edit_saves_name(qgui_app, xdg_env):
+    """Edit opens settings for the selection; Save persists the fields."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.select("local-doom")
+    qgui_app.processEvents()
+
+    def click(name):
+        button = win.findChild(QQuickItem, name)
+        pos = button.mapToScene(
+            QPointF(button.property("width") / 2, button.property("height") / 2)
+        ).toPoint()
+        QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        qgui_app.processEvents()
+
+    click("titleEdit")
+    name = win.findChild(QQuickItem, "settingsName")
+    assert name.property("text") == "Doom"
+    name.setProperty("text", "Doom II")
+    click("settingsSave")
+    assert C.load("local-doom").general.name == "Doom II"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_add_creates_game(qgui_app, xdg_env):
+    """Add opens blank settings; Save creates and selects the game."""
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    win, engine, proxy, warnings = _load_main(qgui_app)
+
+    def click(name):
+        button = win.findChild(QQuickItem, name)
+        pos = button.mapToScene(
+            QPointF(button.property("width") / 2, button.property("height") / 2)
+        ).toPoint()
+        QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        qgui_app.processEvents()
+
+    click("titleAdd")
+    win.findChild(QQuickItem, "settingsName").setProperty("text", "Doom")
+    win.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
+    click("settingsSave")
+    assert proxy.rowCount() == 1
+    created = proxy.idAt(0)
+    assert created.startswith("local-")
+    assert C.load(created).general.name == "Doom"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib
