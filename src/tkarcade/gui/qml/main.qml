@@ -45,6 +45,8 @@ Kirigami.ApplicationWindow {
         objectName: "sourceDrawer"
         title: qsTr("TKArcade")
         showHeaderWhenCollapsed: true
+        // Gamepad handle: the theme draws application-menu as a gear.
+        handleClosedIcon.name: "input-gamepad"
         // No built-in close row: the header gamepad toggles collapse.
         collapseButtonVisible: false
         // Plain Item (not a ToolBar): with a toolbar header Kirigami

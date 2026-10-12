@@ -29,7 +29,7 @@ Kirigami.Card {
     banner {
         source: gameIcon !== "" ? "file://" + gameIcon : ""
         title: gameName
-        titleIcon: "applications-games"
+        titleIcon: "input-gamepad"
         titleAlignment: Qt.AlignBottom | Qt.AlignLeft
     }
     contentItem: ColumnLayout {

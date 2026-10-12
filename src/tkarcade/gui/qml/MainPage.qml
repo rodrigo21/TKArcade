@@ -1433,7 +1433,7 @@ Kirigami.Page {
                             Kirigami.Icon {
                                 anchors.centerIn: parent
                                 visible: (model?.gameIcon ?? "") === ""
-                                source: "applications-games"
+                                source: "input-gamepad"
                                 width: 20
                                 height: 20
                             }

@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
             "list-add",
             "document-edit",
             "edit-delete",
-            "applications-games",
+            "input-gamepad",
             "go-down",
             "go-up",
         ]

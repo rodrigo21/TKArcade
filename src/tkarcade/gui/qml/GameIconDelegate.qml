@@ -64,7 +64,7 @@ Item {
             Kirigami.Icon {
                 anchors.centerIn: parent
                 visible: iconCell.gameIcon === ""
-                source: "applications-games"
+                source: "input-gamepad"
                 width: Math.min(parent.width, parent.height, iconCell.cellSize) * 0.6
                 height: width
             }

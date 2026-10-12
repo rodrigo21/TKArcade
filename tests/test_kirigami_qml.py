@@ -1368,6 +1368,30 @@ def test_table_delegates_never_lookup_by_visual_row():
     assert offenders == []
 
 
+def test_gamepad_icon_everywhere_no_card_suits():
+    """Icon-less games and the drawer handle use input-gamepad.
+
+    applications-games renders as card suits in some themes; the
+    gamepad reads as games everywhere.
+    """
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    root = pathlib.Path(kapp.__file__).parent
+    offenders = []
+    for path in sorted(root.glob("*.py")) + sorted((root / "qml").glob("*.qml")):
+        try:
+            src = path.read_text()
+        except OSError:
+            continue
+        if "applications-games" in src:
+            offenders.append(path.name)
+    assert offenders == []
+    main = (root / "qml" / "main.qml").read_text()
+    assert 'handleClosedIcon.name: "input-gamepad"' in main
+
+
 def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
     """Hamburger replaces Tools; drawer modes persist through prefs."""
     from PySide6.QtCore import QObject, QPointF, Qt
