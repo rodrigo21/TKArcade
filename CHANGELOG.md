@@ -6,9 +6,6 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
-- Single hairline style (1px/0.4) across header, gutter and the new
-  rule closing the table above the status line; the gutter divider
-  runs continuous through the header (no top gap).
 - Drawer header without the collapse button: gamepad icon toggles,
   centered Library (balanced spacer), Kirigami built-in close row
   off, footer buttons centered.

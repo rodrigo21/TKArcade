@@ -1963,7 +1963,7 @@ def test_table_header_bottom_line_spans_width(qgui_app, xdg_env):
 
 
 def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
-    """The gutter divider crosses header, rows and the empty area below."""
+    """The gutter divider crosses rows and the empty area below."""
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
@@ -1976,13 +1976,11 @@ def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
     assert line is not None
     table = win.findChild(QQuickItem, "gameTable")
     assert table is not None
-    header = win.findChild(QQuickItem, "tableHeader")
-    assert header is not None
     assert line.property("width") == 1
     # Same box as the per-cell dividers: gutter width (36) minus 1px.
     assert line.property("x") == 36 - 1
-    # Continuous from the header top (no gap) to the table bottom.
-    assert abs(line.property("y") - header.property("y")) <= 1
+    # Overlay sibling of the table: same top and bottom, never scrolls.
+    assert abs(line.property("y") - table.property("y")) <= 1
     assert (
         abs(
             line.property("y")
@@ -2007,37 +2005,6 @@ def test_no_gutter_game_header_stub():
 
     src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert "visible: logical !== 0" in src
-
-
-def test_hairlines_share_single_style_and_footer_rule(qgui_app, xdg_env):
-    """All hairlines are 1px/0.25; a rule closes the table above status."""
-    from PySide6.QtCore import QPointF
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    for name in ("tableHeaderBottomLine", "gutterFullLine", "tableFooterTopLine"):
-        line = win.findChild(QQuickItem, name)
-        assert line is not None, name
-        assert line.property("height") == 1 or line.property("width") == 1, name
-        assert line.property("opacity") == 0.4, name
-    table = win.findChild(QQuickItem, "gameTable")
-    foot = win.findChild(QQuickItem, "tableFooterTopLine")
-    assert round(float(foot.property("width") or 0), 1) == round(
-        float(table.property("width") or 0), 1
-    )
-    table_bottom = table.mapToScene(QPointF(0, 0)).y() + float(table.property("height") or 0)
-    foot_bottom = foot.mapToScene(QPointF(0, 0)).y() + float(foot.property("height") or 0)
-    assert abs(foot_bottom - table_bottom) <= 1
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
 
 
 def test_gutter_back_strip_runs_full_height(qgui_app, xdg_env):
