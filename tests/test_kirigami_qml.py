@@ -1963,7 +1963,7 @@ def test_table_header_bottom_line_spans_width(qgui_app, xdg_env):
 
 
 def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
-    """The gutter divider crosses rows and the empty area below."""
+    """The gutter divider crosses header, rows and the empty area below."""
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
@@ -1976,11 +1976,13 @@ def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
     assert line is not None
     table = win.findChild(QQuickItem, "gameTable")
     assert table is not None
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
     assert line.property("width") == 1
     # Same box as the per-cell dividers: gutter width (36) minus 1px.
     assert line.property("x") == 36 - 1
-    # Overlay sibling of the table: same top and bottom, never scrolls.
-    assert abs(line.property("y") - table.property("y")) <= 1
+    # Continuous from the header top (no gap) to the table bottom.
+    assert abs(line.property("y") - header.property("y")) <= 1
     assert (
         abs(
             line.property("y")
@@ -2022,7 +2024,7 @@ def test_hairlines_share_single_style_and_footer_rule(qgui_app, xdg_env):
         line = win.findChild(QQuickItem, name)
         assert line is not None, name
         assert line.property("height") == 1 or line.property("width") == 1, name
-        assert line.property("opacity") == 0.25, name
+        assert line.property("opacity") == 0.4, name
     table = win.findChild(QQuickItem, "gameTable")
     foot = win.findChild(QQuickItem, "tableFooterTopLine")
     assert round(float(foot.property("width") or 0), 1) == round(

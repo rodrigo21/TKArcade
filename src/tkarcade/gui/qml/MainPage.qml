@@ -1109,7 +1109,7 @@ Kirigami.Page {
             color: "transparent"
             border.width: 1
             border.color: Kirigami.Theme.textColor
-            opacity: 0.25
+            opacity: 0.4
             radius: Kirigami.Units.smallSpacing / 2
         }
         // Gutter back strip, full table height: the framed number
@@ -1226,7 +1226,7 @@ Kirigami.Page {
                         anchors.bottom: parent.bottom
                         width: 1
                         color: Kirigami.Theme.textColor
-                        opacity: 0.25
+                        opacity: 0.4
                     }
                     MouseArea {
                         // Separator interaction: hover cursor, drag to
@@ -1306,7 +1306,7 @@ Kirigami.Page {
             anchors.bottom: parent.bottom
             height: 1
             color: Kirigami.Theme.textColor
-            opacity: 0.25
+            opacity: 0.4
         }
         }
 
@@ -1525,19 +1525,19 @@ Kirigami.Page {
             anchors.bottom: listLayout.bottom
             height: 1
             color: Kirigami.Theme.textColor
-            opacity: 0.25
+            opacity: 0.4
         }
         // Gutter divider overlay: above delegates and highlight, never
         // scrolls; same box as the per-cell dividers ([gutter - 1, gutter]).
+        // Runs the full height including the header: no top gap.
         Rectangle {
             objectName: "gutterFullLine"
             anchors.top: listLayout.top
-            anchors.topMargin: tableHeader.height
             anchors.bottom: listLayout.bottom
             x: gamesPage.tableColumnWidth(0) - 1
             width: 1
             color: Kirigami.Theme.textColor
-            opacity: 0.25
+            opacity: 0.4
         }
     }
     Controls.Menu {
