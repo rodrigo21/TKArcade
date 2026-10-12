@@ -48,21 +48,27 @@ Rule: always prefer the Kirigami/Addons equivalent, never reinvent.
 Status: list/icons/cards views, drawer modes, toolbar Play/Add/Edit/Remove,
 game context menu, Tools menu, prefs/about/history/scan dialogs,
 issues-only filter, geometry + column prefs, movable columns — all pushed
-to `kirigami` (see git log).
+to `kirigami` (see git log). Two modes only: overlay + collapsible
+sidebar (plain sidebar removed); drawer header has the gamepad
+toggle and a centered Library.
 
 ### Equivalence map (audit 2026-10-07)
 - [x] QMainWindow → ApplicationWindow
 - [x] QListWidget sources → GlobalDrawer actions
 - [x] QMenu/QToolBar → title row (buttons + centered filter) + actions
   row (view icons pinned right); per-row Play removed (play via
-  double-click, toolbar or menu); header separator double-click
-  autofits the column (measured on the model, persisted per column)
+  double-click, toolbar or menu); header separators drag-resize and
+  double-click autofits the column (measured on the model, persisted
+  per column); fresh/reset starts fitted capped at 300px; filter
+  clamps to 600–1200px; narrow windows shrink columns, then scroll
+  with the header following; hairlines + header/footer rules.
 - [x] QDialog+ButtonBox → Kirigami.Dialog
 - [x] QComboBox/Spin/Slider/Check/LineEdit → QQC2 direct
-- [x] QTableWidget+QHeaderView → Addons ListTableView (+ kirigami-addons
-  dep, landed with the import; keep game* roles via textRole,
-  sort through existing sortBy, selectionModel replaces selectedIds).
-  Use ListTableView, never KTableView (its inner TableView spins the
+- [x] QTableWidget+QHeaderView → plain QtQuick TableView + custom
+  header (manual x tiling: positioners do not reschedule on child
+  width edits) and kirigami-addons FormCard for prefs; keep game*
+  roles, sort through existing sortBy, selectionModel replaces
+  selectedIds. Never KTableView (its inner TableView spins the
   offscreen event loop forever).
 - [x] QShortcut Quit → QML Shortcut (Ctrl+Q)
 - [ ] QMessageBox → Kirigami.PromptDialog (base kirigami, revise our confirms)
