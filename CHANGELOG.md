@@ -6,9 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
-- Drawer mode switch in the drawer footer (reachable when the
-  toolbar overflows); tiny pages collapse the title spacers so the
-  icons never hide.
+- Drawer mode switch in the drawer footer as icon buttons (reachable
+  when the toolbar overflows; hidden with a collapsed drawer); tiny
+  pages collapse the title spacers so the icons never hide.
 - Header separator double-click autofits the column to its contents
   (measured on the model, persisted per column, survives restarts);
   fresh profiles and resets start fitted capped at 300px instead of

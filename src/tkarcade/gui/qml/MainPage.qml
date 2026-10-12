@@ -113,9 +113,10 @@ Kirigami.Page {
     // a collapsed drawer must not flip narrow windows back to text.
     property bool compactToolbar: (Controls.ApplicationWindow.window?.width ?? 0) < 1600
     // Title-row geometry (single source of truth). The reserve keeps
-    // room for the icons toolbar at any size; the filter clamps to
+    // room for the icons toolbar at any size (+handle room in overlay,
+    // where the drawer button joins the header); the filter clamps to
     // [600, 1200] with a fit cap so the corner never overflows.
-    property int titleReserve: 170
+    property int titleReserve: (gamesPage.appDrawer && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible) ? 218 : 170
     property int titleButtonsGuess: compactToolbar ? 170 : 380
     property int titleFilterWant: Math.min(1200, Math.max(gamesPage.width < 1000 ? 240 : 600, gamesPage.width * 0.45))
     property int titleFilterWidth: gamesPage.width < 1000 ? 240 : Math.min(titleFilterWant, gamesPage.width - titleReserve - 2 * titleButtonsGuess - 20)

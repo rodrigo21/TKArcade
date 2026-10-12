@@ -115,19 +115,43 @@ Kirigami.ApplicationWindow {
         ]
         // Escape hatch: the hamburger menu (with the drawer switch)
         // can hide inside the overflow button; the footer never does.
+        // Hidden with a collapsed drawer (nothing fits its 50px).
         footer: RowLayout {
-            Controls.Label {
-                text: qsTr("Drawer:")
+            visible: !sourceDrawer.collapsed
+            Controls.ToolButton {
+                objectName: "drawerModeOverlayButton"
+                icon.name: "view-fullscreen"
+                checkable: true
+                checked: sourceDrawer.modal && !sourceDrawer.collapsible
+                Controls.ToolTip.text: qsTr("Overlay Drawer")
+                Controls.ToolTip.visible: hovered
+                onClicked: {
+                    applyDrawerMode("overlay")
+                    gameModel.saveDrawerMode("overlay")
+                }
             }
-            Controls.ComboBox {
-                objectName: "drawerModeCombo"
-                Layout.fillWidth: true
-                model: [qsTr("Overlay"), qsTr("Sidebar"), qsTr("Collapsible")]
-                currentIndex: sourceDrawer.modal ? 0 : (sourceDrawer.collapsible ? 2 : 1)
-                onActivated: (index) => {
-                    var mode = index === 0 ? "overlay" : (index === 1 ? "sidebar" : "collapsible")
-                    applyDrawerMode(mode)
-                    gameModel.saveDrawerMode(mode)
+            Controls.ToolButton {
+                objectName: "drawerModeSidebarButton"
+                icon.name: "sidebar-expand-left"
+                checkable: true
+                checked: !sourceDrawer.modal && !sourceDrawer.collapsible
+                Controls.ToolTip.text: qsTr("Sidebar Drawer")
+                Controls.ToolTip.visible: hovered
+                onClicked: {
+                    applyDrawerMode("sidebar")
+                    gameModel.saveDrawerMode("sidebar")
+                }
+            }
+            Controls.ToolButton {
+                objectName: "drawerModeCollapsibleButton"
+                icon.name: "sidebar-collapse-left"
+                checkable: true
+                checked: !sourceDrawer.modal && sourceDrawer.collapsible
+                Controls.ToolTip.text: qsTr("Collapsible Sidebar Drawer")
+                Controls.ToolTip.visible: hovered
+                onClicked: {
+                    applyDrawerMode("collapsible")
+                    gameModel.saveDrawerMode("collapsible")
                 }
             }
         }
