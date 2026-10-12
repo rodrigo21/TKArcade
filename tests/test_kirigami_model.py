@@ -397,11 +397,11 @@ def test_drawer_mode_roundtrip(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 
     model = GameListModel()
-    assert model.drawerMode() == "sidebar"
-    model.saveDrawerMode("collapsible")
-    assert C.load_preferences().drawer_mode == "collapsible"
+    assert model.drawerMode() == "collapsible"
+    model.saveDrawerMode("overlay")
+    assert C.load_preferences().drawer_mode == "overlay"
     model.saveDrawerMode("bogus")
-    assert C.load_preferences().drawer_mode == "sidebar"
+    assert C.load_preferences().drawer_mode == "collapsible"
 
 
 def _filtered(qgui_app, appids=("213", "local-doom")):
