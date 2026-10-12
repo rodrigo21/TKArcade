@@ -6,6 +6,7 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Header bottom line spans the full width like the foot rule.
 - Rule closing the table above the status line (same 1px/0.18
   hairline family).
 - Drawer header without the collapse button: gamepad icon toggles,

@@ -1295,13 +1295,10 @@ Kirigami.Page {
                 }
             }
         }
-        // Grid line under the header row: starts past the gutter
-        // (TKS has no gutter column) and spans the rest.
-        // NOTE: plain call on purpose (gutter width is constant).
+        // Grid line under the header row, full width like the foot rule.
         Rectangle {
             objectName: "tableHeaderBottomLine"
             anchors.left: parent.left
-            anchors.leftMargin: gamesPage.tableColumnWidth(0)
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             height: 1
