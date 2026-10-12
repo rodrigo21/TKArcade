@@ -404,6 +404,16 @@ def test_drawer_mode_roundtrip(qgui_app, xdg_env):
     assert C.load_preferences().drawer_mode == "collapsible"
 
 
+def test_drawer_collapsed_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.drawerCollapsed() is True
+    model.saveDrawerCollapsed(False)
+    assert C.load_preferences().drawer_collapsed is False
+    assert GameListModel().drawerCollapsed() is False
+
+
 def _filtered(qgui_app, appids=("213", "local-doom")):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 

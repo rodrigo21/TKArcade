@@ -75,8 +75,8 @@ to `kirigami` (see git log).
 ### Drawer (after tableview)
 - [x] Drawer Mode… into GlobalDrawer `footer:` (icon buttons, always
   reachable; hidden when collapsed)
-- [ ] Persist mode (modal/collapsible/collapsed) in prefs, restore on start
-- [ ] Test close→reopen keeps mode (nothing in Kirigami resets `modal`)
+- [x] Persist mode (modal/collapsible/collapsed) in prefs, restore on start
+- [x] Test close→reopen keeps mode (nothing in Kirigami resets `modal`)
 
 ### Qt 6.11 QML landmines (AGENTS.md has the full list)
 - Repeater models must stay JS arrays (QVariantList from setProperty

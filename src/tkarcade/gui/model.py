@@ -656,6 +656,27 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             log.warning("saveDrawerMode failed: %s", e)
 
+    @Slot(result=bool)
+    def drawerCollapsed(self) -> bool:
+        """Persisted collapsible-drawer state (open by default is False)."""
+        try:
+            return bool(cfgmod.load_preferences().drawer_collapsed)
+        except Exception:
+            return True
+
+    @Slot(bool)
+    def saveDrawerCollapsed(self, collapsed: bool) -> None:
+        """Persist the collapsible-drawer state (best effort)."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            prefs = cfgmod.Preferences()
+        prefs.drawer_collapsed = bool(collapsed)
+        try:
+            cfgmod.save_preferences(prefs)
+        except Exception as e:
+            log.warning("saveDrawerCollapsed failed: %s", e)
+
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:
         """Play routing: Steam ids via the client, local ids direct."""

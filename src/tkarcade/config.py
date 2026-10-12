@@ -166,6 +166,7 @@ class Preferences:
     main_window_size: str = ""  # "WxH", "" means the 1280x720 default
     main_window_maximized: bool = False  # restore maximized on open
     drawer_mode: str = "collapsible"  # overlay|collapsible (Kirigami drawer)
+    drawer_collapsed: bool = True  # collapsible drawer starts collapsed
 
 
 @dataclass
@@ -697,6 +698,7 @@ def load_preferences() -> Preferences:
     out.main_window_maximized = _as_bool(ui.get("main_window_maximized", False), False)
     mode = str(ui.get("drawer_mode", "collapsible") or "collapsible").strip()
     out.drawer_mode = mode if mode in ("overlay", "collapsible") else "collapsible"
+    out.drawer_collapsed = _as_bool(ui.get("drawer_collapsed", True), True)
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -762,6 +764,7 @@ def save_preferences(prefs: Preferences) -> Path:
                 if prefs.drawer_mode in ("overlay", "collapsible")
                 else "collapsible"
             ),
+            "drawer_collapsed": bool(prefs.drawer_collapsed),
         }
     }
     _write_atomic(path, _render_toml(data))

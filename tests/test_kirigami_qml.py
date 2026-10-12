@@ -587,12 +587,49 @@ def test_drawer_modes_switch(qgui_app, xdg_env):
     click("drawerModeCollapsibleButton")
     assert drawer.property("modal") is False
     assert drawer.property("collapsible") is True
-    assert drawer.property("collapsed") is True
+    # Open state restored from prefs (was left open above), not forced.
+    assert drawer.property("collapsed") is False
     assert C.load_preferences().drawer_mode == "collapsible"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
     _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_drawer_open_survives_restart(qgui_app, xdg_env):
+    """Closing with the sidebar open reopens it open (close→reopen)."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    drawer = win.findChild(QObject, "sourceDrawer")
+    assert drawer.property("collapsed") is True
+    button = win.findChild(QQuickItem, "drawerHeaderButton")
+    pos = button.mapToScene(QPointF(button.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert drawer.property("collapsed") is False
+    assert C.load_preferences().drawer_collapsed is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    for _ in range(3):
+        qgui_app.processEvents()
+    win2, engine2, _proxy2, warnings2 = _load_main(qgui_app)
+    drawer2 = win2.findChild(QObject, "sourceDrawer")
+    assert drawer2.property("collapsed") is False
+    real2 = [w for w in warnings2 if "graphics scene" not in w]
+    assert real2 == []
+    win2.close()
+    engine2.deleteLater()
     qgui_app.processEvents()
 
 
@@ -636,7 +673,7 @@ def test_drawer_header_library_centered(qgui_app, xdg_env):
 
 def test_overlay_drawer_keeps_toolbar_icons(qgui_app, xdg_env):
     """Overlay mode must not push the view icons into overflow."""
-    from PySide6.QtCore import QObject, QPointF
+    from PySide6.QtCore import QPointF
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
@@ -648,8 +685,17 @@ def test_overlay_drawer_keeps_toolbar_icons(qgui_app, xdg_env):
         win, _engine, _proxy, warnings = _load_main(qgui_app)
         win.setProperty("width", width)
         win.setProperty("height", 720)
-        page = win.findChild(QObject, "gamesPage")
-        page.setDrawerMode("overlay")
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+
+        def click(name, host=win):
+            button = host.findChild(QQuickItem, name)
+            pos = button.mapToScene(QPointF(button.property("width") / 2, 5)).toPoint()
+            QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+            qgui_app.processEvents()
+
+        click("drawerHeaderButton")  # expand: footer hides while collapsed
+        click("drawerModeOverlayButton")
         for _ in range(12):
             qgui_app.processEvents()
 

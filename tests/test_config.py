@@ -576,6 +576,14 @@ def test_column_width_prefs_roundtrip(xdg_env):
     assert C.load_preferences().column_widths == "2=99"
 
 
+def test_drawer_collapsed_prefs_roundtrip(xdg_env):
+    prefs = C.load_preferences()
+    assert prefs.drawer_collapsed is True
+    prefs.drawer_collapsed = False
+    C.save_preferences(prefs)
+    assert C.load_preferences().drawer_collapsed is False
+
+
 def test_tray_quick_prefs_roundtrip(xdg_env):
     prefs = C.load_preferences()
     assert prefs.tray_quick_launch is True and prefs.tray_quick_count == 5

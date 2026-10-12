@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Drawer collapsed state persists: closing open reopens open (was
+  always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.
 - Rule closing the table above the status line (same 1px/0.18
   hairline family).

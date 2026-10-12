@@ -25,10 +25,11 @@ Kirigami.ApplicationWindow {
             sourceDrawer.collapsible = false
             sourceDrawer.collapsed = false
         } else {
-            // Collapsible is the only sidebar: anything else falls here.
+            // Collapsible is the only sidebar: anything else falls here,
+            // restoring the persisted collapsed state instead of forcing.
             sourceDrawer.modal = false
             sourceDrawer.collapsible = true
-            sourceDrawer.collapsed = true
+            sourceDrawer.collapsed = gameModel.drawerCollapsed()
         }
     }
 
@@ -80,7 +81,10 @@ Kirigami.ApplicationWindow {
                     enabled: sourceDrawer.collapsible
                     Controls.ToolTip.text: sourceDrawer.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
                     Controls.ToolTip.visible: hovered
-                    onClicked: sourceDrawer.collapsed = !sourceDrawer.collapsed
+                    onClicked: {
+                        sourceDrawer.collapsed = !sourceDrawer.collapsed
+                        gameModel.saveDrawerCollapsed(sourceDrawer.collapsed)
+                    }
                 }
                 Controls.Label {
                     Layout.fillWidth: true

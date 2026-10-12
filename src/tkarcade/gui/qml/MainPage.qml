@@ -121,23 +121,6 @@ Kirigami.Page {
     property int titleFilterWant: Math.min(1200, Math.max(gamesPage.width < 1000 ? 240 : 600, gamesPage.width * 0.45))
     property int titleFilterWidth: gamesPage.width < 1000 ? 240 : Math.min(titleFilterWant, gamesPage.width - titleReserve - 2 * titleButtonsGuess - 20)
 
-    function setDrawerMode(mode) {
-        if (appDrawer === null) {
-            return
-        }
-        if (mode === "overlay") {
-            appDrawer.modal = true
-            appDrawer.collapsible = false
-            appDrawer.collapsed = false
-        } else {
-            // Collapsible is the only sidebar.
-            appDrawer.modal = false
-            appDrawer.collapsible = true
-            appDrawer.collapsed = true
-        }
-        gameModel.saveDrawerMode(mode)
-    }
-
     onViewModeChanged: {
         if (viewMode === "list") {
             gamesPage.applySelectionToTable()
