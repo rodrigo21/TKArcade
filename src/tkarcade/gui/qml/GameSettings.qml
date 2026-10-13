@@ -109,6 +109,16 @@ Window {
         refreshMangohudConfigs(f.mangohud_config || "")
         rtEnable.checked = !!f.rt_enable
         rtArgs.text = f.rt_args || ""
+        luEnable.checked = !!f.ludusavi_enable
+        luRestore.checked = f.ludusavi_restore ?? true
+        luBackup.checked = f.ludusavi_backup ?? true
+        luName.text = f.ludusavi_name || ""
+        luGui.checked = f.ludusavi_gui ?? true
+        ntLaunch.checked = f.notify_on_launch ?? true
+        seInhibit.checked = !!f.inhibit_idle
+        nlDisable.checked = !!f.nl_disable
+        nlProv.currentIndex = {"auto": 0, "plasma": 1, "gnome": 2, "off": 3}[f.nl_provider] ?? 0
+        logField.text = editAppid !== "" ? gameModel.gameLogFile(editAppid) : ""
         envModel.clear()
         var rows = f.env_vars || []
         for (var i = 0; i < rows.length; i++) {
@@ -146,7 +156,16 @@ Window {
             "mangohud_args": mhArgs.text,
             "mangohud_config": mhConfigData(),
             "rt_enable": rtEnable.checked,
-            "rt_args": rtArgs.text
+            "rt_args": rtArgs.text,
+            "ludusavi_enable": luEnable.checked,
+            "ludusavi_restore": luRestore.checked,
+            "ludusavi_backup": luBackup.checked,
+            "ludusavi_name": luName.text,
+            "ludusavi_gui": luGui.checked,
+            "notify_on_launch": ntLaunch.checked,
+            "inhibit_idle": seInhibit.checked,
+            "nl_disable": nlDisable.checked,
+            "nl_provider": ["auto", "plasma", "gnome", "off"][nlProv.currentIndex] || "auto"
         }
     }
 
@@ -329,6 +348,19 @@ Window {
         }
     }
 
+    Connections {
+        target: gameModel
+        function onCoverageFinished(status, detail) {
+            var messages = {
+                "covered": qsTr("Ludusavi covers this game.\n%1").arg(detail),
+                "no-local-saves": qsTr("Manifest entry exists, but no saves found.\n%1").arg(detail),
+                "no-entry": qsTr("No manifest entry for this game.\nAdd a custom game entry in Ludusavi to enable backups."),
+                "unavailable": qsTr("Could not check coverage:\n%1").arg(detail)
+            }
+            settingsError.text = messages[status] || detail
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Kirigami.Units.largeSpacing
@@ -359,6 +391,12 @@ Window {
             }
             Controls.TabButton {
                 text: qsTr("Display")
+            }
+            Controls.TabButton {
+                text: qsTr("Ludusavi")
+            }
+            Controls.TabButton {
+                text: qsTr("System")
             }
             Controls.TabButton {
                 text: qsTr("Notes")
@@ -507,6 +545,29 @@ Window {
                             var profiles = profileBox.model || []
                             if (gameModel.deleteGameProfile(editAppid, profiles[profileBox.currentIndex] || "")) {
                                 reload()
+                            }
+                        }
+                    }
+                }
+                Controls.Label {
+                    visible: editAppid !== ""
+                    text: qsTr("Log File:")
+                }
+                RowLayout {
+                    visible: editAppid !== ""
+                    Layout.fillWidth: true
+                    Controls.TextField {
+                        id: logField
+                        objectName: "settingsLog"
+                        readOnly: true
+                        Layout.fillWidth: true
+                    }
+                    Controls.Button {
+                        objectName: "settingsLogOpen"
+                        text: qsTr("Open")
+                        onClicked: {
+                            if (!gameModel.openPath(logField.text)) {
+                                settingsError.text = qsTr("Could not open the log file.")
                             }
                         }
                     }
@@ -843,6 +904,139 @@ Window {
                                             placeholderText: qsTr("-m 4x24 (see upscale --help-all)")
                                             Layout.fillWidth: true
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Controls.ScrollView {
+                    clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Item {
+                        width: parent.width
+                        height: luForm.implicitHeight
+                        ColumnLayout {
+                            id: luForm
+                            width: parent.width
+                            spacing: Kirigami.Units.smallSpacing
+                            Controls.CheckBox {
+                                id: luEnable
+                                objectName: "luEnable"
+                                text: qsTr("Enable Ludusavi for this game")
+                            }
+                            Controls.CheckBox {
+                                id: luRestore
+                                objectName: "luRestore"
+                                text: qsTr("Restore backup before launch")
+                                Controls.ToolTip.text: qsTr("Unchecked = --no-restore")
+                                Controls.ToolTip.visible: hovered
+                            }
+                            Controls.CheckBox {
+                                id: luBackup
+                                objectName: "luBackup"
+                                text: qsTr("Back up after exit")
+                                Controls.ToolTip.text: qsTr("Unchecked = --no-backup")
+                                Controls.ToolTip.visible: hovered
+                            }
+                            Controls.Label {
+                                text: qsTr("Game Name Override:")
+                            }
+                            Controls.TextField {
+                                id: luName
+                                objectName: "luName"
+                                placeholderText: qsTr("Leave empty to detect the game from Steam")
+                                Layout.fillWidth: true
+                            }
+                            Controls.CheckBox {
+                                id: luGui
+                                objectName: "luGui"
+                                text: qsTr("Show Prompts (--gui)")
+                                Controls.ToolTip.text: qsTr("With prompts enabled, restore and backup can be declined per session.")
+                                Controls.ToolTip.visible: hovered
+                            }
+                            Controls.Label {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                text: qsTr("With prompts enabled, restore and backup can be declined per session.")
+                            }
+                            RowLayout {
+                                visible: editAppid !== ""
+                                Controls.Label {
+                                    text: qsTr("Coverage:")
+                                }
+                                Controls.Button {
+                                    objectName: "luCoverage"
+                                    text: qsTr("Check Coverage...")
+                                    onClicked: gameModel.checkCoverage(editAppid, luName.text)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Controls.ScrollView {
+                    clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Item {
+                        width: parent.width
+                        height: sysForm.implicitHeight
+                        ColumnLayout {
+                            id: sysForm
+                            width: parent.width
+                            spacing: Kirigami.Units.smallSpacing
+                            Controls.GroupBox {
+                                title: qsTr("Notifications")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    Controls.CheckBox {
+                                        id: ntLaunch
+                                        objectName: "ntLaunch"
+                                        text: qsTr("Notify on launch")
+                                        Controls.ToolTip.text: qsTr("Show a transient summary notification when the game starts.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                }
+                            }
+                            Controls.GroupBox {
+                                title: qsTr("Idle Suspend")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    Controls.CheckBox {
+                                        id: seInhibit
+                                        objectName: "seInhibit"
+                                        text: qsTr("Inhibit idle suspend while playing")
+                                        Controls.ToolTip.text: qsTr("Holds a logind idle lock during the session. Sleep lock is not included (needs privileges).")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                }
+                            }
+                            Controls.GroupBox {
+                                title: qsTr("Night Light")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    Controls.CheckBox {
+                                        id: nlDisable
+                                        objectName: "nlDisable"
+                                        text: qsTr("Disable night light while the game is running (restored on exit)")
+                                    }
+                                    Controls.Label {
+                                        text: qsTr("Provider:")
+                                    }
+                                    Controls.ComboBox {
+                                        id: nlProv
+                                        objectName: "nlProv"
+                                        Layout.fillWidth: true
+                                        model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("Disabled")]
                                     }
                                 }
                             }

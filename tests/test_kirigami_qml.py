@@ -2531,6 +2531,53 @@ def test_kirigami_quit_action_neutered():
     assert 'quitAction.shortcut = ""' in src
 
 
+def test_settings_ludusavi_system_flow(qgui_app, xdg_env):
+    """Ludusavi and System fields persist through the dialog."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    tabs = swin.findChild(QQuickItem, "settingsTabs")
+    assert swin.findChild(QQuickItem, "settingsLog").property("text") != ""
+    tabs.setProperty("currentIndex", 5)
+    qgui_app.processEvents()
+    swin.findChild(QQuickItem, "luEnable").setProperty("checked", True)
+    swin.findChild(QQuickItem, "luName").setProperty("text", "Doom 3")
+    dlg.save()
+    qgui_app.processEvents()
+    assert dlg.property("editAppid") == "local-doom"
+    page.openGameSettings("local-doom")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 6)
+    qgui_app.processEvents()
+    swin.findChild(QQuickItem, "seInhibit").setProperty("checked", True)
+    swin.findChild(QQuickItem, "nlDisable").setProperty("checked", True)
+    swin.findChild(QQuickItem, "nlProv").setProperty("currentIndex", 1)
+    dlg.save()
+    qgui_app.processEvents()
+    reloaded = C.load("local-doom")
+    assert reloaded.ludusavi.enable is True
+    assert reloaded.ludusavi.name_override == "Doom 3"
+    assert reloaded.session.inhibit_idle is True
+    assert reloaded.nightlight.disable_during_game is True
+    assert reloaded.nightlight.provider == "plasma"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib

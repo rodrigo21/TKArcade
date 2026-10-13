@@ -559,6 +559,57 @@ def test_settings_display_roundtrip(qgui_app, xdg_env):
     assert model.createMangohudConfig("", "minimal") == ""
 
 
+def test_settings_ludusavi_system_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.ludusavi.enable = True
+    cfg.ludusavi.name_override = "Doom 3"
+    cfg.session.inhibit_idle = True
+    cfg.nightlight.disable_during_game = True
+    cfg.nightlight.provider = "plasma"
+    C.save(cfg)
+    model = GameListModel()
+    fields = model.loadGame("local-doom")
+    assert fields["ludusavi_enable"] is True
+    assert fields["ludusavi_restore"] is True
+    assert fields["ludusavi_name"] == "Doom 3"
+    assert fields["inhibit_idle"] is True
+    assert fields["nl_provider"] == "plasma"
+    assert model.gameLogFile("local-doom").endswith("local-doom.log")
+    out = dict(fields)
+    out["ludusavi_backup"] = False
+    out["notify_on_launch"] = False
+    out["nl_provider"] = "bogus"
+    assert model.saveGame("local-doom", out) == "local-doom"
+    reloaded = C.load("local-doom")
+    assert reloaded.ludusavi.backup is False
+    assert reloaded.notifications.notify_on_launch is False
+    assert reloaded.nightlight.provider == "auto"
+
+
+def test_settings_coverage_reports(qgui_app, xdg_env):
+    import threading
+
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    done, out = threading.Event(), []
+    model.coverageFinished.connect(lambda s, d: (out.append((s, d)), done.set()))
+    model.checkCoverage("local-missing", "")
+    import time
+
+    deadline = time.monotonic() + 30
+    while not done.is_set() and time.monotonic() < deadline:
+        qgui_app.processEvents()
+        done.wait(0.05)
+    assert done.is_set()
+    assert out[0][0] in ("covered", "no-local-saves", "no-entry", "unavailable")
+
+
 def test_export_import_tarball_roundtrip(qgui_app, xdg_env, tmp_path):
     from tkarcade.gui.model import GameListModel
 

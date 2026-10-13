@@ -112,6 +112,7 @@ class GameListModel(QAbstractTableModel):
     refreshed = Signal()
     browseFinished = Signal(str)
     displayModesFinished = Signal("QVariantList")
+    coverageFinished = Signal(str, str)
 
     @Slot(str, result=int)
     def roleId(self, roleName: str) -> int:
@@ -367,6 +368,17 @@ class GameListModel(QAbstractTableModel):
             "mangohud_config": cfg.mangohud.config_file,
             "rt_enable": bool(cfg.rtupscale.enable),
             "rt_args": cfg.rtupscale.args,
+            "ludusavi_enable": bool(cfg.ludusavi.enable),
+            "ludusavi_restore": bool(cfg.ludusavi.restore),
+            "ludusavi_backup": bool(cfg.ludusavi.backup),
+            "ludusavi_name": cfg.ludusavi.name_override,
+            "ludusavi_gui": bool(cfg.ludusavi.use_gui),
+            "notify_on_launch": bool(cfg.notifications.notify_on_launch),
+            "inhibit_idle": bool(cfg.session.inhibit_idle),
+            "nl_disable": bool(cfg.nightlight.disable_during_game),
+            "nl_provider": cfg.nightlight.provider
+            if cfg.nightlight.provider in ("auto", "plasma", "gnome", "off")
+            else "auto",
         }
 
     @Slot(str, "QVariantMap", result=str)
@@ -440,6 +452,18 @@ class GameListModel(QAbstractTableModel):
         cfg.mangohud.config_file = str(data.get("mangohud_config", "")).strip()
         cfg.rtupscale.enable = bool(data.get("rt_enable", False))
         cfg.rtupscale.args = str(data.get("rt_args", "")).strip()
+        cfg.ludusavi.enable = bool(data.get("ludusavi_enable", False))
+        cfg.ludusavi.restore = bool(data.get("ludusavi_restore", True))
+        cfg.ludusavi.backup = bool(data.get("ludusavi_backup", True))
+        cfg.ludusavi.name_override = str(data.get("ludusavi_name", "")).strip()
+        cfg.ludusavi.use_gui = bool(data.get("ludusavi_gui", True))
+        cfg.notifications.notify_on_launch = bool(data.get("notify_on_launch", True))
+        cfg.session.inhibit_idle = bool(data.get("inhibit_idle", False))
+        cfg.nightlight.disable_during_game = bool(data.get("nl_disable", False))
+        nl_provider = str(data.get("nl_provider", "auto"))
+        cfg.nightlight.provider = (
+            nl_provider if nl_provider in ("auto", "plasma", "gnome", "off") else "auto"
+        )
         try:
             cfgmod.save(cfg)
         except Exception as e:
@@ -689,6 +713,32 @@ class GameListModel(QAbstractTableModel):
             log.warning("createMangohudConfig refused: %s", error)
             return ""
         return os.fspath(path)
+
+    @Slot(str, result=str)
+    def gameLogFile(self, appid: str) -> str:
+        """Per-game log file path (may not exist yet)."""
+        try:
+            return os.fspath(xdg.game_log_file(appid))
+        except Exception:
+            return ""
+
+    @Slot(str, str)
+    def checkCoverage(self, appid: str, name_override: str) -> None:
+        """Ludusavi coverage check off the GUI thread (coverageFinished)."""
+        threading.Thread(
+            target=self._coverage_worker,
+            args=(appid, name_override),
+            daemon=True,
+        ).start()
+
+    def _coverage_worker(self, appid: str, name_override: str) -> None:
+        from ..backends import ludusavi as lumod
+
+        try:
+            status, detail = lumod.check_coverage(appid, name_override)
+        except Exception as e:  # backends must never break the dialog
+            status, detail = "unavailable", str(e)
+        self.coverageFinished.emit(status, detail)
 
     @Slot(str, result=bool)
     def openProtonDB(self, appid: str) -> bool:
