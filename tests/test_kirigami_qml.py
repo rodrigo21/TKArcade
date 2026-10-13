@@ -1203,7 +1203,7 @@ def test_quit_shortcut_is_application_modal_proof(qgui_app, xdg_env):
     assert shortcut is not None
     assert shortcut.property("enabled") is True
     assert shortcut.property("context") == Qt.ShortcutContext.ApplicationShortcut
-    assert bool(shortcut.property("sequence")) is True
+    assert shortcut.property("sequence") == "Ctrl+Q"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -2498,6 +2498,37 @@ def test_import_tarball_flow(qgui_app, xdg_env, tmp_path):
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_quit_keys_on_every_window(qgui_app, xdg_env):
+    """Every window handles Ctrl+Q through the focus chain (Shortcut backup)."""
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    qml = pathlib.Path(kapp.__file__).parent / "qml"
+    for name in (
+        "MainPage.qml",
+        "GameSettings.qml",
+        "ScanDialog.qml",
+        "HistoryView.qml",
+        "PrefsDialog.qml",
+        "ImportDialog.qml",
+        "AboutDialog.qml",
+    ):
+        src = (qml / name).read_text()
+        assert "Keys.onPressed" in src, name
+        assert "Qt.Key_Q" in src, name
+
+
+def test_kirigami_quit_action_neutered():
+    """Kirigami's built-in Quit (close()) must not own Ctrl+Q."""
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    src = (pathlib.Path(kapp.__file__).parent / "qml" / "main.qml").read_text()
+    assert 'quitAction.shortcut = ""' in src
 
 
 def test_no_gutter_game_header_stub():

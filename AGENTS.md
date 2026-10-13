@@ -88,6 +88,10 @@ rewrite pushed history or tags.
   (`WindowModal`, transient on the main window): widgets parity,
   resizable, no PageRow tiling surprises. Tests drive them through
   `topLevelWindows()` by title, clicking on the window itself.
+- Kirigami's ApplicationWindow ships a built-in Quit action bound to
+  the quit sequence that calls `close()` (not quit): clear
+  `quitAction.shortcut` at startup or Ctrl+Q closes-to-tray instead
+  of quitting.
 
 ## Project policies (do not regress)
 

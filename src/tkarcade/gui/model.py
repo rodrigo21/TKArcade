@@ -11,7 +11,9 @@ import threading
 from PySide6.QtCore import (
     Property,
     QAbstractTableModel,
+    QEvent,
     QModelIndex,
+    QObject,
     QSortFilterProxyModel,
     Qt,
     Signal,
@@ -47,6 +49,37 @@ def _split_args(text: str) -> list[str]:
         return shlex.split(text)
     except ValueError:
         return text.split()
+
+
+class _QuitFilter(QObject):
+    """Ctrl+Q to quit for watched windows (never raises).
+
+    Installed per top-level window (never application-wide: wrapping
+    arbitrary QML watched objects aborts shiboken at startup).
+    """
+
+    def __init__(self, quit_fn=None, parent=None):
+        super().__init__(parent)
+        self._quit_fn = quit_fn
+
+    def eventFilter(self, watched, event):
+        try:
+            if (
+                event.type() == QEvent.Type.KeyPress
+                and event.key() == Qt.Key.Key_Q
+                and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+                and not event.isAutoRepeat()
+            ):
+                if self._quit_fn is not None:
+                    self._quit_fn()
+                else:
+                    from PySide6.QtCore import QCoreApplication
+
+                    QCoreApplication.quit()
+                return True
+        except Exception:
+            pass
+        return False
 
 
 class GameListModel(QAbstractTableModel):
@@ -92,6 +125,7 @@ class GameListModel(QAbstractTableModel):
         self._steam_detected = 0
         self._tray_active = False
         self._tray_refresher = None
+        self._quit_filter = _QuitFilter()
         self.backgroundDone.connect(self.refresh)
         self.refresh()
 
@@ -1052,6 +1086,15 @@ class GameListModel(QAbstractTableModel):
     def setTrayActive(self, active: bool) -> None:
         """Whether kirigami_app currently shows a tray icon."""
         self._tray_active = bool(active)
+
+    @Slot(QObject)
+    def watchQuitKeys(self, window) -> None:
+        """Install the Ctrl+Q filter on a top-level window (best effort)."""
+        try:
+            if window is not None:
+                window.installEventFilter(self._quit_filter)
+        except Exception as e:
+            log.warning("watchQuitKeys failed: %s", e)
 
     @Slot(result=bool)
     def hideOnClose(self) -> bool:

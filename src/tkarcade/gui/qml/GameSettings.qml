@@ -51,6 +51,7 @@ Window {
         reload()
         errorText = ""
         tabBar.currentIndex = 0
+        gameModel.watchQuitKeys(gameSettings)
         visible = true
     }
 
@@ -60,6 +61,7 @@ Window {
         pushToControls()
         errorText = ""
         tabBar.currentIndex = 0
+        gameModel.watchQuitKeys(gameSettings)
         visible = true
     }
 
@@ -331,6 +333,14 @@ Window {
         anchors.fill: parent
         anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing
+        // Focus-chain quit (see MainPage): fires even where the
+        // Shortcut map stays silent.
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_Q && (event.modifiers & Qt.ControlModifier)) {
+                event.accepted = true
+                Qt.quit()
+            }
+        }
         Controls.TabBar {
             id: tabBar
             objectName: "settingsTabs"

@@ -96,7 +96,6 @@ def main(argv: list[str] | None = None) -> int:
     from .model import GameFilterModel, GameListModel
 
     log = logging.getLogger("tkarcade.kirigami")
-
     if verbose_requested(argv):
         logging.basicConfig(level=logging.DEBUG)
     if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
@@ -161,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         print("tkarcade: could not load the Kirigami interface", file=sys.stderr)
         return 1
     root = engine.rootObjects()[0]
+    model.watchQuitKeys(root)
 
     from PySide6.QtCore import QObject
 

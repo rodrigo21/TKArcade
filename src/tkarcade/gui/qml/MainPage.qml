@@ -16,6 +16,13 @@ import org.kde.kirigamiaddons.formcard as FormCard
 Kirigami.Page {
     id: gamesPage
     objectName: "gamesPage"
+    // Focus-chain quit: fires even where the Shortcut map stays silent.
+    Keys.onPressed: (event) => {
+        if (event.key === Qt.Key_Q && (event.modifiers & Qt.ControlModifier)) {
+            event.accepted = true
+            Qt.quit()
+        }
+    }
     title: qsTr("Games")
     // Title slot carries buttons + filter (TKS has no title text): a
     // plain RowLayout honors fillWidth, so the filter stays centered

@@ -17,10 +17,11 @@ Kirigami.ApplicationWindow {
     Shortcut {
         objectName: "quitShortcut"
         // Application scope: a modal window/dialog with focus must not
-        // swallow it. Qt.quit() skips onClosing, so Close-to-tray never
-        // blocks it (widgets parity: Ctrl+Q always quits for real).
+        // swallow it. Explicit Ctrl+Q (StandardKey.Quit resolves empty on
+        // some platforms). Qt.quit() skips onClosing, so Close-to-tray
+        // never blocks it (widgets parity: Ctrl+Q always quits for real).
         context: Qt.ApplicationShortcut
-        sequence: StandardKey.Quit
+        sequence: "Ctrl+Q"
         onActivated: Qt.quit()
     }
 
@@ -32,7 +33,7 @@ Kirigami.ApplicationWindow {
     }
 
     onVisibilityChanged: {
-        if (visibility === Window.Minimized && gameModel.hideOnMinimize()) {
+        if (root.visibility === Window.Minimized && gameModel.hideOnMinimize()) {
             root.visible = false
         }
     }
@@ -57,6 +58,11 @@ Kirigami.ApplicationWindow {
         if (pageStack.globalToolBar) {
             pageStack.globalToolBar.toolbarActionAlignment = Qt.AlignRight
         }
+        // Kirigami ships its own Quit action (StandardKey.Quit) that
+        // calls close() instead of quitting: with a tray up the close
+        // is caught and hidden, so Ctrl+Q never quits. Clear it; our
+        // Shortcut below owns the sequence.
+        root.quitAction.shortcut = ""
     }
 
     globalDrawer: Kirigami.GlobalDrawer {

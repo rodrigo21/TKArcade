@@ -33,8 +33,11 @@ Breaking config changes are called out explicitly under `Changed`.
 - Column drag-reorder (step 7): title drag past a threshold drops the
   column in view order (step-swaps, persisted); taps still sort
   (TapHandler folded into the same gesture).
-- About as a modal window too; Ctrl+Q is application-scoped and always
-  quits for real (Close-to-tray never blocks it, widgets parity).
+- About as a modal window too; Ctrl+Q always quits for real
+  (Close-to-tray never blocks it, widgets parity): explicit sequence
+  at application scope, `Keys.onPressed` on every window root, and a
+  window-scoped Python filter — plus Kirigami's built-in Quit action
+  (which calls close() instead) cleared of the sequence.
 - System tray with recent games (step 6): `QApplication` migration,
   tray controller (Show/Hide, recents via Play, Preferences, About,
   Quit), close/minimize-to-tray in the shell; Global Defaults entry

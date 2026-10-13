@@ -28,6 +28,7 @@ Window {
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
+        gameModel.watchQuitKeys(importDialog)
         visible = true
     }
 
@@ -69,6 +70,14 @@ Window {
         anchors.fill: parent
         anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing
+        // Focus-chain quit (see MainPage): fires even where the
+        // Shortcut map stays silent.
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_Q && (event.modifiers & Qt.ControlModifier)) {
+                event.accepted = true
+                Qt.quit()
+            }
+        }
         RowLayout {
             Layout.fillWidth: true
             Controls.Button {
