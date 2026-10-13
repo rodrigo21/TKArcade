@@ -16,6 +16,10 @@ Kirigami.ApplicationWindow {
 
     Shortcut {
         objectName: "quitShortcut"
+        // Application scope: a modal window/dialog with focus must not
+        // swallow it. Qt.quit() skips onClosing, so Close-to-tray never
+        // blocks it (widgets parity: Ctrl+Q always quits for real).
+        context: Qt.ApplicationShortcut
         sequence: StandardKey.Quit
         onActivated: Qt.quit()
     }

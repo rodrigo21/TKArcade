@@ -1976,23 +1976,7 @@ Kirigami.Page {
         page: gamesPage
     }
 
-    Kirigami.Dialog {
+    AboutDialog {
         id: aboutDialog
-        objectName: "aboutDialog"
-        title: qsTr("About TKArcade")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Kirigami.SelectableLabel {
-                Layout.fillWidth: true
-                text: gameModel.aboutText()
-            }
-        }
-        footer: RowLayout {
-            Layout.fillWidth: true
-            Controls.Button {
-                text: qsTr("Close")
-                onClicked: aboutDialog.close()
-            }
-        }
     }
 }

@@ -1173,6 +1173,44 @@ def test_prompt_dialogs_confirm_and_close(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_about_opens_modal_window(qgui_app, xdg_env):
+    """About is a separate modal window with the app text."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dlg = win.findChild(QObject, "aboutDialog")
+    dlg.open()
+    swin = _modal_window(qgui_app, ("About TKArcade",))
+    assert swin.property("modality") == Qt.WindowModality.WindowModal
+    assert swin.findChild(QQuickItem, "aboutText").property("text") != ""
+    dlg.close()
+    qgui_app.processEvents()
+    assert swin.isVisible() is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_quit_shortcut_is_application_modal_proof(qgui_app, xdg_env):
+    """Ctrl+Q lives at application scope so modal windows can't eat it."""
+    from PySide6.QtCore import QObject, Qt
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    shortcut = win.findChild(QObject, "quitShortcut")
+    assert shortcut is not None
+    assert shortcut.property("enabled") is True
+    assert shortcut.property("context") == Qt.ShortcutContext.ApplicationShortcut
+    assert bool(shortcut.property("sequence")) is True
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_scan_flow_adds_steam_game(qgui_app, xdg_env, monkeypatch):
     """Scan lists unconfigured Steam games; Add Selected writes configs."""
     from PySide6.QtCore import QObject, QPointF, Qt

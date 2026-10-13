@@ -33,6 +33,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Column drag-reorder (step 7): title drag past a threshold drops the
   column in view order (step-swaps, persisted); taps still sort
   (TapHandler folded into the same gesture).
+- About as a modal window too; Ctrl+Q is application-scoped and always
+  quits for real (Close-to-tray never blocks it, widgets parity).
 - System tray with recent games (step 6): `QApplication` migration,
   tray controller (Show/Hide, recents via Play, Preferences, About,
   Quit), close/minimize-to-tray in the shell; Global Defaults entry
