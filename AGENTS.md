@@ -75,6 +75,11 @@ rewrite pushed history or tags.
 - QQC2 `onToggled` fires on user interaction only (unlike QWidgets):
   react to programmatic `setProperty("checked", ...)` (tests included)
   with `onCheckedChanged` instead.
+- `Kirigami.Dialog` overlays never finish their enter fade offscreen
+  (they render invisible): synthetic clicks don't reach their buttons —
+  open them via clicks and drive accepts with direct calls instead.
+  After `close()`, assert `opened` (not `visible`, which lingers
+  through the exit transition).
 - `StackLayout` children do not auto-fill: every tab needs explicit
   `Layout.fillWidth/Height`, else it collapses to implicit size.
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow

@@ -25,6 +25,9 @@ Window {
     property var fields: ({})
     property string errorText: ""
     property string pendingPrompt: "" // "saveAs" | "clone" | ""
+    property var dmodeModel: [{"text": "", "data": ""}]
+    property string dmodeCurrent: ""
+    property string pendingArg: ""
     property var page: null
 
     function blankFields() {
@@ -90,6 +93,20 @@ Window {
         ppShell.checked = !!f.run_in_shell
         perfFeral.checked = !!f.gamemode_feral
         perfCachy.checked = !!f.gamemode_cachy
+        dispOut.text = f.display_output || ""
+        dispProv.currentIndex = {"auto": 0, "plasma": 1, "gnome": 2, "wlroots": 3, "x11": 4, "off": 5}[f.display_provider] ?? 0
+        dmodeModel = [{"text": "", "data": ""}]
+        dmodeBox.editText = f.display_mode || ""
+        dmodeCurrent = ""
+        dipSlider.value = f.dip_seconds || 8
+        updateDip()
+        gsEnable.checked = !!f.gamescope_enable
+        gsArgs.text = f.gamescope_args || ""
+        mhEnable.checked = !!f.mangohud_enable
+        mhArgs.text = f.mangohud_args || ""
+        refreshMangohudConfigs(f.mangohud_config || "")
+        rtEnable.checked = !!f.rt_enable
+        rtArgs.text = f.rt_args || ""
         envModel.clear()
         var rows = f.env_vars || []
         for (var i = 0; i < rows.length; i++) {
@@ -116,7 +133,18 @@ Window {
             "pp_timeout": ppTimeout.value,
             "run_in_shell": ppShell.checked,
             "gamemode_feral": perfFeral.checked,
-            "gamemode_cachy": perfCachy.checked
+            "gamemode_cachy": perfCachy.checked,
+            "display_provider": ["auto", "plasma", "gnome", "wlroots", "x11", "off"][dispProv.currentIndex] || "auto",
+            "display_output": dispOut.text,
+            "display_mode": dmodeCurrentText(),
+            "dip_seconds": dipSlider.value,
+            "gamescope_enable": gsEnable.checked,
+            "gamescope_args": gsArgs.text,
+            "mangohud_enable": mhEnable.checked,
+            "mangohud_args": mhArgs.text,
+            "mangohud_config": mhConfigData(),
+            "rt_enable": rtEnable.checked,
+            "rt_args": rtArgs.text
         }
     }
 
@@ -143,6 +171,78 @@ Window {
     function removeEnvRow(i) {
         if (i >= 0 && i < envModel.count) {
             envModel.remove(i)
+        }
+    }
+
+    function dispProviderValue() {
+        return ["auto", "plasma", "gnome", "wlroots", "x11", "off"][dispProv.currentIndex] || "auto"
+    }
+
+    function dmodeCurrentText() {
+        var item = dmodeModel[dmodeBox.currentIndex]
+        if (item !== undefined && item.data !== "") {
+            return item.data
+        }
+        return dmodeBox.editText.trim()
+    }
+
+    function updateDip() {
+        var show = dmodeCurrent !== "" && gameModel.displayModesMatch(dmodeCurrentText(), dmodeCurrent)
+        dipRow.visible = show
+        dipNote.visible = show
+    }
+
+    function refreshMangohudConfigs(select) {
+        var items = [{"text": qsTr("Default (MangoHud.conf)"), "data": ""}]
+        var names = gameModel.mangohudConfigs()
+        for (var i = 0; i < names.length; i++) {
+            items.push({"text": names[i], "data": names[i]})
+        }
+        mhConf.model = items
+        var idx = 0
+        for (var j = 0; j < items.length; j++) {
+            if (items[j].data !== "" && items[j].data === select) {
+                idx = j
+            }
+        }
+        mhConf.currentIndex = idx
+    }
+
+    function mhConfigData() {
+        var item = mhConf.model[mhConf.currentIndex]
+        return item !== undefined ? item.data : ""
+    }
+
+    function askChoice(purpose, items, arg) {
+        pendingPrompt = purpose
+        pendingArg = arg || ""
+        choiceError.text = ""
+        choiceBox.model = items
+        choiceBox.currentIndex = 0
+        choicePrompt.open()
+    }
+
+    function acceptChoice() {
+        if (pendingPrompt === "gsPreset") {
+            var names = gameModel.gamescopePresets()
+            var args = gameModel.gamescopePreset(names[choiceBox.currentIndex] || "")
+            if (args !== "") {
+                gsArgs.text = args
+            }
+            choicePrompt.close()
+        } else if (pendingPrompt === "mhTemplate") {
+            // Positional twin of the labels passed at the ask site.
+            var values = ["default", "minimal", "fps-cap", "full", "empty"]
+            var path = gameModel.createMangohudConfig(pendingArg, values[choiceBox.currentIndex] || "default")
+            if (path === "") {
+                choiceError.text = qsTr("Could not create the config file.")
+                return
+            }
+            choicePrompt.close()
+            refreshMangohudConfigs(path.split("/").pop())
+            if (!gameModel.openPath(path) && page !== null) {
+                page.notify(qsTr("Could not open the config file."))
+            }
         }
     }
 
@@ -173,6 +273,17 @@ Window {
             promptError.text = qsTr("Give the profile a name.")
             return
         }
+        if (pendingPrompt === "mhName") {
+            namePrompt.close()
+            gameSettings.askChoice("mhTemplate", [
+                qsTr("Copy of MangoHud.conf"),
+                qsTr("Minimal overlay"),
+                qsTr("FPS limiter overlay"),
+                qsTr("Full metrics overlay"),
+                qsTr("Empty file")
+            ], name)
+            return
+        }
         var ok = false
         if (pendingPrompt === "saveAs") {
             ok = gameModel.saveGameProfile(editAppid, name)
@@ -186,6 +297,34 @@ Window {
         }
         namePrompt.close()
         reload()
+    }
+
+    Connections {
+        target: gameModel
+        function onDisplayModesFinished(modes) {
+            var keep = dmodeCurrentText()
+            var items = [{"text": "", "data": ""}]
+            dmodeCurrent = ""
+            for (var i = 0; i < modes.length; i++) {
+                items.push({"text": modes[i][0], "data": modes[i][1]})
+                if (modes[i][2]) {
+                    dmodeCurrent = modes[i][1]
+                }
+            }
+            dmodeModel = items
+            var idx = -1
+            for (var j = 0; j < items.length; j++) {
+                if (items[j].data !== "" && items[j].data === keep) {
+                    idx = j
+                }
+            }
+            if (idx >= 0) {
+                dmodeBox.currentIndex = idx
+            } else {
+                dmodeBox.editText = keep
+            }
+            updateDip()
+        }
     }
 
     ColumnLayout {
@@ -207,6 +346,9 @@ Window {
             }
             Controls.TabButton {
                 text: qsTr("Performance")
+            }
+            Controls.TabButton {
+                text: qsTr("Display")
             }
             Controls.TabButton {
                 text: qsTr("Notes")
@@ -531,6 +673,176 @@ Window {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Controls.ScrollView {
+                    clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Item {
+                        width: parent.width
+                        height: dispForm.implicitHeight
+                        ColumnLayout {
+                            id: dispForm
+                            width: parent.width
+                            spacing: Kirigami.Units.smallSpacing
+                            Controls.GroupBox {
+                                title: qsTr("Display Mode")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    Controls.Label {
+                                        text: qsTr("Output:")
+                                    }
+                                    Controls.TextField {
+                                        id: dispOut
+                                        objectName: "dispOut"
+                                        placeholderText: qsTr("auto = current output")
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Label {
+                                        text: qsTr("Mode:")
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Controls.ComboBox {
+                                            id: dmodeBox
+                                            objectName: "dmodeBox"
+                                            editable: true
+                                            model: dmodeModel
+                                            textRole: "text"
+                                            Layout.fillWidth: true
+                                            onEditTextChanged: gameSettings.updateDip()
+                                        }
+                                        Controls.Button {
+                                            objectName: "dispRefresh"
+                                            text: qsTr("Refresh")
+                                            onClicked: gameModel.refreshDisplayModes(gameSettings.dispProviderValue(), dispOut.text.trim())
+                                        }
+                                    }
+                                    Controls.Label {
+                                        text: qsTr("Provider:")
+                                    }
+                                    Controls.ComboBox {
+                                        id: dispProv
+                                        objectName: "dispProv"
+                                        Layout.fillWidth: true
+                                        model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("wlroots"), qsTr("X11"), qsTr("Disabled")]
+                                    }
+                                    Controls.Label {
+                                        id: dipNote
+                                        objectName: "dipNote"
+                                        visible: false
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: qsTr("Same mode as current: dips down and back first (VRAM workaround).")
+                                    }
+                                    RowLayout {
+                                        id: dipRow
+                                        objectName: "dipRow"
+                                        visible: false
+                                        Controls.Label {
+                                            text: qsTr("Dip delay:")
+                                        }
+                                        Controls.Slider {
+                                            id: dipSlider
+                                            objectName: "dipSlider"
+                                            Layout.fillWidth: true
+                                            from: 3
+                                            to: 15
+                                            stepSize: 1
+                                        }
+                                        Controls.Label {
+                                            text: qsTr("%1 s").arg(dipSlider.value)
+                                        }
+                                    }
+                                }
+                            }
+                            Controls.GroupBox {
+                                title: qsTr("Gamescope")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    Controls.CheckBox {
+                                        id: gsEnable
+                                        objectName: "gsEnable"
+                                        text: qsTr("Enable Gamescope")
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Controls.TextField {
+                                            id: gsArgs
+                                            objectName: "gsArgs"
+                                            placeholderText: qsTr("-f -H 1080 -r 144")
+                                            Layout.fillWidth: true
+                                        }
+                                        Controls.Button {
+                                            objectName: "gsPreset"
+                                            text: qsTr("Preset…")
+                                            onClicked: gameSettings.askChoice("gsPreset", gameModel.gamescopePresets(), "")
+                                        }
+                                    }
+                                }
+                            }
+                            Controls.GroupBox {
+                                title: qsTr("MangoHud")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    Controls.CheckBox {
+                                        id: mhEnable
+                                        objectName: "mhEnable"
+                                        text: qsTr("Enable MangoHud")
+                                    }
+                                    Controls.Label {
+                                        text: qsTr("MangoHud Options:")
+                                    }
+                                    Controls.TextField {
+                                        id: mhArgs
+                                        objectName: "mhArgs"
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Label {
+                                        text: qsTr("MangoHud Configuration:")
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Controls.ComboBox {
+                                            id: mhConf
+                                            objectName: "mhConf"
+                                            textRole: "text"
+                                            Layout.fillWidth: true
+                                        }
+                                        Controls.Button {
+                                            objectName: "mhNew"
+                                            text: qsTr("New Configuration…")
+                                            onClicked: gameSettings.askProfileName("mhName")
+                                        }
+                                    }
+                                }
+                            }
+                            Controls.GroupBox {
+                                title: qsTr("RT Upscaler")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    Controls.CheckBox {
+                                        id: rtEnable
+                                        objectName: "rtEnable"
+                                        text: qsTr("Enable RT Upscaler (linux-rt-upscaler)")
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Controls.TextField {
+                                            id: rtArgs
+                                            objectName: "rtArgs"
+                                            placeholderText: qsTr("-m 4x24 (see upscale --help-all)")
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 Controls.TextArea {
                     id: notesArea
                     objectName: "settingsNotes"
@@ -566,7 +878,7 @@ Window {
     Kirigami.Dialog {
         id: namePrompt
         objectName: "settingsNamePrompt"
-        title: pendingPrompt === "clone" ? qsTr("Clone profile") : qsTr("Save profile")
+        title: pendingPrompt === "mhName" ? qsTr("New MangoHud Configuration") : (pendingPrompt === "clone" ? qsTr("Clone profile") : qsTr("Save profile"))
         padding: Kirigami.Units.largeSpacing
         ColumnLayout {
             Controls.TextField {
@@ -592,6 +904,38 @@ Window {
             Controls.Button {
                 text: qsTr("Cancel")
                 onClicked: namePrompt.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: choicePrompt
+        objectName: "settingsChoicePrompt"
+        title: pendingPrompt === "mhTemplate" ? qsTr("Start from:") : qsTr("Gamescope Preset")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Controls.ComboBox {
+                id: choiceBox
+                objectName: "settingsChoiceBox"
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+            }
+            Controls.Label {
+                id: choiceError
+                visible: text !== ""
+                color: Kirigami.Theme.negativeTextColor
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "settingsChoiceOk"
+                text: qsTr("OK")
+                onClicked: gameSettings.acceptChoice()
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: choicePrompt.close()
             }
         }
     }

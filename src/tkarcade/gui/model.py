@@ -78,6 +78,7 @@ class GameListModel(QAbstractTableModel):
 
     refreshed = Signal()
     browseFinished = Signal(str)
+    displayModesFinished = Signal("QVariantList")
 
     @Slot(str, result=int)
     def roleId(self, roleName: str) -> int:
@@ -292,6 +293,19 @@ class GameListModel(QAbstractTableModel):
             "run_in_shell": bool(cfg.pre_post.run_in_shell),
             "gamemode_feral": bool(cfg.gamemode.feral_gamemode),
             "gamemode_cachy": bool(cfg.gamemode.cachyos_game_performance),
+            "display_provider": cfg.display.provider
+            if cfg.display.provider in ("auto", "plasma", "gnome", "wlroots", "x11", "off")
+            else "auto",
+            "display_output": cfg.display.output,
+            "display_mode": cfg.display.mode,
+            "dip_seconds": max(3, min(15, int(cfg.display.dip_seconds or 8))),
+            "gamescope_enable": bool(cfg.gamescope.enable),
+            "gamescope_args": cfg.gamescope.args,
+            "mangohud_enable": bool(cfg.mangohud.enable),
+            "mangohud_args": cfg.mangohud.args,
+            "mangohud_config": cfg.mangohud.config_file,
+            "rt_enable": bool(cfg.rtupscale.enable),
+            "rt_args": cfg.rtupscale.args,
         }
 
     @Slot(str, "QVariantMap", result=str)
@@ -348,6 +362,23 @@ class GameListModel(QAbstractTableModel):
         cfg.pre_post.run_in_shell = bool(data.get("run_in_shell", False))
         cfg.gamemode.feral_gamemode = bool(data.get("gamemode_feral", False))
         cfg.gamemode.cachyos_game_performance = bool(data.get("gamemode_cachy", False))
+        provider = str(data.get("display_provider", "auto"))
+        cfg.display.provider = (
+            provider if provider in ("auto", "plasma", "gnome", "wlroots", "x11", "off") else "auto"
+        )
+        cfg.display.output = str(data.get("display_output", "")).strip()
+        cfg.display.mode = str(data.get("display_mode", "")).strip()
+        try:
+            cfg.display.dip_seconds = max(3, min(15, int(data.get("dip_seconds", 8) or 8)))
+        except (TypeError, ValueError):
+            cfg.display.dip_seconds = 8
+        cfg.gamescope.enable = bool(data.get("gamescope_enable", False))
+        cfg.gamescope.args = str(data.get("gamescope_args", "")).strip()
+        cfg.mangohud.enable = bool(data.get("mangohud_enable", False))
+        cfg.mangohud.args = str(data.get("mangohud_args", "")).strip()
+        cfg.mangohud.config_file = str(data.get("mangohud_config", "")).strip()
+        cfg.rtupscale.enable = bool(data.get("rt_enable", False))
+        cfg.rtupscale.args = str(data.get("rt_args", "")).strip()
         try:
             cfgmod.save(cfg)
         except Exception as e:
@@ -422,6 +453,86 @@ class GameListModel(QAbstractTableModel):
             return False
         self.refresh()
         return True
+
+    @Slot(str, str)
+    def refreshDisplayModes(self, provider: str, output: str) -> None:
+        """Backend mode query off the GUI thread; rows via displayModesFinished."""
+        threading.Thread(target=self._dmodes_worker, args=(provider, output), daemon=True).start()
+
+    def _dmodes_worker(self, provider: str, output: str) -> None:
+        from ..backends import display as dispmod
+
+        rows = []
+        try:
+            for num, text, is_current in dispmod.offered_modes(provider, output):
+                label = text if num is None else f"{num}: {text}{'' if not is_current else ' ★'}"
+                rows.append([label, text, bool(is_current)])
+        except Exception as e:  # backends must never break the dialog
+            log.warning("display modes query failed: %s", e)
+        self.displayModesFinished.emit(rows)
+
+    @Slot(str, str, result=bool)
+    def displayModesMatch(self, a: str, b: str) -> bool:
+        """Same WxH (and rate within 1Hz): the dip-workaround condition."""
+        from ..backends import display as dispmod
+
+        try:
+            want = dispmod.parse_mode((a or "").strip())
+            cur = dispmod.parse_mode((b or "").strip())
+        except Exception:
+            return False
+        return (
+            want is not None
+            and cur is not None
+            and want[0] == cur[0]
+            and want[1] == cur[1]
+            and (want[2] is None or cur[2] is None or abs(want[2] - cur[2]) < 1.0)
+        )
+
+    @Slot(result=list)
+    def gamescopePresets(self) -> list:
+        """Starter Gamescope option sets, by name."""
+        from ..backends import overlay as ovmod
+
+        try:
+            return sorted(ovmod.GAMESCOPE_PRESETS)
+        except Exception:
+            return []
+
+    @Slot(str, result=str)
+    def gamescopePreset(self, name: str) -> str:
+        """Args for a starter preset, or ''."""
+        from ..backends import overlay as ovmod
+
+        try:
+            return ovmod.GAMESCOPE_PRESETS.get(str(name or ""), "")
+        except Exception:
+            return ""
+
+    @Slot(result=list)
+    def mangohudConfigs(self) -> list:
+        """Saved MangoHud config filenames (default covered by entry '')."""
+        from ..backends import overlay as ovmod
+
+        try:
+            return [n for n in ovmod.list_mangohud_configs() if n != ovmod.DEFAULT_MANGOHUD_CONF]
+        except Exception:
+            return []
+
+    @Slot(str, str, result=str)
+    def createMangohudConfig(self, name: str, template: str) -> str:
+        """Create a MangoHud config; returns its path, or '' + logs."""
+        from ..backends import overlay as ovmod
+
+        try:
+            path, _source, error = ovmod.create_mangohud_config(name, template)
+        except Exception as e:
+            log.warning("createMangohudConfig failed: %s", e)
+            return ""
+        if error or path is None:
+            log.warning("createMangohudConfig refused: %s", error)
+            return ""
+        return os.fspath(path)
 
     @Slot(str, result=bool)
     def openProtonDB(self, appid: str) -> bool:

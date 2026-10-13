@@ -20,6 +20,8 @@ Breaking config changes are called out explicitly under `Changed`.
   list scrolls. Confirms/about/utilities stay small dialogs.
 - Settings Performance tab (System group with the mutually exclusive
   GameMode pair).
+- Settings Display tab (Display Mode with Refresh + dip rule, Gamescope
+  with presets, MangoHud with config combo + New flow, RT Upscaler).
 - Drawer collapsed state persists: closing open reopens open (was
   always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.

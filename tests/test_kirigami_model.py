@@ -516,6 +516,49 @@ def test_settings_gamemode_roundtrip(qgui_app, xdg_env):
     assert reloaded.gamemode.cachyos_game_performance is True
 
 
+def test_settings_display_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.display.provider = "x11"
+    cfg.display.output = "DP-1"
+    cfg.display.mode = "1920x1080@60"
+    cfg.display.dip_seconds = 5
+    cfg.gamescope.enable = True
+    cfg.gamescope.args = "-f"
+    cfg.mangohud.config_file = "foo.conf"
+    cfg.rtupscale.enable = True
+    C.save(cfg)
+    model = GameListModel()
+    fields = model.loadGame("local-doom")
+    assert fields["display_provider"] == "x11"
+    assert fields["display_mode"] == "1920x1080@60"
+    assert fields["dip_seconds"] == 5
+    assert fields["gamescope_args"] == "-f"
+    out = dict(fields)
+    out["display_provider"] = "bogus"
+    out["dip_seconds"] = 99
+    out["rt_args"] = "-m 4x24"
+    assert model.saveGame("local-doom", out) == "local-doom"
+    reloaded = C.load("local-doom")
+    assert reloaded.display.provider == "auto"
+    assert reloaded.display.dip_seconds == 15
+    assert reloaded.rtupscale.args == "-m 4x24"
+    assert model.displayModesMatch("1920x1080@60", "1920x1080@60") is True
+    assert model.displayModesMatch("1920x1080@60", "1280x720@60") is False
+    assert model.displayModesMatch("garbage", "1920x1080@60") is False
+    assert "1080p 144Hz Fullscreen" in model.gamescopePresets()
+    assert model.gamescopePreset("1080p 144Hz Fullscreen") == "-f -W 1920 -H 1080 -r 144"
+    assert model.gamescopePreset("nope") == ""
+    assert model.mangohudConfigs() == []
+    assert model.createMangohudConfig("test-game", "minimal") != ""
+    assert "test-game.conf" in model.mangohudConfigs()
+    assert model.createMangohudConfig("", "minimal") == ""
+
+
 def _filtered(qgui_app, appids=("213", "local-doom")):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 

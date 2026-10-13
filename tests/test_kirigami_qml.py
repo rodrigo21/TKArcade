@@ -2234,6 +2234,78 @@ def test_settings_gamemode_exclusive(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_display_flow(qgui_app, xdg_env):
+    """Display fields, gamescope preset, MangoHud new and dip persist."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 4)
+    qgui_app.processEvents()
+
+    def click(name, host):
+        button = host.findChild(QQuickItem, name)
+        pos = button.mapToScene(
+            QPointF(button.property("width") / 2, button.property("height") / 2)
+        ).toPoint()
+        QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        qgui_app.processEvents()
+
+    swin.findChild(QQuickItem, "dispOut").setProperty("text", "DP-1")
+    swin.findChild(QQuickItem, "dispProv").setProperty("currentIndex", 4)
+    swin.findChild(QQuickItem, "gsEnable").setProperty("checked", True)
+    click("gsPreset", swin)
+    prompt = swin.findChild(QObject, "settingsChoicePrompt")
+    assert prompt.property("visible") is True
+    swin.findChild(QQuickItem, "settingsChoiceBox").setProperty("currentIndex", 0)
+    dlg.acceptChoice()
+    assert prompt.property("opened") is False
+    assert swin.findChild(QQuickItem, "gsArgs").property("text") != ""
+    click("mhNew", swin)
+    name_prompt = swin.findChild(QObject, "settingsNamePrompt")
+    assert name_prompt.property("visible") is True
+    swin.findChild(QQuickItem, "settingsPromptField").setProperty("text", "testmh")
+    dlg.acceptProfileName()
+    assert prompt.property("visible") is True
+    dlg.acceptChoice()
+    assert dlg.mhConfigData() == "testmh.conf"
+    dlg.setProperty("dmodeCurrent", "1920x1080@60")
+    swin.findChild(QQuickItem, "dmodeBox").setProperty("editText", "1920x1080@60")
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "dipRow").property("visible") is True
+    swin.findChild(QQuickItem, "dmodeBox").setProperty("editText", "800x600@60")
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "dipRow").property("visible") is False
+    swin.findChild(QQuickItem, "dmodeBox").setProperty("editText", "1920x1080@60")
+    swin.findChild(QQuickItem, "dipSlider").setProperty("value", 7)
+    click("settingsSave", swin)
+    reloaded = C.load("local-doom")
+    assert reloaded.display.output == "DP-1"
+    assert reloaded.display.provider == "x11"
+    assert reloaded.display.mode == "1920x1080@60"
+    assert reloaded.display.dip_seconds == 7
+    assert reloaded.gamescope.enable is True
+    assert reloaded.gamescope.args != ""
+    assert reloaded.mangohud.config_file == "testmh.conf"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib
