@@ -2191,6 +2191,49 @@ def test_settings_env_prepost_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_gamemode_exclusive(qgui_app, xdg_env):
+    """GameMode pair is mutually exclusive and persists."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 3)
+    QTest.qWait(200)
+    for _ in range(5):
+        qgui_app.processEvents()
+    feral = swin.findChild(QQuickItem, "perfFeral")
+    cachy = swin.findChild(QQuickItem, "perfCachy")
+    assert feral.property("checked") is False
+    feral.setProperty("checked", True)
+    qgui_app.processEvents()
+    assert cachy.property("checked") is False
+    cachy.setProperty("checked", True)
+    qgui_app.processEvents()
+    assert feral.property("checked") is False
+    dlg.save()
+    qgui_app.processEvents()
+    reloaded = C.load("local-doom")
+    assert reloaded.gamemode.feral_gamemode is False
+    assert reloaded.gamemode.cachyos_game_performance is True
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib

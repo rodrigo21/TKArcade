@@ -290,6 +290,8 @@ class GameListModel(QAbstractTableModel):
             "post_args": shlex.join(cfg.pre_post.post_args),
             "pp_timeout": max(1, min(3600, int(cfg.pre_post.timeout or 60))),
             "run_in_shell": bool(cfg.pre_post.run_in_shell),
+            "gamemode_feral": bool(cfg.gamemode.feral_gamemode),
+            "gamemode_cachy": bool(cfg.gamemode.cachyos_game_performance),
         }
 
     @Slot(str, "QVariantMap", result=str)
@@ -344,6 +346,8 @@ class GameListModel(QAbstractTableModel):
         except (TypeError, ValueError):
             cfg.pre_post.timeout = 60
         cfg.pre_post.run_in_shell = bool(data.get("run_in_shell", False))
+        cfg.gamemode.feral_gamemode = bool(data.get("gamemode_feral", False))
+        cfg.gamemode.cachyos_game_performance = bool(data.get("gamemode_cachy", False))
         try:
             cfgmod.save(cfg)
         except Exception as e:

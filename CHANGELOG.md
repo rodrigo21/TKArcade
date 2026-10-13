@@ -18,6 +18,8 @@ Breaking config changes are called out explicitly under `Changed`.
   parity): separate resizable `Window`s (`WindowModal`, transient on
   the main window) with `open()` keeping the old call sites; the scan
   list scrolls. Confirms/about/utilities stay small dialogs.
+- Settings Performance tab (System group with the mutually exclusive
+  GameMode pair).
 - Drawer collapsed state persists: closing open reopens open (was
   always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.

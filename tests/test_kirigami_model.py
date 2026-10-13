@@ -496,6 +496,26 @@ def test_settings_env_prepost_roundtrip(qgui_app, xdg_env):
     assert reloaded.pre_post.timeout == 3600
 
 
+def test_settings_gamemode_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.gamemode.feral_gamemode = True
+    C.save(cfg)
+    model = GameListModel()
+    assert model.loadGame("local-doom")["gamemode_feral"] is True
+    out = dict(model.loadGame("local-doom"))
+    out["gamemode_feral"] = False
+    out["gamemode_cachy"] = True
+    assert model.saveGame("local-doom", out) == "local-doom"
+    reloaded = C.load("local-doom")
+    assert reloaded.gamemode.feral_gamemode is False
+    assert reloaded.gamemode.cachyos_game_performance is True
+
+
 def _filtered(qgui_app, appids=("213", "local-doom")):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 

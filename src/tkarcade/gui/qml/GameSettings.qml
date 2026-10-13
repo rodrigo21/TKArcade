@@ -88,6 +88,8 @@ Window {
         ppPostArgs.text = f.post_args || ""
         ppTimeout.value = f.pp_timeout || 60
         ppShell.checked = !!f.run_in_shell
+        perfFeral.checked = !!f.gamemode_feral
+        perfCachy.checked = !!f.gamemode_cachy
         envModel.clear()
         var rows = f.env_vars || []
         for (var i = 0; i < rows.length; i++) {
@@ -112,7 +114,9 @@ Window {
             "post_command": ppPost.text,
             "post_args": ppPostArgs.text,
             "pp_timeout": ppTimeout.value,
-            "run_in_shell": ppShell.checked
+            "run_in_shell": ppShell.checked,
+            "gamemode_feral": perfFeral.checked,
+            "gamemode_cachy": perfCachy.checked
         }
     }
 
@@ -200,6 +204,9 @@ Window {
             }
             Controls.TabButton {
                 text: qsTr("Pre/Post Commands")
+            }
+            Controls.TabButton {
+                text: qsTr("Performance")
             }
             Controls.TabButton {
                 text: qsTr("Notes")
@@ -468,6 +475,54 @@ Window {
                                 id: ppShell
                                 objectName: "ppShell"
                                 text: qsTr("Run in shell (bash -c)")
+                            }
+                        }
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Controls.ScrollView {
+                    clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Item {
+                        width: parent.width
+                        height: perfForm.implicitHeight
+                        ColumnLayout {
+                            id: perfForm
+                            width: parent.width
+                            spacing: Kirigami.Units.smallSpacing
+                            Controls.GroupBox {
+                                title: qsTr("System")
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    Controls.CheckBox {
+                                        id: perfFeral
+                                        objectName: "perfFeral"
+                                        text: qsTr("Enable Feral GameMode (gamemoderun)")
+                                        Controls.ToolTip.text: qsTr("Optimizes CPU and GPU governors while the game runs. Mutually exclusive with CachyOS game-performance.")
+                                        Controls.ToolTip.visible: hovered
+                                        onCheckedChanged: {
+                                            if (checked) {
+                                                perfCachy.checked = false
+                                            }
+                                        }
+                                    }
+                                    Controls.CheckBox {
+                                        id: perfCachy
+                                        objectName: "perfCachy"
+                                        text: qsTr("Enable CachyOS game-performance")
+                                        Controls.ToolTip.text: qsTr("Applies the CachyOS gaming performance profile. Mutually exclusive with Feral GameMode.")
+                                        Controls.ToolTip.visible: hovered
+                                        onCheckedChanged: {
+                                            if (checked) {
+                                                perfFeral.checked = false
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

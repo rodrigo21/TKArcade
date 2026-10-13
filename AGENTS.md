@@ -72,6 +72,9 @@ rewrite pushed history or tags.
 - `Controls.ScrollView` manages its content x/y itself: never position
   content with `x` or anchors (silently reset, no warning) — wrap in a
   plain Item and anchor/center inside that instead.
+- QQC2 `onToggled` fires on user interaction only (unlike QWidgets):
+  react to programmatic `setProperty("checked", ...)` (tests included)
+  with `onCheckedChanged` instead.
 - `StackLayout` children do not auto-fill: every tab needs explicit
   `Layout.fillWidth/Height`, else it collapses to implicit size.
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
