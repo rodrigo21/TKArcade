@@ -158,3 +158,49 @@ def test_pick_file_error_reply_gives_empty_without_waiting():
 
     assert P.pick_file(_open=lambda: Conn()) == ""
     assert received == []  # returned before waiting on a bogus path
+
+
+def test_pick_save_file_success_takes_path():
+    from tkarcade.backends import portal as P
+
+    req = "/org/freedesktop/portal/desktop/request/1_7/t"
+    conn = _conn(
+        [(":1.7",), (), (req,)],
+        [_signal(req, 0, ["file:///tmp/tkarcade-configs.tar.gz"])],
+    )
+    assert (
+        P.pick_save_file("Export", "Save", "tkarcade-configs.tar.gz", _open=lambda: conn)
+        == "/tmp/tkarcade-configs.tar.gz"
+    )
+
+
+def test_pick_save_file_cancel_gives_empty():
+    from tkarcade.backends import portal as P
+
+    conn = _conn([(":1.7",), (), ("/req",)], [_signal("/req", 2, [])])
+    assert P.pick_save_file(_open=lambda: conn) == ""
+
+
+def test_pick_save_file_uses_save_method():
+    from tkarcade.backends import portal as P
+
+    members = []
+
+    class Conn:
+        unique_name = ":9.9"
+
+        def send_and_get_reply(self, msg, timeout=None):
+            members.append(msg.header.fields.get(3, ""))
+            reply = SimpleNamespace(body=("/req",))
+            reply.header = SimpleNamespace(message_type=MessageType.method_return)
+            return reply
+
+        def receive(self, timeout=None):
+            return None
+
+        def close(self):
+            pass
+
+    assert P.pick_save_file(_open=lambda: Conn()) == ""
+    assert "SaveFile" in members
+    assert "OpenFile" not in members

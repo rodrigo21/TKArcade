@@ -2306,6 +2306,84 @@ def test_settings_display_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
+    """Import window lists STL candidates; Import writes the profile."""
+    import os
+    from pathlib import Path
+
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    import tkarcade.steam as steammod
+    from tkarcade import config as C
+
+    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3")])
+    cfg = C.GameConfig()
+    cfg.general.appid = "99"
+    C.save(cfg)
+    stl_id = Path(os.environ["XDG_CONFIG_HOME"]) / "steamtinkerlaunch" / "gamecfgs" / "id"
+    stl_id.mkdir(parents=True)
+    (stl_id / "99.conf").write_text('USE_GAMEMODE="1"\n')
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dlg = win.findChild(QObject, "importDialog")
+    dlg.openStl()
+    swin = _modal_window(qgui_app, ("Import Configurations",))
+    assert dlg.property("stlRows") != []
+
+    def click(name):
+        button = swin.findChild(QQuickItem, name)
+        pos = button.mapToScene(
+            QPointF(button.property("width") / 2, button.property("height") / 2)
+        ).toPoint()
+        QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        qgui_app.processEvents()
+
+    click("importStlConfirm")
+    assert C.profile_file("99", "steamtinkerlaunch").is_file()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_import_tarball_flow(qgui_app, xdg_env, tmp_path):
+    """Backup tab imports the picked tarball and notifies."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "99"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    tarball = tmp_path / "backup.tar.gz"
+    assert "Exported to" in model.exportTarball(str(tarball))
+    C.game_file("99").unlink()
+    dlg = win.findChild(QObject, "importDialog")
+    dlg.setProperty("tarballPath", str(tarball))
+    dlg.setProperty("visible", True)
+    swin = _modal_window(qgui_app, ("Import Configurations",))
+    confirm = swin.findChild(QQuickItem, "importTarballConfirm")
+    pos = confirm.mapToScene(
+        QPointF(confirm.property("width") / 2, confirm.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert C.game_file("99").is_file()
+    page = win.findChild(QObject, "gamesPage")
+    assert page.property("notice").startswith("Imported")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib

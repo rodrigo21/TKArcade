@@ -559,6 +559,53 @@ def test_settings_display_roundtrip(qgui_app, xdg_env):
     assert model.createMangohudConfig("", "minimal") == ""
 
 
+def test_export_import_tarball_roundtrip(qgui_app, xdg_env, tmp_path):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "99"
+    C.save(cfg)
+    model = GameListModel()
+    dest = tmp_path / "out.tar.gz"
+    assert "Exported to" in model.exportTarball(str(dest))
+    assert dest.is_file()
+    assert model.exportTarball("") == ""
+    assert model.exportTarball(str(tmp_path / "missing" / "x.tar.gz")).startswith("Export failed")
+    C.game_file("99").unlink()
+    assert model.importTarball(str(dest)) == "Imported 1 game(s)"
+    assert C.game_file("99").is_file()
+    assert model.importTarball("") == ""
+    assert model.importTarball(str(tmp_path / "nope.tar.gz")).startswith("Import failed")
+
+
+def test_stl_import_flow(qgui_app, xdg_env, monkeypatch):
+    import os
+    from pathlib import Path
+
+    import tkarcade.steam as steammod
+    from tkarcade.gui.model import GameListModel
+
+    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3")])
+    cfg = C.GameConfig()
+    cfg.general.appid = "99"
+    C.save(cfg)
+    stl_id = Path(os.environ["XDG_CONFIG_HOME"]) / "steamtinkerlaunch" / "gamecfgs" / "id"
+    stl_id.mkdir(parents=True)
+    (stl_id / "99.conf").write_text('USE_GAMEMODE="1"\n')
+    model = GameListModel()
+    assert model.stlCandidates() == [["99", "Doom 3"]]
+    assert "steamtinkerlaunch' profile" in model.importStl(["99"])
+    assert C.profile_file("99", "steamtinkerlaunch").is_file()
+    assert "Skipped" in model.importStl(["100"])
+    assert model.importStl([]) == "Nothing selected."
+
+
+def test_import_predecessor_without_source(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    assert GameListModel().importPredecessor().startswith("Import failed")
+
+
 def _filtered(qgui_app, appids=("213", "local-doom")):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 

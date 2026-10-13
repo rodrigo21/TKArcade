@@ -9,9 +9,9 @@
   scan list scrolls); confirms/about/utilities stay small dialogs
 - [ ] Remaining settings tabs, Clone/Reset/Global Defaults, Steam add
   flow with picker, AddSource chooser.
-- [ ] Kirigami File Export/Import (tarball, SteamTinkerLaunch,
+- [x] Kirigami File Export/Import (tarball, SteamTinkerLaunch,
   predecessor copy; local library import from Lutris/Playnite/Faugus
-  file formats, investigation first). Scan Steam Library already exists.
+  file formats stays for the library phase). Scan Steam Library already exists.
   Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB, incl. VNDB)
   is deferred research for when the import work starts.
 - [ ] System tray with recent games (needs QGuiApplication to

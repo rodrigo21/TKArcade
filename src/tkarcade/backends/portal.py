@@ -40,6 +40,22 @@ def pick_file(
     _open=None,
 ) -> str:
     """Show the desktop-native file dialog. Returns a path, or ''."""
+    return _run_pick("OpenFile", title, accept_label, {}, timeout, _open)
+
+
+def pick_save_file(
+    title: str = "Save file",
+    accept_label: str = "Save",
+    filename: str = "",
+    timeout: float = 600.0,
+    _open=None,
+) -> str:
+    """Show the desktop-native save dialog. Returns a path, or ''."""
+    extra = {"current_name": ("s", filename)} if filename else {}
+    return _run_pick("SaveFile", title, accept_label, extra, timeout, _open)
+
+
+def _run_pick(method, title, accept_label, extra_options, timeout, _open) -> str:
     from jeepney.io.blocking import open_dbus_connection
 
     opener = _open or open_dbus_connection
@@ -49,7 +65,7 @@ def pick_file(
         log.debug("portal: no bus: %s", e)
         return ""
     try:
-        return _pick_via(conn, title, accept_label, timeout)
+        return _pick_via(conn, method, title, accept_label, extra_options, timeout)
     except Exception as e:
         log.debug("portal: pick failed: %s", e)
         return ""
@@ -60,7 +76,7 @@ def pick_file(
             pass
 
 
-def _pick_via(conn, title: str, accept_label: str, timeout: float) -> str:
+def _pick_via(conn, method, title, accept_label, extra_options, timeout) -> str:
     from jeepney import DBusAddress, MessageType, new_method_call
 
     bus = DBusAddress("/org/freedesktop/DBus", "org.freedesktop.DBus", "org.freedesktop.DBus")
@@ -78,26 +94,27 @@ def _pick_via(conn, title: str, accept_label: str, timeout: float) -> str:
     log.debug("portal: AddMatch %s", req_path)
     conn.send_and_get_reply(new_method_call(bus, "AddMatch", "s", (match,)), timeout=10)
 
-    # NB: the bus NAME is ...portal.Desktop, but OpenFile lives on the
-    # FileChooser interface of the same object (wrong interface yields a
-    # D-Bus error whose text must never be mistaken for a handle).
+    # NB: the bus NAME is ...portal.Desktop, but OpenFile/SaveFile live on
+    # the FileChooser interface of the same object (wrong interface yields
+    # a D-Bus error whose text must never be mistaken for a handle).
     portal = DBusAddress(_DESKTOP[1], _DESKTOP[0], "org.freedesktop.portal.FileChooser")
     options = {
         "handle_token": ("s", token),
         "accept_label": ("s", accept_label),
         "modal": ("b", True),
     }
-    log.debug("portal: OpenFile %r", title)
+    options.update(extra_options)
+    log.debug("portal: %s %r", method, title)
     reply = conn.send_and_get_reply(
-        new_method_call(portal, "OpenFile", "ssa{sv}", ("", title, options)),
+        new_method_call(portal, method, "ssa{sv}", ("", title, options)),
         timeout=30,
     )
     if reply.header.message_type == MessageType.error:
-        log.warning("portal: OpenFile failed: %s", reply.body)
+        log.warning("portal: %s failed: %s", method, reply.body)
         return ""
     handle = reply.body[0] if reply.body else ""
     if not handle or not str(handle).startswith("/"):
-        log.warning("portal: bad OpenFile handle: %r", handle)
+        log.warning("portal: bad %s handle: %r", method, handle)
         return ""
     # The reply handle is the request path (spec); trust it over our guess.
     req_path = handle

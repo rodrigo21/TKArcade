@@ -247,15 +247,40 @@ class GameListModel(QAbstractTableModel):
         Blocking D-Bus round-trips must never freeze the interface: the
         worker reports back ("" included) through the signal.
         """
-        threading.Thread(target=self._browse_worker, daemon=True).start()
+        threading.Thread(
+            target=self._pick_worker,
+            args=("Game executable", "Select", False, ""),
+            daemon=True,
+        ).start()
 
-    def _browse_worker(self) -> None:
+    @Slot(str, str)
+    def pickPath(self, title: str, accept_label: str) -> None:
+        """Generic open picker off the GUI thread; result via browseFinished."""
+        threading.Thread(
+            target=self._pick_worker,
+            args=(title or "Pick a file", accept_label or "Open", False, ""),
+            daemon=True,
+        ).start()
+
+    @Slot(str, str, str)
+    def pickSavePath(self, title: str, accept_label: str, filename: str) -> None:
+        """Generic save picker off the GUI thread; result via browseFinished."""
+        threading.Thread(
+            target=self._pick_worker,
+            args=(title or "Save file", accept_label or "Save", True, filename or ""),
+            daemon=True,
+        ).start()
+
+    def _pick_worker(self, title: str, accept_label: str, save: bool, filename: str) -> None:
         from ..backends import portal as portalmod
 
         try:
-            path = portalmod.pick_file("Game executable", "Select")
+            if save:
+                path = portalmod.pick_save_file(title, accept_label, filename)
+            else:
+                path = portalmod.pick_file(title, accept_label)
         except Exception as e:  # never kill the thread pool on a picker bug
-            log.warning("browse worker failed: %s", e)
+            log.warning("pick worker failed: %s", e)
             path = ""
         self.browseFinished.emit(path)
 
@@ -453,6 +478,101 @@ class GameListModel(QAbstractTableModel):
             return False
         self.refresh()
         return True
+
+    @Slot(str, result=str)
+    def exportTarball(self, path: str) -> str:
+        """Export configs to a tarball; returns the status message ('' skips)."""
+        path = (path or "").strip()
+        if not path:
+            return ""
+        try:
+            saved = cfgmod.export_configs(path)
+        except (OSError, ValueError) as e:
+            return f"Export failed: {e}"
+        return f"Exported to {saved}"
+
+    @Slot(str, result=str)
+    def importTarball(self, path: str) -> str:
+        """Import an export tarball; returns the status message ('' skips)."""
+        path = (path or "").strip()
+        if not path:
+            return ""
+        try:
+            imported = cfgmod.import_configs(path)
+        except (OSError, ValueError) as e:
+            return f"Import failed: {e}"
+        self.refresh()
+        return f"Imported {len(imported)} game(s)"
+
+    @Slot(result=list)
+    def stlCandidates(self) -> list:
+        """Configured games that also have an STL config: [[appid, name]]."""
+        try:
+            names = {a: n for a, n in steammod.list_games()}
+        except Exception:
+            names = {}
+        try:
+            configured = set(cfgmod.list_appids())
+        except Exception:
+            configured = set()
+        try:
+            from .. import stl_import as stimod
+
+            stl = set(stimod.list_stl_appids())
+        except Exception:
+            return []
+        games = [[a, names.get(a, a)] for a in sorted(configured & stl)]
+        return sorted(games, key=lambda g: g[1].lower())
+
+    @Slot(list, result=str)
+    def importStl(self, appids) -> str:
+        """Import STL snapshots as profiles; returns the usage notice."""
+        from .. import stl_import as stimod
+
+        imported, skipped, reports = [], [], {}
+        for appid in appids or []:
+            raw = stimod.parse_stl_conf(
+                stimod.stl_config_dir() / "gamecfgs" / "id" / f"{appid}.conf"
+            )
+            if not raw:
+                skipped.append(appid)
+                continue
+            cfg, report = stimod.map_to_gameconfig(appid, raw)
+            try:
+                cfgmod.save_profile(appid, stimod.PROFILE_NAME, cfg)
+            except Exception as e:
+                skipped.append(appid)
+                reports[appid] = [f"save failed: {e}"]
+                continue
+            imported.append(appid)
+            if report:
+                reports[appid] = report
+        self.refresh()
+        lines = []
+        if imported:
+            lines.append("Imported as the 'steamtinkerlaunch' profile (live config untouched):")
+            lines += [f"  • {a}" for a in imported]
+            lines.append("Open the game, pick the profile in the Profile row to try it.")
+        if skipped:
+            lines.append("Skipped (no STL config found):")
+            lines += [f"  • {a}" for a in skipped]
+        details = "\n".join(f"{a}: {'; '.join(r)}" for a, r in reports.items() if r)
+        if details:
+            lines += ["", "Notes:", details]
+        return "\n".join(lines) or "Nothing selected."
+
+    @Slot(result=str)
+    def importPredecessor(self) -> str:
+        """Copy TKSteamLaunch configs (missing files only); status message."""
+        try:
+            imported, skipped = cfgmod.import_tksteamlaunch()
+        except (OSError, ValueError) as e:
+            return f"Import failed: {e}"
+        lines = [f"Imported {len(imported)} file(s)."]
+        if skipped:
+            lines.append(f"Skipped {len(skipped)} existing file(s).")
+        self.refresh()
+        return "\n".join(lines)
 
     @Slot(str, str)
     def refreshDisplayModes(self, provider: str, output: str) -> None:

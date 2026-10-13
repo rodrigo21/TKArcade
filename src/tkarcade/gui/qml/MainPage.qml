@@ -556,6 +556,24 @@ Kirigami.Page {
         }
     }
 
+    property string browsePurpose: ""
+
+    Connections {
+        target: gameModel
+        function onBrowseFinished(picked) {
+            if (picked === "" || gamesPage.browsePurpose === "") {
+                return
+            }
+            if (gamesPage.browsePurpose === "exportSave") {
+                var msg = gameModel.exportTarball(picked)
+                if (msg !== "") {
+                    gamesPage.notify(msg)
+                }
+            }
+            gamesPage.browsePurpose = ""
+        }
+    }
+
 
     function columnVisible(logical) {
         if (logical === 2) {
@@ -867,6 +885,19 @@ Kirigami.Page {
                                             cleanupDialog.leftovers = ids
                                             cleanupDialog.open()
                                         }
+                                    }
+                                    Controls.MenuItem {
+                                        objectName: "menuExport"
+                                        text: qsTr("Export...")
+                                        onTriggered: {
+                                            gamesPage.browsePurpose = "exportSave"
+                                            gameModel.pickSavePath(qsTr("Export Configurations"), qsTr("Save"), "tkarcade-configs.tar.gz")
+                                        }
+                                    }
+                                    Controls.MenuItem {
+                                        objectName: "menuImport"
+                                        text: qsTr("Import...")
+                                        onTriggered: importDialog.open()
                                     }
                                     Controls.MenuSeparator {
                                     }
@@ -1696,6 +1727,11 @@ Kirigami.Page {
 
     GameSettings {
         id: gameSettings
+    }
+
+    ImportDialog {
+        id: importDialog
+        page: gamesPage
     }
 
     function openGameSettings(appid) {

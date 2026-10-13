@@ -22,6 +22,10 @@ Breaking config changes are called out explicitly under `Changed`.
   GameMode pair).
 - Settings Display tab (Display Mode with Refresh + dip rule, Gamescope
   with presets, MangoHud with config combo + New flow, RT Upscaler).
+- File Export/Import (step 4): portal save picker, Export/Import menu
+  entries, one modal Import window (tarball / STL checklist /
+  predecessor copy). Lutris/Playnite/Faugus formats stay for the
+  library phase.
 - Drawer collapsed state persists: closing open reopens open (was
   always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.
