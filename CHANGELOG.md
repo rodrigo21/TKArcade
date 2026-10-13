@@ -11,6 +11,10 @@ Breaking config changes are called out explicitly under `Changed`.
   window) with the centered capped scrolling form; the pageStack
   experiment is reverted (tiled wrong on a real display). Model
   load/save/profile slots and the profile-name prompt stay as landed.
+- Scan, history and preferences as modal windows (point 2, widgets
+  parity): separate resizable `Window`s (`WindowModal`, transient on
+  the main window) with `open()` keeping the old call sites; the scan
+  list scrolls. Confirms/about/utilities stay small dialogs.
 - Drawer collapsed state persists: closing open reopens open (was
   always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.

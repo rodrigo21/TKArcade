@@ -4,6 +4,9 @@
   `Window` like the widgets QDialog — resizable, `WindowModal`,
   transient on the main window; TabBar, load/save/profile slots,
   profile-name prompt; Edit and Add open it)
+- [x] Point 2 in the same mold: `PrefsDialog`, `HistoryView` and
+  `ScanDialog` as modal windows (`open()` shim keeps call sites;
+  scan list scrolls); confirms/about/utilities stay small dialogs
 - [ ] Remaining settings tabs, Clone/Reset/Global Defaults, Steam add
   flow with picker, AddSource chooser.
 - [ ] Kirigami File Export/Import (tarball, SteamTinkerLaunch,

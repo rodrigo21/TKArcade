@@ -1156,9 +1156,10 @@ def test_scan_flow_adds_steam_game(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
-    confirm = win.findChild(QQuickItem, "scanConfirm")
+    swin = _modal_window(qgui_app, ("Add Games",))
+    confirm = swin.findChild(QQuickItem, "scanConfirm")
     pos = confirm.mapToScene(QPointF(confirm.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
     assert C.game_file("99").exists()
     assert C.game_file("100").exists()
@@ -1229,9 +1230,10 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     )
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
-    save = win.findChild(QQuickItem, "prefsSave")
+    swin = _modal_window(qgui_app, ("Preferences",))
+    save = swin.findChild(QQuickItem, "prefsSave")
     pos = save.mapToScene(QPointF(save.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
     prefs = C.load_preferences()
     assert prefs.tray_icon == "mono"
@@ -2043,16 +2045,21 @@ def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def _settings_window(qgui_app):
-    """The visible settings top-level window (Edit/Add titles)."""
+def _modal_window(qgui_app, titles):
+    """A visible top-level window matching one of the titles."""
     from PySide6.QtGui import QGuiApplication
 
     for _ in range(20):
         for w in QGuiApplication.topLevelWindows():
-            if w.isVisible() and w.title() in ("Edit game", "Add game"):
+            if w.isVisible() and w.title() in titles:
                 return w
         qgui_app.processEvents()
-    raise AssertionError("settings window never showed")
+    raise AssertionError(f"window {titles} never showed")
+
+
+def _settings_window(qgui_app):
+    """The visible settings top-level window (Edit/Add titles)."""
+    return _modal_window(qgui_app, ("Edit game", "Add game"))
 
 
 def test_settings_edit_saves_name(qgui_app, xdg_env):
