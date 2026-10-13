@@ -1087,9 +1087,8 @@ def test_context_menu_opens_for_row(qgui_app, xdg_env):
 
 def test_remove_flow_with_profiles(qgui_app, xdg_env):
     """Remove asks, deletes configs, then offers profile cleanup."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -1116,9 +1115,7 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     qgui_app.processEvents()
     dialog = win.findChild(QObject, "removeDialog")
     assert dialog.property("visible") is True
-    confirm = win.findChild(QQuickItem, "removeConfirm")
-    pos = confirm.mapToScene(QPointF(confirm.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _fire(win.findChild(QObject, "removeConfirm"))
     qgui_app.processEvents()
     assert not C.game_file("local-doom").exists()
     assert not C.game_file("local-quake").exists()
@@ -1126,15 +1123,53 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     cleanup = win.findChild(QObject, "cleanupDialog")
     assert cleanup.property("visible") is True
     assert cleanup.property("leftovers") == ["local-doom"]
-    wipe = win.findChild(QQuickItem, "cleanupConfirm")
-    pos = wipe.mapToScene(QPointF(wipe.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _fire(win.findChild(QObject, "cleanupConfirm"))
     qgui_app.processEvents()
     assert not profiles.exists()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
     _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_prompt_dialogs_confirm_and_close(qgui_app, xdg_env):
+    """PromptDialog confirms run their model calls and close."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    bad = C.GameConfig()
+    bad.general.appid = "local-bad"
+    bad.general.name = "Bad"
+    bad.general.custom_executable = "/nonexistent/game"
+    bad.general.game_type = "native"
+    C.save(bad)
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.setProperty("menuGid", "local-doom")
+    for name, confirm in (("shaderDialog", "shaderConfirm"), ("historyDialog", "historyConfirm")):
+        dlg = win.findChild(QObject, name)
+        dlg.open()
+        qgui_app.processEvents()
+        assert dlg.property("visible") is True
+        _fire(win.findChild(QObject, confirm))
+        qgui_app.processEvents()
+        assert dlg.property("opened") is False
+    page.openValidateDialog("local-bad")
+    qgui_app.processEvents()
+    validate = win.findChild(QObject, "validateDialog")
+    assert validate.property("visible") is True
+    validate.close()
+    qgui_app.processEvents()
+    assert validate.property("opened") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
     qgui_app.processEvents()
 
 

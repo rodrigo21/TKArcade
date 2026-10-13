@@ -94,7 +94,9 @@ toggle and a centered Library.
   selectedIds. Never KTableView (its inner TableView spins the
   offscreen event loop forever).
 - [x] QShortcut Quit → QML Shortcut (Ctrl+Q)
-- [ ] QMessageBox → Kirigami.PromptDialog (base kirigami, revise our confirms)
+- [x] QMessageBox → Kirigami.PromptDialog (remove/cleanup/shader/
+  history/validate; cleanup checklist via mainItem, actions fired
+  with trigger())
 - [x] QFormLayout (prefs) → Addons FormCard (API key row stays
   plain: FormTextFieldDelegate needs a KLocalizedContext)
 - [ ] QTabWidget (future settings UI) → pageStack pages + TabBar

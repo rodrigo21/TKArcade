@@ -26,6 +26,10 @@ Breaking config changes are called out explicitly under `Changed`.
   entries, one modal Import window (tarball / STL checklist /
   predecessor copy). Lutris/Playnite/Faugus formats stay for the
   library phase.
+- Confirms as PromptDialog (step 5): remove/cleanup/shader/history
+  (Warning) and validate (Information, issues as subtitle); actions
+  keep objectNames and fire via trigger(), cleanup keeps its checklist
+  as mainItem.
 - Drawer collapsed state persists: closing open reopens open (was
   always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.

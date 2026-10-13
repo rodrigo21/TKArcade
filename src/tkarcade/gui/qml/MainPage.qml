@@ -4,6 +4,7 @@ import QtQml.Models as QQmlModels
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
+import org.kde.kirigami.dialogs as KirigamiDialogs
 import org.kde.kirigami.layouts as KL
 import org.kde.kirigamiaddons.formcard as FormCard
 
@@ -1750,28 +1751,22 @@ Kirigami.Page {
         return gameSettings.visible
     }
 
-    Kirigami.Dialog {
+    KirigamiDialogs.PromptDialog {
         id: removeDialog
         objectName: "removeDialog"
         title: qsTr("Remove Games")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.Label {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: gamesPage.selectedIds.length === 1
-                    ? qsTr("Remove the configuration for %1?").arg(
-                        gameModel.gameNames(gamesPage.selectedIds)[0])
-                    : qsTr("Remove the configurations for %1 games?").arg(
-                        gamesPage.selectedIds.length)
-            }
-        }
-        footer: RowLayout {
-            Layout.fillWidth: true
-            Controls.Button {
+        dialogType: KirigamiDialogs.PromptDialog.Warning
+        subtitle: gamesPage.selectedIds.length === 1
+            ? qsTr("Remove the configuration for %1?").arg(
+                gameModel.gameNames(gamesPage.selectedIds)[0])
+            : qsTr("Remove the configurations for %1 games?").arg(
+                gamesPage.selectedIds.length)
+        customFooterActions: [
+            Kirigami.Action {
                 objectName: "removeConfirm"
                 text: qsTr("Remove")
-                onClicked: {
+                icon.name: "edit-delete"
+                onTriggered: {
                     var targets = gamesPage.selectedIds.slice()
                     var err = gameModel.removeGames(targets)
                     if (err !== "") {
@@ -1785,19 +1780,20 @@ Kirigami.Page {
                         cleanupDialog.open()
                     }
                 }
-            }
-            Controls.Button {
+            },
+            Kirigami.Action {
                 text: qsTr("Cancel")
-                onClicked: removeDialog.close()
+                icon.name: "dialog-cancel"
+                onTriggered: removeDialog.close()
             }
-        }
+        ]
     }
 
-    Kirigami.Dialog {
+    KirigamiDialogs.PromptDialog {
         id: cleanupDialog
         objectName: "cleanupDialog"
         title: qsTr("Clean Up Profiles")
-        padding: Kirigami.Units.largeSpacing
+        dialogType: KirigamiDialogs.PromptDialog.Warning
         property var leftovers: []
         property var picked: []
         onLeftoversChanged: picked = leftovers.slice()
@@ -1828,111 +1824,92 @@ Kirigami.Page {
                 }
             }
         }
-        footer: RowLayout {
-            Layout.fillWidth: true
-            Controls.Button {
+        customFooterActions: [
+            Kirigami.Action {
                 objectName: "cleanupConfirm"
                 text: qsTr("Clean Selected")
-                onClicked: {
+                icon.name: "edit-delete"
+                onTriggered: {
                     var n = gameModel.cleanProfiles(cleanupDialog.picked)
                     gamesPage.notify(
                         qsTr("Cleaned profiles for %1 game(s).").arg(n))
                     cleanupDialog.close()
                 }
-            }
-            Controls.Button {
+            },
+            Kirigami.Action {
                 text: qsTr("Keep All")
-                onClicked: cleanupDialog.close()
+                icon.name: "dialog-cancel"
+                onTriggered: cleanupDialog.close()
             }
-        }
+        ]
     }
 
-    Kirigami.Dialog {
+    KirigamiDialogs.PromptDialog {
         id: shaderDialog
         objectName: "shaderDialog"
         title: qsTr("Clear Shader Cache")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.Label {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: qsTr("Delete %1 of shader cache for %2? Steam rebuilds it on demand.").arg(
-                    gamesPage.menuShaderSize).arg(gamesPage.menuGid)
-            }
-        }
-        footer: RowLayout {
-            Layout.fillWidth: true
-            Controls.Button {
+        dialogType: KirigamiDialogs.PromptDialog.Warning
+        subtitle: qsTr("Delete %1 of shader cache for %2? Steam rebuilds it on demand.").arg(
+            gamesPage.menuShaderSize).arg(gamesPage.menuGid)
+        customFooterActions: [
+            Kirigami.Action {
                 objectName: "shaderConfirm"
                 text: qsTr("Delete")
-                onClicked: {
+                icon.name: "edit-delete"
+                onTriggered: {
                     gamesPage.notify(
                         gameModel.clearShaderCache(gamesPage.menuGid))
                     shaderDialog.close()
                 }
-            }
-            Controls.Button {
+            },
+            Kirigami.Action {
                 text: qsTr("Cancel")
-                onClicked: shaderDialog.close()
+                icon.name: "dialog-cancel"
+                onTriggered: shaderDialog.close()
             }
-        }
+        ]
     }
 
-    Kirigami.Dialog {
+    KirigamiDialogs.PromptDialog {
         id: historyDialog
         objectName: "historyDialog"
         title: qsTr("Clear History")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.Label {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: qsTr("Clear session history for %1? This cannot be undone.").arg(
-                    gamesPage.menuGid)
-            }
-        }
-        footer: RowLayout {
-            Layout.fillWidth: true
-            Controls.Button {
+        dialogType: KirigamiDialogs.PromptDialog.Warning
+        subtitle: qsTr("Clear session history for %1? This cannot be undone.").arg(
+            gamesPage.menuGid)
+        customFooterActions: [
+            Kirigami.Action {
                 objectName: "historyConfirm"
                 text: qsTr("Clear")
-                onClicked: {
+                icon.name: "edit-delete"
+                onTriggered: {
                     var n = gameModel.clearHistory(gamesPage.menuGid)
                     gamesPage.notify(
                         qsTr("Cleared %1 session(s).").arg(n))
                     historyDialog.close()
                 }
-            }
-            Controls.Button {
+            },
+            Kirigami.Action {
                 text: qsTr("Cancel")
-                onClicked: historyDialog.close()
+                icon.name: "dialog-cancel"
+                onTriggered: historyDialog.close()
             }
-        }
+        ]
     }
 
-    Kirigami.Dialog {
+    KirigamiDialogs.PromptDialog {
         id: validateDialog
         objectName: "validateDialog"
         title: qsTr("Validate Game")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Repeater {
-                model: gamesPage.validateIssues
-                Controls.Label {
-                    required property string modelData
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    text: "• " + modelData
-                }
-            }
-        }
-        footer: RowLayout {
-            Layout.fillWidth: true
-            Controls.Button {
+        dialogType: KirigamiDialogs.PromptDialog.Information
+        subtitle: gamesPage.validateIssues.map(function(issue) { return "• " + issue }).join("\n")
+        customFooterActions: [
+            Kirigami.Action {
                 text: qsTr("Close")
-                onClicked: validateDialog.close()
+                icon.name: "dialog-close"
+                onTriggered: validateDialog.close()
             }
-        }
+        ]
     }
 
     ScanDialog {
