@@ -6,11 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
-- Per-game settings as a real page (point 1): `GameSettings` is pushed
-  on the `pageStack` full-width (single column bound to window width),
-  with a centered capped form, per-tab scrolling and Save/Cancel
-  popping back; dialog version retired. Model load/save/profile slots
-  and the profile-name prompt stay as landed.
+- Per-game settings as a modal window (point 1, widgets parity): a
+  separate resizable `Window` (`WindowModal`, transient on the main
+  window) with the centered capped scrolling form; the pageStack
+  experiment is reverted (tiled wrong on a real display). Model
+  load/save/profile slots and the profile-name prompt stay as landed.
 - Drawer collapsed state persists: closing open reopens open (was
   always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.

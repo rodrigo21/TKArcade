@@ -2043,6 +2043,18 @@ def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def _settings_window(qgui_app):
+    """The visible settings top-level window (Edit/Add titles)."""
+    from PySide6.QtGui import QGuiApplication
+
+    for _ in range(20):
+        for w in QGuiApplication.topLevelWindows():
+            if w.isVisible() and w.title() in ("Edit game", "Add game"):
+                return w
+        qgui_app.processEvents()
+    raise AssertionError("settings window never showed")
+
+
 def test_settings_edit_saves_name(qgui_app, xdg_env):
     """Edit opens settings for the selection; Save persists the fields."""
     from PySide6.QtCore import QObject, QPointF, Qt
@@ -2061,29 +2073,23 @@ def test_settings_edit_saves_name(qgui_app, xdg_env):
     page.select("local-doom")
     qgui_app.processEvents()
 
-    def click(name):
-        button = win.findChild(QQuickItem, name)
+    def click(name, host):
+        button = host.findChild(QQuickItem, name)
         pos = button.mapToScene(
             QPointF(button.property("width") / 2, button.property("height") / 2)
         ).toPoint()
-        QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
         qgui_app.processEvents()
 
-    def settle_push():
-        # PageRow slides the pushed page in: synthetic clicks mid-slide
-        # miss, so let the transition finish first.
-        QTest.qWait(500)
-        for _ in range(5):
-            qgui_app.processEvents()
-
-    click("titleEdit")
-    settle_push()
-    assert page.settingsOnTop() is True
-    name = win.findChild(QQuickItem, "settingsName")
+    click("titleEdit", win)
+    assert page.settingsOpen() is True
+    swin = _settings_window(qgui_app)
+    assert swin.property("modality") == Qt.WindowModality.WindowModal
+    name = swin.findChild(QQuickItem, "settingsName")
     assert name.property("text") == "Doom"
     name.setProperty("text", "Doom II")
-    click("settingsSave")
-    assert page.settingsOnTop() is False
+    click("settingsSave", swin)
+    assert page.settingsOpen() is False
     assert C.load("local-doom").general.name == "Doom II"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -2102,21 +2108,19 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
 
     win, engine, proxy, warnings = _load_main(qgui_app)
 
-    def click(name):
-        button = win.findChild(QQuickItem, name)
+    def click(name, host):
+        button = host.findChild(QQuickItem, name)
         pos = button.mapToScene(
             QPointF(button.property("width") / 2, button.property("height") / 2)
         ).toPoint()
-        QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
         qgui_app.processEvents()
 
-    click("titleAdd")
-    QTest.qWait(500)
-    for _ in range(5):
-        qgui_app.processEvents()
-    win.findChild(QQuickItem, "settingsName").setProperty("text", "Doom")
-    win.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
-    click("settingsSave")
+    click("titleAdd", win)
+    swin = _settings_window(qgui_app)
+    swin.findChild(QQuickItem, "settingsName").setProperty("text", "Doom")
+    swin.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
+    click("settingsSave", swin)
     assert proxy.rowCount() == 1
     created = proxy.idAt(0)
     assert created.startswith("local-")

@@ -1,9 +1,9 @@
 # TODO — deferred ideas
 
-- [x] Kirigami game settings shell (General/Notes page on the
-  pageStack, TabBar, load/save/profile slots, profile-name prompt;
-  Edit and Add push it, full-width single column, centered capped
-  scrolling form)
+- [x] Kirigami game settings shell (General/Notes in a modal
+  `Window` like the widgets QDialog — resizable, `WindowModal`,
+  transient on the main window; TabBar, load/save/profile slots,
+  profile-name prompt; Edit and Add open it)
 - [ ] Remaining settings tabs, Clone/Reset/Global Defaults, Steam add
   flow with picker, AddSource chooser.
 - [ ] Kirigami File Export/Import (tarball, SteamTinkerLaunch,

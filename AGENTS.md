@@ -76,9 +76,10 @@ rewrite pushed history or tags.
   `Layout.fillWidth/Height`, else it collapses to implicit size.
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
   transition before synthetic clicks, or clicks land mid-slide.
-- Content pages (settings and friends) take the whole row: the window
-  binds `pageStack.defaultColumnWidth` to its own width, so no second
-  column ever squeezes the list at minimum width.
+- Content windows (settings and friends) are separate modal `Window`s
+  (`WindowModal`, transient on the main window): widgets parity,
+  resizable, no PageRow tiling surprises. Tests drive them through
+  `topLevelWindows()` by title, clicking on the window itself.
 
 ## Project policies (do not regress)
 

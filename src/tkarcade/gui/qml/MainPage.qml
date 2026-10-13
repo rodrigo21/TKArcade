@@ -1698,45 +1698,20 @@ Kirigami.Page {
         id: gameSettings
     }
 
-    function appPageStack() {
-        var win = Controls.ApplicationWindow.window
-        return win ? win.pageStack : null
-    }
-
     function openGameSettings(appid) {
-        var stack = appPageStack()
-        if (stack === null) {
-            return
-        }
         gameSettings.page = gamesPage
-        if (stack.currentItem !== gameSettings) {
-            stack.push(gameSettings)
-        }
+        gameSettings.transientParent = Controls.ApplicationWindow.window
         gameSettings.openFor(appid)
     }
 
     function openNewGameSettings() {
-        var stack = appPageStack()
-        if (stack === null) {
-            return
-        }
         gameSettings.page = gamesPage
-        if (stack.currentItem !== gameSettings) {
-            stack.push(gameSettings)
-        }
+        gameSettings.transientParent = Controls.ApplicationWindow.window
         gameSettings.openNew()
     }
 
-    function closeGameSettings() {
-        var stack = appPageStack()
-        if (stack !== null) {
-            stack.pop()
-        }
-    }
-
-    function settingsOnTop() {
-        var stack = appPageStack()
-        return stack !== null && stack.currentItem === gameSettings
+    function settingsOpen() {
+        return gameSettings.visible
     }
 
     Kirigami.Dialog {

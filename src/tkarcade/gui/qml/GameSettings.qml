@@ -1,16 +1,25 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
+import QtQuick.Window
 import org.kde.kirigami as Kirigami
 
-// Per-game settings page (widgets GameDialog parity, tab by tab: General
-// and Notes first, the rest follow). Pushed on the pageStack like a real
-// window (a dialog is too small and cannot resize); the text prompt below
-// replaces QInputDialog for profile names.
-Kirigami.Page {
+// Per-game settings window (widgets GameDialog parity, tab by tab:
+// General and Notes first, the rest follow). A separate modal window
+// like the widgets QDialog (resizable, centered on the main window via
+// transientParent) — never embedded in the pageStack, never a popup;
+// the text prompt below replaces QInputDialog for profile names.
+Window {
     id: gameSettings
     objectName: "gameSettings"
     title: editAppid === "" ? qsTr("Add game") : qsTr("Edit game")
+    modality: Qt.WindowModal
+    minimumWidth: Kirigami.Units.gridUnit * 34
+    minimumHeight: Kirigami.Units.gridUnit * 30
+    width: Kirigami.Units.gridUnit * 42
+    height: Kirigami.Units.gridUnit * 36
+    visible: false
+    color: Kirigami.Theme.backgroundColor
 
     property string editAppid: ""
     property var fields: ({})
@@ -39,6 +48,7 @@ Kirigami.Page {
         reload()
         errorText = ""
         tabBar.currentIndex = 0
+        visible = true
     }
 
     function openNew() {
@@ -47,12 +57,11 @@ Kirigami.Page {
         pushToControls()
         errorText = ""
         tabBar.currentIndex = 0
+        visible = true
     }
 
     function closePage() {
-        if (page !== null) {
-            page.closeGameSettings()
-        }
+        visible = false
     }
 
     function reload() {
@@ -133,6 +142,7 @@ Kirigami.Page {
 
     ColumnLayout {
         anchors.fill: parent
+        anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing
         Controls.TabBar {
             id: tabBar
@@ -316,18 +326,17 @@ Kirigami.Page {
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
-    }
-
-    footer: RowLayout {
-        Layout.fillWidth: true
-        Controls.Button {
-            objectName: "settingsSave"
-            text: qsTr("Save")
-            onClicked: gameSettings.save()
-        }
-        Controls.Button {
-            text: qsTr("Cancel")
-            onClicked: gameSettings.closePage()
+        RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "settingsSave"
+                text: qsTr("Save")
+                onClicked: gameSettings.save()
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: gameSettings.closePage()
+            }
         }
     }
 
