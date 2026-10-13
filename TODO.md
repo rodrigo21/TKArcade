@@ -17,8 +17,8 @@
 - [x] System tray with recent games (`QApplication` migration done;
   tray prefs already existed; Global Defaults entry waits for the
   defaults UI)
-- [ ] Column drag-reorder in the QML header (the Move left/right
-  menu covers reordering; drag is fragile in QML layouts).
+- [x] Column drag-reorder in the QML header (title drag past a
+  threshold; taps still sort, Move left/right menu stays)
 - [ ] QML i18n catalog (pt_BR for the strings added since the
   Kirigami work started; QML `qsTr` calls are in place; deferred
   for now, after the rest).

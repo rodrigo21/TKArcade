@@ -686,6 +686,34 @@ Kirigami.Page {
         gameFilter.moveColumn(logical, dir)
     }
 
+    function dropColumn(logical, dx) {
+        // Reorder by drag: convert the cell-local drag distance into a
+        // drop slot in view order, then step-swap there (each step
+        // persists through moveColumn).
+        var from = columnOrder.indexOf(logical)
+        if (from < 0) {
+            return
+        }
+        var dropX = headerCellX(logical) + tableColumnWidth(logical) / 2 + dx
+        var x = 0
+        var to = columnOrder.length - 1
+        for (var i = 0; i < columnOrder.length; i++) {
+            var w = tableColumnWidth(columnOrder[i])
+            if (dropX < x + w) {
+                to = i
+                break
+            }
+            x += w
+        }
+        var step = to > from ? 1 : -1
+        var guard = columnOrder.length + 1
+        while (from !== to && guard-- > 0) {
+            gameFilter.moveColumn(logical, step)
+            refreshColumnOrder()
+            from = columnOrder.indexOf(logical)
+        }
+    }
+
     function resetColumns() {
         gameFilter.resetColumns()
         gameFilter.showAppId = true
@@ -1298,14 +1326,36 @@ Kirigami.Page {
                             gamesPage.autofitColumn(logical)
                         }
                     }
-                    TapHandler {
+                    MouseArea {
+                        // Title drag: press-move past the threshold reorders
+                        // the column on release; a plain tap sorts instead
+                        // (the old TapHandler folded in here so one gesture
+                        // owns the press). Never from the divider strip.
+                        objectName: "headerMove" + logical
+                        anchors.fill: parent
+                        anchors.rightMargin: 9
                         acceptedButtons: Qt.LeftButton
-                        // Never sort from the divider strip (a stray
-                        // press there belongs to resize/autofit).
-                        onTapped: {
-                            if (point.position.x < parent.width - 9) {
-                                gamesPage.headerClicked(logical)
+                        preventStealing: true
+                        property real pressX: 0
+                        property bool dragging: false
+                        onPressed: (mouse) => {
+                            pressX = mouse.x
+                            dragging = false
+                        }
+                        onPositionChanged: (mouse) => {
+                            if (pressed && !dragging && Math.abs(mouse.x - pressX) > 12) {
+                                dragging = true
                             }
+                        }
+                        onReleased: (mouse) => {
+                            if (!dragging) {
+                                if (mouse.x < parent.width - 9) {
+                                    gamesPage.headerClicked(logical)
+                                }
+                                return
+                            }
+                            dragging = false
+                            gamesPage.dropColumn(logical, mouse.x - pressX)
                         }
                     }
                     MouseArea {

@@ -30,6 +30,9 @@ Breaking config changes are called out explicitly under `Changed`.
   (Warning) and validate (Information, issues as subtitle); actions
   keep objectNames and fire via trigger(), cleanup keeps its checklist
   as mainItem.
+- Column drag-reorder (step 7): title drag past a threshold drops the
+  column in view order (step-swaps, persisted); taps still sort
+  (TapHandler folded into the same gesture).
 - System tray with recent games (step 6): `QApplication` migration,
   tray controller (Show/Hide, recents via Play, Preferences, About,
   Quit), close/minimize-to-tray in the shell; Global Defaults entry

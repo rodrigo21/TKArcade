@@ -1842,6 +1842,49 @@ def test_header_divider_drag_resizes_and_persists(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_header_title_drag_reorders_and_persists(qgui_app, xdg_env):
+    """Dragging a header title moves the column, persisting the order."""
+    import json
+
+    from PySide6.QtCore import QObject, QPoint, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    before = json.loads(proxy.columnOrderJson())
+    assert before.index(2) == 2
+    header = win.findChild(QQuickItem, "tableHeader")
+    row = header.findChild(QQuickItem, "headerRow")
+    cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
+    cell = cells.get("headerCell2")
+    assert cell is not None
+    start = cell.mapToScene(QPointF(cell.property("width") / 2, 5)).toPoint()
+    QTest.mousePress(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, start)
+    qgui_app.processEvents()
+    for step in (30, 60, 120):
+        QTest.mouseMove(win, start + QPoint(step, 0), 20)
+        qgui_app.processEvents()
+    QTest.mouseRelease(
+        win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, start + QPoint(120, 0)
+    )
+    qgui_app.processEvents()
+    after = json.loads(proxy.columnOrderJson())
+    assert after.index(2) > 2
+    assert C.load_preferences().column_order == ",".join(map(str, after))
+    page = win.findChild(QObject, "gamesPage")
+    assert page.property("sortRole") == "gameName"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_narrow_window_shrinks_columns_to_fit(qgui_app, xdg_env):
     """Fitted columns scale down instead of overflowing small windows."""
     from PySide6.QtCore import QObject
