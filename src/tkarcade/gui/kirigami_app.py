@@ -90,16 +90,18 @@ def main(argv: list[str] | None = None) -> int:
     """Run the Kirigami application (list, add and launch local games)."""
     import logging
 
-    from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
+    from PySide6.QtWidgets import QApplication
 
     from .model import GameFilterModel, GameListModel
+
+    log = logging.getLogger("tkarcade.kirigami")
 
     if verbose_requested(argv):
         logging.basicConfig(level=logging.DEBUG)
     if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
         os.environ["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
-    app = QGuiApplication(sys.argv if argv is None else argv)
+    app = QApplication(sys.argv if argv is None else argv)
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -158,5 +160,36 @@ def main(argv: list[str] | None = None) -> int:
     if not engine.rootObjects():
         print("tkarcade: could not load the Kirigami interface", file=sys.stderr)
         return 1
-    apply_window_geometry(engine.rootObjects()[0])
+    root = engine.rootObjects()[0]
+
+    from PySide6.QtCore import QObject
+
+    def toggle_visible() -> None:
+        try:
+            root.setVisible(not root.isVisible())
+            if root.isVisible():
+                root.requestActivate()
+        except Exception as e:
+            log.warning("tray toggle failed: %s", e)
+
+    def open_prefs() -> None:
+        try:
+            dlg = root.findChild(QObject, "prefsDialog")
+            dlg.load()
+            dlg.open()
+        except Exception as e:
+            log.warning("tray prefs failed: %s", e)
+
+    def open_about() -> None:
+        try:
+            root.findChild(QObject, "aboutDialog").open()
+        except Exception as e:
+            log.warning("tray about failed: %s", e)
+
+    from .tray import TrayController
+
+    tray = TrayController(model, toggle_visible, open_prefs, open_about)
+    model._tray_refresher = tray.apply
+    model.setTrayActive(tray.apply())
+    apply_window_geometry(root)
     return app.exec()

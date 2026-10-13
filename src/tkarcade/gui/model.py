@@ -90,6 +90,8 @@ class GameListModel(QAbstractTableModel):
         super().__init__(parent)
         self._rows: list[tuple[str, ...]] = []
         self._steam_detected = 0
+        self._tray_active = False
+        self._tray_refresher = None
         self.backgroundDone.connect(self.refresh)
         self.refresh()
 
@@ -1038,7 +1040,34 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             log.warning("savePrefs failed: %s", e)
             return False
+        refresher = self._tray_refresher
+        if callable(refresher):
+            try:
+                refresher()
+            except Exception as e:
+                log.warning("tray refresh failed: %s", e)
         return True
+
+    @Slot(bool)
+    def setTrayActive(self, active: bool) -> None:
+        """Whether kirigami_app currently shows a tray icon."""
+        self._tray_active = bool(active)
+
+    @Slot(result=bool)
+    def hideOnClose(self) -> bool:
+        """Close-to-tray: hide instead of closing when a tray is up."""
+        try:
+            return bool(cfgmod.load_preferences().close_to_tray) and self._tray_active
+        except Exception:
+            return False
+
+    @Slot(result=bool)
+    def hideOnMinimize(self) -> bool:
+        """Minimize-to-tray: hide when minimized while a tray is up."""
+        try:
+            return bool(cfgmod.load_preferences().minimize_to_tray) and self._tray_active
+        except Exception:
+            return False
 
     @Slot(result=str)
     def drawerMode(self) -> str:

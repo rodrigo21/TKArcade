@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
+import QtQuick.Window
 import org.kde.kirigami as Kirigami
 
 // TKArcade shell: source drawer on the side, games page in the stack.
@@ -17,6 +18,19 @@ Kirigami.ApplicationWindow {
         objectName: "quitShortcut"
         sequence: StandardKey.Quit
         onActivated: Qt.quit()
+    }
+
+    onClosing: (close) => {
+        if (gameModel.hideOnClose()) {
+            close.accepted = false
+            root.visible = false
+        }
+    }
+
+    onVisibilityChanged: {
+        if (visibility === Window.Minimized && gameModel.hideOnMinimize()) {
+            root.visible = false
+        }
     }
 
     function applyDrawerMode(mode) {

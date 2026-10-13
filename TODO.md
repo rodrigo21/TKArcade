@@ -14,8 +14,9 @@
   file formats stays for the library phase). Scan Steam Library already exists.
   Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB, incl. VNDB)
   is deferred research for when the import work starts.
-- [ ] System tray with recent games (needs QGuiApplication to
-  QApplication migration; tray prefs already exist).
+- [x] System tray with recent games (`QApplication` migration done;
+  tray prefs already existed; Global Defaults entry waits for the
+  defaults UI)
 - [ ] Column drag-reorder in the QML header (the Move left/right
   menu covers reordering; drag is fragile in QML layouts).
 - [ ] QML i18n catalog (pt_BR for the strings added since the
@@ -101,7 +102,8 @@ toggle and a centered Library.
   plain: FormTextFieldDelegate needs a KLocalizedContext)
 - [ ] QTabWidget (future settings UI) → pageStack pages + TabBar
 - [ ] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
-- [ ] QSystemTrayIcon → needs QApplication migration (deferred)
+- [x] QSystemTrayIcon → migrated to QApplication (tray controller
+  with recents)
 
 ### Drawer (after tableview)
 - [x] Drawer Mode… into GlobalDrawer `footer:` (icon buttons, always
