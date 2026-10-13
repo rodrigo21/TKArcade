@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shlex
 import shutil
 import threading
 
@@ -38,6 +39,14 @@ def validate_local_game(name: str, exe: str) -> str:
     if not os.path.isfile(exe.strip()) and shutil.which(exe.strip()) is None:
         return f"Executable not found: {exe.strip()}"
     return ""
+
+
+def _split_args(text: str) -> list[str]:
+    """Shell-like split for the args fields (falls back to whitespace)."""
+    try:
+        return shlex.split(text)
+    except ValueError:
+        return text.split()
 
 
 class GameListModel(QAbstractTableModel):
@@ -274,6 +283,13 @@ class GameListModel(QAbstractTableModel):
             "notes": cfg.notes.text,
             "profiles": profiles,
             "is_steam": bool(steammod.is_steam_id(appid)),
+            "env_vars": [{"key": k, "value": v} for k, v in cfg.env.vars.items()],
+            "pre_command": cfg.pre_post.pre_command,
+            "pre_args": shlex.join(cfg.pre_post.pre_args),
+            "post_command": cfg.pre_post.post_command,
+            "post_args": shlex.join(cfg.pre_post.post_args),
+            "pp_timeout": max(1, min(3600, int(cfg.pre_post.timeout or 60))),
+            "run_in_shell": bool(cfg.pre_post.run_in_shell),
         }
 
     @Slot(str, "QVariantMap", result=str)
@@ -312,6 +328,22 @@ class GameListModel(QAbstractTableModel):
             cfg.general.menu_timeout = 0
         cfg.general.custom_prefix = str(data.get("custom_prefix", "")).strip()
         cfg.notes.text = str(data.get("notes", ""))
+        env_vars = {}
+        for row in data.get("env_vars", []) or []:
+            if isinstance(row, dict):
+                key = str(row.get("key", "")).strip()
+                if key:
+                    env_vars[key] = str(row.get("value", ""))
+        cfg.env.vars = env_vars
+        cfg.pre_post.pre_command = str(data.get("pre_command", "")).strip()
+        cfg.pre_post.pre_args = _split_args(str(data.get("pre_args", "")))
+        cfg.pre_post.post_command = str(data.get("post_command", "")).strip()
+        cfg.pre_post.post_args = _split_args(str(data.get("post_args", "")))
+        try:
+            cfg.pre_post.timeout = max(1, min(3600, int(data.get("pp_timeout", 60) or 60)))
+        except (TypeError, ValueError):
+            cfg.pre_post.timeout = 60
+        cfg.pre_post.run_in_shell = bool(data.get("run_in_shell", False))
         try:
             cfgmod.save(cfg)
         except Exception as e:

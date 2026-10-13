@@ -82,6 +82,17 @@ Window {
         profileBox.model = (f.profiles || []).slice()
         profileBox.currentIndex = Math.max(0, (f.profiles || []).indexOf(f.active_profile))
         settingsError.text = ""
+        ppPre.text = f.pre_command || ""
+        ppPreArgs.text = f.pre_args || ""
+        ppPost.text = f.post_command || ""
+        ppPostArgs.text = f.post_args || ""
+        ppTimeout.value = f.pp_timeout || 60
+        ppShell.checked = !!f.run_in_shell
+        envModel.clear()
+        var rows = f.env_vars || []
+        for (var i = 0; i < rows.length; i++) {
+            envModel.append({"key": rows[i].key || "", "value": rows[i].value || ""})
+        }
     }
 
     function collect() {
@@ -94,7 +105,40 @@ Window {
             "menu_timeout": timeoutSpin.value,
             "custom_prefix": prefixField.text,
             "notes": notesArea.text,
-            "profiles": profiles
+            "profiles": profiles,
+            "env_vars": collectEnv(),
+            "pre_command": ppPre.text,
+            "pre_args": ppPreArgs.text,
+            "post_command": ppPost.text,
+            "post_args": ppPostArgs.text,
+            "pp_timeout": ppTimeout.value,
+            "run_in_shell": ppShell.checked
+        }
+    }
+
+    function collectEnv() {
+        var out = []
+        for (var i = 0; i < envModel.count; i++) {
+            var row = envModel.get(i)
+            out.push({"key": row.key, "value": row.value})
+        }
+        return out
+    }
+
+    function envRowCount() {
+        return envModel.count
+    }
+
+    function setEnvRow(i, key, value) {
+        if (i >= 0 && i < envModel.count) {
+            envModel.setProperty(i, "key", key)
+            envModel.setProperty(i, "value", value)
+        }
+    }
+
+    function removeEnvRow(i) {
+        if (i >= 0 && i < envModel.count) {
+            envModel.remove(i)
         }
     }
 
@@ -150,6 +194,12 @@ Window {
             Layout.fillWidth: true
             Controls.TabButton {
                 text: qsTr("General")
+            }
+            Controls.TabButton {
+                text: qsTr("Environment")
+            }
+            Controls.TabButton {
+                text: qsTr("Pre/Post Commands")
             }
             Controls.TabButton {
                 text: qsTr("Notes")
@@ -304,6 +354,124 @@ Window {
                 }
                 }
             }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Controls.Label {
+                    text: qsTr("Per-game environment variables:")
+                }
+                Controls.ScrollView {
+                    clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Item {
+                        width: parent.width
+                        height: envForm.implicitHeight
+                        ColumnLayout {
+                            id: envForm
+                            width: parent.width
+                            spacing: Kirigami.Units.smallSpacing
+                            ListModel {
+                                id: envModel
+                            }
+                            Repeater {
+                                model: envModel
+                                delegate: RowLayout {
+                                    width: envForm.width
+                                    Controls.TextField {
+                                        Layout.fillWidth: true
+                                        placeholderText: qsTr("Variable")
+                                        text: key
+                                        onTextChanged: envModel.setProperty(index, "key", text)
+                                    }
+                                    Controls.TextField {
+                                        Layout.fillWidth: true
+                                        placeholderText: qsTr("Value")
+                                        text: value
+                                        onTextChanged: envModel.setProperty(index, "value", text)
+                                    }
+                                    Controls.ToolButton {
+                                        icon.name: "list-remove"
+                                        display: Controls.AbstractButton.IconOnly
+                                        onClicked: envModel.remove(index)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Controls.Button {
+                    objectName: "envAdd"
+                    text: qsTr("Add variable")
+                    onClicked: envModel.append({"key": "", "value": ""})
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Controls.ScrollView {
+                    clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Item {
+                        width: parent.width
+                        height: ppForm.implicitHeight
+                        ColumnLayout {
+                            id: ppForm
+                            width: parent.width
+                            spacing: Kirigami.Units.smallSpacing
+                            Controls.Label {
+                                text: qsTr("Pre-launch command:")
+                            }
+                            Controls.TextField {
+                                id: ppPre
+                                objectName: "ppPre"
+                                Layout.fillWidth: true
+                            }
+                            Controls.Label {
+                                text: qsTr("Pre-launch arguments:")
+                            }
+                            Controls.TextField {
+                                id: ppPreArgs
+                                objectName: "ppPreArgs"
+                                Layout.fillWidth: true
+                            }
+                            Controls.Label {
+                                text: qsTr("Post-exit command:")
+                            }
+                            Controls.TextField {
+                                id: ppPost
+                                objectName: "ppPost"
+                                Layout.fillWidth: true
+                            }
+                            Controls.Label {
+                                text: qsTr("Post-exit arguments:")
+                            }
+                            Controls.TextField {
+                                id: ppPostArgs
+                                objectName: "ppPostArgs"
+                                Layout.fillWidth: true
+                            }
+                            RowLayout {
+                                Controls.Label {
+                                    text: qsTr("Timeout (seconds):")
+                                }
+                                Controls.SpinBox {
+                                    id: ppTimeout
+                                    objectName: "ppTimeout"
+                                    from: 1
+                                    to: 3600
+                                }
+                            }
+                            Controls.CheckBox {
+                                id: ppShell
+                                objectName: "ppShell"
+                                text: qsTr("Run in shell (bash -c)")
+                            }
+                        }
+                    }
+                }
             }
             ColumnLayout {
                 Layout.fillWidth: true

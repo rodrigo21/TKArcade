@@ -11,6 +11,9 @@ Breaking config changes are called out explicitly under `Changed`.
   window) with the centered capped scrolling form; the pageStack
   experiment is reverted (tiled wrong on a real display). Model
   load/save/profile slots and the profile-name prompt stay as landed.
+- Settings gains Environment and Pre/Post Commands tabs (env table
+  with add/remove, shell-quoted args fields); Bulk Edit and preset
+  picker stay for a follow-up.
 - Scan, history and preferences as modal windows (point 2, widgets
   parity): separate resizable `Window`s (`WindowModal`, transient on
   the main window) with `open()` keeping the old call sites; the scan

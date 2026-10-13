@@ -466,6 +466,36 @@ def test_settings_create_and_profiles(qgui_app, xdg_env):
     assert model.loadGame(created)["profiles"] == ["faster"]
 
 
+def test_settings_env_prepost_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.env.vars = {"FOO": "bar", "QUOTED": "a b"}
+    cfg.pre_post.pre_command = "/bin/echo"
+    cfg.pre_post.pre_args = ["a b", "c"]
+    cfg.pre_post.timeout = 30
+    cfg.pre_post.run_in_shell = True
+    C.save(cfg)
+    model = GameListModel()
+    fields = model.loadGame("local-doom")
+    assert {"key": "FOO", "value": "bar"} in fields["env_vars"]
+    assert fields["pre_args"] == "'a b' c"
+    assert fields["pp_timeout"] == 30
+    assert fields["run_in_shell"] is True
+    out = dict(fields)
+    out["env_vars"] = [{"key": "NEW", "value": "1"}, {"key": "", "value": "x"}]
+    out["pre_args"] = 'x "y z"'
+    out["pp_timeout"] = 9999
+    assert model.saveGame("local-doom", out) == "local-doom"
+    reloaded = C.load("local-doom")
+    assert reloaded.env.vars == {"NEW": "1"}
+    assert reloaded.pre_post.pre_args == ["x", "y z"]
+    assert reloaded.pre_post.timeout == 3600
+
+
 def _filtered(qgui_app, appids=("213", "local-doom")):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 
