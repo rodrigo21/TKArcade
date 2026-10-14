@@ -379,6 +379,10 @@ class GameListModel(QAbstractTableModel):
             "nl_provider": cfg.nightlight.provider
             if cfg.nightlight.provider in ("auto", "plasma", "gnome", "off")
             else "auto",
+            "fresh_prefix": bool(cfg.proton.fresh_prefix),
+            "winetricks_verbs": " ".join(cfg.proton.winetricks_verbs),
+            "proton_log": bool(cfg.debug.proton_log),
+            "winedebug": cfg.debug.winedebug,
         }
 
     @Slot(str, "QVariantMap", result=str)
@@ -464,6 +468,11 @@ class GameListModel(QAbstractTableModel):
         cfg.nightlight.provider = (
             nl_provider if nl_provider in ("auto", "plasma", "gnome", "off") else "auto"
         )
+        cfg.proton.fresh_prefix = bool(data.get("fresh_prefix", False))
+        cfg.proton.winetricks_verbs = _split_args(str(data.get("winetricks_verbs", "")))
+        cfg.debug.proton_log = bool(data.get("proton_log", False))
+        winedebug = str(data.get("winedebug", ""))
+        cfg.debug.winedebug = winedebug if winedebug in ("", "-all", "+err", "+warn,+err") else ""
         try:
             cfgmod.save(cfg)
         except Exception as e:
@@ -719,6 +728,14 @@ class GameListModel(QAbstractTableModel):
         """Per-game log file path (may not exist yet)."""
         try:
             return os.fspath(xdg.game_log_file(appid))
+        except Exception:
+            return ""
+
+    @Slot(str, result=str)
+    def protonLogDir(self, appid: str) -> str:
+        """Per-game Proton log dir path (may not exist yet)."""
+        try:
+            return os.fspath(launchermod.proton_log_dir(appid))
         except Exception:
             return ""
 

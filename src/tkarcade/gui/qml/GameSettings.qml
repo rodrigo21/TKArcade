@@ -28,6 +28,7 @@ Window {
     property var dmodeModel: [{"text": "", "data": ""}]
     property string dmodeCurrent: ""
     property string pendingArg: ""
+    property string ptLogDir: ""
     property var page: null
 
     function blankFields() {
@@ -119,6 +120,11 @@ Window {
         nlDisable.checked = !!f.nl_disable
         nlProv.currentIndex = {"auto": 0, "plasma": 1, "gnome": 2, "off": 3}[f.nl_provider] ?? 0
         logField.text = editAppid !== "" ? gameModel.gameLogFile(editAppid) : ""
+        ptFresh.checked = !!f.fresh_prefix
+        ptVerbs.text = f.winetricks_verbs || ""
+        ptLog.checked = !!f.proton_log
+        ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
+        ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
         envModel.clear()
         var rows = f.env_vars || []
         for (var i = 0; i < rows.length; i++) {
@@ -165,7 +171,11 @@ Window {
             "notify_on_launch": ntLaunch.checked,
             "inhibit_idle": seInhibit.checked,
             "nl_disable": nlDisable.checked,
-            "nl_provider": ["auto", "plasma", "gnome", "off"][nlProv.currentIndex] || "auto"
+            "nl_provider": ["auto", "plasma", "gnome", "off"][nlProv.currentIndex] || "auto",
+            "fresh_prefix": ptFresh.checked,
+            "winetricks_verbs": ptVerbs.text,
+            "proton_log": ptLog.checked,
+            "winedebug": ["", "-all", "+err", "+warn,+err"][ptDebug.currentIndex] || ""
         }
     }
 
@@ -397,6 +407,10 @@ Window {
             }
             Controls.TabButton {
                 text: qsTr("System")
+            }
+            Controls.TabButton {
+                text: qsTr("Wine / Proton")
+                enabled: (fields.is_steam || false) && editAppid !== ""
             }
             Controls.TabButton {
                 text: qsTr("Notes")
@@ -1039,6 +1053,75 @@ Window {
                                         model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("Disabled")]
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Controls.ScrollView {
+                    clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Item {
+                        width: parent.width
+                        height: wineForm.implicitHeight
+                        ColumnLayout {
+                            id: wineForm
+                            objectName: "wineForm"
+                            width: parent.width
+                            spacing: Kirigami.Units.smallSpacing
+                            enabled: (fields.is_steam || false) && editAppid !== ""
+                            Controls.CheckBox {
+                                id: ptFresh
+                                objectName: "ptFresh"
+                                text: qsTr("Delete prefix before launch (fresh start)")
+                                Controls.ToolTip.text: qsTr("Deletes the compatdata prefix so Steam recreates it. WIPES saves inside the prefix — rely on cloud or Ludusavi backups!")
+                                Controls.ToolTip.visible: hovered
+                            }
+                            Controls.Label {
+                                text: qsTr("Winetricks Verbs:")
+                            }
+                            Controls.TextField {
+                                id: ptVerbs
+                                objectName: "ptVerbs"
+                                placeholderText: qsTr("dotnet48 vcrun2022 (space-separated)")
+                                Controls.ToolTip.text: qsTr("Winetricks verbs installed via protontricks before launch.")
+                                Controls.ToolTip.visible: hovered
+                                Layout.fillWidth: true
+                            }
+                            RowLayout {
+                                visible: editAppid !== ""
+                                Layout.fillWidth: true
+                                Controls.CheckBox {
+                                    id: ptLog
+                                    objectName: "ptLog"
+                                    text: qsTr("Capture Proton log (disk-heavy)")
+                                    Controls.ToolTip.text: qsTr("Sets PROTON_LOG=1 with a per-game log dir (Proton only).")
+                                    Controls.ToolTip.visible: hovered
+                                    Layout.fillWidth: true
+                                }
+                                Controls.Button {
+                                    text: qsTr("Open")
+                                    onClicked: {
+                                        if (!gameModel.openPath(ptLogDir)) {
+                                            settingsError.text = qsTr("Could not open the Proton log folder.")
+                                        }
+                                    }
+                                }
+                            }
+                            Controls.Label {
+                                text: qsTr("Wine Debug:")
+                            }
+                            Controls.ComboBox {
+                                id: ptDebug
+                                objectName: "ptDebug"
+                                Layout.fillWidth: true
+                                model: [qsTr("Off"), qsTr("Quiet (-all)"), qsTr("Errors (+err)"), qsTr("Warnings (+warn,+err)")]
+                                Controls.ToolTip.text: qsTr("Sets WINEDEBUG for Wine/Proton output.")
+                                Controls.ToolTip.visible: hovered
                             }
                         }
                     }

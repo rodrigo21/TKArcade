@@ -2578,6 +2578,48 @@ def test_settings_ludusavi_system_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_wine_flow(qgui_app, xdg_env):
+    """Wine tab edits a Steam game and stays off for local games."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "99"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("99")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 7)
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "wineForm").property("enabled") is True
+    swin.findChild(QQuickItem, "ptFresh").setProperty("checked", True)
+    swin.findChild(QQuickItem, "ptVerbs").setProperty("text", "dotnet48")
+    swin.findChild(QQuickItem, "ptDebug").setProperty("currentIndex", 2)
+    dlg.save()
+    qgui_app.processEvents()
+    reloaded = C.load("99")
+    assert reloaded.proton.fresh_prefix is True
+    assert reloaded.proton.winetricks_verbs == ["dotnet48"]
+    assert reloaded.debug.winedebug == "+err"
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    page.openGameSettings("local-doom")
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "wineForm").property("enabled") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib

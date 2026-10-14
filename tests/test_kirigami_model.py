@@ -591,6 +591,32 @@ def test_settings_ludusavi_system_roundtrip(qgui_app, xdg_env):
     assert reloaded.nightlight.provider == "auto"
 
 
+def test_settings_wine_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "99"
+    cfg.proton.fresh_prefix = True
+    cfg.proton.winetricks_verbs = ["dotnet48"]
+    cfg.debug.proton_log = True
+    cfg.debug.winedebug = "+err"
+    C.save(cfg)
+    model = GameListModel()
+    fields = model.loadGame("99")
+    assert fields["fresh_prefix"] is True
+    assert fields["winetricks_verbs"] == "dotnet48"
+    assert fields["proton_log"] is True
+    assert fields["winedebug"] == "+err"
+    assert model.protonLogDir("99").endswith("99/proton")
+    out = dict(fields)
+    out["winedebug"] = "bogus"
+    out["winetricks_verbs"] = "vcrun2022 dotnet48"
+    assert model.saveGame("99", out) == "99"
+    reloaded = C.load("99")
+    assert reloaded.debug.winedebug == ""
+    assert reloaded.proton.winetricks_verbs == ["vcrun2022", "dotnet48"]
+
+
 def test_settings_coverage_reports(qgui_app, xdg_env):
     import threading
 

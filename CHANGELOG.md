@@ -25,6 +25,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Settings Ludusavi tab (enable/restore/backup/override/prompts +
   threaded coverage check) and System tab (Notifications, Idle
   Suspend, Night Light groups); General gains the log file row.
+- Settings Wine / Proton tab (fresh prefix, winetricks verbs, Proton
+  log + Open, Wine Debug combo; off for native local games).
 - File Export/Import (step 4): portal save picker, Export/Import menu
   entries, one modal Import window (tarball / STL checklist /
   predecessor copy). Lutris/Playnite/Faugus formats stay for the
