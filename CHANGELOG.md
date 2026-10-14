@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Toolbar icon fallback: the columns button (and later buttons) pick
+  the first name the theme ships (`iconName` slot) — `view-column`
+  exists only in some themes, `table` in others.
 - Per-game settings as a modal window (point 1, widgets parity): a
   separate resizable `Window` (`WindowModal`, transient on the main
   window) with the centered capped scrolling form; the pageStack

@@ -568,6 +568,21 @@ def test_settings_steam_create(qgui_app, xdg_env):
     assert C.load("99").general.game_type == "proton"
 
 
+def test_icon_name_first_available(qgui_app, xdg_env, monkeypatch):
+    from PySide6.QtGui import QIcon
+
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    monkeypatch.setattr(QIcon, "hasThemeIcon", lambda name: name == "table")
+    assert model.iconName(["view-column", "table"]) == "table"
+    monkeypatch.setattr(QIcon, "hasThemeIcon", lambda name: True)
+    assert model.iconName(["view-column", "table"]) == "view-column"
+    monkeypatch.setattr(QIcon, "hasThemeIcon", lambda name: False)
+    assert model.iconName(["view-column", "table"]) == "view-column"
+    assert model.iconName([]) == ""
+
+
 def test_settings_ludusavi_system_roundtrip(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

@@ -799,6 +799,22 @@ class GameListModel(QAbstractTableModel):
             status, detail = "unavailable", str(e)
         self.coverageFinished.emit(status, detail)
 
+    @Slot(list, result=str)
+    def iconName(self, candidates) -> str:
+        """First candidate the icon theme ships (theme-relative icons)."""
+        from PySide6.QtGui import QIcon
+
+        try:
+            for name in candidates or []:
+                if name and QIcon.hasThemeIcon(str(name)):
+                    return str(name)
+        except Exception:
+            pass
+        try:
+            return str((candidates or [""])[0])
+        except Exception:
+            return ""
+
     @Slot(str, result=bool)
     def openProtonDB(self, appid: str) -> bool:
         """Open the ProtonDB page for a Steam game in the browser."""
