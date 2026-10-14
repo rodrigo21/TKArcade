@@ -848,13 +848,13 @@ Kirigami.Page {
                 }
                 Controls.ToolButton {
                     objectName: "columnsButton"
-                    icon.name: gameModel.iconName(["view-column", "table"])
+                    icon.name: gameModel.iconName(["view-column", "view-split-left-right", "configure"])
                     display: Controls.AbstractButton.IconOnly
                     onClicked: columnsDialog.open()
                 }
                 Controls.ToolButton {
                     objectName: "hamburgerButton"
-                    icon.name: "overflow-menu"
+                    icon.name: gameModel.iconName(["overflow-menu", "application-menu"])
                     // Same release-dismiss race as above.
                     onClicked: Qt.callLater(hamburgerMenu.popup)
                     Controls.Menu {
@@ -1508,7 +1508,7 @@ Kirigami.Page {
                             Kirigami.Icon {
                                 anchors.centerIn: parent
                                 visible: (model?.gameIcon ?? "") === ""
-                                source: "input-gamepad"
+                                source: gameModel.iconName(["input-gamepad", "applications-games"])
                                 width: 20
                                 height: 20
                             }

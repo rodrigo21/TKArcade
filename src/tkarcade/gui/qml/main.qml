@@ -71,7 +71,9 @@ Kirigami.ApplicationWindow {
         title: qsTr("TKArcade")
         showHeaderWhenCollapsed: true
         // Gamepad handle: the theme draws application-menu as a gear.
-        handleClosedIcon.name: "input-gamepad"
+        // Fallback chain: input-gamepad misses oxygen (applications-games
+        // covers it there).
+        handleClosedIcon.name: gameModel.iconName(["input-gamepad", "applications-games"])
         // No built-in close row: the header gamepad toggles collapse.
         collapseButtonVisible: false
         // Plain Item (not a ToolBar): with a toolbar header Kirigami
@@ -101,7 +103,7 @@ Kirigami.ApplicationWindow {
                     objectName: "drawerHeaderButton"
                     id: drawerHeaderButton
                     Layout.alignment: Qt.AlignVCenter
-                    icon.name: "input-gamepad"
+                    icon.name: gameModel.iconName(["input-gamepad", "applications-games"])
                     enabled: sourceDrawer.collapsible
                     Controls.ToolTip.text: sourceDrawer.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
                     Controls.ToolTip.visible: hovered

@@ -2713,6 +2713,27 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
 
 
+def test_hicolor_icon_backups_cover_gaps():
+    """hicolor ships our own art for names missing in major themes."""
+    import pathlib
+    import re
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    root = pathlib.Path(kapp.__file__).parent.parent.parent.parent
+    actions = root / "packaging" / "icons" / "hicolor" / "scalable" / "actions"
+    for name in ("view-column", "overflow-menu"):
+        assert (actions / f"{name}.svg").is_file(), name
+    qml = root / "src" / "tkarcade" / "gui" / "qml"
+    chains = 0
+    for path in qml.glob("*.qml"):
+        for match in re.finditer(r"iconName\(\[([^\]]*)\]\)", path.read_text()):
+            names = re.findall(r'"([^"]+)"', match.group(1))
+            assert len(names) >= 2, (path.name, match.group(0))
+            chains += 1
+    assert chains >= 3
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib

@@ -9,6 +9,10 @@ Breaking config changes are called out explicitly under `Changed`.
 - Toolbar icon fallback: the columns button (and later buttons) pick
   the first name the theme ships (`iconName` slot) — `view-column`
   exists only in some themes, `table` in others.
+- Theme-proof icons: runtime chains everywhere (`view-column` →
+  `view-split-left-right` → `configure`; gamepad → `applications-games`;
+  hamburger → `application-menu`) plus our own hicolor fallbacks for
+  `view-column`/`overflow-menu` shipped by the package.
 - Per-game settings as a modal window (point 1, widgets parity): a
   separate resizable `Window` (`WindowModal`, transient on the main
   window) with the centered capped scrolling form; the pageStack

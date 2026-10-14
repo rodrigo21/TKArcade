@@ -2,7 +2,7 @@
 
 _basename=tkarcade
 pkgname=tkarcade-git
-pkgver=1.1.1.r7.gfc0f12e
+pkgver=0.0.0.r356.g197de7a
 pkgrel=1
 pkgdesc='Minimal Steam launch wrapper'
 arch=('any')
@@ -49,5 +49,8 @@ package() {
 
     install -Dm644 packaging/tkarcade.desktop "$pkgdir/usr/share/applications/tkarcade.desktop"
     install -Dm644 src/tkarcade/icons/tkarcade.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tkarcade.svg"
+    for icon in packaging/icons/hicolor/scalable/actions/*.svg; do
+        install -Dm644 "$icon" "$pkgdir/usr/share/icons/hicolor/scalable/actions/$(basename "$icon")"
+    done
     install -Dm644 packaging/man/tkarcade.1 "$pkgdir/usr/share/man/man1/tkarcade.1"
 }
