@@ -411,6 +411,48 @@ Kirigami.Page {
         removeDialog.open()
     }
 
+    property string cloneSrc: ""
+    property var cloneRows: []
+    property string cloneDest: ""
+    property var resetRows: []
+
+    function openCloneDialog(gid) {
+        cloneSrc = gid
+        var rows = gameModel.cloneTargets(gid)
+        var fresh = []
+        for (var i = 0; i < rows.length; i++) {
+            fresh.push(rows[i][1] + " [" + rows[i][0] + "]")
+        }
+        cloneRows = fresh
+        cloneDialog.open()
+    }
+
+    function openResetDialog() {
+        if (selectedIds.length === 0) {
+            gamesPage.notify(qsTr("Select games first."))
+            return
+        }
+        resetRows = selectedIds.slice()
+        resetDialog.open()
+    }
+
+    function acceptClone() {
+        var dest = cloneBox.editText.trim()
+        if (dest === "") {
+            return
+        }
+        var msg = gameModel.cloneGameTo(cloneSrc, dest, false)
+        if (msg === "OVERWRITE") {
+            cloneDest = dest
+            overwriteDialog.open()
+            return
+        }
+        if (msg !== "") {
+            gamesPage.notify(msg)
+        }
+        cloneDialog.close()
+    }
+
     property string validateGid: ""
     property var validateIssues: []
 
@@ -1143,6 +1185,11 @@ Kirigami.Page {
             text: qsTr("Clear History")
             onTriggered: historyDialog.open()
         }
+        Controls.MenuItem {
+            visible: gamesPage.selectedIds.length <= 1
+            text: qsTr("Clone Settings To...")
+            onTriggered: gamesPage.openCloneDialog(gamesPage.menuGid)
+        }
         Controls.MenuSeparator {
         }
         Controls.MenuItem {
@@ -1151,6 +1198,10 @@ Kirigami.Page {
                 ? qsTr("Remove Game")
                 : qsTr("Remove %1 Games").arg(gamesPage.selectedIds.length)
             onTriggered: gamesPage.openRemoveDialog()
+        }
+        Controls.MenuItem {
+            text: qsTr("Reset to Global Defaults")
+            onTriggered: gamesPage.openResetDialog()
         }
     }
 
@@ -1970,6 +2021,93 @@ Kirigami.Page {
                 text: qsTr("Close")
                 icon.name: "dialog-close"
                 onTriggered: validateDialog.close()
+            }
+        ]
+    }
+
+    KirigamiDialogs.PromptDialog {
+        id: cloneDialog
+        objectName: "cloneDialog"
+        title: qsTr("Clone Settings")
+        dialogType: KirigamiDialogs.PromptDialog.Information
+        ColumnLayout {
+            Controls.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: qsTr("Clone into game:")
+            }
+            Controls.ComboBox {
+                id: cloneBox
+                objectName: "cloneBox"
+                editable: true
+                Layout.fillWidth: true
+                model: gamesPage.cloneRows
+            }
+        }
+        customFooterActions: [
+            Kirigami.Action {
+                objectName: "cloneConfirm"
+                text: qsTr("Clone")
+                icon.name: "document-edit"
+                onTriggered: gamesPage.acceptClone()
+            },
+            Kirigami.Action {
+                text: qsTr("Cancel")
+                icon.name: "dialog-cancel"
+                onTriggered: cloneDialog.close()
+            }
+        ]
+    }
+
+    KirigamiDialogs.PromptDialog {
+        id: overwriteDialog
+        objectName: "overwriteDialog"
+        title: qsTr("Clone Settings")
+        dialogType: KirigamiDialogs.PromptDialog.Warning
+        subtitle: qsTr("Overwrite the saved settings for %1?").arg(gamesPage.cloneDest)
+        customFooterActions: [
+            Kirigami.Action {
+                objectName: "overwriteConfirm"
+                text: qsTr("Overwrite")
+                icon.name: "edit-delete"
+                onTriggered: {
+                    var msg = gameModel.cloneGameTo(gamesPage.cloneSrc, gamesPage.cloneDest, true)
+                    if (msg !== "") {
+                        gamesPage.notify(msg)
+                    }
+                    overwriteDialog.close()
+                    cloneDialog.close()
+                }
+            },
+            Kirigami.Action {
+                text: qsTr("Cancel")
+                icon.name: "dialog-cancel"
+                onTriggered: overwriteDialog.close()
+            }
+        ]
+    }
+
+    KirigamiDialogs.PromptDialog {
+        id: resetDialog
+        objectName: "resetDialog"
+        title: qsTr("Reset to Global Defaults")
+        dialogType: KirigamiDialogs.PromptDialog.Warning
+        subtitle: qsTr("Reset %1 game(s) to the Global Defaults template now?\nThis overwrites their saved configs (profiles are kept).").arg(
+            gamesPage.resetRows.length)
+        customFooterActions: [
+            Kirigami.Action {
+                objectName: "resetConfirm"
+                text: qsTr("Reset")
+                icon.name: "edit-delete"
+                onTriggered: {
+                    gamesPage.notify(gameModel.resetGames(gamesPage.resetRows))
+                    resetDialog.close()
+                }
+            },
+            Kirigami.Action {
+                text: qsTr("Cancel")
+                icon.name: "dialog-cancel"
+                onTriggered: resetDialog.close()
             }
         ]
     }

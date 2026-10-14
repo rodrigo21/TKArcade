@@ -38,6 +38,8 @@ Breaking config changes are called out explicitly under `Changed`.
   window (same tabs over the template); tray gains its Defaults entry.
 - AddSource chooser (Steam game picker opens settings for the AppID,
   Local opens blank); save creates missing Steam configs.
+- Clone Settings To... (game picker + overwrite confirm) and Reset to
+  Global Defaults in bulk (confirm), in the game menu.
 - File Export/Import (step 4): portal save picker, Export/Import menu
   entries, one modal Import window (tarball / STL checklist /
   predecessor copy). Lutris/Playnite/Faugus formats stay for the

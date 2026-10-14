@@ -2734,6 +2734,56 @@ def test_hicolor_icon_backups_cover_gaps():
     assert chains >= 3
 
 
+def test_clone_reset_menu_flows(qgui_app, xdg_env):
+    """Clone duplicates a game (with overwrite); Reset restores defaults."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid in ("local-doom", "local-quake"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        C.save(cfg)
+    prof = C.profiles_dir("local-doom")
+    prof.mkdir(parents=True, exist_ok=True)
+    (prof / "fast.toml").write_text("[general]\n")
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.select("local-doom")
+    page.openCloneDialog("local-doom")
+    assert win.findChild(QObject, "cloneDialog").property("visible") is True
+    assert page.property("cloneRows").toVariant() == ["local-quake [local-quake]"]
+    box = win.findChild(QQuickItem, "cloneBox")
+    box.setProperty("editText", "local-new")
+    _fire(win.findChild(QObject, "cloneConfirm"))
+    qgui_app.processEvents()
+    assert C.game_file("local-new").is_file()
+    assert (C.profiles_dir("local-new") / "fast.toml").is_file()
+    page.openCloneDialog("local-doom")
+    box.setProperty("editText", "local-quake")
+    _fire(win.findChild(QObject, "cloneConfirm"))
+    qgui_app.processEvents()
+    assert win.findChild(QObject, "overwriteDialog").property("visible") is True
+    _fire(win.findChild(QObject, "overwriteConfirm"))
+    qgui_app.processEvents()
+    assert C.load("local-quake").general.name == "local-doom"
+    page.select("local-doom")
+    page.toggleSelect("local-quake")
+    page.openResetDialog()
+    assert win.findChild(QObject, "resetDialog").property("visible") is True
+    _fire(win.findChild(QObject, "resetConfirm"))
+    qgui_app.processEvents()
+    assert C.load("local-doom").general.name == ""
+    assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib

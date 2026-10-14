@@ -523,6 +523,55 @@ class GameListModel(QAbstractTableModel):
             return False
         return True
 
+    @Slot(str, result=list)
+    def cloneTargets(self, exclude: str) -> list:
+        """Configured games except one: [[appid, name]], by name."""
+        try:
+            names = {a: n for a, n in steammod.list_games()}
+            names.update(steammod.local_names())
+            rows = [[a, names.get(a, a)] for a in sorted(set(cfgmod.list_appids()) - {exclude})]
+        except Exception:
+            return []
+        return sorted(rows, key=lambda r: r[1].lower())
+
+    @Slot(str, str, bool, result=str)
+    def cloneGameTo(self, src: str, dest: str, force: bool) -> str:
+        """Clone live config plus profiles; '' on success, else a message."""
+        import re
+
+        m = re.search(r"\[(.+)\]\s*$", dest or "")
+        cand = (m.group(1) if m else (dest or "")).strip()
+        if not cand or xdg.safe_stem(cand) != cand:
+            return f"Invalid game ID: {dest}"
+        if cand == src:
+            return "Source and target are the same."
+        if cfgmod.game_file(cand).is_file() and not force:
+            return "OVERWRITE"
+        try:
+            cfgmod.clone_game(src, cand)
+        except (OSError, ValueError) as e:
+            return str(e)
+        self.refresh()
+        return f"Cloned {src} to {cand}."
+
+    @Slot(list, result=str)
+    def resetGames(self, appids) -> str:
+        """Reset live configs to the Global Defaults template (keeps profiles)."""
+        ids = [str(a) for a in appids or []]
+        if not ids:
+            return "Select games first."
+        count = 0
+        for appid in ids:
+            try:
+                cfg = cfgmod.load_defaults()
+                cfg.general.appid = appid
+                cfgmod.save(cfg)
+                count += 1
+            except Exception as e:
+                log.warning("resetGames(%s) failed: %s", appid, e)
+        self.refresh()
+        return f"Reset {count} game(s) to the Global Defaults template."
+
     @Slot(str, str, result=bool)
     def loadGameProfile(self, appid: str, name: str) -> bool:
         """Switch the live config to a saved profile snapshot."""

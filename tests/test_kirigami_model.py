@@ -559,6 +559,33 @@ def test_settings_display_roundtrip(qgui_app, xdg_env):
     assert model.createMangohudConfig("", "minimal") == ""
 
 
+def test_clone_reset_games(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    for appid in ("local-doom", "local-quake"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        C.save(cfg)
+    prof = C.profiles_dir("local-doom")
+    prof.mkdir(parents=True, exist_ok=True)
+    (prof / "fast.toml").write_text("[general]\n")
+    model = GameListModel()
+    targets = model.cloneTargets("local-doom")
+    assert targets == [["local-quake", "local-quake"]]
+    assert model.cloneGameTo("local-doom", "???", False) == "Invalid game ID: ???"
+    assert model.cloneGameTo("local-doom", "local-doom", False) == "Source and target are the same."
+    assert model.cloneGameTo("local-doom", "local-quake", False) == "OVERWRITE"
+    assert model.cloneGameTo("local-doom", "local-new", False) == "Cloned local-doom to local-new."
+    assert C.game_file("local-new").is_file()
+    assert (C.profiles_dir("local-new") / "fast.toml").is_file()
+    assert model.cloneGameTo("local-doom", "local-quake", True).startswith("Cloned")
+    assert model.resetGames([]) == "Select games first."
+    assert model.resetGames(["local-doom"]) == "Reset 1 game(s) to the Global Defaults template."
+    assert C.load("local-doom").general.name == ""
+    assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
+
+
 def test_settings_steam_create(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 
