@@ -322,7 +322,7 @@ class GameListModel(QAbstractTableModel):
         self.browseFinished.emit(path)
 
     @staticmethod
-    def _game_to_map(cfg, appid: str) -> dict:
+    def _game_to_map(cfg, appid: str, warning: str = "") -> dict:
         """Settings form fields for a config (games, factory, defaults)."""
         try:
             profiles = cfgmod.list_profiles(appid)
@@ -331,6 +331,7 @@ class GameListModel(QAbstractTableModel):
         g = cfg.general
         return {
             "appid": g.appid,
+            "load_warning": warning or "",
             "name": g.name,
             "custom_executable": g.custom_executable,
             "game_type": g.game_type if g.game_type in ("auto", "proton", "native") else "auto",
@@ -384,11 +385,11 @@ class GameListModel(QAbstractTableModel):
     def loadGame(self, appid: str) -> dict:
         """Settings form fields plus profile names for one game."""
         try:
-            cfg = cfgmod.load(appid)
+            cfg, warning = cfgmod.load_with_warning(appid)
         except Exception as e:  # unknown id: empty form, never a traceback
             log.warning("loadGame(%s) failed: %s", appid, e)
             return {}
-        return self._game_to_map(cfg, appid)
+        return self._game_to_map(cfg, appid, warning or "")
 
     @Slot(result="QVariantMap")
     def loadDefaults(self) -> dict:
@@ -746,6 +747,14 @@ class GameListModel(QAbstractTableModel):
             log.warning("applyEnvPreset failed: %s", e)
             return {"rows": clean, "added": 0}
         return {"rows": [{"key": k, "value": v} for k, v in vars.items()], "added": len(added)}
+
+    @Slot(str, result=bool)
+    def toolAvailable(self, binary: str) -> bool:
+        """Whether a helper binary exists on PATH (disables its toggle)."""
+        try:
+            return shutil.which(binary or "") is not None
+        except Exception:
+            return False
 
     @Slot(str, result=str)
     def exportTarball(self, path: str) -> str:

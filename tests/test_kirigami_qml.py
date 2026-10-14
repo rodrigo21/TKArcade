@@ -406,11 +406,22 @@ def _fire(item):
 
 def _load_main(qgui_app, engine_out=None):
     from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtQuick import QQuickItem, QQuickWindow
 
     from tkarcade.gui.kirigami_app import qml_url
     from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    # Stragglers from previous tests (separate top-level windows outlive
+    # their main window by a few event rounds): close them so title
+    # lookups below never match a foreign window.
+    for w in QGuiApplication.topLevelWindows():
+        try:
+            w.close()
+        except Exception:
+            pass
+    qgui_app.processEvents()
 
     engine = QQmlApplicationEngine()
     warnings = []
@@ -2832,6 +2843,38 @@ def test_settings_env_bulk_preset_flow(qgui_app, xdg_env):
     env = C.load("local-doom").env.vars
     assert env["A"] == "1"
     assert len(env) > 2
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_warning_and_tool_states(qgui_app, xdg_env, monkeypatch):
+    """Load warnings surface; missing tools disable their toggles."""
+    import shutil
+
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    C.game_file("local-doom").write_text("general = [broken\n")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    assert "invalid TOML" in swin.findChild(QQuickItem, "settingsError").property("text")
+    for name in ("perfFeral", "perfCachy", "gsEnable", "mhEnable", "luEnable"):
+        box = swin.findChild(QQuickItem, name)
+        assert box.property("enabled") is False
+        assert box.property("checked") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

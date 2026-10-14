@@ -141,6 +141,23 @@ Window {
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
         setEnvRows(f.env_vars || [])
+        applyToolCheck(perfFeral, "gamemoderun")
+        applyToolCheck(perfCachy, "game-performance")
+        applyToolCheck(gsEnable, "gamescope")
+        applyToolCheck(mhEnable, "mangohud")
+        applyToolCheck(luEnable, "ludusavi")
+        if (f.load_warning) {
+            settingsError.text = f.load_warning
+        }
+    }
+
+    function applyToolCheck(box, binary) {
+        if (gameModel.toolAvailable(binary)) {
+            box.enabled = true
+            return
+        }
+        box.checked = false
+        box.enabled = false
     }
 
     function collect() {

@@ -42,6 +42,8 @@ Breaking config changes are called out explicitly under `Changed`.
   Global Defaults in bulk (confirm), in the game menu.
 - Env Bulk Edit (KEY=value text) and Add Preset (chooser with driver/
   Proton tags, mismatch confirm, merge-missing).
+- Settings show config load warnings and disable tool toggles whose
+  binaries are missing (gamemoderun, gamescope, mangohud, ludusavi).
 - File Export/Import (step 4): portal save picker, Export/Import menu
   entries, one modal Import window (tarball / STL checklist /
   predecessor copy). Lutris/Playnite/Faugus formats stay for the

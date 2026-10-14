@@ -559,6 +559,28 @@ def test_settings_display_roundtrip(qgui_app, xdg_env):
     assert model.createMangohudConfig("", "minimal") == ""
 
 
+def test_settings_load_warning(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    C.save(cfg)
+    assert GameListModel().loadGame("local-doom")["load_warning"] == ""
+    C.game_file("local-doom").write_text("general = [broken\n")
+    assert "invalid TOML" in GameListModel().loadGame("local-doom")["load_warning"]
+
+
+def test_settings_tool_availability(qgui_app, xdg_env, monkeypatch):
+    import shutil
+
+    from tkarcade.gui.model import GameListModel
+
+    assert GameListModel().toolAvailable("sh") is True
+    assert GameListModel().toolAvailable("tkarcade-no-such-tool-xyz") is False
+    monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
+    assert GameListModel().toolAvailable("sh") is False
+
+
 def test_settings_env_bulk_preset(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

@@ -84,6 +84,9 @@ rewrite pushed history or tags.
   `Layout.fillWidth/Height`, else it collapses to implicit size.
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
   transition before synthetic clicks, or clicks land mid-slide.
+- Separate modal windows outlive their test's main window by event
+  rounds: `_load_main` closes straggler top-levels so title lookups
+  (`topLevelWindows()`) never match a foreign window.
 - Content windows (settings and friends) are separate modal `Window`s
   (`WindowModal`, transient on the main window): widgets parity,
   resizable, no PageRow tiling surprises. Tests drive them through
