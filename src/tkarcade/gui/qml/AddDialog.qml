@@ -1,0 +1,99 @@
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls as Controls
+import QtQuick.Window
+import org.kde.kirigami as Kirigami
+
+// Add game entry point (widgets AddSourceDialog parity): pick the
+// source, then run its flow — Steam picker opens settings for the
+// AppID, Local opens blank settings. Modal window like the rest.
+Window {
+    id: addGameDialog
+    objectName: "addGameDialog"
+    title: qsTr("Add Game")
+    modality: Qt.WindowModal
+    minimumWidth: Kirigami.Units.gridUnit * 26
+    minimumHeight: Kirigami.Units.gridUnit * 14
+    width: Kirigami.Units.gridUnit * 30
+    height: Kirigami.Units.gridUnit * 18
+    visible: false
+    color: Kirigami.Theme.backgroundColor
+
+    property var page: null
+    property var steamRows: []
+
+    function open() {
+        transientParent = Controls.ApplicationWindow.window
+        sourceBox.currentIndex = 0
+        loadSteam()
+        visible = true
+    }
+
+    function loadSteam() {
+        var rows = gameModel.scanCandidates()
+        var fresh = []
+        for (var i = 0; i < rows.length; i++) {
+            fresh.push({"text": rows[i][1] + " [" + rows[i][0] + "]", "data": rows[i][0]})
+        }
+        steamRows = fresh
+        steamBox.model = fresh
+        steamBox.currentIndex = 0
+    }
+
+    function accept() {
+        if (sourceBox.currentIndex === 0) {
+            if (steamRows.length === 0) {
+                if (page !== null) {
+                    page.notify(qsTr("Every Steam game is already configured."))
+                }
+                addGameDialog.close()
+                return
+            }
+            var item = steamBox.model[steamBox.currentIndex]
+            var appid = item !== undefined ? item.data : ""
+            addGameDialog.close()
+            if (appid !== "" && page !== null) {
+                page.openGameSettings(appid)
+            }
+            return
+        }
+        addGameDialog.close()
+        if (page !== null) {
+            page.openNewGameSettings()
+        }
+    }
+
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: Kirigami.Units.largeSpacing
+        spacing: Kirigami.Units.smallSpacing
+        Controls.Label {
+            text: qsTr("What kind of game is this?")
+        }
+        Controls.ComboBox {
+            id: sourceBox
+            objectName: "addSource"
+            Layout.fillWidth: true
+            model: [qsTr("Steam game"), qsTr("Local Linux game")]
+        }
+        Controls.ComboBox {
+            id: steamBox
+            objectName: "addSteamGame"
+            visible: sourceBox.currentIndex === 0
+            Layout.fillWidth: true
+            textRole: "text"
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "addConfirm"
+                text: qsTr("OK")
+                onClicked: addGameDialog.accept()
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: addGameDialog.close()
+            }
+        }
+    }
+}

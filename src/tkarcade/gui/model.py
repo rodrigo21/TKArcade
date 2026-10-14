@@ -321,14 +321,9 @@ class GameListModel(QAbstractTableModel):
             path = ""
         self.browseFinished.emit(path)
 
-    @Slot(str, result="QVariantMap")
-    def loadGame(self, appid: str) -> dict:
-        """General-section fields plus profile names for the settings UI."""
-        try:
-            cfg = cfgmod.load(appid)
-        except Exception as e:  # unknown id: empty form, never a traceback
-            log.warning("loadGame(%s) failed: %s", appid, e)
-            return {}
+    @staticmethod
+    def _game_to_map(cfg, appid: str) -> dict:
+        """Settings form fields for a config (games, factory, defaults)."""
         try:
             profiles = cfgmod.list_profiles(appid)
         except Exception:
@@ -385,6 +380,32 @@ class GameListModel(QAbstractTableModel):
             "winedebug": cfg.debug.winedebug,
         }
 
+    @Slot(str, result="QVariantMap")
+    def loadGame(self, appid: str) -> dict:
+        """Settings form fields plus profile names for one game."""
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception as e:  # unknown id: empty form, never a traceback
+            log.warning("loadGame(%s) failed: %s", appid, e)
+            return {}
+        return self._game_to_map(cfg, appid)
+
+    @Slot(result="QVariantMap")
+    def loadDefaults(self) -> dict:
+        """Global defaults template for the settings UI."""
+        try:
+            return self._game_to_map(cfgmod.load_defaults(), "")
+        except Exception as e:
+            log.warning("loadDefaults failed: %s", e)
+            return {}
+
+    @Slot(str, result="QVariantMap")
+    def factoryGame(self, appid: str) -> dict:
+        """Fresh built-in fields for Reset (unsaved until Save)."""
+        cfg = cfgmod.GameConfig()
+        cfg.general.appid = appid
+        return self._game_to_map(cfg, appid)
+
     @Slot(str, "QVariantMap", result=str)
     def saveGame(self, appid: str, values) -> str:
         """Persist the General-section fields. Returns the id, or ''."""
@@ -402,15 +423,31 @@ class GameListModel(QAbstractTableModel):
             cfg.general.name = str(data.get("name", "")).strip()
         else:
             if not cfgmod.game_file(appid).is_file():
-                log.warning("saveGame(%s) rejected: unknown game", appid)
-                return ""
-            try:
-                cfg = cfgmod.load(appid)
-            except Exception as e:
-                log.warning("saveGame(%s) failed: %s", appid, e)
-                return ""
+                if not steammod.is_steam_id(appid):
+                    log.warning("saveGame(%s) rejected: unknown game", appid)
+                    return ""
+                cfg = cfgmod.load_defaults()
+                cfg.general.appid = appid
+            else:
+                try:
+                    cfg = cfgmod.load(appid)
+                except Exception as e:
+                    log.warning("saveGame(%s) failed: %s", appid, e)
+                    return ""
             if not steammod.is_steam_id(appid):
                 cfg.general.name = str(data.get("name", "")).strip()
+        self._apply_map(cfg, data)
+        try:
+            cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("saveGame(%s) failed: %s", appid, e)
+            return ""
+        self.refresh()
+        return appid
+
+    @staticmethod
+    def _apply_map(cfg, data: dict) -> None:
+        """Write settings form fields into a config (no save, no refresh)."""
         cfg.general.custom_executable = str(data.get("custom_executable", "")).strip()
         game_type = str(data.get("game_type", "auto"))
         cfg.general.game_type = game_type if game_type in ("auto", "proton", "native") else "auto"
@@ -473,13 +510,18 @@ class GameListModel(QAbstractTableModel):
         cfg.debug.proton_log = bool(data.get("proton_log", False))
         winedebug = str(data.get("winedebug", ""))
         cfg.debug.winedebug = winedebug if winedebug in ("", "-all", "+err", "+warn,+err") else ""
+
+    @Slot("QVariantMap", result=bool)
+    def saveDefaults(self, values) -> bool:
+        """Persist the global defaults template."""
         try:
-            cfgmod.save(cfg)
+            cfg = cfgmod.load_defaults()
+            self._apply_map(cfg, dict(values or {}))
+            cfgmod.save_defaults(cfg)
         except Exception as e:
-            log.warning("saveGame(%s) failed: %s", appid, e)
-            return ""
-        self.refresh()
-        return appid
+            log.warning("saveDefaults failed: %s", e)
+            return False
+        return True
 
     @Slot(str, str, result=bool)
     def loadGameProfile(self, appid: str, name: str) -> bool:

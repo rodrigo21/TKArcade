@@ -12,7 +12,7 @@ import org.kde.kirigami as Kirigami
 Window {
     id: gameSettings
     objectName: "gameSettings"
-    title: editAppid === "" ? qsTr("Add game") : qsTr("Edit game")
+    title: defaultsMode ? qsTr("Global Defaults") : (editAppid === "" ? qsTr("Add game") : qsTr("Edit game"))
     modality: Qt.WindowModal
     minimumWidth: Kirigami.Units.gridUnit * 34
     minimumHeight: Kirigami.Units.gridUnit * 30
@@ -22,6 +22,7 @@ Window {
     color: Kirigami.Theme.backgroundColor
 
     property string editAppid: ""
+    property bool defaultsMode: false
     property var fields: ({})
     property string errorText: ""
     property string pendingPrompt: "" // "saveAs" | "clone" | ""
@@ -49,6 +50,7 @@ Window {
 
     function openFor(appid) {
         editAppid = appid
+        defaultsMode = false
         reload()
         errorText = ""
         tabBar.currentIndex = 0
@@ -58,7 +60,19 @@ Window {
 
     function openNew() {
         editAppid = ""
+        defaultsMode = false
         fields = blankFields()
+        pushToControls()
+        errorText = ""
+        tabBar.currentIndex = 0
+        gameModel.watchQuitKeys(gameSettings)
+        visible = true
+    }
+
+    function openDefaults() {
+        editAppid = ""
+        defaultsMode = true
+        fields = gameModel.loadDefaults()
         pushToControls()
         errorText = ""
         tabBar.currentIndex = 0
@@ -278,6 +292,14 @@ Window {
     }
 
     function save() {
+        if (defaultsMode) {
+            if (!gameModel.saveDefaults(collect())) {
+                settingsError.text = qsTr("Could not save the defaults.")
+                return
+            }
+            closePage()
+            return
+        }
         var created = gameModel.saveGame(editAppid, collect())
         if (created === "") {
             settingsError.text = editAppid === ""
@@ -410,7 +432,7 @@ Window {
             }
             Controls.TabButton {
                 text: qsTr("Wine / Proton")
-                enabled: (fields.is_steam || false) && editAppid !== ""
+                enabled: ((fields.is_steam || false) && editAppid !== "") || defaultsMode
             }
             Controls.TabButton {
                 text: qsTr("Notes")
@@ -449,13 +471,13 @@ Window {
                     Layout.fillWidth: true
                 }
                 Controls.Label {
-                    visible: !(fields.is_steam || false)
+                    visible: !(fields.is_steam || false) && !defaultsMode
                     text: qsTr("Game name:")
                 }
                 Controls.TextField {
                     id: nameField
                     objectName: "settingsName"
-                    visible: !(fields.is_steam || false)
+                    visible: !(fields.is_steam || false) && !defaultsMode
                     placeholderText: qsTr("Game name")
                     Layout.fillWidth: true
                 }
@@ -560,6 +582,14 @@ Window {
                             if (gameModel.deleteGameProfile(editAppid, profiles[profileBox.currentIndex] || "")) {
                                 reload()
                             }
+                        }
+                    }
+                    Controls.Button {
+                        objectName: "settingsReset"
+                        text: qsTr("Reset")
+                        onClicked: {
+                            fields = gameModel.factoryGame(editAppid)
+                            pushToControls()
                         }
                     }
                 }
@@ -1072,8 +1102,8 @@ Window {
                             id: wineForm
                             objectName: "wineForm"
                             width: parent.width
+                            enabled: ((fields.is_steam || false) && editAppid !== "") || defaultsMode
                             spacing: Kirigami.Units.smallSpacing
-                            enabled: (fields.is_steam || false) && editAppid !== ""
                             Controls.CheckBox {
                                 id: ptFresh
                                 objectName: "ptFresh"

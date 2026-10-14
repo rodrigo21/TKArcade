@@ -18,11 +18,12 @@ log = logging.getLogger("tkarcade.tray")
 class TrayController:
     """Owns the QSystemTrayIcon; QtWidgets imports stay inside methods."""
 
-    def __init__(self, model, toggle_visible, open_prefs, open_about):
+    def __init__(self, model, toggle_visible, open_prefs, open_about, open_defaults=None):
         self._model = model
         self._toggle_visible = toggle_visible
         self._open_prefs = open_prefs
         self._open_about = open_about
+        self._open_defaults = open_defaults
         self.tray = None
         self.menu = None
 
@@ -111,6 +112,9 @@ class TrayController:
                     act = menu.addAction(label)
                     act.triggered.connect(lambda _checked=False, a=appid: self._model.play(a))
         menu.addSeparator()
+        if self._open_defaults is not None:
+            defaults_action = menu.addAction("Global Defaults...")
+            defaults_action.triggered.connect(lambda _checked=False: self._open_defaults())
         prefs_action = menu.addAction("Preferences...")
         prefs_action.triggered.connect(lambda _checked=False: self._open_prefs())
         about_action = menu.addAction("About...")

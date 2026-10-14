@@ -7,8 +7,8 @@
 - [x] Point 2 in the same mold: `PrefsDialog`, `HistoryView` and
   `ScanDialog` as modal windows (`open()` shim keeps call sites;
   scan list scrolls); confirms/about/utilities stay small dialogs
-- [ ] Remaining settings tabs, Clone/Reset/Global Defaults, Steam add
-  flow with picker, AddSource chooser.
+- [x] Remaining settings tabs (all nine), Clone/Reset/Global Defaults,
+  Steam add flow with picker, AddSource chooser.
 - [x] Kirigami File Export/Import (tarball, SteamTinkerLaunch,
   predecessor copy; local library import from Lutris/Playnite/Faugus
   file formats stays for the library phase). Scan Steam Library already exists.

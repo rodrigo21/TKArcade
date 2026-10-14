@@ -559,6 +559,15 @@ def test_settings_display_roundtrip(qgui_app, xdg_env):
     assert model.createMangohudConfig("", "minimal") == ""
 
 
+def test_settings_steam_create(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.saveGame("99", {"game_type": "proton"}) == "99"
+    assert C.game_file("99").is_file()
+    assert C.load("99").general.game_type == "proton"
+
+
 def test_settings_ludusavi_system_roundtrip(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 
@@ -615,6 +624,21 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
     reloaded = C.load("99")
     assert reloaded.debug.winedebug == ""
     assert reloaded.proton.winetricks_verbs == ["vcrun2022", "dotnet48"]
+
+
+def test_settings_defaults_roundtrip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    fields = model.loadDefaults()
+    assert fields["gamemode_feral"] is False
+    out = dict(fields)
+    out["gamemode_feral"] = True
+    out["menu_timeout"] = 11
+    assert model.saveDefaults(out) is True
+    assert C.load_defaults().gamemode.feral_gamemode is True
+    assert C.load_defaults().general.menu_timeout == 11
+    assert model.factoryGame("local-doom")["name"] == ""
 
 
 def test_settings_coverage_reports(qgui_app, xdg_env):

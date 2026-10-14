@@ -50,7 +50,7 @@ Kirigami.Page {
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
             Controls.ToolTip.visible: hovered
-            onClicked: gamesPage.openNewGameSettings()
+            onClicked: addGameDialog.open()
         }
         Controls.ToolButton {
             id: btnEdit
@@ -800,7 +800,7 @@ Kirigami.Page {
         objectName: "actionAdd"
         text: qsTr("Add game")
         icon.name: "list-add"
-        onTriggered: gamesPage.openNewGameSettings()
+        onTriggered: addGameDialog.open()
     }
     Kirigami.Action {
         id: actionEdit
@@ -1661,7 +1661,7 @@ Kirigami.Page {
         visible: gamesPage.viewMode === "list" && gameFilter.rowCount() === 0
         Controls.Button {
             text: qsTr("Add Game...")
-            onClicked: gamesPage.openNewGameSettings()
+            onClicked: addGameDialog.open()
         }
         Controls.Button {
             objectName: "emptyScan"
@@ -1785,6 +1785,11 @@ Kirigami.Page {
 
     GameSettings {
         id: gameSettings
+    }
+
+    AddDialog {
+        id: addGameDialog
+        page: gamesPage
     }
 
     ImportDialog {

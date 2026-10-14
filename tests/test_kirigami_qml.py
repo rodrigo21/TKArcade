@@ -2222,7 +2222,7 @@ def test_settings_edit_saves_name(qgui_app, xdg_env):
 
 
 def test_settings_add_creates_game(qgui_app, xdg_env):
-    """Add opens blank settings; Save creates and selects the game."""
+    """Add offers sources; Local opens blank settings that create the game."""
     from PySide6.QtCore import QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
@@ -2240,6 +2240,9 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
         qgui_app.processEvents()
 
     click("titleAdd", win)
+    add = _modal_window(qgui_app, ("Add Game",))
+    add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
+    click("addConfirm", add)
     swin = _settings_window(qgui_app)
     swin.findChild(QQuickItem, "settingsName").setProperty("text", "Doom")
     swin.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
@@ -2613,6 +2616,96 @@ def test_settings_wine_flow(qgui_app, xdg_env):
     page.openGameSettings("local-doom")
     qgui_app.processEvents()
     assert swin.findChild(QQuickItem, "wineForm").property("enabled") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
+    """Reset restores factory fields; Defaults edits the template."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    QTest.qWait(400)
+    for _ in range(10):
+        qgui_app.processEvents()
+    name = swin.findChild(QQuickItem, "settingsName")
+    name.setProperty("text", "Changed")
+    reset = swin.findChild(QQuickItem, "settingsReset")
+    pos = reset.mapToScene(
+        QPointF(reset.property("width") / 2, reset.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert name.property("text") == ""
+    assert C.load("local-doom").general.name == "Doom"
+    dlg.openDefaults()
+    qgui_app.processEvents()
+    dswin = _modal_window(qgui_app, ("Global Defaults",))
+    dswin.findChild(QQuickItem, "ntLaunch").setProperty("checked", False)
+    save = dswin.findChild(QQuickItem, "settingsSave")
+    pos = save.mapToScene(
+        QPointF(save.property("width") / 2, save.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(dswin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert C.load_defaults().notifications.notify_on_launch is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
+    """Add chooser routes Steam picks to settings and Local to blank."""
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    import tkarcade.steam as steammod
+    from tkarcade import config as C
+
+    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3")])
+    win, engine, proxy, warnings = _load_main(qgui_app)
+
+    def click(name, host):
+        button = host.findChild(QQuickItem, name)
+        pos = button.mapToScene(
+            QPointF(button.property("width") / 2, button.property("height") / 2)
+        ).toPoint()
+        QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        qgui_app.processEvents()
+
+    click("titleAdd", win)
+    add = _modal_window(qgui_app, ("Add Game",))
+    assert add.findChild(QQuickItem, "addSource") is not None
+    click("addConfirm", add)
+    swin = _modal_window(qgui_app, ("Edit game",))
+    assert proxy.rowCount() == 0
+    assert swin.findChild(QQuickItem, "settingsAppid").property("text") == "99"
+    click("settingsSave", swin)
+    assert C.game_file("99").is_file()
+    click("titleAdd", win)
+    add2 = _modal_window(qgui_app, ("Add Game",))
+    add2.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
+    click("addConfirm", add2)
+    _modal_window(qgui_app, ("Add game",))
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

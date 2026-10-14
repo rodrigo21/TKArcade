@@ -28,12 +28,13 @@ def _fake_model():
 def _controller(model=None):
     from tkarcade.gui.tray import TrayController
 
-    toggled, prefs_opened, about_opened = [], [], []
+    toggled, prefs_opened, about_opened, defaults_opened = [], [], [], []
     ctl = TrayController(
         model or _fake_model()[0],
         lambda: toggled.append(True),
         lambda: prefs_opened.append(True),
         lambda: about_opened.append(True),
+        lambda: defaults_opened.append(True),
     )
     return ctl, toggled, prefs_opened, about_opened
 
@@ -71,6 +72,7 @@ def test_apply_builds_menu_with_recents(qgui_app, xdg_env, monkeypatch):
             "Show / Hide",
             "Doom 3 (1h)",
             "Doom (30m)",
+            "Global Defaults...",
             "Preferences...",
             "About...",
             "Quit",

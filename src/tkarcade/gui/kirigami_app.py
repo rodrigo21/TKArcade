@@ -186,9 +186,15 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             log.warning("tray about failed: %s", e)
 
+    def open_defaults() -> None:
+        try:
+            root.findChild(QObject, "gameSettings").openDefaults()
+        except Exception as e:
+            log.warning("tray defaults failed: %s", e)
+
     from .tray import TrayController
 
-    tray = TrayController(model, toggle_visible, open_prefs, open_about)
+    tray = TrayController(model, toggle_visible, open_prefs, open_about, open_defaults)
     model._tray_refresher = tray.apply
     model.setTrayActive(tray.apply())
     apply_window_geometry(root)
