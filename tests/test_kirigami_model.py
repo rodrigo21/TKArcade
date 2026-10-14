@@ -559,6 +559,28 @@ def test_settings_display_roundtrip(qgui_app, xdg_env):
     assert model.createMangohudConfig("", "minimal") == ""
 
 
+def test_settings_env_bulk_preset(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.envToText([{"key": "A", "value": "1"}, {"key": "", "value": "x"}]) == "A=1"
+    assert model.textToEnv("# c\n\nA=1\nB = x y\nBAD\n=novalue\n") == [
+        {"key": "A", "value": "1"},
+        {"key": "B", "value": " x y"},
+    ]
+    labels = model.envPresetLabels()
+    assert len(labels) > 0
+    name = model.envPresetName(labels[0])
+    assert name != ""
+    assert model.envPresetName("no such preset") == ""
+    assert isinstance(model.envPresetMismatch(name, ""), str)
+    res = model.applyEnvPreset([], name)
+    assert res["added"] > 0
+    again = model.applyEnvPreset(res["rows"], name)
+    assert again["added"] == 0
+    assert len(again["rows"]) == len(res["rows"])
+
+
 def test_clone_reset_games(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

@@ -639,6 +639,114 @@ class GameListModel(QAbstractTableModel):
         self.refresh()
         return True
 
+    @Slot(list, result=str)
+    def envToText(self, rows) -> str:
+        """KEY=value lines for the bulk editor."""
+        return "\n".join(
+            f"{str(row['key']).strip()}={row.get('value', '')}"
+            for row in rows or []
+            if isinstance(row, dict) and str(row.get("key", "")).strip()
+        )
+
+    @Slot(str, result="QVariantList")
+    def textToEnv(self, text: str) -> list:
+        """Parse bulk-edit text into [{key, value}] rows."""
+        out = []
+        for line in (text or "").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if key:
+                out.append({"key": key, "value": value})
+        return out
+
+    @staticmethod
+    def _preset_label(name, preset) -> str:
+        tags = []
+        try:
+            if preset.drivers:
+                tags.append("/".join(preset.drivers))
+            if preset.proton:
+                tags.append("/".join(preset.proton))
+        except Exception:
+            pass
+        return f"{name} [{'/'.join(tags)}]" if tags else name
+
+    @Slot(result=list)
+    def envPresetLabels(self) -> list:
+        """Preset chooser labels, with driver/proton tags."""
+        from .. import presets as presetsmod
+
+        try:
+            names = sorted(presetsmod.PRESETS)
+            return [self._preset_label(n, presetsmod.PRESETS[n]) for n in names]
+        except Exception:
+            return []
+
+    @Slot(str, result=str)
+    def envPresetName(self, label: str) -> str:
+        """Preset key for a chooser label, or ''."""
+        from .. import presets as presetsmod
+
+        try:
+            names = sorted(presetsmod.PRESETS)
+            labels = {n: self._preset_label(n, presetsmod.PRESETS[n]) for n in names}
+            return next(n for n in names if labels[n] == label)
+        except Exception:
+            return ""
+
+    @Slot(str, str, result=str)
+    def envPresetMismatch(self, name: str, appid: str) -> str:
+        """Why a preset may not apply here, or '' when it fits."""
+        from .. import presets as presetsmod
+
+        try:
+            preset = presetsmod.PRESETS.get(name)
+            if preset is None:
+                return ""
+            if preset.drivers:
+                from .. import gpu as gpumod
+
+                try:
+                    vendors = gpumod.detect_vendors()
+                except Exception:
+                    vendors = []
+                if vendors and not (set(preset.drivers) & set(vendors)):
+                    return "/".join(preset.drivers) + " GPUs"
+            if preset.proton and appid:
+                from .. import proton as protonmod
+
+                try:
+                    tool = protonmod.compat_tool_name(appid) or ""
+                    flavor = protonmod.flavor(tool) if tool else ""
+                except Exception:
+                    tool, flavor = "", ""
+                if tool and flavor not in preset.proton:
+                    return "/".join(preset.proton) + " Proton"
+        except Exception as e:
+            log.warning("envPresetMismatch failed: %s", e)
+        return ""
+
+    @Slot("QVariantList", str, result="QVariantMap")
+    def applyEnvPreset(self, rows, name: str) -> dict:
+        """Merge missing preset entries. Returns {rows, added}."""
+        from .. import presets as presetsmod
+
+        clean = [
+            {"key": str(row["key"]).strip(), "value": str(row.get("value", ""))}
+            for row in rows or []
+            if isinstance(row, dict) and str(row.get("key", "")).strip()
+        ]
+        vars = {r["key"]: r["value"] for r in clean}
+        try:
+            added = presetsmod.apply_preset(vars, name)
+        except Exception as e:
+            log.warning("applyEnvPreset failed: %s", e)
+            return {"rows": clean, "added": 0}
+        return {"rows": [{"key": k, "value": v} for k, v in vars.items()], "added": len(added)}
+
     @Slot(str, result=str)
     def exportTarball(self, path: str) -> str:
         """Export configs to a tarball; returns the status message ('' skips)."""

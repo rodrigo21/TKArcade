@@ -2784,6 +2784,61 @@ def test_clone_reset_menu_flows(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_env_bulk_preset_flow(qgui_app, xdg_env):
+    """Bulk edit replaces rows; preset merges missing keys."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 1)
+    qgui_app.processEvents()
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtTest import QTest
+
+    def click(name):
+        button = swin.findChild(QQuickItem, name)
+        pos = button.mapToScene(
+            QPointF(button.property("width") / 2, button.property("height") / 2)
+        ).toPoint()
+        QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        qgui_app.processEvents()
+
+    click("envBulk")
+    assert win.findChild(QObject, "envBulkDialog").property("visible") is True
+    swin.findChild(QQuickItem, "envBulkArea").setProperty("text", "A=1\n# skip\nB=2")
+    dlg.acceptBulk()
+    assert dlg.envRowCount() == 2
+    click("envPreset")
+    assert win.findChild(QObject, "envPresetDialog").property("visible") is True
+    dlg.acceptEnvPreset()
+    qgui_app.processEvents()
+    if win.findChild(QObject, "envMismatchDialog").property("visible") is True:
+        dlg.applyEnvPresetByName(dlg.property("pendingPreset"))
+        qgui_app.processEvents()
+    assert dlg.envRowCount() > 2
+    dlg.save()
+    qgui_app.processEvents()
+    env = C.load("local-doom").env.vars
+    assert env["A"] == "1"
+    assert len(env) > 2
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib

@@ -29,6 +29,7 @@ Window {
     property var dmodeModel: [{"text": "", "data": ""}]
     property string dmodeCurrent: ""
     property string pendingArg: ""
+    property string pendingPreset: ""
     property string ptLogDir: ""
     property var page: null
 
@@ -139,11 +140,7 @@ Window {
         ptLog.checked = !!f.proton_log
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
-        envModel.clear()
-        var rows = f.env_vars || []
-        for (var i = 0; i < rows.length; i++) {
-            envModel.append({"key": rows[i].key || "", "value": rows[i].value || ""})
-        }
+        setEnvRows(f.env_vars || [])
     }
 
     function collect() {
@@ -200,6 +197,66 @@ Window {
             out.push({"key": row.key, "value": row.value})
         }
         return out
+    }
+
+    function setEnvRows(rows) {
+        envModel.clear()
+        for (var i = 0; i < rows.length; i++) {
+            envModel.append({"key": rows[i].key || "", "value": rows[i].value || ""})
+        }
+    }
+
+    function envToText() {
+        var lines = []
+        for (var i = 0; i < envModel.count; i++) {
+            var row = envModel.get(i)
+            if (String(row.key).trim() !== "") {
+                lines.push(String(row.key).trim() + "=" + row.value)
+            }
+        }
+        return lines.join("\n")
+    }
+
+    function acceptBulk() {
+        setEnvRows(gameModel.textToEnv(bulkArea.text))
+        bulkDialog.close()
+    }
+
+    function openBulk() {
+        bulkArea.text = envToText()
+        bulkDialog.open()
+    }
+
+    function openPreset() {
+        presetBox.model = gameModel.envPresetLabels()
+        presetBox.currentIndex = 0
+        presetDialog.open()
+    }
+
+    function acceptEnvPreset() {
+        var name = gameModel.envPresetName(presetBox.currentText)
+        if (name === "") {
+            presetDialog.close()
+            return
+        }
+        var mismatch = gameModel.envPresetMismatch(name, editAppid)
+        if (mismatch !== "") {
+            pendingPreset = name
+            mismatchLabel.text = qsTr("Preset '%1' is for %2.\nApply anyway?").arg(name).arg(mismatch)
+            mismatchDialog.open()
+            return
+        }
+        applyEnvPresetByName(name)
+    }
+
+    function applyEnvPresetByName(name) {
+        var res = gameModel.applyEnvPreset(collectEnv(), name)
+        setEnvRows(res.rows || [])
+        if ((res.added || 0) === 0) {
+            settingsError.text = qsTr("Preset '%1': all keys already present.").arg(name)
+        }
+        mismatchDialog.close()
+        presetDialog.close()
     }
 
     function envRowCount() {
@@ -665,10 +722,22 @@ Window {
                         }
                     }
                 }
-                Controls.Button {
-                    objectName: "envAdd"
-                    text: qsTr("Add variable")
-                    onClicked: envModel.append({"key": "", "value": ""})
+                RowLayout {
+                    Controls.Button {
+                        objectName: "envAdd"
+                        text: qsTr("Add variable")
+                        onClicked: envModel.append({"key": "", "value": ""})
+                    }
+                    Controls.Button {
+                        objectName: "envBulk"
+                        text: qsTr("Bulk Edit...")
+                        onClicked: gameSettings.openBulk()
+                    }
+                    Controls.Button {
+                        objectName: "envPreset"
+                        text: qsTr("Add Preset...")
+                        onClicked: gameSettings.openPreset()
+                    }
                 }
             }
             ColumnLayout {
@@ -1253,6 +1322,87 @@ Window {
             Controls.Button {
                 text: qsTr("Cancel")
                 onClicked: choicePrompt.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: bulkDialog
+        objectName: "envBulkDialog"
+        title: qsTr("Bulk Edit Environment")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Controls.TextArea {
+                id: bulkArea
+                objectName: "envBulkArea"
+                placeholderText: qsTr("KEY=value lines (# comments and blanks skipped)")
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 28
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 12
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "bulkConfirm"
+                text: qsTr("OK")
+                onClicked: gameSettings.acceptBulk()
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: bulkDialog.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: presetDialog
+        objectName: "envPresetDialog"
+        title: qsTr("Add Env Preset")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Controls.ComboBox {
+                id: presetBox
+                objectName: "envPresetBox"
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "presetConfirm"
+                text: qsTr("OK")
+                onClicked: gameSettings.acceptEnvPreset()
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: presetDialog.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: mismatchDialog
+        objectName: "envMismatchDialog"
+        title: qsTr("Add Env Preset")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Controls.Label {
+                id: mismatchLabel
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "mismatchConfirm"
+                text: qsTr("Apply Anyway")
+                onClicked: gameSettings.applyEnvPresetByName(gameSettings.pendingPreset)
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: mismatchDialog.close()
             }
         }
     }
