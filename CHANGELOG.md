@@ -114,6 +114,8 @@ Breaking config changes are called out explicitly under `Changed`.
   width over the fresh autofit.
 
 ### Fixed
+- Removed dead imports: `logging` in the Kirigami tray controller,
+  `urllib.error` in the artwork and ProtonDB helpers.
 - Config: cloning a game rewrites the destination snapshot with the
   destination AppID (live config and profiles); prefs cleaners drop
   non-decimal "digits" instead of crashing `int()`; pre/post hook

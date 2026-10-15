@@ -10,10 +10,6 @@ defaults UI (deferred with Clone/Reset/Defaults).
 
 from __future__ import annotations
 
-import logging
-
-log = logging.getLogger("tkarcade.tray")
-
 
 class TrayController:
     """Owns the QSystemTrayIcon; QtWidgets imports stay inside methods."""
