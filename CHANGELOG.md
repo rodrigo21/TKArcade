@@ -149,8 +149,10 @@ Breaking config changes are called out explicitly under `Changed`.
 - Cards view: the right-click game menu and click-to-select never
   worked. `Kirigami.Card.clicked()` carries no mouse event, so the
   right-click branch was dead and the left-click branch threw
-  (`mouse` undefined); the menu now has a right-button-only
-  `MouseArea`, which leaves the Play action's left clicks alone.
+  (`mouse` undefined); the menu now runs through a `MouseArea` that
+  claims only right-clicks and Ctrl/Shift clicks, so plain presses
+  still reach the card and the Play action. Ctrl/Shift multi-select
+  now works in the cards view like in the list and icons views.
 - Removed residual dead code and stale notes: duplicated portal debug
   line, unreachable `launch_args` exception handler (`split_args` never
   raises), redundant artwork cleanup loop, and the nightlight holder /

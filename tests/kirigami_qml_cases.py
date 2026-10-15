@@ -914,8 +914,8 @@ def _card_play_button(card):
     return best
 
 
-def test_card_right_click_opens_menu(qgui_app, xdg_env):
-    """Right-clicking a card opens the game menu; left-click selects.
+def test_card_mouse_gestures(qgui_app, xdg_env):
+    """Card clicks select, Ctrl extends, right-click opens the menu.
 
     Regression: Kirigami.Card emits clicked() with no event at all, so
     the right-click branch inside onClicked never ran (the cards view
@@ -943,34 +943,48 @@ def test_card_right_click_opens_menu(qgui_app, xdg_env):
         qgui_app.processEvents()
     cards = _delegate_rows(layout)
     assert len(cards) == 2
-    card = min(cards, key=lambda c: c.y())
-    assert card.property("gameId") == "local-doom"
+    # Both cards sit on the same row (same y), so pick by AppID.
+    card = next(c for c in cards if c.property("gameId") == "local-doom")
     _settle_cards(qgui_app, card)
     menu = win.findChild(QObject, "gameMenu")
     assert menu is not None
 
-    # Start from the other game so the click has to change something.
-    page.setProperty("selectedIds", ["local-quake"])
-    page.setProperty("menuGid", "")
-    qgui_app.processEvents()
+    def selected():
+        value = page.property("selectedIds")
+        return value.toVariant() if hasattr(value, "toVariant") else list(value)
 
-    def click(button):
+    def click(button=Qt.LeftButton, mods=Qt.NoModifier):
         pos = card.mapToScene(
             QPointF(card.property("width") / 2, card.property("height") / 2)
         ).toPoint()
-        QTest.mouseClick(win, button, Qt.NoModifier, pos)
+        QTest.mouseClick(win, button, mods, pos)
         QTest.qWait(150)
         qgui_app.processEvents()
 
+    # Plain click selects; the card itself reports no modifiers for it.
+    page.setProperty("selectedIds", ["local-quake"])
+    page.setProperty("menuGid", "")
+    qgui_app.processEvents()
+    click()
+    assert selected() == ["local-doom"]
+
+    # Ctrl adds, a second Ctrl removes (icons grid and table parity).
+    page.setProperty("selectedIds", ["local-quake"])
+    qgui_app.processEvents()
+    click(Qt.LeftButton, Qt.ControlModifier)
+    assert sorted(selected()) == ["local-doom", "local-quake"]
+    click(Qt.LeftButton, Qt.ControlModifier)
+    assert selected() == ["local-quake"]
+
+    # Right-click opens the game menu.
+    page.setProperty("menuGid", "")
+    qgui_app.processEvents()
     click(Qt.RightButton)
     assert page.property("menuGid") == "local-doom"
     assert menu.property("visible") is True
     menu.setProperty("visible", False)
     qgui_app.processEvents()
 
-    click(Qt.LeftButton)
-    assert page.property("selectedIds").toVariant() == ["local-doom"]
-    assert menu.property("visible") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -981,8 +995,9 @@ def test_card_right_click_opens_menu(qgui_app, xdg_env):
 def test_card_play_button_clickable(qgui_app, xdg_env, monkeypatch):
     """A real mouse click on a card's Play button launches.
 
-    The card's context-menu MouseArea only accepts the right button, so
-    it must not steal the left clicks that belong to the Play action.
+    The card's gesture MouseArea claims right-clicks and Ctrl/Shift
+    clicks (a full cover would swallow the button); a plain press has to
+    keep reaching the Play action.
     """
     from PySide6.QtCore import QObject, QPointF, Qt
     from PySide6.QtQuick import QQuickItem
@@ -1004,7 +1019,9 @@ def test_card_play_button_clickable(qgui_app, xdg_env, monkeypatch):
     page.setProperty("viewMode", "cards")
     for _ in range(40):
         qgui_app.processEvents()
-    card = min(_delegate_rows(layout), key=lambda c: c.y())
+    cards = _delegate_rows(layout)
+    assert len(cards) == 1
+    card = cards[0]
     _settle_cards(qgui_app, card)
     button = _card_play_button(card)
     assert button is not None

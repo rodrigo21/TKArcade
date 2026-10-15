@@ -127,9 +127,12 @@ toggle and a centered Library.
   modelData match); pump frames until delegates settle; XDG_CACHE_HOME
   already isolated per test, do NOT disable disk cache (breaks layout).
 - `Kirigami.Card.clicked()` carries no mouse event (and exposes no
-  `acceptedButtons`): the cards view takes the context menu from a
-  right-button-only `MouseArea` and plain selection from `clicked()`.
-  Ctrl/Shift multi-select is therefore list/icons-only today; adding it
-  to cards means overlaying a MouseArea that stops above the Play
-  action (a full cover swallows it — guarded by
-  `test_card_play_button_clickable`).
+  `acceptedButtons`): the cards view keeps plain selection on
+  `clicked()` and takes the context menu plus Ctrl/Shift clicks from a
+  `MouseArea` that claims only those presses (`onPressed:
+  mouse.accepted = ...`), leaving plain presses to the card and the
+  footer's Play action. A full cover swallows Play — guarded by
+  `test_card_play_button_clickable`. Anchoring that MouseArea above the
+  footer is not an option: Qt refuses anchors to a non-sibling item
+  ("Cannot anchor to an item that isn't a parent or sibling") and
+  `z: -1` lands under the card background, which eats the press.

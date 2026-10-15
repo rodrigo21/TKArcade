@@ -81,22 +81,28 @@ Kirigami.Card {
         border.color: Kirigami.Theme.highlightColor
     }
 
-    // Kirigami.Card emits clicked() with no event (its accepted buttons
-    // are fixed and it exposes no acceptedButtons property), so:
-    // - the right-click branch that used to live inside onClicked was
-    //   dead (the cards view had no context menu) and
-    // - the left-click branch threw "Cannot read property 'modifiers' of
-    //   undefined", so a click never selected the card either.
-    // The menu gets a right-button-only MouseArea (left clicks fall
-    // through to the card and to its Play action); selection goes
-    // through clicked() with no modifiers, since the card cannot report
-    // them (the icon cell and the table rows read them from a
-    // MouseArea, which cannot overlay this card without covering the
-    // Play action).
+    // Kirigami.Card emits clicked() with no event at all (no modifiers,
+    // no button), so the gesture layer is split in two:
+    // - a plain left click goes through the card itself, which reports
+    //   no modifiers (plain selection), and
+    // - this MouseArea takes the presses the card cannot describe: the
+    //   context menu and Ctrl/Shift clicks. It only claims those, so an
+    //   unmodified press still reaches the card and the footer's Play
+    //   action (a full cover would swallow the button).
     MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.RightButton
-        onClicked: (mouse) => gameCard.menuRequested(gameCard.gameId)
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onPressed: (mouse) => {
+            mouse.accepted = mouse.button === Qt.RightButton
+                || (mouse.modifiers & (Qt.ControlModifier | Qt.ShiftModifier)) !== 0
+        }
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                gameCard.menuRequested(gameCard.gameId)
+            } else {
+                gameCard.rowTapped(gameCard.gameId, mouse.modifiers)
+            }
+        }
     }
 
     showClickFeedback: true
