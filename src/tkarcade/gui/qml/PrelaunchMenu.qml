@@ -18,7 +18,7 @@ Window {
     modality: Qt.WindowModal
     minimumWidth: Kirigami.Units.gridUnit * 24
     width: Kirigami.Units.gridUnit * 30
-    height: Kirigami.Units.gridUnit * 12
+    height: Kirigami.Units.gridUnit * 9
     visible: false
     color: Kirigami.Theme.backgroundColor
 
