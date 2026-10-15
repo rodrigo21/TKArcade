@@ -847,3 +847,44 @@ def test_import_tksteamlaunch_empty_legacy(xdg_env):
 
     with pytest.raises(ValueError):
         C.import_tksteamlaunch()
+
+
+def test_clone_game_rewrites_appid(xdg_env):
+    import tomllib
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "211"
+    cfg.general.active_profile = "p1"
+    C.save(cfg)
+    C.save_profile("211", "p1", cfg)
+    C.clone_game("211", "212")
+    dest = C.load("212")
+    assert dest.general.appid == "212"
+    assert dest.general.active_profile == "p1"  # selection survives (profiles cloned too)
+    assert C.load_profile("212", "p1").general.appid == "212"
+    with C.game_file("212").open("rb") as f:
+        assert tomllib.load(f)["general"]["appid"] == "212"
+
+
+def test_prefs_cleaners_drop_nondecimal_digits(xdg_env):
+    prefs = C.load_preferences()
+    prefs.column_order = "0,1²,2"
+    prefs.column_widths = "1=2²,2=99"
+    C.save_preferences(prefs)  # must not raise on the ² pair
+    back = C.load_preferences()
+    assert back.column_order == "0,2"
+    assert back.column_widths == "2=99"
+
+
+def test_pre_post_timeout_clamped(xdg_env):
+    from tkarcade import xdg as xdgmod
+
+    xdgmod.games_dir().mkdir(parents=True, exist_ok=True)
+    C.game_file("214").write_text(
+        '[general]\nappid = "214"\n[pre_post]\ntimeout = -5\n', encoding="utf-8"
+    )
+    assert C.load("214").pre_post.timeout == 1
+    C.game_file("215").write_text(
+        '[general]\nappid = "215"\n[pre_post]\ntimeout = 99999\n', encoding="utf-8"
+    )
+    assert C.load("215").pre_post.timeout == 3600

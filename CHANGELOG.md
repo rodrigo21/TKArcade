@@ -114,6 +114,10 @@ Breaking config changes are called out explicitly under `Changed`.
   width over the fresh autofit.
 
 ### Fixed
+- Config: cloning a game rewrites the destination snapshot with the
+  destination AppID (live config and profiles); prefs cleaners drop
+  non-decimal "digits" instead of crashing `int()`; pre/post hook
+  timeout clamps to 1–3600s on load (same as the save path).
 - Library model: the "Steam detected" count no longer includes local
   games, cached validation issues are dropped on every refresh, and
   saving Preferences propagates the tray state (close/minimize-to-tray

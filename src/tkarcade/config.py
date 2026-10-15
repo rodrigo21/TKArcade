@@ -378,6 +378,8 @@ def delete_profile(appid: str, name: str) -> None:
 def clone_game(src_appid: str, dest_appid: str) -> None:
     """Copy a game's live config plus profiles to another AppID.
 
+    The destination snapshot is rewritten with the destination AppID
+    (a plain byte copy would keep the source id inside the file).
     Overwrites the destination (callers confirm first). Raises
     ValueError when the source has nothing saved.
     """
@@ -390,11 +392,17 @@ def clone_game(src_appid: str, dest_appid: str) -> None:
     if not live.is_file():
         raise ValueError(f"no saved config for {src!r}")
     shutil.copyfile(live, game_file(dest))
+    cfg = load(dest)  # reads the copy; invalid TOML loads as fresh built-ins
+    cfg.general.appid = dest_appid
+    save(cfg)
     profiles = profiles_dir(src)
     if profiles.is_dir():
         dest_profiles = profiles_dir(dest)
         shutil.rmtree(dest_profiles, ignore_errors=True)
         shutil.copytree(profiles, dest_profiles)
+        for name in list_profiles(dest):
+            prof = load_profile(dest, name)
+            save_profile(dest, name, prof)
 
 
 def orphaned_profiles() -> list[tuple[str, int]]:
@@ -667,7 +675,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.pre_post.pre_args = _str_list(p.get("pre_args", []))
     cfg.pre_post.post_command = str(p.get("post_command", ""))
     cfg.pre_post.post_args = _str_list(p.get("post_args", []))
-    cfg.pre_post.timeout = _as_int(p.get("timeout", 60), 60)
+    cfg.pre_post.timeout = max(1, min(3600, _as_int(p.get("timeout", 60), 60)))
     cfg.pre_post.run_in_shell = _as_bool(p.get("run_in_shell", False), False)
     gm = _section(data, "gamemode")
     cfg.gamemode.feral_gamemode = _as_bool(gm.get("feral_gamemode", False), False)
@@ -750,7 +758,9 @@ def load_preferences() -> Preferences:
 
 def _clean_int_list(text: str) -> str:
     """Normalize a comma list to digits-only, preserving order ("" stays "")."""
-    return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdigit())
+    # isdecimal (not isdigit): int() only accepts decimal digits, so other
+    # "digits" (superscripts, fractions) must be dropped, not crash int().
+    return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdecimal())
 
 
 def _clean_width_map(text: str) -> str:
@@ -760,7 +770,7 @@ def _clean_width_map(text: str) -> str:
         if "=" not in part:
             continue
         left, _, right = part.partition("=")
-        if left.strip().isdigit() and right.strip().isdigit():
+        if left.strip().isdecimal() and right.strip().isdecimal():
             logical, width = int(left.strip()), int(right.strip())
             if 0 <= logical <= 5 and 20 <= width <= 2000:
                 out.append(f"{logical}={width}")
