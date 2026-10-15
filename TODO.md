@@ -126,3 +126,10 @@ toggle and a centered Library.
 - Tests: structure-aware lookup only (rowColumn objectNames + parent
   modelData match); pump frames until delegates settle; XDG_CACHE_HOME
   already isolated per test, do NOT disable disk cache (breaks layout).
+- `Kirigami.Card.clicked()` carries no mouse event (and exposes no
+  `acceptedButtons`): the cards view takes the context menu from a
+  right-button-only `MouseArea` and plain selection from `clicked()`.
+  Ctrl/Shift multi-select is therefore list/icons-only today; adding it
+  to cards means overlaying a MouseArea that stops above the Play
+  action (a full cover swallows it — guarded by
+  `test_card_play_button_clickable`).

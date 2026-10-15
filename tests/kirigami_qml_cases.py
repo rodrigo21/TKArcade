@@ -871,6 +871,158 @@ def test_cards_show_games_and_play(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def _settle_cards(qgui_app, card, limit=40):
+    """Pump frames (with a real wait) until the card height settles.
+
+    Cards instantiate and size asynchronously: a plain processEvents()
+    loop leaves the cell at its 16px placeholder, so clicks land before
+    the geometry is real.
+    """
+    from PySide6.QtTest import QTest
+
+    last = None
+    stable = 0
+    for _ in range(limit):
+        qgui_app.processEvents()
+        QTest.qWait(50)
+        now = card.property("height")
+        stable = stable + 1 if now == last else 0
+        last = now
+        if stable >= 3 and now > 50:
+            break
+    assert last > 50, last
+
+
+def _card_play_button(card):
+    """The card's Play action button (Kirigami renders Actions itself)."""
+    import shiboken6
+
+    best = None
+    stack = list(card.childItems())
+    while stack:
+        item = stack.pop()
+        try:
+            if item.property("text") == "Play" and shiboken6.isValid(item):
+                if best is None or item.property("width") > best.property("width"):
+                    best = item
+        except Exception:
+            pass
+        try:
+            stack.extend(item.childItems())
+        except Exception:
+            pass
+    return best
+
+
+def test_card_right_click_opens_menu(qgui_app, xdg_env):
+    """Right-clicking a card opens the game menu; left-click selects.
+
+    Regression: Kirigami.Card emits clicked() with no event at all, so
+    the right-click branch inside onClicked never ran (the cards view
+    had no context menu, while the icons grid and the table rows had
+    one) and the left-click branch threw "Cannot read property
+    'modifiers' of undefined", so a click did not even select.
+    """
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid, name in (("local-doom", "Doom"), ("local-quake", "Quake")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    layout = win.findChild(QQuickItem, "cardLayout")
+    assert layout is not None
+    page.setProperty("viewMode", "cards")
+    for _ in range(40):
+        qgui_app.processEvents()
+    cards = _delegate_rows(layout)
+    assert len(cards) == 2
+    card = min(cards, key=lambda c: c.y())
+    assert card.property("gameId") == "local-doom"
+    _settle_cards(qgui_app, card)
+    menu = win.findChild(QObject, "gameMenu")
+    assert menu is not None
+
+    # Start from the other game so the click has to change something.
+    page.setProperty("selectedIds", ["local-quake"])
+    page.setProperty("menuGid", "")
+    qgui_app.processEvents()
+
+    def click(button):
+        pos = card.mapToScene(
+            QPointF(card.property("width") / 2, card.property("height") / 2)
+        ).toPoint()
+        QTest.mouseClick(win, button, Qt.NoModifier, pos)
+        QTest.qWait(150)
+        qgui_app.processEvents()
+
+    click(Qt.RightButton)
+    assert page.property("menuGid") == "local-doom"
+    assert menu.property("visible") is True
+    menu.setProperty("visible", False)
+    qgui_app.processEvents()
+
+    click(Qt.LeftButton)
+    assert page.property("selectedIds").toVariant() == ["local-doom"]
+    assert menu.property("visible") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_card_play_button_clickable(qgui_app, xdg_env, monkeypatch):
+    """A real mouse click on a card's Play button launches.
+
+    The card's context-menu MouseArea only accepts the right button, so
+    it must not steal the left clicks that belong to the Play action.
+    """
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    played = []
+    monkeypatch.setattr(model, "play", lambda gid: played.append(gid) or True)
+    page = win.findChild(QObject, "gamesPage")
+    layout = win.findChild(QQuickItem, "cardLayout")
+    assert layout is not None
+    page.setProperty("viewMode", "cards")
+    for _ in range(40):
+        qgui_app.processEvents()
+    card = min(_delegate_rows(layout), key=lambda c: c.y())
+    _settle_cards(qgui_app, card)
+    button = _card_play_button(card)
+    assert button is not None
+    assert button.property("width") > 20
+    pos = button.mapToScene(
+        QPointF(button.property("width") / 2, button.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(win, Qt.LeftButton, Qt.NoModifier, pos)
+    QTest.qWait(150)
+    qgui_app.processEvents()
+    assert played == ["local-doom"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_icon_double_click_plays(qgui_app, xdg_env, monkeypatch):
     """Double-clicking an icon cell invokes play() with that game's id."""
     from PySide6.QtCore import QObject, QPointF, Qt
