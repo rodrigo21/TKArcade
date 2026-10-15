@@ -113,6 +113,53 @@ toggle and a centered Library.
 - [x] QSystemTrayIcon → migrated to QApplication (tray controller
   with recents)
 
+### Widgets removal: remaining QtWidgets surface (survey 2026-10-15)
+
+Goal: delete `src/tkarcade/widgets/` + `tests/gui_widgets_reference.py`
+and close both `test_no_widgets` cases. Rule: `tests/test_no_widgets.py`
+defines done.
+
+Live importers today (its own output):
+- `src/tkarcade/gui/kirigami_app.py` — builds a `QApplication`.
+- `src/tkarcade/gui/tray.py` — `QSystemTrayIcon` + `QMenu` (the widgets
+  package import is gone: the icon helper now lives in
+  `gui/icons.py`, QtGui-only).
+- `tests/conftest.py` (session fixture) and `tests/test_tray.py`
+  (widget-level tray assertions).
+- Nothing else: no `QFileDialog`/`QMessageBox`/widget dialog anywhere in
+  the live tree, and no live module imports the widgets package.
+
+Measured, not assumed:
+- The **whole QML suite (85 cases) passes under a `QGuiApplication`**
+  (switched the conftest fixture temporarily): the shell itself has no
+  widget dependency, so `kirigami_app.py` can move to
+  `QGuiApplication` (quit via `QCoreApplication.quit`).
+- `QSystemTrayIcon` is **not** a `QWidget` (it derives from QObject) and
+  constructs fine under a `QGuiApplication`; `isSystemTrayAvailable()`
+  works. The hard blocker is **`QMenu` (a QWidget): constructing it
+  under `QGuiApplication` aborts the process** ("Cannot create a QWidget
+  without QApplication").
+
+So the tray is the only real decision. Options:
+1. `QGuiApplication` + `QSystemTrayIcon` + a **QML** context menu
+   (tray `activated` → open a `Controls.Menu` at the cursor, fed by the
+   same rows). Small; keeps one QtWidgets import (a QObject class).
+2. `QGuiApplication` + **StatusNotifierItem over QtDBus** (`PySide6.
+   QtDBus` is installed, session bus reachable — no new dependency):
+   drops QtWidgets completely, but it is a hand-rolled
+   `org.kde.StatusNotifierItem` + `com.canonical.dbusmenu` implementation
+   (~400 lines, fiddly layout semantics, needs a real desktop to
+   validate).
+3. `PyKF6` (`KStatusNotifierItem`): smallest code, but a **new runtime
+   dependency** — needs an explicit OK, and packaging availability to
+   check.
+4. Keep `QSystemTrayIcon`/`QMenu` in a documented exception (no policy
+   change): honest but leaves the debt and the failing test.
+
+Prep independent of the choice: extract the menu as data (rows +
+`trigger(id)`) so the tests stop building `QMenu` and the renderer can
+be swapped in one file.
+
 ### Drawer (after tableview)
 - [x] Drawer Mode… into GlobalDrawer `footer:` (icon buttons, always
   reachable; hidden when collapsed)
