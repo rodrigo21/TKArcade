@@ -410,3 +410,41 @@ def test_local_dry_run_uses_custom_executable(xdg_env, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "AppID: local-doom" in out
     assert str(exe) in out
+
+
+def test_setup_logging_no_duplicate_handler(xdg_env):
+    import logging
+
+    from tkarcade.launcher import setup_logging
+
+    setup_logging("30")
+    setup_logging("30")
+    targets = [
+        getattr(h, "baseFilename", "")
+        for h in logging.getLogger().handlers
+        if getattr(h, "baseFilename", "").endswith("30.log")
+    ]
+    assert len(targets) == 1
+
+
+def test_dry_run_loads_config_once(xdg_env, monkeypatch):
+    from tkarcade import launcher as L
+
+    _save("31")
+    calls = []
+    real = C.load_effective
+
+    def counting(appid):
+        calls.append(appid)
+        return real(appid)
+
+    monkeypatch.setattr(L.cfgmod, "load_effective", counting)
+    assert L.main(["--appid", "31", "--dry-run", "--", "/bin/true"]) == 0
+    assert calls == ["31"]
+
+
+def test_nonexecutable_exit_13(xdg_env, tmp_path):
+    exe = tmp_path / "noexec"
+    exe.write_text("#!/bin/sh\necho hi\n")  # deliberately left non-executable
+    _save("32")
+    assert _run(_env(xdg_env), "--appid", "32", str(exe)).returncode == 13

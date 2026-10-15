@@ -80,16 +80,25 @@ def setup_logging(appid: str = "", verbose: bool = False) -> Path:
     try:
         d = xdg.games_log_dir()
         d.mkdir(parents=True, exist_ok=True)
+        target = d / f"{appid}.log"
+        root = logging.getLogger()
+        for h in root.handlers:
+            name = getattr(h, "baseFilename", "")
+            if name and os.path.abspath(name) == os.path.abspath(target):
+                # Already attached (e.g. --edit/--menu calls this twice):
+                # don't stack a second handler writing the same file.
+                h.setLevel(level)
+                return target
         fh = logging.handlers.RotatingFileHandler(
-            d / f"{appid}.log",
+            target,
             maxBytes=1_000_000,
             backupCount=3,
             encoding="utf-8",
         )
         fh.setLevel(level)
         fh.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s"))
-        logging.getLogger().addHandler(fh)
-        return d / f"{appid}.log"
+        root.addHandler(fh)
+        return target
     except Exception:
         return Path(f"{appid}.log")
 
@@ -735,8 +744,7 @@ def main(argv: list[str] | None = None) -> int:
             print("tkarcade: cannot resolve AppID", file=sys.stderr)
             return 10
         setup_logging(appid, args.verbose)
-
-    cfg = cfgmod.load_effective(appid)  # refresh: the editor above may have saved changes
+        cfg = cfgmod.load_effective(appid)  # refresh: the editor above may have saved changes
 
     if (
         (args.menu or cfg.general.show_menu)
@@ -875,11 +883,17 @@ def main(argv: list[str] | None = None) -> int:
                 game_rc = proc.returncode
                 if rc_file:
                     game_rc = _read_wrap_rc_file(rc_file, game_rc)
-            except FileNotFoundError:
-                log.error("game executable not found: %r", final_cmd)
+            except OSError as e:
+                # FileNotFoundError: missing binary. PermissionError/ETXTBSY
+                # and friends: present but not runnable. Same contract exit
+                # (13) either way, with a global log line and a notification.
+                if isinstance(e, FileNotFoundError):
+                    log.error("game executable not found: %r", final_cmd)
+                else:
+                    log.error("cannot execute game %r: %s", final_cmd, e)
                 notify_backend.send(
-                    "TKArcade: game executable not found",
-                    shlex.join(final_cmd)[:200],
+                    "TKArcade: cannot start game",
+                    f"{shlex.join(final_cmd)[:200]} ({e})",
                     "critical",
                 )
                 write_global_log(appid, 13, final_cmd)

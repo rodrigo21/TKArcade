@@ -103,9 +103,6 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication(sys.argv if argv is None else argv)
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")
-    from .i18n import install_translations, preferred_language
-
-    install_translations(app, preferred_language())
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     engine = QQmlApplicationEngine()
     # Parent to the engine: QML takes no ownership, so an unparented

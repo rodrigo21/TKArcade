@@ -114,6 +114,11 @@ Breaking config changes are called out explicitly under `Changed`.
   width over the fresh autofit.
 
 ### Fixed
+- Launcher launch path: the game config is parsed once (the refresh
+  re-parse only runs after `--edit`/`--menu` may have saved), repeat
+  `setup_logging()` calls no longer stack a second file handler on the
+  same `<appid>.log`, and a non-executable game binary returns the
+  contract exit 13 (log + notification) instead of a traceback.
 - Preferences dialog uses FormCard delegates (native settings look);
   the API key row stays plain (FormTextFieldDelegate needs a
   KLocalizedContext the engine does not install).
