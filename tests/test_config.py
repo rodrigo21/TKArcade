@@ -276,6 +276,115 @@ def test_preferences_invalid_values(xdg_env):
     assert back.minimize_to_tray is True
 
 
+#: Every persisted leaf field, set to a distinctive value that sits inside
+#: the documented range. A load that silently drops or re-clamps one of
+#: them (a bound narrower than what the writers produce: the column-width
+#: map was capped at 5 logicals while the table writes 11) fails
+#: test_every_field_roundtrips below.
+_GAME_FIELDS = {
+    "general.name": "Test Name",
+    "general.custom_executable": "/tmp/opencode/exe",
+    "general.game_type": "proton",
+    "general.show_menu": True,
+    "general.menu_timeout": 42,
+    "general.custom_prefix": "zink-run",
+    "general.active_profile": "prof2",
+    "general.categories": ["Action", "Retro"],
+    "general.platform": "Steam Deck",
+    "general.launch_args": "--foo --bar",
+    "general.launch_cwd": "/tmp/opencode/cwd",
+    "env.vars": {"A": "1", "B": "two words"},
+    "pre_post.pre_command": "prescript",
+    "pre_post.pre_args": ["a", "b"],
+    "pre_post.post_command": "postscript",
+    "pre_post.post_args": ["c"],
+    "pre_post.timeout": 90,
+    "pre_post.run_in_shell": True,
+    "gamemode.feral_gamemode": True,
+    "gamemode.cachyos_game_performance": True,
+    "gamescope.enable": True,
+    "gamescope.args": "-f -H 1080",
+    "mangohud.enable": True,
+    "mangohud.args": "-x",
+    "mangohud.config_file": "custom.conf",
+    "mangohud.fps_limit": 120,
+    "ludusavi.enable": True,
+    "ludusavi.restore": False,
+    "ludusavi.backup": False,
+    "ludusavi.name_override": "Alt Name",
+    "ludusavi.use_gui": False,
+    "nightlight.disable_during_game": True,
+    "nightlight.provider": "plasma",
+    "display.provider": "x11",
+    "display.output": "HDMI-A-1",
+    "display.mode": "1920x1080@144",
+    "display.dip_seconds": 12,
+    "notifications.notify_on_launch": False,
+    "notes.text": "line1\nline2",
+    "debug.proton_log": True,
+    "debug.winedebug": "+all",
+    "session.inhibit_idle": True,
+    "proton.fresh_prefix": True,
+    "proton.winetricks_verbs": ["corefonts"],
+    "proton.wine_prefix": "/tmp/opencode/prefix",
+    "proton.wine_version": "GE-Proton9-1",
+    "audio.sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+    "rtupscale.enable": True,
+    "rtupscale.args": "--scale",
+    "artwork.icon": "/tmp/opencode/i.png",
+    "artwork.cover": "/tmp/opencode/c.png",
+    "artwork.banner": "/tmp/opencode/b.png",
+    "artwork.donor_appid": "123",
+}
+
+_PREF_FIELDS = {
+    "show_preview": False,
+    "tray_enable": True,
+    "tray_icon": "mono",
+    "minimize_to_tray": True,
+    "close_to_tray": True,
+    "sgdb_api_key": "secret-key",
+    "column_order": "1,2,3,4,5,6,7,8,9,10,11",
+    "hidden_columns": "4,5",
+    "column_widths": "1=210,2=90,11=150",
+    "tray_quick_launch": False,
+    "tray_quick_count": 7,
+    "language": "pt_BR",
+    "main_window_size": "1600x900",
+    "main_window_maximized": True,
+    "drawer_mode": "overlay",
+    "drawer_collapsed": False,
+}
+
+
+def _walk(obj, path):
+    for part in path.split("."):
+        obj = getattr(obj, part)
+    return obj
+
+
+def test_every_field_roundtrips(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "424242"
+    for path, value in _GAME_FIELDS.items():
+        target = _walk(cfg, path.rpartition(".")[0]) if "." in path else cfg
+        setattr(target, path.rpartition(".")[2], value)
+    cfg.extra = {"future": {"k": "v"}}
+    C.save(cfg)
+    back = C.load("424242")
+    for path, value in _GAME_FIELDS.items():
+        assert _walk(back, path) == value, f"{path} did not survive save/load"
+    assert back.extra == {"future": {"k": "v"}}
+
+    prefs = C.Preferences()
+    for name, value in _PREF_FIELDS.items():
+        setattr(prefs, name, value)
+    C.save_preferences(prefs)
+    loaded = C.load_preferences()
+    for name, value in _PREF_FIELDS.items():
+        assert getattr(loaded, name) == value, f"{name} did not survive save/load"
+
+
 def test_winetricks_runs_and_skips_repeat(xdg_env, fake_bin, monkeypatch, tmp_path):
     from tkarcade import proton as pm
 
