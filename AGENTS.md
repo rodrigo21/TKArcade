@@ -91,6 +91,15 @@ rewrite pushed history or tags.
   layout passes need wall-clock time, and a few hundred tight iterations
   can all run inside one millisecond on an idle machine while starving
   under load (a case flaked inside `makepkg`'s check).
+- Popup waits must be style-proof: the desktop QQC2 style fades a menu
+  in (~70ms, `opened` only flips then) and out (~120ms, and a `popup()`
+  during that exit is ignored), so `tests/kirigami_qml_cases.py` waits
+  on wall-clock time (`_settle_menu`) and on the exit transition
+  (`_close_menu`) instead of frame counts. A test that runs `edit.main()`
+  or `kirigami_app.main()` in process also pins
+  `QT_QUICK_CONTROLS_STYLE` in `os.environ` for the rest of the session
+  (the QML driver's children then inherit the desktop style) — delete
+  the variable with monkeypatch.
 - `Kirigami.Dialog` overlays never finish their enter fade offscreen
   (they render invisible): synthetic clicks don't reach their buttons —
   open them via clicks and drive accepts with direct calls instead.

@@ -3669,14 +3669,34 @@ _TRAY_MENU_ITEMS = (
 )
 
 
-def _settle_menu(qgui_app, menu, limit=40):
-    """Pump frames until the popup reports itself open (opening is async)."""
-    for _ in range(limit):
-        if menu.property("opened"):
-            break
-        qgui_app.processEvents()
-    for _ in range(3):
-        qgui_app.processEvents()
+def _settle_menu(menu, count=None, limit=100, step=10):
+    """Wait until the popup reports itself open (and holds `count` items).
+
+    Wall-clock waits, not a tight `processEvents` loop: with the desktop
+    QQC2 style the menu fades in through an enter transition, so `opened`
+    only flips once real time has passed, and the recents arrive through
+    an `Instantiator` afterwards. The build's check() inherits
+    `QT_QUICK_CONTROLS_STYLE=org.kde.desktop` from an earlier test and
+    failed exactly here; standalone runs (default style) opened instantly
+    and hid it.
+    """
+    from PySide6.QtTest import QTest
+
+    _wait_for(lambda: menu.property("opened"), limit=limit, step=step)
+    if count is not None:
+        _wait_for(lambda: menu.property("count") == count, limit=limit, step=step)
+    QTest.qWait(20)
+
+
+def _close_menu(menu, limit=100, step=10):
+    """Close the popup and wait out the exit transition.
+
+    The desktop style fades the menu out; until that finishes the popup is
+    still visible and QQC2 ignores a new `popup()`, so the next
+    `requestTrayMenu` would silently do nothing.
+    """
+    menu.close()
+    _wait_for(lambda: not menu.property("visible"), limit=limit, step=step)
 
 
 def _tray_menu_entries(win):
@@ -3756,15 +3776,14 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
     # No recents, no Global Defaults registration: 8 items, both recents
     # separators collapsed and no blank row left behind.
     model.requestTrayMenu(400, 300)
-    _settle_menu(qgui_app, menu)
+    _settle_menu(menu, count=8)
     assert menu.property("opened") is True
     assert menu.property("count") == 8
     assert separators_visible() == [False, False]
     entries = _tray_menu_entries(win)
     assert _tray_menu_labels(entries) == ["Show / Hide", "Preferences...", "About...", "Quit"]
     _assert_no_blank_rows(entries)
-    menu.close()
-    qgui_app.processEvents()
+    _close_menu(menu)
 
     # Recents: prefs-gated rows, inserted after Show / Hide + separator.
     prefs = C.load_preferences()
@@ -3780,7 +3799,7 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
         ],
     )
     model.requestTrayMenu(400, 300)
-    _settle_menu(qgui_app, menu)
+    _settle_menu(menu, count=10)
     assert menu.property("count") == 10
     assert separators_visible() == [True, True]
     entries = _tray_menu_entries(win)
@@ -3807,10 +3826,9 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
     # Global Defaults appears once a defaults callback is registered, and
     # only then: the entry's visibility is re-read on every open.
     model._tray_actions["defaults"] = lambda: ran.append("defaults")
-    menu.close()
-    qgui_app.processEvents()
+    _close_menu(menu)
     model.requestTrayMenu(400, 300)
-    _settle_menu(qgui_app, menu)
+    _settle_menu(menu, count=10)
     entries = _tray_menu_entries(win)
     assert _tray_menu_labels(entries) == [
         "Show / Hide",
@@ -3826,16 +3844,14 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
     assert ran == ["prefs", "toggle", "defaults"]
 
     # Close-to-tray: the shell is hidden while the tray is used.
-    menu.close()
-    qgui_app.processEvents()
+    _close_menu(menu)
     win.setVisible(False)
     model.requestTrayMenu(400, 300)
-    _settle_menu(qgui_app, menu)
+    _settle_menu(menu, count=10)
     assert menu.property("opened") is True
     assert _tray_menu_labels(_tray_menu_entries(win))[:2] == ["Show / Hide", "Doom 3 (1h)"]
 
-    menu.close()
-    qgui_app.processEvents()
+    _close_menu(menu)
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.setVisible(True)

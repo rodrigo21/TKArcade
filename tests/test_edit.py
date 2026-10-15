@@ -2,6 +2,20 @@
 
 import json
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _no_style_leak(monkeypatch):
+    """`main()` pins QT_QUICK_CONTROLS_STYLE in os.environ, as the product does.
+
+    Left alone it leaks into the rest of the session, and the QML driver's
+    child processes then run the desktop style: its menu fade keeps `opened`
+    false through a tight settle loop, so the tray case failed inside
+    makepkg's check() while standalone runs (default style) stayed green.
+    """
+    monkeypatch.delenv("QT_QUICK_CONTROLS_STYLE", raising=False)
+
 
 def test_parse_args_defaults():
     from tkarcade.gui import edit
