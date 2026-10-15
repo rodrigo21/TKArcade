@@ -114,6 +114,13 @@ Breaking config changes are called out explicitly under `Changed`.
   width over the fresh autofit.
 
 ### Fixed
+- Library model: the "Steam detected" count no longer includes local
+  games, cached validation issues are dropped on every refresh, and
+  saving Preferences propagates the tray state (close/minimize-to-tray
+  take effect without a restart).
+- Saving a local game now validates name + executable on edit too
+  (create already did); Reset keeps the local identity (name/exe)
+  while restoring factory tweaks.
 - Launcher launch path: the game config is parsed once (the refresh
   re-parse only runs after `--edit`/`--menu` may have saved), repeat
   `setup_logging()` calls no longer stack a second file handler on the

@@ -118,9 +118,16 @@ def test_save_prefs_refreshes_tray(qgui_app, xdg_env):
 
     model = GameListModel()
     calls = []
-    model._tray_refresher = lambda: calls.append(True)
-    assert model.savePrefs({"trayEnable": True}) is True
+
+    def fake_apply():
+        calls.append(True)
+        return True
+
+    model._tray_refresher = fake_apply
+    assert model.savePrefs({"trayEnable": True, "closeToTray": True}) is True
     assert calls == [True]
+    # The refresher result must reach the model: tray-gated slots flip on.
+    assert model.hideOnClose() is True
 
 
 def test_close_to_tray_hides_window(qgui_app, xdg_env):

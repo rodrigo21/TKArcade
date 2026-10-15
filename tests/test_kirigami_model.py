@@ -967,3 +967,52 @@ def test_proxy_move_hide_reset_columns(qgui_app, xdg_env):
     assert C.load_preferences().hidden_columns == "7,8,9,10,11"
     proxy.moveColumn(0, -1)  # edge: no-op, stays valid
     assert proxy.columnCount() == 12
+
+
+def test_refresh_counts_only_steam_detected(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    model = GameListModel()
+    model.refresh()
+    assert model.steamDetectedCount == 0  # local games must not inflate it
+
+
+def test_game_issues_cache_invalidated_on_refresh(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-broken"
+    cfg.general.name = "Broken"
+    cfg.general.custom_executable = "/nonexistent/doom"
+    C.save(cfg)  # missing executable -> validation issue
+    model = GameListModel()
+    assert model.gameIssues("local-broken") != []
+    fixed = C.load("local-broken")
+    fixed.general.custom_executable = "/bin/true"
+    C.save(fixed)
+    model.refresh()
+    assert model.gameIssues("local-broken") == []
+
+
+def test_save_game_update_rejects_cleared_identity(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    model = GameListModel()
+    out = dict(model.loadGame("local-doom"))
+    out["name"] = ""
+    assert model.saveGame("local-doom", out) == ""
+    assert C.load("local-doom").general.name == "Doom"
+    out = dict(model.loadGame("local-doom"))
+    out["custom_executable"] = "/nonexistent/doom"
+    assert model.saveGame("local-doom", out) == ""
+    assert C.load("local-doom").general.custom_executable == "/bin/true"

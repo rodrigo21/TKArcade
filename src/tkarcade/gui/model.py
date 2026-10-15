@@ -255,8 +255,10 @@ class GameListModel(QAbstractTableModel):
     def refresh(self) -> None:
         """Reload rows from disk (Steam names first, local names merged)."""
         names = {a: n for a, n in steammod.list_games()}
-        names.update(steammod.local_names())
         self._steam_detected = len(names)
+        names.update(steammod.local_names())
+        # Drop stale validation results: configs may have changed on disk.
+        self._issues_cache = {}
         try:
             stats = histmod.summarize(histmod.parse_log(xdg.log_file()))
         except Exception:
@@ -557,7 +559,13 @@ class GameListModel(QAbstractTableModel):
                     log.warning("saveGame(%s) failed: %s", appid, e)
                     return ""
             if not steammod.is_steam_id(appid):
-                cfg.general.name = str(data.get("name", "")).strip()
+                name = str(data.get("name", "")).strip()
+                exe = str(data.get("custom_executable", "")).strip()
+                err = validate_local_game(name, exe)
+                if err:
+                    log.warning("saveGame(%s) update rejected: %s", appid, err)
+                    return ""
+                cfg.general.name = name
         active = str(data.get("active_profile", "")).strip()
         if appid and active:
             try:
@@ -1811,7 +1819,7 @@ class GameListModel(QAbstractTableModel):
         refresher = self._tray_refresher
         if callable(refresher):
             try:
-                refresher()
+                self.setTrayActive(bool(refresher()))
             except Exception as e:
                 log.warning("tray refresh failed: %s", e)
         return True
