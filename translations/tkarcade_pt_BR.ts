@@ -2069,27 +2069,27 @@ Isso sobrescreve as configs salvas (perfis são mantidos).</translation>
         <translation>Gaveta lateral recolhível</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="235"/>
+        <location filename="../src/tkarcade/gui/qml/main.qml" line="240"/>
         <source>Show / Hide</source>
         <translation>Mostrar / Ocultar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="260"/>
+        <location filename="../src/tkarcade/gui/qml/main.qml" line="270"/>
         <source>Global Defaults...</source>
         <translation>Padrões globais...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="266"/>
+        <location filename="../src/tkarcade/gui/qml/main.qml" line="277"/>
         <source>Preferences...</source>
         <translation>Preferências...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="271"/>
+        <location filename="../src/tkarcade/gui/qml/main.qml" line="282"/>
         <source>About...</source>
         <translation>Sobre...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="278"/>
+        <location filename="../src/tkarcade/gui/qml/main.qml" line="290"/>
         <source>Quit</source>
         <translation>Sair</translation>
     </message>

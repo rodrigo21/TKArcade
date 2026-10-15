@@ -79,6 +79,14 @@ rewrite pushed history or tags.
 - QQC2 `onToggled` fires on user interaction only (unlike QWidgets):
   react to programmatic `setProperty("checked", ...)` (tests included)
   with `onCheckedChanged` instead.
+- QQC2 menu entries keep their layout height when `visible: false` (the
+  menu skips nothing): collapse conditional entries with
+  `height: visible ? implicitHeight : 0` or the menu paints blank rows
+  (29px per item, separator 3px, measured offscreen).
+- A QML binding that calls a model method (`visible:
+  gameModel.trayDefaultsAvailable()`) is evaluated once, before the
+  shell registers its callbacks, and never updates: re-read such state
+  in the popup's `onAboutToShow` (same place the recents are rebuilt).
 - QML tests wait with `QTest.qWait`, not bare `processEvents()` loops:
   layout passes need wall-clock time, and a few hundred tight iterations
   can all run inside one millisecond on an idle machine while starving

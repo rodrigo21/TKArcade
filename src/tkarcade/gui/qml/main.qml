@@ -227,8 +227,13 @@ Kirigami.ApplicationWindow {
         // Instantiator's own indexes get that offset.
         readonly property int recentsBase: 2
 
-        // Freshness: the recents are rebuilt before every open.
-        onAboutToShow: recents.model = gameModel.trayRecentGames()
+        // Freshness: entries that depend on the shell's registrations are
+        // rebuilt before every open (a one-shot binding to a model method
+        // would be evaluated before kirigami_app registers the callbacks).
+        onAboutToShow: {
+            recents.model = gameModel.trayRecentGames()
+            trayDefaultsItem.visible = gameModel.trayDefaultsAvailable()
+        }
 
         Controls.MenuItem {
             objectName: "trayShowHide"
@@ -238,6 +243,9 @@ Kirigami.ApplicationWindow {
         Controls.MenuSeparator {
             objectName: "traySepRecentsTop"
             visible: recents.count > 0
+            // A menu layout still reserves a hidden entry's height: collapse
+            // it or the menu paints blank rows (measured: 29px per item).
+            height: visible ? implicitHeight : 0
         }
         Instantiator {
             id: recents
@@ -254,11 +262,14 @@ Kirigami.ApplicationWindow {
         Controls.MenuSeparator {
             objectName: "traySepRecentsBottom"
             visible: recents.count > 0
+            height: visible ? implicitHeight : 0
         }
         Controls.MenuItem {
+            id: trayDefaultsItem
             objectName: "trayDefaults"
             text: qsTr("Global Defaults...")
-            visible: gameModel.trayDefaultsAvailable()
+            visible: false
+            height: visible ? implicitHeight : 0
             onTriggered: gameModel.trayAction("defaults")
         }
         Controls.MenuItem {
@@ -272,6 +283,7 @@ Kirigami.ApplicationWindow {
             onTriggered: gameModel.trayAction("about")
         }
         Controls.MenuSeparator {
+            objectName: "traySepQuit"
         }
         Controls.MenuItem {
             objectName: "trayQuit"

@@ -3646,14 +3646,18 @@ def test_window_minimum_size(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-#: Tray menu entries, candidates for the layout-order scan below.
+#: Tray menu entries, candidates for the layout-order scan below
+#: (separators included: they own the blank-row question too).
 _TRAY_MENU_ITEMS = (
     "trayShowHide",
+    "traySepRecentsTop",
     "trayRecent0",
     "trayRecent1",
+    "traySepRecentsBottom",
     "trayDefaults",
     "trayPrefs",
     "trayAbout",
+    "traySepQuit",
     "trayQuit",
 )
 
@@ -3668,10 +3672,13 @@ def _settle_menu(qgui_app, menu, limit=40):
         qgui_app.processEvents()
 
 
-def _tray_menu_rows(win):
-    """Visible tray entries in layout order (y): the menu's own item list is
-    a QQuickMenu invokable PySide cannot reach through its QObject wrapper,
-    so order is measured from the laid-out delegates."""
+def _tray_menu_entries(win):
+    """Visible tray entries in layout order: (objectName, text, y, height).
+
+    The menu's own item list is a QQuickMenu invokable PySide cannot reach
+    through its QObject wrapper, so order and spacing are measured from the
+    laid-out delegates.
+    """
     from PySide6.QtCore import QPointF
     from PySide6.QtQuick import QQuickItem
 
@@ -3680,9 +3687,30 @@ def _tray_menu_rows(win):
         item = win.findChild(QQuickItem, name)
         if item is None or not item.property("visible"):
             continue
-        rows.append((item.mapToScene(QPointF(0, 0)).y(), item.property("text")))
-    rows.sort()
-    return [text for _y, text in rows]
+        rows.append(
+            (
+                name,
+                item.property("text"),
+                item.mapToScene(QPointF(0, 0)).y(),
+                item.property("height"),
+            )
+        )
+    rows.sort(key=lambda row: row[2])
+    return rows
+
+
+def _tray_menu_labels(entries):
+    """Text of the visible entries, separators (no text) dropped."""
+    return [text for _name, text, _y, _h in entries if text is not None]
+
+
+def _assert_no_blank_rows(entries):
+    """Consecutive visible entries must touch: a hidden entry that keeps its
+    height paints an empty row (the pre-fix behaviour: 29px per item)."""
+    from itertools import pairwise
+
+    for cur, nxt in pairwise(entries):
+        assert nxt[2] - (cur[2] + cur[3]) <= 1, (cur[0], nxt[0], cur[2], cur[3], nxt[2])
 
 
 def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
@@ -3719,13 +3747,15 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
         return [win.findChild(QQuickItem, n).property("visible") for n in recents_seps]
 
     # No recents, no Global Defaults registration: 8 items, both recents
-    # separators collapsed.
+    # separators collapsed and no blank row left behind.
     model.requestTrayMenu(400, 300)
     _settle_menu(qgui_app, menu)
     assert menu.property("opened") is True
     assert menu.property("count") == 8
     assert separators_visible() == [False, False]
-    assert _tray_menu_rows(win) == ["Show / Hide", "Preferences...", "About...", "Quit"]
+    entries = _tray_menu_entries(win)
+    assert _tray_menu_labels(entries) == ["Show / Hide", "Preferences...", "About...", "Quit"]
+    _assert_no_blank_rows(entries)
     menu.close()
     qgui_app.processEvents()
 
@@ -3746,7 +3776,8 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
     _settle_menu(qgui_app, menu)
     assert menu.property("count") == 10
     assert separators_visible() == [True, True]
-    assert _tray_menu_rows(win) == [
+    entries = _tray_menu_entries(win)
+    assert _tray_menu_labels(entries) == [
         "Show / Hide",
         "Doom 3 (1h)",
         "Doom (30m)",
@@ -3754,6 +3785,7 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
         "About...",
         "Quit",
     ]
+    _assert_no_blank_rows(entries)
 
     # Entries dispatch through the model, the only path they have.
     _fire(win.findChild(QQuickItem, "trayRecent0"))
@@ -3763,6 +3795,28 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
     assert played == ["99", "local-doom"]
     assert ran == ["prefs", "toggle"]
     assert model.trayDefaultsAvailable() is False
+    assert win.findChild(QQuickItem, "trayDefaults").property("visible") is False
+
+    # Global Defaults appears once a defaults callback is registered, and
+    # only then: the entry's visibility is re-read on every open.
+    model._tray_actions["defaults"] = lambda: ran.append("defaults")
+    menu.close()
+    qgui_app.processEvents()
+    model.requestTrayMenu(400, 300)
+    _settle_menu(qgui_app, menu)
+    entries = _tray_menu_entries(win)
+    assert _tray_menu_labels(entries) == [
+        "Show / Hide",
+        "Doom 3 (1h)",
+        "Doom (30m)",
+        "Global Defaults...",
+        "Preferences...",
+        "About...",
+        "Quit",
+    ]
+    _assert_no_blank_rows(entries)
+    _fire(win.findChild(QQuickItem, "trayDefaults"))
+    assert ran == ["prefs", "toggle", "defaults"]
 
     # Close-to-tray: the shell is hidden while the tray is used.
     menu.close()
@@ -3771,7 +3825,7 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
     model.requestTrayMenu(400, 300)
     _settle_menu(qgui_app, menu)
     assert menu.property("opened") is True
-    assert _tray_menu_rows(win)[:2] == ["Show / Hide", "Doom 3 (1h)"]
+    assert _tray_menu_labels(_tray_menu_entries(win))[:2] == ["Show / Hide", "Doom 3 (1h)"]
 
     menu.close()
     qgui_app.processEvents()
