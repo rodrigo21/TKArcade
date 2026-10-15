@@ -6,7 +6,6 @@ import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 import org.kde.kirigami.dialogs as KirigamiDialogs
 import org.kde.kirigami.layouts as KL
-import org.kde.kirigamiaddons.formcard as FormCard
 
 // Games page: search + view split-button on top, the selected view
 // below (details list, icons grid, or gallery-style cards), counts at
