@@ -82,11 +82,13 @@ translations never break config round-trips. CLI/launcher text stays
 English by design.
 
 ```bash
-python3 scripts/extract-messages.py  # refresh translations/*.ts
-# translate new strings (Linguist GUI or edit XML), then:
+bash scripts/refresh-translations.sh  # QML (lupdate) + Python (pylupdate,
+# revived into one catalog); translate leftovers, then:
 lrelease6 translations/tkarcade_pt_BR.ts \
   -qm src/tkarcade/translations/tkarcade_pt_BR.qm
 ```
+Never run lupdate on a subset of files: it marks every other context
+vanished. The refresh script always passes the full QML set.
 
 Commit both `.ts` (source) and `.qm` (runtime payload, travels in the
 wheel). `tests/test_i18n.py` fails on any untranslated `tr()` literal.

@@ -53,6 +53,8 @@ Breaking config changes are called out explicitly under `Changed`.
   confirms then persists factory now.
 - General tab pilot on Kirigami.FormLayout: side-by-side aligned labels
   when wide (QFormLayout parity), stacked labels when narrow.
+- pt_BR catalog complete (719 strings, QML + Python): translator install
+  in the Kirigami app, language picker in Preferences (restart to apply).
 - FormLayout across settings: Pre/Post fully, Display Mode and MangoHud
   groups, Wine fully; tables/checks-only groups and single-pair tabs
   stay stacked (a label column would orphan their checkboxes).

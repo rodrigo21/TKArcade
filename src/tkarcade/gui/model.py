@@ -1778,6 +1778,7 @@ class GameListModel(QAbstractTableModel):
             "trayQuickLaunch": bool(prefs.tray_quick_launch),
             "trayQuickCount": int(prefs.tray_quick_count),
             "sgdbApiKey": str(prefs.sgdb_api_key),
+            "language": str(prefs.language),
         }
 
     @Slot("QVariantMap", result=bool)
@@ -1799,6 +1800,8 @@ class GameListModel(QAbstractTableModel):
                 1, min(10, int(get("trayQuickCount", prefs.tray_quick_count)))
             )
             prefs.sgdb_api_key = str(get("sgdbApiKey", prefs.sgdb_api_key))
+            lang = str(get("language", prefs.language)).strip() or "system"
+            prefs.language = lang
             cfgmod.save_preferences(prefs)
         except Exception as e:
             log.warning("savePrefs failed: %s", e)
@@ -1810,6 +1813,16 @@ class GameListModel(QAbstractTableModel):
             except Exception as e:
                 log.warning("tray refresh failed: %s", e)
         return True
+
+    @Slot(result=list)
+    def languageOptions(self) -> list:
+        """[[code, label]] languages for the prefs picker."""
+        from . import i18n as i18nmod
+
+        try:
+            return [[code, label] for code, label in i18nmod.available_languages()]
+        except Exception:
+            return [["system", "System"], ["en", "English"]]
 
     @Slot(bool)
     def setTrayActive(self, active: bool) -> None:

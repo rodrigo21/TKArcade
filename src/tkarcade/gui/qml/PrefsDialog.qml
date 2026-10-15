@@ -22,6 +22,7 @@ Window {
 
     property var values: ({})
     property var page: null
+    property var langCodes: []
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
@@ -32,6 +33,16 @@ Window {
     function load() {
         values = gameModel.loadPrefs()
         quickSpin.value = values.trayQuickCount ?? 5
+        var opts = gameModel.languageOptions()
+        langCodes = []
+        var labels = []
+        for (var i = 0; i < opts.length; i++) {
+            langCodes.push(opts[i][0])
+            labels.push(opts[i][1])
+        }
+        langCombo.model = labels
+        var at = langCodes.indexOf(values.language ?? "system")
+        langCombo.currentIndex = at >= 0 ? at : 0
     }
 
     function setPref(key, value) {
@@ -106,6 +117,13 @@ Window {
                             from: 1
                             to: 10
                             onValueModified: prefsDialog.setPref("trayQuickCount", value)
+                        }
+                        FormCard.FormComboBoxDelegate {
+                            id: langCombo
+                            objectName: "prefsLanguage"
+                            text: qsTr("Language (restart to apply):")
+                            onActivated: (index) => prefsDialog.setPref(
+                                "language", prefsDialog.langCodes[index] || "system")
                         }
                     }
                     // Plain row: FormTextFieldDelegate calls bare i18ndc(),
