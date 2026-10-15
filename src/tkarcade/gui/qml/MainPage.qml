@@ -436,6 +436,11 @@ Kirigami.Page {
         resetDialog.open()
     }
 
+    function acceptBulkCats() {
+        gamesPage.notify(gameModel.setCategories(selectedIds, bulkCatsField.text))
+        bulkCatsDialog.close()
+    }
+
     function acceptClone() {
         var dest = cloneBox.editText.trim()
         if (dest === "") {
@@ -638,6 +643,24 @@ Kirigami.Page {
         if (logical === 5) {
             return gameFilter.showSource
         }
+        if (logical === 6) {
+            return gameFilter.showLastPlayed
+        }
+        if (logical === 7) {
+            return gameFilter.showPlatform
+        }
+        if (logical === 8) {
+            return gameFilter.showRunner
+        }
+        if (logical === 9) {
+            return gameFilter.showWine
+        }
+        if (logical === 10) {
+            return gameFilter.showInstallDir
+        }
+        if (logical === 11) {
+            return gameFilter.showCategory
+        }
         return true
     }
 
@@ -656,6 +679,24 @@ Kirigami.Page {
         }
         if (logical === 5) {
             return "gameSource"
+        }
+        if (logical === 6) {
+            return "gameLastSecs"
+        }
+        if (logical === 7) {
+            return "gamePlatform"
+        }
+        if (logical === 8) {
+            return "gameRunner"
+        }
+        if (logical === 9) {
+            return "gameWine"
+        }
+        if (logical === 10) {
+            return "gameInstallDir"
+        }
+        if (logical === 11) {
+            return "gameCategory"
         }
         return ""
     }
@@ -691,10 +732,28 @@ Kirigami.Page {
         if (logical === 4) {
             return qsTr("ProtonDB")
         }
-        return qsTr("Source")
+        if (logical === 5) {
+            return qsTr("Source")
+        }
+        if (logical === 6) {
+            return qsTr("Last Played")
+        }
+        if (logical === 7) {
+            return qsTr("Platform")
+        }
+        if (logical === 8) {
+            return qsTr("Runner")
+        }
+        if (logical === 9) {
+            return qsTr("Wine")
+        }
+        if (logical === 10) {
+            return qsTr("Install Dir")
+        }
+        return qsTr("Category")
     }
 
-    property var columnOrder: [0, 1, 2, 3, 4, 5] // JS mirror of the proxy
+    property var columnOrder: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] // JS mirror of the proxy
     // order (fresh JS array from JSON: QVariantList lays out at zero
     // width). Refreshed on start and on every columnsChanged.
     property var fittedColumnWidths: ({}) // logical -> px, same mirror rule
@@ -769,6 +828,12 @@ Kirigami.Page {
         gameFilter.showPlayed = true
         gameFilter.showTier = true
         gameFilter.showSource = true
+        gameFilter.showLastPlayed = true
+        gameFilter.showPlatform = false
+        gameFilter.showRunner = false
+        gameFilter.showWine = false
+        gameFilter.showInstallDir = false
+        gameFilter.showCategory = false
     }
 
     function baseColumnWidth(logical) {
@@ -809,7 +874,7 @@ Kirigami.Page {
             return
         }
         var base = 0
-        for (var l of [2, 3, 4, 5]) {
+        for (var l of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
             base += baseColumnWidth(l)
         }
         var gameFit = gameFilter.columnWidth(1)
@@ -817,7 +882,7 @@ Kirigami.Page {
         var avail = gameTable.width - 36 - gameMin
         columnShrink = (base <= 0 || avail >= base) ? 1.0 : Math.max(0.15, avail / base)
         var fixed = 36
-        for (var l2 of [2, 3, 4, 5]) {
+        for (var l2 of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
             // Hidden columns take no space (the 24px floor is for
             // visible narrow columns only).
             if (columnVisible(l2)) {
@@ -1202,6 +1267,17 @@ Kirigami.Page {
         Controls.MenuItem {
             text: qsTr("Reset to Global Defaults")
             onTriggered: gamesPage.openResetDialog()
+        }
+        Controls.MenuItem {
+            text: qsTr("Set Categories…")
+            onTriggered: {
+                if (gamesPage.selectedIds.length === 0) {
+                    gamesPage.notify(qsTr("Select games first."))
+                    return
+                }
+                bulkCatsField.text = ""
+                bulkCatsDialog.open()
+            }
         }
     }
 
@@ -1693,6 +1769,42 @@ Kirigami.Page {
             checked: gameFilter.showSource
             onTriggered: gameFilter.showSource = checked
         }
+        Controls.MenuItem {
+            text: qsTr("Show Last Played")
+            checkable: true
+            checked: gameFilter.showLastPlayed
+            onTriggered: gameFilter.showLastPlayed = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show Platform")
+            checkable: true
+            checked: gameFilter.showPlatform
+            onTriggered: gameFilter.showPlatform = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show Runner")
+            checkable: true
+            checked: gameFilter.showRunner
+            onTriggered: gameFilter.showRunner = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show Wine")
+            checkable: true
+            checked: gameFilter.showWine
+            onTriggered: gameFilter.showWine = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show Install Dir")
+            checkable: true
+            checked: gameFilter.showInstallDir
+            onTriggered: gameFilter.showInstallDir = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show Category")
+            checkable: true
+            checked: gameFilter.showCategory
+            onTriggered: gameFilter.showCategory = checked
+        }
         Controls.MenuSeparator {
         }
         Controls.MenuItem {
@@ -2085,6 +2197,41 @@ Kirigami.Page {
                 onTriggered: overwriteDialog.close()
             }
         ]
+    }
+
+    Kirigami.Dialog {
+        id: bulkCatsDialog
+        objectName: "bulkCatsDialog"
+        title: qsTr("Set Categories")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Controls.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: qsTr("Comma-separated tags (empty clears). Applies to %1 game(s).").arg(
+                    gamesPage.selectedIds.length)
+            }
+            Controls.TextField {
+                id: bulkCatsField
+                objectName: "bulkCatsField"
+                placeholderText: qsTr("Action, Retro")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+                onAccepted: gamesPage.acceptBulkCats()
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                objectName: "bulkCatsOk"
+                text: qsTr("OK")
+                onClicked: gamesPage.acceptBulkCats()
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: bulkCatsDialog.close()
+            }
+        }
     }
 
     KirigamiDialogs.PromptDialog {

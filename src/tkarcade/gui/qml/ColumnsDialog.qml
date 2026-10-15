@@ -20,6 +20,18 @@ Kirigami.Dialog {
             return "showPlayed"
         } else if (logical === 4) {
             return "showTier"
+        } else if (logical === 6) {
+            return "showLastPlayed"
+        } else if (logical === 7) {
+            return "showPlatform"
+        } else if (logical === 8) {
+            return "showRunner"
+        } else if (logical === 9) {
+            return "showWine"
+        } else if (logical === 10) {
+            return "showInstallDir"
+        } else if (logical === 11) {
+            return "showCategory"
         }
         return "showSource"
     }
@@ -31,6 +43,18 @@ Kirigami.Dialog {
             return qsTr("Played")
         } else if (logical === 4) {
             return qsTr("ProtonDB")
+        } else if (logical === 6) {
+            return qsTr("Last Played")
+        } else if (logical === 7) {
+            return qsTr("Platform")
+        } else if (logical === 8) {
+            return qsTr("Runner")
+        } else if (logical === 9) {
+            return qsTr("Wine")
+        } else if (logical === 10) {
+            return qsTr("Install Dir")
+        } else if (logical === 11) {
+            return qsTr("Category")
         }
         return qsTr("Source")
     }
@@ -41,7 +65,7 @@ Kirigami.Dialog {
         }
         Repeater {
             // Static literal: JS array end to end, never a QVariantList.
-            model: [2, 3, 4, 5]
+            model: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
             delegate: RowLayout {
                 required property int modelData
                 property int logical: modelData
@@ -66,7 +90,7 @@ Kirigami.Dialog {
                     icon.name: "go-down"
                     text: qsTr("Move down")
                     display: Controls.AbstractButton.IconOnly
-                    enabled: page !== null && page.columnOrder.indexOf(logical) < 5
+                    enabled: page !== null && page.columnOrder.indexOf(logical) < page.columnOrder.length - 1
                     onClicked: page.moveColumn(logical, 1)
                 }
             }

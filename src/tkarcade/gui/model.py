@@ -96,6 +96,13 @@ class GameListModel(QAbstractTableModel):
     IconRole = Qt.ItemDataRole.UserRole + 8
     PlayedSecsRole = Qt.ItemDataRole.UserRole + 9
     PlayedTipRole = Qt.ItemDataRole.UserRole + 10
+    LastPlayedRole = Qt.ItemDataRole.UserRole + 11
+    LastSecsRole = Qt.ItemDataRole.UserRole + 12
+    PlatformRole = Qt.ItemDataRole.UserRole + 13
+    RunnerRole = Qt.ItemDataRole.UserRole + 14
+    WineRole = Qt.ItemDataRole.UserRole + 15
+    InstallDirRole = Qt.ItemDataRole.UserRole + 16
+    CategoryRole = Qt.ItemDataRole.UserRole + 17
 
     ROLE_NAMES = (
         "gameId",
@@ -108,6 +115,13 @@ class GameListModel(QAbstractTableModel):
         "gameIcon",
         "gamePlayedSecs",
         "gamePlayedTip",
+        "gameLastPlayed",
+        "gameLastSecs",
+        "gamePlatform",
+        "gameRunner",
+        "gameWine",
+        "gameInstallDir",
+        "gameCategory",
     )
 
     refreshed = Signal()
@@ -162,6 +176,13 @@ class GameListModel(QAbstractTableModel):
             GameListModel.IconRole: b"gameIcon",
             GameListModel.PlayedSecsRole: b"gamePlayedSecs",
             GameListModel.PlayedTipRole: b"gamePlayedTip",
+            GameListModel.LastPlayedRole: b"gameLastPlayed",
+            GameListModel.LastSecsRole: b"gameLastSecs",
+            GameListModel.PlatformRole: b"gamePlatform",
+            GameListModel.RunnerRole: b"gameRunner",
+            GameListModel.WineRole: b"gameWine",
+            GameListModel.InstallDirRole: b"gameInstallDir",
+            GameListModel.CategoryRole: b"gameCategory",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -169,13 +190,13 @@ class GameListModel(QAbstractTableModel):
 
     def columnCount(self, parent: QModelIndex | None = None) -> int:
         # Fixed logical columns (proxy permutes/hides them for the view).
-        return 0 if (parent is not None and parent.isValid()) else 6
+        return 0 if (parent is not None and parent.isValid()) else 12
 
     def index(self, row: int, column: int, parent: QModelIndex | None = None):
         # Table models own their indexes (unlike proxy mapping, this is safe).
         if parent is not None and parent.isValid():
             return QModelIndex()
-        if 0 <= row < len(self._rows) and 0 <= column < 6:
+        if 0 <= row < len(self._rows) and 0 <= column < 12:
             return self.createIndex(row, column)
         return QModelIndex()
 
@@ -194,6 +215,13 @@ class GameListModel(QAbstractTableModel):
             GameListModel.IconRole: 7,
             GameListModel.PlayedSecsRole: 8,
             GameListModel.PlayedTipRole: 9,
+            GameListModel.LastPlayedRole: 10,
+            GameListModel.LastSecsRole: 11,
+            GameListModel.PlatformRole: 12,
+            GameListModel.RunnerRole: 13,
+            GameListModel.WineRole: 14,
+            GameListModel.InstallDirRole: 15,
+            GameListModel.CategoryRole: 16,
         }
         return row[cols[role]] if role in cols else None
 
@@ -211,6 +239,13 @@ class GameListModel(QAbstractTableModel):
             "gameIcon",
             "gamePlayedSecs",
             "gamePlayedTip",
+            "gameLastPlayed",
+            "gameLastSecs",
+            "gamePlatform",
+            "gameRunner",
+            "gameWine",
+            "gameInstallDir",
+            "gameCategory",
         )
         if not 0 <= row < len(self._rows):
             return {}
@@ -240,15 +275,51 @@ class GameListModel(QAbstractTableModel):
             icon = artmod.resolve_icon(appid)
             try:
                 gcfg = cfgmod.load(appid)
-                art, donor = gcfg.artwork, gcfg.artwork.donor_appid.strip()
-                if art.icon and Path(art.icon).is_file():
-                    icon = Path(art.icon)
-                elif donor and donor != appid:
-                    donor_icon = artmod.resolve_icon(donor)
-                    if donor_icon is not None:
-                        icon = donor_icon
+            except Exception:
+                gcfg = None
+            try:
+                if gcfg is not None:
+                    art, donor = gcfg.artwork, gcfg.artwork.donor_appid.strip()
+                    if art.icon and Path(art.icon).is_file():
+                        icon = Path(art.icon)
+                    elif donor and donor != appid:
+                        donor_icon = artmod.resolve_icon(donor)
+                        if donor_icon is not None:
+                            icon = donor_icon
             except Exception as e:
                 log.warning("artwork resolve(%s) failed: %s", appid, e)
+            if st is None:
+                last_played, last_secs = "—", -1
+            else:
+                last_played = st.last.replace("T", " ")[:16]
+                try:
+                    from datetime import datetime
+
+                    last_secs = int(datetime.fromisoformat(st.last).timestamp())
+                except (ValueError, TypeError):
+                    last_secs = -1
+            platform = gcfg.general.platform if gcfg is not None else ""
+            runner = (gcfg.general.game_type if gcfg is not None else "auto").title()
+            if steammod.is_steam_id(appid):
+                from .. import proton as protonmod
+
+                try:
+                    wine = protonmod.tool_display(appid)
+                except Exception:
+                    wine = "Proton"
+            elif gcfg is not None and gcfg.proton.wine_version:
+                wine = gcfg.proton.wine_version
+            else:
+                wine = ""
+            try:
+                install = steammod.install_dir(appid)
+                install_dir = os.fspath(install) if install else ""
+            except Exception:
+                install_dir = ""
+            if not install_dir and gcfg is not None and gcfg.general.custom_executable:
+                exe = Path(gcfg.general.custom_executable).expanduser()
+                install_dir = str(exe.parent) if exe.name else ""
+            category = ", ".join(gcfg.general.categories) if gcfg is not None else ""
             data, _fresh = pdbmod.cached(appid)
             tier = str(((data or {}).get("tier", "")) or "").lower()
             bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
@@ -264,6 +335,13 @@ class GameListModel(QAbstractTableModel):
                     str(icon) if icon else "",
                     played_secs,
                     played_tip,
+                    last_played,
+                    last_secs,
+                    platform,
+                    runner,
+                    wine,
+                    install_dir,
+                    category,
                 )
             )
         rows.sort(key=lambda r: r[1].lower())
@@ -1841,7 +1919,20 @@ class GameFilterModel(QSortFilterProxyModel):
     textChanged = Signal()
     issuesChanged = Signal()
 
-    TABLE_COLUMNS = ("#", "gameName", "gameId", "gamePlayed", "gameTier", "gameSource")
+    TABLE_COLUMNS = (
+        "#",
+        "gameName",
+        "gameId",
+        "gamePlayed",
+        "gameTier",
+        "gameSource",
+        "gameLastPlayed",
+        "gamePlatform",
+        "gameRunner",
+        "gameWine",
+        "gameInstallDir",
+        "gameCategory",
+    )
     COLUMN_TITLES = {
         "#": "#",
         "gameName": "Game",
@@ -1849,6 +1940,12 @@ class GameFilterModel(QSortFilterProxyModel):
         "gamePlayed": "Played",
         "gameTier": "ProtonDB",
         "gameSource": "Source",
+        "gameLastPlayed": "Last Played",
+        "gamePlatform": "Platform",
+        "gameRunner": "Runner",
+        "gameWine": "Wine",
+        "gameInstallDir": "Install Dir",
+        "gameCategory": "Category",
     }
     _COLUMN_ROLES = (
         None,
@@ -1857,11 +1954,21 @@ class GameFilterModel(QSortFilterProxyModel):
         "gamePlayed",
         "gameTier",
         "gameSource",
+        "gameLastPlayed",
+        "gamePlatform",
+        "gameRunner",
+        "gameWine",
+        "gameInstallDir",
+        "gameCategory",
     )
+
+    #: Fresh/hidden-by-default library columns (Last Played shows).
+    _DEFAULT_HIDDEN = frozenset({7, 8, 9, 10, 11})
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._source = "all"
+        self._category = ""
         self._text = ""
         self._issues = False
         self._order, self._hidden = self._load_columns()
@@ -1877,13 +1984,16 @@ class GameFilterModel(QSortFilterProxyModel):
             order = [int(x) for x in cfgmod.load_preferences().column_order.split(",")]
         except Exception:
             order = []
-        if sorted(order) != [0, 1, 2, 3, 4, 5]:
-            order = [0, 1, 2, 3, 4, 5]
         try:
             hidden = {int(x) for x in cfgmod.load_preferences().hidden_columns.split(",")}
         except Exception:
             hidden = set()
-        return order, {h for h in hidden if h in (1, 2, 3, 4, 5)}
+        if sorted(order) != [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]:
+            # Old/short orders reset (no migration shims); keep the old
+            # hides, new library columns stay hidden except Last Played.
+            order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            hidden = (hidden & {1, 2, 3, 4, 5}) | set(GameFilterModel._DEFAULT_HIDDEN)
+        return order, {h for h in hidden if h in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)}
 
     def _view_columns(self) -> list[int]:
         """Logical columns in view order (hidden stay mapped, QML widths them 0)."""
@@ -1905,7 +2015,7 @@ class GameFilterModel(QSortFilterProxyModel):
                 logical, width = int(left.strip()), int(right.strip())
             except ValueError:
                 continue
-            if 0 <= logical <= 5 and 20 <= width <= 2000:
+            if 0 <= logical <= 11 and 20 <= width <= 2000:
                 widths[logical] = width
         return widths
 
@@ -1969,7 +2079,7 @@ class GameFilterModel(QSortFilterProxyModel):
             logical, width = int(logical), int(width)
         except (TypeError, ValueError):
             return
-        if logical not in (1, 2, 3, 4, 5) or not 20 <= width <= 2000:
+        if logical not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) or not 20 <= width <= 2000:
             return
         if self._widths.get(logical) != width:
             self._widths[logical] = width
@@ -2026,7 +2136,7 @@ class GameFilterModel(QSortFilterProxyModel):
             logical = int(logical)
         except (TypeError, ValueError):
             return 0
-        if logical not in (0, 1, 2, 3, 4, 5):
+        if logical not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
             return 0
         measured = self._measure_column(logical)
         if not measured:
@@ -2039,8 +2149,8 @@ class GameFilterModel(QSortFilterProxyModel):
 
     @Slot()
     def fitDefaults(self) -> None:
-        """Fit columns 1-5 capped: fresh starts and resets show content."""
-        for logical in (1, 2, 3, 4, 5):
+        """Fit visible content columns capped: fresh starts and resets."""
+        for logical in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
             measured = self._measure_column(logical)
             if measured:
                 self._widths[logical] = min(max(40, measured), self.DEFAULT_FIT_MAX)
@@ -2070,6 +2180,12 @@ class GameFilterModel(QSortFilterProxyModel):
                 3: GameListModel.PlayedRole,
                 4: GameListModel.TierRole,
                 5: GameListModel.SourceRole,
+                6: GameListModel.LastPlayedRole,
+                7: GameListModel.PlatformRole,
+                8: GameListModel.RunnerRole,
+                9: GameListModel.WineRole,
+                10: GameListModel.InstallDirRole,
+                11: GameListModel.CategoryRole,
             }
             return str(model.data(sidx, roles[logical]) or "")
         return super().data(index, role)
@@ -2101,9 +2217,9 @@ class GameFilterModel(QSortFilterProxyModel):
 
     @Slot()
     def resetColumns(self) -> None:
-        """Default order, everything visible, columns fitted capped."""
-        self._order = [0, 1, 2, 3, 4, 5]
-        self._hidden = set()
+        """Default order and visibility, columns fitted capped."""
+        self._order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        self._hidden = set(self._DEFAULT_HIDDEN)
         self._widths = {}
         self._save_columns()
         self.layoutChanged.emit()
@@ -2121,6 +2237,18 @@ class GameFilterModel(QSortFilterProxyModel):
             self.sourceChanged.emit()
 
     sourceKey = Property(str, _get_source, _set_source, notify=sourceChanged)
+
+    def _get_category(self) -> str:
+        return self._category
+
+    def _set_category(self, key: str) -> None:
+        key = str(key or "")
+        if key != self._category:
+            self._category = key
+            self.invalidate()
+            self.sourceChanged.emit()
+
+    categoryKey = Property(str, _get_category, _set_category, notify=sourceChanged)
 
     def _get_text(self) -> str:
         return self._text
@@ -2154,6 +2282,12 @@ class GameFilterModel(QSortFilterProxyModel):
         "showPlayed": 3,
         "showTier": 4,
         "showSource": 5,
+        "showLastPlayed": 6,
+        "showPlatform": 7,
+        "showRunner": 8,
+        "showWine": 9,
+        "showInstallDir": 10,
+        "showCategory": 11,
     }
 
     def _get_flag(self, name: str) -> bool:
@@ -2196,10 +2330,52 @@ class GameFilterModel(QSortFilterProxyModel):
     def _set_showSource(self, value: bool) -> None:
         self._set_flag("showSource", value)
 
+    def _get_showLastPlayed(self) -> bool:
+        return self._get_flag("showLastPlayed")
+
+    def _set_showLastPlayed(self, value: bool) -> None:
+        self._set_flag("showLastPlayed", value)
+
+    def _get_showPlatform(self) -> bool:
+        return self._get_flag("showPlatform")
+
+    def _set_showPlatform(self, value: bool) -> None:
+        self._set_flag("showPlatform", value)
+
+    def _get_showRunner(self) -> bool:
+        return self._get_flag("showRunner")
+
+    def _set_showRunner(self, value: bool) -> None:
+        self._set_flag("showRunner", value)
+
+    def _get_showWine(self) -> bool:
+        return self._get_flag("showWine")
+
+    def _set_showWine(self, value: bool) -> None:
+        self._set_flag("showWine", value)
+
+    def _get_showInstallDir(self) -> bool:
+        return self._get_flag("showInstallDir")
+
+    def _set_showInstallDir(self, value: bool) -> None:
+        self._set_flag("showInstallDir", value)
+
+    def _get_showCategory(self) -> bool:
+        return self._get_flag("showCategory")
+
+    def _set_showCategory(self, value: bool) -> None:
+        self._set_flag("showCategory", value)
+
     showAppId = Property(bool, _get_showAppId, _set_showAppId, notify=columnsChanged)
     showPlayed = Property(bool, _get_showPlayed, _set_showPlayed, notify=columnsChanged)
     showTier = Property(bool, _get_showTier, _set_showTier, notify=columnsChanged)
     showSource = Property(bool, _get_showSource, _set_showSource, notify=columnsChanged)
+    showLastPlayed = Property(bool, _get_showLastPlayed, _set_showLastPlayed, notify=columnsChanged)
+    showPlatform = Property(bool, _get_showPlatform, _set_showPlatform, notify=columnsChanged)
+    showRunner = Property(bool, _get_showRunner, _set_showRunner, notify=columnsChanged)
+    showWine = Property(bool, _get_showWine, _set_showWine, notify=columnsChanged)
+    showInstallDir = Property(bool, _get_showInstallDir, _set_showInstallDir, notify=columnsChanged)
+    showCategory = Property(bool, _get_showCategory, _set_showCategory, notify=columnsChanged)
 
     @Slot(int, result="QVariantMap")
     def rowData(self, row: int) -> dict:
@@ -2288,5 +2464,9 @@ class GameFilterModel(QSortFilterProxyModel):
             except Exception:
                 issues = []
             if not issues:
+                return False
+        if self._category:
+            cats = str(model.data(index, GameListModel.CategoryRole) or "")
+            if self._category not in [c.strip() for c in cats.split(",")]:
                 return False
         return True

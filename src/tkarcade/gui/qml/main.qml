@@ -151,6 +151,12 @@ Kirigami.ApplicationWindow {
                 text: qsTr("Local (%1)").arg(gameModel.localCount)
                 checked: gameFilter.sourceKey === "local"
                 onTriggered: gameFilter.sourceKey = "local"
+            },
+            Kirigami.Action {
+                objectName: "drawerCategory"
+                text: gameFilter.categoryKey === "" ? qsTr("Category: All") : qsTr("Category: %1").arg(
+                    gameFilter.categoryKey)
+                onTriggered: categoryDialog.openDialog()
             }
         ]
         // Escape hatch: the hamburger menu (with the drawer switch)
@@ -193,5 +199,9 @@ Kirigami.ApplicationWindow {
 
     pageStack.initialPage: MainPage {
         appDrawer: sourceDrawer
+    }
+
+    CategoryDialog {
+        id: categoryDialog
     }
 }

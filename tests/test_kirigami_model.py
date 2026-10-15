@@ -93,16 +93,23 @@ def test_model_role_names_are_game_prefixed(qgui_app):
 
     roles = GameListModel().roleNames()
     assert sorted(roles.values()) == [
+        b"gameCategory",
         b"gameIcon",
         b"gameId",
+        b"gameInstallDir",
+        b"gameLastPlayed",
+        b"gameLastSecs",
         b"gameName",
+        b"gamePlatform",
         b"gamePlayed",
         b"gamePlayedSecs",
         b"gamePlayedTip",
+        b"gameRunner",
         b"gameSource",
         b"gameTier",
         b"gameTierBg",
         b"gameTierFg",
+        b"gameWine",
     ]
 
 
@@ -319,13 +326,13 @@ def test_column_prefs_roundtrip(qgui_app, xdg_env):
     proxy.setSourceModel(source)
     assert proxy.columnLogical(0) == 0
     proxy.moveColumn(2, 1)
-    assert [proxy.columnLogical(c) for c in range(6)] == [0, 1, 3, 2, 4, 5]
+    assert [proxy.columnLogical(c) for c in range(12)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11]
     assert C.load_preferences().column_order.split(",")[:3] == ["0", "1", "3"]
     proxy.showAppId = False
     assert "2" in C.load_preferences().hidden_columns.split(",")
     proxy.resetColumns()
-    assert [proxy.columnLogical(c) for c in range(6)] == [0, 1, 2, 3, 4, 5]
-    assert C.load_preferences().hidden_columns == ""
+    assert [proxy.columnLogical(c) for c in range(12)] == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    assert C.load_preferences().hidden_columns == "7,8,9,10,11"
 
 
 def test_column_width_autofit_persists(qgui_app, xdg_env):
@@ -362,8 +369,8 @@ def test_column_width_drag_preview_then_save(qgui_app, xdg_env):
     assert C.load_preferences().column_widths == "2=150"
     proxy.setColumnWidth(2, 5)  # below minimum: rejected
     assert proxy.columnWidth(2) == 150
-    proxy.setColumnWidth(9, 150)  # unknown column: rejected
-    assert proxy.columnWidth(9) == 0
+    proxy.setColumnWidth(99, 150)  # unknown column: rejected
+    assert proxy.columnWidth(99) == 0
 
 
 def test_role_id_maps_names(qgui_app, xdg_env):
@@ -608,6 +615,36 @@ def test_library_schema_slots(qgui_app, xdg_env, tmp_path):
         "Set a custom prefix dir first (Steam creates its own)."
     )
     assert model.clearCustomPrefix("local-doom") == "No custom prefix set."
+
+
+def test_library_columns_roles(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.platform = "PC"
+    cfg.general.categories = ["Action"]
+    C.save(cfg)
+    model = GameListModel()
+    assert model.columnCount() == 12
+    row = model.rowData(0)
+    assert row["gamePlatform"] == "PC"
+    assert row["gameCategory"] == "Action"
+    assert row["gameRunner"] == "Auto"
+    assert row["gameLastPlayed"] == "—"
+    assert row["gameLastSecs"] == -1
+    game_filter = GameFilterModel()
+    game_filter.setSourceModel(model)
+    assert game_filter.columnCount() == 12
+    assert game_filter._order == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    assert game_filter._hidden == {7, 8, 9, 10, 11}
+    assert game_filter.showLastPlayed is True
+    assert game_filter.showCategory is False
+    game_filter.showCategory = True
+    assert game_filter.showCategory is True
+    game_filter.sortBy("gameCategory", False)
+    game_filter.sortBy("gameLastSecs", True)
 
 
 def test_settings_preview_diff(qgui_app, xdg_env):
@@ -882,19 +919,25 @@ def _filtered(qgui_app, appids=("213", "local-doom")):
     return proxy
 
 
-def test_proxy_is_six_column_table(qgui_app, xdg_env):
+def test_proxy_is_twelve_column_table(qgui_app, xdg_env):
     from PySide6.QtCore import Qt
 
     proxy = _filtered(qgui_app)
-    assert proxy.columnCount() == 6
+    assert proxy.columnCount() == 12
     assert proxy.columnCount(proxy.index(0, 0)) == 0
-    assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(6)] == [
+    assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(12)] == [
         "#",
         "Game",
         "App ID",
         "Played",
         "ProtonDB",
         "Source",
+        "Last Played",
+        "Platform",
+        "Runner",
+        "Wine",
+        "Install Dir",
+        "Category",
     ]
     assert proxy.data(proxy.index(0, 0)) == "1"
     assert proxy.data(proxy.index(0, 1)) == "213"
@@ -910,17 +953,17 @@ def test_proxy_is_six_column_table(qgui_app, xdg_env):
 def test_proxy_move_hide_reset_columns(qgui_app, xdg_env):
     proxy = _filtered(qgui_app)
     proxy.moveColumn(2, 1)
-    assert proxy.columnCount() == 6
+    assert proxy.columnCount() == 12
     assert (
         proxy.headerData(2, __import__("PySide6.QtCore", fromlist=["x"]).Qt.Orientation.Horizontal)
         == "Played"
     )
     assert C.load_preferences().column_order.split(",")[:3] == ["0", "1", "3"]
     proxy.showAppId = False
-    assert proxy.columnCount() == 6  # hidden columns keep mapped slots
+    assert proxy.columnCount() == 12  # hidden columns keep mapped slots
     assert "2" in C.load_preferences().hidden_columns.split(",")
     proxy.resetColumns()
-    assert proxy.columnCount() == 6
-    assert C.load_preferences().hidden_columns == ""
+    assert proxy.columnCount() == 12
+    assert C.load_preferences().hidden_columns == "7,8,9,10,11"
     proxy.moveColumn(0, -1)  # edge: no-op, stays valid
-    assert proxy.columnCount() == 6
+    assert proxy.columnCount() == 12
