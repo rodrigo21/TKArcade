@@ -28,7 +28,7 @@ class TrayController:
         from PySide6.QtWidgets import QSystemTrayIcon
 
         from .. import config as cfgmod
-        from ..widgets import icons as iconsmod
+        from . import icons as iconsmod
 
         try:
             prefs = cfgmod.load_preferences()

@@ -152,3 +152,19 @@ def test_close_to_tray_hides_window(qgui_app, xdg_env):
     model.setTrayActive(False)
     engine.deleteLater()
     qgui_app.processEvents()
+
+
+def test_app_icon_comes_from_the_bundle(qgui_app, xdg_env):
+    """The GUI icon helper is QtGui-only and loads the packaged SVGs.
+
+    It used to live in the parked widgets package and fall back to
+    `QApplication.style()`; the theme lookup replaces that without
+    pulling QtWidgets into the tray module.
+    """
+    from tkarcade.gui import icons
+
+    assert icons.icon_path("normal").is_file()
+    assert icons.icon_path("mono").is_file()
+    assert icons.icon_path("anything-else") == icons.icon_path("normal")
+    assert not icons.app_icon().isNull()
+    assert not icons.app_icon("mono").isNull()
