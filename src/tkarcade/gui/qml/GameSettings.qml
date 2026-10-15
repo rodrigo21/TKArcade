@@ -442,12 +442,6 @@ Window {
         }
     }
 
-    function removeEnvRow(i) {
-        if (i >= 0 && i < envModel.count) {
-            envModel.remove(i)
-        }
-    }
-
     function dispProviderValue() {
         return ["auto", "plasma", "gnome", "wlroots", "x11", "off"][dispProv.currentIndex] || "auto"
     }

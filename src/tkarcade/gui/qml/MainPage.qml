@@ -166,16 +166,6 @@ Kirigami.Page {
         onTriggered: gamesPage.notice = ""
     }
 
-    function viewName() {
-        if (viewMode === "icons") {
-            return qsTr("Icons")
-        }
-        if (viewMode === "cards") {
-            return qsTr("Cards")
-        }
-        return qsTr("List")
-    }
-
     function viewIcon() {
         if (viewMode === "icons") {
             return "view-list-icons"
