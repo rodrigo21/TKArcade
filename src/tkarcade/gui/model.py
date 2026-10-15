@@ -559,13 +559,7 @@ class GameListModel(QAbstractTableModel):
                     log.warning("saveGame(%s) failed: %s", appid, e)
                     return ""
             if not steammod.is_steam_id(appid):
-                name = str(data.get("name", "")).strip()
-                exe = str(data.get("custom_executable", "")).strip()
-                err = validate_local_game(name, exe)
-                if err:
-                    log.warning("saveGame(%s) update rejected: %s", appid, err)
-                    return ""
-                cfg.general.name = name
+                cfg.general.name = str(data.get("name", "")).strip()
         active = str(data.get("active_profile", "")).strip()
         if appid and active:
             try:

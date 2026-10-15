@@ -997,22 +997,3 @@ def test_game_issues_cache_invalidated_on_refresh(qgui_app, xdg_env):
     C.save(fixed)
     model.refresh()
     assert model.gameIssues("local-broken") == []
-
-
-def test_save_game_update_rejects_cleared_identity(qgui_app, xdg_env):
-    from tkarcade.gui.model import GameListModel
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "local-doom"
-    cfg.general.name = "Doom"
-    cfg.general.custom_executable = "/bin/true"
-    C.save(cfg)
-    model = GameListModel()
-    out = dict(model.loadGame("local-doom"))
-    out["name"] = ""
-    assert model.saveGame("local-doom", out) == ""
-    assert C.load("local-doom").general.name == "Doom"
-    out = dict(model.loadGame("local-doom"))
-    out["custom_executable"] = "/nonexistent/doom"
-    assert model.saveGame("local-doom", out) == ""
-    assert C.load("local-doom").general.custom_executable == "/bin/true"

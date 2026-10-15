@@ -336,12 +336,6 @@ Window {
             confirmDialog.close()
             var vals = gameModel.factoryGame(editAppid)
             vals.active_profile = ""
-            if (!fields.is_steam) {
-                // Reset restores factory tweaks but keeps the local identity
-                // (saveGame rejects nameless/exe-less local games).
-                vals.name = fields.name || ""
-                vals.custom_executable = fields.custom_executable || ""
-            }
             if (gameModel.saveGame(editAppid, vals) === "") {
                 settingsError.text = qsTr("Could not reset the game.")
                 return
