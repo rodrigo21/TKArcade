@@ -122,6 +122,11 @@ Breaking config changes are called out explicitly under `Changed`.
   configured + Steam + local games) or the `PrelaunchMenu` (Launch /
   Settings… / Cancel, `menu_timeout` countdown stopped — not resumed —
   when Settings… opens, exactly like the widgets `MenuDialog`).
+- Single GUI instance: the shell listens on a per-user local socket
+  (`$TMPDIR/tkarcade-gui-<uid>`, QtNetwork, no new dependency) and a
+  second launch pings it and exits 0; the primary comes back from the
+  tray (clears minimized, shows, raises, activates). A socket left
+  behind by a crash is removed and reclaimed.
 
 ### Removed
 - The parked QtWidgets implementation (`src/tkarcade/widgets/` and its

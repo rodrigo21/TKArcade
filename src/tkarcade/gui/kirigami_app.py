@@ -109,6 +109,52 @@ def save_window_geometry(win) -> None:
         pass
 
 
+def single_instance(name: str | None = None):
+    """Ensure a single GUI instance. Returns the server, or None in followers.
+
+    A follower pings the primary (which shows its window) and the caller
+    exits 0. Stale sockets left behind by a crash are cleaned up. QtNetwork,
+    so no new dependency; the socket name carries the uid so two users
+    never fight over the same one. The shell can be hidden in the tray, so
+    the ping means "come back", not just "raise".
+    """
+    from PySide6.QtNetwork import QLocalServer, QLocalSocket
+
+    name = name or f"tkarcade-gui-{getattr(os, 'getuid', lambda: 0)()}"
+    server = QLocalServer()
+    if server.listen(name):
+        return server
+    sock = QLocalSocket()
+    sock.connectToServer(name)
+    if sock.waitForConnected(1000):
+        sock.write(b"show")
+        sock.waitForBytesWritten(1000)
+        sock.disconnectFromServer()
+        return None
+    # Nobody listening: stale socket left by a crash.
+    QLocalServer.removeServer(name)
+    server = QLocalServer()
+    return server if server.listen(name) else None
+
+
+def show_requested(server, window) -> None:
+    """Drain show requests from follower instances and raise the window."""
+    from PySide6.QtCore import Qt
+
+    while server.hasPendingConnections():
+        sock = server.nextPendingConnection()
+        if sock is None:
+            continue
+        if sock.waitForReadyRead(500):
+            sock.readAll()
+        sock.disconnectFromServer()
+    if window.windowState() & Qt.WindowState.WindowMinimized:
+        window.setWindowState(window.windowState() & ~Qt.WindowState.WindowMinimized)
+    window.setVisible(True)
+    window.raise_()
+    window.requestActivate()
+
+
 def verbose_requested(argv: list[str] | None = None) -> bool:
     """Debug logging switch, so portal: lines show up when diagnosing."""
     return "--verbose" in (argv if argv is not None else sys.argv) or bool(
@@ -138,6 +184,12 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+    # Before the UI: a follower has nothing to build, it just wakes the
+    # primary (which may be sitting in the tray) and exits 0.
+    server = single_instance()
+    if server is None:
+        log.info("another instance is already running; asked it to show itself")
+        return 0
     if os.environ.get("TKARCADE_DEBUG_GEOMETRY") == "1":
         from PySide6.QtGui import QIcon
 
@@ -179,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     root = engine.rootObjects()[0]
     model.watchQuitKeys(root)
+    server.newConnection.connect(lambda: show_requested(server, root))
 
     from PySide6.QtCore import QObject
 

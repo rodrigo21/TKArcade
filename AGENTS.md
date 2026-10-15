@@ -124,6 +124,16 @@ rewrite pushed history or tags.
   the quit sequence that calls `close()` (not quit): clear
   `quitAction.shortcut` at startup or Ctrl+Q closes-to-tray instead
   of quitting.
+- The shell is single-instance: `kirigami_app.single_instance()` listens
+  on `$TMPDIR/tkarcade-gui-<uid>` (QtNetwork) and a second launch pings
+  "show" and exits 0 before building any UI; `show_requested()` brings
+  the window back from the tray. Do not add a second window path.
+- A `Window` declared inside another one never shows while the
+  enclosing window is hidden (`visible = true` and `show()` both no-op,
+  Qt 6.12). The standalone editor (`Editor.qml`) therefore creates its
+  windows with `createObject(null)` and keeps them in JS properties
+  (no QObject parent); the shell's own windows are nested and only ever
+  shown while the main window is visible.
 
 ## Project policies (do not regress)
 

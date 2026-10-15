@@ -49,6 +49,54 @@ def test_the_app_can_build_a_widget(qgui_app):
     assert widget.isWidgetType()
 
 
+def test_single_instance_listens_and_wakes_the_primary(qgui_app, monkeypatch, tmp_path):
+    """First launch listens; a follower pings it and the window comes back.
+
+    TMPDIR pins the socket file inside tmp_path (Qt puts it in the system
+    temp dir otherwise, where a real running instance could answer).
+    """
+    from PySide6.QtGui import QWindow
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    name = f"tkarcade-test-{os.getpid()}"
+    primary = kapp.single_instance(name)
+    assert primary is not None
+    try:
+        assert kapp.single_instance(name) is None  # follower: pinged, then done
+        qgui_app.processEvents()
+        assert primary.hasPendingConnections()
+        window = QWindow()
+        window.hide()
+        kapp.show_requested(primary, window)
+        assert window.isVisible()
+        assert not primary.hasPendingConnections()
+    finally:
+        primary.close()
+
+
+def test_single_instance_recovers_a_stale_socket(qgui_app, monkeypatch, tmp_path):
+    """A socket file left by a crash must not lock the user out for good."""
+    import socket
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    name = f"tkarcade-test-stale-{os.getpid()}"
+    path = tmp_path / name
+    stale = socket.socket(socket.AF_UNIX)
+    stale.bind(str(path))
+    stale.close()  # the file stays behind, with nobody listening on it
+    assert path.exists()
+    server = kapp.single_instance(name)
+    assert server is not None
+    try:
+        assert server.fullServerName() == str(path)
+    finally:
+        server.close()
+
+
 def test_main_boots_the_shell(tmp_path):
     """`main()` builds its own QApplication and runs the shell.
 
@@ -81,6 +129,10 @@ def test_main_boots_the_shell(tmp_path):
     env["PYTHONPATH"] = "src"
     env["QT_QPA_PLATFORM"] = "offscreen"
     env["HOME"] = str(tmp_path)
+    # The single-instance socket lives in the temp dir: keep it inside the
+    # sandbox so a real running shell cannot answer for this one.
+    (tmp_path / "tmp").mkdir(exist_ok=True)
+    env["TMPDIR"] = str(tmp_path / "tmp")
     for var in ("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"):
         (tmp_path / var).mkdir(exist_ok=True)
         env[var] = str(tmp_path / var)

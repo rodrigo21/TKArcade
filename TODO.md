@@ -144,11 +144,13 @@ Chosen: option 1 (`QSystemTrayIcon` + QML `Menu`), with the shell on a
   when Settings… opens) and `run_editor_menu` spawns + parses. The
   in-process fallback is gone: a missing child reads as "unavailable"
   (`--edit` exit 15, `--menu` warns and launches directly).
-- [ ] Single GUI instance: the widgets app held a `QLocalServer` and a
-  second launch raised the running window (its test went away with the
-  parked file); the QML app currently opens a second window. Reimplement
-  as a `QLocalServer`/local-socket "show" ping (QtNetwork, no new
-  dependency).
+- [x] Single GUI instance: the shell holds a `QLocalServer`
+  (`$TMPDIR/tkarcade-gui-<uid>`, QtNetwork) and a second launch sends
+  "show" and exits 0; the primary restores from minimized, shows, raises
+  and activates. Stale sockets (crash) are removed and reclaimed.
+  Covered by `single_instance`/`show_requested` tests plus an
+  out-of-process ping; the boot check pins `TMPDIR` so a real running
+  shell cannot answer for it.
 
 Measured (2026-10-15):
 - A `Window` declared inside another window **never shows** while the
