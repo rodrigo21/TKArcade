@@ -2655,13 +2655,20 @@ def test_settings_gamemode_exclusive(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_settings_display_flow(qgui_app, xdg_env):
+def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     """Display fields, gamescope preset, MangoHud new and dip persist."""
     from PySide6.QtCore import QObject, QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
 
     from tkarcade import config as C
+    from tkarcade.gui.model import GameListModel
+
+    # The New Configuration... flow hands the fresh file to the desktop
+    # editor (kate and friends); stubbing openPath keeps the suite from
+    # opening a real window on the developer's session. The QML branch
+    # still runs (the call is made and reports success).
+    monkeypatch.setattr(GameListModel, "openPath", lambda self, path: True)
 
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
