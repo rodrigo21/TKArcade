@@ -53,6 +53,9 @@ Breaking config changes are called out explicitly under `Changed`.
   confirms then persists factory now.
 - General tab pilot on Kirigami.FormLayout: side-by-side aligned labels
   when wide (QFormLayout parity), stacked labels when narrow.
+- FormLayout across settings: Pre/Post fully, Display Mode and MangoHud
+  groups, Wine fully; tables/checks-only groups and single-pair tabs
+  stay stacked (a label column would orphan their checkboxes).
 - File Export/Import (step 4): portal save picker, Export/Import menu
   entries, one modal Import window (tarball / STL checklist /
   predecessor copy). Lutris/Playnite/Faugus formats stay for the

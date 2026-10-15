@@ -913,52 +913,39 @@ Window {
                     Item {
                         width: parent.width
                         height: ppForm.implicitHeight
-                        ColumnLayout {
+                        KirigamiLayouts.FormLayout {
                             id: ppForm
                             width: parent.width
-                            spacing: Kirigami.Units.smallSpacing
-                            Controls.Label {
-                                text: qsTr("Pre-launch command:")
-                            }
                             Controls.TextField {
                                 id: ppPre
                                 objectName: "ppPre"
                                 Layout.fillWidth: true
-                            }
-                            Controls.Label {
-                                text: qsTr("Pre-launch arguments:")
+                                KirigamiLayouts.FormData.label: qsTr("Pre-launch command:")
                             }
                             Controls.TextField {
                                 id: ppPreArgs
                                 objectName: "ppPreArgs"
                                 Layout.fillWidth: true
-                            }
-                            Controls.Label {
-                                text: qsTr("Post-exit command:")
+                                KirigamiLayouts.FormData.label: qsTr("Pre-launch arguments:")
                             }
                             Controls.TextField {
                                 id: ppPost
                                 objectName: "ppPost"
                                 Layout.fillWidth: true
-                            }
-                            Controls.Label {
-                                text: qsTr("Post-exit arguments:")
+                                KirigamiLayouts.FormData.label: qsTr("Post-exit command:")
                             }
                             Controls.TextField {
                                 id: ppPostArgs
                                 objectName: "ppPostArgs"
                                 Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Post-exit arguments:")
                             }
-                            RowLayout {
-                                Controls.Label {
-                                    text: qsTr("Timeout (seconds):")
-                                }
-                                Controls.SpinBox {
-                                    id: ppTimeout
-                                    objectName: "ppTimeout"
-                                    from: 1
-                                    to: 3600
-                                }
+                            Controls.SpinBox {
+                                id: ppTimeout
+                                objectName: "ppTimeout"
+                                from: 1
+                                to: 3600
+                                KirigamiLayouts.FormData.label: qsTr("Timeout (seconds):")
                             }
                             Controls.CheckBox {
                                 id: ppShell
@@ -1034,21 +1021,17 @@ Window {
                             Controls.GroupBox {
                                 title: qsTr("Display Mode")
                                 Layout.fillWidth: true
-                                ColumnLayout {
-                                    Controls.Label {
-                                        text: qsTr("Output:")
-                                    }
+                                KirigamiLayouts.FormLayout {
                                     Controls.TextField {
                                         id: dispOut
                                         objectName: "dispOut"
                                         placeholderText: qsTr("auto = current output")
                                         Layout.fillWidth: true
-                                    }
-                                    Controls.Label {
-                                        text: qsTr("Mode:")
+                                        KirigamiLayouts.FormData.label: qsTr("Output:")
                                     }
                                     RowLayout {
                                         Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("Mode:")
                                         Controls.ComboBox {
                                             id: dmodeBox
                                             objectName: "dmodeBox"
@@ -1064,14 +1047,12 @@ Window {
                                             onClicked: gameModel.refreshDisplayModes(gameSettings.dispProviderValue(), dispOut.text.trim())
                                         }
                                     }
-                                    Controls.Label {
-                                        text: qsTr("Provider:")
-                                    }
                                     Controls.ComboBox {
                                         id: dispProv
                                         objectName: "dispProv"
                                         Layout.fillWidth: true
                                         model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("wlroots"), qsTr("X11"), qsTr("Disabled")]
+                                        KirigamiLayouts.FormData.label: qsTr("Provider:")
                                     }
                                     Controls.Label {
                                         id: dipNote
@@ -1130,25 +1111,21 @@ Window {
                             Controls.GroupBox {
                                 title: qsTr("MangoHud")
                                 Layout.fillWidth: true
-                                ColumnLayout {
+                                KirigamiLayouts.FormLayout {
                                     Controls.CheckBox {
                                         id: mhEnable
                                         objectName: "mhEnable"
                                         text: qsTr("Enable MangoHud")
                                     }
-                                    Controls.Label {
-                                        text: qsTr("MangoHud Options:")
-                                    }
                                     Controls.TextField {
                                         id: mhArgs
                                         objectName: "mhArgs"
                                         Layout.fillWidth: true
-                                    }
-                                    Controls.Label {
-                                        text: qsTr("MangoHud Configuration:")
+                                        KirigamiLayouts.FormData.label: qsTr("MangoHud Options:")
                                     }
                                     RowLayout {
                                         Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("MangoHud Configuration:")
                                         Controls.ComboBox {
                                             id: mhConf
                                             objectName: "mhConf"
@@ -1330,21 +1307,17 @@ Window {
                     Item {
                         width: parent.width
                         height: wineForm.implicitHeight
-                        ColumnLayout {
+                        KirigamiLayouts.FormLayout {
                             id: wineForm
                             objectName: "wineForm"
                             width: parent.width
                             enabled: ((fields.is_steam || false) && editAppid !== "") || defaultsMode
-                            spacing: Kirigami.Units.smallSpacing
                             Controls.CheckBox {
                                 id: ptFresh
                                 objectName: "ptFresh"
                                 text: qsTr("Delete prefix before launch (fresh start)")
                                 Controls.ToolTip.text: qsTr("Deletes the compatdata prefix so Steam recreates it. WIPES saves inside the prefix — rely on cloud or Ludusavi backups!")
                                 Controls.ToolTip.visible: hovered
-                            }
-                            Controls.Label {
-                                text: qsTr("Winetricks Verbs:")
                             }
                             Controls.TextField {
                                 id: ptVerbs
@@ -1353,6 +1326,7 @@ Window {
                                 Controls.ToolTip.text: qsTr("Winetricks verbs installed via protontricks before launch.")
                                 Controls.ToolTip.visible: hovered
                                 Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
                             }
                             RowLayout {
                                 visible: editAppid !== ""
@@ -1374,9 +1348,6 @@ Window {
                                     }
                                 }
                             }
-                            Controls.Label {
-                                text: qsTr("Wine Debug:")
-                            }
                             Controls.ComboBox {
                                 id: ptDebug
                                 objectName: "ptDebug"
@@ -1384,6 +1355,7 @@ Window {
                                 model: [qsTr("Off"), qsTr("Quiet (-all)"), qsTr("Errors (+err)"), qsTr("Warnings (+warn,+err)")]
                                 Controls.ToolTip.text: qsTr("Sets WINEDEBUG for Wine/Proton output.")
                                 Controls.ToolTip.visible: hovered
+                                KirigamiLayouts.FormData.label: qsTr("Wine Debug:")
                             }
                         }
                     }
