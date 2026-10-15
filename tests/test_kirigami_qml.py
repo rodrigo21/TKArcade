@@ -1,6 +1,6 @@
 """QML suite driver: each case runs in its own subprocess.
 
-kirigami_qml_cases.py segfaults when all 82 tests share one process
+kirigami_qml_cases.py segfaults when all its cases share one process
 (Qt 6.12 GC/shiboken teardown of accumulated QML engines); every case
 passes in isolation. A few cases additionally segfault during
 interpreter teardown *after* passing (exit 139 with PASSED already
