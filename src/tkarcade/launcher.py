@@ -251,10 +251,9 @@ def build_final_command(
             )
     extra_args = (cfg.general.launch_args or "").strip()
     if extra_args:
-        try:
-            cmd = [*cmd, *split_args(extra_args)]
-        except ValueError as e:
-            warnings.append(f"launch_args ignored (parse error: {e})")
+        # split_args never raises: unbalanced quotes fall back to plain
+        # whitespace splitting, so a config typo cannot abort the launch.
+        cmd = [*cmd, *split_args(extra_args)]
 
     # innermost: custom prefix wraps the executable directly
     # (e.g. zink-run), inside mangohud/gamemode/gamescope/wrap.

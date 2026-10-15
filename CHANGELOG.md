@@ -133,6 +133,14 @@ Breaking config changes are called out explicitly under `Changed`.
   `setup_logging()` calls no longer stack a second file handler on the
   same `<appid>.log`, and a non-executable game binary returns the
   contract exit 13 (log + notification) instead of a traceback.
+- Library: resized column widths persist for every column. The prefs
+  cleaner only accepted logical columns 0–5, so widths set on Last
+  Played, Platform, Runner, Wine, Install Dir and Category were written
+  and then silently dropped on the next load.
+- Removed residual dead code and stale notes: duplicated portal debug
+  line, unreachable `launch_args` exception handler (`split_args` never
+  raises), redundant artwork cleanup loop, and the nightlight holder /
+  STL importer comments that no longer matched the code.
 - Preferences dialog uses FormCard delegates (native settings look);
   the API key row stays plain (FormTextFieldDelegate needs a
   KLocalizedContext the engine does not install).

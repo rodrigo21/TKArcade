@@ -571,9 +571,14 @@ def test_column_width_prefs_roundtrip(xdg_env):
     prefs.column_widths = "1=210,2=90"
     C.save_preferences(prefs)
     assert C.load_preferences().column_widths == "1=210,2=90"
-    prefs.column_widths = "x,1=5,2=99,9=50,3=3000"
+    # Every logical column of the 12-column table survives (0-11); only
+    # out-of-range widths and unknown logics are dropped.
+    prefs.column_widths = "x,1=5,2=99,9=50,3=3000,12=100"
     C.save_preferences(prefs)
-    assert C.load_preferences().column_widths == "2=99"
+    assert C.load_preferences().column_widths == "2=99,9=50"
+    prefs.column_widths = "6=140,7=120,11=95"
+    C.save_preferences(prefs)
+    assert C.load_preferences().column_widths == "6=140,7=120,11=95"
 
 
 def test_drawer_collapsed_prefs_roundtrip(xdg_env):

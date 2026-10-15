@@ -65,14 +65,15 @@ def store_manual(appid: str, kind: str, src: str) -> Path | None:
         dest_dir = manual_dir(appid)
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / f"{kind}{origin.suffix.lower()}"
-        for stale in MANUAL_KINDS:
-            for suffix in (".png", ".jpg", ".jpeg", ".webp"):
-                old = dest_dir / f"{stale if stale != kind else kind}{suffix}"
-                if stale == kind and old != dest:
-                    try:
-                        old.unlink()
-                    except OSError:
-                        pass
+        # Drop the other suffix variants of this same slot so it keeps
+        # exactly one file; the other kinds are left untouched.
+        for suffix in (".png", ".jpg", ".jpeg", ".webp"):
+            old = dest_dir / f"{kind}{suffix}"
+            if old != dest:
+                try:
+                    old.unlink()
+                except OSError:
+                    pass
         import shutil
 
         shutil.copyfile(origin, dest)

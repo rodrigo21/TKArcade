@@ -1,6 +1,6 @@
 """SteamTinkerLaunch config importer (stdlib only, read-only on STL files).
 
-Reads STL per-game files (~/.config/steamtinkerlaunch/gamecfgs/id/<aid>)
+Reads STL per-game files (~/.config/steamtinkerlaunch/gamecfgs/id/<aid>.conf)
 which are shell-style VAR="value" files, and maps the subset common to
 both programs onto a GameConfig. Anything else is reported, never guessed.
 """

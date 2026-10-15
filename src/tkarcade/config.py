@@ -764,7 +764,12 @@ def _clean_int_list(text: str) -> str:
 
 
 def _clean_width_map(text: str) -> str:
-    """Normalize 'logical=px' pairs (logical 0-5, px 20-2000)."""
+    """Normalize 'logical=px' pairs (logical 0-11, px 20-2000).
+
+    The upper bound must match the table width the model writes
+    (12 columns): a smaller one silently dropped every width for the
+    library columns past 'Source' on the next load.
+    """
     out = []
     for part in (x.strip() for x in text.split(",")):
         if "=" not in part:
@@ -772,7 +777,7 @@ def _clean_width_map(text: str) -> str:
         left, _, right = part.partition("=")
         if left.strip().isdecimal() and right.strip().isdecimal():
             logical, width = int(left.strip()), int(right.strip())
-            if 0 <= logical <= 5 and 20 <= width <= 2000:
+            if 0 <= logical <= 11 and 20 <= width <= 2000:
                 out.append(f"{logical}={width}")
     return ",".join(out)
 

@@ -129,7 +129,6 @@ def _pick_via(conn, method, title, accept_label, extra_options, timeout) -> str:
     # The reply handle is the request path (spec); trust it over our guess.
     req_path = handle
     log.debug("portal: waiting for Response on %s", req_path)
-    log.debug("portal: waiting for Response on %s", req_path)
     deadline = time.monotonic() + max(timeout, 1.0)
     while True:
         remaining = deadline - time.monotonic()
