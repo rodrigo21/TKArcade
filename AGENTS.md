@@ -96,9 +96,15 @@ rewrite pushed history or tags.
   (identical geometry, no warnings). Keep the default window tall enough
   that tab controls stay above the fold offscreen.
 - Content windows (settings and friends) are separate modal `Window`s
-  (`WindowModal`, transient on the main window): widgets parity,
-  resizable, no PageRow tiling surprises. Tests drive them through
-  `topLevelWindows()` by title, clicking on the window itself.
+  (`WindowModal`, transient on the main window): resizable, no PageRow
+  tiling surprises. Tests drive them through `topLevelWindows()` by
+  title, clicking on the window itself.
+- The shell runs on a `QGuiApplication`: constructing `QMenu` or any
+  other `QWidget` aborts the process ("Cannot create a QWidget without
+  `QApplication`"). The tray menu is therefore the QML `trayMenu` in
+  `main.qml` (entries dispatch through `model.trayAction`), and
+  `QSystemTrayIcon` in `gui/tray.py` is the only QtWidgets name the
+  tree may import (`tests/test_no_widgets.py` defines done).
 - Kirigami's ApplicationWindow ships a built-in Quit action bound to
   the quit sequence that calls `close()` (not quit): clear
   `quitAction.shortcut` at startup or Ctrl+Q closes-to-tray instead

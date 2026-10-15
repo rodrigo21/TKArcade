@@ -1,19 +1,15 @@
-"""Zero-QtWidgets policy on the kirigami branch.
+"""Zero-QtWidgets policy.
 
-`src/tkarcade/widgets/` and `tests/gui_widgets_reference.py` are parked
-reference only: nothing else may import QtWidgets or the widgets package.
-
-One exception is sanctioned: `gui/tray.py` may use QSystemTrayIcon. It is
-a QObject (not a QWidget) and constructs fine from a QGuiApplication,
-unlike QMenu/QWidget, so the tray icon is the only prepackaged way to get
-a status icon without reimplementing the StatusNotifierItem protocol.
+Nothing may import the widgets package, and only `gui/tray.py` may touch
+QtWidgets: QSystemTrayIcon is a QObject (not a QWidget), constructs fine
+on a QGuiApplication and is the only prepackaged status-icon host that
+does not mean reimplementing StatusNotifierItem by hand.
 """
 
 import ast
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
-PARKED_FILES = {"gui_widgets_reference.py"}
 #: relative path -> QtWidgets names it may import ("*" = whole module).
 ALLOWED = {"src/tkarcade/gui/tray.py": {"QSystemTrayIcon"}}
 
@@ -49,10 +45,7 @@ def _qtwidgets_names(path: Path) -> list[str]:
 
 def _live_python_files():
     for base in ("src", "tests", "scripts"):
-        for path in sorted((ROOT / base).rglob("*.py")):
-            if "widgets" in path.parts or path.name in PARKED_FILES:
-                continue
-            yield path
+        yield from sorted((ROOT / base).rglob("*.py"))
 
 
 def test_no_qtwidgets_outside_the_tray_controller():
@@ -64,7 +57,7 @@ def test_no_qtwidgets_outside_the_tray_controller():
     assert offenders == []
 
 
-def test_no_widgets_package_imports_outside_reference():
+def test_no_widgets_package_imports():
     offenders = [
         str(path.relative_to(ROOT))
         for path in _live_python_files()

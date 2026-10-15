@@ -113,12 +113,13 @@ toggle and a centered Library.
 - [x] QSystemTrayIcon → migrated to QGuiApplication + a QML context
   menu (tray controller with recents, model dispatches the entries)
 
-### Widgets removal: QtWidgets surface (survey 2026-10-15)
+### Widgets removal: done (survey 2026-10-15)
 
-Goal: delete `src/tkarcade/widgets/` + `tests/gui_widgets_reference.py`
-and close both `test_no_widgets` cases. Rule: `tests/test_no_widgets.py`
-defines done; it now allows exactly one name (`QSystemTrayIcon`, from
-`gui/tray.py`) and still fails on `QMenu` or any other widget class.
+Goal reached: `src/tkarcade/widgets/` and `tests/gui_widgets_reference.py`
+are deleted, the ruff `exclude` is gone, and `tests/test_no_widgets.py`
+allows exactly one QtWidgets name (`QSystemTrayIcon`, from
+`gui/tray.py`) while still failing on `QMenu` or any other widget class.
+No module imports the widgets package.
 
 Chosen: option 1 (`QGuiApplication` + `QSystemTrayIcon` + QML `Menu`).
 - [x] Tray menu in QML (`main.qml`: `trayMenu` + `Instantiator` with
@@ -128,16 +129,25 @@ Chosen: option 1 (`QGuiApplication` + `QSystemTrayIcon` + QML `Menu`).
   registers the callbacks and `tray.py` is a QSystemTrayIcon owner.
 - [x] `QApplication` → `QGuiApplication` in `kirigami_app.py` and the
   conftest fixture; `tests/test_tray.py` QtWidgets-free; new QML case
-  `test_tray_menu_entries_and_dispatch`.
-- [ ] Delete `src/tkarcade/widgets/` + the parked reference tests, drop
-  the ruff `exclude`, fix `scripts/refresh-translations.sh` (still
-  passes `src/tkarcade/widgets/*.py`) and prune the Python contexts
-  from the catalog.
+  `test_tray_menu_entries_and_dispatch`; out-of-process boot check in
+  `tests/test_kirigami_app.py` (main() never loads QtWidgets).
+- [x] Deleted the widgets package + parked reference tests, dropped the
+  ruff `exclude`, refreshed the catalog QML-only (one `lupdate6` pass +
+  `lrelease6` in `scripts/refresh-translations.sh`) and rebuilt the .qm.
+- [ ] `--edit <appid>` / pre-launch `--menu` still return the retired
+  "needs the settings UI" stub even though the QML settings window
+  exists: wire `--edit` to `gameSettings` for the AppID (and keep the
+  direct-launch fallback for `--menu`), then retire `run_editor_menu`.
+- [ ] Single GUI instance: the widgets app held a `QLocalServer` and a
+  second launch raised the running window (its test went away with the
+  parked file); the QML app currently opens a second window. Reimplement
+  as a `QLocalServer`/local-socket "show" ping (QtNetwork, no new
+  dependency).
 
 Measured (2026-10-15), offscreen:
 - `QSystemTrayIcon` is **not** a `QWidget` (it derives from QObject) and
   constructs fine under a `QGuiApplication`; `isSystemTrayAvailable()`
-  works. The hard blocker is **`QMenu` (a QWidget): constructing it
+  works. The hard blocker was **`QMenu` (a QWidget): constructing it
   under `QGuiApplication` aborts the process** ("Cannot create a QWidget
   without QApplication") — hence the QML menu.
 - The QML menu (`popupType: Popup.Window`) opens fine while the main
@@ -156,11 +166,10 @@ Measured (2026-10-15), offscreen:
 - Position: `QSystemTrayIcon.geometry()` (global) → model signal →
   `contentItem.mapFromGlobal` → `popup(contentItem, x, y)`; an empty
   geometry (no host) falls back to `QCursor.pos()`.
-- Translation refresh: system `lupdate6` reads Python natively but
-  writes `{expr}` placeholders where the older `pylupdate6` wrote `{}`,
-  so it cannot refresh the Python contexts in place (`pylupdate6` is not
-  installed here); the QML-only lupdate run + cleared vanished markers
-  keeps the catalog intact until the widgets are gone.
+- Translation tooling: `pylupdate6` is not installed here, and system
+  `lupdate6` reads Python natively but writes `{expr}` placeholders
+  where the retired tool wrote `{}` — irrelevant now that no Python
+  string is translatable (all GUI text is `qsTr` in QML).
 
 Open (needs the real display): the menu is a non-native QQC2 window —
 check position under the icon (panel-dependent), keyboard focus and

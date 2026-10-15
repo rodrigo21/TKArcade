@@ -1,8 +1,7 @@
-"""Qt translations for the Kirigami GUI (no widgets imports here).
+"""Qt translations for the Kirigami GUI (QtCore only, no widgets).
 
-Same bundled `tkarcade.translations` catalogs the widgets side ships;
-this is the GUI-side installer (test_no_widgets forbids reaching into
-the widgets package).
+Installs the bundled `tkarcade.translations` catalogs; `tests/test_i18n.py`
+keeps them complete against the QML `qsTr()` calls.
 """
 
 from __future__ import annotations

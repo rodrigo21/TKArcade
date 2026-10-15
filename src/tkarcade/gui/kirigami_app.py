@@ -197,8 +197,8 @@ def main(argv: list[str] | None = None) -> int:
 
     from .tray import TrayController
 
-    # The tray menu lives in QML (main.qml): these are the callbacks it
-    # triggers, the same ones the widgets QMenu wired directly.
+    # The tray menu lives in QML (main.qml): these are the callbacks its
+    # entries trigger.
     model._tray_actions = {
         "toggle": toggle_visible,
         "prefs": open_prefs,

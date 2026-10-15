@@ -6,13 +6,11 @@ apply() (never deleteLater + recreate from a menu slot).
 Its only QtWidgets use is QSystemTrayIcon itself: it is a QObject (not a
 QWidget) and works from a QGuiApplication, while the context menu is a
 QML Menu -- QtWidgets' QMenu aborts the process without a QApplication.
-The menu entries live in main.qml and come back here through
-model.trayAction(), which kirigami_app wires to the same callbacks the
-widgets tray used, so the tray keeps mirroring the shell: Show/Hide,
-recent launches, Preferences..., About..., Quit, plus the close/minimize
--to-tray flags the QML shell reads back through model slots. The Global
-Defaults entry returns with the defaults UI (deferred with
-Clone/Reset/Defaults).
+The entries live in main.qml and come back through model.trayAction(),
+which kirigami_app wires to the shell: Show / Hide, recent launches,
+Preferences..., About..., Quit, plus the close/minimize-to-tray flags the
+QML shell reads back through model slots. The Global Defaults entry
+appears once a defaults UI registers itself.
 """
 
 from __future__ import annotations

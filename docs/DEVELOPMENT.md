@@ -76,19 +76,16 @@ automatically. Agent instructions live in `AGENTS.md`.
 
 ## Translations (Qt Linguist)
 
-GUI strings go through `self.tr()` (or `QCoreApplication.translate`
-at module level); display text and saved data stay split in combos so
-translations never break config round-trips. CLI/launcher text stays
-English by design.
+GUI strings go through QML `qsTr()` (Python holds no display text);
+display text and saved data stay split in combos so translations never
+break config round-trips. CLI/launcher text stays English by design.
 
 ```bash
-bash scripts/refresh-translations.sh  # QML (lupdate) + Python (pylupdate,
-# revived into one catalog); translate leftovers, then:
-lrelease6 translations/tkarcade_pt_BR.ts \
-  -qm src/tkarcade/translations/tkarcade_pt_BR.qm
+bash scripts/refresh-translations.sh  # lupdate + the untranslated report
+# translate leftovers, then rerun it to recompile the .qm
 ```
 Never run lupdate on a subset of files: it marks every other context
 vanished. The refresh script always passes the full QML set.
 
 Commit both `.ts` (source) and `.qm` (runtime payload, travels in the
-wheel). `tests/test_i18n.py` fails on any untranslated `tr()` literal.
+wheel). `tests/test_i18n.py` fails on any untranslated `qsTr()` literal.

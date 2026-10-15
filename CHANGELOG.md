@@ -113,6 +113,16 @@ Breaking config changes are called out explicitly under `Changed`.
   the release after a double-click no longer re-applies the drag
   width over the fresh autofit.
 
+### Removed
+- The parked QtWidgets implementation (`src/tkarcade/widgets/` and its
+  test module): the Kirigami QML shell replaced it, the launcher already
+  opened the QML app, and the tray menu was the last piece to move.
+  `--edit`/`--menu` keep their current stub behavior (they report the
+  settings UI as unavailable and `--menu` launches directly).
+- The pt_BR catalog keeps only the QML contexts (the widget strings are
+  gone with their sources); the refresh script is a single `lupdate6`
+  QML pass plus `lrelease6`.
+
 ### Fixed
 - Steam library scan reads the legacy `libraryfolders.vdf` layout too
   (capitalized root key, bare `"1" "/path"` strings): secondary

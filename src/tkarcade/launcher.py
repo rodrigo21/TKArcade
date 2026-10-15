@@ -615,10 +615,11 @@ def clean_gui_env(env: dict[str, str]) -> dict[str, str]:
 
 
 def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True) -> tuple[str, str]:
-    """Widget settings editor, retired on the kirigami branch.
+    """Settings/pre-launch menu hook, still a stub.
 
-    Always 'unavailable': --menu launches directly and --edit exits 15
-    through the existing handling until the Kirigami settings UI lands.
+    Always 'unavailable': --menu logs a warning and launches directly,
+    --edit exits 15 through the existing handling. Wire these to the QML
+    settings window (see TODO.md) before removing the stub.
     """
     tool = "--menu" if for_menu else "--edit"
     print(f"tkarcade: {tool} needs the settings UI (not on this branch)", file=sys.stderr)

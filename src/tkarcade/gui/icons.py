@@ -1,8 +1,7 @@
 """Bundled application icons for the GUI (QtGui only, never QtWidgets).
 
 Same two styles the packaged icons ship (normal + monochrome tray
-variant). Kept here rather than in the parked widgets reference so the
-tray stops importing that package.
+variant), used by the tray controller and the window icon.
 """
 
 from __future__ import annotations
