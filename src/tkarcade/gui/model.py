@@ -437,6 +437,34 @@ class GameListModel(QAbstractTableModel):
                     return ""
             if not steammod.is_steam_id(appid):
                 cfg.general.name = str(data.get("name", "")).strip()
+        active = str(data.get("active_profile", "")).strip()
+        if appid and active:
+            try:
+                known = cfgmod.list_profiles(appid)
+            except Exception:
+                known = []
+            if active not in known:
+                log.warning("saveGame(%s) rejected: unknown profile", appid)
+                return ""
+            try:
+                prof = cfgmod.load_profile(appid, active)
+            except Exception as e:
+                log.warning("saveGame(%s) failed: %s", appid, e)
+                return ""
+            prof.general.appid = appid
+            if not steammod.is_steam_id(appid):
+                prof.general.name = str(data.get("name", "")).strip()
+            self._apply_map(prof, data)
+            try:
+                cfgmod.save_profile(appid, active, prof)
+                live = cfgmod.load(appid)
+                live.general.active_profile = active
+                cfgmod.save(live)
+            except Exception as e:
+                log.warning("saveGame(%s) failed: %s", appid, e)
+                return ""
+            self.refresh()
+            return appid
         self._apply_map(cfg, data)
         try:
             cfgmod.save(cfg)
@@ -573,50 +601,74 @@ class GameListModel(QAbstractTableModel):
         self.refresh()
         return f"Reset {count} game(s) to the Global Defaults template."
 
-    @Slot(str, str, result=bool)
-    def loadGameProfile(self, appid: str, name: str) -> bool:
-        """Switch the live config to a saved profile snapshot."""
+    @Slot(str, str, result="QVariantMap")
+    def profileContent(self, appid: str, name: str) -> dict:
+        """A saved profile as settings fields (live file untouched)."""
         name = str(name or "").strip()
         try:
             known = cfgmod.list_profiles(appid)
         except Exception:
             known = []
         if not appid or not name or name not in known:
-            return False
+            return {}
         try:
             cfg = cfgmod.load_profile(appid, name)
             cfg.general.appid = appid
-            cfg.general.active_profile = name
+            return self._game_to_map(cfg, appid)
+        except Exception as e:
+            log.warning("profileContent failed: %s", e)
+            return {}
+
+    @Slot(str, str, result=bool)
+    def markActiveProfile(self, appid: str, name: str) -> bool:
+        """Point the live config at a profile (its content untouched)."""
+        try:
+            cfg = cfgmod.load(appid)
+            cfg.general.active_profile = str(name or "")
             cfgmod.save(cfg)
         except Exception as e:
-            log.warning("loadGameProfile failed: %s", e)
+            log.warning("markActiveProfile failed: %s", e)
             return False
-        self.refresh()
         return True
 
     @Slot(str, str, result=bool)
-    def saveGameProfile(self, appid: str, name: str) -> bool:
-        """Snapshot the live config as a named profile."""
+    def profileExists(self, appid: str, name: str) -> bool:
+        """Whether a profile snapshot exists."""
+        try:
+            return str(name or "").strip() in cfgmod.list_profiles(appid)
+        except Exception:
+            return False
+
+    @Slot(str, str, "QVariantMap", result=bool)
+    def saveGameProfile(self, appid: str, name: str, values) -> bool:
+        """Snapshot dialog form state as a named profile."""
         name = str(name or "").strip()
         if not appid or not name:
             return False
         try:
-            cfgmod.save_profile(appid, name, cfgmod.load(appid))
+            cfg = cfgmod.load(appid)
+            self._apply_map(cfg, dict(values or {}))
+            cfgmod.save_profile(appid, name, cfg)
         except Exception as e:
             log.warning("saveGameProfile failed: %s", e)
             return False
         return True
 
-    @Slot(str, str, str, result=bool)
-    def cloneGameProfile(self, appid: str, src: str, dest: str) -> bool:
-        """Copy profile snapshot src to a new name dest."""
+    @Slot(str, str, str, "QVariantMap", result=bool)
+    def cloneGameProfile(self, appid: str, src: str, dest: str, values) -> bool:
+        """Copy a profile snapshot (or the live dialog state) to a new name."""
         src, dest = str(src or "").strip(), str(dest or "").strip()
-        if not appid or not src or not dest or src == dest:
+        if not appid or not dest or src == dest:
             return False
         try:
-            if src not in cfgmod.list_profiles(appid):
-                return False
-            cfgmod.save_profile(appid, dest, cfgmod.load_profile(appid, src))
+            if src:
+                if src not in cfgmod.list_profiles(appid):
+                    return False
+                cfg = cfgmod.load_profile(appid, src)
+            else:
+                cfg = cfgmod.load(appid)
+                self._apply_map(cfg, dict(values or {}))
+            cfgmod.save_profile(appid, dest, cfg)
         except Exception as e:
             log.warning("cloneGameProfile failed: %s", e)
             return False
@@ -980,6 +1032,47 @@ class GameListModel(QAbstractTableModel):
             return str((candidates or [""])[0])
         except Exception:
             return ""
+
+    @Slot(str, "QVariantMap", result="QVariantMap")
+    def previewCommand(self, appid: str, values) -> dict:
+        """Launch command preview for dialog (unsaved) state."""
+        try:
+            if appid and cfgmod.game_file(appid).is_file():
+                cfg = cfgmod.load(appid)
+            else:
+                cfg = cfgmod.load_defaults()
+                cfg.general.appid = appid
+            self._apply_map(cfg, dict(values or {}))
+            if not steammod.is_steam_id(appid):
+                cfg.general.name = str(dict(values or {}).get("name", "")).strip()
+            cmd, _env, warnings = launchermod.build_final_command(cfg, ["%command%"])
+        except Exception as e:  # never break the dialog on preview
+            return {"command": f"(preview unavailable: {e})", "wrappers": "", "warnings": []}
+        try:
+            wrappers = launchermod.active_wrappers(cfg)
+        except Exception:
+            wrappers = []
+        return {
+            "command": shlex.join(cmd) if cmd else "(empty command)",
+            "wrappers": " · ".join(wrappers) if wrappers else "No wrappers enabled",
+            "warnings": warnings,
+        }
+
+    @Slot(str, "QVariantMap", result=str)
+    def diffDefaults(self, appid: str, values) -> str:
+        """Unified diff of dialog state vs Global Defaults ('' when same)."""
+        try:
+            if appid and cfgmod.game_file(appid).is_file():
+                cfg = cfgmod.load(appid)
+            else:
+                cfg = cfgmod.load_defaults()
+                cfg.general.appid = appid
+            self._apply_map(cfg, dict(values or {}))
+            if not steammod.is_steam_id(appid):
+                cfg.general.name = str(dict(values or {}).get("name", "")).strip()
+            return cfgmod.diff_vs_defaults(cfg)
+        except Exception as e:
+            return f"(diff unavailable: {e})"
 
     @Slot(str, result=bool)
     def openProtonDB(self, appid: str) -> bool:

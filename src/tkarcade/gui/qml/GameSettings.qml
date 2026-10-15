@@ -17,12 +17,17 @@ Window {
     minimumWidth: Kirigami.Units.gridUnit * 34
     minimumHeight: Kirigami.Units.gridUnit * 30
     width: Kirigami.Units.gridUnit * 42
-    height: Kirigami.Units.gridUnit * 36
+    height: Kirigami.Units.gridUnit * 44
     visible: false
     color: Kirigami.Theme.backgroundColor
 
     property string editAppid: ""
     property bool defaultsMode: false
+    property string dialogProfile: ""
+    property string lastLoaded: ""
+    property string pendingProfile: ""
+    property string pendingName: ""
+    property string confirmPurpose: ""
     property var fields: ({})
     property string errorText: ""
     property string pendingPrompt: "" // "saveAs" | "clone" | ""
@@ -100,8 +105,9 @@ Window {
         menuCheck.checked = !!f.show_menu
         timeoutSpin.value = f.menu_timeout || 0
         notesArea.text = f.notes || ""
+        dialogProfile = f.active_profile || ""
         profileBox.model = (f.profiles || []).slice()
-        profileBox.currentIndex = Math.max(0, (f.profiles || []).indexOf(f.active_profile))
+        profileBox.currentIndex = Math.max(0, (f.profiles || []).indexOf(dialogProfile))
         settingsError.text = ""
         ppPre.text = f.pre_command || ""
         ppPreArgs.text = f.pre_args || ""
@@ -140,6 +146,8 @@ Window {
         ptLog.checked = !!f.proton_log
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
+        previewCheck.checked = gameModel.loadPrefs().showPreview ?? true
+        refreshPreview()
         setEnvRows(f.env_vars || [])
         applyToolCheck(perfFeral, "gamemoderun")
         applyToolCheck(perfCachy, "game-performance")
@@ -149,6 +157,7 @@ Window {
         if (f.load_warning) {
             settingsError.text = f.load_warning
         }
+        lastLoaded = snapshot()
     }
 
     function applyToolCheck(box, binary) {
@@ -203,8 +212,122 @@ Window {
             "fresh_prefix": ptFresh.checked,
             "winetricks_verbs": ptVerbs.text,
             "proton_log": ptLog.checked,
-            "winedebug": ["", "-all", "+err", "+warn,+err"][ptDebug.currentIndex] || ""
+            "winedebug": ["", "-all", "+err", "+warn,+err"][ptDebug.currentIndex] || "",
+            "active_profile": dialogProfile
         }
+    }
+
+    function snapshot() {
+        var current = collect()
+        delete current.profiles
+        return JSON.stringify(current)
+    }
+
+    function isDirty() {
+        return !defaultsMode && snapshot() !== lastLoaded
+    }
+
+    function requestProfileSwitch(index) {
+        var profiles = profileBox.model || []
+        var name = profiles[index] || ""
+        if (name === dialogProfile) {
+            return
+        }
+        if (isDirty()) {
+            pendingProfile = name
+            confirmLabel.text = qsTr(
+                "Discard unsaved changes and switch to profile '%1'? (the saved profile is kept.)").arg(name)
+            confirmPurpose = "discardSwitch"
+            confirmOk.text = qsTr("Discard")
+            confirmDialog.open()
+            profileBox.currentIndex = Math.max(0, profiles.indexOf(dialogProfile))
+            return
+        }
+        switchProfile(name)
+    }
+
+    function switchProfile(name) {
+        if (name === "") {
+            fields = gameModel.loadGame(editAppid)
+            pushToControls()
+            gameModel.markActiveProfile(editAppid, "")
+            lastLoaded = snapshot()
+            return
+        }
+        var content = gameModel.profileContent(editAppid, name)
+        if (Object.keys(content).length === 0) {
+            settingsError.text = qsTr("Profile '%1' could not be read.").arg(name)
+            profileBox.currentIndex = Math.max(0, (profileBox.model || []).indexOf(dialogProfile))
+            return
+        }
+        fields = content
+        pushToControls()
+        dialogProfile = name
+        profileBox.currentIndex = Math.max(0, (profileBox.model || []).indexOf(name))
+        gameModel.markActiveProfile(editAppid, name)
+        lastLoaded = snapshot()
+    }
+
+    function afterProfileSaved(name) {
+        var fresh = gameModel.loadGame(editAppid)
+        fields = fresh
+        dialogProfile = name
+        gameModel.markActiveProfile(editAppid, name)
+        profileBox.model = (fresh.profiles || []).slice()
+        profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(name))
+        lastLoaded = snapshot()
+    }
+
+    function acceptConfirm() {
+        if (confirmPurpose === "discardSwitch") {
+            confirmDialog.close()
+            switchProfile(pendingProfile)
+        } else if (confirmPurpose === "overwriteProfile") {
+            confirmDialog.close()
+            if (!gameModel.saveGameProfile(editAppid, pendingName, collect())) {
+                promptError.text = qsTr("Could not save the profile.")
+                return
+            }
+            namePrompt.close()
+            afterProfileSaved(pendingName)
+            pendingName = ""
+        } else if (confirmPurpose === "deleteProfile") {
+            confirmDialog.close()
+            var profiles = profileBox.model || []
+            var name = profiles[profileBox.currentIndex] || ""
+            if (name !== "" && gameModel.deleteGameProfile(editAppid, name)) {
+                if (name === dialogProfile) {
+                    reload()
+                } else {
+                    var fresh = gameModel.loadGame(editAppid)
+                    fields = fresh
+                    profileBox.model = (fresh.profiles || []).slice()
+                    profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(dialogProfile))
+                    lastLoaded = snapshot()
+                }
+            }
+        } else if (confirmPurpose === "resetFactory") {
+            confirmDialog.close()
+            var vals = gameModel.factoryGame(editAppid)
+            vals.active_profile = ""
+            if (gameModel.saveGame(editAppid, vals) === "") {
+                settingsError.text = qsTr("Could not reset the game.")
+                return
+            }
+            reload()
+        }
+        confirmPurpose = ""
+    }
+
+    function resetFactory() {
+        var detail = dialogProfile !== ""
+            ? qsTr("Unsaved changes to profile '%1' will be discarded (the saved profile is kept).").arg(dialogProfile)
+            : (isDirty() ? qsTr("Unsaved changes will be discarded.")
+                : qsTr("This overwrites the saved game config."))
+        confirmLabel.text = qsTr("Reset this game to the Global Defaults template now?\n%1").arg(detail)
+        confirmPurpose = "resetFactory"
+        confirmOk.text = qsTr("Reset")
+        confirmDialog.open()
     }
 
     function collectEnv() {
@@ -365,6 +488,17 @@ Window {
         }
     }
 
+    function refreshPreview() {
+        var res = gameModel.previewCommand(editAppid, collect())
+        var lines = [res.command]
+        var warns = res.warnings || []
+        for (var i = 0; i < warns.length; i++) {
+            lines.push("# warning: " + warns[i])
+        }
+        previewText.text = lines.join("\n")
+        previewWrappers.text = res.wrappers
+    }
+
     function save() {
         if (defaultsMode) {
             if (!gameModel.saveDefaults(collect())) {
@@ -381,6 +515,7 @@ Window {
                 : qsTr("Could not save the game.")
             return
         }
+        lastLoaded = snapshot()
         if (editAppid === "" && page !== null) {
             page.select(created)
         }
@@ -389,6 +524,7 @@ Window {
 
     function askProfileName(purpose) {
         pendingPrompt = purpose
+        pendingName = ""
         promptField.text = ""
         promptError.text = ""
         namePrompt.open()
@@ -413,17 +549,49 @@ Window {
         }
         var ok = false
         if (pendingPrompt === "saveAs") {
-            ok = gameModel.saveGameProfile(editAppid, name)
+            if (gameModel.profileExists(editAppid, name) && pendingName !== name) {
+                pendingName = name
+                confirmLabel.text = qsTr("Overwrite profile '%1'?").arg(name)
+                confirmPurpose = "overwriteProfile"
+                confirmOk.text = qsTr("Overwrite")
+                confirmDialog.open()
+                return
+            }
+            pendingName = ""
+            if (!gameModel.saveGameProfile(editAppid, name, collect())) {
+                promptError.text = qsTr("Could not save the profile.")
+                return
+            }
+            namePrompt.close()
+            afterProfileSaved(name)
+            return
         } else if (pendingPrompt === "clone") {
             var profiles = profileBox.model || []
-            ok = gameModel.cloneGameProfile(editAppid, profiles[profileBox.currentIndex] || "", name)
+            var src = profiles[profileBox.currentIndex] || ""
+            if (src === "") {
+                promptError.text = qsTr("Select a profile first.")
+                return
+            }
+            if (src === name) {
+                promptError.text = qsTr("Source and target are the same.")
+                return
+            }
+            if (gameModel.profileExists(editAppid, name)) {
+                promptError.text = qsTr("A profile with this name already exists.")
+                return
+            }
+            ok = gameModel.cloneGameProfile(editAppid, src, name, collect())
         }
         if (!ok) {
             promptError.text = qsTr("Could not save the profile.")
             return
         }
         namePrompt.close()
-        reload()
+        var fresh = gameModel.loadGame(editAppid)
+        fields = fresh
+        profileBox.model = (fresh.profiles || []).slice()
+        profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(dialogProfile))
+        lastLoaded = snapshot()
     }
 
     Connections {
@@ -483,6 +651,7 @@ Window {
             id: tabBar
             objectName: "settingsTabs"
             Layout.fillWidth: true
+            onCurrentIndexChanged: gameSettings.refreshPreview()
             Controls.TabButton {
                 text: qsTr("General")
             }
@@ -631,12 +800,7 @@ Window {
                         objectName: "settingsProfiles"
                         Layout.fillWidth: true
                         textRole: "display"
-                        onActivated: (index) => {
-                            var profiles = profileBox.model || []
-                            if (gameModel.loadGameProfile(editAppid, profiles[index] || "")) {
-                                reload()
-                            }
-                        }
+                        onActivated: (index) => gameSettings.requestProfileSwitch(index)
                     }
                     Controls.Button {
                         objectName: "settingsProfileSave"
@@ -653,18 +817,20 @@ Window {
                         text: qsTr("Delete")
                         onClicked: {
                             var profiles = profileBox.model || []
-                            if (gameModel.deleteGameProfile(editAppid, profiles[profileBox.currentIndex] || "")) {
-                                reload()
+                            var name = profiles[profileBox.currentIndex] || ""
+                            if (name === "") {
+                                return
                             }
+                            confirmLabel.text = qsTr("Delete profile '%1'? This cannot be undone.").arg(name)
+                            confirmPurpose = "deleteProfile"
+                            confirmOk.text = qsTr("Delete")
+                            confirmDialog.open()
                         }
                     }
                     Controls.Button {
                         objectName: "settingsReset"
                         text: qsTr("Reset")
-                        onClicked: {
-                            fields = gameModel.factoryGame(editAppid)
-                            pushToControls()
-                        }
+                        onClicked: gameSettings.resetFactory()
                     }
                 }
                 Controls.Label {
@@ -1256,6 +1422,38 @@ Window {
                 }
             }
         }
+        RowLayout {
+            Layout.fillWidth: true
+            Controls.CheckBox {
+                id: previewCheck
+                text: qsTr("Launch Command Preview")
+                font.bold: true
+                checked: true
+            }
+        }
+        ColumnLayout {
+            visible: previewCheck.checked
+            Controls.TextArea {
+                id: previewText
+                objectName: "previewText"
+                readOnly: true
+                font.family: "monospace"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 4
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item {
+                    Layout.fillWidth: true
+                }
+                Controls.Button {
+                    objectName: "previewRefresh"
+                    text: qsTr("Refresh")
+                    onClicked: gameSettings.refreshPreview()
+                }
+            }
+        }
         Controls.Label {
             id: settingsError
             objectName: "settingsError"
@@ -1272,9 +1470,25 @@ Window {
                 onClicked: gameSettings.save()
             }
             Controls.Button {
+                objectName: "diffButton"
+                text: qsTr("Diff vs Defaults")
+                onClicked: {
+                    var diff = gameModel.diffDefaults(editAppid, gameSettings.collect())
+                    diffText.text = diff !== "" ? diff : qsTr("(no differences)")
+                    diffDialog.open()
+                }
+            }
+            Controls.Button {
                 text: qsTr("Cancel")
                 onClicked: gameSettings.closePage()
             }
+        }
+        Controls.Label {
+            id: previewWrappers
+            objectName: "previewWrappers"
+            Layout.fillWidth: true
+            font: Kirigami.Theme.smallFont
+            elide: Text.ElideRight
         }
     }
 
@@ -1420,6 +1634,61 @@ Window {
             Controls.Button {
                 text: qsTr("Cancel")
                 onClicked: mismatchDialog.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: confirmDialog
+        objectName: "settingsConfirm"
+        title: confirmPurpose === "deleteProfile" ? qsTr("Delete Profile")
+            : (confirmPurpose === "resetFactory" ? qsTr("Reset Game")
+            : (confirmPurpose === "overwriteProfile" ? qsTr("Save Profile")
+            : qsTr("Unsaved Changes")))
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Controls.Label {
+                id: confirmLabel
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                id: confirmOk
+                objectName: "settingsConfirmOk"
+                text: qsTr("OK")
+                onClicked: gameSettings.acceptConfirm()
+            }
+            Controls.Button {
+                text: qsTr("Cancel")
+                onClicked: confirmDialog.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: diffDialog
+        objectName: "diffDialog"
+        title: qsTr("Differences from Global Defaults")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Controls.TextArea {
+                id: diffText
+                objectName: "diffText"
+                readOnly: true
+                font.family: "monospace"
+                wrapMode: Text.WordWrap
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 32
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 14
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Controls.Button {
+                text: qsTr("Close")
+                onClicked: diffDialog.close()
             }
         }
     }

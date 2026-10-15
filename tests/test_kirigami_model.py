@@ -452,18 +452,33 @@ def test_settings_create_and_profiles(qgui_app, xdg_env):
     )
     assert created.startswith("local-")
     assert C.load(created).general.name == "Doom"
-    assert model.saveGameProfile(created, "fast") is True
+    assert model.saveGameProfile(created, "fast", {"custom_executable": "/bin/true"}) is True
     assert model.loadGame(created)["profiles"] == ["fast"]
-    assert model.saveGameProfile(created, "") is False
-    assert model.cloneGameProfile(created, "fast", "faster") is True
-    assert model.cloneGameProfile(created, "missing", "x") is False
-    assert model.cloneGameProfile(created, "fast", "fast") is False
-    assert model.loadGameProfile(created, "fast") is True
+    assert model.saveGameProfile(created, "", {}) is False
+    assert model.profileExists(created, "fast") is True
+    assert model.profileExists(created, "missing") is False
+    assert model.cloneGameProfile(created, "fast", "faster", {}) is True
+    assert model.cloneGameProfile(created, "missing", "x", {}) is False
+    assert model.cloneGameProfile(created, "fast", "fast", {}) is False
+    assert (
+        model.cloneGameProfile(created, "", "livecopy", {"custom_executable": "/bin/true"}) is True
+    )
+    assert model.profileExists(created, "livecopy") is True
+    content = model.profileContent(created, "fast")
+    assert content["custom_executable"] == "/bin/true"
+    assert model.profileContent(created, "missing") == {}
+    assert C.load(created).general.active_profile == ""
+    assert model.markActiveProfile(created, "fast") is True
     assert C.load(created).general.active_profile == "fast"
-    assert model.loadGameProfile(created, "missing") is False
+    out = dict(model.loadGame(created))
+    out["name"] = "Doom II"
+    out["active_profile"] = "fast"
+    assert model.saveGame(created, out) == created
+    assert C.load(created).general.name == "Doom"
+    assert C.load_profile(created, "fast").general.name == "Doom II"
     assert model.deleteGameProfile(created, "fast") is True
     assert C.load(created).general.active_profile == ""
-    assert model.loadGame(created)["profiles"] == ["faster"]
+    assert model.loadGame(created)["profiles"] == ["faster", "livecopy"]
 
 
 def test_settings_env_prepost_roundtrip(qgui_app, xdg_env):
@@ -557,6 +572,29 @@ def test_settings_display_roundtrip(qgui_app, xdg_env):
     assert model.createMangohudConfig("test-game", "minimal") != ""
     assert "test-game.conf" in model.mangohudConfigs()
     assert model.createMangohudConfig("", "minimal") == ""
+
+
+def test_settings_preview_diff(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    model = GameListModel()
+    res = model.previewCommand(
+        "local-doom", {"custom_executable": "/bin/true", "game_type": "native"}
+    )
+    assert "/bin/true" in res["command"]
+    assert isinstance(res["warnings"], list)
+    assert res["wrappers"] != ""
+    assert model.diffDefaults("", {}) == ""
+    diff = model.diffDefaults(
+        "local-doom", {"custom_executable": "/bin/true", "game_type": "native"}
+    )
+    assert "custom_executable" in diff
 
 
 def test_settings_load_warning(qgui_app, xdg_env):

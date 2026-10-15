@@ -2635,7 +2635,7 @@ def test_settings_wine_flow(qgui_app, xdg_env):
 
 
 def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
-    """Reset restores factory fields; Defaults edits the template."""
+    """Reset confirms then persists factory now; Defaults edits the template."""
     from PySide6.QtCore import QObject, QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
@@ -2663,8 +2663,11 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     ).toPoint()
     QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
+    assert win.findChild(QObject, "settingsConfirm").property("visible") is True
+    dlg.acceptConfirm()
+    qgui_app.processEvents()
     assert name.property("text") == ""
-    assert C.load("local-doom").general.name == "Doom"
+    assert C.load("local-doom").general.name == ""
     dlg.openDefaults()
     qgui_app.processEvents()
     dswin = _modal_window(qgui_app, ("Global Defaults",))
@@ -2875,6 +2878,109 @@ def test_settings_warning_and_tool_states(qgui_app, xdg_env, monkeypatch):
         box = swin.findChild(QQuickItem, name)
         assert box.property("enabled") is False
         assert box.property("checked") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_preview_diff_flow(qgui_app, xdg_env):
+    """Preview shows the launch command; Diff opens the defaults diff."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    assert "/bin/true" in swin.findChild(QQuickItem, "previewText").property("text")
+    assert swin.findChild(QQuickItem, "previewWrappers").property("text") != ""
+    diff = swin.findChild(QQuickItem, "diffButton")
+    pos = diff.mapToScene(
+        QPointF(diff.property("width") / 2, diff.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert win.findChild(QObject, "diffDialog").property("visible") is True
+    assert "custom_executable" in win.findChild(QQuickItem, "diffText").property("text")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_profile_semantics_flow(qgui_app, xdg_env):
+    """Save targets the active profile; dirty switches prompt to discard."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    C.save_profile("local-doom", "fast", C.load("local-doom"))
+    slow = C.load("local-doom")
+    slow.general.name = "Slow"
+    C.save_profile("local-doom", "slow", slow)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    name = swin.findChild(QQuickItem, "settingsName")
+    assert dlg.property("dialogProfile") == ""
+    dlg.switchProfile("fast")
+    qgui_app.processEvents()
+    assert dlg.property("dialogProfile") == "fast"
+    assert name.property("text") == "Doom"
+    name.setProperty("text", "Unsaved")
+    dlg.requestProfileSwitch(1)
+    qgui_app.processEvents()
+    confirm = win.findChild(QObject, "settingsConfirm")
+    assert confirm.property("visible") is True
+    assert dlg.property("confirmPurpose") == "discardSwitch"
+    dlg.acceptConfirm()
+    qgui_app.processEvents()
+    assert name.property("text") == "Slow"
+    assert dlg.property("dialogProfile") == "slow"
+    dlg.requestProfileSwitch(0)
+    qgui_app.processEvents()
+    assert confirm.property("opened") is False
+    assert name.property("text") == "Doom"
+    box = swin.findChild(QQuickItem, "settingsProfiles")
+    box.setProperty("currentIndex", 1)
+    delete = swin.findChild(QQuickItem, "settingsProfileDelete")
+    pos = delete.mapToScene(
+        QPointF(delete.property("width") / 2, delete.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    assert confirm.property("visible") is True
+    dlg.acceptConfirm()
+    qgui_app.processEvents()
+    assert C.list_profiles("local-doom") == ["fast"]
+    assert name.property("text") == "Doom"
+    name.setProperty("text", "Fast Edit")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").general.name == "Doom"
+    assert C.load_profile("local-doom", "fast").general.name == "Fast Edit"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

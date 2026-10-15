@@ -44,6 +44,13 @@ Breaking config changes are called out explicitly under `Changed`.
   Proton tags, mismatch confirm, merge-missing).
 - Settings show config load warnings and disable tool toggles whose
   binaries are missing (gamemoderun, gamescope, mangohud, ludusavi).
+- Launch command preview (collapsible, Refresh, wrapper line) and Diff
+  vs Defaults for the live dialog state; the settings window defaults
+  taller so tab controls stay above the fold.
+- Profile semantics (widgets parity): Save writes to the active profile
+  target (live file keeps only the selection), dirty profile switches
+  ask to discard first, Save As/Clone/Delete confirm overwrites, Reset
+  confirms then persists factory now.
 - File Export/Import (step 4): portal save picker, Export/Import menu
   entries, one modal Import window (tarball / STL checklist /
   predecessor copy). Lutris/Playnite/Faugus formats stay for the

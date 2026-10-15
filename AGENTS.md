@@ -87,6 +87,10 @@ rewrite pushed history or tags.
 - Separate modal windows outlive their test's main window by event
   rounds: `_load_main` closes straggler top-levels so title lookups
   (`topLevelWindows()`) never match a foreign window.
+- Fixed bottom blocks shrink `StackLayout` tabs: if tab content grows
+  past the window, `ScrollView` clip swallows synthetic clicks silently
+  (identical geometry, no warnings). Keep the default window tall enough
+  that tab controls stay above the fold offscreen.
 - Content windows (settings and friends) are separate modal `Window`s
   (`WindowModal`, transient on the main window): widgets parity,
   resizable, no PageRow tiling surprises. Tests drive them through
