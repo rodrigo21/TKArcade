@@ -574,6 +574,42 @@ def test_settings_display_roundtrip(qgui_app, xdg_env):
     assert model.createMangohudConfig("", "minimal") == ""
 
 
+def test_library_schema_slots(qgui_app, xdg_env, tmp_path):
+    import os
+
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    model = GameListModel()
+    assert model.allCategories() == []
+    assert model.setCategories([], "Action") == "Select games first."
+    assert model.setCategories(["local-doom"], "Action, Retro ,") == (
+        "Set 2 categor(ies) on 1 game(s)."
+    )
+    assert C.load("local-doom").general.categories == ["Action", "Retro"]
+    assert model.allCategories() == ["Action", "Retro"]
+    art = tmp_path / "icon.png"
+    art.write_bytes(b"\x89PNG\r\n\x1a\n")
+    assert model.storeArtwork("local-doom", "icon", os.fspath(art)) == ""
+    assert C.load("local-doom").artwork.icon.endswith("icon.png")
+    assert model.storeArtwork("local-doom", "icon", os.fspath(tmp_path / "nope.png")) != ""
+    assert model.clearArtwork("local-doom", "icon") is True
+    assert C.load("local-doom").artwork.icon == ""
+    assert isinstance(model.wineTools(), list)
+    assert model.applyWineVersion("local-doom", "proton_9") == (
+        "Version selection needs a Steam game."
+    )
+    assert model.prefixDir("local-doom") == ""
+    assert model.ensurePrefix("local-doom") == (
+        "Set a custom prefix dir first (Steam creates its own)."
+    )
+    assert model.clearCustomPrefix("local-doom") == "No custom prefix set."
+
+
 def test_settings_preview_diff(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

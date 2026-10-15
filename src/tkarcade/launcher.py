@@ -117,10 +117,16 @@ def write_global_log(
 def local_run_cwd(appid: str, cfg: cfgmod.GameConfig) -> str | None:
     """Working directory for local games: the executable's own folder.
 
-    None means inherit (all Steam launches and path-less commands).
+    A valid launch_cwd override wins. None means inherit (all Steam
+    launches and path-less commands).
     """
     if steammod.is_steam_id(appid):
         return None
+    override = (cfg.general.launch_cwd or "").strip()
+    if override:
+        if Path(override).is_dir():
+            return override
+        log.warning("launch_cwd is not a directory, ignoring: %r", override)
     exe = (cfg.general.custom_executable or "").strip()
     if exe and Path(exe).is_file():
         return str(Path(exe).parent) or None
@@ -233,6 +239,12 @@ def build_final_command(
             warnings.append(
                 "custom_executable set but no 'run'/'--' marker found; keeping original command"
             )
+    extra_args = (cfg.general.launch_args or "").strip()
+    if extra_args:
+        try:
+            cmd = [*cmd, *split_args(extra_args)]
+        except ValueError as e:
+            warnings.append(f"launch_args ignored (parse error: {e})")
 
     # innermost: custom prefix wraps the executable directly
     # (e.g. zink-run), inside mangohud/gamemode/gamescope/wrap.
@@ -300,6 +312,16 @@ def build_final_command(
         env["PROTON_LOG_DIR"] = os.fspath(proton_log_dir(cfg.general.appid))
     if cfg.debug.winedebug.strip():
         env["WINEDEBUG"] = cfg.debug.winedebug.strip()
+    compat_prefix = cfg.proton.wine_prefix.strip()
+    if compat_prefix and game_type == "proton" and "STEAM_COMPAT_DATA_PATH" not in env:
+        env["STEAM_COMPAT_DATA_PATH"] = compat_prefix
+    fps = max(0, int(cfg.mangohud.fps_limit or 0))
+    if fps > 0:
+        if cfg.mangohud.enable:
+            prior = env.get("MANGOHUD_CONFIG", "").strip()
+            env["MANGOHUD_CONFIG"] = f"{prior},fps_limit={fps}" if prior else f"fps_limit={fps}"
+        else:
+            warnings.append("fps_limit set but MangoHud is disabled; ignoring")
     return cmd, env, warnings
 
 

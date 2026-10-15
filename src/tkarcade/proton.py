@@ -117,6 +117,52 @@ def flavor(tool: str) -> str:
     return "valve"
 
 
+def list_compat_tools() -> list[str]:
+    """Installed compat tools: compatibilitytools.d entries plus Proton builds.
+
+    Sorted, deduplicated tool directory names. A dir counts when it holds
+    a `version` file or a `proton` launcher, or its name mentions proton,
+    ge or wine. System Wine is probed separately (see system_wine()).
+    """
+    found: set[str] = set()
+    for root in steammod.steam_roots():
+        for base in (root / "compatibilitytools.d", root / "steamapps" / "common"):
+            try:
+                entries = list(base.iterdir())
+            except OSError:
+                continue
+            for entry in entries:
+                try:
+                    if not entry.is_dir() or entry.is_symlink() and not entry.exists():
+                        continue
+                except OSError:
+                    continue
+                name = entry.name
+                low = name.lower()
+                try:
+                    has_version = (entry / "version").is_file()
+                    has_proton = (entry / "proton").is_file()
+                except OSError:
+                    has_version = has_proton = False
+                if has_version or has_proton or "proton" in low or low.startswith("ge-"):
+                    found.add(name)
+    return sorted(found)
+
+
+def system_wine() -> str | None:
+    """Path of a system Wine binary on PATH, if any."""
+    import shutil
+
+    for cand in ("wine", "wine64"):
+        try:
+            found = shutil.which(cand)
+        except Exception:
+            continue
+        if found:
+            return found
+    return None
+
+
 def prepare_fresh_prefix() -> tuple[bool, list[str]]:
     """Delete the Proton prefix so Steam recreates it on launch.
 

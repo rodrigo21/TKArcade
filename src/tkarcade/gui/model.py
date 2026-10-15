@@ -7,6 +7,7 @@ import os
 import shlex
 import shutil
 import threading
+from pathlib import Path
 
 from PySide6.QtCore import (
     Property,
@@ -237,6 +238,17 @@ class GameListModel(QAbstractTableModel):
                 last = st.last.replace("T", " ")
                 played_tip = f"{st.runs} sessions · last {last} · {st.fails} failures"
             icon = artmod.resolve_icon(appid)
+            try:
+                gcfg = cfgmod.load(appid)
+                art, donor = gcfg.artwork, gcfg.artwork.donor_appid.strip()
+                if art.icon and Path(art.icon).is_file():
+                    icon = Path(art.icon)
+                elif donor and donor != appid:
+                    donor_icon = artmod.resolve_icon(donor)
+                    if donor_icon is not None:
+                        icon = donor_icon
+            except Exception as e:
+                log.warning("artwork resolve(%s) failed: %s", appid, e)
             data, _fresh = pdbmod.cached(appid)
             tier = str(((data or {}).get("tier", "")) or "").lower()
             bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
@@ -339,6 +351,14 @@ class GameListModel(QAbstractTableModel):
             "menu_timeout": max(0, min(600, int(g.menu_timeout or 0))),
             "custom_prefix": g.custom_prefix,
             "active_profile": g.active_profile,
+            "categories": list(g.categories),
+            "platform": g.platform,
+            "launch_args": g.launch_args,
+            "launch_cwd": g.launch_cwd,
+            "art_icon": cfg.artwork.icon,
+            "art_cover": cfg.artwork.cover,
+            "art_banner": cfg.artwork.banner,
+            "art_donor": cfg.artwork.donor_appid,
             "notes": cfg.notes.text,
             "profiles": profiles,
             "is_steam": bool(steammod.is_steam_id(appid)),
@@ -362,6 +382,7 @@ class GameListModel(QAbstractTableModel):
             "mangohud_enable": bool(cfg.mangohud.enable),
             "mangohud_args": cfg.mangohud.args,
             "mangohud_config": cfg.mangohud.config_file,
+            "mangohud_fps": max(0, int(cfg.mangohud.fps_limit or 0)),
             "rt_enable": bool(cfg.rtupscale.enable),
             "rt_args": cfg.rtupscale.args,
             "ludusavi_enable": bool(cfg.ludusavi.enable),
@@ -377,6 +398,8 @@ class GameListModel(QAbstractTableModel):
             else "auto",
             "fresh_prefix": bool(cfg.proton.fresh_prefix),
             "winetricks_verbs": " ".join(cfg.proton.winetricks_verbs),
+            "wine_prefix": cfg.proton.wine_prefix,
+            "wine_version": cfg.proton.wine_version,
             "proton_log": bool(cfg.debug.proton_log),
             "winedebug": cfg.debug.winedebug,
         }
@@ -486,6 +509,17 @@ class GameListModel(QAbstractTableModel):
         except (TypeError, ValueError):
             cfg.general.menu_timeout = 0
         cfg.general.custom_prefix = str(data.get("custom_prefix", "")).strip()
+        cats = data.get("categories", [])
+        if isinstance(cats, str):
+            cats = [c.strip() for c in cats.split(",")]
+        cfg.general.categories = [str(c).strip() for c in cats or [] if str(c).strip()]
+        cfg.general.platform = str(data.get("platform", "")).strip()
+        cfg.general.launch_args = str(data.get("launch_args", "")).strip()
+        cfg.general.launch_cwd = str(data.get("launch_cwd", "")).strip()
+        cfg.artwork.icon = str(data.get("art_icon", "")).strip()
+        cfg.artwork.cover = str(data.get("art_cover", "")).strip()
+        cfg.artwork.banner = str(data.get("art_banner", "")).strip()
+        cfg.artwork.donor_appid = str(data.get("art_donor", "")).strip()
         cfg.notes.text = str(data.get("notes", ""))
         env_vars = {}
         for row in data.get("env_vars", []) or []:
@@ -520,6 +554,10 @@ class GameListModel(QAbstractTableModel):
         cfg.mangohud.enable = bool(data.get("mangohud_enable", False))
         cfg.mangohud.args = str(data.get("mangohud_args", "")).strip()
         cfg.mangohud.config_file = str(data.get("mangohud_config", "")).strip()
+        try:
+            cfg.mangohud.fps_limit = max(0, int(data.get("mangohud_fps", 0) or 0))
+        except (TypeError, ValueError):
+            cfg.mangohud.fps_limit = 0
         cfg.rtupscale.enable = bool(data.get("rt_enable", False))
         cfg.rtupscale.args = str(data.get("rt_args", "")).strip()
         cfg.ludusavi.enable = bool(data.get("ludusavi_enable", False))
@@ -536,6 +574,8 @@ class GameListModel(QAbstractTableModel):
         )
         cfg.proton.fresh_prefix = bool(data.get("fresh_prefix", False))
         cfg.proton.winetricks_verbs = _split_args(str(data.get("winetricks_verbs", "")))
+        cfg.proton.wine_prefix = str(data.get("wine_prefix", "")).strip()
+        cfg.proton.wine_version = str(data.get("wine_version", "")).strip()
         cfg.debug.proton_log = bool(data.get("proton_log", False))
         winedebug = str(data.get("winedebug", ""))
         cfg.debug.winedebug = winedebug if winedebug in ("", "-all", "+err", "+warn,+err") else ""
@@ -562,6 +602,198 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return []
         return sorted(rows, key=lambda r: r[1].lower())
+
+    @Slot(result=list)
+    def allCategories(self) -> list:
+        """Every category tag in use, sorted case-insensitively."""
+        found: set[str] = set()
+        try:
+            for appid in cfgmod.list_appids():
+                try:
+                    found.update(cfgmod.load(appid).general.categories)
+                except Exception:
+                    continue
+        except Exception:
+            return []
+        return sorted(found, key=str.lower)
+
+    @Slot(list, str, result=str)
+    def setCategories(self, appids, text: str) -> str:
+        """Bulk-set category tags from comma text. Returns a status message."""
+        ids = [str(a) for a in appids or []]
+        if not ids:
+            return "Select games first."
+        cats = [c.strip() for c in str(text or "").split(",") if c.strip()]
+        count = 0
+        for appid in ids:
+            try:
+                cfg = cfgmod.load(appid)
+                cfg.general.categories = cats
+                cfgmod.save(cfg)
+                count += 1
+            except Exception as e:
+                log.warning("setCategories(%s) failed: %s", appid, e)
+        self.refresh()
+        return f"Set {len(cats)} categor(ies) on {count} game(s)."
+
+    @Slot(str, str, str, result=str)
+    def storeArtwork(self, appid: str, kind: str, src: str) -> str:
+        """Copy an image into the manual slot and point the config at it."""
+        dest = artmod.store_manual(appid, kind, src)
+        if dest is None:
+            return "Pick a PNG, JPG or WebP image file."
+        try:
+            cfg = cfgmod.load(appid)
+            setattr(cfg.artwork, kind, os.fspath(dest))
+            cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("storeArtwork(%s) failed: %s", appid, e)
+            return "Could not save the artwork path."
+        self.refresh()
+        return ""
+
+    @Slot(str, str, result=bool)
+    def clearArtwork(self, appid: str, kind: str) -> bool:
+        """Remove a manual artwork slot and clear the config path."""
+        try:
+            cfg = cfgmod.load(appid)
+            if kind in artmod.MANUAL_KINDS:
+                setattr(cfg.artwork, kind, "")
+            cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("clearArtwork(%s) failed: %s", appid, e)
+            return False
+        artmod.clear_manual(appid, kind)
+        self.refresh()
+        return True
+
+    @Slot(str, result=list)
+    def donorCandidates(self, query: str) -> list:
+        """[[appid, name]] games matching a donor search, by name."""
+        q = str(query or "").strip().lower()
+        try:
+            names = {a: n for a, n in steammod.list_games()}
+            names.update(steammod.local_names())
+            rows = [[a, n] for a, n in names.items() if not q or q in n.lower() or q in a]
+        except Exception:
+            return []
+        return sorted(rows, key=lambda r: r[1].lower())[:50]
+
+    @Slot(result=list)
+    def wineTools(self) -> list:
+        """[[tool, version]] installed compat tools plus system Wine."""
+        from .. import proton as protonmod
+
+        try:
+            rows = [[t, protonmod.tool_version(t) or ""] for t in protonmod.list_compat_tools()]
+        except Exception:
+            rows = []
+        try:
+            system = protonmod.system_wine()
+        except Exception:
+            system = None
+        if system:
+            rows.append([f"system wine ({system})", ""])
+        return rows
+
+    @Slot(result=bool)
+    def steamRunning(self) -> bool:
+        """Whether a Steam process is alive (mapping writes need it idle)."""
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                ["pgrep", "-x", "steam"], capture_output=True, timeout=10, check=False
+            )
+        except Exception:
+            return True
+        return proc.returncode == 0
+
+    @Slot(str, str, result=str)
+    def applyWineVersion(self, appid: str, tool: str) -> str:
+        """Point Steam's compat mapping at a tool. '' on success, else why."""
+        if not steammod.is_steam_id(appid) or not appid.isdigit():
+            return "Version selection needs a Steam game."
+        tool = str(tool or "").strip()
+        if not tool:
+            return "Pick a compat tool first."
+        if self.steamRunning():
+            return "Quit Steam first: it rewrites config.vdf on exit."
+        try:
+            import vdf
+        except ImportError:
+            return "The vdf module is missing."
+        for root in steammod.steam_roots():
+            path = root / "config" / "config.vdf"
+            if not path.is_file():
+                continue
+            try:
+                with open(path, encoding="utf-8") as handle:
+                    data = vdf.load(handle)
+                node = data["InstallConfigStore"]["Software"]["Valve"]["Steam"]
+                mapping = node.setdefault("CompatToolMapping", {})
+                mapping[str(appid)] = {"name": tool}
+                backup = path.with_suffix(".vdf.tkarcade-bak")
+                backup.write_bytes(path.read_bytes())
+                with open(path, "w", encoding="utf-8") as handle:
+                    vdf.dump(data, handle, pretty=True)
+            except Exception as e:
+                log.warning("applyWineVersion(%s) failed: %s", appid, e)
+                return f"Could not update {path}: {e}"
+            try:
+                cfg = cfgmod.load(appid)
+                cfg.proton.wine_version = tool
+                cfgmod.save(cfg)
+            except Exception as e:
+                log.warning("applyWineVersion record failed: %s", e)
+            from .. import proton as protonmod
+
+            protonmod.clear_tool_cache()
+            self.refresh()
+            return ""
+        return "No Steam config.vdf found."
+
+    @Slot(str, result=str)
+    def ensurePrefix(self, appid: str) -> str:
+        """Create the custom prefix dir now. '' on success, else why."""
+        try:
+            custom = cfgmod.load(appid).proton.wine_prefix.strip()
+        except Exception as e:
+            return f"Could not read the config: {e}"
+        if not custom:
+            return "Set a custom prefix dir first (Steam creates its own)."
+        try:
+            Path(custom).expanduser().mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            return f"Could not create {custom}: {e}"
+        return ""
+
+    @Slot(str, result=str)
+    def clearCustomPrefix(self, appid: str) -> str:
+        """Delete the custom prefix dir (guarded). '' on success, else why."""
+        import shutil as _shutil
+
+        try:
+            custom = cfgmod.load(appid).proton.wine_prefix.strip()
+        except Exception as e:
+            return f"Could not read the config: {e}"
+        if not custom:
+            return "No custom prefix set."
+        target = Path(custom).expanduser()
+        try:
+            resolved = target.resolve()
+            home = Path.home().resolve()
+            if resolved == home or resolved == home.parent or len(resolved.parts) <= 2:
+                return f"Refusing to delete {resolved}."
+            if not target.is_dir():
+                return f"Not a directory: {target}."
+        except Exception as e:
+            return f"Could not inspect {target}: {e}"
+        try:
+            _shutil.rmtree(target)
+        except Exception as e:
+            return f"Could not delete {target}: {e}"
+        return f"Cleared {target}."
 
     @Slot(str, str, bool, result=str)
     def cloneGameTo(self, src: str, dest: str, force: bool) -> str:
@@ -1113,7 +1345,13 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, result=str)
     def prefixDir(self, appid: str) -> str:
-        """Proton prefix path, or '' when unknown."""
+        """Effective Proton prefix: custom dir or Steam's compatdata ('' unknown)."""
+        try:
+            custom = cfgmod.load(appid).proton.wine_prefix.strip()
+        except Exception:
+            custom = ""
+        if custom:
+            return custom
         try:
             target = steammod.prefix_dir(appid)
         except Exception:

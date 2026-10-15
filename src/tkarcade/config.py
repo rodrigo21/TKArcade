@@ -55,6 +55,10 @@ class GeneralConfig:
     menu_timeout: int = 0  # auto-launch countdown in seconds (0 = wait forever)
     custom_prefix: str = ""  # e.g. "zink-run", innermost command wrapper
     active_profile: str = ""  # last used profile (GUI selection memory)
+    categories: list[str] = field(default_factory=list)  # tags, multiple per game
+    platform: str = ""  # manual platform label (e.g. "PC", "Steam Deck")
+    launch_args: str = ""  # extra args appended to the game command
+    launch_cwd: str = ""  # working-directory override ("" = exe folder for local games)
 
 
 @dataclass
@@ -89,6 +93,7 @@ class MangohudConfig:
     enable: bool = False
     args: str = ""
     config_file: str = ""  # filename inside MangoHud config dir, "" = default
+    fps_limit: int = 0  # MangoHud fps_limit (0 = off)
 
 
 @dataclass
@@ -145,6 +150,16 @@ class RtUpscaleConfig:
 class ProtonConfig:
     fresh_prefix: bool = False
     winetricks_verbs: list[str] = field(default_factory=list)
+    wine_prefix: str = ""  # custom compatdata dir ("" = Steam default location)
+    wine_version: str = ""  # preferred compat tool ("" = Steam default)
+
+
+@dataclass
+class ArtworkConfig:
+    icon: str = ""  # explicit per-game icon override (file path)
+    cover: str = ""  # explicit per-game cover/portrait image (file path)
+    banner: str = ""  # explicit per-game banner/landscape image (file path)
+    donor_appid: str = ""  # reuse another game's art (e.g. a Steam donor)
 
 
 @dataclass
@@ -186,6 +201,7 @@ class GameConfig:
     session: SessionConfig = field(default_factory=SessionConfig)
     proton: ProtonConfig = field(default_factory=ProtonConfig)
     rtupscale: RtUpscaleConfig = field(default_factory=RtUpscaleConfig)
+    artwork: ArtworkConfig = field(default_factory=ArtworkConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -218,6 +234,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "session": _to_toml_value(cfg.session),
         "proton": _to_toml_value(cfg.proton),
         "rtupscale": _to_toml_value(cfg.rtupscale),
+        "artwork": _to_toml_value(cfg.artwork),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -498,12 +515,16 @@ SECTION_KEYS: dict[str, set[str]] = {
         "menu_timeout",
         "custom_prefix",
         "active_profile",
+        "categories",
+        "platform",
+        "launch_args",
+        "launch_cwd",
     },
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
     "gamemode": {"feral_gamemode", "cachyos_game_performance"},
     "gamescope": {"enable", "args"},
-    "mangohud": {"enable", "args", "config_file"},
+    "mangohud": {"enable", "args", "config_file", "fps_limit"},
     "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
     "nightlight": {"disable_during_game", "provider"},
     "display": {"provider", "output", "mode", "dip_seconds"},
@@ -511,8 +532,9 @@ SECTION_KEYS: dict[str, set[str]] = {
     "notes": {"text"},
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
-    "proton": {"fresh_prefix", "winetricks_verbs"},
+    "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
     "rtupscale": {"enable", "args"},
+    "artwork": {"icon", "cover", "banner", "donor_appid"},
 }
 
 
@@ -624,6 +646,10 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.general.menu_timeout = max(0, _as_int(g.get("menu_timeout", 0), 0))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
     cfg.general.active_profile = str(g.get("active_profile", ""))
+    cfg.general.categories = [c.strip() for c in _str_list(g.get("categories", [])) if c.strip()]
+    cfg.general.platform = str(g.get("platform", ""))
+    cfg.general.launch_args = str(g.get("launch_args", ""))
+    cfg.general.launch_cwd = str(g.get("launch_cwd", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}
@@ -647,6 +673,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.mangohud.enable = _as_bool(mh.get("enable", False), False)
     cfg.mangohud.args = str(mh.get("args", ""))
     cfg.mangohud.config_file = str(mh.get("config_file", ""))
+    cfg.mangohud.fps_limit = max(0, _as_int(mh.get("fps_limit", 0), 0))
     cfg.ludusavi = _load_ludusavi(data.get("ludusavi", {}), cfg.extra)
     nl = _section(data, "nightlight")
     cfg.nightlight.disable_during_game = _as_bool(nl.get("disable_during_game", False), False)
@@ -664,6 +691,13 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.session.inhibit_idle = _as_bool(_section(data, "session").get("inhibit_idle", False), False)
     cfg.proton.fresh_prefix = _as_bool(_section(data, "proton").get("fresh_prefix", False), False)
     cfg.proton.winetricks_verbs = _str_list(_section(data, "proton").get("winetricks_verbs", []))
+    cfg.proton.wine_prefix = str(_section(data, "proton").get("wine_prefix", ""))
+    cfg.proton.wine_version = str(_section(data, "proton").get("wine_version", ""))
+    art = _section(data, "artwork")
+    cfg.artwork.icon = str(art.get("icon", ""))
+    cfg.artwork.cover = str(art.get("cover", ""))
+    cfg.artwork.banner = str(art.get("banner", ""))
+    cfg.artwork.donor_appid = str(art.get("donor_appid", "")).strip()
     rt = _section(data, "rtupscale")
     cfg.rtupscale.enable = _as_bool(rt.get("enable", False), False)
     cfg.rtupscale.args = str(rt.get("args", ""))
