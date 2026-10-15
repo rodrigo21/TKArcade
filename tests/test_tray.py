@@ -134,7 +134,7 @@ def test_close_to_tray_hides_window(qgui_app, xdg_env):
     import sys
 
     sys.path.insert(0, "tests")
-    from test_kirigami_qml import _load_main
+    from kirigami_qml_cases import _load_main
 
     _enable_tray(close_to_tray=True)
     win, engine, _proxy, warnings = _load_main(qgui_app)

@@ -35,6 +35,10 @@ QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -c "..."  # GUI smoke
 The suite must pass with and without `pytest-qt` installed: never
 monkeypatch Qt globals at fixture scope (patch inside the test body so
 teardown hooks see a healthy QApplication).
+QML cases live in `tests/kirigami_qml_cases.py` (not collected by
+default); `tests/test_kirigami_qml.py` runs each in its own subprocess
+(the whole file segfaults in one process on Qt 6.12 GC teardown).
+Single case: `pytest "tests/kirigami_qml_cases.py::<name>" -o python_files="*.py"`.
 
 GUI changes need an offscreen screenshot check. Push each commit batch
 created during build mode (the Arch package builds from git); never
