@@ -401,6 +401,23 @@ def _delegate_label_visible(view, text):
     return False
 
 
+def _wait_for(predicate, limit=200, step=10):
+    """Pump frames with real waits until `predicate()` holds (or gives up).
+
+    `QTest.qWait` and not a bare `processEvents()` loop: the layout's
+    async passes and timers need wall-clock time, and a tight loop of
+    hundreds of iterations can run inside one millisecond on an idle
+    machine but starve on a loaded one (this flaked under makepkg load).
+    """
+    from PySide6.QtTest import QTest
+
+    for _ in range(limit):
+        if predicate():
+            return True
+        QTest.qWait(step)
+    return predicate()
+
+
 def _settle_table(table, qgui_app, count, proxy, limit=100):
     """Pump frames until the table shows every row (or timeout)."""
     for _ in range(3):
@@ -560,9 +577,11 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
 
     # Fresh profiles autofit async: wait for widths to settle (three
     # identical reads) before measuring, or the hide/show math races.
+    from PySide6.QtTest import QTest
+
     steady, last = 0, None
     for _ in range(200):
-        qgui_app.processEvents()
+        QTest.qWait(5)
         current = widths()
         steady = steady + 1 if current == last else 0
         last = current
@@ -573,10 +592,9 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
     assert cell(2).property("visible") is True
     game_w = cell(1).property("width")
     proxy.setProperty("showAppId", False)
-    for _ in range(60):
-        qgui_app.processEvents()
-        if abs(cell(1).property("width") - (game_w + w2)) <= 3:
-            break
+    # Wall-clock waits, not frame counts: a scrollbar appearing (or not)
+    # moves the elastic column by more than the tolerance, briefly.
+    _wait_for(lambda: abs(cell(1).property("width") - (game_w + w2)) <= 3)
     assert cell(2).property("visible") is False
     # Elastic float layout plus background autofit: the game column
     # absorbs the hidden width, exact to a few pixels.
@@ -584,10 +602,7 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
     assert grown > game_w
     assert abs(grown - (game_w + w2)) <= 3
     proxy.setProperty("showAppId", True)
-    for _ in range(60):
-        qgui_app.processEvents()
-        if abs(cell(1).property("width") - game_w) <= 3:
-            break
+    _wait_for(lambda: abs(cell(1).property("width") - game_w) <= 3)
     assert cell(2).property("visible") is True
     assert abs(cell(1).property("width") - game_w) <= 3
     real = [w for w in warnings if "graphics scene" not in w]

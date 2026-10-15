@@ -79,6 +79,10 @@ rewrite pushed history or tags.
 - QQC2 `onToggled` fires on user interaction only (unlike QWidgets):
   react to programmatic `setProperty("checked", ...)` (tests included)
   with `onCheckedChanged` instead.
+- QML tests wait with `QTest.qWait`, not bare `processEvents()` loops:
+  layout passes need wall-clock time, and a few hundred tight iterations
+  can all run inside one millisecond on an idle machine while starving
+  under load (a case flaked inside `makepkg`'s check).
 - `Kirigami.Dialog` overlays never finish their enter fade offscreen
   (they render invisible): synthetic clicks don't reach their buttons —
   open them via clicks and drive accepts with direct calls instead.
