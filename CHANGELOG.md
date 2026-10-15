@@ -137,6 +137,12 @@ Breaking config changes are called out explicitly under `Changed`.
   cleaner only accepted logical columns 0–5, so widths set on Last
   Played, Platform, Runner, Wine, Install Dir and Category were written
   and then silently dropped on the next load.
+- Library header: the table header used its own static defaults (90px
+  for the Last Played/Platform/Runner/Wine/Install Dir/Category
+  columns) while the table rendered 80px, so every unfitted one of
+  those columns shifted its title and divider 10px off. Header,
+  delegate and `columnWidthProvider` now read a single
+  `defaultColumnWidth` helper.
 - Removed residual dead code and stale notes: duplicated portal debug
   line, unreachable `launch_args` exception handler (`split_args` never
   raises), redundant artwork cleanup loop, and the nightlight holder /

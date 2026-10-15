@@ -270,8 +270,8 @@ def _column_widths(proxy, table, page=None):
     """Visible widths per logical column (mirrors tableColumnWidth).
 
     Reads live fitted widths and the shrink factor so fresh-start
-    autofit does not stale click coordinates; falls back to the
-    static defaults.
+    autofit does not stale click coordinates; falls back to the same
+    static defaults as `defaultColumnWidth` in MainPage.qml.
     """
     defaults = {
         0: 36.0,
@@ -279,11 +279,11 @@ def _column_widths(proxy, table, page=None):
         3: 90.0,
         4: 110.0,
         5: 80.0,
-        6: 110.0,
+        6: 80.0,
         7: 80.0,
         8: 80.0,
         9: 80.0,
-        10: 140.0,
+        10: 80.0,
         11: 80.0,
     }
     try:
@@ -1793,6 +1793,53 @@ def test_header_cells_tile_from_zero(qgui_app, xdg_env):
     assert real == []
     win.close()
     _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_header_width_matches_table_for_unfitted_columns(qgui_app, xdg_env):
+    """Header cell width equals the table's column width, fitted or not.
+
+    Regression: with no fitted width the header used its own defaults
+    (90px for the 6-11 library columns) while columnWidthProvider
+    rendered 80px, so every such title sat 10px off its column. Both
+    must read the single defaultColumnWidth helper.
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+
+    prefs = C.load_preferences()
+    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11"
+    prefs.hidden_columns = ""
+    prefs.column_widths = "1=200"  # only the game column fitted
+    C.save_preferences(prefs)
+
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    header = win.findChild(QQuickItem, "tableHeader")
+    row = header.findChild(QQuickItem, "headerRow")
+    assert row is not None
+    # Nothing but the game column is fitted: static defaults apply.
+    assert proxy.columnWidth(6) == 0
+    assert proxy.columnWidth(11) == 0
+    for _ in range(5):
+        qgui_app.processEvents()
+    cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
+    for logical in range(12):
+        cell = cells.get(f"headerCell{logical}")
+        assert cell is not None, logical
+        assert cell.property("width") == page.tableColumnWidth(logical), logical
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
     qgui_app.processEvents()
 
 

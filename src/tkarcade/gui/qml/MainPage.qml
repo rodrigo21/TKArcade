@@ -826,6 +826,23 @@ Kirigami.Page {
         gameFilter.showCategory = false
     }
 
+    function defaultColumnWidth(logical) {
+        // Static fallback (px, unshrunk) for columns with no fitted
+        // width. Single source of truth: baseColumnWidth feeds
+        // columnWidthProvider (what the table renders), and the header
+        // cells plus the delegate implicitWidth must match it exactly.
+        // They diverged when the 6-11 library columns landed (the
+        // header lumped them with 2/3 at 90px, the table used 80px), so
+        // every such column shifted its title by 10px.
+        if (logical === 2 || logical === 3) {
+            return 90
+        }
+        if (logical === 4) {
+            return 110
+        }
+        return 80
+    }
+
     function baseColumnWidth(logical) {
         // Unshrunk fitted-or-default (0 when hidden); game excluded,
         // it fills elastically with its fitted value as floor.
@@ -839,13 +856,7 @@ Kirigami.Page {
         if (fitted > 0) {
             return fitted
         }
-        if (logical === 2 || logical === 3) {
-            return 90
-        }
-        if (logical === 4) {
-            return 110
-        }
-        return 80
+        return defaultColumnWidth(logical)
     }
 
     function tableColumnWidth(logical) {
@@ -1359,7 +1370,7 @@ Kirigami.Page {
                             return gamesPage.gameColumnWidth
                         }
                         var fw = gamesPage.fittedColumnWidths[logical] || 0
-                        var base = fw > 0 ? fw : (logical === 4 ? 110 : (logical === 5 ? 80 : 90))
+                        var base = fw > 0 ? fw : gamesPage.defaultColumnWidth(logical)
                         return Math.max(24, base * gamesPage.columnShrink)
                     }
                     height: parent.height
@@ -1541,7 +1552,7 @@ Kirigami.Page {
                         return gamesPage.gameColumnWidth
                     }
                     var fw = gamesPage.fittedColumnWidths[logical] || 0
-                    var base = fw > 0 ? fw : (logical === 4 ? 110 : (logical === 5 ? 80 : 90))
+                    var base = fw > 0 ? fw : gamesPage.defaultColumnWidth(logical)
                     return Math.max(24, base * gamesPage.columnShrink)
                 }
                 implicitHeight: Kirigami.Units.gridUnit * 2
