@@ -29,6 +29,8 @@ Window {
     property string pendingProfile: ""
     property string pendingName: ""
     property string confirmPurpose: ""
+    property string pendingBrowse: ""
+    property var wineToolsData: []
     property var fields: ({})
     property string errorText: ""
     property string pendingPrompt: "" // "saveAs" | "clone" | ""
@@ -103,6 +105,14 @@ Window {
         exeField.text = f.custom_executable || ""
         typeBox.currentIndex = f.game_type === "proton" ? 1 : (f.game_type === "native" ? 2 : 0)
         prefixField.text = f.custom_prefix || ""
+        argsField.text = f.launch_args || ""
+        cwdField.text = f.launch_cwd || ""
+        platformField.text = f.platform || ""
+        catsField.text = (f.categories || []).join(", ")
+        artIconField.text = f.art_icon || ""
+        artCoverField.text = f.art_cover || ""
+        artBannerField.text = f.art_banner || ""
+        artDonorField.text = f.art_donor || ""
         menuCheck.checked = !!f.show_menu
         timeoutSpin.value = f.menu_timeout || 0
         notesArea.text = f.notes || ""
@@ -130,6 +140,7 @@ Window {
         mhEnable.checked = !!f.mangohud_enable
         mhArgs.text = f.mangohud_args || ""
         refreshMangohudConfigs(f.mangohud_config || "")
+        mhFps.value = f.mangohud_fps || 0
         rtEnable.checked = !!f.rt_enable
         rtArgs.text = f.rt_args || ""
         luEnable.checked = !!f.ludusavi_enable
@@ -143,6 +154,8 @@ Window {
         nlProv.currentIndex = {"auto": 0, "plasma": 1, "gnome": 2, "off": 3}[f.nl_provider] ?? 0
         logField.text = editAppid !== "" ? gameModel.gameLogFile(editAppid) : ""
         ptFresh.checked = !!f.fresh_prefix
+        winePrefixField.text = f.wine_prefix || ""
+        refreshWineTools(f.wine_version || "")
         ptVerbs.text = f.winetricks_verbs || ""
         ptLog.checked = !!f.proton_log
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
@@ -179,6 +192,14 @@ Window {
             "show_menu": menuCheck.checked,
             "menu_timeout": timeoutSpin.value,
             "custom_prefix": prefixField.text,
+            "launch_args": argsField.text,
+            "launch_cwd": cwdField.text,
+            "platform": platformField.text,
+            "categories": catsField.text,
+            "art_icon": artIconField.text,
+            "art_cover": artCoverField.text,
+            "art_banner": artBannerField.text,
+            "art_donor": artDonorField.text,
             "notes": notesArea.text,
             "profiles": profiles,
             "env_vars": collectEnv(),
@@ -199,6 +220,7 @@ Window {
             "mangohud_enable": mhEnable.checked,
             "mangohud_args": mhArgs.text,
             "mangohud_config": mhConfigData(),
+            "mangohud_fps": mhFps.value,
             "rt_enable": rtEnable.checked,
             "rt_args": rtArgs.text,
             "ludusavi_enable": luEnable.checked,
@@ -211,6 +233,8 @@ Window {
             "nl_disable": nlDisable.checked,
             "nl_provider": ["auto", "plasma", "gnome", "off"][nlProv.currentIndex] || "auto",
             "fresh_prefix": ptFresh.checked,
+            "wine_prefix": winePrefixField.text,
+            "wine_version": wineToolData(),
             "winetricks_verbs": ptVerbs.text,
             "proton_log": ptLog.checked,
             "winedebug": ["", "-all", "+err", "+warn,+err"][ptDebug.currentIndex] || "",
@@ -316,6 +340,12 @@ Window {
                 return
             }
             reload()
+        } else if (confirmPurpose === "clearPrefix") {
+            confirmDialog.close()
+            var msg = gameModel.clearCustomPrefix(editAppid)
+            if (msg !== "" && msg.indexOf("Cleared") !== 0) {
+                settingsError.text = msg
+            }
         }
         confirmPurpose = ""
     }
@@ -456,6 +486,43 @@ Window {
         return item !== undefined ? item.data : ""
     }
 
+    function refreshWineTools(select) {
+        var tools = gameModel.wineTools()
+        wineToolsData = tools
+        var items = [{"text": qsTr("(Steam default)"), "data": ""}]
+        var idx = 0
+        for (var i = 0; i < tools.length; i++) {
+            var label = tools[i][1] !== "" ? tools[i][0] + " (" + tools[i][1] + ")" : tools[i][0]
+            items.push({"text": label, "data": tools[i][0]})
+            if (tools[i][0] === select) {
+                idx = i + 1
+            }
+        }
+        if (select !== "" && idx === 0) {
+            items.push({"text": qsTr("%1 (not installed)").arg(select), "data": select})
+            idx = items.length - 1
+        }
+        wineToolBox.model = items
+        wineToolBox.currentIndex = idx
+    }
+
+    function wineToolData() {
+        var item = wineToolBox.model[wineToolBox.currentIndex]
+        return item !== undefined ? item.data : ""
+    }
+
+    function clearArtwork(kind) {
+        if (gameModel.clearArtwork(editAppid, kind)) {
+            if (kind === "icon") {
+                artIconField.text = ""
+            } else if (kind === "cover") {
+                artCoverField.text = ""
+            } else {
+                artBannerField.text = ""
+            }
+        }
+    }
+
     function askChoice(purpose, items, arg) {
         pendingPrompt = purpose
         pendingArg = arg || ""
@@ -473,8 +540,7 @@ Window {
                 gsArgs.text = args
             }
             choicePrompt.close()
-        } else if (pendingPrompt === "mhTemplate") {
-            // Positional twin of the labels passed at the ask site.
+        } else if (pendingPrompt === "mhTemplate") {            // Positional twin of the labels passed at the ask site.
             var values = ["default", "minimal", "fps-cap", "full", "empty"]
             var path = gameModel.createMangohudConfig(pendingArg, values[choiceBox.currentIndex] || "default")
             if (path === "") {
@@ -486,6 +552,12 @@ Window {
             if (!gameModel.openPath(path) && page !== null) {
                 page.notify(qsTr("Could not open the config file."))
             }
+        } else if (pendingPrompt === "artDonor") {
+            var pick = choiceBox.model[choiceBox.currentIndex]
+            if (pick !== undefined && pick.data !== "") {
+                artDonorField.text = pick.data
+            }
+            choicePrompt.close()
         }
     }
 
@@ -681,6 +753,9 @@ Window {
             Controls.TabButton {
                 text: qsTr("Notes")
             }
+            Controls.TabButton {
+                text: qsTr("Artwork")
+            }
         }
         StackLayout {
             Layout.fillWidth: true
@@ -738,13 +813,34 @@ Window {
                         target: gameModel
                         function onBrowseFinished(picked) {
                             if (!gameSettings.visible || picked === "") {
+                                gameSettings.pendingBrowse = ""
                                 return
                             }
-                            exeField.text = picked
-                            if (nameField.visible && nameField.text === "") {
-                                var parts = picked.split("/")
-                                nameField.text = parts[parts.length - 1]
+                            if (gameSettings.pendingBrowse === "launchCwd") {
+                                cwdField.text = picked
+                            } else if (gameSettings.pendingBrowse === "winePrefix") {
+                                winePrefixField.text = picked
+                            } else if (gameSettings.pendingBrowse.indexOf("art:") === 0) {
+                                var kind = gameSettings.pendingBrowse.slice(4)
+                                var msg = gameModel.storeArtwork(
+                                    editAppid, kind, picked)
+                                if (msg !== "") {
+                                    settingsError.text = msg
+                                } else if (kind === "icon") {
+                                    artIconField.text = gameModel.artworkPath(editAppid, kind)
+                                } else if (kind === "cover") {
+                                    artCoverField.text = gameModel.artworkPath(editAppid, kind)
+                                } else {
+                                    artBannerField.text = gameModel.artworkPath(editAppid, kind)
+                                }
+                            } else {
+                                exeField.text = picked
+                                if (nameField.visible && nameField.text === "") {
+                                    var parts = picked.split("/")
+                                    nameField.text = parts[parts.length - 1]
+                                }
                             }
+                            gameSettings.pendingBrowse = ""
                         }
                     }
                 }
@@ -761,6 +857,45 @@ Window {
                     placeholderText: qsTr("e.g. zink-run")
                     Layout.fillWidth: true
                     KirigamiLayouts.FormData.label: qsTr("Custom command prefix:")
+                }
+                Controls.TextField {
+                    id: argsField
+                    objectName: "settingsArgs"
+                    placeholderText: qsTr("e.g. --fullscreen -v")
+                    Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Extra launch args:")
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Working directory:")
+                    Controls.TextField {
+                        id: cwdField
+                        objectName: "settingsCwd"
+                        placeholderText: qsTr("empty = game folder")
+                        Layout.fillWidth: true
+                    }
+                    Controls.Button {
+                        objectName: "settingsCwdBrowse"
+                        text: qsTr("Browse…")
+                        onClicked: {
+                            gameSettings.pendingBrowse = "launchCwd"
+                            gameModel.pickDir(qsTr("Working directory"), qsTr("Select"))
+                        }
+                    }
+                }
+                Controls.TextField {
+                    id: platformField
+                    objectName: "settingsPlatform"
+                    placeholderText: qsTr("e.g. PC")
+                    Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Platform:")
+                }
+                Controls.TextField {
+                    id: catsField
+                    objectName: "settingsCats"
+                    placeholderText: qsTr("Action, Retro (comma-separated)")
+                    Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Categories:")
                 }
                 Controls.CheckBox {
                     id: menuCheck
@@ -1123,6 +1258,13 @@ Window {
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("MangoHud Options:")
                                     }
+                                    Controls.SpinBox {
+                                        id: mhFps
+                                        objectName: "mhFps"
+                                        from: 0
+                                        to: 999
+                                        KirigamiLayouts.FormData.label: qsTr("FPS limit (0 = off):")
+                                    }
                                     RowLayout {
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("MangoHud Configuration:")
@@ -1329,6 +1471,80 @@ Window {
                                 KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
                             }
                             RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Custom prefix dir:")
+                                Controls.TextField {
+                                    id: winePrefixField
+                                    objectName: "winePrefix"
+                                    placeholderText: qsTr("empty = Steam default")
+                                    Layout.fillWidth: true
+                                }
+                                Controls.Button {
+                                    objectName: "winePrefixBrowse"
+                                    text: qsTr("Browse…")
+                                    onClicked: {
+                                        gameSettings.pendingBrowse = "winePrefix"
+                                        gameModel.pickDir(qsTr("Custom prefix dir"), qsTr("Select"))
+                                    }
+                                }
+                                Controls.Button {
+                                    objectName: "winePrefixCreate"
+                                    text: qsTr("Create")
+                                    onClicked: {
+                                        var msg = gameModel.ensurePrefix(editAppid)
+                                        if (msg !== "") {
+                                            settingsError.text = msg
+                                        }
+                                    }
+                                }
+                                Controls.Button {
+                                    objectName: "winePrefixClear"
+                                    text: qsTr("Clear…")
+                                    onClicked: {
+                                        if (winePrefixField.text.trim() === "") {
+                                            return
+                                        }
+                                        confirmLabel.text = qsTr(
+                                            "Delete the custom prefix dir now?\n%1\nSaves inside are lost.").arg(
+                                            winePrefixField.text.trim())
+                                        confirmPurpose = "clearPrefix"
+                                        confirmOk.text = qsTr("Delete")
+                                        confirmDialog.open()
+                                    }
+                                }
+                                Controls.Button {
+                                    objectName: "winePrefixOpen"
+                                    text: qsTr("Open")
+                                    onClicked: {
+                                        if (!gameModel.openPath(gameModel.prefixDir(editAppid))) {
+                                            settingsError.text = qsTr("Could not open the prefix folder.")
+                                        }
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Compat tool:")
+                                Controls.ComboBox {
+                                    id: wineToolBox
+                                    objectName: "wineTool"
+                                    textRole: "text"
+                                    Layout.fillWidth: true
+                                }
+                                Controls.Button {
+                                    objectName: "wineToolApply"
+                                    text: qsTr("Apply")
+                                    onClicked: {
+                                        var msg = gameModel.applyWineVersion(editAppid, gameSettings.wineToolData())
+                                        if (msg !== "") {
+                                            settingsError.text = msg
+                                        } else {
+                                            gameSettings.refreshWineTools(gameSettings.wineToolData())
+                                        }
+                                    }
+                                }
+                            }
+                            RowLayout {
                                 visible: editAppid !== ""
                                 Layout.fillWidth: true
                                 Controls.CheckBox {
@@ -1371,6 +1587,114 @@ Window {
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Controls.ScrollView {
+                    clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Item {
+                        width: parent.width
+                        height: artForm.implicitHeight
+                        KirigamiLayouts.FormLayout {
+                            id: artForm
+                            width: parent.width
+                            RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Icon override:")
+                                Controls.TextField {
+                                    id: artIconField
+                                    objectName: "artIcon"
+                                    readOnly: true
+                                    Layout.fillWidth: true
+                                }
+                                Controls.Button {
+                                    objectName: "artIconPick"
+                                    text: qsTr("Pick…")
+                                    onClicked: {
+                                        gameSettings.pendingBrowse = "art:icon"
+                                        gameModel.pickPath(qsTr("Icon image"), qsTr("Select"))
+                                    }
+                                }
+                                Controls.Button {
+                                    objectName: "artIconClear"
+                                    text: qsTr("Clear")
+                                    onClicked: gameSettings.clearArtwork("icon")
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Cover image:")
+                                Controls.TextField {
+                                    id: artCoverField
+                                    objectName: "artCover"
+                                    readOnly: true
+                                    Layout.fillWidth: true
+                                }
+                                Controls.Button {
+                                    objectName: "artCoverPick"
+                                    text: qsTr("Pick…")
+                                    onClicked: {
+                                        gameSettings.pendingBrowse = "art:cover"
+                                        gameModel.pickPath(qsTr("Cover image"), qsTr("Select"))
+                                    }
+                                }
+                                Controls.Button {
+                                    objectName: "artCoverClear"
+                                    text: qsTr("Clear")
+                                    onClicked: gameSettings.clearArtwork("cover")
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Banner image:")
+                                Controls.TextField {
+                                    id: artBannerField
+                                    objectName: "artBanner"
+                                    readOnly: true
+                                    Layout.fillWidth: true
+                                }
+                                Controls.Button {
+                                    objectName: "artBannerPick"
+                                    text: qsTr("Pick…")
+                                    onClicked: {
+                                        gameSettings.pendingBrowse = "art:banner"
+                                        gameModel.pickPath(qsTr("Banner image"), qsTr("Select"))
+                                    }
+                                }
+                                Controls.Button {
+                                    objectName: "artBannerClear"
+                                    text: qsTr("Clear")
+                                    onClicked: gameSettings.clearArtwork("banner")
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Donor AppID:")
+                                Controls.TextField {
+                                    id: artDonorField
+                                    objectName: "artDonor"
+                                    placeholderText: qsTr("Steam AppID to reuse art from")
+                                    Layout.fillWidth: true
+                                }
+                                Controls.Button {
+                                    objectName: "artDonorFind"
+                                    text: qsTr("Find…")
+                                    onClicked: {
+                                        var rows = gameModel.donorCandidates("")
+                                        var items = []
+                                        for (var i = 0; i < rows.length; i++) {
+                                            items.push({"text": rows[i][1] + " [" + rows[i][0] + "]", "data": rows[i][0]})
+                                        }
+                                        gameSettings.askChoice("artDonor", items, "")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1596,7 +1920,8 @@ Window {
         title: confirmPurpose === "deleteProfile" ? qsTr("Delete Profile")
             : (confirmPurpose === "resetFactory" ? qsTr("Reset Game")
             : (confirmPurpose === "overwriteProfile" ? qsTr("Save Profile")
-            : qsTr("Unsaved Changes")))
+            : (confirmPurpose === "clearPrefix" ? qsTr("Clear Prefix")
+            : qsTr("Unsaved Changes"))))
         padding: Kirigami.Units.largeSpacing
         ColumnLayout {
             Controls.Label {

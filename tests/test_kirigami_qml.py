@@ -3019,6 +3019,54 @@ def test_settings_general_formlayout_wide(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_library_fields_flow(qgui_app, xdg_env):
+    """Library fields round-trip: tags, platform, args/cwd, fps, prefix, donor."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    swin.findChild(QQuickItem, "settingsCats").setProperty("text", "Action, Retro")
+    swin.findChild(QQuickItem, "settingsPlatform").setProperty("text", "PC")
+    swin.findChild(QQuickItem, "settingsArgs").setProperty("text", "--fullscreen")
+    swin.findChild(QQuickItem, "settingsCwd").setProperty("text", "/tmp")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 4)
+    qgui_app.processEvents()
+    swin.findChild(QQuickItem, "mhFps").setProperty("value", 60)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 7)
+    qgui_app.processEvents()
+    swin.findChild(QQuickItem, "winePrefix").setProperty("text", "/tmp/pfx")
+    assert isinstance(dlg.property("wineToolsData"), list)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 9)
+    qgui_app.processEvents()
+    swin.findChild(QQuickItem, "artDonor").setProperty("text", "480")
+    dlg.save()
+    qgui_app.processEvents()
+    back = C.load("local-doom")
+    assert back.general.categories == ["Action", "Retro"]
+    assert back.general.platform == "PC"
+    assert back.general.launch_args == "--fullscreen"
+    assert back.general.launch_cwd == "/tmp"
+    assert back.mangohud.fps_limit == 60
+    assert back.proton.wine_prefix == "/tmp/pfx"
+    assert back.artwork.donor_appid == "480"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib

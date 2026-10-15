@@ -43,6 +43,16 @@ def pick_file(
     return _run_pick("OpenFile", title, accept_label, {}, timeout, _open)
 
 
+def pick_dir(
+    title: str = "Pick a folder",
+    accept_label: str = "Select",
+    timeout: float = 600.0,
+    _open=None,
+) -> str:
+    """Show the desktop-native folder dialog. Returns a path, or ''."""
+    return _run_pick("OpenFile", title, accept_label, {"directory": ("b", True)}, timeout, _open)
+
+
 def pick_save_file(
     title: str = "Save file",
     accept_label: str = "Save",

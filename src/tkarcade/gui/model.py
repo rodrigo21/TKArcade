@@ -303,6 +303,25 @@ class GameListModel(QAbstractTableModel):
         ).start()
 
     @Slot(str, str)
+    def pickDir(self, title: str, accept_label: str) -> None:
+        """Generic folder picker off the GUI thread; result via browseFinished."""
+        threading.Thread(
+            target=self._pick_dir_worker,
+            args=(title or "Pick a folder", accept_label or "Select"),
+            daemon=True,
+        ).start()
+
+    def _pick_dir_worker(self, title: str, accept_label: str) -> None:
+        from ..backends import portal as portalmod
+
+        try:
+            path = portalmod.pick_dir(title, accept_label)
+        except Exception as e:
+            log.warning("pick dir worker failed: %s", e)
+            path = ""
+        self.browseFinished.emit(path)
+
+    @Slot(str, str)
     def pickPath(self, title: str, accept_label: str) -> None:
         """Generic open picker off the GUI thread; result via browseFinished."""
         threading.Thread(
@@ -794,6 +813,16 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             return f"Could not delete {target}: {e}"
         return f"Cleared {target}."
+
+    @Slot(str, str, result=str)
+    def artworkPath(self, appid: str, kind: str) -> str:
+        """Stored config path for a manual artwork slot ('' when none)."""
+        try:
+            art = cfgmod.load(appid).artwork
+            value = getattr(art, kind, "") if kind in artmod.MANUAL_KINDS else ""
+            return str(value or "")
+        except Exception:
+            return ""
 
     @Slot(str, str, bool, result=str)
     def cloneGameTo(self, src: str, dest: str, force: bool) -> str:
