@@ -42,6 +42,13 @@
   (`wlr-randr`/`kanshi`), X11 (`xrandr`), `off`.
 - [x] Per-game audio output: route to a chosen sink via `pactl`/`pw-cli`
   on launch, restore on exit.
+- [ ] Audio sink labels: `list_sinks` promises `(name, description)` but
+  returns `(name, name)` — the description is never queried, the second
+  item is dead end to end (`audioSinks` re-duplicates it, the QML only
+  reads `[0]`), so the combo shows the raw node name
+  (`alsa_output.pci-…analog-stereo`). Either parse `pactl list sinks`
+  for real `Description:` labels (QML shows it, stores the name) or drop
+  the pair. Deferred pending real-display review of the audio picker.
 - [x] Review env presets against vendor docs (Mesa/NVIDIA semantics drift;
   verify `vblank_mode` / `__GL_SYNC_TO_VBLANK` values). Recurring: re-audit
   on every release tag (last: 2026-09-30 + installed-build checks).
