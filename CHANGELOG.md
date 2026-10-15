@@ -114,6 +114,10 @@ Breaking config changes are called out explicitly under `Changed`.
   width over the fresh autofit.
 
 ### Fixed
+- Steam library scan reads the legacy `libraryfolders.vdf` layout too
+  (capitalized root key, bare `"1" "/path"` strings): secondary
+  libraries no longer vanish on old Steam installs, with or without
+  the `vdf` package.
 - Removed dead imports: `logging` in the Kirigami tray controller,
   `urllib.error` in the artwork and ProtonDB helpers.
 - Config: cloning a game rewrites the destination snapshot with the

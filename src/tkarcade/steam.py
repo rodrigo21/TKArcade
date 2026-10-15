@@ -60,14 +60,31 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
         return []
     data = loads_kv1(text)
     if data is not None:
-        libs = data.get("libraryfolders", {})
-        out = [Path(str(v["path"])) for v in libs.values() if isinstance(v, dict) and "path" in v]
+        libs: dict = {}
+        for root_key in ("libraryfolders", "LibraryFolders"):
+            section = data.get(root_key)
+            if isinstance(section, dict):
+                libs = section
+                break
+        out = []
+        for v in libs.values():
+            if isinstance(v, dict) and "path" in v:
+                out.append(Path(str(v["path"])))
+            elif isinstance(v, str) and v.strip():
+                # Legacy layout stores libraries as bare strings
+                # ("1" "/mnt/steam") instead of {"path": ...} dicts.
+                out.append(Path(v.strip()))
         return [p for p in out if p.exists()]
-    # fallback: crude "path" "..." extraction
+    # fallback: crude "path" "..." extraction (modern dict layout), plus
+    # legacy numeric-key pairs ("1" "/mnt/steam").
     out = []
     for m in re.finditer(r'"path"\s+"([^"]+)"', text):
         p = Path(m.group(1))
         if p.exists():
+            out.append(p)
+    for m in re.finditer(r'"\d+"\s+"([^"]+)"', text):
+        p = Path(m.group(1))
+        if p.exists() and p not in out:
             out.append(p)
     return out
 
