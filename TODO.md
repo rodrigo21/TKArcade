@@ -150,11 +150,23 @@ So the tray is the only real decision. Options:
    `org.kde.StatusNotifierItem` + `com.canonical.dbusmenu` implementation
    (~400 lines, fiddly layout semantics, needs a real desktop to
    validate).
-3. `PyKF6` (`KStatusNotifierItem`): smallest code, but a **new runtime
-   dependency** — needs an explicit OK, and packaging availability to
-   check.
+3. `PyKF6` (`KStatusNotifierItem`): measured away — it does **not**
+   drop QtWidgets (`setContextMenu(QMenu*)` takes a QMenu, i.e. a
+   QWidget, so it wants QApplication anyway) and it adds a runtime
+   dependency with a PySide6/Qt ABI to match plus an Arch availability
+   question. Dominated by option 1.
 4. Keep `QSystemTrayIcon`/`QMenu` in a documented exception (no policy
    change): honest but leaves the debt and the failing test.
+
+Note on the integration: Qt documents `QSystemTrayIcon` on Linux as a
+D-Bus StatusNotifierItem client ("all Linux desktop environments that
+implement the D-Bus StatusNotifierItem"), so options 1 and 2/3 land in
+the same place on the desktop; only option 2 buys module purity.
+
+If option 1 is chosen, keep the policy test strong instead of gutting
+it: allow exactly the `QSystemTrayIcon` name from `tray.py` (an
+allowlist of (file, class) pairs) so `QMenu` or any other widget class
+still fails it, and keep test_tray.py driving the abstract rows.
 
 Prep independent of the choice: extract the menu as data (rows +
 `trigger(id)`) so the tests stop building `QMenu` and the renderer can
