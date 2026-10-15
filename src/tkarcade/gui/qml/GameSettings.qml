@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
+import org.kde.kirigami.layouts as KirigamiLayouts
 
 // Per-game settings window (widgets GameDialog parity, tab by tab:
 // General and Notes first, the rest follow). A separate modal window
@@ -693,29 +694,23 @@ Window {
                 Item {
                     width: parent.width
                     height: generalForm.implicitHeight
-                    ColumnLayout {
+                    KirigamiLayouts.FormLayout {
                     id: generalForm
                     objectName: "settingsGeneralForm"
                     // Centered readable column (widgets-dialog feel),
                     // capped — never full-bleed. Anchored: a raw x is
                     // reset by the ScrollView content management.
+                    // Side-by-side labels when wide (QFormLayout parity),
+                    // stacked labels when narrow (Kirigami convergent).
                     width: Math.min(parent.width, Kirigami.Units.gridUnit * 38)
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Kirigami.Units.smallSpacing
-                Controls.Label {
-                    visible: editAppid !== ""
-                    text: qsTr("Steam App ID:")
-                }
                 Controls.TextField {
                     id: appidField
                     objectName: "settingsAppid"
                     visible: editAppid !== ""
                     readOnly: true
                     Layout.fillWidth: true
-                }
-                Controls.Label {
-                    visible: !(fields.is_steam || false) && !defaultsMode
-                    text: qsTr("Game name:")
+                    KirigamiLayouts.FormData.label: qsTr("Steam App ID:")
                 }
                 Controls.TextField {
                     id: nameField
@@ -723,12 +718,11 @@ Window {
                     visible: !(fields.is_steam || false) && !defaultsMode
                     placeholderText: qsTr("Game name")
                     Layout.fillWidth: true
-                }
-                Controls.Label {
-                    text: qsTr("Custom executable:")
+                    KirigamiLayouts.FormData.label: qsTr("Game name:")
                 }
                 RowLayout {
                     Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Custom executable:")
                     Controls.TextField {
                         id: exeField
                         objectName: "settingsExe"
@@ -754,47 +748,36 @@ Window {
                         }
                     }
                 }
-                Controls.Label {
-                    text: qsTr("Game type:")
-                }
                 Controls.ComboBox {
                     id: typeBox
                     objectName: "settingsType"
                     Layout.fillWidth: true
                     model: [qsTr("Automatic"), qsTr("Proton"), qsTr("Native Linux")]
-                }
-                Controls.Label {
-                    text: qsTr("Custom command prefix:")
+                    KirigamiLayouts.FormData.label: qsTr("Game type:")
                 }
                 Controls.TextField {
                     id: prefixField
                     objectName: "settingsPrefix"
                     placeholderText: qsTr("e.g. zink-run")
                     Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Custom command prefix:")
                 }
                 Controls.CheckBox {
                     id: menuCheck
                     objectName: "settingsMenu"
                     text: qsTr("Show menu before launch")
                 }
-                RowLayout {
-                    Controls.Label {
-                        text: qsTr("Menu timeout (seconds):")
-                    }
-                    Controls.SpinBox {
-                        id: timeoutSpin
-                        objectName: "settingsTimeout"
-                        from: 0
-                        to: 600
-                    }
-                }
-                Controls.Label {
-                    visible: editAppid !== ""
-                    text: qsTr("Profile:")
+                Controls.SpinBox {
+                    id: timeoutSpin
+                    objectName: "settingsTimeout"
+                    from: 0
+                    to: 600
+                    KirigamiLayouts.FormData.label: qsTr("Menu timeout (seconds):")
                 }
                 RowLayout {
                     visible: editAppid !== ""
                     Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Profile:")
                     Controls.ComboBox {
                         id: profileBox
                         objectName: "settingsProfiles"
@@ -833,13 +816,10 @@ Window {
                         onClicked: gameSettings.resetFactory()
                     }
                 }
-                Controls.Label {
-                    visible: editAppid !== ""
-                    text: qsTr("Log File:")
-                }
                 RowLayout {
                     visible: editAppid !== ""
                     Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Log File:")
                     Controls.TextField {
                         id: logField
                         objectName: "settingsLog"

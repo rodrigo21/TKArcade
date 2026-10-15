@@ -2988,6 +2988,37 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_general_formlayout_wide(qgui_app, xdg_env):
+    """General tab uses FormLayout side-by-side labels when wide."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    QTest.qWait(400)
+    for _ in range(10):
+        qgui_app.processEvents()
+    form = swin.findChild(QQuickItem, "settingsGeneralForm")
+    assert form.property("wideMode") is True
+    name = swin.findChild(QQuickItem, "settingsName")
+    assert name.property("x") > 100  # buddy column, labels aside
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_no_gutter_game_header_stub():
     """No divider stub between gutter and game header cells (TKS)."""
     import pathlib
