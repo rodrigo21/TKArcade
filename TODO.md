@@ -212,3 +212,21 @@ desktop; only option 2 buys module purity.
   footer is not an option: Qt refuses anchors to a non-sibling item
   ("Cannot anchor to an item that isn't a parent or sibling") and
   `z: -1` lands under the card background, which eats the press.
+
+### Real-display checks (offscreen cannot verdict these)
+
+Everything below passed offscreen assertions only (geometry, state,
+dispatch). Each needs one look on a real compositor:
+
+- Tray menu popup: position under the icon (it comes from
+  `QSystemTrayIcon.geometry()`, so panel-dependent), keyboard focus,
+  click-outside dismissal, the non-native QQC2 look, and whether the
+  compositor accepts a transient popup of a hidden shell window at all
+  (offscreen it does; fallback is a `Window { flags: Qt.Popup }` menu
+  with hand-built rows).
+- Settings window: FormCard rows side by side (the widgets QFormLayout
+  put label and field on one line) and the Environment / Pre-Post tabs.
+- Table: the added columns (Source, Category, ...) and the header
+  drag / resize / autofit gestures.
+- Category and Artwork dialogs, and the pt_BR catalog in situ.
+- Audio sink picker (left untouched on this branch).
