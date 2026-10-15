@@ -143,6 +143,9 @@ Breaking config changes are called out explicitly under `Changed`.
   those columns shifted its title and divider 10px off. Header,
   delegate and `columnWidthProvider` now read a single
   `defaultColumnWidth` helper.
+- Library footer: the shown count also appears while the drawer's
+  Category filter is active (it already did for search, issues-only
+  and source, so the list looked unfiltered).
 - Removed residual dead code and stale notes: duplicated portal debug
   line, unreachable `launch_args` exception handler (`split_args` never
   raises), redundant artwork cleanup loop, and the nightlight holder /

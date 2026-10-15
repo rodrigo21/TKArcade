@@ -1421,9 +1421,10 @@ def test_footer_shows_filtered_count(qgui_app, xdg_env):
 
     from tkarcade import config as C
 
-    for appid in ("local-doom", "local-quake"):
+    for appid, cats in (("local-doom", ["Action"]), ("local-quake", ["Retro"])):
         cfg = C.GameConfig()
         cfg.general.appid = appid
+        cfg.general.categories = cats
         C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
     status = win.findChild(QQuickItem, "statusLabel")
@@ -1433,6 +1434,14 @@ def test_footer_shows_filtered_count(qgui_app, xdg_env):
     qgui_app.processEvents()
     assert "1 shown" in status.property("text")
     proxy.setProperty("textQuery", "")
+    qgui_app.processEvents()
+    assert "shown" not in status.property("text")
+    # The category filter is a filter too: it must append the count.
+    proxy.setProperty("categoryKey", "Retro")
+    qgui_app.processEvents()
+    assert proxy.rowCount() == 1
+    assert "1 shown" in status.property("text")
+    proxy.setProperty("categoryKey", "")
     qgui_app.processEvents()
     assert "shown" not in status.property("text")
     real = [w for w in warnings if "graphics scene" not in w]

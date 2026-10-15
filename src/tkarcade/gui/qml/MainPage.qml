@@ -1903,7 +1903,7 @@ Kirigami.Page {
                         selected: gamesPage.selectedIds.indexOf(gameId) >= 0
                         onPlayRequested: (gid) => gameModel.play(gid)
                         onRowTapped: (gid, mods) => gamesPage.tapGame(gid, mods)
-            onMenuRequested: (gid) => gamesPage.openGameMenu(gid)
+                        onMenuRequested: (gid) => gamesPage.openGameMenu(gid)
                     }
                 }
             }
@@ -1933,6 +1933,7 @@ Kirigami.Page {
                 var filtered = gameFilter.textQuery !== ""
                     || gameFilter.issuesOnly
                     || gameFilter.sourceKey !== "all"
+                    || gameFilter.categoryKey !== ""
                 if (filtered) {
                     return base + qsTr(" · %1 shown").arg(gameFilter.rowCount())
                 }
