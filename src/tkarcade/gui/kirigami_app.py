@@ -8,11 +8,41 @@ import sys
 from pathlib import Path
 
 
-def qml_url() -> str:
-    """File URL of the main QML document (kept tiny for tests)."""
+def qml_url(name: str = "main.qml") -> str:
+    """File URL of a QML document (kept tiny for tests)."""
     from PySide6.QtCore import QUrl
 
-    return QUrl.fromLocalFile(str(Path(__file__).parent / "qml" / "main.qml")).toString()
+    return QUrl.fromLocalFile(str(Path(__file__).parent / "qml" / name)).toString()
+
+
+def build_engine(name: str = "main.qml"):
+    """A QML engine with the model context wired in, the document loaded.
+
+    Shared by the shell and the standalone editor (gui/edit.py). Models
+    are parented to the engine: QML takes no ownership, so an unparented
+    Python model would die with its wrapper (GC) and read as null in the
+    UI. Returns (engine, model, game_filter); the caller checks
+    `engine.rootObjects()` for a load failure.
+    """
+    from PySide6.QtCore import QUrl
+    from PySide6.QtQml import QQmlApplicationEngine
+
+    from .model import GameFilterModel, GameListModel
+
+    engine = QQmlApplicationEngine()
+    model = GameListModel(engine)
+    engine.rootContext().setContextProperty("gameModel", model)
+    game_filter = GameFilterModel(engine)
+    game_filter.setSourceModel(model)
+    engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.rootContext().setContextProperty(
+        "TKARCADE_DEBUG_CLICKS", os.environ.get("TKARCADE_DEBUG_CLICKS", "")
+    )
+    engine.rootContext().setContextProperty(
+        "TKARCADE_DEBUG_GEOMETRY", os.environ.get("TKARCADE_DEBUG_GEOMETRY", "")
+    )
+    engine.load(QUrl(qml_url(name)))
+    return engine, model, game_filter
 
 
 DEFAULT_SIZE = (1280, 720)
@@ -90,10 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     """Run the Kirigami application (list, add and launch local games)."""
     import logging
 
-    from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtWidgets import QApplication
-
-    from .model import GameFilterModel, GameListModel
 
     log = logging.getLogger("tkarcade.kirigami")
     if verbose_requested(argv):
@@ -111,20 +138,6 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    engine = QQmlApplicationEngine()
-    # Parent to the engine: QML takes no ownership, so an unparented
-    # model would die with its Python wrapper (GC) and read as null.
-    model = GameListModel(engine)
-    engine.rootContext().setContextProperty("gameModel", model)
-    game_filter = GameFilterModel(engine)
-    game_filter.setSourceModel(model)
-    engine.rootContext().setContextProperty("gameFilter", game_filter)
-    engine.rootContext().setContextProperty(
-        "TKARCADE_DEBUG_CLICKS", os.environ.get("TKARCADE_DEBUG_CLICKS", "")
-    )
-    engine.rootContext().setContextProperty(
-        "TKARCADE_DEBUG_GEOMETRY", os.environ.get("TKARCADE_DEBUG_GEOMETRY", "")
-    )
     if os.environ.get("TKARCADE_DEBUG_GEOMETRY") == "1":
         from PySide6.QtGui import QIcon
 
@@ -160,9 +173,7 @@ def main(argv: list[str] | None = None) -> int:
                 + str(pixnull),
                 flush=True,
             )
-    from PySide6.QtCore import QUrl
-
-    engine.load(QUrl(qml_url()))
+    engine, model, _game_filter = build_engine("main.qml")
     if not engine.rootObjects():
         print("tkarcade: could not load the Kirigami interface", file=sys.stderr)
         return 1

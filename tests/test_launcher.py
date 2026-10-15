@@ -448,3 +448,87 @@ def test_nonexecutable_exit_13(xdg_env, tmp_path):
     exe.write_text("#!/bin/sh\necho hi\n")  # deliberately left non-executable
     _save("32")
     assert _run(_env(xdg_env), "--appid", "32", str(exe)).returncode == 13
+
+
+# --- run_editor_menu: the child protocol (in-process, no Qt) ---------------
+
+
+def _fake_child(monkeypatch, *, returncode=0, stdout="", stderr="", boom=None):
+    """Stub subprocess.run; returns the list the launcher called with."""
+    from tkarcade import launcher as L
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        if boom is not None:
+            raise boom
+        return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(L.subprocess, "run", fake_run)
+    return calls
+
+
+def test_editor_menu_parses_the_child_outcome(monkeypatch):
+    from tkarcade import launcher as L
+
+    calls = _fake_child(monkeypatch, stdout='{"outcome": "saved", "appid": "7"}\n')
+    assert L.run_editor_menu("7") == ("saved", "7")
+    cmd, kwargs = calls[0]
+    assert cmd[1:] == ["-m", "tkarcade.gui.edit", "--appid", "7", "--can-launch"]
+    assert kwargs["capture_output"] is True
+
+
+def test_editor_menu_passes_the_pick_menu_and_env(monkeypatch):
+    from tkarcade import launcher as L
+
+    calls = _fake_child(monkeypatch, stdout='{"outcome": "launch", "appid": "42"}')
+    monkeypatch.setenv(
+        "LD_LIBRARY_PATH",
+        "/opt/x:/home/u/.local/share/Steam/ubuntu12_32/steam-runtime/pinned",
+    )
+    assert L.run_editor_menu("", for_menu=True, can_launch=False) == ("launch", "42")
+    cmd, kwargs = calls[0]
+    assert cmd[1:] == [
+        "-m",
+        "tkarcade.gui.edit",
+        "--pick",
+        "--no-can-launch",
+        "--menu",
+    ]
+    assert "Steam" not in kwargs["env"].get("LD_LIBRARY_PATH", "")
+
+
+def test_editor_menu_crash_is_cancelled(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, returncode=1, stderr="Traceback (most recent call last):")
+    assert L.run_editor_menu("7") == ("cancelled", "7")
+
+
+def test_editor_menu_bad_output_is_cancelled(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, stdout="not json at all")
+    assert L.run_editor_menu("7") == ("cancelled", "7")
+
+
+def test_editor_menu_bad_outcome_is_cancelled(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, stdout='{"outcome": "explode", "appid": "7"}')
+    assert L.run_editor_menu("7") == ("cancelled", "7")
+
+
+def test_editor_menu_exit_two_is_unavailable(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, returncode=2, stderr="tkarcade: --edit needs a display")
+    assert L.run_editor_menu("7") == ("unavailable", "7")
+
+
+def test_editor_menu_spawn_failure_is_unavailable(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, boom=OSError("no such file"))
+    assert L.run_editor_menu("7") == ("unavailable", "7")

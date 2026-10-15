@@ -3835,3 +3835,282 @@ def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+# --- standalone editor / pre-launch menu (gui/edit.py drives both) --------
+
+
+def _load_editor(qgui_app, mode="edit", appid="", name="", can_launch=True, pick=False, timeout=0):
+    """Editor.qml in-process: (root, engine, model, decided, warnings).
+
+    The editor creates its UI windows with createObject(null) -- a window
+    declared inside another one never shows while the enclosing one is
+    hidden, and the editor has no main window. They are therefore
+    top-levels, found by title, never through the root's QObject tree.
+    """
+    from PySide6.QtCore import QUrl
+    from PySide6.QtQml import QQmlApplicationEngine
+
+    from tkarcade.gui.kirigami_app import qml_url
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    engine = QQmlApplicationEngine()
+    warnings: list[str] = []
+    engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
+    model = GameListModel(engine)
+    engine.rootContext().setContextProperty("gameModel", model)
+    game_filter = GameFilterModel(engine)
+    game_filter.setSourceModel(model)
+    engine.rootContext().setContextProperty("gameFilter", game_filter)
+    engine.rootContext().setContextProperty("TKARCADE_DEBUG_CLICKS", "")
+    engine.rootContext().setContextProperty("TKARCADE_DEBUG_GEOMETRY", "")
+    engine.load(QUrl(qml_url("Editor.qml")))
+    assert len(engine.rootObjects()) == 1, "Editor.qml did not load"
+    root = engine.rootObjects()[0]
+    decided: list[tuple[str, str]] = []
+    root.decided.connect(lambda outcome, ended: decided.append((outcome, ended)))
+    for key, value in (
+        ("mode", mode),
+        ("appid", appid),
+        ("name", name),
+        ("canLaunch", can_launch),
+        ("pick", pick),
+        ("timeout", timeout),
+    ):
+        root.setProperty(key, value)
+    root.start()
+    qgui_app.processEvents()
+    return root, engine, model, decided, warnings
+
+
+def _editor_window(qgui_app, title):
+    """A visible editor top-level by exact title."""
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtTest import QTest
+
+    for _ in range(25):
+        for window in QGuiApplication.topLevelWindows():
+            if window.isVisible() and window.title() == title:
+                return window
+        QTest.qWait(20)
+    titles = [w.title() for w in QGuiApplication.topLevelWindows()]
+    raise AssertionError(f"editor window {title!r} never showed (have {titles})")
+
+
+def _click_editor_button(qgui_app, window, name):
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    button = window.findChild(QQuickItem, name)
+    assert button is not None, name
+    pos = button.mapToScene(
+        QPointF(button.property("width") / 2, button.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    QTest.qWait(30)
+
+
+def _save_one_game(appid, name):
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = appid
+    cfg.general.name = name
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+
+
+def _editor_finish(qgui_app, engine, windows):
+    """Tear the editor down: its windows are separate top-levels."""
+    from PySide6.QtTest import QTest
+
+    for window in windows:
+        window.close()
+    engine.deleteLater()
+    QTest.qWait(20)
+    qgui_app.processEvents()
+
+
+def test_editor_save_reports_saved(qgui_app, xdg_env):
+    """Save in the standalone editor reports "saved" with the AppID."""
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, warnings = _load_editor(qgui_app, appid="local-doom")
+    swin = _editor_window(qgui_app, "Edit game")
+    _click_editor_button(qgui_app, swin, "settingsSave")
+    assert decided == [("saved", "local-doom")]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    _editor_finish(qgui_app, engine, [swin])
+
+
+def test_editor_cancel_reports_cancelled(qgui_app, xdg_env):
+    """Cancel reports "cancelled": the launcher must not launch."""
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, appid="local-doom")
+    swin = _editor_window(qgui_app, "Edit game")
+    _click_editor_button(qgui_app, swin, "settingsCancel")
+    assert decided == [("cancelled", "local-doom")]
+    _editor_finish(qgui_app, engine, [swin])
+
+
+def test_editor_save_and_launch_reports_launch(qgui_app, xdg_env):
+    """Save & Launch persists the fields and asks for the launch."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, appid="local-doom")
+    swin = _editor_window(qgui_app, "Edit game")
+    name = swin.findChild(QQuickItem, "settingsName")
+    name.setProperty("text", "Doom II")
+    _click_editor_button(qgui_app, swin, "settingsSaveLaunch")
+    assert decided == [("launch", "local-doom")]
+    assert C.load("local-doom").general.name == "Doom II"
+    _editor_finish(qgui_app, engine, [swin])
+
+
+def test_editor_launch_without_saving_reports_launch(qgui_app, xdg_env):
+    """The plain Launch button runs with the saved config (widgets parity)."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, appid="local-doom")
+    swin = _editor_window(qgui_app, "Edit game")
+    swin.findChild(QQuickItem, "settingsName").setProperty("text", "Doom II")
+    _click_editor_button(qgui_app, swin, "settingsLaunch")
+    assert decided == [("launch", "local-doom")]
+    assert C.load("local-doom").general.name == "Doom"
+    _editor_finish(qgui_app, engine, [swin])
+
+
+def test_editor_hides_launch_buttons_without_a_command(qgui_app, xdg_env):
+    """No game command to run: only Save / Cancel (can_launch false)."""
+    from PySide6.QtQuick import QQuickItem
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(
+        qgui_app, appid="local-doom", can_launch=False
+    )
+    swin = _editor_window(qgui_app, "Edit game")
+    assert swin.findChild(QQuickItem, "settingsLaunch").property("visible") is False
+    assert swin.findChild(QQuickItem, "settingsSaveLaunch").property("visible") is False
+    _click_editor_button(qgui_app, swin, "settingsSave")
+    assert decided == [("saved", "local-doom")]
+    _editor_finish(qgui_app, engine, [swin])
+
+
+def test_editor_picks_a_game_without_an_appid(qgui_app, xdg_env):
+    """--pick lists every game; OK opens settings for the chosen AppID."""
+    from PySide6.QtCore import QObject
+
+    _save_one_game("local-doom", "Doom")
+    _save_one_game("local-quake", "Quake")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, pick=True)
+    picker = _editor_window(qgui_app, "Edit Game")
+    from PySide6.QtTest import QTest
+
+    for _ in range(20):
+        if picker.findChild(QObject, "editorPickBox").property("count") >= 2:
+            break
+        QTest.qWait(20)
+    box = picker.findChild(QObject, "editorPickBox")
+    rows = [box.property("model")[i] for i in range(box.property("count"))]
+    assert any("Doom [local-doom]" == row for row in rows)
+    assert any("Quake [local-quake]" == row for row in rows)
+    box.setProperty("currentIndex", rows.index("Quake [local-quake]"))
+    _click_editor_button(qgui_app, picker, "editorPickOk")
+    assert decided == []
+    swin = _editor_window(qgui_app, "Edit game")
+    from PySide6.QtQuick import QQuickItem
+
+    assert swin.findChild(QQuickItem, "settingsName").property("text") == "Quake"
+    _click_editor_button(qgui_app, swin, "settingsCancel")
+    assert decided == [("cancelled", "local-quake")]
+    _editor_finish(qgui_app, engine, [picker, swin])
+
+
+def test_editor_pick_cancel_reports_cancelled(qgui_app, xdg_env):
+    """Cancelling the picker reports the empty AppID (widgets parity)."""
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, pick=True)
+    picker = _editor_window(qgui_app, "Edit Game")
+    _click_editor_button(qgui_app, picker, "editorPickCancel")
+    assert decided == [("cancelled", "")]
+    _editor_finish(qgui_app, engine, [picker])
+
+
+def test_prelaunch_menu_opens_settings_and_launches(qgui_app, xdg_env):
+    """Settings... on the menu opens the editor modal on it; Launch proceeds."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtQuick import QQuickItem
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, warnings = _load_editor(
+        qgui_app, mode="menu", appid="local-doom", name="Doom", timeout=30
+    )
+    menu = _editor_window(qgui_app, "TKArcade — Doom")
+    assert menu.findChild(QQuickItem, "prelaunchCountdown").property("text") == "Launching in 30…"
+    _click_editor_button(qgui_app, menu, "prelaunchSettings")
+    # Opening the editor stops the countdown (widgets parity) and leaves
+    # the menu's own Launch/Cancel in charge.
+    assert menu.property("remaining") == 0
+    swin = _editor_window(qgui_app, "Edit game")
+    assert swin.property("modality") == Qt.WindowModality.WindowModal
+    assert swin.findChild(QQuickItem, "settingsLaunch").property("visible") is False
+    _click_editor_button(qgui_app, swin, "settingsSave")
+    assert decided == []  # the menu still owns the outcome
+    _click_editor_button(qgui_app, menu, "prelaunchLaunch")
+    assert decided == [("launch", "local-doom")]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    _editor_finish(qgui_app, engine, [menu, swin])
+
+
+def test_prelaunch_menu_cancel_reports_cancelled(qgui_app, xdg_env):
+    """Cancel on the pre-launch menu aborts the launch."""
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(
+        qgui_app, mode="menu", appid="local-doom", name="Doom"
+    )
+    menu = _editor_window(qgui_app, "TKArcade — Doom")
+    _click_editor_button(qgui_app, menu, "prelaunchCancel")
+    assert decided == [("cancelled", "local-doom")]
+    _editor_finish(qgui_app, engine, [menu])
+
+
+def test_prelaunch_menu_countdown_auto_launches(qgui_app, xdg_env):
+    """menu_timeout > 0 counts down and launches on its own."""
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(
+        qgui_app, mode="menu", appid="local-doom", name="Doom", timeout=1
+    )
+    menu = _editor_window(qgui_app, "TKArcade — Doom")
+    assert menu.findChild(QQuickItem, "prelaunchCountdown").property("text") == "Launching in 1…"
+    QTest.qWait(1200)
+    assert decided == [("launch", "local-doom")]
+    _editor_finish(qgui_app, engine, [menu])
+
+
+def test_prelaunch_menu_disables_launch_without_a_command(qgui_app, xdg_env):
+    """No command to run: Launch is disabled and no countdown starts."""
+    from PySide6.QtQuick import QQuickItem
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(
+        qgui_app, mode="menu", appid="local-doom", name="Doom", timeout=5, can_launch=False
+    )
+    menu = _editor_window(qgui_app, "TKArcade — Doom")
+    assert menu.findChild(QQuickItem, "prelaunchLaunch").property("enabled") is False
+    assert menu.findChild(QQuickItem, "prelaunchCountdown").property("visible") is False
+    _click_editor_button(qgui_app, menu, "prelaunchLaunch")
+    assert decided == []
+    _click_editor_button(qgui_app, menu, "prelaunchCancel")
+    assert decided == [("cancelled", "local-doom")]
+    _editor_finish(qgui_app, engine, [menu])

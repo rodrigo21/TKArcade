@@ -112,13 +112,23 @@ Breaking config changes are called out explicitly under `Changed`.
   gestures never sort, and
   the release after a double-click no longer re-applies the drag
   width over the fresh autofit.
+- `--edit` and the pre-launch `--menu` are wired to the QML settings
+  window: the launcher spawns `python -m tkarcade.gui.edit` with a
+  sanitized environment (`clean_gui_env`) and reads one JSON line
+  (`{"outcome", "appid"}`) — exit 2 means "no PySide6/display", any
+  crash reads as cancelled (never launch on unknown intent). The child
+  loads a small `Editor.qml` host that shows the settings window (with
+  Launch and Save & Launch when a game command exists, `--pick` listing
+  configured + Steam + local games) or the `PrelaunchMenu` (Launch /
+  Settings… / Cancel, `menu_timeout` countdown stopped — not resumed —
+  when Settings… opens, exactly like the widgets `MenuDialog`).
 
 ### Removed
 - The parked QtWidgets implementation (`src/tkarcade/widgets/` and its
   test module): the Kirigami QML shell replaced it, the launcher already
   opened the QML app, and the tray menu was the last piece to move.
-  `--edit`/`--menu` keep their current stub behavior (they report the
-  settings UI as unavailable and `--menu` launches directly).
+  `--edit`/`--menu` are wired to the QML windows through
+  `gui/edit.py` (the same subprocess protocol the widgets child used).
 - The pt_BR catalog keeps only the QML contexts (the widget strings are
   gone with their sources); the refresh script is a single `lupdate6`
   QML pass plus `lrelease6`.

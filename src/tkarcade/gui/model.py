@@ -708,6 +708,55 @@ class GameListModel(QAbstractTableModel):
         return sorted(rows, key=lambda r: r[1].lower())
 
     @Slot(result=list)
+    def pickableGames(self) -> list:
+        """Every game the standalone editor can pick: [[appid, name]].
+
+        Configured games first (config order), then Steam/local ones not
+        configured yet, sorted by name -- the order the widgets picker
+        used. QML rebuilds a fresh JS array from it (never a list handed
+        in from Python: Repeater models must stay JS).
+        """
+        try:
+            names = {a: n for a, n in steammod.list_games()}
+            names.update(steammod.local_names())
+            configured = list(cfgmod.list_appids())
+            rows = [[a, names.get(a, a)] for a in configured]
+            known = set(configured)
+            extra = sorted(
+                ([a, n] for a, n in names.items() if a not in known),
+                key=lambda r: str(r[1]).lower(),
+            )
+        except Exception:
+            return []
+        return rows + extra
+
+    @Slot(str, result="QVariantMap")
+    def playStats(self, appid: str) -> dict:
+        """Sessions + total playtime for one game ({} when never played).
+
+        The pre-launch menu shows this; both pieces are formatted here so
+        the QML side only lays out translatable text.
+        """
+        try:
+            stats = histmod.summarize(histmod.parse_log(xdg.log_file())).get(appid or "")
+        except Exception:
+            return {}
+        if stats is None or not stats.runs:
+            return {}
+        return {"runs": stats.runs, "total": format_duration(stats.total_dur)}
+
+    @Slot(str, result=str)
+    def activeWrappers(self, appid: str) -> str:
+        """Enabled wrappers for one game ("GameMode · MangoHud"; "" none)."""
+        try:
+            if not appid:
+                return ""
+            wrappers = launchermod.active_wrappers(cfgmod.load_effective(appid))
+        except Exception:
+            return ""
+        return " · ".join(wrappers)
+
+    @Slot(result=list)
     def allCategories(self) -> list:
         """Every category tag in use, sorted case-insensitively."""
         found: set[str] = set()

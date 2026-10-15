@@ -24,6 +24,14 @@ Window {
 
     property string editAppid: ""
     property bool defaultsMode: false
+    // Standalone CLI editor (gui/edit.py): the widgets GameDialog ran with
+    // launch_mode/can_launch and offered Launch and Save & Launch.
+    property bool launchMode: false
+    property bool canLaunch: true
+
+    // Outcome of a closing action, for that standalone editor only:
+    // "saved" | "launch" | "cancelled". The shell ignores it (no listener).
+    signal finished(string outcome)
     property string dialogProfile: ""
     property string lastLoaded: ""
     property string pendingProfile: ""
@@ -89,8 +97,34 @@ Window {
         visible = true
     }
 
-    function closePage() {
+    // Close reporting a user outcome, for the standalone editor (gui/edit.py):
+    // it becomes the JSON line the launcher reads. Guarded so a close that
+    // Qt sends afterwards (window-manager X, Escape) cannot report twice.
+    property bool outcomeReported: false
+
+    function finish(outcome) {
+        if (outcomeReported) {
+            return
+        }
+        outcomeReported = true
         visible = false
+        finished(outcome)
+    }
+
+    onClosing: function (close) {
+        // Window manager close / Escape: same as Cancel, never launch.
+        if (!outcomeReported) {
+            outcomeReported = true
+            finished("cancelled")
+        }
+    }
+
+    onVisibleChanged: {
+        // Reopening after a close (the shell opens it many times) must
+        // not be blocked by the previous outcome.
+        if (visible) {
+            outcomeReported = false
+        }
     }
 
     function reload() {
@@ -591,26 +625,46 @@ Window {
     }
 
     function save() {
+        if (saveFields()) {
+            finish("saved")
+        }
+    }
+
+    // Write the form; false means a validation error is on screen and the
+    // window must stay open.
+    function saveFields() {
         if (defaultsMode) {
             if (!gameModel.saveDefaults(collect())) {
                 settingsError.text = qsTr("Could not save the defaults.")
-                return
+                return false
             }
-            closePage()
-            return
+            return true
         }
         var created = gameModel.saveGame(editAppid, collect())
         if (created === "") {
             settingsError.text = editAppid === ""
                 ? qsTr("Name and a valid executable are required.")
                 : qsTr("Could not save the game.")
-            return
+            return false
         }
         lastLoaded = snapshot()
         if (editAppid === "" && page !== null) {
             page.select(created)
         }
-        closePage()
+        return true
+    }
+
+    // "Save & Launch" (editor only): persist, then hand the launch back.
+    function saveAndLaunch() {
+        if (saveFields()) {
+            finish("launch")
+        }
+    }
+
+    // "Launch" (editor only): widgets parity -- run with the *saved*
+    // config, unsaved edits discarded.
+    function launchWithoutSave() {
+        finish("launch")
     }
 
     function askProfileName(purpose) {
@@ -1778,6 +1832,20 @@ Window {
         RowLayout {
             Layout.fillWidth: true
             Controls.Button {
+                objectName: "settingsLaunch"
+                visible: gameSettings.launchMode && gameSettings.canLaunch
+                text: qsTr("Launch")
+                icon.name: gameModel.iconName(["media-playback-start", "player-play"])
+                onClicked: gameSettings.launchWithoutSave()
+            }
+            Controls.Button {
+                objectName: "settingsSaveLaunch"
+                visible: gameSettings.launchMode && gameSettings.canLaunch
+                text: qsTr("Save & Launch")
+                icon.name: gameModel.iconName(["media-playback-start", "player-play"])
+                onClicked: gameSettings.saveAndLaunch()
+            }
+            Controls.Button {
                 objectName: "settingsSave"
                 text: qsTr("Save")
                 onClicked: gameSettings.save()
@@ -1792,8 +1860,9 @@ Window {
                 }
             }
             Controls.Button {
+                objectName: "settingsCancel"
                 text: qsTr("Cancel")
-                onClicked: gameSettings.closePage()
+                onClicked: gameSettings.finish("cancelled")
             }
         }
         Controls.Label {

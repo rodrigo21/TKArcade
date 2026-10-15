@@ -21,6 +21,7 @@ ROOT = Path(__file__).parent.parent
 ALLOWED = {
     "src/tkarcade/gui/tray.py": {"QSystemTrayIcon"},
     "src/tkarcade/gui/kirigami_app.py": {"QApplication"},
+    "src/tkarcade/gui/edit.py": {"QApplication"},
     "tests/conftest.py": {"QApplication"},
     "tests/test_kirigami_app.py": {"QApplication", "QWidget"},
 }

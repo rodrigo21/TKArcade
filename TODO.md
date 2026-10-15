@@ -137,15 +137,26 @@ Chosen: option 1 (`QSystemTrayIcon` + QML `Menu`), with the shell on a
 - [x] Deleted the widgets package + parked reference tests, dropped the
   ruff `exclude`, refreshed the catalog QML-only (one `lupdate6` pass +
   `lrelease6` in `scripts/refresh-translations.sh`) and rebuilt the .qm.
-- [ ] `--edit <appid>` / pre-launch `--menu` still return the retired
-  "needs the settings UI" stub even though the QML settings window
-  exists: wire `--edit` to `gameSettings` for the AppID (and keep the
-  direct-launch fallback for `--menu`), then retire `run_editor_menu`.
+- [x] `--edit <appid>` / pre-launch `--menu` wired to the QML windows:
+  `gui/edit.py` is the child (same flags and one-JSON-line protocol as
+  the widgets one, `clean_gui_env`), `Editor.qml` hosts it,
+  `PrelaunchMenu.qml` is the menu (`menu_timeout` countdown, stopped
+  when Settings… opens) and `run_editor_menu` spawns + parses. The
+  in-process fallback is gone: a missing child reads as "unavailable"
+  (`--edit` exit 15, `--menu` warns and launches directly).
 - [ ] Single GUI instance: the widgets app held a `QLocalServer` and a
   second launch raised the running window (its test went away with the
   parked file); the QML app currently opens a second window. Reimplement
   as a `QLocalServer`/local-socket "show" ping (QtNetwork, no new
   dependency).
+
+Measured (2026-10-15):
+- A `Window` declared inside another window **never shows** while the
+  enclosing one is hidden (`visible = true` from QML and `show()` both
+  no-op; measured offscreen and on Wayland, Qt 6.12): the standalone
+  editor has no main window, so `Editor.qml` creates its UI windows with
+  `createObject(null)` instead — top-levels, shown normally, kept alive
+  by a JS property (no QObject parent).
 
 Measured (2026-10-15):
 - `QSystemTrayIcon` is **not** a `QWidget` (it derives from QObject), but

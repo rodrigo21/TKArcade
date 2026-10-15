@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import logging
 import logging.handlers
 import os
@@ -615,15 +616,50 @@ def clean_gui_env(env: dict[str, str]) -> dict[str, str]:
 
 
 def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True) -> tuple[str, str]:
-    """Settings/pre-launch menu hook, still a stub.
+    """Open the settings editor (or the pre-launch menu) in a child process.
 
-    Always 'unavailable': --menu logs a warning and launches directly,
-    --edit exits 15 through the existing handling. Wire these to the QML
-    settings window (see TODO.md) before removing the stub.
+    Returns (outcome, appid). Outcomes: 'launch', 'saved', 'cancelled' or
+    'unavailable' (no PySide6/display, or the child could not be spawned).
+    A child crash is treated as 'cancelled': never launch on unknown user
+    intent. The child is `python -m tkarcade.gui.edit`, which prints the
+    single JSON line read here (see that module for the protocol); it runs
+    with a sanitized environment (clean_gui_env) because Steam's
+    LD_LIBRARY_PATH breaks Qt theme plugin loading.
     """
-    tool = "--menu" if for_menu else "--edit"
-    print(f"tkarcade: {tool} needs the settings UI (not on this branch)", file=sys.stderr)
-    return "unavailable", appid
+    cmd = [sys.executable, "-m", "tkarcade.gui.edit"]
+    if (appid or "").strip():
+        cmd += ["--appid", appid.strip()]
+    else:
+        cmd += ["--pick"]
+    cmd += ["--can-launch" if can_launch else "--no-can-launch"]
+    if for_menu:
+        cmd.append("--menu")
+    try:
+        proc = subprocess.run(
+            cmd, env=clean_gui_env(dict(os.environ)), capture_output=True, text=True
+        )
+    except OSError as e:
+        log.warning("settings editor subprocess failed to spawn (%s)", e)
+        return "unavailable", appid
+    if proc.stderr.strip():
+        for line in proc.stderr.strip().splitlines():
+            log.debug("editor child stderr: %s", line)
+    if proc.returncode == 2:
+        return "unavailable", appid
+    if proc.returncode != 0:
+        log.error("settings editor crashed (exit %s); launch cancelled", proc.returncode)
+        return "cancelled", appid
+    try:
+        data = json.loads(proc.stdout.strip().splitlines()[-1])
+        outcome = str(data.get("outcome", "cancelled"))
+        picked = str(data.get("appid", "") or appid)
+    except (ValueError, IndexError, AttributeError) as e:
+        log.error("settings editor sent bad output (%s); launch cancelled", e)
+        return "cancelled", appid
+    if outcome not in ("launch", "saved", "cancelled"):
+        log.error("settings editor sent bad outcome %r; launch cancelled", outcome)
+        return "cancelled", appid
+    return outcome, picked
 
 
 def launch_local_detached(appid: str) -> None:
