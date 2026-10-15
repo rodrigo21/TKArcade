@@ -69,9 +69,10 @@ GitHub releases accept files up to 2 GB, so size is not an issue.
 This project is developed with AI assistance (OpenCode with
 managed/free models), reviewed by the maintainer. Every commit carries
 a `Co-Authored-By` trailer plus an `AI-Model:` trailer with the model
-in use (from the gitignored `.opencode-model` file); a local
-`commit-msg` hook (see `scripts/git-hooks/`, enabled via
-`git config core.hooksPath scripts/git-hooks`) adds both
+in use (from the gitignored `.opencode-model` file, one model per line;
+several lines join into a single trailer for a batch a second model
+worked on); a local `commit-msg` hook (see `scripts/git-hooks/`,
+enabled via `git config core.hooksPath scripts/git-hooks`) adds both
 automatically. Agent instructions live in `AGENTS.md`.
 
 ## Translations (Qt Linguist)
