@@ -1,9 +1,12 @@
 """Zero-QtWidgets policy.
 
-Nothing may import the widgets package, and only `gui/tray.py` may touch
-QtWidgets: QSystemTrayIcon is a QObject (not a QWidget), constructs fine
-on a QGuiApplication and is the only prepackaged status-icon host that
-does not mean reimplementing StatusNotifierItem by hand.
+Nothing may import the widgets package. Two allowlisted names remain, both
+application-level plumbing rather than UI: `QApplication` in
+`gui/kirigami_app.py` (the Plasma platform theme supplies the tray icon
+through a `KStatusNotifierItem`, whose constructor builds a `QMenu`, so a
+`QGuiApplication` aborts inside `QSystemTrayIcon.show()`) and
+`QSystemTrayIcon` itself in `gui/tray.py` (it is a QObject). Every widget
+class -- `QMenu`, `QDialog`, `QFileDialog`, ... -- stays banned.
 """
 
 import ast
@@ -11,7 +14,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 #: relative path -> QtWidgets names it may import ("*" = whole module).
-ALLOWED = {"src/tkarcade/gui/tray.py": {"QSystemTrayIcon"}}
+#: The two test entries exist to pin the trap: conftest builds the
+#: QApplication the shell needs, and the app test constructs a bare widget
+#: to prove widgets can be created at all (under a QGuiApplication that
+#: aborts the interpreter, which is how the shell died on Plasma).
+ALLOWED = {
+    "src/tkarcade/gui/tray.py": {"QSystemTrayIcon"},
+    "src/tkarcade/gui/kirigami_app.py": {"QApplication"},
+    "tests/conftest.py": {"QApplication"},
+    "tests/test_kirigami_app.py": {"QApplication", "QWidget"},
+}
 
 
 def _import_targets(path: Path) -> list[str]:
@@ -48,7 +60,7 @@ def _live_python_files():
         yield from sorted((ROOT / base).rglob("*.py"))
 
 
-def test_no_qtwidgets_outside_the_tray_controller():
+def test_no_qtwidgets_outside_the_allowlist():
     offenders = []
     for path in _live_python_files():
         rel = str(path.relative_to(ROOT))

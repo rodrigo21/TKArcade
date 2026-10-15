@@ -33,19 +33,33 @@ def test_window_geometry_roundtrip(qgui_app, xdg_env):
     assert C.load_preferences().main_window_size == "640x480"
 
 
-def test_main_boots_on_a_qgui_application(tmp_path):
-    """`main()` runs the shell (tray wiring included) without QtWidgets.
+def test_the_app_can_build_a_widget(qgui_app):
+    """Regression guard for the trap that killed the shell on Plasma.
 
-    Out of process: `main()` builds its own application instance and
-    the check is that a clean interpreter never loads QtWidgets, which
-    the in-process fixtures cannot show. A stand-in for `exec()` pumps
-    the events a real loop would, instead of blocking.
+    `QSystemTrayIcon.show()` reaches the Plasma platform theme, which
+    builds a `KStatusNotifierItem` -- and its constructor a `QMenu` --
+    deep inside Qt. Under a `QGuiApplication` that aborts the process
+    ("Cannot create a QWidget without QApplication") while every offscreen
+    test still passed, so the invariant worth pinning is the app type.
+    """
+    from PySide6.QtWidgets import QApplication, QWidget
+
+    assert isinstance(qgui_app, QApplication)
+    widget = QWidget()  # aborts the interpreter under a QGuiApplication
+    assert widget.isWidgetType()
+
+
+def test_main_boots_the_shell(tmp_path):
+    """`main()` builds its own QApplication and runs the shell.
+
+    Out of process: `main()` builds its own application instance and the
+    check is that a clean interpreter gets all the way through, which the
+    in-process fixtures cannot show. A stand-in for `exec()` pumps the
+    events a real loop would, instead of blocking.
     """
     script = textwrap.dedent(
         """
-        import sys
-
-        from PySide6.QtGui import QGuiApplication
+        from PySide6.QtWidgets import QApplication
 
         from tkarcade.gui import kirigami_app
 
@@ -56,12 +70,10 @@ def test_main_boots_on_a_qgui_application(tmp_path):
             return 0
 
 
-        QGuiApplication.exec = fake_exec
+        QApplication.exec = fake_exec
         code = kirigami_app.main([])
         assert code == 0, code
-        assert "PySide6.QtWidgets" not in sys.modules, sorted(
-            name for name in sys.modules if name.startswith("PySide6")
-        )
+        assert isinstance(QApplication.instance(), QApplication)
         print("OK")
         """
     )

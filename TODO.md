@@ -110,8 +110,9 @@ toggle and a centered Library.
   plain: FormTextFieldDelegate needs a KLocalizedContext)
 - [x] QTabWidget (future settings UI) → pageStack pages + TabBar
 - [x] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
-- [x] QSystemTrayIcon → migrated to QGuiApplication + a QML context
-  menu (tray controller with recents, model dispatches the entries)
+- [x] QSystemTrayIcon → kept (it needs a `QApplication` on Plasma)
+  with a QML context menu (tray controller with recents, model
+  dispatches the entries)
 
 ### Widgets removal: done (survey 2026-10-15)
 
@@ -121,16 +122,18 @@ allows exactly one QtWidgets name (`QSystemTrayIcon`, from
 `gui/tray.py`) while still failing on `QMenu` or any other widget class.
 No module imports the widgets package.
 
-Chosen: option 1 (`QGuiApplication` + `QSystemTrayIcon` + QML `Menu`).
+Chosen: option 1 (`QSystemTrayIcon` + QML `Menu`), with the shell on a
+`QApplication` (see Measured: the Plasma tray needs one).
 - [x] Tray menu in QML (`main.qml`: `trayMenu` + `Instantiator` with
   `insertItem` for the recents), the model as the only dispatcher
   (`requestTrayMenu` signal, `trayRecentGames`, `trayAction`
   incl. `"play:<appid>"`, `trayDefaultsAvailable`); `kirigami_app`
   registers the callbacks and `tray.py` is a QSystemTrayIcon owner.
-- [x] `QApplication` → `QGuiApplication` in `kirigami_app.py` and the
-  conftest fixture; `tests/test_tray.py` QtWidgets-free; new QML case
-  `test_tray_menu_entries_and_dispatch`; out-of-process boot check in
-  `tests/test_kirigami_app.py` (main() never loads QtWidgets).
+- [x] `QGuiApplication` → back to `QApplication` in `kirigami_app.py`
+  and the conftest fixture (the icon aborts on Plasma under the former;
+  the try was the bug fixed on 2026-10-15); new QML case
+  `test_tray_menu_entries_and_dispatch`; out-of-process boot check plus
+  a widget-construction guard in `tests/test_kirigami_app.py`.
 - [x] Deleted the widgets package + parked reference tests, dropped the
   ruff `exclude`, refreshed the catalog QML-only (one `lupdate6` pass +
   `lrelease6` in `scripts/refresh-translations.sh`) and rebuilt the .qm.
@@ -144,12 +147,19 @@ Chosen: option 1 (`QGuiApplication` + `QSystemTrayIcon` + QML `Menu`).
   as a `QLocalServer`/local-socket "show" ping (QtNetwork, no new
   dependency).
 
-Measured (2026-10-15), offscreen:
-- `QSystemTrayIcon` is **not** a `QWidget` (it derives from QObject) and
-  constructs fine under a `QGuiApplication`; `isSystemTrayAvailable()`
-  works. The hard blocker was **`QMenu` (a QWidget): constructing it
-  under `QGuiApplication` aborts the process** ("Cannot create a QWidget
-  without QApplication") — hence the QML menu.
+Measured (2026-10-15):
+- `QSystemTrayIcon` is **not** a `QWidget` (it derives from QObject), but
+  on Plasma it **needs a `QApplication` anyway**: `show()` goes to the
+  platform theme (`KDEPlasmaPlatformTheme6.so`), which builds a
+  `KStatusNotifierItem` and its constructor a `QMenu` — a `QWidget` — so
+  a `QGuiApplication` aborts the process ("Cannot create a QWidget
+  without QApplication"). Offscreen never caught it: the theme plugin is
+  not loaded there. Backtrace (gdb):
+  `QSystemTrayIcon::setVisible` → `KDEPlasmaPlatformTheme6.so` →
+  `KStatusNotifierItem::KStatusNotifierItem` → `QMenu::QMenu` → fatal.
+  With a `QApplication` the icon registers with the Plasma
+  `StatusNotifierWatcher` (its own bus connection's unique name, e.g.
+  `:1.2236/StatusNotifierItem`) and shows up in the panel.
 - The QML menu (`popupType: Popup.Window`) opens fine while the main
   window is **hidden**, and closing it does **not** emit
   `lastWindowClosed` (its window is transient on the shell), so the
@@ -218,12 +228,15 @@ desktop; only option 2 buys module purity.
 Everything below passed offscreen assertions only (geometry, state,
 dispatch). Each needs one look on a real compositor:
 
-- Tray menu popup: position under the icon (it comes from
-  `QSystemTrayIcon.geometry()`, so panel-dependent), keyboard focus,
-  click-outside dismissal, the non-native QQC2 look, and whether the
-  compositor accepts a transient popup of a hidden shell window at all
-  (offscreen it does; fallback is a `Window { flags: Qt.Popup }` menu
-  with hand-built rows).
+- Tray menu popup: right-click must deliver `activated(Context)` on the
+  KStatusNotifierItem path (left click is already wired through
+  `Trigger`); position under the icon (the SNI reports no geometry, so
+  it comes from `QCursor.pos()`), keyboard focus, click-outside
+  dismissal, the non-native QQC2 look, and whether the compositor
+  accepts a transient popup of a hidden shell window at all (offscreen
+  it does; fallback is a `Window { flags: Qt.Popup }` menu with
+  hand-built rows). The icon itself registers in the Plasma
+  `StatusNotifierWatcher` (measured).
 - Settings window: FormCard rows side by side (the widgets QFormLayout
   put label and field on one line) and the Environment / Pre-Post tabs.
 - Table: the added columns (Source, Category, ...) and the header

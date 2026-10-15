@@ -32,15 +32,17 @@ def _silence_notifications(monkeypatch):
 
 @pytest.fixture(scope="session")
 def qgui_app():
-    """Single offscreen QGuiApplication for headless Qt tests.
+    """The single offscreen QApplication shared by headless Qt tests.
 
-    QGuiApplication, not QApplication: the shell is QML-only and must run
-    without instantiating a single widget class (tests/test_no_widgets).
+    A QApplication, matching the shell: the Plasma platform theme supplies
+    the tray icon through KStatusNotifierItem, whose constructor creates a
+    QMenu, so a QGuiApplication aborts inside QSystemTrayIcon.show()
+    (measured; see TODO.md). The fixture name predates that finding.
     """
-    pytest.importorskip("PySide6.QtGui")
-    from PySide6.QtGui import QGuiApplication
+    pytest.importorskip("PySide6.QtWidgets")
+    from PySide6.QtWidgets import QApplication
 
-    app = QGuiApplication.instance() or QGuiApplication([])
+    app = QApplication.instance() or QApplication([])
     yield app
 
 

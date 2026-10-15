@@ -350,10 +350,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ### Changed
 - The tray context menu is a QML menu now, opened at the icon through
   the model; entries, recent games and Close/Minimize-to-tray behave
-  as before, and `Quit` still bypasses Close-to-tray. With it the
-  shell runs on a `QGuiApplication`: no widget class is instantiated
-  at runtime (the tray icon itself is a `QObject`), so the QtWidgets
-  dependency is gone.
+  as before, and `Quit` still bypasses Close-to-tray. The shell still
+  builds a `QApplication`: on Plasma the tray comes from the platform
+  theme as a `KStatusNotifierItem`, which creates a `QMenu` (a widget)
+  in its constructor, so a `QGuiApplication` aborts the process inside
+  `QSystemTrayIcon.show()`.
 - TKArcade starts here as a standalone repo renamed from
   TKSteamLaunch 1.1.1 (full history preserved, new remote).
   **BREAKING**: config/state/cache now live under the `tkarcade`

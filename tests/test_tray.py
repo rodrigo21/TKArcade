@@ -1,8 +1,8 @@
 """System tray controller (fake availability, no desktop needed).
 
-QtWidgets-free on purpose: the only widget-class use lives in the
-controller (and is exercised on a real desktop), the menu itself is QML
-(see test_kirigami_qml_cases.py for its entries).
+The controller is the only part of the tree that touches QtWidgets (the
+menu itself is QML -- see test_kirigami_qml_cases.py for its entries), and
+availability is stubbed so the suite never needs a real tray host.
 """
 
 from types import SimpleNamespace

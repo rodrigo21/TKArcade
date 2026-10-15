@@ -90,8 +90,8 @@ def main(argv: list[str] | None = None) -> int:
     """Run the Kirigami application (list, add and launch local games)."""
     import logging
 
-    from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
+    from PySide6.QtWidgets import QApplication
 
     from .model import GameFilterModel, GameListModel
 
@@ -100,10 +100,14 @@ def main(argv: list[str] | None = None) -> int:
         logging.basicConfig(level=logging.DEBUG)
     if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
         os.environ["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
-    # QGuiApplication, not QApplication: the shell is QML-only (the tray
-    # icon is a QObject, its menu a QML Menu), so no widget class is ever
-    # instantiated (enforced by tests/test_no_widgets.py).
-    app = QGuiApplication(sys.argv if argv is None else argv)
+    # A QApplication, not a QGuiApplication: on Plasma the platform theme
+    # supplies the tray icon through KStatusNotifierItem, whose constructor
+    # creates a QMenu -- a QWidget -- so QSystemTrayIcon.show() aborts the
+    # process ("Cannot create a QWidget without QApplication") under a
+    # QGuiApplication. Measured on Plasma 6/Wayland; see TODO.md. The UI
+    # stays QML: tests/test_no_widgets.py still bans every widget class
+    # from the tree but this application object.
+    app = QApplication(sys.argv if argv is None else argv)
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")
     signal.signal(signal.SIGINT, signal.SIG_DFL)

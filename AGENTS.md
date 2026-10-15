@@ -111,12 +111,15 @@ rewrite pushed history or tags.
   (`WindowModal`, transient on the main window): resizable, no PageRow
   tiling surprises. Tests drive them through `topLevelWindows()` by
   title, clicking on the window itself.
-- The shell runs on a `QGuiApplication`: constructing `QMenu` or any
-  other `QWidget` aborts the process ("Cannot create a QWidget without
-  `QApplication`"). The tray menu is therefore the QML `trayMenu` in
-  `main.qml` (entries dispatch through `model.trayAction`), and
-  `QSystemTrayIcon` in `gui/tray.py` is the only QtWidgets name the
-  tree may import (`tests/test_no_widgets.py` defines done).
+- The shell builds a `QApplication`, on purpose: on Plasma the platform
+  theme supplies the tray icon through a `KStatusNotifierItem`, whose
+  constructor creates a `QMenu` — a `QWidget` — so a `QGuiApplication`
+  aborts the process inside `QSystemTrayIcon.show()` ("Cannot create a
+  QWidget without `QApplication`"). Do not "clean" it back. The menu
+  itself is the QML `trayMenu` in `main.qml` (entries dispatch through
+  `model.trayAction`); `QSystemTrayIcon` in `gui/tray.py` and
+  `QApplication` in `gui/kirigami_app.py` are the only QtWidgets names
+  the tree may import (`tests/test_no_widgets.py` defines done).
 - Kirigami's ApplicationWindow ships a built-in Quit action bound to
   the quit sequence that calls `close()` (not quit): clear
   `quitAction.shortcut` at startup or Ctrl+Q closes-to-tray instead

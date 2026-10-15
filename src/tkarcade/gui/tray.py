@@ -3,9 +3,12 @@
 Owned by kirigami_app when the prefs enable it; rebuilt in place by
 apply() (never deleteLater + recreate from a menu slot).
 
-Its only QtWidgets use is QSystemTrayIcon itself: it is a QObject (not a
-QWidget) and works from a QGuiApplication, while the context menu is a
-QML Menu -- QtWidgets' QMenu aborts the process without a QApplication.
+Its only QtWidgets use is QSystemTrayIcon itself (a QObject, not a
+QWidget): the context menu is a QML Menu, because QtWidgets' QMenu would
+drag the entire menu through the widget toolkit. The icon does need the
+shell's QApplication though -- on Plasma the platform theme builds a
+KStatusNotifierItem, whose constructor creates a QMenu (see
+kirigami_app.main and TODO.md).
 The entries live in main.qml and come back through model.trayAction(),
 which kirigami_app wires to the shell: Show / Hide, recent launches,
 Preferences..., About..., Quit, plus the close/minimize-to-tray flags the
