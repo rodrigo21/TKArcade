@@ -338,6 +338,12 @@ Breaking config changes are called out explicitly under `Changed`.
   Steam-only lookups (ProtonDB, artwork) skip local rows.
 
 ### Changed
+- The tray context menu is a QML menu now, opened at the icon through
+  the model; entries, recent games and Close/Minimize-to-tray behave
+  as before, and `Quit` still bypasses Close-to-tray. With it the
+  shell runs on a `QGuiApplication`: no widget class is instantiated
+  at runtime (the tray icon itself is a `QObject`), so the QtWidgets
+  dependency is gone.
 - TKArcade starts here as a standalone repo renamed from
   TKSteamLaunch 1.1.1 (full history preserved, new remote).
   **BREAKING**: config/state/cache now live under the `tkarcade`

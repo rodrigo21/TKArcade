@@ -1,4 +1,9 @@
-"""System tray controller (fake availability, no desktop needed)."""
+"""System tray controller (fake availability, no desktop needed).
+
+QtWidgets-free on purpose: the only widget-class use lives in the
+controller (and is exercised on a real desktop), the menu itself is QML
+(see test_kirigami_qml_cases.py for its entries).
+"""
 
 from types import SimpleNamespace
 
@@ -14,83 +19,62 @@ def _enable_tray(**kw):
 
 
 def _fake_model():
-    played = []
+    """Model stub recording what the controller asks it to do."""
+    calls = {"play": [], "menu": [], "action": []}
     model = SimpleNamespace(
-        historySummary=lambda: [
-            {"appid": "99", "name": "Doom 3", "total": "1h"},
-            {"appid": "local-doom", "name": "Doom", "total": "30m"},
-        ],
-        play=lambda appid: played.append(appid) or True,
+        play=lambda appid: calls["play"].append(appid) or True,
+        requestTrayMenu=lambda x, y: calls["menu"].append((x, y)),
+        trayAction=lambda name: calls["action"].append(name),
     )
-    return model, played
+    return model, calls
 
 
-def _controller(model=None):
+def _controller(available=True):
     from tkarcade.gui.tray import TrayController
 
-    toggled, prefs_opened, about_opened, defaults_opened = [], [], [], []
-    ctl = TrayController(
-        model or _fake_model()[0],
-        lambda: toggled.append(True),
-        lambda: prefs_opened.append(True),
-        lambda: about_opened.append(True),
-        lambda: defaults_opened.append(True),
-    )
-    return ctl, toggled, prefs_opened, about_opened
-
-
-def _available(monkeypatch, yes):
-    from PySide6.QtWidgets import QSystemTrayIcon
-
-    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable", lambda: yes)
+    model, calls = _fake_model()
+    ctl = TrayController(model)
+    ctl.is_available = lambda: available
+    return ctl, calls
 
 
 def test_apply_disabled_drops(qgui_app, xdg_env):
-    ctl, _t, _p, _a = _controller()
+    ctl, _calls = _controller()
     assert ctl.apply() is False
     assert ctl.tray is None
 
 
-def test_apply_unavailable_drops(qgui_app, xdg_env, monkeypatch):
+def test_apply_unavailable_drops(qgui_app, xdg_env):
     _enable_tray()
-    _available(monkeypatch, False)
-    ctl, _t, _p, _a = _controller()
+    ctl, _calls = _controller(available=False)
     assert ctl.apply() is False
     assert ctl.tray is None
 
 
-def test_apply_builds_menu_with_recents(qgui_app, xdg_env, monkeypatch):
-    _enable_tray(tray_quick_launch=True, tray_quick_count=5)
-    _available(monkeypatch, True)
-    model, played = _fake_model()
-    ctl, toggled, _p, _a = _controller(model)
+def test_apply_shows_the_icon_and_rebuilds_in_place(qgui_app, xdg_env):
+    _enable_tray()
+    ctl, _calls = _controller()
     assert ctl.apply() is True
-    assert ctl.tray is not None
+    icon = ctl.tray
+    assert icon is not None
     try:
-        labels = [a.text() for a in ctl.menu.actions() if not a.isSeparator()]
-        assert labels == [
-            "Show / Hide",
-            "Doom 3 (1h)",
-            "Doom (30m)",
-            "Global Defaults...",
-            "Preferences...",
-            "About...",
-            "Quit",
-        ]
-        for action in ctl.menu.actions():
-            if action.text() == "Show / Hide":
-                action.trigger()
-            if action.text() == "Doom 3 (1h)":
-                action.trigger()
-        assert toggled == [True]
-        assert played == ["99"]
-        from PySide6.QtWidgets import QSystemTrayIcon
-
-        ctl._on_activated(QSystemTrayIcon.ActivationReason.Trigger)
-        assert toggled == [True, True]
+        # Prefs changes reuse the icon: the menu rebuilds in QML.
+        assert ctl.apply() is True
+        assert ctl.tray is icon
     finally:
         ctl.drop()
     assert ctl.tray is None
+
+
+def test_clicks_and_menu_requests_reach_the_model(qgui_app, xdg_env):
+    """Both gestures go through the model, the only dispatch path."""
+    ctl, calls = _controller()
+    ctl.click()
+    assert calls["action"] == ["toggle"]
+    ctl.open_menu()
+    assert len(calls["menu"]) == 1
+    x, y = calls["menu"][0]
+    assert isinstance(x, int) and isinstance(y, int)
 
 
 def test_hide_slots_follow_prefs_and_flag(qgui_app, xdg_env):

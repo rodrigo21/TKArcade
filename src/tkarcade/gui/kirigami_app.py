@@ -90,8 +90,8 @@ def main(argv: list[str] | None = None) -> int:
     """Run the Kirigami application (list, add and launch local games)."""
     import logging
 
+    from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
-    from PySide6.QtWidgets import QApplication
 
     from .model import GameFilterModel, GameListModel
 
@@ -100,7 +100,10 @@ def main(argv: list[str] | None = None) -> int:
         logging.basicConfig(level=logging.DEBUG)
     if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
         os.environ["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
-    app = QApplication(sys.argv if argv is None else argv)
+    # QGuiApplication, not QApplication: the shell is QML-only (the tray
+    # icon is a QObject, its menu a QML Menu), so no widget class is ever
+    # instantiated (enforced by tests/test_no_widgets.py).
+    app = QGuiApplication(sys.argv if argv is None else argv)
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -194,7 +197,15 @@ def main(argv: list[str] | None = None) -> int:
 
     from .tray import TrayController
 
-    tray = TrayController(model, toggle_visible, open_prefs, open_about, open_defaults)
+    # The tray menu lives in QML (main.qml): these are the callbacks it
+    # triggers, the same ones the widgets QMenu wired directly.
+    model._tray_actions = {
+        "toggle": toggle_visible,
+        "prefs": open_prefs,
+        "about": open_about,
+        "defaults": open_defaults,
+    }
+    tray = TrayController(model)
     model._tray_refresher = tray.apply
     model.setTrayActive(tray.apply())
     apply_window_geometry(root)

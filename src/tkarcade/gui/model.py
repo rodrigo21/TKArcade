@@ -128,6 +128,8 @@ class GameListModel(QAbstractTableModel):
     browseFinished = Signal(str)
     displayModesFinished = Signal("QVariantList")
     coverageFinished = Signal(str, str)
+    #: Global coordinates of the tray icon: QML opens its menu there.
+    trayMenuRequested = Signal(int, int)
 
     @Slot(str, result=int)
     def roleId(self, roleName: str) -> int:
@@ -141,6 +143,7 @@ class GameListModel(QAbstractTableModel):
         self._steam_detected = 0
         self._tray_active = False
         self._tray_refresher = None
+        self._tray_actions: dict = {}
         self._quit_filter = _QuitFilter()
         self.backgroundDone.connect(self.refresh)
         self.refresh()
@@ -1842,6 +1845,52 @@ class GameListModel(QAbstractTableModel):
     def setTrayActive(self, active: bool) -> None:
         """Whether kirigami_app currently shows a tray icon."""
         self._tray_active = bool(active)
+
+    @Slot(int, int)
+    def requestTrayMenu(self, x: int, y: int) -> None:
+        """Tray icon geometry (global): QML opens the tray menu there."""
+        self.trayMenuRequested.emit(int(x), int(y))
+
+    @Slot(result=list)
+    def trayRecentGames(self) -> list:
+        """Recent launches for the tray menu as [appid, label] rows."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return []
+        if not prefs.tray_quick_launch:
+            return []
+        try:
+            limit = max(0, int(prefs.tray_quick_count or 0))
+        except (TypeError, ValueError):
+            limit = 0
+        out = []
+        for row in (self.historySummary() or [])[:limit]:
+            try:
+                out.append([str(row["appid"]), f"{row['name']} ({row['total']})"])
+            except (KeyError, TypeError):
+                continue
+        return out
+
+    @Slot(result=bool)
+    def trayDefaultsAvailable(self) -> bool:
+        """Whether a Global Defaults entry was registered (tray menu)."""
+        return "defaults" in self._tray_actions
+
+    @Slot(str)
+    def trayAction(self, name: str) -> None:
+        """Run a tray entry: a registered action, or "play:<appid>"."""
+        action = str(name or "")
+        if action.startswith("play:"):
+            self.play(action[len("play:") :])
+            return
+        handler = self._tray_actions.get(action)
+        if handler is None:
+            return
+        try:
+            handler()
+        except Exception as e:
+            log.warning("tray action %s failed: %s", action, e)
 
     @Slot(QObject)
     def watchQuitKeys(self, window) -> None:

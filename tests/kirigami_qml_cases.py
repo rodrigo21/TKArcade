@@ -3629,3 +3629,140 @@ def test_window_minimum_size(qgui_app, xdg_env):
     win.close()
     _engine.deleteLater()
     qgui_app.processEvents()
+
+
+#: Tray menu entries, candidates for the layout-order scan below.
+_TRAY_MENU_ITEMS = (
+    "trayShowHide",
+    "trayRecent0",
+    "trayRecent1",
+    "trayDefaults",
+    "trayPrefs",
+    "trayAbout",
+    "trayQuit",
+)
+
+
+def _settle_menu(qgui_app, menu, limit=40):
+    """Pump frames until the popup reports itself open (opening is async)."""
+    for _ in range(limit):
+        if menu.property("opened"):
+            break
+        qgui_app.processEvents()
+    for _ in range(3):
+        qgui_app.processEvents()
+
+
+def _tray_menu_rows(win):
+    """Visible tray entries in layout order (y): the menu's own item list is
+    a QQuickMenu invokable PySide cannot reach through its QObject wrapper,
+    so order is measured from the laid-out delegates."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtQuick import QQuickItem
+
+    rows = []
+    for name in _TRAY_MENU_ITEMS:
+        item = win.findChild(QQuickItem, name)
+        if item is None or not item.property("visible"):
+            continue
+        rows.append((item.mapToScene(QPointF(0, 0)).y(), item.property("text")))
+    rows.sort()
+    return [text for _y, text in rows]
+
+
+def test_tray_menu_entries_and_dispatch(qgui_app, xdg_env, monkeypatch):
+    """Tray menu is QML: entries, recents interleaving, model dispatch.
+
+    The QtWidgets QMenu it replaces was built in Python; here the entries
+    live in main.qml and only the dispatcher (model.trayAction) is Python,
+    so this locks the wiring the tray controller cannot exercise headless.
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    prefs = C.load_preferences()
+    prefs.tray_quick_launch = False
+    C.save_preferences(prefs)
+
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    model = _engine.rootContext().contextProperty("gameModel")
+    # kirigami_app wires these; here they just record.
+    played, ran = [], []
+    monkeypatch.setattr(model, "play", lambda appid: played.append(appid) or True)
+    model._tray_actions = {
+        "toggle": lambda: ran.append("toggle"),
+        "prefs": lambda: ran.append("prefs"),
+        "about": lambda: ran.append("about"),
+    }
+    menu = win.findChild(QObject, "trayMenu")
+    recents_seps = ("traySepRecentsTop", "traySepRecentsBottom")
+    assert menu is not None and menu.property("opened") is False
+
+    def separators_visible():
+        return [win.findChild(QQuickItem, n).property("visible") for n in recents_seps]
+
+    # No recents, no Global Defaults registration: 8 items, both recents
+    # separators collapsed.
+    model.requestTrayMenu(400, 300)
+    _settle_menu(qgui_app, menu)
+    assert menu.property("opened") is True
+    assert menu.property("count") == 8
+    assert separators_visible() == [False, False]
+    assert _tray_menu_rows(win) == ["Show / Hide", "Preferences...", "About...", "Quit"]
+    menu.close()
+    qgui_app.processEvents()
+
+    # Recents: prefs-gated rows, inserted after Show / Hide + separator.
+    prefs = C.load_preferences()
+    prefs.tray_quick_launch = True
+    prefs.tray_quick_count = 5
+    C.save_preferences(prefs)
+    monkeypatch.setattr(
+        model,
+        "historySummary",
+        lambda: [
+            {"appid": "99", "name": "Doom 3", "total": "1h"},
+            {"appid": "local-doom", "name": "Doom", "total": "30m"},
+        ],
+    )
+    model.requestTrayMenu(400, 300)
+    _settle_menu(qgui_app, menu)
+    assert menu.property("count") == 10
+    assert separators_visible() == [True, True]
+    assert _tray_menu_rows(win) == [
+        "Show / Hide",
+        "Doom 3 (1h)",
+        "Doom (30m)",
+        "Preferences...",
+        "About...",
+        "Quit",
+    ]
+
+    # Entries dispatch through the model, the only path they have.
+    _fire(win.findChild(QQuickItem, "trayRecent0"))
+    _fire(win.findChild(QQuickItem, "trayRecent1"))
+    _fire(win.findChild(QQuickItem, "trayPrefs"))
+    _fire(win.findChild(QQuickItem, "trayShowHide"))
+    assert played == ["99", "local-doom"]
+    assert ran == ["prefs", "toggle"]
+    assert model.trayDefaultsAvailable() is False
+
+    # Close-to-tray: the shell is hidden while the tray is used.
+    menu.close()
+    qgui_app.processEvents()
+    win.setVisible(False)
+    model.requestTrayMenu(400, 300)
+    _settle_menu(qgui_app, menu)
+    assert menu.property("opened") is True
+    assert _tray_menu_rows(win)[:2] == ["Show / Hide", "Doom 3 (1h)"]
+
+    menu.close()
+    qgui_app.processEvents()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.setVisible(True)
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()

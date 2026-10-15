@@ -14,7 +14,7 @@
   file formats stays for the library phase). Scan Steam Library already exists.
   Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB, incl. VNDB)
   is deferred research for when the import work starts.
-- [x] System tray with recent games (`QApplication` migration done;
+- [x] System tray with recent games (`QGuiApplication` + QML menu now;
   tray prefs already existed; Global Defaults entry waits for the
   defaults UI)
 - [x] Column drag-reorder in the QML header (title drag past a
@@ -110,67 +110,75 @@ toggle and a centered Library.
   plain: FormTextFieldDelegate needs a KLocalizedContext)
 - [x] QTabWidget (future settings UI) → pageStack pages + TabBar
 - [x] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
-- [x] QSystemTrayIcon → migrated to QApplication (tray controller
-  with recents)
+- [x] QSystemTrayIcon → migrated to QGuiApplication + a QML context
+  menu (tray controller with recents, model dispatches the entries)
 
-### Widgets removal: remaining QtWidgets surface (survey 2026-10-15)
+### Widgets removal: QtWidgets surface (survey 2026-10-15)
 
 Goal: delete `src/tkarcade/widgets/` + `tests/gui_widgets_reference.py`
 and close both `test_no_widgets` cases. Rule: `tests/test_no_widgets.py`
-defines done.
+defines done; it now allows exactly one name (`QSystemTrayIcon`, from
+`gui/tray.py`) and still fails on `QMenu` or any other widget class.
 
-Live importers today (its own output):
-- `src/tkarcade/gui/kirigami_app.py` — builds a `QApplication`.
-- `src/tkarcade/gui/tray.py` — `QSystemTrayIcon` + `QMenu` (the widgets
-  package import is gone: the icon helper now lives in
-  `gui/icons.py`, QtGui-only).
-- `tests/conftest.py` (session fixture) and `tests/test_tray.py`
-  (widget-level tray assertions).
-- Nothing else: no `QFileDialog`/`QMessageBox`/widget dialog anywhere in
-  the live tree, and no live module imports the widgets package.
+Chosen: option 1 (`QGuiApplication` + `QSystemTrayIcon` + QML `Menu`).
+- [x] Tray menu in QML (`main.qml`: `trayMenu` + `Instantiator` with
+  `insertItem` for the recents), the model as the only dispatcher
+  (`requestTrayMenu` signal, `trayRecentGames`, `trayAction`
+  incl. `"play:<appid>"`, `trayDefaultsAvailable`); `kirigami_app`
+  registers the callbacks and `tray.py` is a QSystemTrayIcon owner.
+- [x] `QApplication` → `QGuiApplication` in `kirigami_app.py` and the
+  conftest fixture; `tests/test_tray.py` QtWidgets-free; new QML case
+  `test_tray_menu_entries_and_dispatch`.
+- [ ] Delete `src/tkarcade/widgets/` + the parked reference tests, drop
+  the ruff `exclude`, fix `scripts/refresh-translations.sh` (still
+  passes `src/tkarcade/widgets/*.py`) and prune the Python contexts
+  from the catalog.
 
-Measured, not assumed:
-- The **whole QML suite (85 cases) passes under a `QGuiApplication`**
-  (switched the conftest fixture temporarily): the shell itself has no
-  widget dependency, so `kirigami_app.py` can move to
-  `QGuiApplication` (quit via `QCoreApplication.quit`).
+Measured (2026-10-15), offscreen:
 - `QSystemTrayIcon` is **not** a `QWidget` (it derives from QObject) and
   constructs fine under a `QGuiApplication`; `isSystemTrayAvailable()`
   works. The hard blocker is **`QMenu` (a QWidget): constructing it
   under `QGuiApplication` aborts the process** ("Cannot create a QWidget
-  without QApplication").
+  without QApplication") — hence the QML menu.
+- The QML menu (`popupType: Popup.Window`) opens fine while the main
+  window is **hidden**, and closing it does **not** emit
+  `lastWindowClosed` (its window is transient on the shell), so the
+  close-to-tray flow cannot quit the app by opening the menu.
+- `QQuickMenu.itemAt()` is unreachable from PySide (the QML type has no
+  Python wrapper: the call returns `None`), so QML tests measure entry
+  order and visibility through the delegates (`objectName` +
+  `mapToScene`) instead.
+- Recents use the Qt-documented `Instantiator` + `insertItem(index,
+  object)` pattern (a Repeater would feed a QVariantList into a
+  positioner, the documented landmine); `onAboutToShow` reassigns the
+  model so the list is fresh on every open and the delegate indexes are
+  offset past "Show / Hide" + separator.
+- Position: `QSystemTrayIcon.geometry()` (global) → model signal →
+  `contentItem.mapFromGlobal` → `popup(contentItem, x, y)`; an empty
+  geometry (no host) falls back to `QCursor.pos()`.
+- Translation refresh: system `lupdate6` reads Python natively but
+  writes `{expr}` placeholders where the older `pylupdate6` wrote `{}`,
+  so it cannot refresh the Python contexts in place (`pylupdate6` is not
+  installed here); the QML-only lupdate run + cleared vanished markers
+  keeps the catalog intact until the widgets are gone.
 
-So the tray is the only real decision. Options:
-1. `QGuiApplication` + `QSystemTrayIcon` + a **QML** context menu
-   (tray `activated` → open a `Controls.Menu` at the cursor, fed by the
-   same rows). Small; keeps one QtWidgets import (a QObject class).
-2. `QGuiApplication` + **StatusNotifierItem over QtDBus** (`PySide6.
-   QtDBus` is installed, session bus reachable — no new dependency):
-   drops QtWidgets completely, but it is a hand-rolled
-   `org.kde.StatusNotifierItem` + `com.canonical.dbusmenu` implementation
-   (~400 lines, fiddly layout semantics, needs a real desktop to
-   validate).
-3. `PyKF6` (`KStatusNotifierItem`): measured away — it does **not**
-   drop QtWidgets (`setContextMenu(QMenu*)` takes a QMenu, i.e. a
-   QWidget, so it wants QApplication anyway) and it adds a runtime
-   dependency with a PySide6/Qt ABI to match plus an Arch availability
-   question. Dominated by option 1.
-4. Keep `QSystemTrayIcon`/`QMenu` in a documented exception (no policy
-   change): honest but leaves the debt and the failing test.
+Open (needs the real display): the menu is a non-native QQC2 window —
+check position under the icon (panel-dependent), keyboard focus and
+click-outside dismissal, and whether the compositor accepts a transient
+popup of a hidden window at all. Fallback if not: a
+`Window { flags: Qt.Popup }` menu with hand-built rows.
 
-Note on the integration: Qt documents `QSystemTrayIcon` on Linux as a
-D-Bus StatusNotifierItem client ("all Linux desktop environments that
-implement the D-Bus StatusNotifierItem"), so options 1 and 2/3 land in
-the same place on the desktop; only option 2 buys module purity.
-
-If option 1 is chosen, keep the policy test strong instead of gutting
-it: allow exactly the `QSystemTrayIcon` name from `tray.py` (an
-allowlist of (file, class) pairs) so `QMenu` or any other widget class
-still fails it, and keep test_tray.py driving the abstract rows.
-
-Prep independent of the choice: extract the menu as data (rows +
-`trigger(id)`) so the tests stop building `QMenu` and the renderer can
-be swapped in one file.
+Options not taken: option 2 (hand-rolled StatusNotifierItem over
+QtDBus) is the only path to zero QtWidgets — `PySide6.QtDBus` is
+installed and the session bus is reachable, no new dependency, but it
+is ~400 lines of SNI + `com.canonical.dbusmenu` with layout semantics to
+reimplement. Option 3 (`PyKF6` `KStatusNotifierItem`) is dominated: it
+does not drop QtWidgets (`setContextMenu(QMenu*)` still wants a QWidget
+and a `QApplication`) and adds an ABI-matched runtime dependency.
+Qt documents `QSystemTrayIcon` on Linux as a StatusNotifierItem client
+("all Linux desktop environments that implement the D-Bus
+StatusNotifierItem"), so options 1 and 2 land in the same place on the
+desktop; only option 2 buys module purity.
 
 ### Drawer (after tableview)
 - [x] Drawer Mode… into GlobalDrawer `footer:` (icon buttons, always

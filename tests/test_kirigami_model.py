@@ -997,3 +997,46 @@ def test_game_issues_cache_invalidated_on_refresh(qgui_app, xdg_env):
     C.save(fixed)
     model.refresh()
     assert model.gameIssues("local-broken") == []
+
+
+def test_tray_recents_rows(qgui_app, xdg_env, monkeypatch):
+    """Tray recents: [appid, label], gated by the quick-launch prefs."""
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    monkeypatch.setattr(
+        model,
+        "historySummary",
+        lambda: [
+            {"appid": "99", "name": "Doom 3", "total": "1h"},
+            {"appid": "local-doom", "name": "Doom", "total": "30m"},
+        ],
+    )
+    prefs = C.load_preferences()
+    prefs.tray_quick_launch = False
+    C.save_preferences(prefs)
+    assert model.trayRecentGames() == []
+    prefs.tray_quick_launch = True
+    prefs.tray_quick_count = 1
+    C.save_preferences(prefs)
+    assert model.trayRecentGames() == [["99", "Doom 3 (1h)"]]
+
+
+def test_tray_action_dispatch(qgui_app, xdg_env, monkeypatch):
+    """trayAction: registered entries run, "play:<appid>" plays."""
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    played = []
+    monkeypatch.setattr(model, "play", lambda appid: played.append(appid) or True)
+    ran = []
+    model._tray_actions = {"prefs": lambda: ran.append("prefs")}
+    assert model.trayDefaultsAvailable() is False
+    model.trayAction("prefs")
+    model.trayAction("play:local-doom")
+    model.trayAction("")  # unknown entries are ignored
+    model.trayAction("nope")
+    assert ran == ["prefs"]
+    assert played == ["local-doom"]
+    model._tray_actions["defaults"] = lambda: None
+    assert model.trayDefaultsAvailable() is True

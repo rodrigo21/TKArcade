@@ -32,11 +32,15 @@ def _silence_notifications(monkeypatch):
 
 @pytest.fixture(scope="session")
 def qgui_app():
-    """Single offscreen QApplication for headless Qt tests (tray needs it)."""
-    pytest.importorskip("PySide6.QtWidgets")
-    from PySide6.QtWidgets import QApplication
+    """Single offscreen QGuiApplication for headless Qt tests.
 
-    app = QApplication.instance() or QApplication([])
+    QGuiApplication, not QApplication: the shell is QML-only and must run
+    without instantiating a single widget class (tests/test_no_widgets).
+    """
+    pytest.importorskip("PySide6.QtGui")
+    from PySide6.QtGui import QGuiApplication
+
+    app = QGuiApplication.instance() or QGuiApplication([])
     yield app
 
 
