@@ -154,6 +154,7 @@ Window {
         nlProv.currentIndex = {"auto": 0, "plasma": 1, "gnome": 2, "off": 3}[f.nl_provider] ?? 0
         logField.text = editAppid !== "" ? gameModel.gameLogFile(editAppid) : ""
         ptFresh.checked = !!f.fresh_prefix
+        refreshAudioSinks(f.audio_sink || "")
         winePrefixField.text = f.wine_prefix || ""
         refreshWineTools(f.wine_version || "")
         ptVerbs.text = f.winetricks_verbs || ""
@@ -233,7 +234,7 @@ Window {
             "nl_disable": nlDisable.checked,
             "nl_provider": ["auto", "plasma", "gnome", "off"][nlProv.currentIndex] || "auto",
             "fresh_prefix": ptFresh.checked,
-            "wine_prefix": winePrefixField.text,
+            "audio_sink": audioSinkData(),            "wine_prefix": winePrefixField.text,
             "wine_version": wineToolData(),
             "winetricks_verbs": ptVerbs.text,
             "proton_log": ptLog.checked,
@@ -508,6 +509,29 @@ Window {
 
     function wineToolData() {
         var item = wineToolBox.model[wineToolBox.currentIndex]
+        return item !== undefined ? item.data : ""
+    }
+
+    function refreshAudioSinks(select) {
+        var sinks = gameModel.audioSinks()
+        var items = [{"text": qsTr("(System default)"), "data": ""}]
+        var idx = 0
+        for (var i = 0; i < sinks.length; i++) {
+            items.push({"text": sinks[i][0], "data": sinks[i][0]})
+            if (sinks[i][0] === select) {
+                idx = i + 1
+            }
+        }
+        if (select !== "" && idx === 0) {
+            items.push({"text": qsTr("%1 (unavailable)").arg(select), "data": select})
+            idx = items.length - 1
+        }
+        auSinkBox.model = items
+        auSinkBox.currentIndex = idx
+    }
+
+    function audioSinkData() {
+        var item = auSinkBox.model[auSinkBox.currentIndex]
         return item !== undefined ? item.data : ""
     }
 
@@ -1418,20 +1442,39 @@ Window {
                             Controls.GroupBox {
                                 title: qsTr("Night Light")
                                 Layout.fillWidth: true
-                                ColumnLayout {
+                                KirigamiLayouts.FormLayout {
                                     Controls.CheckBox {
                                         id: nlDisable
                                         objectName: "nlDisable"
                                         text: qsTr("Disable night light while the game is running (restored on exit)")
-                                    }
-                                    Controls.Label {
-                                        text: qsTr("Provider:")
                                     }
                                     Controls.ComboBox {
                                         id: nlProv
                                         objectName: "nlProv"
                                         Layout.fillWidth: true
                                         model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("Disabled")]
+                                        KirigamiLayouts.FormData.label: qsTr("Provider:")
+                                    }
+                                }
+                            }
+                            Controls.GroupBox {
+                                title: qsTr("Audio")
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormLayout {
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("Output sink:")
+                                        Controls.ComboBox {
+                                            id: auSinkBox
+                                            objectName: "auSink"
+                                            textRole: "text"
+                                            Layout.fillWidth: true
+                                        }
+                                        Controls.Button {
+                                            objectName: "auRefresh"
+                                            text: qsTr("Refresh")
+                                            onClicked: gameSettings.refreshAudioSinks(gameSettings.audioSinkData())
+                                        }
                                     }
                                 }
                             }

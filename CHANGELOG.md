@@ -55,6 +55,13 @@ Breaking config changes are called out explicitly under `Changed`.
   when wide (QFormLayout parity), stacked labels when narrow.
 - pt_BR catalog complete (719 strings, QML + Python): translator install
   in the Kirigami app, language picker in Preferences (restart to apply).
+- Library phase: categories/tags (settings field, drawer filter, bulk
+  set, Category column), Lutris-parity columns (Last Played, Platform,
+  Runner, Wine, Install Dir), manual artwork (icon/cover/banner +
+  Steam donor fallback in the table), per-game Wine prefix
+  (point/create/clear) and compat-tool selector, launch args/cwd
+  overrides, MangoHud FPS limit (libstrangle fallback), per-game
+  audio sink with restore on exit.
 - FormLayout across settings: Pre/Post fully, Display Mode and MangoHud
   groups, Wine fully; tables/checks-only groups and single-pair tabs
   stay stacked (a label column would orphan their checkboxes).

@@ -19,30 +19,30 @@
   defaults UI)
 - [x] Column drag-reorder in the QML header (title drag past a
   threshold; taps still sort, Move left/right menu stays)
-- [ ] QML i18n catalog (pt_BR for the strings added since the
+- [x] QML i18n catalog (pt_BR for the strings added since the
   Kirigami work started; QML `qsTr` calls are in place; deferred
   for now, after the rest).
-- [ ] Manual artwork per game (icon, cover, banner), for non-Steam
+- [x] Manual artwork per game (icon, cover, banner), for non-Steam
   and Steam (local override); non-Steam games may reuse Steam art
   via name search or a donor AppID.
-- [ ] More columns, Lutris parity (candidates: last played, total
+- [x] More columns, Lutris parity (candidates: last played, total
   time, platform, runner, version/wine, install dir, category);
   define the data source per column (manual, history, auto-detect,
   ProtonDB).
-- [ ] Categories/tags (multiple per game, drawer filter, bulk edit);
+- [x] Categories/tags (multiple per game, drawer filter, bulk edit);
   online sources à la Playnite are deferred research.
-- [ ] Windows game management: prefix per game (point/create/clear),
+- [x] Windows game management: prefix per game (point/create/clear),
   version selector (system Wine, Proton, custom path), runner
   (native/Wine/Proton) + args/cwd, winetricks per prefix.
 
-- [ ] Per-game display mode: save current resolution/refresh, apply the
+- [x] Per-game display mode: save current resolution/refresh, apply the
   game's, restore afterwards (same save/restore pattern as nightlight).
   Providers with auto-detect: Plasma (`kscreen-doctor`), GNOME
   (`org.gnome.Mutter.DisplayConfig` over D-Bus), wlroots
   (`wlr-randr`/`kanshi`), X11 (`xrandr`), `off`.
-- [ ] Per-game audio output: route to a chosen sink via `pactl`/`pw-cli`
+- [x] Per-game audio output: route to a chosen sink via `pactl`/`pw-cli`
   on launch, restore on exit.
-- [ ] Review env presets against vendor docs (Mesa/NVIDIA semantics drift;
+- [x] Review env presets against vendor docs (Mesa/NVIDIA semantics drift;
   verify `vblank_mode` / `__GL_SYNC_TO_VBLANK` values). Recurring: re-audit
   on every release tag (last: 2026-09-30 + installed-build checks).
 - [ ] Block Internet per game (net namespace, unprivileged). DEFERRED for
@@ -50,8 +50,9 @@
   Lighter alternative already shipped: `WINE_BLOCK_HOSTS` preset.
 - [ ] vkBasalt successor: vkBasalt is unmaintained; evaluate forks or
   ReShade-on-Linux successors when mature (out for now).
-- [ ] FPS cap field (MangoHud `fps_limit`) + libstrangle wrapper option for
-  DX12 titles without overlay (`DXVK_FRAME_RATE` preset covers DX9-11 only).
+- [x] FPS cap field (MangoHud `fps_limit`, per-game setting + MANGOHUD_CONFIG).
+- [x] libstrangle wrapper option for DX12 titles without overlay
+  (automatic fallback when fps_limit is set but MangoHud is off).
 - [ ] Lint expansion (decided 2026-10-06, after the first Kirigami GUI
   steps): enable the full Ruff rule set and fix everything it reports.
   Known first case: `stl_import.map_to_gameconfig` (mccabe 26 — rewrite
@@ -100,8 +101,8 @@ toggle and a centered Library.
   with trigger())
 - [x] QFormLayout (prefs) → Addons FormCard (API key row stays
   plain: FormTextFieldDelegate needs a KLocalizedContext)
-- [ ] QTabWidget (future settings UI) → pageStack pages + TabBar
-- [ ] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
+- [x] QTabWidget (future settings UI) → pageStack pages + TabBar
+- [x] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
 - [x] QSystemTrayIcon → migrated to QApplication (tray controller
   with recents)
 

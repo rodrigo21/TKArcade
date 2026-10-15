@@ -28,6 +28,7 @@ from . import config as cfgmod
 from . import proton as protonmod
 from . import steam as steammod
 from . import xdg
+from .backends import audio as au_backend
 from .backends import display as disp_backend
 from .backends import gamemode as gm_backend
 from .backends import ludusavi as lu_backend
@@ -257,6 +258,13 @@ def build_final_command(
         cmd = parts + cmd
 
     # inner -> outer: mangohud, gamemode/cachy, gamescope outermost
+    fps = max(0, int(cfg.mangohud.fps_limit or 0))
+    if fps > 0 and not cfg.mangohud.enable:
+        if shutil.which("strangle"):
+            cmd = ["strangle", str(fps), *cmd]
+            warnings.append("MangoHud disabled: FPS capped via libstrangle")
+        else:
+            warnings.append("fps_limit set but MangoHud is disabled; ignoring")
     cmd, w = ov_backend.apply_mangohud(cmd, cfg.mangohud.enable, cfg.mangohud.args)
     warnings += w
     cmd, w = rtu_backend.apply(cmd, cfg.rtupscale.enable, cfg.rtupscale.args)
@@ -316,12 +324,9 @@ def build_final_command(
     if compat_prefix and game_type == "proton" and "STEAM_COMPAT_DATA_PATH" not in env:
         env["STEAM_COMPAT_DATA_PATH"] = compat_prefix
     fps = max(0, int(cfg.mangohud.fps_limit or 0))
-    if fps > 0:
-        if cfg.mangohud.enable:
-            prior = env.get("MANGOHUD_CONFIG", "").strip()
-            env["MANGOHUD_CONFIG"] = f"{prior},fps_limit={fps}" if prior else f"fps_limit={fps}"
-        else:
-            warnings.append("fps_limit set but MangoHud is disabled; ignoring")
+    if fps > 0 and cfg.mangohud.enable:
+        prior = env.get("MANGOHUD_CONFIG", "").strip()
+        env["MANGOHUD_CONFIG"] = f"{prior},fps_limit={fps}" if prior else f"fps_limit={fps}"
     return cmd, env, warnings
 
 
@@ -818,6 +823,7 @@ def main(argv: list[str] | None = None) -> int:
         disp_backend.DisplaySession(
             cfg.display.provider, cfg.display.output, cfg.display.mode, cfg.display.dip_seconds
         ),
+        au_backend.AudioSession(cfg.audio.sink),
         nl_backend.NightlightSession(
             # NB: __enter__ already called start(); never call it again here
             # (a second call used to orphan a holder process).

@@ -163,6 +163,11 @@ class ArtworkConfig:
 
 
 @dataclass
+class AudioConfig:
+    sink: str = ""  # output sink for the session ("" = system default)
+
+
+@dataclass
 class Preferences:
     """Program-level preferences (never per-game)."""
 
@@ -200,6 +205,7 @@ class GameConfig:
     debug: DebugConfig = field(default_factory=DebugConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
     proton: ProtonConfig = field(default_factory=ProtonConfig)
+    audio: AudioConfig = field(default_factory=AudioConfig)
     rtupscale: RtUpscaleConfig = field(default_factory=RtUpscaleConfig)
     artwork: ArtworkConfig = field(default_factory=ArtworkConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
@@ -233,6 +239,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "debug": _to_toml_value(cfg.debug),
         "session": _to_toml_value(cfg.session),
         "proton": _to_toml_value(cfg.proton),
+        "audio": _to_toml_value(cfg.audio),
         "rtupscale": _to_toml_value(cfg.rtupscale),
         "artwork": _to_toml_value(cfg.artwork),
     }
@@ -533,6 +540,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
     "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
+    "audio": {"sink"},
     "rtupscale": {"enable", "args"},
     "artwork": {"icon", "cover", "banner", "donor_appid"},
 }
@@ -693,6 +701,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.proton.winetricks_verbs = _str_list(_section(data, "proton").get("winetricks_verbs", []))
     cfg.proton.wine_prefix = str(_section(data, "proton").get("wine_prefix", ""))
     cfg.proton.wine_version = str(_section(data, "proton").get("wine_version", ""))
+    cfg.audio.sink = str(_section(data, "audio").get("sink", ""))
     art = _section(data, "artwork")
     cfg.artwork.icon = str(art.get("icon", ""))
     cfg.artwork.cover = str(art.get("cover", ""))

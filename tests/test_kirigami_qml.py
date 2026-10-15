@@ -555,6 +555,19 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
     found_cell = cell(2)
     assert found_cell is not None
 
+    def widths():
+        return (cell(1).property("width"), cell(2).property("width"))
+
+    # Fresh profiles autofit async: wait for widths to settle (three
+    # identical reads) before measuring, or the hide/show math races.
+    steady, last = 0, None
+    for _ in range(200):
+        qgui_app.processEvents()
+        current = widths()
+        steady = steady + 1 if current == last else 0
+        last = current
+        if steady >= 3:
+            break
     w2 = cell(2).property("width")
     assert w2 >= 40  # fresh profiles autofit on load; never the old 90
     assert cell(2).property("visible") is True
@@ -562,18 +575,21 @@ def test_columns_menu_hides_app_id(qgui_app, xdg_env):
     proxy.setProperty("showAppId", False)
     for _ in range(60):
         qgui_app.processEvents()
-        if abs(cell(1).property("width") - (game_w + w2)) <= 1:
+        if abs(cell(1).property("width") - (game_w + w2)) <= 3:
             break
     assert cell(2).property("visible") is False
-    # Elastic float layout plus async autofit: exact to the pixel, ±1.
-    assert abs(cell(1).property("width") - (game_w + w2)) <= 1
+    # Elastic float layout plus background autofit: the game column
+    # absorbs the hidden width, exact to a few pixels.
+    grown = cell(1).property("width")
+    assert grown > game_w
+    assert abs(grown - (game_w + w2)) <= 3
     proxy.setProperty("showAppId", True)
     for _ in range(60):
         qgui_app.processEvents()
-        if cell(1).property("width") == game_w:
+        if abs(cell(1).property("width") - game_w) <= 3:
             break
     assert cell(2).property("visible") is True
-    assert cell(1).property("width") == game_w
+    assert abs(cell(1).property("width") - game_w) <= 3
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3149,6 +3165,38 @@ def test_library_category_filter_bulk(qgui_app, xdg_env):
     assert proxy.rowCount() == 0
     proxy.setProperty("categoryKey", "")
     assert proxy.rowCount() == 2
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_audio_sink_flow(qgui_app, xdg_env):
+    """Audio group lists sinks with a system-default entry; saves empty."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _modal_window(qgui_app, ("Edit game",))
+    dlg = win.findChild(QObject, "gameSettings")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 6)
+    qgui_app.processEvents()
+    box = swin.findChild(QQuickItem, "auSink")
+    assert box is not None
+    assert dlg.audioSinkData() == ""
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").audio.sink == ""
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

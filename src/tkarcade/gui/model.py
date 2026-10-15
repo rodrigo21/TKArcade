@@ -494,6 +494,7 @@ class GameListModel(QAbstractTableModel):
             if cfg.nightlight.provider in ("auto", "plasma", "gnome", "off")
             else "auto",
             "fresh_prefix": bool(cfg.proton.fresh_prefix),
+            "audio_sink": cfg.audio.sink,
             "winetricks_verbs": " ".join(cfg.proton.winetricks_verbs),
             "wine_prefix": cfg.proton.wine_prefix,
             "wine_version": cfg.proton.wine_version,
@@ -673,6 +674,7 @@ class GameListModel(QAbstractTableModel):
         cfg.proton.winetricks_verbs = _split_args(str(data.get("winetricks_verbs", "")))
         cfg.proton.wine_prefix = str(data.get("wine_prefix", "")).strip()
         cfg.proton.wine_version = str(data.get("wine_version", "")).strip()
+        cfg.audio.sink = str(data.get("audio_sink", "")).strip()
         cfg.debug.proton_log = bool(data.get("proton_log", False))
         winedebug = str(data.get("winedebug", ""))
         cfg.debug.winedebug = winedebug if winedebug in ("", "-all", "+err", "+warn,+err") else ""
@@ -1813,6 +1815,16 @@ class GameListModel(QAbstractTableModel):
             except Exception as e:
                 log.warning("tray refresh failed: %s", e)
         return True
+
+    @Slot(result=list)
+    def audioSinks(self) -> list:
+        """[[name, name]] output sinks for the audio picker."""
+        from ..backends import audio as aubackend
+
+        try:
+            return [[n, n] for n, _desc in aubackend.list_sinks()]
+        except Exception:
+            return []
 
     @Slot(result=list)
     def languageOptions(self) -> list:
