@@ -98,8 +98,10 @@ rewrite pushed history or tags.
   (`_close_menu`) instead of frame counts. A test that runs `edit.main()`
   or `kirigami_app.main()` in process also pins
   `QT_QUICK_CONTROLS_STYLE` in `os.environ` for the rest of the session
-  (the QML driver's children then inherit the desktop style) — delete
-  the variable with monkeypatch.
+  (the QML driver's children then inherit the desktop style and
+  style-sensitive cases flip inside the full suite) — save/restore the
+  variable explicitly in an autouse fixture; `monkeypatch.delenv` on an
+  already-absent var registers no undo and does not undo `main()`'s write.
 - `Kirigami.Dialog` overlays never finish their enter fade offscreen
   (they render invisible): synthetic clicks don't reach their buttons —
   open them via clicks and drive accepts with direct calls instead.

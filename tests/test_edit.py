@@ -1,20 +1,27 @@
 """Standalone editor child process: flags, protocol line, availability."""
 
 import json
+import os
 
 import pytest
 
 
 @pytest.fixture(autouse=True)
-def _no_style_leak(monkeypatch):
+def _no_style_leak():
     """`main()` pins QT_QUICK_CONTROLS_STYLE in os.environ, as the product does.
 
-    Left alone it leaks into the rest of the session, and the QML driver's
-    child processes then run the desktop style: its menu fade keeps `opened`
-    false through a tight settle loop, so the tray case failed inside
-    makepkg's check() while standalone runs (default style) stayed green.
+    Save/restore explicitly rather than `monkeypatch.delenv`: `delenv` on an
+    already-absent var registers no undo, so the value `main()` writes
+    mid-test survives the teardown and leaks into the rest of the session.
+    The QML driver's child processes then run the desktop style, and its
+    layout flips style-sensitive cases (the tray menu fade, the header
+    divider drag) inside the full suite while standalone runs stay green.
     """
-    monkeypatch.delenv("QT_QUICK_CONTROLS_STYLE", raising=False)
+    saved = os.environ.pop("QT_QUICK_CONTROLS_STYLE", None)
+    yield
+    os.environ.pop("QT_QUICK_CONTROLS_STYLE", None)
+    if saved is not None:
+        os.environ["QT_QUICK_CONTROLS_STYLE"] = saved
 
 
 def test_parse_args_defaults():
