@@ -60,16 +60,21 @@
 - [x] FPS cap field (MangoHud `fps_limit`, per-game setting + MANGOHUD_CONFIG).
 - [x] libstrangle wrapper option for DX12 titles without overlay
   (automatic fallback when fps_limit is set but MangoHud is off).
-- [ ] Lint expansion (decided 2026-10-06, after the first Kirigami GUI
-  steps): enable the full Ruff rule set and fix everything it reports.
-  Known first case: `stl_import.map_to_gameconfig` (mccabe 26 — rewrite
-  as a table-driven mapping). Strong candidates: `C90`, `RET`, `A`, `N`,
-  `SIM` (minus `SIM105`, our best-effort `try/except: pass` is deliberate),
-  `LOG`, `ERA`, `FLY`, `RUF022`, `TCH`. Deliberately off (documented in
-  `pyproject.toml`): `PLC0415` (lazy PySide imports isolate the launcher),
-  `S` (subprocess is the whole project), `EM`/`TRY` (readable raise style),
-  `T201` (print is the CLI interface), `SLF` (tests touch privates),
-  `D`/`ANN` (churn, much later).
+- [x] Lint expansion (decided 2026-10-06, done 2026-10-16): the agreed
+  batch is enabled — `RET`, `SIM` (minus `SIM105`, our best-effort
+  `try/except: pass` is deliberate), `ERA`, `FLY`, `LOG`, `TCH`,
+  `RUF022`, `A`, plus `C90` with `max-complexity = 10`. Every finding was
+  fixed, none suppressed; the 15 functions over the cap (worst:
+  `launcher.main` 52, `stl_import.map_to_gameconfig` 26, the display
+  backends 19) were split into helpers with behaviour, exit codes and
+  report order unchanged. Eight functions now sit exactly at 10, so a
+  later sweep could tighten the cap to 9.
+  `N` (naming) was reviewed and stays off: the camelCase Qt slots the QML
+  calls are the API (`hideOnClose`, `trayAction`, ...). Deliberately off
+  (documented in `pyproject.toml`): `PLC0415` (lazy PySide imports isolate
+  the launcher), `S` (subprocess is the whole project), `EM`/`TRY`
+  (readable raise style), `T201` (print is the CLI interface), `SLF`
+  (tests touch privates), `D`/`ANN` (churn, much later).
 
 ## Kirigami parity (widgets → Kirigami, branch `kirigami`)
 
