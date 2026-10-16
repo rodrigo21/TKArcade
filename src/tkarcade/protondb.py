@@ -6,9 +6,12 @@ import json
 import logging
 import time
 import urllib.request
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import xdg
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 log = logging.getLogger("tkarcade.protondb")
 

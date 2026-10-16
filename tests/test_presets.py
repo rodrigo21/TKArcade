@@ -4,12 +4,12 @@ from tkarcade import presets as pm
 
 
 def test_apply_preset_merges_missing_only():
-    vars = {"WINE_FULLSCREEN_FSR": "0"}
-    assert pm.apply_preset(vars, "FSR Upscaling (Wine/Proton)") == []
-    assert vars["WINE_FULLSCREEN_FSR"] == "0"
-    assert pm.apply_preset(vars, "Faster Shaders (RADV)") == ["RADV_PERFTEST"]
-    assert vars["RADV_PERFTEST"] == "gpl"
-    assert pm.apply_preset(vars, "No Such Preset") == []
+    env = {"WINE_FULLSCREEN_FSR": "0"}
+    assert pm.apply_preset(env, "FSR Upscaling (Wine/Proton)") == []
+    assert env["WINE_FULLSCREEN_FSR"] == "0"
+    assert pm.apply_preset(env, "Faster Shaders (RADV)") == ["RADV_PERFTEST"]
+    assert env["RADV_PERFTEST"] == "gpl"
+    assert pm.apply_preset(env, "No Such Preset") == []
 
 
 def test_preset_catalog_schema():

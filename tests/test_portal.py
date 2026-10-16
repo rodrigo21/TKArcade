@@ -151,7 +151,6 @@ def test_pick_file_error_reply_gives_empty_without_waiting():
 
         def receive(self, timeout=None):
             received.append(timeout)
-            return None
 
         def close(self):
             pass

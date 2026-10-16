@@ -995,7 +995,7 @@ def export_configs(dest: str | Path) -> Path:
     import tarfile
 
     dest = Path(dest)
-    if not dest.suffixes[-2:] == [".tar", ".gz"]:
+    if dest.suffixes[-2:] != [".tar", ".gz"]:
         dest = dest.with_suffix(".tar.gz") if dest.suffix != ".gz" else dest
     with tarfile.open(dest, "w:gz") as tar:
         defaults = xdg.defaults_file()
@@ -1028,8 +1028,10 @@ def import_configs(src: str | Path) -> list[str]:
     if not src.is_file():
         raise ValueError(f"not found: {src}")
     base = xdg.app_config_dir()
+    # Guarded outside `with` so extraction errors keep their own type
+    # instead of reading as invalid archives; `with tar` below closes it.
     try:
-        tar = tarfile.open(src, "r:gz")
+        tar = tarfile.open(src, "r:gz")  # noqa: SIM115
     except (tarfile.TarError, OSError) as e:
         raise ValueError(f"invalid archive: {e}") from e
     with tar:

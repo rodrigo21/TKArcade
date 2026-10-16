@@ -917,9 +917,12 @@ def _card_play_button(card):
     while stack:
         item = stack.pop()
         try:
-            if item.property("text") == "Play" and shiboken6.isValid(item):
-                if best is None or item.property("width") > best.property("width"):
-                    best = item
+            if (
+                item.property("text") == "Play"
+                and shiboken6.isValid(item)
+                and (best is None or item.property("width") > best.property("width"))
+            ):
+                best = item
         except Exception:
             pass
         try:
@@ -3835,8 +3838,8 @@ def test_editor_picks_a_game_without_an_appid(qgui_app, xdg_env):
         QTest.qWait(20)
     box = picker.findChild(QObject, "editorPickBox")
     rows = [box.property("model")[i] for i in range(box.property("count"))]
-    assert any("Doom [local-doom]" == row for row in rows)
-    assert any("Quake [local-quake]" == row for row in rows)
+    assert any(row == "Doom [local-doom]" for row in rows)
+    assert any(row == "Quake [local-quake]" for row in rows)
     box.setProperty("currentIndex", rows.index("Quake [local-quake]"))
     _click_editor_button(qgui_app, picker, "editorPickOk")
     assert decided == []

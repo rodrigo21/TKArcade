@@ -138,14 +138,14 @@ PRESETS: dict[str, Preset] = {
 }
 
 
-def apply_preset(vars: dict[str, str], name: str) -> list[str]:
-    """Merge preset entries missing from vars. Returns added key names."""
+def apply_preset(env: dict[str, str], name: str) -> list[str]:
+    """Merge preset entries missing from env. Returns added key names."""
     preset = PRESETS.get(name)
     if preset is None:
         return []
     added = []
     for key, value in preset.vars.items():
-        if key not in vars:
-            vars[key] = value
+        if key not in env:
+            env[key] = value
             added.append(key)
     return added

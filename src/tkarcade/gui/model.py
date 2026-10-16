@@ -1185,13 +1185,13 @@ class GameListModel(QAbstractTableModel):
             for row in rows or []
             if isinstance(row, dict) and str(row.get("key", "")).strip()
         ]
-        vars = {r["key"]: r["value"] for r in clean}
+        env = {r["key"]: r["value"] for r in clean}
         try:
-            added = presetsmod.apply_preset(vars, name)
+            added = presetsmod.apply_preset(env, name)
         except Exception as e:
             log.warning("applyEnvPreset failed: %s", e)
             return {"rows": clean, "added": 0}
-        return {"rows": [{"key": k, "value": v} for k, v in vars.items()], "added": len(added)}
+        return {"rows": [{"key": k, "value": v} for k, v in env.items()], "added": len(added)}
 
     @Slot(str, result=bool)
     def toolAvailable(self, binary: str) -> bool:
