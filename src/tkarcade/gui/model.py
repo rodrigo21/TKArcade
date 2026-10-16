@@ -52,6 +52,21 @@ def _split_args(text: str) -> list[str]:
         return text.split()
 
 
+def _played_cells(st) -> tuple[str, int, str, str, int]:
+    """(duration, seconds, tooltip, last played, last epoch) for one game."""
+    if st is None:
+        return "—", -1, "No recorded sessions", "—", -1
+    last = st.last.replace("T", " ")
+    try:
+        from datetime import datetime
+
+        last_secs = int(datetime.fromisoformat(st.last).timestamp())
+    except (ValueError, TypeError):
+        last_secs = -1
+    tip = f"{st.runs} sessions · last {last} · {st.fails} failures"
+    return format_duration(st.total_dur), st.total_dur, tip, last[:16], last_secs
+
+
 class _QuitFilter(QObject):
     """Ctrl+Q to quit for watched windows (never raises).
 
@@ -264,94 +279,89 @@ class GameListModel(QAbstractTableModel):
             stats = histmod.summarize(histmod.parse_log(xdg.log_file()))
         except Exception:
             stats = {}
-        rows = []
-        for appid in cfgmod.list_appids():
-            source = "Steam" if steammod.is_steam_id(appid) else "Local"
-            st = stats.get(appid)
-            played = format_duration(st.total_dur) if st is not None else "—"
-            played_secs = st.total_dur if st is not None else -1
-            if st is None:
-                played_tip = "No recorded sessions"
-            else:
-                last = st.last.replace("T", " ")
-                played_tip = f"{st.runs} sessions · last {last} · {st.fails} failures"
-            icon = artmod.resolve_icon(appid)
-            try:
-                gcfg = cfgmod.load(appid)
-            except Exception:
-                gcfg = None
-            try:
-                if gcfg is not None:
-                    art, donor = gcfg.artwork, gcfg.artwork.donor_appid.strip()
-                    if art.icon and Path(art.icon).is_file():
-                        icon = Path(art.icon)
-                    elif donor and donor != appid:
-                        donor_icon = artmod.resolve_icon(donor)
-                        if donor_icon is not None:
-                            icon = donor_icon
-            except Exception as e:
-                log.warning("artwork resolve(%s) failed: %s", appid, e)
-            if st is None:
-                last_played, last_secs = "—", -1
-            else:
-                last_played = st.last.replace("T", " ")[:16]
-                try:
-                    from datetime import datetime
-
-                    last_secs = int(datetime.fromisoformat(st.last).timestamp())
-                except (ValueError, TypeError):
-                    last_secs = -1
-            platform = gcfg.general.platform if gcfg is not None else ""
-            runner = (gcfg.general.game_type if gcfg is not None else "auto").title()
-            if steammod.is_steam_id(appid):
-                from .. import proton as protonmod
-
-                try:
-                    wine = protonmod.tool_display(appid)
-                except Exception:
-                    wine = "Proton"
-            elif gcfg is not None and gcfg.proton.wine_version:
-                wine = gcfg.proton.wine_version
-            else:
-                wine = ""
-            try:
-                install = steammod.install_dir(appid)
-                install_dir = os.fspath(install) if install else ""
-            except Exception:
-                install_dir = ""
-            if not install_dir and gcfg is not None and gcfg.general.custom_executable:
-                exe = Path(gcfg.general.custom_executable).expanduser()
-                install_dir = str(exe.parent) if exe.name else ""
-            category = ", ".join(gcfg.general.categories) if gcfg is not None else ""
-            data, _fresh = pdbmod.cached(appid)
-            tier = str(((data or {}).get("tier", "")) or "").lower()
-            bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
-            rows.append(
-                (
-                    appid,
-                    names.get(appid, appid),
-                    source,
-                    played,
-                    tier.title(),
-                    bg,
-                    fg,
-                    str(icon) if icon else "",
-                    played_secs,
-                    played_tip,
-                    last_played,
-                    last_secs,
-                    platform,
-                    runner,
-                    wine,
-                    install_dir,
-                    category,
-                )
-            )
+        rows = [self._row(appid, names, stats) for appid in cfgmod.list_appids()]
         rows.sort(key=lambda r: r[1].lower())
         self.beginResetModel()
         self._rows = rows
         self.endResetModel()
         self.refreshed.emit()
+
+    def _row(self, appid: str, names: dict, stats: dict) -> tuple:
+        """One table row for an AppID (column order mirrors `rowData`)."""
+        played, played_secs, played_tip, last_played, last_secs = _played_cells(stats.get(appid))
+        try:
+            gcfg = cfgmod.load(appid)
+        except Exception:
+            gcfg = None
+        is_steam = steammod.is_steam_id(appid)
+        data, _fresh = pdbmod.cached(appid)
+        tier = str(((data or {}).get("tier", "")) or "").lower()
+        bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
+        icon = self._row_icon(appid, gcfg)
+        return (
+            appid,
+            names.get(appid, appid),
+            "Steam" if is_steam else "Local",
+            played,
+            tier.title(),
+            bg,
+            fg,
+            str(icon) if icon else "",
+            played_secs,
+            played_tip,
+            last_played,
+            last_secs,
+            gcfg.general.platform if gcfg is not None else "",
+            (gcfg.general.game_type if gcfg is not None else "auto").title(),
+            self._row_wine(appid, gcfg, is_steam),
+            self._row_install_dir(appid, gcfg),
+            ", ".join(gcfg.general.categories) if gcfg is not None else "",
+        )
+
+    @staticmethod
+    def _row_icon(appid: str, gcfg) -> Path | None:
+        """Artwork icon: the game's own, a donor's, else the resolved one."""
+        icon = artmod.resolve_icon(appid)
+        try:
+            if gcfg is None:
+                return icon
+            art, donor = gcfg.artwork, gcfg.artwork.donor_appid.strip()
+            if art.icon and Path(art.icon).is_file():
+                return Path(art.icon)
+            if donor and donor != appid:
+                donor_icon = artmod.resolve_icon(donor)
+                if donor_icon is not None:
+                    return donor_icon
+        except Exception as e:
+            log.warning("artwork resolve(%s) failed: %s", appid, e)
+        return icon
+
+    @staticmethod
+    def _row_wine(appid: str, gcfg, is_steam: bool) -> str:
+        """Proton tool label for Steam ids, else the configured Wine version."""
+        if is_steam:
+            from .. import proton as protonmod
+
+            try:
+                return protonmod.tool_display(appid)
+            except Exception:
+                return "Proton"
+        if gcfg is not None and gcfg.proton.wine_version:
+            return gcfg.proton.wine_version
+        return ""
+
+    @staticmethod
+    def _row_install_dir(appid: str, gcfg) -> str:
+        """Steam install dir, falling back to the custom executable's folder."""
+        try:
+            install = steammod.install_dir(appid)
+            install_dir = os.fspath(install) if install else ""
+        except Exception:
+            install_dir = ""
+        if not install_dir and gcfg is not None and gcfg.general.custom_executable:
+            exe = Path(gcfg.general.custom_executable).expanduser()
+            install_dir = str(exe.parent) if exe.name else ""
+        return install_dir
 
     @Slot(str, str, result=str)
     def addLocal(self, name: str, exe: str) -> str:
@@ -536,62 +546,80 @@ class GameListModel(QAbstractTableModel):
         """Persist the General-section fields. Returns the id, or ''."""
         data = dict(values or {})
         if not appid:
-            err = validate_local_game(
-                str(data.get("name", "")), str(data.get("custom_executable", ""))
-            )
-            if err:
-                log.warning("saveGame create rejected: %s", err)
+            cfg = self._new_local_game(data)
+            if cfg is None:
                 return ""
-            appid = cfgmod.new_local_id(str(data.get("name", "")).strip())
-            cfg = cfgmod.load_defaults()
-            cfg.general.appid = appid
-            cfg.general.name = str(data.get("name", "")).strip()
+            appid = cfg.general.appid
         else:
-            if not cfgmod.game_file(appid).is_file():
-                if not steammod.is_steam_id(appid):
-                    log.warning("saveGame(%s) rejected: unknown game", appid)
-                    return ""
-                cfg = cfgmod.load_defaults()
-                cfg.general.appid = appid
-            else:
-                try:
-                    cfg = cfgmod.load(appid)
-                except Exception as e:
-                    log.warning("saveGame(%s) failed: %s", appid, e)
-                    return ""
+            cfg = self._load_or_new(appid)
+            if cfg is None:
+                return ""
             if not steammod.is_steam_id(appid):
                 cfg.general.name = str(data.get("name", "")).strip()
         active = str(data.get("active_profile", "")).strip()
         if appid and active:
-            try:
-                known = cfgmod.list_profiles(appid)
-            except Exception:
-                known = []
-            if active not in known:
-                log.warning("saveGame(%s) rejected: unknown profile", appid)
-                return ""
-            try:
-                prof = cfgmod.load_profile(appid, active)
-            except Exception as e:
-                log.warning("saveGame(%s) failed: %s", appid, e)
-                return ""
-            prof.general.appid = appid
-            if not steammod.is_steam_id(appid):
-                prof.general.name = str(data.get("name", "")).strip()
-            self._apply_map(prof, data)
-            try:
-                cfgmod.save_profile(appid, active, prof)
-                live = cfgmod.load(appid)
-                live.general.active_profile = active
-                cfgmod.save(live)
-            except Exception as e:
-                log.warning("saveGame(%s) failed: %s", appid, e)
-                return ""
-            self.refresh()
-            return appid
+            return self._save_profile(appid, active, data)
         self._apply_map(cfg, data)
         try:
             cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("saveGame(%s) failed: %s", appid, e)
+            return ""
+        self.refresh()
+        return appid
+
+    @staticmethod
+    def _new_local_game(data: dict):
+        """Defaults config for a brand-new local game, or None when invalid."""
+        err = validate_local_game(str(data.get("name", "")), str(data.get("custom_executable", "")))
+        if err:
+            log.warning("saveGame create rejected: %s", err)
+            return None
+        name = str(data.get("name", "")).strip()
+        cfg = cfgmod.load_defaults()
+        cfg.general.appid = cfgmod.new_local_id(name)
+        cfg.general.name = name
+        return cfg
+
+    @staticmethod
+    def _load_or_new(appid: str):
+        """The saved config, defaults for an unsaved Steam id, else None."""
+        if cfgmod.game_file(appid).is_file():
+            try:
+                return cfgmod.load(appid)
+            except Exception as e:
+                log.warning("saveGame(%s) failed: %s", appid, e)
+                return None
+        if not steammod.is_steam_id(appid):
+            log.warning("saveGame(%s) rejected: unknown game", appid)
+            return None
+        cfg = cfgmod.load_defaults()
+        cfg.general.appid = appid
+        return cfg
+
+    def _save_profile(self, appid: str, active: str, data: dict) -> str:
+        """Write the form into the active profile and mark it active."""
+        try:
+            known = cfgmod.list_profiles(appid)
+        except Exception:
+            known = []
+        if active not in known:
+            log.warning("saveGame(%s) rejected: unknown profile", appid)
+            return ""
+        try:
+            prof = cfgmod.load_profile(appid, active)
+        except Exception as e:
+            log.warning("saveGame(%s) failed: %s", appid, e)
+            return ""
+        prof.general.appid = appid
+        if not steammod.is_steam_id(appid):
+            prof.general.name = str(data.get("name", "")).strip()
+        self._apply_map(prof, data)
+        try:
+            cfgmod.save_profile(appid, active, prof)
+            live = cfgmod.load(appid)
+            live.general.active_profile = active
+            cfgmod.save(live)
         except Exception as e:
             log.warning("saveGame(%s) failed: %s", appid, e)
             return ""
@@ -2567,24 +2595,35 @@ class GameFilterModel(QSortFilterProxyModel):
             return False
         index = model.index(source_row, 0, source_parent)
         appid = model.data(index, GameListModel.IdRole) or ""
-        if self._source != "all":
-            want_steam = self._source == "steam"
-            if steammod.is_steam_id(str(appid)) != want_steam:
-                return False
-        if self._text:
-            query = self._text.lower()
-            name = str(model.data(index, GameListModel.NameRole) or "").lower()
-            if query not in name and query not in str(appid).lower():
-                return False
-        if self._issues:
-            try:
-                issues = model.gameIssues(str(appid))
-            except Exception:
-                issues = []
-            if not issues:
-                return False
-        if self._category:
-            cats = str(model.data(index, GameListModel.CategoryRole) or "")
-            if self._category not in [c.strip() for c in cats.split(",")]:
-                return False
-        return True
+        return (
+            self._accepts_source(appid)
+            and self._accepts_text(model, index, appid)
+            and self._accepts_issues(model, appid)
+            and self._accepts_category(model, index)
+        )
+
+    def _accepts_source(self, appid) -> bool:
+        if self._source == "all":
+            return True
+        return steammod.is_steam_id(str(appid)) == (self._source == "steam")
+
+    def _accepts_text(self, model, index, appid) -> bool:
+        if not self._text:
+            return True
+        query = self._text.lower()
+        name = str(model.data(index, GameListModel.NameRole) or "").lower()
+        return query in name or query in str(appid).lower()
+
+    def _accepts_issues(self, model, appid) -> bool:
+        if not self._issues:
+            return True
+        try:
+            return bool(model.gameIssues(str(appid)))
+        except Exception:
+            return False
+
+    def _accepts_category(self, model, index) -> bool:
+        if not self._category:
+            return True
+        cats = str(model.data(index, GameListModel.CategoryRole) or "")
+        return self._category in [c.strip() for c in cats.split(",")]
