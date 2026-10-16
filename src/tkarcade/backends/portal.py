@@ -86,16 +86,61 @@ def _run_pick(method, title, accept_label, extra_options, timeout, _open) -> str
             pass
 
 
+def _unique_bus_name(conn, bus, new_method_call) -> str:
+    """The connection's unique name (asking the bus for it when absent)."""
+    # open_dbus_connection already said Hello: the name is on the conn.
+    unique = (getattr(conn, "unique_name", "") or "").lstrip(":").replace(".", "_")
+    if unique:
+        return unique
+    log.debug("portal: saying Hello")
+    hello = conn.send_and_get_reply(new_method_call(bus, "Hello"), timeout=10)
+    return (hello.body[0] if hello.body else "").lstrip(":").replace(".", "_")
+
+
+def _request_handle(conn, portal, method, title, options, new_method_call, message_type) -> str:
+    """Send the FileChooser call; return its request handle ("" on error)."""
+    reply = conn.send_and_get_reply(
+        new_method_call(portal, method, "ssa{sv}", ("", title, options)),
+        timeout=30,
+    )
+    if reply.header.message_type == message_type.error:
+        log.warning("portal: %s failed: %s", method, reply.body)
+        return ""
+    handle = reply.body[0] if reply.body else ""
+    if not handle or not str(handle).startswith("/"):
+        log.warning("portal: bad %s handle: %r", method, handle)
+        return ""
+    return handle
+
+
+def _await_response(conn, req_path, timeout, message_type) -> str:
+    """Wait for the portal Response signal; return the picked path or ""."""
+    deadline = time.monotonic() + max(timeout, 1.0)
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return ""
+        msg = conn.receive(timeout=remaining)
+        if msg is None:
+            return ""
+        fields = msg.header.fields
+        if (
+            msg.header.message_type == message_type.signal
+            and fields.get(1, "") == req_path
+            and fields.get(3, "") == "Response"
+            and msg.body
+        ):
+            response, results = msg.body[0], msg.body[1] if len(msg.body) > 1 else {}
+            if int(response) != 0:
+                return ""  # user cancelled (or portal gave up)
+            return _file_from_uris(_unwrap(results.get("uris")))
+
+
 def _pick_via(conn, method, title, accept_label, extra_options, timeout) -> str:
     from jeepney import DBusAddress, MessageType, new_method_call
 
     bus = DBusAddress("/org/freedesktop/DBus", "org.freedesktop.DBus", "org.freedesktop.DBus")
-    # open_dbus_connection already said Hello: the name is on the conn.
-    unique = (getattr(conn, "unique_name", "") or "").lstrip(":").replace(".", "_")
-    if not unique:
-        log.debug("portal: saying Hello")
-        hello = conn.send_and_get_reply(new_method_call(bus, "Hello"), timeout=10)
-        unique = (hello.body[0] if hello.body else "").lstrip(":").replace(".", "_")
+    unique = _unique_bus_name(conn, bus, new_method_call)
     if not unique:
         return ""
     token = f"tkarcade{random.randrange(1 << 30)}"
@@ -115,36 +160,9 @@ def _pick_via(conn, method, title, accept_label, extra_options, timeout) -> str:
     }
     options.update(extra_options)
     log.debug("portal: %s %r", method, title)
-    reply = conn.send_and_get_reply(
-        new_method_call(portal, method, "ssa{sv}", ("", title, options)),
-        timeout=30,
-    )
-    if reply.header.message_type == MessageType.error:
-        log.warning("portal: %s failed: %s", method, reply.body)
-        return ""
-    handle = reply.body[0] if reply.body else ""
-    if not handle or not str(handle).startswith("/"):
-        log.warning("portal: bad %s handle: %r", method, handle)
+    handle = _request_handle(conn, portal, method, title, options, new_method_call, MessageType)
+    if not handle:
         return ""
     # The reply handle is the request path (spec); trust it over our guess.
-    req_path = handle
-    log.debug("portal: waiting for Response on %s", req_path)
-    deadline = time.monotonic() + max(timeout, 1.0)
-    while True:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return ""
-        msg = conn.receive(timeout=remaining)
-        if msg is None:
-            return ""
-        fields = msg.header.fields
-        if (
-            msg.header.message_type == MessageType.signal
-            and fields.get(1, "") == req_path
-            and fields.get(3, "") == "Response"
-            and msg.body
-        ):
-            response, results = msg.body[0], msg.body[1] if len(msg.body) > 1 else {}
-            if int(response) != 0:
-                return ""  # user cancelled (or portal gave up)
-            return _file_from_uris(_unwrap(results.get("uris")))
+    log.debug("portal: waiting for Response on %s", handle)
+    return _await_response(conn, handle, timeout, MessageType)
