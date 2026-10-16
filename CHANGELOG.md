@@ -139,6 +139,12 @@ Breaking config changes are called out explicitly under `Changed`.
   QML pass plus `lrelease6`.
 
 ### Fixed
+- `--edit` and `--menu` opened nothing and hung until Ctrl+C: the editor
+  child (`gui/edit.py`) set up `Editor.qml` and jumped straight into
+  `app.exec()` without calling the host's `start()`, which is what creates
+  the settings/picker/pre-launch window. The offscreen QML harness called
+  `start()` itself, so the suite stayed green while the real CLI flows
+  froze.
 - Steam library scan reads the legacy `libraryfolders.vdf` layout too
   (capitalized root key, bare `"1" "/path"` strings): secondary
   libraries no longer vanish on old Steam installs, with or without

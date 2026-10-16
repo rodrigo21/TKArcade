@@ -91,6 +91,12 @@ def run_editor(appid: str, menu: bool = False, can_launch: bool = True, pick: bo
     root.setProperty("canLaunch", bool(can_launch))
     root.setProperty("pick", bool(pick))
     root.setProperty("timeout", menu_timeout(appid) if menu else 0)
+    # Editor.qml is an invisible 1x1 host: start() is what creates the real
+    # window (settings, picker or pre-launch menu). Without this call the
+    # child opens nothing and app.exec() waits forever -- the CLI --edit and
+    # --menu flows hung until Ctrl+C while the QML harness (which calls
+    # start() itself) stayed green.
+    root.start()
     app.exec()
     return result["outcome"], result["appid"]
 

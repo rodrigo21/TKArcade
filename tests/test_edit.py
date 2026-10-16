@@ -88,6 +88,41 @@ def test_main_reports_unavailable_when_the_ui_cannot_load(monkeypatch):
     assert edit.main(["--appid", "7"]) == 2
 
 
+def test_run_editor_actually_starts_the_qml_host(qgui_app, xdg_env, monkeypatch):
+    """The real --edit/--menu path must call Editor.qml's start().
+
+    Regression: run_editor set the properties and went straight into
+    app.exec(), never calling start(), so the CLI flows opened nothing and
+    hung until Ctrl+C. The QML harness (kirigami_qml_cases) calls start()
+    itself, which is why the suite stayed green. start() is what fills the
+    host's `settings` property.
+    """
+    from PySide6.QtCore import QTimer
+
+    from tkarcade.gui import edit, kirigami_app
+
+    captured = {}
+    real_build = kirigami_app.build_engine
+
+    def build(name="main.qml"):
+        engine, model, game_filter = real_build(name)
+        roots = engine.rootObjects()
+        captured["engine"] = engine  # keeps root (and its windows) alive
+        captured["root"] = roots[0] if roots else None
+        return engine, model, game_filter
+
+    # run_editor imports build_engine from the module, so patching it here
+    # reaches the production call site.
+    monkeypatch.setattr(kirigami_app, "build_engine", build)
+    # start() builds the window before app.exec(); a watchdog quit lets the
+    # test inspect the host without waiting for a user decision.
+    QTimer.singleShot(0, qgui_app.quit)
+    edit.run_editor("7", menu=False, can_launch=True)
+    root = captured["root"]
+    assert root is not None, "Editor.qml did not load"
+    assert root.property("settings") is not None, "Editor.qml start() never ran"
+
+
 def test_menu_timeout_comes_from_the_config(xdg_env):
     from tkarcade import config as C
     from tkarcade.gui import edit
