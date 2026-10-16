@@ -162,77 +162,52 @@ def verbose_requested(argv: list[str] | None = None) -> bool:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Run the Kirigami application (list, add and launch local games)."""
-    import logging
+def _debug_geometry() -> None:
+    """Print the themed icon inventory when TKARCADE_DEBUG_GEOMETRY=1."""
+    if os.environ.get("TKARCADE_DEBUG_GEOMETRY") != "1":
+        return
+    from PySide6.QtGui import QIcon
 
-    from PySide6.QtWidgets import QApplication
+    names = [
+        "view-list-details",
+        "view-list-icons",
+        "view-grid",
+        "view-column",
+        "table",
+        "overflow-menu",
+        "sidebar-collapse-left",
+        "media-playback-start",
+        "list-add",
+        "document-edit",
+        "edit-delete",
+        "input-gamepad",
+        "go-down",
+        "go-up",
+    ]
+    print("TKARCADE_ICONS theme=" + QIcon.themeName(), flush=True)
+    for name in names:
+        icon = QIcon.fromTheme(name)
+        sizes = sorted({s.width() for s in icon.availableSizes()})
+        pixnull = icon.pixmap(22, 22).isNull()
+        print(
+            "TKARCADE_ICONS "
+            + name
+            + "="
+            + ("ok" if QIcon.hasThemeIcon(name) else "MISSING")
+            + " sizes="
+            + ",".join(map(str, sizes))
+            + " nullpix="
+            + str(pixnull),
+            flush=True,
+        )
 
-    log = logging.getLogger("tkarcade.kirigami")
-    if verbose_requested(argv):
-        logging.basicConfig(level=logging.DEBUG)
-    if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
-        os.environ["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
-    # A QApplication, not a QGuiApplication: on Plasma the platform theme
-    # supplies the tray icon through KStatusNotifierItem, whose constructor
-    # creates a QMenu -- a QWidget -- so QSystemTrayIcon.show() aborts the
-    # process ("Cannot create a QWidget without QApplication") under a
-    # QGuiApplication. Measured on Plasma 6/Wayland; see TODO.md. The UI
-    # stays QML: tests/test_no_widgets.py still bans every widget class
-    # from the tree but this application object.
-    app = QApplication(sys.argv if argv is None else argv)
-    app.setApplicationName("TKArcade")
-    app.setOrganizationName("TKArcade")
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-    # Before the UI: a follower has nothing to build, it just wakes the
-    # primary (which may be sitting in the tray) and exits 0.
-    server = single_instance()
-    if server is None:
-        log.info("another instance is already running; asked it to show itself")
-        return 0
-    if os.environ.get("TKARCADE_DEBUG_GEOMETRY") == "1":
-        from PySide6.QtGui import QIcon
 
-        names = [
-            "view-list-details",
-            "view-list-icons",
-            "view-grid",
-            "view-column",
-            "table",
-            "overflow-menu",
-            "sidebar-collapse-left",
-            "media-playback-start",
-            "list-add",
-            "document-edit",
-            "edit-delete",
-            "input-gamepad",
-            "go-down",
-            "go-up",
-        ]
-        print("TKARCADE_ICONS theme=" + QIcon.themeName(), flush=True)
-        for name in names:
-            icon = QIcon.fromTheme(name)
-            sizes = sorted({s.width() for s in icon.availableSizes()})
-            pixnull = icon.pixmap(22, 22).isNull()
-            print(
-                "TKARCADE_ICONS "
-                + name
-                + "="
-                + ("ok" if QIcon.hasThemeIcon(name) else "MISSING")
-                + " sizes="
-                + ",".join(map(str, sizes))
-                + " nullpix="
-                + str(pixnull),
-                flush=True,
-            )
-    engine, model, _game_filter = build_engine("main.qml")
-    if not engine.rootObjects():
-        print("tkarcade: could not load the Kirigami interface", file=sys.stderr)
-        return 1
-    root = engine.rootObjects()[0]
-    model.watchQuitKeys(root)
-    server.newConnection.connect(lambda: show_requested(server, root))
+def _tray_callbacks(root, log) -> dict:
+    """Callbacks the native tray menu entries trigger (gui/tray.py).
 
+    Each one is best-effort: a failing tray action must never take the
+    shell down with it.
+    """
     from PySide6.QtCore import QObject
 
     def toggle_visible() -> None:
@@ -263,19 +238,61 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             log.warning("tray defaults failed: %s", e)
 
-    from .tray import TrayController
-
-    # The tray context menu is a native QMenu (gui/tray.py): these are the
-    # callbacks its entries trigger.
-    model._tray_actions = {
+    return {
         "toggle": toggle_visible,
         "prefs": open_prefs,
         "about": open_about,
         "defaults": open_defaults,
-        # Same as Ctrl+Q: quits without going through onClosing, so
-        # Close-to-tray can never swallow the tray quit.
-        "quit": app.quit,
     }
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the Kirigami application (list, add and launch local games)."""
+    import logging
+
+    from PySide6.QtWidgets import QApplication
+
+    log = logging.getLogger("tkarcade.kirigami")
+    if verbose_requested(argv):
+        logging.basicConfig(level=logging.DEBUG)
+    if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
+        os.environ["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
+    # A QApplication, not a QGuiApplication: on Plasma the platform theme
+    # supplies the tray icon through KStatusNotifierItem, whose constructor
+    # creates a QMenu -- a QWidget -- so QSystemTrayIcon.show() aborts the
+    # process ("Cannot create a QWidget without QApplication") under a
+    # QGuiApplication. Measured on Plasma 6/Wayland; see TODO.md. The UI
+    # stays QML: tests/test_no_widgets.py still bans every widget class
+    # from the tree but this application object.
+    app = QApplication(sys.argv if argv is None else argv)
+    app.setApplicationName("TKArcade")
+    app.setOrganizationName("TKArcade")
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    # Before the UI: a follower has nothing to build, it just wakes the
+    # primary (which may be sitting in the tray) and exits 0.
+    server = single_instance()
+    if server is None:
+        log.info("another instance is already running; asked it to show itself")
+        return 0
+    _debug_geometry()
+    engine, model, _game_filter = build_engine("main.qml")
+    if not engine.rootObjects():
+        print("tkarcade: could not load the Kirigami interface", file=sys.stderr)
+        return 1
+    root = engine.rootObjects()[0]
+    model.watchQuitKeys(root)
+    server.newConnection.connect(lambda: show_requested(server, root))
+
+    # The tray context menu is a native QMenu (gui/tray.py): these are the
+    # callbacks its entries trigger.
+    actions = _tray_callbacks(root, log)
+    # Same as Ctrl+Q: quits without going through onClosing, so
+    # Close-to-tray can never swallow the tray quit.
+    actions["quit"] = app.quit
+    model._tray_actions = actions
+
+    from .tray import TrayController
+
     tray = TrayController(model)
     model._tray_refresher = tray.apply
     model.setTrayActive(tray.apply())
