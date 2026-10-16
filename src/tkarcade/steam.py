@@ -52,31 +52,30 @@ def loads_kv1(text: str) -> dict | None:
         return None
 
 
-def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
-    """Parse libraryfolders.vdf without deps (KV1 subset). Returns library paths."""
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except Exception:
-        return []
-    data = loads_kv1(text)
-    if data is not None:
-        libs: dict = {}
-        for root_key in ("libraryfolders", "LibraryFolders"):
-            section = data.get(root_key)
-            if isinstance(section, dict):
-                libs = section
-                break
-        out = []
-        for v in libs.values():
-            if isinstance(v, dict) and "path" in v:
-                out.append(Path(str(v["path"])))
-            elif isinstance(v, str) and v.strip():
-                # Legacy layout stores libraries as bare strings
-                # ("1" "/mnt/steam") instead of {"path": ...} dicts.
-                out.append(Path(v.strip()))
-        return [p for p in out if p.exists()]
-    # fallback: crude "path" "..." extraction (modern dict layout), plus
-    # legacy numeric-key pairs ("1" "/mnt/steam").
+def _vdf_library_section(data: dict) -> dict:
+    """The libraries dict, whichever root key the file uses."""
+    for root_key in ("libraryfolders", "LibraryFolders"):
+        section = data.get(root_key)
+        if isinstance(section, dict):
+            return section
+    return {}
+
+
+def _section_paths(libs: dict) -> list[Path]:
+    """Existing paths in a parsed section (dicts, or legacy bare strings)."""
+    out = []
+    for v in libs.values():
+        if isinstance(v, dict) and "path" in v:
+            out.append(Path(str(v["path"])))
+        elif isinstance(v, str) and v.strip():
+            # Legacy layout stores libraries as bare strings
+            # ("1" "/mnt/steam") instead of {"path": ...} dicts.
+            out.append(Path(v.strip()))
+    return [p for p in out if p.exists()]
+
+
+def _regex_paths(text: str) -> list[Path]:
+    """Fallback extraction: `"path"` values plus legacy numeric-key pairs."""
     out = []
     for m in re.finditer(r'"path"\s+"([^"]+)"', text):
         p = Path(m.group(1))
@@ -87,6 +86,18 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
         if p.exists() and p not in out:
             out.append(p)
     return out
+
+
+def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
+    """Parse libraryfolders.vdf without deps (KV1 subset). Returns library paths."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+    data = loads_kv1(text)
+    if data is None:
+        return _regex_paths(text)
+    return _section_paths(_vdf_library_section(data))
 
 
 def library_paths() -> list[Path]:
