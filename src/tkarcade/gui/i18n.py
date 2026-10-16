@@ -42,6 +42,44 @@ def available_languages() -> list[tuple[str, str]]:
     return out
 
 
+def _candidate_locales(choice: str) -> list[str]:
+    """Locale codes to try, in order ([] means run untranslated)."""
+    if choice.lower() in ("en", "c"):
+        return []
+    if choice and choice != "system":
+        return [choice]
+    locale = QLocale.system().name()
+    candidates = [locale]
+    if "_" in locale:
+        candidates.append(locale.split("_")[0])
+    return candidates
+
+
+def _load_translator(pkg_files, lang: str):
+    """Load the bundled catalog for lang, or None if it is absent/broken."""
+    from importlib import resources
+
+    try:
+        ref = pkg_files.joinpath(f"tkarcade_{lang}.qm")
+        if not ref.is_file():
+            return None
+        with resources.as_file(ref) as path:
+            translator = QTranslator()
+            if not translator.load(str(path)):
+                return None
+    except Exception:
+        return None
+    return translator
+
+
+def _already_installed(app, translator) -> bool:
+    """True when this app already carries a translator of the same language."""
+    return any(
+        installed_app is app and t.language() == translator.language()
+        for installed_app, t in _translators
+    )
+
+
 def install_translations(app, language: str = "") -> str:
     """Install the matching bundled translator, if any.
 
@@ -52,37 +90,18 @@ def install_translations(app, language: str = "") -> str:
     """
     from importlib import resources
 
-    choice = (language or "").strip()
-    if choice.lower() in ("en", "c"):
+    candidates = _candidate_locales((language or "").strip())
+    if not candidates:
         return ""
-    if choice and choice != "system":
-        candidates = [choice]
-    else:
-        locale = QLocale.system().name()
-        candidates = [locale]
-        if "_" in locale:
-            candidates.append(locale.split("_")[0])
     try:
         pkg_files = resources.files("tkarcade.translations")
     except Exception:
         return ""
     for lang in candidates:
-        name = f"tkarcade_{lang}.qm"
-        try:
-            ref = pkg_files.joinpath(name)
-            if not ref.is_file():
-                continue
-            with resources.as_file(ref) as path:
-                translator = QTranslator()
-                if not translator.load(str(path)):
-                    continue
-        except Exception:
+        translator = _load_translator(pkg_files, lang)
+        if translator is None or _already_installed(app, translator):
             continue
-        if not any(
-            installed_app is app and t.language() == translator.language()
-            for installed_app, t in _translators
-        ):
-            app.installTranslator(translator)
-            _translators.append((app, translator))
-            return lang
+        app.installTranslator(translator)
+        _translators.append((app, translator))
+        return lang
     return ""
