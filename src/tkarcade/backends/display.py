@@ -157,6 +157,11 @@ def _mode_number(modes: list[_Mode], want: tuple[int, int, float | None]) -> int
     return None
 
 
+def _plasma_spec(mode: _Mode) -> str:
+    """kscreen-doctor mode spec: the N: index when known, else WxH@R."""
+    return str(mode.num) if mode.num is not None else f"{mode.w}x{mode.h}@{mode.rate:g}"
+
+
 #: Seconds on the dip mode before returning (AMD VRAM clock workaround).
 #: Generous so the dip is actually observable; tune down if annoying.
 DIP_SECONDS = 8
@@ -275,101 +280,34 @@ class DisplaySession:
         return next(iter(outputs), None)
 
     def _start_plasma(self, want: tuple[int, int, float | None]) -> list[str]:
-        if not shutil.which("kscreen-doctor"):
-            return ["kscreen-doctor not found, skipping display mode"]
-        try:
-            outputs = current_plasma()
-        except Exception as e:
-            return [f"could not read outputs: {e}"]
-        name = self._pick_output(outputs)
-        if name is None:
-            avail = ", ".join(sorted(outputs)) or "none detected"
-            return [f"output {self.output!r} not found (available: {avail})"]
-        if not _match_mode(outputs[name], want):
-            return [f"mode {self.mode} not offered by {name}; leaving display untouched"]
-        prev = next((m for m in outputs[name] if m.current), None)
-        num = _mode_number(outputs[name], want)
+        name, prev, modes, error = self._prepare_output("kscreen-doctor", current_plasma, want)
+        if error:
+            return error
+        num = _mode_number(modes, want)
         target = str(num) if num is not None else self.mode
-        specs = [target]
+        cmds = [["kscreen-doctor", f"output.{name}.mode.{target}"]]
         if _wants_current(want, prev):
             # Already there (e.g. AMD VRAM clock stuck): dip one mode
             # down and back so the switch actually happens.
-            dip = _dip_candidate(outputs[name], prev)
-            if dip is None:
-                log.warning("display: already on %s; no lower mode to dip through", self.mode)
-            else:
-                dip_spec = str(dip.num) if dip.num is not None else f"{dip.w}x{dip.h}@{dip.rate:g}"
-                log.info("display: target is current; dipping through %s first", dip_spec)
-                specs.insert(0, dip_spec)
-        try:
-            for i, spec in enumerate(specs):
-                try:
-                    r = subprocess.run(
-                        ["kscreen-doctor", f"output.{name}.mode.{spec}"],
-                        capture_output=True,
-                        text=True,
-                        timeout=15,
-                    )
-                except FileNotFoundError:
-                    if i > 0:
-                        self.stop()
-                    return ["kscreen-doctor not found, skipping display mode"]
-                except Exception as e:
-                    if i > 0:
-                        self.stop()
-                    return [f"failed to set display mode: {e}"]
-                if r.returncode != 0:
-                    if i > 0:
-                        self.stop()
-                    return [f"kscreen-doctor failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
-                if self._prev is None and prev is not None and i < len(specs) - 1:
-                    # The dip (specs[0]) applied: the restore point is known
-                    # from here on, so a later failure must undo it.
-                    self._prev = (
-                        "plasma",
-                        name,
-                        str(prev.num)
-                        if prev.num is not None
-                        else f"{prev.w}x{prev.h}@{prev.rate:g}",
-                        None,
-                    )
-                if i < len(specs) - 1:
-                    time.sleep(self.dip_seconds)
-        except BaseException:
-            # Interrupted mid-dip (SIGTERM/Ctrl-C): never leave the dip live.
-            self.stop()
-            raise
-        if prev is not None:
-            if self._prev is None:
-                self._prev = (
-                    "plasma",
-                    name,
-                    str(prev.num) if prev.num is not None else f"{prev.w}x{prev.h}@{prev.rate:g}",
-                    None,
-                )
-            log.info("display: %s -> %s on %s (plasma)", self._prev[2], target, name)
-        else:
-            log.warning(
-                "display: current mode of %s not detected; applied %s without restore",
-                name,
-                spec,
-            )
-        return []
+            dip_spec = self._plasma_dip_spec(modes, prev)
+            if dip_spec is not None:
+                cmds.insert(0, ["kscreen-doctor", f"output.{name}.mode.{dip_spec}"])
+        return self._apply_cmds("plasma", name, prev, cmds, "kscreen-doctor", target)
+
+    def _plasma_dip_spec(self, modes: list[_Mode], prev: _Mode) -> str | None:
+        """Spec to dip through when the requested mode is already current."""
+        dip = _dip_candidate(modes, prev)
+        if dip is None:
+            log.warning("display: already on %s; no lower mode to dip through", self.mode)
+            return None
+        spec = _plasma_spec(dip)
+        log.info("display: target is current; dipping through %s first", spec)
+        return spec
 
     def _start_x11(self, want: tuple[int, int, float | None]) -> list[str]:
-        if not shutil.which("xrandr"):
-            return ["xrandr not found, skipping display mode"]
-        try:
-            outputs = current_x11()
-        except Exception as e:
-            return [f"could not read outputs: {e}"]
-        name = self._pick_output(outputs)
-        if name is None:
-            avail = ", ".join(sorted(outputs)) or "none detected"
-            return [f"output {self.output!r} not found (available: {avail})"]
-        if not _match_mode(outputs[name], want):
-            return [f"mode {self.mode} not offered by {name}; leaving display untouched"]
-        prev = next((m for m in outputs[name] if m.current), None)
+        name, prev, modes, error = self._prepare_output("xrandr", current_x11, want)
+        if error:
+            return error
         ww, hh, wr = want
         cmds = [
             [
@@ -382,68 +320,121 @@ class DisplaySession:
             ]
         ]
         if _wants_current(want, prev):
-            dip = _dip_candidate(outputs[name], prev)
-            if dip is None:
-                log.warning("display: already on %s; no lower mode to dip through", self.mode)
-            else:
-                dip_cmd = [
-                    "xrandr",
-                    "--output",
-                    name,
-                    "--mode",
-                    f"{dip.w}x{dip.h}",
-                    "--rate",
-                    f"{dip.rate:g}",
-                ]
-                log.info(
-                    "display: target is current; dipping through %sx%s@%s first",
-                    dip.w,
-                    dip.h,
-                    f"{dip.rate:g}",
-                )
+            dip_cmd = self._x11_dip_cmd(name, modes, prev)
+            if dip_cmd is not None:
                 cmds.insert(0, dip_cmd)
+        return self._apply_cmds("x11", name, prev, cmds, "xrandr", self.mode)
+
+    def _x11_dip_cmd(self, name: str, modes: list[_Mode], prev: _Mode) -> list[str] | None:
+        """xrandr argv to dip through when the requested mode is current."""
+        dip = _dip_candidate(modes, prev)
+        if dip is None:
+            log.warning("display: already on %s; no lower mode to dip through", self.mode)
+            return None
+        log.info(
+            "display: target is current; dipping through %sx%s@%s first",
+            dip.w,
+            dip.h,
+            f"{dip.rate:g}",
+        )
+        return [
+            "xrandr",
+            "--output",
+            name,
+            "--mode",
+            f"{dip.w}x{dip.h}",
+            "--rate",
+            f"{dip.rate:g}",
+        ]
+
+    def _prepare_output(
+        self, tool: str, reader, want: tuple[int, int, float | None]
+    ) -> tuple[str, _Mode | None, list[_Mode], list[str]]:
+        """Tool check, output choice and current mode (shared by providers).
+
+        Returns (name, prev, modes, error); error is non-empty when the
+        caller should return it as-is.
+        """
+        if not shutil.which(tool):
+            return "", None, [], [f"{tool} not found, skipping display mode"]
+        try:
+            outputs = reader()
+        except Exception as e:
+            return "", None, [], [f"could not read outputs: {e}"]
+        name = self._pick_output(outputs)
+        if name is None:
+            avail = ", ".join(sorted(outputs)) or "none detected"
+            return "", None, [], [f"output {self.output!r} not found (available: {avail})"]
+        modes = outputs[name]
+        if not _match_mode(modes, want):
+            return (
+                "",
+                None,
+                [],
+                [f"mode {self.mode} not offered by {name}; leaving display untouched"],
+            )
+        return name, next((m for m in modes if m.current), None), modes, []
+
+    def _apply_cmds(
+        self, kind: str, name: str, prev: _Mode | None, cmds: list[list[str]], tool: str, label: str
+    ) -> list[str]:
+        """Run each command in order (a dip first when restoring is needed)."""
         try:
             for i, cmd in enumerate(cmds):
-                try:
-                    r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                except FileNotFoundError:
-                    if i > 0:
-                        self.stop()
-                    return ["xrandr not found, skipping display mode"]
-                except Exception as e:
-                    if i > 0:
-                        self.stop()
-                    return [f"failed to set display mode: {e}"]
-                if r.returncode != 0:
-                    if i > 0:
-                        self.stop()
-                    return [f"xrandr failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
+                error = self._run_mode_cmd(cmd, i > 0, tool)
+                if error is not None:
+                    return error
                 if self._prev is None and prev is not None and i < len(cmds) - 1:
                     # The dip (cmds[0]) applied: the restore point is known
                     # from here on, so a later failure must undo it.
-                    self._prev = ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
+                    self._prev = self._restore_point(kind, name, prev)
                 if i < len(cmds) - 1:
                     time.sleep(self.dip_seconds)
         except BaseException:
             # Interrupted mid-dip (SIGTERM/Ctrl-C): never leave the dip live.
             self.stop()
             raise
-        if prev is not None:
-            if self._prev is None:
-                self._prev = ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
-            log.info(
-                "display: %s -> %s on %s (x11)",
-                f"{prev.w}x{prev.h}@{prev.rate:g}",
-                self.mode,
-                name,
-            )
-        else:
+        self._log_applied(kind, name, prev, label)
+        return []
+
+    def _run_mode_cmd(self, cmd: list[str], is_dip: bool, tool: str) -> list[str] | None:
+        """Run one mode command: None on success, an error list otherwise."""
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        except FileNotFoundError:
+            if is_dip:
+                self.stop()
+            return [f"{tool} not found, skipping display mode"]
+        except Exception as e:
+            if is_dip:
+                self.stop()
+            return [f"failed to set display mode: {e}"]
+        if r.returncode != 0:
+            if is_dip:
+                self.stop()
+            return [f"{tool} failed: {(r.stderr or r.stdout or '').strip()[:200]}"]
+        return None
+
+    @staticmethod
+    def _restore_point(kind: str, name: str, prev: _Mode) -> tuple[str, str, str, str | None]:
+        """The `_prev` tuple `stop()` uses to undo the switch."""
+        if kind == "plasma":
+            return ("plasma", name, _plasma_spec(prev), None)
+        return ("x11", name, f"{prev.w}x{prev.h}", f"{prev.rate:g}")
+
+    def _log_applied(self, kind: str, name: str, prev: _Mode | None, label: str) -> None:
+        """Log the applied switch, or warn when there is no restore point."""
+        if prev is None:
             log.warning(
                 "display: current mode of %s not detected; applied %s without restore",
                 name,
-                self.mode,
+                label,
             )
-        return []
+            return
+        if self._prev is None:
+            self._prev = self._restore_point(kind, name, prev)
+        from_label = _plasma_spec(prev) if kind == "plasma" else f"{prev.w}x{prev.h}@{prev.rate:g}"
+        log.info("display: %s -> %s on %s (%s)", from_label, label, name, kind)
 
     def stop(self) -> None:
         self._started = False
