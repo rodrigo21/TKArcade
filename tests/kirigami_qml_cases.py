@@ -4,8 +4,6 @@ import PySide6.QtQuickControls2  # noqa: F401 (registers QQC2 wrappers)
 
 OFFSCREEN_NOISE = ("was not placed in the graphics scene",)
 
-OFFSCREEN_NOISE = ("was not placed in the graphics scene",)
-
 
 def test_main_qml_loads_with_model(qgui_app, xdg_env):
     from PySide6.QtCore import QUrl
