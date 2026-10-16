@@ -67,67 +67,80 @@ class NightlightSession:
         self._started = False
 
     def start(self) -> list[str]:
-        warnings: list[str] = []
         if self._started:
-            return warnings  # idempotent: never spawn a second holder
+            return []  # idempotent: never spawn a second holder
         self._started = True
         if self.provider == NightlightProvider.OFF:
-            return warnings
+            return []
         if self.provider == NightlightProvider.GNOME:
-            if not shutil.which("gsettings"):
-                return ["gsettings not found, skipping night light"]
-            self._gnome_prev = _read_gnome()
-            try:
-                subprocess.run(
-                    [
-                        "gsettings",
-                        "set",
-                        "org.gnome.settings-daemon.plugins.color",
-                        "night-light-enabled",
-                        "false",
-                    ],
-                    timeout=5,
-                )
-            except Exception as e:
-                warnings.append(f"failed to disable GNOME night light: {e}")
-            return warnings
+            return self._start_gnome()
         if self.provider == NightlightProvider.PLASMA:
-            # spawn persistent holder (jeepney-based)
-            try:
-                self._holder = subprocess.Popen(
-                    [sys.executable, "-m", "tkarcade.nightlight_holder"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                )
-                # holder prints "cookie=N" on success; give it a moment
-                deadline = time.time() + 5
-                cookie_seen = False
-                assert self._holder.stdout is not None
-                while time.time() < deadline:
-                    if self._holder.poll() is not None:
-                        out = self._holder.stdout.read()
-                        warnings.append(f"nightlight holder exited early: {out.strip()}")
-                        self._holder = None
-                        break
-                    r, _, _ = select.select([self._holder.stdout], [], [], 0.5)
-                    if r:
-                        line = self._holder.stdout.readline()
-                        log.info("nightlight holder: %s", line.strip())
-                        if "cookie=" in line:
-                            cookie_seen = True
-                            break
-                    else:
-                        continue
-                if self._holder is not None and not cookie_seen:
-                    # holder may still be running but silent; keep it, warn
-                    log.warning("nightlight holder did not confirm cookie in time")
-            except FileNotFoundError:
-                warnings.append("python executable not found for nightlight holder")
-            except Exception as e:
-                warnings.append(f"failed to start nightlight holder: {e}")
-            return warnings
+            return self._start_holder()
         return [f"unknown nightlight provider: {self.provider}"]
+
+    def _start_gnome(self) -> list[str]:
+        """Disable GNOME's night light, remembering the previous value."""
+        if not shutil.which("gsettings"):
+            return ["gsettings not found, skipping night light"]
+        self._gnome_prev = _read_gnome()
+        try:
+            subprocess.run(
+                [
+                    "gsettings",
+                    "set",
+                    "org.gnome.settings-daemon.plugins.color",
+                    "night-light-enabled",
+                    "false",
+                ],
+                timeout=5,
+            )
+        except Exception as e:
+            return [f"failed to disable GNOME night light: {e}"]
+        return []
+
+    def _start_holder(self) -> list[str]:
+        """Spawn the persistent Plasma holder and wait for its cookie."""
+        try:
+            self._holder = subprocess.Popen(
+                [sys.executable, "-m", "tkarcade.nightlight_holder"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+        except FileNotFoundError:
+            return ["python executable not found for nightlight holder"]
+        except Exception as e:
+            return [f"failed to start nightlight holder: {e}"]
+        try:
+            return self._await_cookie()
+        except Exception as e:
+            return [f"failed to start nightlight holder: {e}"]
+
+    def _await_cookie(self) -> list[str]:
+        """Watch the holder for its "cookie=N" line (or an early exit)."""
+        assert self._holder is not None
+        stdout = self._holder.stdout
+        assert stdout is not None
+        deadline = time.time() + 5
+        cookie_seen = False
+        warnings: list[str] = []
+        while time.time() < deadline:
+            if self._holder.poll() is not None:
+                warnings.append(f"nightlight holder exited early: {stdout.read().strip()}")
+                self._holder = None
+                break
+            ready, _, _ = select.select([stdout], [], [], 0.5)
+            if not ready:
+                continue
+            line = stdout.readline()
+            log.info("nightlight holder: %s", line.strip())
+            if "cookie=" in line:
+                cookie_seen = True
+                break
+        if self._holder is not None and not cookie_seen:
+            # holder may still be running but silent; keep it, warn
+            log.warning("nightlight holder did not confirm cookie in time")
+        return warnings
 
     def stop(self) -> None:
         self._started = False
