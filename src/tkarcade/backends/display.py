@@ -443,38 +443,38 @@ class DisplaySession:
         kind, name, mode, rate = self._prev
         self._prev = None
         try:
-            if kind == "plasma":
-                if not shutil.which("kscreen-doctor"):
-                    log.warning("display: kscreen-doctor gone, cannot restore %s", mode)
-                    return
-                cmd = ["kscreen-doctor", f"output.{name}.mode.{mode}"]
-                r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                if r.returncode != 0:
-                    log.warning(
-                        "display: restore %s failed: %s",
-                        mode,
-                        (r.stderr or r.stdout or "").strip()[:200],
-                    )
-                else:
-                    log.info("display: restored %s on %s", mode, name)
-            elif kind == "x11":
-                if not shutil.which("xrandr"):
-                    log.warning("display: xrandr gone, cannot restore %s", mode)
-                    return
-                cmd = ["xrandr", "--output", name, "--mode", mode]
-                if rate is not None:
-                    cmd += ["--rate", rate]
-                r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                if r.returncode != 0:
-                    log.warning(
-                        "display: restore %s failed: %s",
-                        mode,
-                        (r.stderr or r.stdout or "").strip()[:200],
-                    )
-                else:
-                    log.info("display: restored %s on %s", mode, name)
+            cmd = self._restore_cmd(kind, name, mode, rate)
+            if cmd is None:
+                return
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            if r.returncode != 0:
+                log.warning(
+                    "display: restore %s failed: %s",
+                    mode,
+                    (r.stderr or r.stdout or "").strip()[:200],
+                )
+            else:
+                log.info("display: restored %s on %s", mode, name)
         except Exception as e:
             log.error("failed to restore display mode: %s", e)
+
+    @staticmethod
+    def _restore_cmd(kind: str, name: str, mode: str, rate: str | None) -> list[str] | None:
+        """Tool command that restores the saved mode (None when unusable)."""
+        if kind == "plasma":
+            if not shutil.which("kscreen-doctor"):
+                log.warning("display: kscreen-doctor gone, cannot restore %s", mode)
+                return None
+            return ["kscreen-doctor", f"output.{name}.mode.{mode}"]
+        if kind == "x11":
+            if not shutil.which("xrandr"):
+                log.warning("display: xrandr gone, cannot restore %s", mode)
+                return None
+            cmd = ["xrandr", "--output", name, "--mode", mode]
+            if rate is not None:
+                cmd += ["--rate", rate]
+            return cmd
+        return None
 
     def __enter__(self) -> DisplaySession:
         for w in self.start():
