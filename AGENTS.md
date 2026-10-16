@@ -26,10 +26,10 @@ License: GPL-3.0-or-later.
 ## Verify before finishing
 
 ```bash
-python3 -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q
 ruff check src/ tests/
 ruff format --check src/ tests/  # line-length 100, see pyproject.toml
-QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -c "..."  # GUI smoke
+QT_QPA_PLATFORM=offscreen PYTHONPATH=src .venv/bin/python -c "..."  # GUI smoke
 ```
 
 The suite must pass with and without `pytest-qt` installed: never

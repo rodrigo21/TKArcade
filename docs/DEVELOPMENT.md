@@ -8,12 +8,18 @@ packages only (no uv in the chroot).
 
 ```bash
 uv venv --system-site-packages .venv
-uv pip install --python .venv/bin/python --no-deps .
-python3 -m pytest tests/ -q
+uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
+.venv/bin/python -m pytest tests/ -q
 ruff check src/ tests/
 ruff format --check src/ tests/  # line-length 100, see pyproject.toml
-QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -c "..."  # GUI smoke
+QT_QPA_PLATFORM=offscreen PYTHONPATH=src .venv/bin/python -c "..."  # GUI smoke
 ```
+
+`-e` keeps `./.venv/bin/tkarcade` on the live tree and
+`--no-build-isolation` reuses the system build backend. `--no-deps` is
+load-bearing: without it uv installs its own PySide6 into the venv,
+which shadows the distro one and makes Qt miss the system QML modules
+(`module "org.kde.kirigami" is not installed`).
 
 The suite must pass with and without `pytest-qt` installed: never
 monkeypatch Qt globals at fixture scope (patch inside the test body so
