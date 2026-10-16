@@ -49,6 +49,10 @@ rewrite pushed history or tags.
 - Message + `Co-Authored-By: OpenCode <noreply@opencode.ai>` trailer.
 - `AI-Model:` trailer comes from `.opencode-model` (gitignored) via the
   `scripts/git-hooks/commit-msg` hook (`core.hooksPath` is set repo-local).
+- Keep `opencode.json` in sync with the models actually in use: root
+  `model` is the default for new sessions, `agents.build.model` is the
+  build agent (only the agent field takes a `#variant`). Update both, plus
+  `.opencode-model`, when the model changes.
 - User-facing changes get a `CHANGELOG.md` entry under Unreleased, with
   explicit **BREAKING** notes.
 
