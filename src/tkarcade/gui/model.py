@@ -1692,26 +1692,29 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             api_key = ""
         for appid in cfgmod.list_appids():
-            if not steammod.is_steam_id(str(appid)):
-                continue
-            try:
-                data, fresh = pdbmod.cached(appid)
-            except Exception:
-                continue
-            if not fresh:
-                try:
-                    pdbmod.refresh(appid)
-                except Exception:
-                    continue
-            if api_key and artmod.resolve_icon(appid) is None:
-                try:
-                    artmod.fetch_missing(appid, api_key)
-                except Exception:
-                    continue
+            if steammod.is_steam_id(str(appid)):
+                self._fetch_one(appid, api_key)
         try:
             self.backgroundDone.emit()
         except Exception:
             pass
+
+    def _fetch_one(self, appid, api_key: str) -> None:
+        """Refresh ProtonDB (and art, when a key is set) for one Steam appid."""
+        try:
+            _data, fresh = pdbmod.cached(appid)
+        except Exception:
+            return
+        if not fresh:
+            try:
+                pdbmod.refresh(appid)
+            except Exception:
+                return
+        if api_key and artmod.resolve_icon(appid) is None:
+            try:
+                artmod.fetch_missing(appid, api_key)
+            except Exception:
+                pass
 
     @Slot(result=list)
     def scanCandidates(self) -> list:
