@@ -2082,6 +2082,34 @@ Isso sobrescreve as configs salvas (perfis são mantidos).</translation>
     </message>
 </context>
 <context>
+    <name>TrayMenu</name>
+    <message>
+        <location filename="../src/tkarcade/gui/tray.py" line="122"/>
+        <source>Show / Hide</source>
+        <translation type="unfinished">Mostrar / Ocultar</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/tray.py" line="132"/>
+        <source>Global Defaults...</source>
+        <translation type="unfinished">Padrões globais...</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/tray.py" line="135"/>
+        <source>Preferences...</source>
+        <translation type="unfinished">Preferências...</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/tray.py" line="136"/>
+        <source>About...</source>
+        <translation type="unfinished">Sobre...</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/tray.py" line="138"/>
+        <source>Quit</source>
+        <translation type="unfinished">Sair</translation>
+    </message>
+</context>
+<context>
     <name>main</name>
     <message>
         <location filename="../src/tkarcade/gui/qml/main.qml" line="11"/>
@@ -2138,31 +2166,6 @@ Isso sobrescreve as configs salvas (perfis são mantidos).</translation>
         <location filename="../src/tkarcade/gui/qml/main.qml" line="187"/>
         <source>Collapsible Sidebar Drawer</source>
         <translation>Gaveta lateral recolhível</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="240"/>
-        <source>Show / Hide</source>
-        <translation>Mostrar / Ocultar</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="270"/>
-        <source>Global Defaults...</source>
-        <translation>Padrões globais...</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="277"/>
-        <source>Preferences...</source>
-        <translation>Preferências...</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="282"/>
-        <source>About...</source>
-        <translation>Sobre...</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/main.qml" line="290"/>
-        <source>Quit</source>
-        <translation>Sair</translation>
     </message>
 </context>
 </TS>

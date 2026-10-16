@@ -140,9 +140,10 @@ Breaking config changes are called out explicitly under `Changed`.
   opened the QML app, and the tray menu was the last piece to move.
   `--edit`/`--menu` are wired to the QML windows through
   `gui/edit.py` (the same subprocess protocol the widgets child used).
-- The pt_BR catalog keeps only the QML contexts (the widget strings are
-  gone with their sources); the refresh script is a single `lupdate6`
-  QML pass plus `lrelease6`.
+- The pt_BR catalog dropped the widget strings with their sources; the
+  refresh script is one `lupdate6` pass (QML plus the tray menu) and
+  `lrelease6`, and `-no-obsolete` prunes dead entries instead of letting
+  them pile up.
 
 ### Fixed
 - `--edit` and `--menu` opened nothing and hung until Ctrl+C: the editor
@@ -157,6 +158,10 @@ Breaking config changes are called out explicitly under `Changed`.
   could not be reached from the tray. The menu is now a native `QMenu`
   built in `gui/tray.py` (same entries, recents and Global Defaults
   rebuilt on every open).
+- The tray menu labels are translated again: the retired QML menu used
+  `qsTr()`, so the native `QMenu` left the pt_BR menu English-only with
+  five orphaned `main` entries in the catalog. They now go through a
+  `TrayMenu` Python context, covered by `tests/test_i18n.py`.
 - Steam library scan reads the legacy `libraryfolders.vdf` layout too
   (capitalized root key, bare `"1" "/path"` strings): secondary
   libraries no longer vanish on old Steam installs, with or without

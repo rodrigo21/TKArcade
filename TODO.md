@@ -132,14 +132,19 @@ one).
   `trayAction` incl. `"play:<appid>"`, `trayDefaultsAvailable`);
   `kirigami_app` registers the callbacks (incl. `"quit"`) and `tray.py`
   owns the icon.
+- [x] Tray menu labels translated again through a `TrayMenu` Python
+  context (`gui/tray.py`); the refresh script feeds that file to
+  `lupdate` next to the QML set and passes `-no-obsolete` to drop the
+  five orphaned `main` entries the native menu left behind.
 - [x] `QGuiApplication` → back to `QApplication` in `kirigami_app.py`
   and the conftest fixture (the icon aborts on Plasma under the former;
   the try was the bug fixed on 2026-10-15); the controller's menu is
   covered in `tests/test_tray.py`; out-of-process boot check plus a
   widget-construction guard in `tests/test_kirigami_app.py`.
 - [x] Deleted the widgets package + parked reference tests, dropped the
-  ruff `exclude`, refreshed the catalog QML-only (one `lupdate6` pass +
-  `lrelease6` in `scripts/refresh-translations.sh`) and rebuilt the .qm.
+  ruff `exclude`, refreshed the catalog without the widget strings (one
+  `lupdate6` pass + `lrelease6` in `scripts/refresh-translations.sh`) and
+  rebuilt the .qm.
 - [x] `--edit <appid>` / pre-launch `--menu` wired to the QML windows:
   `gui/edit.py` is the child (same flags and one-JSON-line protocol as
   the widgets one, `clean_gui_env`), `Editor.qml` hosts it,
@@ -192,8 +197,10 @@ Measured (2026-10-15):
   plumbing is gone.
 - Translation tooling: `pylupdate6` is not installed here, and system
   `lupdate6` reads Python natively but writes `{expr}` placeholders
-  where the retired tool wrote `{}` — irrelevant now that no Python
-  string is translatable (all GUI text is `qsTr` in QML).
+  where the retired tool wrote `{}`. The native menu reintroduced one
+  Python-translatable spot (`gui/tray.py`, `TrayMenu` context), which
+  lupdate extracts cleanly (the labels are plain strings), so the refresh
+  script feeds it alongside the QML set.
 
 Resolved (2026-10-16, real display): the QML menu never opened from the
 tray — the Plasma SNI host shows only a `setContextMenu` menu and never

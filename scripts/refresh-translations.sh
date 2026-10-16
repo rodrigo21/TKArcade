@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Refresh translations/tkarcade_pt_BR.ts and the compiled .qm.
-# One lupdate run over the whole QML tree: lupdate marks whatever it does
-# not see as vanished, so a partial run would kill every other context.
-# Python needs no pass (GUI strings are all qsTr in QML; lupdate writes
-# different placeholders than the retired pylupdate did anyway).
+# One lupdate run over the whole QML tree plus the tray menu (the only
+# translatable Python strings): lupdate marks whatever it does not see as
+# vanished, so a partial run would kill every other context. -no-obsolete
+# drops those vanished entries instead of letting them pile up.
 # Translate leftovers, then rerun to recompile.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 TS=translations/tkarcade_pt_BR.ts
 QM=src/tkarcade/translations/tkarcade_pt_BR.qm
-lupdate6 src/tkarcade/gui/qml/*.qml -ts "$TS"
+lupdate6 -no-obsolete src/tkarcade/gui/qml/*.qml src/tkarcade/gui/tray.py -ts "$TS"
 python3 -W ignore - <<'EOF'
 import xml.etree.ElementTree as ET
 

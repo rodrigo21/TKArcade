@@ -77,16 +77,20 @@ automatically. Agent instructions live in `AGENTS.md`.
 
 ## Translations (Qt Linguist)
 
-GUI strings go through QML `qsTr()` (Python holds no display text);
-display text and saved data stay split in combos so translations never
-break config round-trips. CLI/launcher text stays English by design.
+GUI strings go through QML `qsTr()`, with one Python exception: the
+native tray menu (`gui/tray.py`) has no QML counterpart, so its labels
+use `QCoreApplication.translate()` in a `TrayMenu` context. Display text
+and saved data stay split in combos so translations never break config
+round-trips. CLI/launcher text stays English by design.
 
 ```bash
 bash scripts/refresh-translations.sh  # lupdate + the untranslated report
 # translate leftovers, then rerun it to recompile the .qm
 ```
 Never run lupdate on a subset of files: it marks every other context
-vanished. The refresh script always passes the full QML set.
+vanished. The refresh script always passes the full QML set plus
+`gui/tray.py`, and `-no-obsolete` prunes the vanished entries.
 
 Commit both `.ts` (source) and `.qm` (runtime payload, travels in the
-wheel). `tests/test_i18n.py` fails on any untranslated `qsTr()` literal.
+wheel). `tests/test_i18n.py` fails on any untranslated `qsTr()` or
+`translate()` literal.

@@ -17,7 +17,8 @@ launches, Preferences..., About..., Quit, plus the close/minimize-to-tray
 flags the QML shell reads back through model slots. The Global Defaults
 entry appears once a defaults UI registers itself, and both it and the
 recents are rebuilt on every open (aboutToShow), the freshness the QML
-menu had.
+menu had. Labels go through the Python `TrayMenu` translation context
+(fed to lupdate by scripts/refresh-translations.sh).
 """
 
 from __future__ import annotations
@@ -101,8 +102,10 @@ class TrayController:
 
         A native QMenu skips invisible actions outright (unlike the QQC2
         menu, which reserved a hidden entry's height), so the conditional
-        entries are simply left out.
+        entries are simply left out. Labels are translated through a
+        `TrayMenu` context; the refresh script feeds this file to lupdate.
         """
+        from PySide6.QtCore import QCoreApplication
         from PySide6.QtGui import QAction
 
         menu = self.menu
@@ -116,7 +119,7 @@ class TrayController:
             item.triggered.connect(lambda _checked=False, a=action: self._dispatch(a))
             menu.addAction(item)
 
-        add("trayShowHide", "Show / Hide", "toggle")
+        add("trayShowHide", QCoreApplication.translate("TrayMenu", "Show / Hide"), "toggle")
         recents = self._recents()
         if recents:
             menu.addSeparator()
@@ -124,11 +127,15 @@ class TrayController:
                 add("trayRecent" + str(index), label, "play:" + appid)
             menu.addSeparator()
         if self._defaults_available():
-            add("trayDefaults", "Global Defaults...", "defaults")
-        add("trayPrefs", "Preferences...", "prefs")
-        add("trayAbout", "About...", "about")
+            add(
+                "trayDefaults",
+                QCoreApplication.translate("TrayMenu", "Global Defaults..."),
+                "defaults",
+            )
+        add("trayPrefs", QCoreApplication.translate("TrayMenu", "Preferences..."), "prefs")
+        add("trayAbout", QCoreApplication.translate("TrayMenu", "About..."), "about")
         menu.addSeparator()
-        add("trayQuit", "Quit", "quit")
+        add("trayQuit", QCoreApplication.translate("TrayMenu", "Quit"), "quit")
 
     def _recents(self) -> list[tuple[str, str]]:
         try:
