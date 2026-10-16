@@ -586,13 +586,15 @@ def _run_gui() -> int:
     return gui_main()
 
 
-def peel_edit_appid(game_cmd: list[str]) -> tuple[str, list[str]]:
-    """Split a lone all-digit positional off an --edit command line.
+def peel_display_appid(game_cmd: list[str], known: set[str] | None = None) -> tuple[str, list[str]]:
+    """Split a lone positional AppID off an --edit/--menu command line.
 
-    Returns (appid, remaining_cmd). Only a single bare token qualifies,
-    so real game commands are never affected.
+    Returns (appid, remaining_cmd). A single bare token qualifies when it
+    is all digits (a Steam AppID) or names a configured game (a local id
+    like ``local-<slug>``, passed in ``known``); anything else stays a game
+    command, so real commands are never affected.
     """
-    if len(game_cmd) == 1 and game_cmd[0].isdigit():
+    if len(game_cmd) == 1 and (game_cmd[0].isdigit() or game_cmd[0] in (known or ())):
         return game_cmd[0], []
     return "", list(game_cmd)
 
@@ -725,9 +727,11 @@ def main(argv: list[str] | None = None) -> int:
         game_cmd = game_cmd[1:]
 
     if (args.edit or args.menu) and not args.appid:
-        # --edit/--menu 588950: a lone all-digit token is the AppID, not a
-        # command (a real game command is never a single bare number).
-        peeled, game_cmd = peel_edit_appid(game_cmd)
+        # --edit/--menu 588950 or local-glxgears: a lone positional naming a
+        # game (Steam digits, or a configured id such as local-<slug>) is the
+        # AppID, not a command. Ids are matched by existence, so a real
+        # command is never mistaken for a game.
+        peeled, game_cmd = peel_display_appid(game_cmd, set(cfgmod.list_appids()))
         if peeled:
             args.appid = peeled
 

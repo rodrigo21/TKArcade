@@ -123,8 +123,11 @@ Breaking config changes are called out explicitly under `Changed`.
   Settings… / Cancel, `menu_timeout` countdown stopped — not resumed —
   when Settings… opens, exactly like the widgets `MenuDialog`).
 - `--menu` accepts a positional AppID like `--edit` (`tkarcade --menu
-  588950`), so the two display flags behave the same; a lone all-digit
-  token is read as the AppID, never as a game command.
+  588950`), and both take a configured local game id too (`tkarcade
+  --edit local-glxgears`): a lone positional naming a game — Steam
+  digits or a configured id — is read as the AppID, never as a command.
+  Before, a local id fell through to the picker (and `--menu` opened an
+  empty pre-launch menu), because only all-digit tokens were peeled.
 - Single GUI instance: the shell listens on a per-user local socket
   (`$TMPDIR/tkarcade-gui-<uid>`, QtNetwork, no new dependency) and a
   second launch pings it and exits 0; the primary comes back from the

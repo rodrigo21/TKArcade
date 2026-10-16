@@ -187,13 +187,17 @@ def test_global_log_carries_duration(xdg_env):
     assert "appid=11" in line and " dur=" in line
 
 
-def test_peel_edit_appid():
-    from tkarcade.launcher import peel_edit_appid
+def test_peel_display_appid():
+    from tkarcade.launcher import peel_display_appid
 
-    assert peel_edit_appid(["588950"]) == ("588950", [])
-    assert peel_edit_appid(["/bin/echo", "hi"]) == ("", ["/bin/echo", "hi"])
-    assert peel_edit_appid([]) == ("", [])
-    assert peel_edit_appid(["12", "34"]) == ("", ["12", "34"])
+    assert peel_display_appid(["588950"]) == ("588950", [])
+    assert peel_display_appid(["/bin/echo", "hi"]) == ("", ["/bin/echo", "hi"])
+    assert peel_display_appid([]) == ("", [])
+    assert peel_display_appid(["12", "34"]) == ("", ["12", "34"])
+    # A local id qualifies only when it names a configured game.
+    assert peel_display_appid(["local-glxgears"], {"local-glxgears"}) == ("local-glxgears", [])
+    assert peel_display_appid(["local-nope"], {"local-glxgears"}) == ("", ["local-nope"])
+    assert peel_display_appid(["glxgears"], {"local-glxgears"}) == ("", ["glxgears"])
 
 
 def test_menu_without_display_launches_directly(xdg_env, monkeypatch):
@@ -508,6 +512,40 @@ def test_editor_menu_passes_the_pick_menu_and_env(monkeypatch):
         "--menu",
     ]
     assert "Steam" not in kwargs["env"].get("LD_LIBRARY_PATH", "")
+
+
+def test_edit_targets_a_positional_local_game(xdg_env, monkeypatch):
+    """`--edit local-glxgears` opens that game, not the picker."""
+    from tkarcade import launcher as L
+
+    _save(
+        "local-glxgears",
+        general={"name": "glxgears", "custom_executable": "/usr/bin/glxgears"},
+    )
+    calls = _fake_child(monkeypatch, stdout='{"outcome": "cancelled", "appid": "local-glxgears"}')
+    assert L.main(["--edit", "local-glxgears"]) == 0
+    cmd, _ = calls[0]
+    assert cmd[1:] == ["-m", "tkarcade.gui.edit", "--appid", "local-glxgears", "--can-launch"]
+
+
+def test_menu_targets_a_positional_local_game(xdg_env, monkeypatch):
+    from tkarcade import launcher as L
+
+    _save(
+        "local-glxgears",
+        general={"name": "glxgears", "custom_executable": "/usr/bin/glxgears"},
+    )
+    calls = _fake_child(monkeypatch, stdout='{"outcome": "cancelled", "appid": "local-glxgears"}')
+    assert L.main(["--menu", "local-glxgears"]) == 0
+    cmd, _ = calls[0]
+    assert cmd[1:] == [
+        "-m",
+        "tkarcade.gui.edit",
+        "--appid",
+        "local-glxgears",
+        "--can-launch",
+        "--menu",
+    ]
 
 
 def test_editor_menu_crash_is_cancelled(monkeypatch):
