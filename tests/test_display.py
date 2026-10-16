@@ -363,11 +363,19 @@ def test_partial_dip_restores_x11(tmp_path, monkeypatch):
 
 
 def test_sleep_interrupted_restores_plasma(tmp_path, monkeypatch):
+    """A Ctrl-C during the dip must restore the previous mode.
+
+    run() is stubbed because subprocess polls its child with time.sleep()
+    while waiting on the timeout: with time.sleep raising here, the
+    interrupt could land inside the first call, before the dip restore
+    point exists — a race that only shows up under load.
+    """
     import pytest
 
     from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
+    _stub_run(tmp_path, monkeypatch)
 
     def boom(s):
         raise KeyboardInterrupt()
