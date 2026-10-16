@@ -48,37 +48,9 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
     assert game_filter.rowCount() == 1
 
 
-def test_table_headers(qgui_app, xdg_env):
-    """The native header shows every column title."""
-    from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
-
-    def texts(obj):
-
-        out = []
-        try:
-            descendants = obj.findChildren(QObject)
-        except Exception:
-            return []
-        for child in descendants:
-            for prop in ("title", "text"):
-                try:
-                    value = child.property(prop)
-                except Exception:
-                    continue
-                if isinstance(value, str) and value:
-                    out.append(value)
-        return out
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    header = win.findChild(QQuickItem, "tableHeader")
-    assert header is not None
-    titles = set()
+def _header_texts(header) -> set[str]:
+    """Column titles found under the header item (sorter arrows ignored)."""
+    titles: set[str] = set()
 
     def walk(item):
         try:
@@ -95,6 +67,22 @@ def test_table_headers(qgui_app, xdg_env):
             walk(kid)
 
     walk(header)
+    return titles
+
+
+def test_table_headers(qgui_app, xdg_env):
+    """The native header shows every column title."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
+    titles = _header_texts(header)
     assert {"Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -3574,10 +3562,47 @@ def test_row_hover_tracks_mouse(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def _visible_item(win, name):
+    """The visible instance of a named item (ActionToolBar instantiates twice)."""
+    from PySide6.QtQuick import QQuickItem
+
+    for item in win.findChildren(QQuickItem, name):
+        try:
+            if item.property("visible"):
+                return item
+        except Exception:
+            continue
+    return None
+
+
+def _button_bounds(win, labels):
+    """Scene-x (left, right) of the visible buttons carrying one of `labels`."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtQuick import QQuickItem
+
+    left, right = None, None
+    for item in win.findChildren(QQuickItem):
+        try:
+            if not item.property("visible"):
+                continue
+            label = item.property("text")
+        except Exception:
+            continue
+        if label not in labels:
+            continue
+        try:
+            item_left = item.mapToScene(QPointF(0, 0)).x()
+            item_right = item.mapToScene(QPointF(item.property("width"), 0)).x()
+        except Exception:
+            continue
+        left = item_left if left is None else min(left, item_left)
+        right = item_right if right is None else max(right, item_right)
+    return left, right
+
+
 def test_toolbar_icons_pinned_and_filter_fills(qgui_app, xdg_env):
     """Icons pin to the corner; the filter fills buttons-to-icons."""
-    from PySide6.QtCore import QPointF as _QPointF
-    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtCore import QPointF
 
     from tkarcade import config as C
 
@@ -3588,46 +3613,20 @@ def test_toolbar_icons_pinned_and_filter_fills(qgui_app, xdg_env):
 
     # ActionToolBar instantiates displayComponents twice (toolbar row
     # plus hidden overflow twin): measure the visible instances.
-    def visible(name):
-        items = win.findChildren(QQuickItem, name)
-        for item in items:
-            try:
-                if item.property("visible"):
-                    return item
-            except Exception:
-                continue
-        return None
-
-    icons = visible("toolbarIcons")
-    search = visible("searchField")
+    icons = _visible_item(win, "toolbarIcons")
+    search = _visible_item(win, "searchField")
     assert icons is not None and search is not None
     for _ in range(20):
         qgui_app.processEvents()
     scene_right = win.property("width")
-    icons_right = icons.mapToScene(_QPointF(icons.property("width"), 0)).x()
+    icons_right = icons.mapToScene(QPointF(icons.property("width"), 0)).x()
     assert scene_right - icons_right <= 12, (scene_right, icons_right)
-    search_left = search.mapToScene(_QPointF(0, 0)).x()
-    search_right = search.mapToScene(_QPointF(search.property("width"), 0)).x()
+    search_left = search.mapToScene(QPointF(0, 0)).x()
+    search_right = search.mapToScene(QPointF(search.property("width"), 0)).x()
     assert search_right - search_left >= 100
     assert search_left >= 0 and search_right <= icons_right + 1
 
-    group_left, group_right = None, None
-    for item in win.findChildren(QQuickItem):
-        try:
-            if not item.property("visible"):
-                continue
-            label = item.property("text")
-        except Exception:
-            continue
-        if label not in ("Play", "Add game", "Edit...", "Remove"):
-            continue
-        try:
-            left = item.mapToScene(_QPointF(0, 0)).x()
-            right = item.mapToScene(_QPointF(item.property("width"), 0)).x()
-        except Exception:
-            continue
-        group_left = left if group_left is None else min(group_left, left)
-        group_right = right if group_right is None else max(group_right, right)
+    group_left, group_right = _button_bounds(win, ("Play", "Add game", "Edit...", "Remove"))
     assert group_left is not None and group_right is not None
     # Right-aligned row: buttons sit left of the filter with no overlap.
     assert group_right <= search_left + 1, (group_left, group_right, search_left)
