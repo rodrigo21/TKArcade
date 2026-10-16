@@ -413,26 +413,18 @@ def _read_wrap_rc_file(path: str, fallback: int) -> int:
 
 def active_wrappers(cfg: cfgmod.GameConfig) -> list[str]:
     """Enabled wrappers/add-ons, innermost first, for summaries and menus."""
-    wrappers = []
-    if cfg.gamemode.feral_gamemode:
-        wrappers.append("GameMode")
-    if cfg.gamemode.cachyos_game_performance:
-        wrappers.append("game-performance")
-    if cfg.gamescope.enable:
-        wrappers.append("Gamescope")
-    if cfg.mangohud.enable:
-        wrappers.append("MangoHud")
-    if cfg.rtupscale.enable:
-        wrappers.append("RT Upscaler")
-    if cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup):
-        wrappers.append("Ludusavi")
-    if cfg.nightlight.disable_during_game:
-        wrappers.append("Night Light")
-    if cfg.session.inhibit_idle:
-        wrappers.append("Idle Inhibit")
-    if cfg.proton.fresh_prefix:
-        wrappers.append("Fresh Prefix")
-    return wrappers
+    rules = (
+        ("GameMode", cfg.gamemode.feral_gamemode),
+        ("game-performance", cfg.gamemode.cachyos_game_performance),
+        ("Gamescope", cfg.gamescope.enable),
+        ("MangoHud", cfg.mangohud.enable),
+        ("RT Upscaler", cfg.rtupscale.enable),
+        ("Ludusavi", cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup)),
+        ("Night Light", cfg.nightlight.disable_during_game),
+        ("Idle Inhibit", cfg.session.inhibit_idle),
+        ("Fresh Prefix", cfg.proton.fresh_prefix),
+    )
+    return [label for label, enabled in rules if enabled]
 
 
 def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[str, str]:
@@ -713,6 +705,34 @@ def clean_gui_env(env: dict[str, str]) -> dict[str, str]:
     return env
 
 
+def _editor_cmd(appid: str, for_menu: bool, can_launch: bool) -> list[str]:
+    """Command line for the child settings editor (or pre-launch menu)."""
+    cmd = [sys.executable, "-m", "tkarcade.gui.edit"]
+    if (appid or "").strip():
+        cmd += ["--appid", appid.strip()]
+    else:
+        cmd += ["--pick"]
+    cmd += ["--can-launch" if can_launch else "--no-can-launch"]
+    if for_menu:
+        cmd.append("--menu")
+    return cmd
+
+
+def _parse_editor_output(stdout: str, appid: str) -> tuple[str, str] | None:
+    """Parse the child's JSON line; None means the launch is cancelled."""
+    try:
+        data = json.loads(stdout.strip().splitlines()[-1])
+        outcome = str(data.get("outcome", "cancelled"))
+        picked = str(data.get("appid", "") or appid)
+    except (ValueError, IndexError, AttributeError) as e:
+        log.error("settings editor sent bad output (%s); launch cancelled", e)
+        return None
+    if outcome not in ("launch", "saved", "cancelled"):
+        log.error("settings editor sent bad outcome %r; launch cancelled", outcome)
+        return None
+    return outcome, picked
+
+
 def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True) -> tuple[str, str]:
     """Open the settings editor (or the pre-launch menu) in a child process.
 
@@ -724,14 +744,7 @@ def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True)
     with a sanitized environment (clean_gui_env) because Steam's
     LD_LIBRARY_PATH breaks Qt theme plugin loading.
     """
-    cmd = [sys.executable, "-m", "tkarcade.gui.edit"]
-    if (appid or "").strip():
-        cmd += ["--appid", appid.strip()]
-    else:
-        cmd += ["--pick"]
-    cmd += ["--can-launch" if can_launch else "--no-can-launch"]
-    if for_menu:
-        cmd.append("--menu")
+    cmd = _editor_cmd(appid, for_menu, can_launch)
     try:
         proc = subprocess.run(
             cmd, env=clean_gui_env(dict(os.environ)), capture_output=True, text=True
@@ -739,25 +752,17 @@ def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True)
     except OSError as e:
         log.warning("settings editor subprocess failed to spawn (%s)", e)
         return "unavailable", appid
-    if proc.stderr.strip():
-        for line in proc.stderr.strip().splitlines():
-            log.debug("editor child stderr: %s", line)
+    for line in proc.stderr.strip().splitlines():
+        log.debug("editor child stderr: %s", line)
     if proc.returncode == 2:
         return "unavailable", appid
     if proc.returncode != 0:
         log.error("settings editor crashed (exit %s); launch cancelled", proc.returncode)
         return "cancelled", appid
-    try:
-        data = json.loads(proc.stdout.strip().splitlines()[-1])
-        outcome = str(data.get("outcome", "cancelled"))
-        picked = str(data.get("appid", "") or appid)
-    except (ValueError, IndexError, AttributeError) as e:
-        log.error("settings editor sent bad output (%s); launch cancelled", e)
+    parsed = _parse_editor_output(proc.stdout, appid)
+    if parsed is None:
         return "cancelled", appid
-    if outcome not in ("launch", "saved", "cancelled"):
-        log.error("settings editor sent bad outcome %r; launch cancelled", outcome)
-        return "cancelled", appid
-    return outcome, picked
+    return parsed
 
 
 def launch_local_detached(appid: str) -> None:
