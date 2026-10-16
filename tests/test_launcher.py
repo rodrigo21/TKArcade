@@ -233,6 +233,17 @@ def test_menu_flag_shows_editor_once_without_display(xdg_env, monkeypatch):
     assert log.read_text().count("launching directly") == 1
 
 
+def test_menu_positional_appid_resolves_like_edit(xdg_env, monkeypatch):
+    """`--menu <appid>` peels the positional AppID exactly like `--edit`."""
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    r = _run(_env(xdg_env), "--menu", "21")
+    assert r.returncode == 0, r.stderr
+    assert "cannot resolve AppID" not in r.stderr
+    log = xdg_env["state"] / "tkarcade" / "games" / "21.log"
+    assert "no game command to run" in log.read_text()
+
+
 def test_clean_gui_env():
     from tkarcade.launcher import clean_gui_env
 

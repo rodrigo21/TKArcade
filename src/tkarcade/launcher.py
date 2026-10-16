@@ -540,7 +540,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--menu",
         action="store_true",
         help="show the pre-launch menu before starting the game "
-        "(needs a display; launches directly without one)",
+        "(needs a display; launches directly without one); "
+        "takes an optional positional AppID like --edit",
     )
     p.add_argument("--verbose", action="store_true", help="debug logging to the per-game log")
     p.add_argument("--version", action="store_true", help="print the version and exit")
@@ -723,8 +724,9 @@ def main(argv: list[str] | None = None) -> int:
     if game_cmd and game_cmd[0] == "--":
         game_cmd = game_cmd[1:]
 
-    if args.edit and not args.appid:
-        # --edit 588950: a lone all-digit token is the AppID, not a command.
+    if (args.edit or args.menu) and not args.appid:
+        # --edit/--menu 588950: a lone all-digit token is the AppID, not a
+        # command (a real game command is never a single bare number).
         peeled, game_cmd = peel_edit_appid(game_cmd)
         if peeled:
             args.appid = peeled
