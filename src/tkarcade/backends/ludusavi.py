@@ -32,6 +32,35 @@ def find() -> tuple[str | None, str | None]:
     return path, None
 
 
+def _wrap_options(name_override: str, restore: bool, backup: bool, use_gui: bool) -> list[str]:
+    """`ludusavi wrap` prefix with the name and restore/backup/gui flags."""
+    opts = ["ludusavi", "wrap"]
+    if (name_override or "").strip():
+        opts += ["--name", name_override.strip()]
+    else:
+        opts += ["--infer", "steam"]
+    if not restore:
+        opts.append("--no-restore")
+    if not backup:
+        opts.append("--no-backup")
+    if use_gui:
+        opts.append("--gui")
+    return opts
+
+
+def _inner_command(game_cmd: list[str], rc_file: str) -> tuple[list[str], str]:
+    """The game command, wrapped in `sh -c` when rc_file wants the exit code.
+
+    Returns (command, warning); the warning is set when rc_file was asked
+    but `sh` is missing, so the code stays masked by ludusavi wrap.
+    """
+    if not rc_file:
+        return list(game_cmd), ""
+    if shutil.which("sh"):
+        return ["sh", "-c", _SH_EXIT_SENTINEL, rc_file, *game_cmd], ""
+    return list(game_cmd), "sh not found, game exit code may be masked by ludusavi wrap"
+
+
 def wrap_command(
     game_cmd: list[str],
     *,
@@ -62,22 +91,10 @@ def wrap_command(
         return list(game_cmd), warnings
     # Bare name (PATH lookup at launch), consistent with the other
     # wrappers; `path` above is only used for the missing/flatpak checks.
-    cmd = ["ludusavi", "wrap"]
-    if (name_override or "").strip():
-        cmd += ["--name", name_override.strip()]
-    else:
-        cmd += ["--infer", "steam"]
-    if not restore:
-        cmd += ["--no-restore"]
-    if not backup:
-        cmd += ["--no-backup"]
-    if use_gui:
-        cmd += ["--gui"]
-    inner = list(game_cmd)
-    if rc_file and shutil.which("sh"):
-        inner = ["sh", "-c", _SH_EXIT_SENTINEL, rc_file, *game_cmd]
-    elif rc_file:
-        warnings.append("sh not found, game exit code may be masked by ludusavi wrap")
+    cmd = _wrap_options(name_override, restore, backup, use_gui)
+    inner, inner_warn = _inner_command(game_cmd, rc_file)
+    if inner_warn:
+        warnings.append(inner_warn)
     cmd += ["--", *inner]
     return cmd, warnings
 
