@@ -33,6 +33,9 @@ pkgver() {
 build() {
     cd "$_basename"
 
+    # python -m build leaves older wheels behind; dist/*.whl would then
+    # install several of them and collide on usr/bin/tkarcade.
+    rm -rf dist
     python -m build --wheel --no-isolation
 }
 
