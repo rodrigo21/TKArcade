@@ -1,8 +1,9 @@
 """System tray controller (fake availability, no desktop needed).
 
-The controller is the only part of the tree that touches QtWidgets (the
-menu itself is QML -- see test_kirigami_qml_cases.py for its entries), and
-availability is stubbed so the suite never needs a real tray host.
+The controller owns the only QtWidgets use in the tree: the icon and the
+native context menu the host shows on right-click. Availability is stubbed
+so the suite never needs a real tray host, and the menu entries are
+inspected directly instead of through a live popup.
 """
 
 from types import SimpleNamespace
@@ -20,61 +21,154 @@ def _enable_tray(**kw):
 
 def _fake_model():
     """Model stub recording what the controller asks it to do."""
-    calls = {"play": [], "menu": [], "action": []}
+    calls = {"action": []}
+    state = {"recents": [], "defaults": False}
     model = SimpleNamespace(
-        play=lambda appid: calls["play"].append(appid) or True,
-        requestTrayMenu=lambda x, y: calls["menu"].append((x, y)),
+        trayRecentGames=lambda: list(state["recents"]),
+        trayDefaultsAvailable=lambda: state["defaults"],
         trayAction=lambda name: calls["action"].append(name),
     )
-    return model, calls
+    return model, calls, state
 
 
 def _controller(available=True):
     from tkarcade.gui.tray import TrayController
 
-    model, calls = _fake_model()
+    model, calls, state = _fake_model()
     ctl = TrayController(model)
     ctl.is_available = lambda: available
-    return ctl, calls
+    return ctl, calls, state
+
+
+def _menu_texts(menu):
+    """Labels of the visible entries, separators dropped."""
+    return [a.text() for a in menu.actions() if not a.isSeparator()]
+
+
+def _menu_controller(recents=None, defaults=False):
+    """A shown controller whose menu can be inspected without a host."""
+    _enable_tray()
+    ctl, calls, state = _controller()
+    state["recents"] = list(recents or [])
+    state["defaults"] = defaults
+    assert ctl.apply() is True
+    return ctl, calls, state
 
 
 def test_apply_disabled_drops(qgui_app, xdg_env):
-    ctl, _calls = _controller()
+    ctl, _calls, _state = _controller()
     assert ctl.apply() is False
     assert ctl.tray is None
+    assert ctl.menu is None
 
 
 def test_apply_unavailable_drops(qgui_app, xdg_env):
     _enable_tray()
-    ctl, _calls = _controller(available=False)
+    ctl, _calls, _state = _controller(available=False)
     assert ctl.apply() is False
     assert ctl.tray is None
+    assert ctl.menu is None
 
 
 def test_apply_shows_the_icon_and_rebuilds_in_place(qgui_app, xdg_env):
     _enable_tray()
-    ctl, _calls = _controller()
+    ctl, _calls, _state = _controller()
     assert ctl.apply() is True
     icon = ctl.tray
     assert icon is not None
+    assert ctl.menu is not None
+    from PySide6.QtWidgets import QMenu
+
+    assert isinstance(ctl.menu, QMenu)
     try:
-        # Prefs changes reuse the icon: the menu rebuilds in QML.
+        # Prefs changes reuse the icon; the menu rebuilds on every open.
         assert ctl.apply() is True
         assert ctl.tray is icon
     finally:
         ctl.drop()
     assert ctl.tray is None
+    assert ctl.menu is None
 
 
-def test_clicks_and_menu_requests_reach_the_model(qgui_app, xdg_env):
-    """Both gestures go through the model, the only dispatch path."""
-    ctl, calls = _controller()
-    ctl.click()
-    assert calls["action"] == ["toggle"]
-    ctl.open_menu()
-    assert len(calls["menu"]) == 1
-    x, y = calls["menu"][0]
-    assert isinstance(x, int) and isinstance(y, int)
+def test_click_and_activation_reach_the_model(qgui_app, xdg_env):
+    """Left click toggles; Context is the host's to show, not ours."""
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    ctl, calls, _state = _controller()
+    reasons = QSystemTrayIcon.ActivationReason
+    ctl._on_activated(reasons.Context)
+    assert calls["action"] == []  # no QML menu left to open
+    ctl._on_activated(reasons.Trigger)
+    ctl._on_activated(reasons.DoubleClick)
+    assert calls["action"] == ["toggle", "toggle"]
+
+
+def test_menu_without_recents_or_defaults(qgui_app, xdg_env):
+    ctl, _calls, _state = _menu_controller()
+    try:
+        assert _menu_texts(ctl.menu) == ["Show / Hide", "Preferences...", "About...", "Quit"]
+    finally:
+        ctl.drop()
+
+
+def test_menu_interleaves_recents_and_defaults(qgui_app, xdg_env):
+    """Recents sit after Show / Hide, Global Defaults before Preferences."""
+    ctl, calls, _state = _menu_controller(
+        recents=[("99", "Doom 3 (1h)"), ("local-doom", "Doom (30m)")],
+        defaults=True,
+    )
+    try:
+        assert _menu_texts(ctl.menu) == [
+            "Show / Hide",
+            "Doom 3 (1h)",
+            "Doom (30m)",
+            "Global Defaults...",
+            "Preferences...",
+            "About...",
+            "Quit",
+        ]
+        by_name = {a.objectName(): a for a in ctl.menu.actions()}
+        for name in (
+            "trayShowHide",
+            "trayRecent0",
+            "trayRecent1",
+            "trayDefaults",
+            "trayPrefs",
+            "trayAbout",
+            "trayQuit",
+        ):
+            by_name[name].trigger()
+        assert calls["action"] == [
+            "toggle",
+            "play:99",
+            "play:local-doom",
+            "defaults",
+            "prefs",
+            "about",
+            "quit",
+        ]
+    finally:
+        ctl.drop()
+
+
+def test_menu_refreshes_recents_on_about_to_show(qgui_app, xdg_env):
+    """The host's aboutToShow rebuilds the dynamic entries, as QML did."""
+    ctl, _calls, state = _menu_controller()
+    try:
+        assert _menu_texts(ctl.menu) == ["Show / Hide", "Preferences...", "About...", "Quit"]
+        state["recents"] = [("99", "Doom 3 (1h)")]
+        state["defaults"] = True
+        ctl.menu.aboutToShow.emit()
+        assert _menu_texts(ctl.menu) == [
+            "Show / Hide",
+            "Doom 3 (1h)",
+            "Global Defaults...",
+            "Preferences...",
+            "About...",
+            "Quit",
+        ]
+    finally:
+        ctl.drop()
 
 
 def test_hide_slots_follow_prefs_and_flag(qgui_app, xdg_env):

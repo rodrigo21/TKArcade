@@ -128,8 +128,6 @@ class GameListModel(QAbstractTableModel):
     browseFinished = Signal(str)
     displayModesFinished = Signal("QVariantList")
     coverageFinished = Signal(str, str)
-    #: Global coordinates of the tray icon: QML opens its menu there.
-    trayMenuRequested = Signal(int, int)
 
     @Slot(str, result=int)
     def roleId(self, roleName: str) -> int:
@@ -1894,11 +1892,6 @@ class GameListModel(QAbstractTableModel):
     def setTrayActive(self, active: bool) -> None:
         """Whether kirigami_app currently shows a tray icon."""
         self._tray_active = bool(active)
-
-    @Slot(int, int)
-    def requestTrayMenu(self, x: int, y: int) -> None:
-        """Tray icon geometry (global): QML opens the tray menu there."""
-        self.trayMenuRequested.emit(int(x), int(y))
 
     @Slot(result=list)
     def trayRecentGames(self) -> list:

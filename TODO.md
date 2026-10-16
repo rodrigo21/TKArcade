@@ -111,29 +111,32 @@ toggle and a centered Library.
 - [x] QTabWidget (future settings UI) → pageStack pages + TabBar
 - [x] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
 - [x] QSystemTrayIcon → kept (it needs a `QApplication` on Plasma)
-  with a QML context menu (tray controller with recents, model
+  with a native `QMenu` context menu (tray controller with recents, model
   dispatches the entries)
 
 ### Widgets removal: done (survey 2026-10-15)
 
 Goal reached: `src/tkarcade/widgets/` and `tests/gui_widgets_reference.py`
 are deleted, the ruff `exclude` is gone, and `tests/test_no_widgets.py`
-allows exactly one QtWidgets name (`QSystemTrayIcon`, from
-`gui/tray.py`) while still failing on `QMenu` or any other widget class.
+allows exactly two QtWidgets names (`QSystemTrayIcon` and `QMenu`, both
+from `gui/tray.py`) while still failing on `QDialog` or any other widget
+class.
 No module imports the widgets package.
 
-Chosen: option 1 (`QSystemTrayIcon` + QML `Menu`), with the shell on a
-`QApplication` (see Measured: the Plasma tray needs one).
-- [x] Tray menu in QML (`main.qml`: `trayMenu` + `Instantiator` with
-  `insertItem` for the recents), the model as the only dispatcher
-  (`requestTrayMenu` signal, `trayRecentGames`, `trayAction`
-  incl. `"play:<appid>"`, `trayDefaultsAvailable`); `kirigami_app`
-  registers the callbacks and `tray.py` is a QSystemTrayIcon owner.
+Chosen: option 1 (`QSystemTrayIcon` + a native `QMenu` context menu),
+with the shell on a `QApplication` (see Measured: the Plasma tray needs
+one).
+- [x] Tray menu native (`gui/tray.py` builds the `QMenu` and exports it
+  through `setContextMenu`, rebuilt on `aboutToShow` for the recents and
+  Global Defaults), the model as the only dispatcher (`trayRecentGames`,
+  `trayAction` incl. `"play:<appid>"`, `trayDefaultsAvailable`);
+  `kirigami_app` registers the callbacks (incl. `"quit"`) and `tray.py`
+  owns the icon.
 - [x] `QGuiApplication` → back to `QApplication` in `kirigami_app.py`
   and the conftest fixture (the icon aborts on Plasma under the former;
-  the try was the bug fixed on 2026-10-15); new QML case
-  `test_tray_menu_entries_and_dispatch`; out-of-process boot check plus
-  a widget-construction guard in `tests/test_kirigami_app.py`.
+  the try was the bug fixed on 2026-10-15); the controller's menu is
+  covered in `tests/test_tray.py`; out-of-process boot check plus a
+  widget-construction guard in `tests/test_kirigami_app.py`.
 - [x] Deleted the widgets package + parked reference tests, dropped the
   ruff `exclude`, refreshed the catalog QML-only (one `lupdate6` pass +
   `lrelease6` in `scripts/refresh-translations.sh`) and rebuilt the .qm.
@@ -173,32 +176,30 @@ Measured (2026-10-15):
   With a `QApplication` the icon registers with the Plasma
   `StatusNotifierWatcher` (its own bus connection's unique name, e.g.
   `:1.2236/StatusNotifierItem`) and shows up in the panel.
-- The QML menu (`popupType: Popup.Window`) opens fine while the main
-  window is **hidden**, and closing it does **not** emit
+- The QML menu (`popupType: Popup.Window`) opened fine while the main
+  window is **hidden**, and closing it did **not** emit
   `lastWindowClosed` (its window is transient on the shell), so the
-  close-to-tray flow cannot quit the app by opening the menu.
-- `QQuickMenu.itemAt()` is unreachable from PySide (the QML type has no
-  Python wrapper: the call returns `None`), so QML tests measure entry
-  order and visibility through the delegates (`objectName` +
-  `mapToScene`) instead.
-- Recents use the Qt-documented `Instantiator` + `insertItem(index,
-  object)` pattern (a Repeater would feed a QVariantList into a
-  positioner, the documented landmine); `onAboutToShow` reassigns the
-  model so the list is fresh on every open and the delegate indexes are
-  offset past "Show / Hide" + separator.
-- Position: `QSystemTrayIcon.geometry()` (global) → model signal →
-  `contentItem.mapFromGlobal` → `popup(contentItem, x, y)`; an empty
-  geometry (no host) falls back to `QCursor.pos()`.
+  close-to-tray flow could not quit the app by opening the menu. It was
+  still useless: the Plasma SNI host never delivers `activated(Context)`
+  without a `setContextMenu` menu, so it could not be opened from the
+  tray at all (see the resolved open item below).
+- A native `QMenu` skips invisible actions outright, so the conditional
+  entries (recents separators, Global Defaults) are simply left out —
+  no blank-row collapse needed as in QQC2.
+- Recents and Global Defaults are rebuilt on `aboutToShow`, the same
+  freshness the QML menu had; the host positions the menu under the icon
+  itself, so the `geometry()`/`QCursor.pos()` → model signal → `popup()`
+  plumbing is gone.
 - Translation tooling: `pylupdate6` is not installed here, and system
   `lupdate6` reads Python natively but writes `{expr}` placeholders
   where the retired tool wrote `{}` — irrelevant now that no Python
   string is translatable (all GUI text is `qsTr` in QML).
 
-Open (needs the real display): the menu is a non-native QQC2 window —
-check position under the icon (panel-dependent), keyboard focus and
-click-outside dismissal, and whether the compositor accepts a transient
-popup of a hidden window at all. Fallback if not: a
-`Window { flags: Qt.Popup }` menu with hand-built rows.
+Resolved (2026-10-16, real display): the QML menu never opened from the
+tray — the Plasma SNI host shows only a `setContextMenu` menu and never
+delivers `activated(Context)` without one — so the context menu is now a
+native `QMenu` in `gui/tray.py`. Position, keyboard focus and
+click-outside dismissal are the host's.
 
 Options not taken: option 2 (hand-rolled StatusNotifierItem over
 QtDBus) is the only path to zero QtWidgets — `PySide6.QtDBus` is

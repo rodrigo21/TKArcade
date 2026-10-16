@@ -265,13 +265,16 @@ def main(argv: list[str] | None = None) -> int:
 
     from .tray import TrayController
 
-    # The tray menu lives in QML (main.qml): these are the callbacks its
-    # entries trigger.
+    # The tray context menu is a native QMenu (gui/tray.py): these are the
+    # callbacks its entries trigger.
     model._tray_actions = {
         "toggle": toggle_visible,
         "prefs": open_prefs,
         "about": open_about,
         "defaults": open_defaults,
+        # Same as Ctrl+Q: quits without going through onClosing, so
+        # Close-to-tray can never swallow the tray quit.
+        "quit": app.quit,
     }
     tray = TrayController(model)
     model._tray_refresher = tray.apply

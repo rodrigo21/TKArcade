@@ -83,22 +83,16 @@ rewrite pushed history or tags.
   menu skips nothing): collapse conditional entries with
   `height: visible ? implicitHeight : 0` or the menu paints blank rows
   (29px per item, separator 3px, measured offscreen).
-- A QML binding that calls a model method (`visible:
-  gameModel.trayDefaultsAvailable()`) is evaluated once, before the
-  shell registers its callbacks, and never updates: re-read such state
-  in the popup's `onAboutToShow` (same place the recents are rebuilt).
+- A QML binding that calls a model method is evaluated once, before the
+  shell registers its callbacks, and never updates: re-read such state in
+  the popup's `onAboutToShow` (where the dynamic entries are rebuilt).
 - QML tests wait with `QTest.qWait`, not bare `processEvents()` loops:
   layout passes need wall-clock time, and a few hundred tight iterations
   can all run inside one millisecond on an idle machine while starving
   under load (a case flaked inside `makepkg`'s check).
-- Popup waits must be style-proof: the desktop QQC2 style fades a menu
-  in (~70ms, `opened` only flips then) and out (~120ms, and a `popup()`
-  during that exit is ignored), so `tests/kirigami_qml_cases.py` waits
-  on wall-clock time (`_settle_menu`) and on the exit transition
-  (`_close_menu`) instead of frame counts. A test that runs `edit.main()`
-  or `kirigami_app.main()` in process also pins
-  `QT_QUICK_CONTROLS_STYLE` in `os.environ` for the rest of the session
-  (the QML driver's children then inherit the desktop style and
+- A test that runs `edit.main()` or `kirigami_app.main()` in process
+  pins `QT_QUICK_CONTROLS_STYLE` in `os.environ` for the rest of the
+  session (the QML driver's children then inherit the desktop style and
   style-sensitive cases flip inside the full suite) — save/restore the
   variable explicitly in an autouse fixture; `monkeypatch.delenv` on an
   already-absent var registers no undo and does not undo `main()`'s write.
@@ -126,11 +120,14 @@ rewrite pushed history or tags.
   theme supplies the tray icon through a `KStatusNotifierItem`, whose
   constructor creates a `QMenu` — a `QWidget` — so a `QGuiApplication`
   aborts the process inside `QSystemTrayIcon.show()` ("Cannot create a
-  QWidget without `QApplication`"). Do not "clean" it back. The menu
-  itself is the QML `trayMenu` in `main.qml` (entries dispatch through
-  `model.trayAction`); `QSystemTrayIcon` in `gui/tray.py` and
-  `QApplication` in `gui/kirigami_app.py` are the only QtWidgets names
-  the tree may import (`tests/test_no_widgets.py` defines done).
+  QWidget without `QApplication`"). Do not "clean" it back. The tray
+  context menu is a native `QMenu` in `gui/tray.py`: the Plasma SNI host
+  only shows a menu the app exports through `setContextMenu()` and never
+  delivers `activated(Context)` without one, so a QML menu could not be
+  opened from the tray at all. `QSystemTrayIcon` and `QMenu` in
+  `gui/tray.py`, plus `QApplication` in `gui/kirigami_app.py`, are the
+  only QtWidgets names the tree may import (`tests/test_no_widgets.py`
+  defines done).
 - Kirigami's ApplicationWindow ships a built-in Quit action bound to
   the quit sequence that calls `close()` (not quit): clear
   `quitAction.shortcut` at startup or Ctrl+Q closes-to-tray instead

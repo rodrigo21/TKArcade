@@ -1,12 +1,14 @@
 """Zero-QtWidgets policy.
 
-Nothing may import the widgets package. Two allowlisted names remain, both
-application-level plumbing rather than UI: `QApplication` in
+Nothing may import the widgets package. Three allowlisted names remain,
+all application-level plumbing rather than UI: `QApplication` in
 `gui/kirigami_app.py` (the Plasma platform theme supplies the tray icon
 through a `KStatusNotifierItem`, whose constructor builds a `QMenu`, so a
-`QGuiApplication` aborts inside `QSystemTrayIcon.show()`) and
-`QSystemTrayIcon` itself in `gui/tray.py` (it is a QObject). Every widget
-class -- `QMenu`, `QDialog`, `QFileDialog`, ... -- stays banned.
+`QGuiApplication` aborts inside `QSystemTrayIcon.show()`),
+`QSystemTrayIcon` in `gui/tray.py` (it is a QObject) and the `QMenu` it
+exports as the tray context menu (the Plasma SNI host only shows a menu
+the app provides, never delivering `activated(Context)`). Every other
+widget class -- `QDialog`, `QFileDialog`, ... -- stays banned.
 """
 
 import ast
@@ -14,16 +16,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 #: relative path -> QtWidgets names it may import ("*" = whole module).
-#: The two test entries exist to pin the trap: conftest builds the
-#: QApplication the shell needs, and the app test constructs a bare widget
-#: to prove widgets can be created at all (under a QGuiApplication that
-#: aborts the interpreter, which is how the shell died on Plasma).
+#: The conftest/app entries pin the trap: conftest builds the QApplication
+#: the shell needs, and the app test constructs a bare widget to prove
+#: widgets can be created at all (under a QGuiApplication that aborts the
+#: interpreter, which is how the shell died on Plasma). The tray tests
+#: build a real icon and inspect its native menu.
 ALLOWED = {
-    "src/tkarcade/gui/tray.py": {"QSystemTrayIcon"},
+    "src/tkarcade/gui/tray.py": {"QSystemTrayIcon", "QMenu"},
     "src/tkarcade/gui/kirigami_app.py": {"QApplication"},
     "src/tkarcade/gui/edit.py": {"QApplication"},
     "tests/conftest.py": {"QApplication"},
     "tests/test_kirigami_app.py": {"QApplication", "QWidget"},
+    "tests/test_tray.py": {"QSystemTrayIcon", "QMenu"},
 }
 
 

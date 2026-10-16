@@ -1,19 +1,23 @@
-"""System tray icon with recent games (GUI-only).
+"""System tray icon with a native context menu (GUI-only).
 
 Owned by kirigami_app when the prefs enable it; rebuilt in place by
 apply() (never deleteLater + recreate from a menu slot).
 
-Its only QtWidgets use is QSystemTrayIcon itself (a QObject, not a
-QWidget): the context menu is a QML Menu, because QtWidgets' QMenu would
-drag the entire menu through the widget toolkit. The icon does need the
-shell's QApplication though -- on Plasma the platform theme builds a
-KStatusNotifierItem, whose constructor creates a QMenu (see
-kirigami_app.main and TODO.md).
-The entries live in main.qml and come back through model.trayAction(),
-which kirigami_app wires to the shell: Show / Hide, recent launches,
-Preferences..., About..., Quit, plus the close/minimize-to-tray flags the
-QML shell reads back through model slots. The Global Defaults entry
-appears once a defaults UI registers itself.
+QtWidgets use stays minimal: QSystemTrayIcon itself (a QObject, not a
+QWidget) and the QMenu the host shows on right-click. The menu is native
+on purpose -- on Plasma the SNI host only shows a context menu the app
+exports through setContextMenu() and never delivers activated(Context)
+without one, so the QML menu this replaces could never be opened from the
+tray. The icon does need the shell's QApplication though -- on Plasma the
+platform theme builds a KStatusNotifierItem, whose constructor creates a
+QMenu (see kirigami_app.main and TODO.md).
+
+The entries dispatch through model.trayAction(): Show / Hide, recent
+launches, Preferences..., About..., Quit, plus the close/minimize-to-tray
+flags the QML shell reads back through model slots. The Global Defaults
+entry appears once a defaults UI registers itself, and both it and the
+recents are rebuilt on every open (aboutToShow), the freshness the QML
+menu had.
 """
 
 from __future__ import annotations
@@ -24,11 +28,12 @@ log = logging.getLogger("tkarcade.kirigami")
 
 
 class TrayController:
-    """Owns the QSystemTrayIcon; QtWidgets imports stay inside methods."""
+    """Owns the QSystemTrayIcon and its native context menu."""
 
     def __init__(self, model):
         self._model = model
         self.tray = None
+        self.menu = None
 
     def is_available(self) -> bool:
         """Whether a tray host is present (tests override this seam)."""
@@ -52,61 +57,109 @@ class TrayController:
             self.drop()
             return False
         if self.tray is None:
-            from PySide6.QtWidgets import QSystemTrayIcon
+            from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
             tray = QSystemTrayIcon(iconsmod.app_icon(prefs.tray_icon), None)
             tray.setToolTip("TKArcade")
             tray.activated.connect(self._on_activated)
+            # The host owns showing this menu; Qt only exports it.
+            menu = QMenu()
+            menu.aboutToShow.connect(self.rebuild_menu)
+            tray.setContextMenu(menu)
             tray.show()
             self.tray = tray
+            self.menu = menu
+            self.rebuild_menu()
         else:
-            # Update in place: the menu (QML) rebuilds its recents on
-            # every open, so only the icon style can change here.
+            # Update in place: the menu rebuilds its recents on every
+            # open, so only the icon style can change here.
             self.tray.setIcon(iconsmod.app_icon(prefs.tray_icon))
         return True
 
     def drop(self) -> None:
-        """Hide and release the tray icon, if any."""
+        """Hide and release the tray icon and its menu, if any."""
         tray, self.tray = self.tray, None
+        menu, self.menu = self.menu, None
         if tray is not None:
             try:
                 tray.hide()
                 tray.deleteLater()
             except RuntimeError:
                 pass  # already deleted C++ object
+        if menu is not None:
+            try:
+                menu.deleteLater()
+            except RuntimeError:
+                pass
 
     def click(self) -> None:
         """Left click / double click: show or hide the shell."""
-        self._model.trayAction("toggle")
+        self._dispatch("toggle")
 
-    def open_menu(self) -> None:
-        """Right click: ask QML to open the menu at the icon."""
-        x = y = None
-        try:
-            # The host reports the icon rectangle; the menu hangs from
-            # its bottom edge. Empty when there is no host (offscreen,
-            # tests): fall back to the cursor, which is where the user
-            # just clicked.
-            rect = self.tray.geometry() if self.tray is not None else None
-            if rect is not None and rect.width() > 0 and rect.height() > 0:
-                x, y = rect.x(), rect.y() + rect.height()
-        except Exception:
-            x = y = None
-        if x is None:
-            from PySide6.QtGui import QCursor
+    def rebuild_menu(self) -> None:
+        """(Re)fill the context menu; fresh recents on every open.
 
-            point = QCursor.pos()
-            x, y = point.x(), point.y()
+        A native QMenu skips invisible actions outright (unlike the QQC2
+        menu, which reserved a hidden entry's height), so the conditional
+        entries are simply left out.
+        """
+        from PySide6.QtGui import QAction
+
+        menu = self.menu
+        if menu is None:
+            return
+        menu.clear()
+
+        def add(name: str, text: str, action: str) -> None:
+            item = QAction(text, menu)
+            item.setObjectName(name)
+            item.triggered.connect(lambda _checked=False, a=action: self._dispatch(a))
+            menu.addAction(item)
+
+        add("trayShowHide", "Show / Hide", "toggle")
+        recents = self._recents()
+        if recents:
+            menu.addSeparator()
+            for index, (appid, label) in enumerate(recents):
+                add("trayRecent" + str(index), label, "play:" + appid)
+            menu.addSeparator()
+        if self._defaults_available():
+            add("trayDefaults", "Global Defaults...", "defaults")
+        add("trayPrefs", "Preferences...", "prefs")
+        add("trayAbout", "About...", "about")
+        menu.addSeparator()
+        add("trayQuit", "Quit", "quit")
+
+    def _recents(self) -> list[tuple[str, str]]:
         try:
-            self._model.requestTrayMenu(int(x), int(y))
+            rows = self._model.trayRecentGames() or []
         except Exception as e:
-            log.warning("tray menu failed: %s", e)
+            log.warning("tray recents failed: %s", e)
+            return []
+        out = []
+        for row in rows:
+            try:
+                out.append((str(row[0]), str(row[1])))
+            except (IndexError, TypeError):
+                continue
+        return out
+
+    def _defaults_available(self) -> bool:
+        try:
+            return bool(self._model.trayDefaultsAvailable())
+        except Exception:
+            return False
+
+    def _dispatch(self, action: str) -> None:
+        try:
+            self._model.trayAction(action)
+        except Exception as e:
+            log.warning("tray action %s failed: %s", action, e)
 
     def _on_activated(self, reason) -> None:
         from PySide6.QtWidgets import QSystemTrayIcon
 
         reasons = QSystemTrayIcon.ActivationReason
-        if reason == reasons.Context:
-            self.open_menu()
-        elif reason in (reasons.Trigger, reasons.DoubleClick):
+        log.debug("tray activated: %s", reason)
+        if reason in (reasons.Trigger, reasons.DoubleClick):
             self.click()

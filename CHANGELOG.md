@@ -82,9 +82,9 @@ Breaking config changes are called out explicitly under `Changed`.
   window-scoped Python filter — plus Kirigami's built-in Quit action
   (which calls close() instead) cleared of the sequence.
 - System tray with recent games (step 6): `QApplication` migration,
-  tray controller (Show/Hide, recents via Play, Preferences, About,
-  Quit), close/minimize-to-tray in the shell; Global Defaults entry
-  returns with the defaults UI.
+  native context menu in the tray controller (Show/Hide, recents via
+  Play, Preferences, About, Quit), close/minimize-to-tray in the shell;
+  Global Defaults entry returns with the defaults UI.
 - Drawer collapsed state persists: closing open reopens open (was
   always forced collapsed); dead mode-switch helper removed.
 - Header bottom line spans the full width like the foot rule.
@@ -151,6 +151,12 @@ Breaking config changes are called out explicitly under `Changed`.
   the settings/picker/pre-launch window. The offscreen QML harness called
   `start()` itself, so the suite stayed green while the real CLI flows
   froze.
+- The tray icon's right-click menu never opened: on Plasma the SNI host
+  only shows a context menu the app exports through `setContextMenu()`
+  and never delivers `activated(Context)` without one, so the QML menu
+  could not be reached from the tray. The menu is now a native `QMenu`
+  built in `gui/tray.py` (same entries, recents and Global Defaults
+  rebuilt on every open).
 - Steam library scan reads the legacy `libraryfolders.vdf` layout too
   (capitalized root key, bare `"1" "/path"` strings): secondary
   libraries no longer vanish on old Steam installs, with or without
