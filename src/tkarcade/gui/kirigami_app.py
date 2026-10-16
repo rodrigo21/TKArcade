@@ -202,46 +202,42 @@ def _debug_geometry() -> None:
         )
 
 
-def _tray_callbacks(root, log) -> dict:
-    """Callbacks the native tray menu entries trigger (gui/tray.py).
+def _tray_action(log, name: str, action):
+    """Wrap a tray callback so a failure only logs and never takes the shell down."""
 
-    Each one is best-effort: a failing tray action must never take the
-    shell down with it.
-    """
+    def run() -> None:
+        try:
+            action()
+        except Exception as e:
+            log.warning("tray %s failed: %s", name, e)
+
+    return run
+
+
+def _tray_callbacks(root, log) -> dict:
+    """Callbacks the native tray menu entries trigger (gui/tray.py)."""
     from PySide6.QtCore import QObject
 
     def toggle_visible() -> None:
-        try:
-            root.setVisible(not root.isVisible())
-            if root.isVisible():
-                root.requestActivate()
-        except Exception as e:
-            log.warning("tray toggle failed: %s", e)
+        root.setVisible(not root.isVisible())
+        if root.isVisible():
+            root.requestActivate()
 
     def open_prefs() -> None:
-        try:
-            dlg = root.findChild(QObject, "prefsDialog")
-            dlg.load()
-            dlg.open()
-        except Exception as e:
-            log.warning("tray prefs failed: %s", e)
+        dlg = root.findChild(QObject, "prefsDialog")
+        dlg.load()
+        dlg.open()
 
     def open_about() -> None:
-        try:
-            root.findChild(QObject, "aboutDialog").open()
-        except Exception as e:
-            log.warning("tray about failed: %s", e)
+        root.findChild(QObject, "aboutDialog").open()
 
     def open_defaults() -> None:
-        try:
-            root.findChild(QObject, "gameSettings").openDefaults()
-        except Exception as e:
-            log.warning("tray defaults failed: %s", e)
+        root.findChild(QObject, "gameSettings").openDefaults()
 
     return {
-        "toggle": toggle_visible,
-        "prefs": open_prefs,
-        "about": open_about,
+        "toggle": _tray_action(log, "toggle", toggle_visible),
+        "prefs": _tray_action(log, "prefs", open_prefs),
+        "about": _tray_action(log, "about", open_about),
         "defaults": open_defaults,
     }
 
