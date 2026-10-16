@@ -63,12 +63,11 @@
 - [x] Lint expansion (decided 2026-10-06, done 2026-10-16): the agreed
   batch is enabled — `RET`, `SIM` (minus `SIM105`, our best-effort
   `try/except: pass` is deliberate), `ERA`, `FLY`, `LOG`, `TCH`,
-  `RUF022`, `A`, plus `C90` with `max-complexity = 10`. Every finding was
-  fixed, none suppressed; the 15 functions over the cap (worst:
-  `launcher.main` 52, `stl_import.map_to_gameconfig` 26, the display
-  backends 19) were split into helpers with behaviour, exit codes and
-  report order unchanged. Eight functions now sit exactly at 10, so a
-  later sweep could tighten the cap to 9.
+  `RUF022`, `A`, plus `C90` (initially `max-complexity = 10`, then
+  tightened to 9 in a follow-up sweep). Every finding was fixed, none
+  suppressed; the functions over the cap (worst: `launcher.main` 52,
+  `stl_import.map_to_gameconfig` 26, the display backends 19) were split
+  into helpers with behaviour, exit codes and report order unchanged.
   `N` (naming) was reviewed and stays off: the camelCase Qt slots the QML
   calls are the API (`hideOnClose`, `trayAction`, ...). Deliberately off
   (documented in `pyproject.toml`): `PLC0415` (lazy PySide imports isolate
