@@ -6,8 +6,9 @@ import org.kde.kirigami as Kirigami
 // One game cell for the icons grid: artwork (or fallback icon), bold
 // name, dimmed played time. The GridView drives size through cellSize;
 // the page drives `selected` for the highlight overlay. Tap selects,
-// double-tap launches. Game-prefixed required properties bind straight
-// to the model roles.
+// double-tap launches, right-click opens the menu, middle-click the
+// settings. Game-prefixed required properties bind straight to the
+// model roles.
 Item {
     id: iconCell
     objectName: "gameIconCell"
@@ -21,6 +22,7 @@ Item {
     signal playRequested(string gid)
     signal rowTapped(string gid, int modifiers)
     signal menuRequested(string gid)
+    signal settingsRequested(string gid)
 
     Rectangle {
         anchors.fill: parent
@@ -31,10 +33,12 @@ Item {
 
     MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 iconCell.menuRequested(iconCell.gameId)
+            } else if (mouse.button === Qt.MiddleButton) {
+                iconCell.settingsRequested(iconCell.gameId)
             } else {
                 iconCell.rowTapped(iconCell.gameId, mouse.modifiers)
             }

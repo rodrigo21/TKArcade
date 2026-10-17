@@ -1867,6 +1867,7 @@ Kirigami.Page {
             onPlayRequested: (gid) => gameModel.play(gid)
             onRowTapped: (gid, mods) => gamesPage.tapGame(gid, mods)
             onMenuRequested: (gid) => gamesPage.openGameMenu(gid)
+            onSettingsRequested: (gid) => gamesPage.openGameSettings(gid)
         }
         Kirigami.PlaceholderMessage {
             anchors.centerIn: parent
@@ -1896,6 +1897,7 @@ Kirigami.Page {
                         onPlayRequested: (gid) => gameModel.play(gid)
                         onRowTapped: (gid, mods) => gamesPage.tapGame(gid, mods)
                         onMenuRequested: (gid) => gamesPage.openGameMenu(gid)
+                        onSettingsRequested: (gid) => gamesPage.openGameSettings(gid)
                     }
                 }
             }

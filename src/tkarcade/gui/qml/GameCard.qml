@@ -5,7 +5,8 @@ import org.kde.kirigami as Kirigami
 
 // One game as a gallery-style card: artwork banner, name, played and
 // source lines, Play action. The parent sets `selected` (CardsLayout
-// has no currentIndex); click selects, the Play action launches.
+// has no currentIndex); click selects, the Play action launches,
+// right-click opens the menu, middle-click the settings.
 // Game-prefixed required properties bind straight to the model roles.
 Kirigami.Card {
     id: gameCard
@@ -23,6 +24,7 @@ Kirigami.Card {
     signal playRequested(string gid)
     signal rowTapped(string gid, int modifiers)
     signal menuRequested(string gid)
+    signal settingsRequested(string gid)
 
     Layout.maximumWidth: Kirigami.Units.gridUnit * 18
 
@@ -86,19 +88,23 @@ Kirigami.Card {
     // - a plain left click goes through the card itself, which reports
     //   no modifiers (plain selection), and
     // - this MouseArea takes the presses the card cannot describe: the
-    //   context menu and Ctrl/Shift clicks. It only claims those, so an
-    //   unmodified press still reaches the card and the footer's Play
-    //   action (a full cover would swallow the button).
+    //   context menu, the settings gesture (middle click) and Ctrl/Shift
+    //   clicks. It only claims those, so an unmodified press still
+    //   reaches the card and the footer's Play action (a full cover
+    //   would swallow the button).
     MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onPressed: (mouse) => {
             mouse.accepted = mouse.button === Qt.RightButton
+                || mouse.button === Qt.MiddleButton
                 || (mouse.modifiers & (Qt.ControlModifier | Qt.ShiftModifier)) !== 0
         }
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 gameCard.menuRequested(gameCard.gameId)
+            } else if (mouse.button === Qt.MiddleButton) {
+                gameCard.settingsRequested(gameCard.gameId)
             } else {
                 gameCard.rowTapped(gameCard.gameId, mouse.modifiers)
             }

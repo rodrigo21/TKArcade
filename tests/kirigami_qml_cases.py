@@ -137,6 +137,45 @@ def test_list_row_double_click_plays(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
 
 
+def test_middle_click_opens_settings(qgui_app, xdg_env):
+    """Middle-clicking a row opens its settings (widgets eventFilter parity)."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "77"
+    cfg.general.name = "Middle Test"
+    C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    table = win.findChild(QQuickItem, "gameTable")
+    settings = win.findChild(QObject, "gameSettings")
+    assert table is not None
+    assert settings is not None
+    assert page.settingsOpen() is False
+
+    rows = _table_rows(table, proxy)
+    assert len(rows) == 1
+    QTest.mouseClick(win, Qt.MouseButton.MiddleButton, Qt.KeyboardModifier.NoModifier, rows[0][1])
+    QTest.qWait(100)
+    qgui_app.processEvents()
+    assert page.settingsOpen() is True
+    assert settings.property("editAppid") == "77"
+
+    settings.close()
+    QTest.qWait(50)
+    qgui_app.processEvents()
+    assert page.settingsOpen() is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_header_sort_toggles_indicator_and_order(qgui_app, xdg_env):
     """Header taps drive proxy sort; the indicator follows the state."""
     from PySide6.QtCore import QObject, QUrl
@@ -989,6 +1028,16 @@ def test_card_mouse_gestures(qgui_app, xdg_env):
     menu.setProperty("visible", False)
     qgui_app.processEvents()
 
+    # Middle-click opens the settings (widgets eventFilter parity).
+    settings = win.findChild(QObject, "gameSettings")
+    assert settings is not None
+    click(Qt.MiddleButton)
+    assert page.settingsOpen() is True
+    settings.close()
+    QTest.qWait(100)
+    qgui_app.processEvents()
+    assert page.settingsOpen() is False
+
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -1069,6 +1118,17 @@ def test_icon_double_click_plays(qgui_app, xdg_env, monkeypatch):
     QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
     assert played == ["77"]
+
+    # Middle-click opens the settings (widgets eventFilter parity).
+    settings = win.findChild(QObject, "gameSettings")
+    assert settings is not None
+    QTest.mouseClick(win, Qt.MouseButton.MiddleButton, Qt.KeyboardModifier.NoModifier, pos)
+    QTest.qWait(100)
+    qgui_app.processEvents()
+    assert page.settingsOpen() is True
+    settings.close()
+    QTest.qWait(50)
+    qgui_app.processEvents()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

@@ -154,6 +154,9 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- Middle-click on a game opens its settings in all three views (table
+  rows, icons grid, cards), matching the widgets event filter; the QML
+  gesture layer only accepted the left and right buttons.
 - Preferences (widgets parity): the SteamGridDB key row sits inside the
   form card, indented like the delegates and ordered before the Language
   picker, and the window opens at a height that fits the form instead of
