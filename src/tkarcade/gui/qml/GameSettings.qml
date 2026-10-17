@@ -132,12 +132,27 @@ Window {
         pushToControls()
     }
 
+    // Read-only Proton tool/version row (widgets parity); tracks the Game
+    // type combo so switching to Native clears it.
+    function runtimeText() {
+        if (defaultsMode || editAppid === "" || !(fields.is_steam || false)) {
+            return ""
+        }
+        if (typeBox.currentIndex === 2) {
+            return qsTr("Native (no Proton)")
+        }
+        return gameModel.detectedRuntime(editAppid)
+    }
+
     function pushToControls() {
         var f = fields
         appidField.text = f.appid || ""
-        nameField.text = f.name || ""
+        nameField.text = (f.is_steam && editAppid !== "")
+            ? (gameModel.gameNames([editAppid])[0] || editAppid)
+            : (f.name || "")
         exeField.text = f.custom_executable || ""
         typeBox.currentIndex = f.game_type === "proton" ? 1 : (f.game_type === "native" ? 2 : 0)
+        runtimeField.text = runtimeText()
         prefixField.text = f.custom_prefix || ""
         argsField.text = f.launch_args || ""
         cwdField.text = f.launch_cwd || ""
@@ -871,10 +886,29 @@ Window {
                 Controls.TextField {
                     id: nameField
                     objectName: "settingsName"
-                    visible: !(fields.is_steam || false) && !defaultsMode
+                    // Always shown per-game (widgets parity); readonly and
+                    // Steam-sourced for Steam games.
+                    visible: !defaultsMode
+                    readOnly: fields.is_steam || false
                     placeholderText: qsTr("Game name")
                     Layout.fillWidth: true
                     KirigamiLayouts.FormData.label: qsTr("Game name:")
+                }
+                Controls.ComboBox {
+                    id: typeBox
+                    objectName: "settingsType"
+                    Layout.fillWidth: true
+                    model: [qsTr("Automatic"), qsTr("Proton"), qsTr("Native Linux")]
+                    KirigamiLayouts.FormData.label: qsTr("Game type:")
+                    onActivated: runtimeField.text = gameSettings.runtimeText()
+                }
+                Controls.TextField {
+                    id: runtimeField
+                    objectName: "settingsRuntime"
+                    visible: !defaultsMode && editAppid !== "" && (fields.is_steam || false)
+                    readOnly: true
+                    Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -924,13 +958,6 @@ Window {
                             gameSettings.pendingBrowse = ""
                         }
                     }
-                }
-                Controls.ComboBox {
-                    id: typeBox
-                    objectName: "settingsType"
-                    Layout.fillWidth: true
-                    model: [qsTr("Automatic"), qsTr("Proton"), qsTr("Native Linux")]
-                    KirigamiLayouts.FormData.label: qsTr("Game type:")
                 }
                 Controls.TextField {
                     id: prefixField

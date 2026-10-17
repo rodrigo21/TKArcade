@@ -6,6 +6,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Settings General (widgets parity): the Game name field shows the Steam
+  name read-only for Steam ids (it used to appear only for local games),
+  a read-only Detected Runtime row reports the Proton tool/version, and
+  the Game type row moves into the widgets field order.
 - Session history (widgets parity): bold header row (Game, Last played,
   Sessions, Total time, Failures), per-game Sessions/Failures columns,
   and a confirmed "Clear History..." bulk action in the footer.

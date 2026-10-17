@@ -782,6 +782,19 @@ class GameListModel(QAbstractTableModel):
             return ""
         return " · ".join(wrappers)
 
+    @Slot(str, result=str)
+    def detectedRuntime(self, appid: str) -> str:
+        """Proton tool/version for a Steam game (widgets parity).
+
+        The Native case is translated in QML ("Native (no Proton)").
+        """
+        try:
+            if not appid or not steammod.is_steam_id(appid):
+                return ""
+            return self._row_wine(appid, None, True)
+        except Exception:
+            return ""
+
     @Slot(result=list)
     def allCategories(self) -> list:
         """Every category tag in use, sorted case-insensitively."""
