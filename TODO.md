@@ -88,6 +88,26 @@ to `kirigami` (see git log). Two modes only: overlay + collapsible
 sidebar (plain sidebar removed); drawer header has the gamepad
 toggle and a centered Library.
 
+### Parity finish (2026-10-16, paired offscreen audit)
+
+Closed against the widgets r240 reference (paired screenshots, same seed):
+settings footer (`Reset to Global Defaults` moved out of the profile row)
+and wrapper summary (`Will launch with: …`, above the buttons; the summary
+now refreshes after the missing-binary pass so it never lists a tool the
+command builder skips); session history columns (Sessions/Total
+time/Failures) + bold header + confirmed bulk `Clear History...`; General
+`Detected Runtime:` row, the Steam `Game name` (read-only) and the widgets
+field order; empty-state `Import...` + three-step hint with the table
+header hidden; pre-launch artwork / `name (appid)` / `Proton:` line;
+preferences SteamGridDB row inside the card, ordered before Language, with
+the window sized to the form.
+
+Left open (deliberate, not regressions): the widgets `Dependency Status`
+group (replaced here by the disabled tool toggles + preview warnings) and
+the widgets `Reset to Factory Defaults` in the Global Defaults dialog. The
+General form keeps Kirigami's wider side margins; the wide/narrow switch
+(`KirigamiLayouts.FormLayout`) already mirrors the QFormLayout behaviour.
+
 ### Equivalence map (audit 2026-10-07)
 - [x] QMainWindow → ApplicationWindow
 - [x] QListWidget sources → GlobalDrawer actions
