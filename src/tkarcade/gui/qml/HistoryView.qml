@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
+import org.kde.kirigami.dialogs as KirigamiDialogs
 
 // Session history: a separate modal window like the widgets QDialog
 // (resizable, transient on the main window). `open()` keeps the old
@@ -21,10 +22,22 @@ Window {
 
     property var rows: []
 
+    // Column widths shared by the header and the delegates so the two
+    // rows of labels stay aligned (widgets QTableWidget parity).
+    readonly property int colLast: Kirigami.Units.gridUnit * 9
+    readonly property int colRuns: Kirigami.Units.gridUnit * 4
+    readonly property int colTotal: Kirigami.Units.gridUnit * 5
+    readonly property int colFails: Kirigami.Units.gridUnit * 4
+
     function open() {
         transientParent = Controls.ApplicationWindow.window
         gameModel.watchQuitKeys(historyView)
         visible = true
+    }
+
+    function clearAll() {
+        gameModel.clearAllHistory()
+        rows = gameModel.historySummary()
     }
 
     ColumnLayout {
@@ -37,6 +50,43 @@ Window {
             if (event.key === Qt.Key_Q && (event.modifiers & Qt.ControlModifier)) {
                 event.accepted = true
                 Qt.quit()
+            }
+        }
+        RowLayout {
+            objectName: "historyHeader"
+            Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.smallSpacing
+            Controls.Label {
+                Layout.fillWidth: true
+                text: qsTr("Game")
+                font.bold: true
+            }
+            Controls.Label {
+                Layout.preferredWidth: historyView.colLast
+                text: qsTr("Last played")
+                font.bold: true
+            }
+            Controls.Label {
+                Layout.preferredWidth: historyView.colRuns
+                text: qsTr("Sessions")
+                font.bold: true
+                horizontalAlignment: Text.AlignRight
+            }
+            Controls.Label {
+                Layout.preferredWidth: historyView.colTotal
+                text: qsTr("Total time")
+                font.bold: true
+                horizontalAlignment: Text.AlignRight
+            }
+            Controls.Label {
+                Layout.preferredWidth: historyView.colFails
+                text: qsTr("Failures")
+                font.bold: true
+                horizontalAlignment: Text.AlignRight
+            }
+            // Spacer over the per-row Clear button.
+            Item {
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 3
             }
         }
         ListView {
@@ -55,11 +105,27 @@ Window {
                     elide: Text.ElideRight
                 }
                 Controls.Label {
+                    Layout.preferredWidth: historyView.colLast
                     text: modelData.last
                     opacity: 0.7
+                    elide: Text.ElideRight
                 }
                 Controls.Label {
-                    text: modelData.total
+                    objectName: "historyRuns"
+                    Layout.preferredWidth: historyView.colRuns
+                    text: modelData.runs ?? ""
+                    horizontalAlignment: Text.AlignRight
+                }
+                Controls.Label {
+                    Layout.preferredWidth: historyView.colTotal
+                    text: modelData.total ?? ""
+                    horizontalAlignment: Text.AlignRight
+                }
+                Controls.Label {
+                    objectName: "historyFails"
+                    Layout.preferredWidth: historyView.colFails
+                    text: modelData.fails ?? ""
+                    horizontalAlignment: Text.AlignRight
                 }
                 Controls.ToolButton {
                     objectName: "historyClear"
@@ -74,9 +140,42 @@ Window {
         RowLayout {
             Layout.fillWidth: true
             Controls.Button {
+                objectName: "historyClearAll"
+                text: qsTr("Clear History...")
+                icon.name: "edit-delete"
+                onClicked: clearAllDialog.open()
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+            Controls.Button {
                 text: qsTr("Close")
                 onClicked: historyView.close()
             }
         }
+    }
+
+    KirigamiDialogs.PromptDialog {
+        id: clearAllDialog
+        objectName: "historyClearAllDialog"
+        title: qsTr("Clear History")
+        dialogType: KirigamiDialogs.PromptDialog.Warning
+        subtitle: qsTr("Clear all session history? This cannot be undone.")
+        customFooterActions: [
+            Kirigami.Action {
+                objectName: "historyClearAllConfirm"
+                text: qsTr("Clear")
+                icon.name: "edit-delete"
+                onTriggered: {
+                    historyView.clearAll()
+                    clearAllDialog.close()
+                }
+            },
+            Kirigami.Action {
+                text: qsTr("Cancel")
+                icon.name: "dialog-cancel"
+                onTriggered: clearAllDialog.close()
+            }
+        ]
     }
 }

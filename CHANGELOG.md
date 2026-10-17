@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Session history (widgets parity): bold header row (Game, Last played,
+  Sessions, Total time, Failures), per-game Sessions/Failures columns,
+  and a confirmed "Clear History..." bulk action in the footer.
 - Toolbar icon fallback: the columns button (and later buttons) pick
   the first name the theme ships (`iconName` slot) — `view-column`
   exists only in some themes, `table` in others.

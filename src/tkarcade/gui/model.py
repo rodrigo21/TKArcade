@@ -1629,6 +1629,17 @@ class GameListModel(QAbstractTableModel):
         self.refresh()
         return int(removed)
 
+    @Slot(result=bool)
+    def clearAllHistory(self) -> bool:
+        """Truncate the session log (bulk "Clear History..."); True on success."""
+        try:
+            xdg.log_file().write_text("", encoding="utf-8")
+        except OSError as e:
+            log.warning("clearAllHistory failed: %s", e)
+            return False
+        self.refresh()
+        return True
+
     @Slot(list, result=list)
     def gameNames(self, appids: list) -> list:
         """Display names for AppIDs (dialog labels)."""
