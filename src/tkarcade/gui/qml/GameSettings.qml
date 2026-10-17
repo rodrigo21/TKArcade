@@ -945,16 +945,13 @@ Window {
                 Item {
                     width: parent.width
                     height: generalForm.implicitHeight
-                    KirigamiLayouts.FormLayout {
+                    WidgetsFormLayout {
                     id: generalForm
                     objectName: "settingsGeneralForm"
-                    // Centered readable column (widgets-dialog feel),
-                    // capped — never full-bleed. Anchored: a raw x is
-                    // reset by the ScrollView content management.
-                    // Side-by-side labels when wide (QFormLayout parity),
-                    // stacked labels when narrow (Kirigami convergent).
-                    width: Math.min(parent.width, Kirigami.Units.gridUnit * 38)
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    // Fill the tab like the widgets form layout: labels in
+                    // their own right-aligned column, fields stretched to
+                    // the tab edge.
+                    width: parent.width
                 Controls.TextField {
                     id: appidField
                     objectName: "settingsAppid"
@@ -1231,7 +1228,7 @@ Window {
                     Item {
                         width: parent.width
                         height: ppForm.implicitHeight
-                        KirigamiLayouts.FormLayout {
+                        WidgetsFormLayout {
                             id: ppForm
                             width: parent.width
                             Controls.TextField {
@@ -1288,10 +1285,11 @@ Window {
                             id: perfForm
                             width: parent.width
                             spacing: Kirigami.Units.smallSpacing
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("System")
                                 Layout.fillWidth: true
-                                ColumnLayout {
+                                WidgetsFormLayout {
+                                    Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: perfFeral
                                         objectName: "perfFeral"
@@ -1505,10 +1503,10 @@ Window {
                     Item {
                         width: parent.width
                         height: luForm.implicitHeight
-                        ColumnLayout {
+                        WidgetsFormLayout {
                             id: luForm
+                            objectName: "luForm"
                             width: parent.width
-                            spacing: Kirigami.Units.smallSpacing
                             Controls.CheckBox {
                                 id: luEnable
                                 objectName: "luEnable"
@@ -1528,14 +1526,12 @@ Window {
                                 Controls.ToolTip.text: qsTr("Unchecked = --no-backup")
                                 Controls.ToolTip.visible: hovered
                             }
-                            Controls.Label {
-                                text: qsTr("Game Name Override:")
-                            }
                             Controls.TextField {
                                 id: luName
                                 objectName: "luName"
                                 placeholderText: qsTr("Leave empty to detect the game from Steam")
                                 Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Game Name Override:")
                             }
                             Controls.CheckBox {
                                 id: luGui
@@ -1545,15 +1541,18 @@ Window {
                                 Controls.ToolTip.visible: hovered
                             }
                             Controls.Label {
+                                // The widgets adds this note as a spanning row
+                                // (addRow with a single widget), not as a field.
+                                objectName: "luNote"
+                                KirigamiLayouts.FormData.isSection: true
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
                                 text: qsTr("With prompts enabled, restore and backup can be declined per session.")
                             }
                             RowLayout {
+                                Layout.fillWidth: true
                                 visible: editAppid !== ""
-                                Controls.Label {
-                                    text: qsTr("Coverage:")
-                                }
+                                KirigamiLayouts.FormData.label: qsTr("Coverage:")
                                 Controls.Button {
                                     objectName: "luCoverage"
                                     text: qsTr("Check Coverage...")
@@ -1578,10 +1577,11 @@ Window {
                             id: sysForm
                             width: parent.width
                             spacing: Kirigami.Units.smallSpacing
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("Notifications")
                                 Layout.fillWidth: true
-                                ColumnLayout {
+                                WidgetsFormLayout {
+                                    Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: ntLaunch
                                         objectName: "ntLaunch"
@@ -1591,10 +1591,11 @@ Window {
                                     }
                                 }
                             }
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("Idle Suspend")
                                 Layout.fillWidth: true
-                                ColumnLayout {
+                                WidgetsFormLayout {
+                                    Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: seInhibit
                                         objectName: "seInhibit"
@@ -1604,10 +1605,11 @@ Window {
                                     }
                                 }
                             }
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("Night Light")
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormLayout {
+                                WidgetsFormLayout {
+                                    Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: nlDisable
                                         objectName: "nlDisable"
@@ -1622,10 +1624,11 @@ Window {
                                     }
                                 }
                             }
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("Audio")
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormLayout {
+                                WidgetsFormLayout {
+                                    Layout.fillWidth: true
                                     RowLayout {
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("Output sink:")
@@ -1657,7 +1660,7 @@ Window {
                     Item {
                         width: parent.width
                         height: wineForm.implicitHeight
-                        KirigamiLayouts.FormLayout {
+                        WidgetsFormLayout {
                             id: wineForm
                             objectName: "wineForm"
                             width: parent.width
@@ -1807,7 +1810,7 @@ Window {
                     Item {
                         width: parent.width
                         height: artForm.implicitHeight
-                        KirigamiLayouts.FormLayout {
+                        WidgetsFormLayout {
                             id: artForm
                             width: parent.width
                             RowLayout {

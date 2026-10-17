@@ -69,6 +69,12 @@ Breaking config changes are called out explicitly under `Changed`.
   column to its labels and hands the rest to the field column, so fields
   reach the panel edge instead of a compact form centered with a hole
   left of the labels.
+- Settings Performance/System/Ludusavi/Wine tabs (widgets parity): the
+  groups draw as centered framed sections like Display's, every form
+  fills the tab (the General tab lost its centered width cap), and the
+  Ludusavi tab becomes a widgets form — checkboxes indented into the
+  field column, "Game Name Override:"/"Coverage:" right-aligned labels
+  and the prompts note in a spanning row.
 - Profile semantics (widgets parity): Save writes to the active profile
   target (live file keeps only the selection), dirty profile switches
   ask to discard first, Save As/Clone/Delete confirm overwrites, Reset

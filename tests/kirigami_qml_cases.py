@@ -1402,6 +1402,71 @@ Window {
     qgui_app.processEvents()
 
 
+def test_settings_tabs_use_widgets_sections(qgui_app, xdg_env):
+    """Performance/System groups are SectionBoxes; fields fill the tab."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-sections"
+    cfg.general.name = "Sections"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    settings = win.findChild(QObject, "gameSettings")
+    settings.openFor("local-sections")
+    QTest.qWait(120)
+    qgui_app.processEvents()
+    tabs = win.findChild(QQuickItem, "settingsTabs")
+
+    def visible_titles(index):
+        tabs.setProperty("currentIndex", index)
+        QTest.qWait(150)
+        qgui_app.processEvents()
+        titles = {
+            c.property("text")
+            for c in settings.findChildren(QQuickItem, "sectionTitleText")
+            if c.isVisible()
+        }
+        # The Dependency Status box lives below the tabs and is in every page.
+        titles.discard("Dependency Status")
+        return sorted(titles)
+
+    # Every desktop-integration group draws the widgets QGroupBox look:
+    # centered title above a framed panel (the QQC2 GroupBox painted the
+    # title inside the frame at the top-left).
+    assert visible_titles(3) == ["System"]
+    assert visible_titles(6) == ["Audio", "Idle Suspend", "Night Light", "Notifications"]
+    assert visible_titles(4) == ["Display Mode", "Gamescope", "MangoHud", "RT Upscaler"]
+
+    # Ludusavi: the widgets form layout indents the checkboxes into the
+    # field column, stretches the name field across the panel and puts
+    # the note in a spanning row.
+    tabs.setProperty("currentIndex", 5)
+    QTest.qWait(150)
+    qgui_app.processEvents()
+    form = win.findChild(QQuickItem, "luForm")
+    name = win.findChild(QQuickItem, "luName")
+    enable = win.findChild(QQuickItem, "luEnable")
+    note = win.findChild(QQuickItem, "luNote")
+    assert None not in (form, name, enable, note)
+    assert enable.property("x") > 0
+    assert abs(enable.property("x") - name.property("x")) <= 1
+    assert abs(name.property("x") + name.property("width") - form.property("width")) <= 24
+    assert abs(note.property("x")) <= 1
+    assert abs(note.property("width") - form.property("width")) <= 1
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
     """Dependency Status: two columns of marks below the tabs."""
     import shiboken6
@@ -3658,6 +3723,8 @@ def test_settings_general_formlayout_wide(qgui_app, xdg_env):
     assert form.property("wideMode") is True
     name = swin.findChild(QQuickItem, "settingsName")
     assert name.property("x") > 100  # buddy column, labels aside
+    # The field column takes the tab (widgets QFormLayout), no centered cap.
+    assert abs(name.property("x") + name.property("width") - form.property("width")) <= 24
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
