@@ -1624,23 +1624,24 @@ def test_footer_shows_filtered_count(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_empty_scan_without_steam_notifies(qgui_app, xdg_env):
-    """Empty state Scan with nothing to add reports instead of opening."""
+def test_empty_import_opens_dialog(qgui_app, xdg_env):
+    """Empty state offers Import and opens the import window; no table
+    header floats over the placeholder (widgets parity)."""
     from PySide6.QtCore import QObject, QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
 
     win, _engine, proxy, warnings = _load_main(qgui_app)
     assert proxy.rowCount() == 0
-    scan = win.findChild(QQuickItem, "emptyScan")
-    assert scan is not None and scan.property("visible") is True
-    pos = scan.mapToScene(QPointF(scan.property("width") / 2, 5)).toPoint()
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None and header.property("visible") is False
+    imp = win.findChild(QQuickItem, "emptyImport")
+    assert imp is not None and imp.property("visible") is True
+    pos = imp.mapToScene(QPointF(imp.property("width") / 2, 5)).toPoint()
     QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
-    page = win.findChild(QObject, "gamesPage")
-    assert page.property("notice") == "Every Steam game is already configured."
-    dialog = win.findChild(QObject, "scanDialog")
-    assert dialog.property("visible") is False
+    dialog = win.findChild(QObject, "importDialog")
+    assert dialog.property("visible") is True
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

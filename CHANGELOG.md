@@ -148,6 +148,10 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- Empty library state (widgets parity): the middle button is `Import...`
+  (the Steam scan stays in the menu, like the widgets Tools entry), the
+  hint walks the three setup steps, and no table header floats over the
+  placeholder.
 - Settings footer and wrapper summary (widgets parity finish):
   `Reset to Global Defaults` moves from the profile row to the footer,
   and the wrapper summary reads "Will launch with: …" and sits above the

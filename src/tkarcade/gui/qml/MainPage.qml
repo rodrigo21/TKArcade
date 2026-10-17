@@ -1321,6 +1321,8 @@ Kirigami.Page {
         Item {
             id: tableHeader
             objectName: "tableHeader"
+            // Widgets parity: no table header over the empty state.
+            visible: gameFilter.rowCount() > 0
             Layout.fillWidth: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 2
             clip: true
@@ -1816,7 +1818,7 @@ Kirigami.Page {
         anchors.centerIn: parent
         visible: gamesPage.viewMode === "list" && gameFilter.rowCount() === 0
         text: qsTr("No games configured yet")
-        explanation: qsTr("Add a game, scan the Steam library, or copy the launch options.")
+        explanation: qsTr("1. Add a Steam game · 2. Edit its settings · 3. Set its Steam launch options to tkarcade %command%")
     }
     RowLayout {
         anchors.centerIn: parent
@@ -1827,18 +1829,9 @@ Kirigami.Page {
             onClicked: addGameDialog.open()
         }
         Controls.Button {
-            objectName: "emptyScan"
-            text: qsTr("Scan...")
-            onClicked: {
-                var cands = gameModel.scanCandidates()
-                if (cands.length === 0) {
-                    gamesPage.notify(
-                        qsTr("Every Steam game is already configured."))
-                    return
-                }
-                scanDialog.candidates = cands
-                scanDialog.open()
-            }
+            objectName: "emptyImport"
+            text: qsTr("Import...")
+            onClicked: importDialog.open()
         }
         Controls.Button {
             text: qsTr("Copy Launch Options")
