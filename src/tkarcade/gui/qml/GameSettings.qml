@@ -196,13 +196,16 @@ Window {
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
         previewCheck.checked = gameModel.loadPrefs().showPreview ?? true
-        refreshPreview()
         setEnvRows(f.env_vars || [])
         applyToolCheck(perfFeral, "gamemoderun")
         applyToolCheck(perfCachy, "game-performance")
         applyToolCheck(gsEnable, "gamescope")
         applyToolCheck(mhEnable, "mangohud")
         applyToolCheck(luEnable, "ludusavi")
+        // After the availability pass, so the wrapper summary never
+        // advertises a tool the command builder will skip (widgets
+        // parity: gamemoderun missing -> GameMode stays out of the list).
+        refreshPreview()
         if (f.load_warning) {
             settingsError.text = f.load_warning
         }
@@ -621,7 +624,13 @@ Window {
             lines.push("# warning: " + warns[i])
         }
         previewText.text = lines.join("\n")
-        previewWrappers.text = res.wrappers
+        // Widgets parity: "Will launch with: A · B". The model returns the
+        // joined list or the "No wrappers enabled" sentinel (kept for the
+        // model contract); translate both cases here.
+        var w = res.wrappers || ""
+        previewWrappers.text = (w === "" || w === "No wrappers enabled")
+            ? qsTr("No wrappers enabled")
+            : qsTr("Will launch with: %1").arg(w)
     }
 
     function save() {
@@ -1016,11 +1025,6 @@ Window {
                             confirmOk.text = qsTr("Delete")
                             confirmDialog.open()
                         }
-                    }
-                    Controls.Button {
-                        objectName: "settingsReset"
-                        text: qsTr("Reset")
-                        onClicked: gameSettings.resetFactory()
                     }
                 }
                 RowLayout {
@@ -1829,14 +1833,32 @@ Window {
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }
+        Controls.Label {
+            id: previewWrappers
+            objectName: "previewWrappers"
+            Layout.fillWidth: true
+            font: Kirigami.Theme.smallFont
+            elide: Text.ElideRight
+        }
         RowLayout {
             Layout.fillWidth: true
+            Controls.Button {
+                objectName: "settingsReset"
+                visible: !gameSettings.defaultsMode && gameSettings.editAppid !== ""
+                text: qsTr("Reset to Global Defaults")
+                onClicked: gameSettings.resetFactory()
+            }
             Controls.Button {
                 objectName: "settingsLaunch"
                 visible: gameSettings.launchMode && gameSettings.canLaunch
                 text: qsTr("Launch")
                 icon.name: gameModel.iconName(["media-playback-start", "player-play"])
                 onClicked: gameSettings.launchWithoutSave()
+            }
+            Controls.Button {
+                objectName: "settingsSave"
+                text: qsTr("Save")
+                onClicked: gameSettings.save()
             }
             Controls.Button {
                 objectName: "settingsSaveLaunch"
@@ -1846,9 +1868,9 @@ Window {
                 onClicked: gameSettings.saveAndLaunch()
             }
             Controls.Button {
-                objectName: "settingsSave"
-                text: qsTr("Save")
-                onClicked: gameSettings.save()
+                objectName: "settingsCancel"
+                text: qsTr("Cancel")
+                onClicked: gameSettings.finish("cancelled")
             }
             Controls.Button {
                 objectName: "diffButton"
@@ -1859,18 +1881,6 @@ Window {
                     diffDialog.open()
                 }
             }
-            Controls.Button {
-                objectName: "settingsCancel"
-                text: qsTr("Cancel")
-                onClicked: gameSettings.finish("cancelled")
-            }
-        }
-        Controls.Label {
-            id: previewWrappers
-            objectName: "previewWrappers"
-            Layout.fillWidth: true
-            font: Kirigami.Theme.smallFont
-            elide: Text.ElideRight
         }
     }
 

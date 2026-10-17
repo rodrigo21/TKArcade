@@ -145,6 +145,14 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- Settings footer and wrapper summary (widgets parity finish):
+  `Reset to Global Defaults` moves from the profile row to the footer,
+  and the wrapper summary reads "Will launch with: …" and sits above the
+  buttons instead of below them. The summary no longer advertises a
+  wrapper the command builder skips: the preview ran before the
+  missing-binary pass unchecked the toggle, so a stored `gamemoderun`
+  could appear in the "will launch with" line while the preview warned it
+  was skipped.
 - `--edit` and `--menu` opened nothing and hung until Ctrl+C: the editor
   child (`gui/edit.py`) set up `Editor.qml` and jumped straight into
   `app.exec()` without calling the host's `start()`, which is what creates
