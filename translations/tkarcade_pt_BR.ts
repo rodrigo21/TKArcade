@@ -2093,27 +2093,32 @@ Isso sobrescreve as configs salvas (perfis são mantidos).</translation>
         <translation>jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="91"/>
+        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="53"/>
+        <source>Proton: %1</source>
+        <translation>Proton: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="103"/>
         <source>Played %1 over %2 session(s)</source>
         <translation>Jogado %1 em %2 sessão(ões)</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="137"/>
+        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="176"/>
         <source>Launching in %1…</source>
         <translation>Lançando em %1…</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="146"/>
+        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="185"/>
         <source>Launch</source>
         <translation>Lançar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="153"/>
+        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="192"/>
         <source>Settings...</source>
         <translation>Configurações...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="159"/>
+        <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="198"/>
         <source>Cancel</source>
         <translation type="unfinished">Cancelar</translation>
     </message>

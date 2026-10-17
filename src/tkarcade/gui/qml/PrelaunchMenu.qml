@@ -17,8 +17,8 @@ Window {
     title: qsTr("TKArcade — %1").arg(name || appid || qsTr("game"))
     modality: Qt.WindowModal
     minimumWidth: Kirigami.Units.gridUnit * 24
-    width: Kirigami.Units.gridUnit * 30
-    height: Kirigami.Units.gridUnit * 9
+    width: Kirigami.Units.gridUnit * 32
+    height: Kirigami.Units.gridUnit * 11
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -29,6 +29,15 @@ Window {
     property bool canLaunch: true
     property int remaining: 0
     property bool outcomeReported: false
+    // Landcape artwork URL and "Proton: ..." line, filled in openMenu()
+    // (widgets MenuDialog parity).
+    property string artSource: ""
+    property string protonText: ""
+
+    // "Name (appid)" like the widgets dialog header.
+    readonly property string heading: name !== "" && appid !== ""
+        ? name + " (" + appid + ")"
+        : (name || appid)
 
     // "launch" | "cancelled" -- everything else is a crash, which the
     // launcher reads as "never launch" (run_editor_menu).
@@ -39,6 +48,9 @@ Window {
     function openMenu() {
         outcomeReported = false
         details = detailText()
+        var art = appid !== "" ? gameModel.landscapeArt(appid) : ""
+        artSource = art !== "" ? "file://" + art : ""
+        protonText = qsTr("Proton: %1").arg(gameModel.protonLabel(appid))
         remaining = canLaunch ? Math.max(0, Number(timeout) || 0) : 0
         visible = true
         requestActivate()
@@ -114,21 +126,60 @@ Window {
         anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing
 
-        Kirigami.Heading {
-            objectName: "prelaunchTitle"
+        RowLayout {
             Layout.fillWidth: true
-            level: 3
-            elide: Text.ElideRight
-            text: prelaunch.name || prelaunch.appid
-        }
-        Controls.Label {
-            objectName: "prelaunchDetails"
-            Layout.fillWidth: true
-            visible: text !== ""
-            wrapMode: Text.WordWrap
-            opacity: 0.7
-            font: Kirigami.Theme.smallFont
-            text: prelaunch.details
+            spacing: Kirigami.Units.largeSpacing
+            Item {
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 8
+                Layout.preferredHeight: Kirigami.Units.gridUnit * 5
+                Image {
+                    objectName: "prelaunchArt"
+                    anchors.centerIn: parent
+                    visible: prelaunch.artSource !== ""
+                    source: visible ? prelaunch.artSource : ""
+                    sourceSize.width: Kirigami.Units.gridUnit * 8
+                    sourceSize.height: Kirigami.Units.gridUnit * 5
+                    width: Math.min(parent.width, parent.height * 3 / 2)
+                    height: width * 2 / 3
+                    fillMode: Image.PreserveAspectFit
+                }
+                Kirigami.Icon {
+                    objectName: "prelaunchArtFallback"
+                    anchors.centerIn: parent
+                    visible: prelaunch.artSource === ""
+                    source: gameModel.iconName(["media-playback-start", "player-play"])
+                    width: Kirigami.Units.gridUnit * 3
+                    height: width
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                Kirigami.Heading {
+                    objectName: "prelaunchTitle"
+                    Layout.fillWidth: true
+                    level: 3
+                    elide: Text.ElideRight
+                    text: prelaunch.heading
+                }
+                Controls.Label {
+                    objectName: "prelaunchProton"
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                    opacity: 0.7
+                    font: Kirigami.Theme.smallFont
+                    text: prelaunch.protonText
+                }
+                Controls.Label {
+                    objectName: "prelaunchDetails"
+                    Layout.fillWidth: true
+                    visible: text !== ""
+                    wrapMode: Text.WordWrap
+                    opacity: 0.7
+                    font: Kirigami.Theme.smallFont
+                    text: prelaunch.details
+                }
+            }
         }
         Controls.Label {
             objectName: "prelaunchCountdown"

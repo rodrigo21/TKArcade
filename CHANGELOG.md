@@ -6,6 +6,8 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Pre-launch menu (widgets parity): landscape artwork with a play-icon
+  fallback, the "name (appid)" header and the "Proton: <tool>" line.
 - Settings General (widgets parity): the Game name field shows the Steam
   name read-only for Steam ids (it used to appear only for local games),
   a read-only Detected Runtime row reports the Proton tool/version, and

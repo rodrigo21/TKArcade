@@ -795,6 +795,29 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return ""
 
+    @Slot(str, result=str)
+    def landscapeArt(self, appid: str) -> str:
+        """Landscape artwork path for the pre-launch menu ('' when none)."""
+        try:
+            if not appid:
+                return ""
+            path = artmod.resolve_icon(appid, landscape=True)
+            return str(path) if path else ""
+        except Exception:
+            return ""
+
+    @Slot(str, result=str)
+    def protonLabel(self, appid: str) -> str:
+        """Proton tool/version label for the pre-launch menu (widgets parity)."""
+        if not appid:
+            return "—"
+        from .. import proton as protonmod
+
+        try:
+            return protonmod.tool_display(appid)
+        except Exception:
+            return "Proton"
+
     @Slot(result=list)
     def allCategories(self) -> list:
         """Every category tag in use, sorted case-insensitively."""
