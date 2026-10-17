@@ -78,7 +78,12 @@
 ## Kirigami parity (widgets → Kirigami, branch `kirigami`)
 
 Goal: visual consistency with the widgets version, then drop widgets.
-Rule: always prefer the Kirigami/Addons equivalent, never reinvent.
+Rule: settings and dialogs reproduce the widgets QDialog layout in pure
+QML (section title centered above a framed panel, one right-aligned label
+column per panel, centered section checkboxes, button box with
+Diff/Reset on the left and accept/cancel on the right) — Kirigami/Addons
+components provide behaviour, never chrome that diverges from that
+layout. QtWidgets stays out of the tree.
 Parity order (agreed, i18n last): pickers+tabs → settings →
 export/import → PromptDialog → tray → drag-reorder.
 Status: list/icons/cards views, drawer modes, toolbar Play/Add/Edit/Remove,

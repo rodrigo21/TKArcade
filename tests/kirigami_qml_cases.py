@@ -1206,6 +1206,107 @@ def test_game_icon_delegate_binds_roles(qgui_app):
     qgui_app.processEvents()
 
 
+def test_section_box_matches_widgets_group_box(qgui_app):
+    """SectionBox: centered title above a padded frame (widgets QGroupBox)."""
+    import pathlib
+
+    from PySide6.QtCore import QUrl
+    from PySide6.QtQml import QQmlComponent, QQmlEngine
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    qml_dir = pathlib.Path(kapp.__file__).parent / "qml"
+    source = b"""
+import QtQuick
+import QtQuick.Controls as Controls
+import QtQuick.Layouts
+import QtQuick.Window
+
+Window {
+    width: 400
+    height: 300
+    visible: true
+    ColumnLayout {
+        anchors.fill: parent
+        SectionBox {
+            id: box
+            objectName: "probeBox"
+            Layout.fillWidth: true
+            title: "Gamescope"
+            spacing: 4
+            padding: 9
+            Controls.CheckBox {
+                objectName: "probeChild"
+                Layout.alignment: Qt.AlignHCenter
+                text: "child"
+            }
+        }
+    }
+}
+"""
+    engine = QQmlEngine()
+    warnings: list[str] = []
+    engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
+    component = QQmlComponent(engine)
+    # Base URL only picks the directory for same-dir component lookup; the
+    # file itself must not exist, or the engine compiles *that* file.
+    component.setData(source, QUrl.fromLocalFile(str(qml_dir / "probe-tmp.qml")))
+    assert component.isReady(), component.errorString()
+
+    win = component.create()
+    assert win is not None
+    QTest.qWait(80)
+    qgui_app.processEvents()
+
+    box = win.findChild(QQuickItem, "probeBox")
+    title = win.findChild(QQuickItem, "sectionTitleText")
+    frame = win.findChild(QQuickItem, "sectionFrame")
+    child = win.findChild(QQuickItem, "probeChild")
+    assert box is not None and title is not None and frame is not None and child is not None
+    assert title.property("visible") is True
+    assert title.property("text") == "Gamescope"
+    # Centered above the frame (Breeze QGroupBox), never inside it.
+    assert abs(title.property("x") + title.property("width") / 2 - box.property("width") / 2) <= 2
+    assert title.property("y") + title.property("height") <= frame.property("y")
+    # The child lands inside the frame, padded by `padding` on both sides.
+    from PySide6.QtCore import QPointF
+
+    child_top = child.mapToItem(box, QPointF(0, 0)).y()
+    frame_top = frame.mapToItem(box, QPointF(0, 0)).y()
+    assert child_top >= frame_top + 8
+    assert child_top + child.property("height") <= frame_top + frame.property("height") - 8
+    # The box reserves exactly title + spacing + frame.
+    assert (
+        abs(
+            box.property("implicitHeight")
+            - (title.property("height") + box.property("spacing") + frame.property("height"))
+        )
+        <= 2
+    )
+
+    # checkable: the title turns into a checkbox and an unchecked box
+    # collapses its content (QGroupBox::setCheckable parity).
+    box.setProperty("checkable", True)
+    box.setProperty("checked", False)
+    QTest.qWait(80)
+    qgui_app.processEvents()
+    checkbox = win.findChild(QQuickItem, "sectionTitle")
+    assert checkbox is not None and checkbox.property("visible") is True
+    assert title.property("visible") is False
+    assert abs(frame.property("height") - 18) <= 2
+    box.setProperty("checked", True)
+    QTest.qWait(80)
+    qgui_app.processEvents()
+    assert frame.property("height") > 18
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_tier_double_click_opens_protondb(qgui_app, xdg_env):
     """Double-clicking the tier badge opens ProtonDB (never plays)."""
     from PySide6.QtCore import QPointF, Qt

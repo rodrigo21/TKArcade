@@ -107,6 +107,16 @@ rewrite pushed history or tags.
   through the exit transition).
 - `StackLayout` children do not auto-fill: every tab needs explicit
   `Layout.fillWidth/Height`, else it collapses to implicit size.
+- Settings and dialogs mirror the widgets QDialog layout in pure QML
+  (`SectionBox` gives the QGroupBox look: centered title above a framed
+  panel, `checkable` mirrors `setCheckable`; each panel computes its own
+  right-aligned label column through `KirigamiLayouts.FormLayout`;
+  section checkboxes are centered; the button box keeps Diff/Reset on
+  the left, accept/cancel on the right). QQC2's `Controls.GroupBox` in
+  the desktop style puts the title inside the frame at the top-left —
+  not the widgets look. Layout rule, not a toolkit one: QtWidgets stays
+  out of the tree (`tests/test_no_widgets.py` defines the allowed
+  names).
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
   transition before synthetic clicks, or clicks land mid-slide.
 - Separate modal windows outlive their test's main window by event
