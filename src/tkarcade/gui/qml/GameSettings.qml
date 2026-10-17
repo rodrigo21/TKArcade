@@ -1336,10 +1336,10 @@ Window {
                             id: dispForm
                             width: parent.width
                             spacing: Kirigami.Units.smallSpacing
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("Display Mode")
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormLayout {
+                                WidgetsFormLayout {
                                     Controls.TextField {
                                         id: dispOut
                                         objectName: "dispOut"
@@ -1365,12 +1365,16 @@ Window {
                                             onClicked: gameModel.refreshDisplayModes(gameSettings.dispProviderValue(), dispOut.text.trim())
                                         }
                                     }
-                                    Controls.ComboBox {
-                                        id: dispProv
-                                        objectName: "dispProv"
+                                    // Widgets: the provider combo keeps its
+                                    // content width instead of stretching.
+                                    RowLayout {
                                         Layout.fillWidth: true
-                                        model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("wlroots"), qsTr("X11"), qsTr("Disabled")]
                                         KirigamiLayouts.FormData.label: qsTr("Provider:")
+                                        Controls.ComboBox {
+                                            id: dispProv
+                                            objectName: "dispProv"
+                                            model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("wlroots"), qsTr("X11"), qsTr("Disabled")]
+                                        }
                                     }
                                     Controls.Label {
                                         id: dipNote
@@ -1384,9 +1388,8 @@ Window {
                                         id: dipRow
                                         objectName: "dipRow"
                                         visible: false
-                                        Controls.Label {
-                                            text: qsTr("Dip delay:")
-                                        }
+                                        Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("Dip delay:")
                                         Controls.Slider {
                                             id: dipSlider
                                             objectName: "dipSlider"
@@ -1401,10 +1404,10 @@ Window {
                                     }
                                 }
                             }
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("Gamescope")
                                 Layout.fillWidth: true
-                                ColumnLayout {
+                                WidgetsFormLayout {
                                     Controls.CheckBox {
                                         id: gsEnable
                                         objectName: "gsEnable"
@@ -1412,6 +1415,7 @@ Window {
                                     }
                                     RowLayout {
                                         Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("Gamescope Options:")
                                         Controls.TextField {
                                             id: gsArgs
                                             objectName: "gsArgs"
@@ -1426,10 +1430,10 @@ Window {
                                     }
                                 }
                             }
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("MangoHud")
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormLayout {
+                                WidgetsFormLayout {
                                     Controls.CheckBox {
                                         id: mhEnable
                                         objectName: "mhEnable"
@@ -1441,6 +1445,8 @@ Window {
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("MangoHud Options:")
                                     }
+                                    // Kirigami keeps the FPS cap the widgets
+                                    // r240 dropped from its dialog.
                                     Controls.SpinBox {
                                         id: mhFps
                                         objectName: "mhFps"
@@ -1465,23 +1471,23 @@ Window {
                                     }
                                 }
                             }
-                            Controls.GroupBox {
+                            SectionBox {
                                 title: qsTr("RT Upscaler")
                                 Layout.fillWidth: true
-                                ColumnLayout {
+                                WidgetsFormLayout {
                                     Controls.CheckBox {
                                         id: rtEnable
                                         objectName: "rtEnable"
                                         text: qsTr("Enable RT Upscaler (linux-rt-upscaler)")
+                                        Controls.ToolTip.text: qsTr("SRCNN upscaling for X11/XWayland windows; forces PROTON_ENABLE_WAYLAND=0.")
+                                        Controls.ToolTip.visible: hovered
                                     }
-                                    RowLayout {
+                                    Controls.TextField {
+                                        id: rtArgs
+                                        objectName: "rtArgs"
                                         Layout.fillWidth: true
-                                        Controls.TextField {
-                                            id: rtArgs
-                                            objectName: "rtArgs"
-                                            placeholderText: qsTr("-m 4x24 (see upscale --help-all)")
-                                            Layout.fillWidth: true
-                                        }
+                                        KirigamiLayouts.FormData.label: qsTr("Upscaler Options:")
+                                        placeholderText: qsTr("-m 4x24 (see upscale --help-all)")
                                     }
                                 }
                             }

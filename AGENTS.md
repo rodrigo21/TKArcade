@@ -110,13 +110,19 @@ rewrite pushed history or tags.
 - Settings and dialogs mirror the widgets QDialog layout in pure QML
   (`SectionBox` gives the QGroupBox look: centered title above a framed
   panel, `checkable` mirrors `setCheckable`; each panel computes its own
-  right-aligned label column through `KirigamiLayouts.FormLayout`;
-  section checkboxes are centered; the button box keeps Diff/Reset on
-  the left, accept/cancel on the right). QQC2's `Controls.GroupBox` in
-  the desktop style puts the title inside the frame at the top-left —
-  not the widgets look. Layout rule, not a toolkit one: QtWidgets stays
-  out of the tree (`tests/test_no_widgets.py` defines the allowed
-  names).
+  right-aligned label column through `WidgetsFormLayout`; section
+  checkboxes are centered; the button box keeps Diff/Reset on the left,
+  accept/cancel on the right). QQC2's `Controls.GroupBox` in the desktop
+  style puts the title inside the frame at the top-left — not the
+  widgets look. Layout rule, not a toolkit one: QtWidgets stays out of
+  the tree (`tests/test_no_widgets.py` defines the allowed names).
+- Every widgets-style form is a `WidgetsFormLayout`, never a plain
+  `KirigamiLayouts.FormLayout`: Kirigami sizes its grid to the form's
+  natural width and centers it, so a wide dialog shows a hole left of
+  the labels and fields stuck at their implicit width. Our subclass
+  binds the implicit width to the actual one, so the field column takes
+  the remaining space (a widgets QFormLayout) and `Layout.fillWidth`
+  fields reach the panel edge.
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
   transition before synthetic clicks, or clicks land mid-slide.
 - Separate modal windows outlive their test's main window by event

@@ -61,6 +61,14 @@ Breaking config changes are called out explicitly under `Changed`.
   with the same wording and an "Open folder" link for broken paths.
   Refreshed with the preview; only opening the dialog scans the Steam
   userdata.
+- Settings Display tab (widgets parity): the Display Mode, Gamescope,
+  MangoHud and RT Upscaler groups draw as centered framed sections
+  again, their checkboxes sit in the field column, and the Gamescope/
+  Upscaler option rows gained the widgets' labels.
+- Settings forms fill their panel: a `WidgetsFormLayout` sizes the label
+  column to its labels and hands the rest to the field column, so fields
+  reach the panel edge instead of a compact form centered with a hole
+  left of the labels.
 - Profile semantics (widgets parity): Save writes to the active profile
   target (live file keeps only the selection), dirty profile switches
   ask to discard first, Save As/Clone/Delete confirm overwrites, Reset

@@ -1307,6 +1307,101 @@ Window {
     qgui_app.processEvents()
 
 
+def test_widgets_form_layout_fills_panel(qgui_app):
+    """WidgetsFormLayout: field column takes the panel, no centered hole."""
+    import pathlib
+
+    from PySide6.QtCore import QUrl
+    from PySide6.QtQml import QQmlComponent, QQmlEngine
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    qml_dir = pathlib.Path(kapp.__file__).parent / "qml"
+    source = b"""
+import QtQuick
+import QtQuick.Controls as Controls
+import QtQuick.Layouts
+import QtQuick.Window
+import org.kde.kirigami.layouts as KirigamiLayouts
+
+Window {
+    width: 800
+    height: 400
+    visible: true
+    ColumnLayout {
+        anchors.fill: parent
+        SectionBox {
+            id: ours
+            objectName: "oursBox"
+            Layout.fillWidth: true
+            title: "Our form"
+            WidgetsFormLayout {
+                Controls.TextField {
+                    objectName: "oursField"
+                    Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: "Gamescope Options:"
+                }
+            }
+        }
+        SectionBox {
+            id: plain
+            objectName: "plainBox"
+            Layout.fillWidth: true
+            title: "Kirigami form"
+            KirigamiLayouts.FormLayout {
+                Controls.TextField {
+                    objectName: "plainField"
+                    Layout.fillWidth: true
+                    KirigamiLayouts.FormData.label: "Gamescope Options:"
+                }
+            }
+        }
+    }
+}
+"""
+    engine = QQmlEngine()
+    warnings: list[str] = []
+    engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
+    component = QQmlComponent(engine)
+    # Base URL only picks the directory for same-dir component lookup; the
+    # file itself must not exist, or the engine compiles *that* file.
+    component.setData(source, QUrl.fromLocalFile(str(qml_dir / "probe-tmp.qml")))
+    assert component.isReady(), component.errorString()
+
+    win = component.create()
+    assert win is not None
+    QTest.qWait(120)
+    qgui_app.processEvents()
+
+    ours = win.findChild(QQuickItem, "oursField")
+    plain = win.findChild(QQuickItem, "plainField")
+    ours_frame = win.findChild(QQuickItem, "oursBox").findChild(QQuickItem, "sectionFrame")
+    plain_frame = win.findChild(QQuickItem, "plainBox").findChild(QQuickItem, "sectionFrame")
+    assert None not in (ours, plain, ours_frame, plain_frame)
+
+    # The plain form keeps its natural width and is centered in the panel:
+    # the field starts past the label column (the hole left of the labels)
+    # and stops short of the frame.
+    ours_width = ours.property("width")
+    ours_right = ours.property("x") + ours_width
+    plain_x = plain.property("x")
+    plain_right = plain_x + plain.property("width")
+    assert plain_x > 150
+    assert plain_right < plain_frame.property("width") - 40
+    # Ours sits right after the label column...
+    assert ours.property("x") < plain_x - 50
+    # ...and the field column takes the panel up to its right edge.
+    assert ours_frame.property("width") - ours_right <= 24
+    assert ours_right > plain_right + 100
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
     """Dependency Status: two columns of marks below the tabs."""
     import shiboken6
