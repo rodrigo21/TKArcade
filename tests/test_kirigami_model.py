@@ -692,6 +692,99 @@ def test_settings_tool_availability(qgui_app, xdg_env, monkeypatch):
     assert GameListModel().toolAvailable("sh") is False
 
 
+def test_settings_dependency_status(qgui_app, xdg_env, monkeypatch):
+    import shutil as shutilmod
+
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    model = GameListModel()
+    existing = lambda name, *a, **k: f"/usr/bin/{name}"  # noqa: E731
+
+    # A clean local game: no prefix, every probed tool present but off.
+    monkeypatch.setattr(shutilmod, "which", existing)
+    rows = model.dependencyStatus("local-doom", {})
+    by_key = {row["key"]: row for row in rows}
+    assert by_key["custom_prefix"]["msg"] == "prefix-none"
+    assert by_key["mangohud"]["kind"] == "ok"
+    assert by_key["mangohud"]["msg"] == "binary-off"
+    assert by_key["mangohud"]["args"] == ["mangohud", "/usr/bin/mangohud"]
+    # The wording is QML's business (GameSettings.statusText).
+    assert "text" not in by_key["mangohud"]
+    # Steam options only exist for Steam games.
+    assert "steam-options" not in by_key
+    # Both wheels are listed while neither is enabled.
+    assert "gamemoderun" in by_key and "game-performance" in by_key
+
+    # Cachy's wheel sidelines Feral's (and vice versa).
+    keys = [row["key"] for row in model.dependencyStatus("local-doom", {"gamemode_cachy": True})]
+    assert "game-performance" in keys and "gamemoderun" not in keys
+    keys = [row["key"] for row in model.dependencyStatus("local-doom", {"gamemode_feral": True})]
+    assert "gamemoderun" in keys and "game-performance" not in keys
+
+    # Missing binaries: a warning when enabled, a note when off.
+    monkeypatch.setattr(shutilmod, "which", lambda name, *a, **k: None)
+    by_key = {
+        row["key"]: row for row in model.dependencyStatus("local-doom", {"mangohud_enable": True})
+    }
+    assert by_key["mangohud"]["kind"] == "warn"
+    assert by_key["mangohud"]["msg"] == "binary-missing"
+    assert by_key["gamescope"]["kind"] == "note"
+    assert by_key["rt-upscale"]["msg"] == "binary-absent"
+
+    # Empty hook paths stay hidden; a broken one warns and links to its folder.
+    monkeypatch.setattr(shutilmod, "which", lambda name, *a, **k: None)
+    sibling = C.game_file("local-doom").parent
+    rows = model.dependencyStatus(
+        "local-doom", {"pre_command": str(sibling / "gone.sh"), "post_command": ""}
+    )
+    by_key = {row["key"]: row for row in rows}
+    assert "post_hook" not in by_key
+    assert by_key["pre_hook"]["kind"] == "warn"
+    assert by_key["pre_hook"]["msg"] == "hook-missing"
+    assert by_key["pre_hook"]["args"] == ["pre-hook", str(sibling / "gone.sh")]
+    assert by_key["pre_hook"]["link"] == str(sibling)
+
+    # The prefix probe reports the wrapper it would run ('' when missing).
+    monkeypatch.setattr(shutilmod, "which", existing)
+    rows = model.dependencyStatus("local-doom", {"custom_prefix": "zink-run"})
+    entry = next(r for r in rows if r["key"] == "custom_prefix")
+    assert entry["msg"] == "binary-ok"
+    assert entry["args"] == ["zink-run", "/usr/bin/zink-run"]
+
+
+def test_settings_dependency_steam_options_cached(qgui_app, xdg_env, monkeypatch):
+    from tkarcade import steam as S
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "620"
+    C.save(cfg)
+    calls = []
+
+    def probe(appid):
+        calls.append(appid)
+        return "ok", "tkarcade %command%"
+
+    monkeypatch.setattr(S, "launch_options_status", probe)
+    model = GameListModel()
+    rows = model.dependencyStatus("620", {}, check_steam=True)
+    assert [row["key"] for row in rows].count("steam-options") == 1
+    entry = next(row for row in rows if row["key"] == "steam-options")
+    # The raw options travel to QML, which words and translates the line.
+    assert entry["msg"] == "steam-ok"
+    assert entry["args"] == ["tkarcade %command%"]
+    # Keystroke refreshes reuse the probe; the dialog asks again explicitly.
+    model.dependencyStatus("620", {"mangohud_enable": True})
+    model.dependencyStatus("620", {"mangohud_enable": True})
+    assert calls == ["620"]
+    model.dependencyStatus("620", {}, check_steam=True)
+    assert calls == ["620", "620"]
+
+
 def test_settings_env_bulk_preset(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

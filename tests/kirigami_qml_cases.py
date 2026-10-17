@@ -1307,6 +1307,108 @@ Window {
     qgui_app.processEvents()
 
 
+def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
+    """Dependency Status: two columns of marks below the tabs."""
+    import shiboken6
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-status"
+    cfg.general.name = "Status"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    settings = win.findChild(QObject, "gameSettings")
+    tabs = win.findChild(QQuickItem, "settingsTabs")
+    assert settings is not None and tabs is not None
+    settings.openFor("local-status")
+    QTest.qWait(120)
+    qgui_app.processEvents()
+
+    box = win.findChild(QQuickItem, "depStatusBox")
+    frame = box.findChild(QQuickItem, "sectionFrame")
+    inner = box.findChild(QQuickItem, "depStatusFrame")
+    grid = box.findChild(QQuickItem, "depStatusGrid")
+    assert box is not None and frame is not None and inner is not None and grid is not None
+    # Widgets: the group box sits below the tab widget, titled and framed,
+    # with the sunken panel nested inside the frame.
+    assert box.property("y") >= tabs.property("y") + tabs.property("height")
+    title = box.findChild(QQuickItem, "sectionTitleText")
+    assert title is not None and title.property("text") == "Dependency Status"
+    assert title.property("y") + title.property("height") <= frame.property("y")
+    assert frame.property("y") + frame.property("height") <= box.property("height")
+    # The nested panel pads the grid by smallSpacing on every side.
+    from PySide6.QtCore import QPointF
+
+    inset = inner.mapToItem(box, QPointF(0, 0)).y() - frame.mapToItem(box, QPointF(0, 0)).y()
+    assert 0 < inset < 12
+    assert abs(inner.property("height") - grid.property("height") - 8) <= 1
+
+    cells = [
+        child
+        for child in grid.childItems()
+        if shiboken6.isValid(child) and child.property("objectName") == "depStatusLine"
+    ]
+    # Prefix + broken/custom exe + gamescope/mangohud/upscale/ludusavi +
+    # the two wheels: a local game never gets the Steam launch-options line.
+    assert len(cells) == 8
+    assert grid.property("columns") == 2
+    # Row-major packing (the widgets reflow keeps visible lines first):
+    # cells 0/1 share a row, cell 2 opens the second one.
+    assert abs(cells[1].property("y") - cells[0].property("y")) <= 1
+    assert cells[1].property("x") > cells[0].property("x") + 50
+    assert cells[2].property("y") > cells[0].property("y")
+    assert abs(cells[2].property("x") - cells[0].property("x")) <= 1
+    # Every line is a colored mark plus text, never raw markup.
+    for cell in cells:
+        text = cell.property("text")
+        assert text.startswith('<span style="color:#'), text
+        assert text.split(">", 1)[1][0] in "✓⚠●"
+    assert "No custom prefix" in cells[0].property("text")
+
+    # The widgets picked the mark palette from the theme's darkness.
+    dark = settings.property("statusDark")
+    assert settings.statusColor("ok") == ("#7ee787" if dark else "#1a7f37")
+    assert settings.statusColor("warn") == ("#f47067" if dark else "#d1242f")
+    assert settings.statusColor("note") == ("#e3b341" if dark else "#9a6700")
+    # The wording is the widgets' (game_dialog._binary_status/_set_status).
+    assert (
+        settings.statusText({"msg": "prefix-none"}) == "No custom prefix — game launches directly"
+    )
+    assert (
+        settings.statusText({"msg": "binary-off", "args": ["mangohud", "/usr/bin/mangohud"]})
+        == "mangohud — /usr/bin/mangohud (off)"
+    )
+    assert (
+        settings.statusText({"msg": "binary-missing", "args": ["mangohud"]})
+        == "mangohud not found in PATH — skipped at launch"
+    )
+    assert (
+        settings.statusText({"msg": "binary-missing-fatal", "args": ["zink-run"]})
+        == "zink-run not found in PATH — launch will fail"
+    )
+    assert (
+        settings.statusText({"msg": "hook-missing", "args": ["pre-hook", "/tmp/gone.sh"]})
+        == "pre-hook not found: /tmp/gone.sh"
+    )
+    assert (
+        settings.statusText({"msg": "steam-missing"})
+        == "Steam launch options lack tkarcade (add: tkarcade %command%)"
+    )
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    settings.close()
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_tier_double_click_opens_protondb(qgui_app, xdg_env):
     """Double-clicking the tier badge opens ProtonDB (never plays)."""
     from PySide6.QtCore import QPointF, Qt

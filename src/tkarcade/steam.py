@@ -338,9 +338,10 @@ def find_game_icon(appid: str, landscape: bool = False) -> Path | None:
 def launch_options_status(appid: str) -> tuple[str, str]:
     """Check Steam launch options for tkarcade. Read-only.
 
-    Returns (status, detail) with status 'ok' (options contain
+    Returns (status, options) with status 'ok' (options contain
     tkarcade), 'missing' (options found without it) or 'unknown'
-    (no Steam userdata found).
+    (no Steam userdata found). `options` is the raw LaunchOptions
+    string for 'ok' and '' otherwise: the caller words the message.
     """
     found_any = False
     for root in steam_roots():
@@ -358,10 +359,10 @@ def launch_options_status(appid: str) -> tuple[str, str]:
             found_any = True
             options = _launch_options_from_text(text, appid)
             if options is not None and "tkarcade" in options.lower():
-                return "ok", f"Steam launch options: {options}"
+                return "ok", options
     if found_any:
-        return "missing", "Steam launch options lack tkarcade (add: tkarcade %command%)"
-    return "unknown", "Steam userdata not found"
+        return "missing", ""
+    return "unknown", ""
 
 
 def _launch_options_from_text(text: str, appid: str) -> str | None:

@@ -48,6 +48,8 @@ Window {
     property string pendingPreset: ""
     property string ptLogDir: ""
     property var page: null
+    // Widgets _is_dark_theme: the status marks pick their palette from it.
+    readonly property bool statusDark: Kirigami.Theme.backgroundColor.hslLightness < 0.5
 
     function blankFields() {
         return {
@@ -221,6 +223,9 @@ Window {
         // advertises a tool the command builder will skip (widgets
         // parity: gamemoderun missing -> GameMode stays out of the list).
         refreshPreview()
+        // Opening the dialog is the one moment the Steam launch-options
+        // scan runs (it reads the userdata files).
+        refreshDependencyStatus(true)
         if (f.load_warning) {
             settingsError.text = f.load_warning
         }
@@ -646,6 +651,81 @@ Window {
         previewWrappers.text = (w === "" || w === "No wrappers enabled")
             ? qsTr("No wrappers enabled")
             : qsTr("Will launch with: %1").arg(w)
+        refreshDependencyStatus(false)
+    }
+
+    // Widgets Dependency Status: the draft's tools/paths as two columns of
+    // ✓/⚠/● lines. `checkSteam` forces a fresh Steam launch-options probe
+    // (the dialog asks on open; tab switches reuse the last one).
+    function refreshDependencyStatus(checkSteam) {
+        var rows = gameModel.dependencyStatus(editAppid, collect(), checkSteam === true)
+        var out = []
+        for (var i = 0; i < rows.length; i++) {
+            out.push({
+                "kind": rows[i].kind,
+                "msg": rows[i].msg,
+                "args": rows[i].args || [],
+                "link": rows[i].link || ""
+            })
+        }
+        statusBox.statusRows = out
+    }
+
+    // The model names the message ("msg") and passes its "%1..%n" values:
+    // the wording lives here so lupdate sees every literal (the widgets
+    // built these strings in Python, where they stayed untranslatable).
+    function statusText(row) {
+        var args = row.args || []
+        switch (row.msg) {
+        case "binary-ok":
+            return qsTr("%1 — %2").arg(args[0]).arg(args[1])
+        case "binary-off":
+            return qsTr("%1 — %2 (off)").arg(args[0]).arg(args[1])
+        case "binary-missing":
+            return qsTr("%1 not found in PATH — skipped at launch").arg(args[0])
+        case "binary-missing-fatal":
+            return qsTr("%1 not found in PATH — launch will fail").arg(args[0])
+        case "binary-absent":
+            return qsTr("%1 not installed (feature off)").arg(args[0])
+        case "prefix-none":
+            return qsTr("No custom prefix — game launches directly")
+        case "hook-ok":
+            return qsTr("%1: %2").arg(args[0]).arg(args[1])
+        case "hook-missing":
+            return qsTr("%1 not found: %2").arg(args[0]).arg(args[1])
+        case "ludusavi-flatpak":
+            return qsTr("ludusavi via Flatpak (%1) — may not see Proton prefixes").arg(args[0])
+        case "steam-ok":
+            return qsTr("Steam launch options: %1").arg(args[0])
+        case "steam-missing":
+            return qsTr("Steam launch options lack tkarcade (add: tkarcade %command%)")
+        case "steam-unknown":
+            return qsTr("Steam userdata not found")
+        }
+        return ""
+    }
+
+    // The widgets picked its status colors from the theme's darkness
+    // (game_dialog._is_dark_theme): same pairs, same marks.
+    function statusColor(kind) {
+        var colors = statusDark
+            ? {"ok": "#7ee787", "warn": "#f47067", "note": "#e3b341"}
+            : {"ok": "#1a7f37", "warn": "#d1242f", "note": "#9a6700"}
+        return colors[kind] || colors["note"]
+    }
+
+    function escapeStatusText(text) {
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    }
+
+    function statusLine(row) {
+        var mark = row.kind === "warn" ? "⚠" : (row.kind === "note" ? "●" : "✓")
+        var body = escapeStatusText(statusText(row))
+        if (row.link !== undefined && row.link !== "") {
+            body += " (<a href=\"" + row.link + "\">" + qsTr("Open folder") + "</a>)"
+        }
+        return "<span style=\"color:" + statusColor(row.kind) + "; font-weight:bold;\">"
+            + mark + "</span> " + body
     }
 
     function save() {
@@ -1815,6 +1895,43 @@ Window {
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+        SectionBox {
+            id: statusBox
+            objectName: "depStatusBox"
+            Layout.fillWidth: true
+            title: qsTr("Dependency Status")
+            property var statusRows: []
+            // The widgets nests a sunken panel inside the group box
+            // (game_dialog._status_box): same second border here.
+            Controls.Frame {
+                objectName: "depStatusFrame"
+                Layout.fillWidth: true
+                padding: 0
+                implicitHeight: depGrid.implicitHeight + Kirigami.Units.smallSpacing * 2
+                GridLayout {
+                    id: depGrid
+                    objectName: "depStatusGrid"
+                    anchors.fill: parent
+                    anchors.margins: Kirigami.Units.smallSpacing
+                    columns: 2
+                    columnSpacing: Kirigami.Units.largeSpacing * 2
+                    rowSpacing: Kirigami.Units.smallSpacing
+                    Repeater {
+                        model: statusBox.statusRows
+                        delegate: Controls.Label {
+                            required property var modelData
+                            objectName: "depStatusLine"
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
+                            textFormat: Text.RichText
+                            wrapMode: Text.WordWrap
+                            text: gameSettings.statusLine(modelData)
+                            onLinkActivated: (link) => gameModel.openPath(link)
                         }
                     }
                 }

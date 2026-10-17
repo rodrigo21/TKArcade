@@ -52,6 +52,23 @@ def _split_args(text: str) -> list[str]:
         return text.split()
 
 
+def _dep_binary(name: str, enabled: bool, note: str = "") -> dict:
+    """Widgets _binary_status: a missing binary only warns when enabled.
+
+    `note` is "fail" for the custom-prefix probe, where a missing
+    binary kills the launch instead of being skipped. The text stays in
+    QML (`GameSettings.statusText`): the model only names the message.
+    """
+    path = shutil.which(name)
+    if path:
+        msg = "binary-ok" if enabled else "binary-off"
+        return {"kind": "ok", "msg": msg, "args": [name, path]}
+    if enabled:
+        msg = "binary-missing-fatal" if note == "fail" else "binary-missing"
+        return {"kind": "warn", "msg": msg, "args": [name]}
+    return {"kind": "note", "msg": "binary-absent", "args": [name]}
+
+
 def _played_cells(st) -> tuple[str, int, str, str, int]:
     """(duration, seconds, tooltip, last played, last epoch) for one game."""
     if st is None:
@@ -158,6 +175,10 @@ class GameListModel(QAbstractTableModel):
         self._tray_refresher = None
         self._tray_actions: dict = {}
         self._quit_filter = _QuitFilter()
+        # Last Steam launch-options probe: (appid, status, detail). The
+        # scan reads every profile's localconfig.vdf, so the dependency
+        # status reuses it between the dialog's explicit refreshes.
+        self._steam_status: tuple[str, str, str] | None = None
         self.backgroundDone.connect(self.refresh)
         self.refresh()
 
@@ -1530,6 +1551,134 @@ class GameListModel(QAbstractTableModel):
             return cfgmod.diff_vs_defaults(cfg)
         except Exception as e:
             return f"(diff unavailable: {e})"
+
+    def _dep_draft(self, appid: str, values) -> object | None:
+        """Config for the dialog (unsaved) state, or None on any failure."""
+        try:
+            if appid and cfgmod.game_file(appid).is_file():
+                cfg = cfgmod.load(appid)
+            else:
+                cfg = cfgmod.load_defaults()
+                cfg.general.appid = appid
+            data = dict(values or {})
+            self._apply_map(cfg, data)
+            if not steammod.is_steam_id(appid):
+                cfg.general.name = str(data.get("name", "")).strip()
+        except Exception as e:  # never break the dialog on a status probe
+            log.warning("dependencyStatus failed: %s", e)
+            return None
+        return cfg
+
+    @staticmethod
+    def _dep_prefix_entry(cfg) -> dict:
+        """Custom prefix line: no prefix, or the wrapper's own path check."""
+        prefix = str(cfg.general.custom_prefix or "").strip()
+        if not prefix:
+            return {"key": "custom_prefix", "kind": "ok", "msg": "prefix-none"}
+        parts = _split_args(prefix)
+        if not parts:
+            return {}
+        return {"key": "custom_prefix", **_dep_binary(parts[0], True, "fail")}
+
+    @staticmethod
+    def _dep_path_entries(cfg) -> list[dict]:
+        """custom-exe/pre-hook/post-hook lines; empty fields stay hidden."""
+        rows: list[dict] = []
+        for key, command in (
+            ("custom_exe", cfg.general.custom_executable),
+            ("pre_hook", cfg.pre_post.pre_command),
+            ("post_hook", cfg.pre_post.post_command),
+        ):
+            parts = _split_args(str(command or "").strip())
+            if not parts:
+                continue
+            first = parts[0]
+            name = key.replace("_", "-")
+            expanded = os.path.expanduser(first)
+            if os.path.exists(expanded) or shutil.which(first):
+                rows.append({"key": key, "kind": "ok", "msg": "hook-ok", "args": [name, first]})
+                continue
+            entry = {"key": key, "kind": "warn", "msg": "hook-missing", "args": [name, first]}
+            parent = os.path.dirname(expanded)
+            if parent and os.path.isdir(parent):
+                entry["link"] = parent
+            rows.append(entry)
+        return rows
+
+    @staticmethod
+    def _dep_tool_entries(cfg) -> list[dict]:
+        """Tool lines in the widgets order, missing binaries included."""
+        rows: list[dict] = []
+        feral = bool(cfg.gamemode.feral_gamemode)
+        cachy = bool(cfg.gamemode.cachyos_game_performance)
+        if not cachy:  # the wheels are mutually exclusive: hide the sidelined one
+            rows.append({"key": "gamemoderun", **_dep_binary("gamemoderun", feral)})
+        if not feral:
+            rows.append({"key": "game-performance", **_dep_binary("game-performance", cachy)})
+        rows.append({"key": "gamescope", **_dep_binary("gamescope", bool(cfg.gamescope.enable))})
+        rows.append({"key": "mangohud", **_dep_binary("mangohud", bool(cfg.mangohud.enable))})
+        rows.append({"key": "rt-upscale", **_dep_binary("upscale", bool(cfg.rtupscale.enable))})
+        rows.append({"key": "ludusavi", **GameListModel._ludusavi_status(cfg)})
+        return rows
+
+    @staticmethod
+    def _ludusavi_status(cfg) -> dict:
+        """Flatpak Ludusavi cannot see Proton prefixes: always warn."""
+        exe = shutil.which("ludusavi")
+        if exe and "flatpak" in exe:
+            return {"kind": "note", "msg": "ludusavi-flatpak", "args": [exe]}
+        return _dep_binary("ludusavi", bool(cfg.ludusavi.enable))
+
+    def _dep_steam_entry(self, appid: str, check_steam: bool) -> dict | None:
+        """Steam launch-options line (Steam ids only)."""
+        if not steammod.is_steam_id(appid):
+            return None
+        status, options = self._steam_launch_options(appid, check_steam)
+        if status == "ok":
+            return {"key": "steam-options", "kind": "ok", "msg": "steam-ok", "args": [options]}
+        if status == "missing":
+            return {"key": "steam-options", "kind": "warn", "msg": "steam-missing"}
+        return {"key": "steam-options", "kind": "ok", "msg": "steam-unknown"}
+
+    @Slot(str, "QVariantMap", bool, result="QVariantList")
+    def dependencyStatus(self, appid: str, values, check_steam: bool = False) -> list[dict]:
+        """Widgets Dependency Status lines for the dialog (unsaved) state.
+
+        Only the visible lines come back, in the widgets order: the
+        caller packs them into two columns (the widgets reflows the same
+        way). Every line is {key, kind, msg, args?}: the QML table
+        (`GameSettings.statusText`) owns the wording and its translation,
+        so lupdate never has to parse this module. `check_steam` gates
+        the launch-options probe, which reads each Steam profile's
+        localconfig.vdf: the dialog asks for it on open and on tool
+        toggles, never on every keystroke.
+        """
+        cfg = self._dep_draft(appid, values)
+        if cfg is None:
+            return []
+        rows: list[dict] = []
+        prefix = self._dep_prefix_entry(cfg)
+        if prefix:
+            rows.append(prefix)
+        rows.extend(self._dep_path_entries(cfg))
+        rows.extend(self._dep_tool_entries(cfg))
+        steam = self._dep_steam_entry(appid, check_steam)
+        if steam is not None:
+            rows.append(steam)
+        return rows
+
+    def _steam_launch_options(self, appid: str, check_steam: bool) -> tuple[str, str]:
+        """(status, options) for the Steam launch options, cached per game."""
+        cached = self._steam_status
+        if not check_steam and cached is not None and cached[0] == appid:
+            return cached[1], cached[2]
+        try:
+            status, options = steammod.launch_options_status(appid)
+        except Exception as e:
+            log.warning("launch_options_status(%s) failed: %s", appid, e)
+            status, options = "unknown", ""
+        self._steam_status = (appid, status, options)
+        return status, options
 
     @Slot(str, result=bool)
     def openProtonDB(self, appid: str) -> bool:

@@ -55,6 +55,12 @@ Breaking config changes are called out explicitly under `Changed`.
 - Launch command preview (collapsible, Refresh, wrapper line) and Diff
   vs Defaults for the live dialog state; the settings window defaults
   taller so tab controls stay above the fold.
+- Dependency Status box (widgets parity): the draft's custom prefix,
+  executable/hook paths and tool/Steam launch-options checks as two
+  columns of ✓/⚠/● lines, in the widgets' nested panel below the tabs,
+  with the same wording and an "Open folder" link for broken paths.
+  Refreshed with the preview; only opening the dialog scans the Steam
+  userdata.
 - Profile semantics (widgets parity): Save writes to the active profile
   target (live file keeps only the selection), dirty profile switches
   ask to discard first, Save As/Clone/Delete confirm overwrites, Reset
