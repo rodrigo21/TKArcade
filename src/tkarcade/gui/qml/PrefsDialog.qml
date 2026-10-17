@@ -14,9 +14,9 @@ Window {
     title: qsTr("Preferences")
     modality: Qt.WindowModal
     minimumWidth: Kirigami.Units.gridUnit * 30
-    minimumHeight: Kirigami.Units.gridUnit * 26
+    minimumHeight: Kirigami.Units.gridUnit * 24
     width: Kirigami.Units.gridUnit * 34
-    height: Kirigami.Units.gridUnit * 36
+    height: Kirigami.Units.gridUnit * 30
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -118,31 +118,44 @@ Window {
                             to: 10
                             onValueModified: prefsDialog.setPref("trayQuickCount", value)
                         }
+                        // Plain row: FormTextFieldDelegate calls bare
+                        // i18ndc(), which needs a KLocalizedContext our
+                        // engine does not install (works, but logs
+                        // warnings). Indented like the delegates around it
+                        // and ordered before Language (widgets parity).
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: sgdbRow.implicitHeight
+                                + Kirigami.Units.largeSpacing * 2
+                            RowLayout {
+                                id: sgdbRow
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.leftMargin: Kirigami.Units.largeSpacing
+                                anchors.rightMargin: Kirigami.Units.largeSpacing
+                                Controls.Label {
+                                    text: qsTr("SteamGridDB key:")
+                                }
+                                Controls.TextField {
+                                    Layout.fillWidth: true
+                                    echoMode: Controls.TextField.Password
+                                    placeholderText: qsTr("Free key from steamgriddb.com")
+                                    text: prefsDialog.values.sgdbApiKey ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.sgdbApiKey !== text) {
+                                            prefsDialog.setPref("sgdbApiKey", text)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         FormCard.FormComboBoxDelegate {
                             id: langCombo
                             objectName: "prefsLanguage"
                             text: qsTr("Language (restart to apply):")
                             onActivated: (index) => prefsDialog.setPref(
                                 "language", prefsDialog.langCodes[index] || "system")
-                        }
-                    }
-                    // Plain row: FormTextFieldDelegate calls bare i18ndc(),
-                    // which needs a KLocalizedContext our engine does not
-                    // install (works, but logs warnings).
-                    RowLayout {
-                        Controls.Label {
-                            text: qsTr("SteamGridDB key:")
-                        }
-                        Controls.TextField {
-                            Layout.fillWidth: true
-                            echoMode: Controls.TextField.Password
-                            placeholderText: qsTr("Free key from steamgriddb.com")
-                            text: prefsDialog.values.sgdbApiKey ?? ""
-                            onTextChanged: {
-                                if (prefsDialog.values.sgdbApiKey !== text) {
-                                    prefsDialog.setPref("sgdbApiKey", text)
-                                }
-                            }
                         }
                     }
                 }

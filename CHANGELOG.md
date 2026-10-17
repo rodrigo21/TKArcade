@@ -154,6 +154,10 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- Preferences (widgets parity): the SteamGridDB key row sits inside the
+  form card, indented like the delegates and ordered before the Language
+  picker, and the window opens at a height that fits the form instead of
+  leaving an empty third.
 - Empty library state (widgets parity): the middle button is `Import...`
   (the Steam scan stays in the menu, like the widgets Tools entry), the
   hint walks the three setup steps, and no table header floats over the
