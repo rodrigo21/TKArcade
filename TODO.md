@@ -104,14 +104,22 @@ time/Failures) + bold header + confirmed bulk `Clear History...`; General
 `Detected Runtime:` row, the Steam `Game name` (read-only) and the widgets
 field order; empty-state `Import...` + three-step hint with the table
 header hidden; pre-launch artwork / `name (appid)` / `Proton:` line;
-preferences SteamGridDB row inside the card, ordered before Language, with
-the window sized to the form.
+preferences SteamGridDB row ordered before Language, with the window
+sized to the form.
 
-Left open (deliberate, not regressions): the widgets `Dependency Status`
-group (replaced here by the disabled tool toggles + preview warnings) and
-the widgets `Reset to Factory Defaults` in the Global Defaults dialog. The
-General form keeps Kirigami's wider side margins; the wide/narrow switch
-(`KirigamiLayouts.FormLayout`) already mirrors the QFormLayout behaviour.
+Closed in the follow-up pass (2026-10-18, `d303aa6`…`2fda7ae`): the widgets
+`Dependency Status` group below the tabs; every settings group as a
+centered framed `SectionBox` and every form a `WidgetsFormLayout` (label
+column right-aligned, fields reaching the panel edge, checkboxes in the
+field column); the Environment table header and its Add/Remove pair; the
+settings window title (`Game Settings — <name> (<appid>)`) and the widgets
+footer (Diff/Reset leading, Save default + Cancel on the right); About as
+a `QMessageBox.about` lookalike; Preferences and every other dialog as a
+widgets form with a right-aligned button box.
+
+Left open (deliberate, not regressions): the widgets `Reset to Factory
+Defaults` in the Global Defaults dialog and the General form's wider
+Kirigami side margins.
 
 ### Equivalence map (audit 2026-10-07)
 - [x] QMainWindow → ApplicationWindow
@@ -127,7 +135,7 @@ General form keeps Kirigami's wider side margins; the wide/narrow switch
 - [x] QComboBox/Spin/Slider/Check/LineEdit → QQC2 direct
 - [x] QTableWidget+QHeaderView → plain QtQuick TableView + custom
   header (manual x tiling: positioners do not reschedule on child
-  width edits) and kirigami-addons FormCard for prefs; keep game*
+  width edits) and a `WidgetsFormLayout` for prefs; keep game*
   roles, sort through existing sortBy, selectionModel replaces
   selectedIds. Never KTableView (its inner TableView spins the
   offscreen event loop forever).
@@ -135,8 +143,9 @@ General form keeps Kirigami's wider side margins; the wide/narrow switch
 - [x] QMessageBox → Kirigami.PromptDialog (remove/cleanup/shader/
   history/validate; cleanup checklist via mainItem, actions fired
   with trigger())
-- [x] QFormLayout (prefs) → Addons FormCard (API key row stays
-  plain: FormTextFieldDelegate needs a KLocalizedContext)
+- [x] QFormLayout (prefs) → `WidgetsFormLayout` (the addons FormCard
+  delegate stacked its labels above the fields and needed a
+  KLocalizedContext for the API key row)
 - [x] QTabWidget (future settings UI) → pageStack pages + TabBar
 - [x] QFileDialog/QInputDialog → portal picker / Dialog+ComboBox (with config UI)
 - [x] QSystemTrayIcon → kept (it needs a `QApplication` on Plasma)
@@ -287,8 +296,8 @@ dispatch). Each needs one look on a real compositor:
   it does; fallback is a `Window { flags: Qt.Popup }` menu with
   hand-built rows). The icon itself registers in the Plasma
   `StatusNotifierWatcher` (measured).
-- Settings window: FormCard rows side by side (the widgets QFormLayout
-  put label and field on one line) and the Environment / Pre-Post tabs.
+- Settings window: `WidgetsFormLayout` rows side by side (the widgets
+  QFormLayout puts label and field on one line) below the tabs.
 - Table: the added columns (Source, Category, ...) and the header
   drag / resize / autofit gestures.
 - Category and Artwork dialogs, and the pt_BR catalog in situ.
