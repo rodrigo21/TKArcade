@@ -1475,7 +1475,7 @@ def test_settings_tabs_use_widgets_sections(qgui_app, xdg_env):
 
 def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     """Environment tab: Variable/Value header and the Add/Remove pair."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject, QPointF
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
 
@@ -1499,13 +1499,7 @@ def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     qgui_app.processEvents()
 
     def click(name):
-        button = swin.findChild(QQuickItem, name)
-        pos = button.mapToScene(
-            QPointF(button.property("width") / 2, button.property("height") / 2)
-        ).toPoint()
-        QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-        QTest.qWait(80)
-        qgui_app.processEvents()
+        _click(swin, name)
 
     def rows():
         form = swin.findChild(QQuickItem, "envForm")
@@ -3155,6 +3149,50 @@ def _settings_window(qgui_app):
     raise AssertionError(f"settings window never showed (have {titles})")
 
 
+def _hit_reaches(host, target, pos):
+    """Whether the hit test from the window root reaches `target`.
+
+    `childAt()` only reports one level, so walk down: while a popup is
+    still fading out its overlay sits on top and the chain stops there.
+    """
+    item = host.contentItem()
+    for _ in range(24):
+        if item is target:
+            return True
+        local = item.mapFromScene(pos)
+        item = item.childAt(local.x(), local.y())
+        if item is None:
+            return False
+    return False
+
+
+def _click(host, name):
+    """Click a named control, first waiting until it is really reachable.
+
+    A popup that just closed keeps its dim overlay above everything for
+    a while (offscreen that overlay does not fade away promptly), so a
+    synthetic click lands on it and is swallowed silently -- the failure
+    then surfaces in an unrelated assertion. Waiting for the hit test to
+    reach the control removes the race; layout passes need wall-clock
+    time, so poll with `QTest.qWait`, never a bare processEvents() loop.
+    """
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    button = host.findChild(QQuickItem, name)
+    assert button is not None, name
+    centre = QPointF(button.property("width") / 2, button.property("height") / 2)
+    pos = button.mapToScene(centre)
+    for _ in range(40):
+        if _hit_reaches(host, button, pos):
+            break
+        QTest.qWait(25)
+        pos = button.mapToScene(centre)
+    QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos.toPoint())
+    QTest.qWait(30)
+
+
 def _vertical_bar(view):
     """The visible vertical scroll bar of a ScrollView, or None."""
     from PySide6.QtQuick import QQuickItem
@@ -3171,9 +3209,8 @@ def _vertical_bar(view):
 
 def test_settings_edit_saves_name(qgui_app, xdg_env):
     """Edit opens settings for the selection; Save persists the fields."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject, Qt
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -3188,12 +3225,7 @@ def test_settings_edit_saves_name(qgui_app, xdg_env):
     qgui_app.processEvents()
 
     def click(name, host):
-        button = host.findChild(QQuickItem, name)
-        pos = button.mapToScene(
-            QPointF(button.property("width") / 2, button.property("height") / 2)
-        ).toPoint()
-        QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-        qgui_app.processEvents()
+        _click(host, name)
 
     click("titleEdit", win)
     assert page.settingsOpen() is True
@@ -3214,21 +3246,14 @@ def test_settings_edit_saves_name(qgui_app, xdg_env):
 
 def test_settings_add_creates_game(qgui_app, xdg_env):
     """Add offers sources; Local opens blank settings that create the game."""
-    from PySide6.QtCore import QPointF, Qt
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
     win, engine, proxy, warnings = _load_main(qgui_app)
 
     def click(name, host):
-        button = host.findChild(QQuickItem, name)
-        pos = button.mapToScene(
-            QPointF(button.property("width") / 2, button.property("height") / 2)
-        ).toPoint()
-        QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-        qgui_app.processEvents()
+        _click(host, name)
 
     click("titleAdd", win)
     add = _modal_window(qgui_app, ("Add Game",))
@@ -3251,9 +3276,8 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
 
 def test_settings_env_prepost_flow(qgui_app, xdg_env):
     """Environment rows and Pre/Post fields persist through the dialog."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -3272,12 +3296,7 @@ def test_settings_env_prepost_flow(qgui_app, xdg_env):
     tabs = swin.findChild(QQuickItem, "settingsTabs")
 
     def click(name):
-        button = swin.findChild(QQuickItem, name)
-        pos = button.mapToScene(
-            QPointF(button.property("width") / 2, button.property("height") / 2)
-        ).toPoint()
-        QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-        qgui_app.processEvents()
+        _click(swin, name)
 
     tabs.setProperty("currentIndex", 1)
     qgui_app.processEvents()
@@ -3349,9 +3368,8 @@ def test_settings_gamemode_exclusive(qgui_app, xdg_env):
 
 def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     """Display fields, gamescope preset, MangoHud new and dip persist."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
     from tkarcade.gui.model import GameListModel
@@ -3376,12 +3394,7 @@ def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
 
     def click(name, host):
-        button = host.findChild(QQuickItem, name)
-        pos = button.mapToScene(
-            QPointF(button.property("width") / 2, button.property("height") / 2)
-        ).toPoint()
-        QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-        qgui_app.processEvents()
+        _click(host, name)
 
     swin.findChild(QQuickItem, "dispOut").setProperty("text", "DP-1")
     swin.findChild(QQuickItem, "dispProv").setProperty("currentIndex", 4)
@@ -3431,9 +3444,8 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
     import os
     from pathlib import Path
 
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     import tkarcade.steam as steammod
     from tkarcade import config as C
@@ -3455,12 +3467,7 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
     assert scroller.property("contentHeight") > 0
 
     def click(name):
-        button = swin.findChild(QQuickItem, name)
-        pos = button.mapToScene(
-            QPointF(button.property("width") / 2, button.property("height") / 2)
-        ).toPoint()
-        QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-        qgui_app.processEvents()
+        _click(swin, name)
 
     click("importStlConfirm")
     assert C.profile_file("99", "steamtinkerlaunch").is_file()
@@ -3681,9 +3688,7 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
 
 def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     """Add chooser routes Steam picks to settings and Local to blank."""
-    from PySide6.QtCore import QPointF, Qt
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     import tkarcade.steam as steammod
     from tkarcade import config as C
@@ -3692,12 +3697,7 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     win, engine, proxy, warnings = _load_main(qgui_app)
 
     def click(name, host):
-        button = host.findChild(QQuickItem, name)
-        pos = button.mapToScene(
-            QPointF(button.property("width") / 2, button.property("height") / 2)
-        ).toPoint()
-        QTest.mouseClick(host, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-        qgui_app.processEvents()
+        _click(host, name)
 
     click("titleAdd", win)
     add = _modal_window(qgui_app, ("Add Game",))
@@ -3810,16 +3810,9 @@ def test_settings_env_bulk_preset_flow(qgui_app, xdg_env):
     dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 1)
     qgui_app.processEvents()
-    from PySide6.QtCore import QPointF, Qt
-    from PySide6.QtTest import QTest
 
     def click(name):
-        button = swin.findChild(QQuickItem, name)
-        pos = button.mapToScene(
-            QPointF(button.property("width") / 2, button.property("height") / 2)
-        ).toPoint()
-        QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-        qgui_app.processEvents()
+        _click(swin, name)
 
     click("envBulk")
     assert win.findChild(QObject, "envBulkDialog").property("visible") is True

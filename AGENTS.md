@@ -112,7 +112,12 @@ rewrite pushed history or tags.
   (they render invisible): synthetic clicks don't reach their buttons —
   open them via clicks and drive accepts with direct calls instead.
   After `close()`, assert `opened` (not `visible`, which lingers
-  through the exit transition).
+  through the exit transition), and never click the next control right
+  away: the fading overlay swallows the click silently and the failure
+  surfaces in an unrelated assertion. `_click()` in
+  `tests/kirigami_qml_cases.py` polls the window hit test (walking
+  `childAt` down the tree, it only reports one level) until the control
+  is the visible target, then clicks — use it in settings/dialog cases.
 - `StackLayout` children do not auto-fill: every tab needs explicit
   `Layout.fillWidth/Height`, else it collapses to implicit size.
 - Settings and dialogs mirror the widgets QDialog layout in pure QML
