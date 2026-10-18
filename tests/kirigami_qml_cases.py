@@ -1549,6 +1549,50 @@ def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_window_title_and_footer(qgui_app, xdg_env):
+    """Title names the game; Diff/Reset lead the footer, Save/Cancel close."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-title"
+    cfg.general.name = "Title Game"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    settings = win.findChild(QObject, "gameSettings")
+    settings.openFor("local-title")
+    QTest.qWait(150)
+    qgui_app.processEvents()
+    swin = _settings_window(qgui_app)
+    # Widgets GameDialog: "Game Settings — <name> (<appid>)".
+    assert swin.title() == "Game Settings — Title Game (local-title)"
+
+    diff = swin.findChild(QQuickItem, "diffButton")
+    reset = swin.findChild(QQuickItem, "settingsReset")
+    save = swin.findChild(QQuickItem, "settingsSave")
+    cancel = swin.findChild(QQuickItem, "settingsCancel")
+    for item in (diff, reset, save, cancel):
+        assert item is not None
+        assert item.property("width") > 0
+    # QDialogButtonBox layout: Diff then Reset on the left, Save then
+    # Cancel on the right, with Save as the default button.
+    assert diff.property("x") < reset.property("x")
+    assert save.property("x") > reset.property("x") + reset.property("width")
+    assert cancel.property("x") > save.property("x") + save.property("width")
+    assert save.property("highlighted") is True
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
     """Dependency Status: two columns of marks below the tabs."""
     import shiboken6
@@ -2971,8 +3015,20 @@ def _modal_window(qgui_app, titles):
 
 
 def _settings_window(qgui_app):
-    """The visible settings top-level window (Edit/Add titles)."""
-    return _modal_window(qgui_app, ("Edit game", "Add game"))
+    """The visible settings top-level window (Edit/Add/Defaults titles)."""
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtTest import QTest
+
+    for _ in range(25):
+        for w in QGuiApplication.topLevelWindows():
+            if w.isVisible() and w.objectName() == "gameSettings":
+                # Let the freshly mapped window settle before synthetic
+                # clicks (offscreen layout passes need wall-clock time).
+                QTest.qWait(120)
+                return w
+        QTest.qWait(20)
+    titles = [w.title() for w in QGuiApplication.topLevelWindows()]
+    raise AssertionError(f"settings window never showed (have {titles})")
 
 
 def test_settings_edit_saves_name(qgui_app, xdg_env):
@@ -3073,7 +3129,7 @@ def test_settings_env_prepost_flow(qgui_app, xdg_env):
     page.select("local-doom")
     qgui_app.processEvents()
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     tabs = swin.findChild(QQuickItem, "settingsTabs")
 
@@ -3123,7 +3179,7 @@ def test_settings_gamemode_exclusive(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 3)
     QTest.qWait(200)
@@ -3173,7 +3229,7 @@ def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 4)
     qgui_app.processEvents()
@@ -3353,7 +3409,7 @@ def test_settings_ludusavi_system_flow(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     tabs = swin.findChild(QQuickItem, "settingsTabs")
     assert swin.findChild(QQuickItem, "settingsLog").property("text") != ""
@@ -3398,7 +3454,7 @@ def test_settings_wine_flow(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("99")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 7)
     qgui_app.processEvents()
@@ -3443,7 +3499,7 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     QTest.qWait(400)
     for _ in range(10):
@@ -3503,7 +3559,7 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     add = _modal_window(qgui_app, ("Add Game",))
     assert add.findChild(QQuickItem, "addSource") is not None
     click("addConfirm", add)
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     assert proxy.rowCount() == 0
     assert swin.findChild(QQuickItem, "settingsAppid").property("text") == "99"
     click("settingsSave", swin)
@@ -3606,7 +3662,7 @@ def test_settings_env_bulk_preset_flow(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 1)
     qgui_app.processEvents()
@@ -3665,7 +3721,7 @@ def test_settings_warning_and_tool_states(qgui_app, xdg_env, monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     assert "invalid TOML" in swin.findChild(QQuickItem, "settingsError").property("text")
     for name in ("perfFeral", "perfCachy", "gsEnable", "mhEnable", "luEnable"):
         box = swin.findChild(QQuickItem, name)
@@ -3695,7 +3751,7 @@ def test_settings_preview_diff_flow(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     assert "/bin/true" in swin.findChild(QQuickItem, "previewText").property("text")
     assert swin.findChild(QQuickItem, "previewWrappers").property("text") != ""
     diff = swin.findChild(QQuickItem, "diffButton")
@@ -3734,7 +3790,7 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     name = swin.findChild(QQuickItem, "settingsName")
     assert dlg.property("dialogProfile") == ""
@@ -3797,7 +3853,7 @@ def test_settings_general_formlayout_wide(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     QTest.qWait(400)
     for _ in range(10):
         qgui_app.processEvents()
@@ -3829,7 +3885,7 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsCats").setProperty("text", "Action, Retro")
     swin.findChild(QQuickItem, "settingsPlatform").setProperty("text", "PC")
@@ -3946,7 +4002,7 @@ def test_settings_audio_sink_flow(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _modal_window(qgui_app, ("Edit game",))
+    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 6)
     qgui_app.processEvents()
@@ -4207,18 +4263,18 @@ def _load_editor(qgui_app, mode="edit", appid="", name="", can_launch=True, pick
     return root, engine, model, decided, warnings
 
 
-def _editor_window(qgui_app, title):
-    """A visible editor top-level by exact title."""
+def _editor_window(qgui_app, title_prefix):
+    """A visible editor top-level whose title starts with the prefix."""
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtTest import QTest
 
     for _ in range(25):
         for window in QGuiApplication.topLevelWindows():
-            if window.isVisible() and window.title() == title:
+            if window.isVisible() and window.title().startswith(title_prefix):
                 return window
         QTest.qWait(20)
     titles = [w.title() for w in QGuiApplication.topLevelWindows()]
-    raise AssertionError(f"editor window {title!r} never showed (have {titles})")
+    raise AssertionError(f"editor window {title_prefix!r} never showed (have {titles})")
 
 
 def _click_editor_button(qgui_app, window, name):
@@ -4260,7 +4316,7 @@ def test_editor_save_reports_saved(qgui_app, xdg_env):
     """Save in the standalone editor reports "saved" with the AppID."""
     _save_one_game("local-doom", "Doom")
     _root, engine, _model, decided, warnings = _load_editor(qgui_app, appid="local-doom")
-    swin = _editor_window(qgui_app, "Edit game")
+    swin = _editor_window(qgui_app, "Game Settings")
     _click_editor_button(qgui_app, swin, "settingsSave")
     assert decided == [("saved", "local-doom")]
     real = [w for w in warnings if "graphics scene" not in w]
@@ -4272,7 +4328,7 @@ def test_editor_cancel_reports_cancelled(qgui_app, xdg_env):
     """Cancel reports "cancelled": the launcher must not launch."""
     _save_one_game("local-doom", "Doom")
     _root, engine, _model, decided, _warnings = _load_editor(qgui_app, appid="local-doom")
-    swin = _editor_window(qgui_app, "Edit game")
+    swin = _editor_window(qgui_app, "Game Settings")
     _click_editor_button(qgui_app, swin, "settingsCancel")
     assert decided == [("cancelled", "local-doom")]
     _editor_finish(qgui_app, engine, [swin])
@@ -4286,7 +4342,7 @@ def test_editor_save_and_launch_reports_launch(qgui_app, xdg_env):
 
     _save_one_game("local-doom", "Doom")
     _root, engine, _model, decided, _warnings = _load_editor(qgui_app, appid="local-doom")
-    swin = _editor_window(qgui_app, "Edit game")
+    swin = _editor_window(qgui_app, "Game Settings")
     name = swin.findChild(QQuickItem, "settingsName")
     name.setProperty("text", "Doom II")
     _click_editor_button(qgui_app, swin, "settingsSaveLaunch")
@@ -4303,7 +4359,7 @@ def test_editor_launch_without_saving_reports_launch(qgui_app, xdg_env):
 
     _save_one_game("local-doom", "Doom")
     _root, engine, _model, decided, _warnings = _load_editor(qgui_app, appid="local-doom")
-    swin = _editor_window(qgui_app, "Edit game")
+    swin = _editor_window(qgui_app, "Game Settings")
     swin.findChild(QQuickItem, "settingsName").setProperty("text", "Doom II")
     _click_editor_button(qgui_app, swin, "settingsLaunch")
     assert decided == [("launch", "local-doom")]
@@ -4319,7 +4375,7 @@ def test_editor_hides_launch_buttons_without_a_command(qgui_app, xdg_env):
     _root, engine, _model, decided, _warnings = _load_editor(
         qgui_app, appid="local-doom", can_launch=False
     )
-    swin = _editor_window(qgui_app, "Edit game")
+    swin = _editor_window(qgui_app, "Game Settings")
     assert swin.findChild(QQuickItem, "settingsLaunch").property("visible") is False
     assert swin.findChild(QQuickItem, "settingsSaveLaunch").property("visible") is False
     _click_editor_button(qgui_app, swin, "settingsSave")
@@ -4348,7 +4404,7 @@ def test_editor_picks_a_game_without_an_appid(qgui_app, xdg_env):
     box.setProperty("currentIndex", rows.index("Quake [local-quake]"))
     _click_editor_button(qgui_app, picker, "editorPickOk")
     assert decided == []
-    swin = _editor_window(qgui_app, "Edit game")
+    swin = _editor_window(qgui_app, "Game Settings")
     from PySide6.QtQuick import QQuickItem
 
     assert swin.findChild(QQuickItem, "settingsName").property("text") == "Quake"
@@ -4382,7 +4438,7 @@ def test_prelaunch_menu_opens_settings_and_launches(qgui_app, xdg_env):
     # Opening the editor stops the countdown (widgets parity) and leaves
     # the menu's own Launch/Cancel in charge.
     assert menu.property("remaining") == 0
-    swin = _editor_window(qgui_app, "Edit game")
+    swin = _editor_window(qgui_app, "Game Settings")
     assert swin.property("modality") == Qt.WindowModality.WindowModal
     assert swin.findChild(QQuickItem, "settingsLaunch").property("visible") is False
     _click_editor_button(qgui_app, swin, "settingsSave")

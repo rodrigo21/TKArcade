@@ -79,6 +79,11 @@ Breaking config changes are called out explicitly under `Changed`.
   header row over the field columns and the widgets' Add/Remove pair —
   Remove drops the row whose field last took focus (the table selection
   it replaces); the per-row remove buttons stay.
+- Settings window title and footer (widgets parity): the title names the
+  game (`Game Settings — <name> (<appid>)`, `Game Settings (<appid>)`
+  when unnamed) and the button box matches the widgets' — Diff vs
+  Defaults and Reset to Global Defaults lead, Save (default, save icon)
+  and Cancel close the row on the right.
 - Profile semantics (widgets parity): Save writes to the active profile
   target (live file keeps only the selection), dirty profile switches
   ask to discard first, Save As/Clone/Delete confirm overwrites, Reset

@@ -13,7 +13,13 @@ import org.kde.kirigami.layouts as KirigamiLayouts
 Window {
     id: gameSettings
     objectName: "gameSettings"
-    title: defaultsMode ? qsTr("Global Defaults") : (editAppid === "" ? qsTr("Add game") : qsTr("Edit game"))
+    title: defaultsMode
+        ? qsTr("Global Defaults")
+        : (editAppid === ""
+            ? qsTr("Add game")
+            : (loadedName !== ""
+                ? qsTr("Game Settings — %1 (%2)").arg(loadedName).arg(editAppid)
+                : qsTr("Game Settings (%1)").arg(editAppid)))
     modality: Qt.WindowModal
     minimumWidth: Kirigami.Units.gridUnit * 34
     minimumHeight: Kirigami.Units.gridUnit * 30
@@ -24,6 +30,9 @@ Window {
 
     property string editAppid: ""
     property bool defaultsMode: false
+    // Name shown in the window title (widgets GameDialog set it once from
+    // the Steam name / config name), not the live field text.
+    property string loadedName: ""
     // Standalone CLI editor (gui/edit.py): the widgets GameDialog ran with
     // launch_mode/can_launch and offered Launch and Save & Launch.
     property bool launchMode: false
@@ -152,6 +161,7 @@ Window {
         nameField.text = (f.is_steam && editAppid !== "")
             ? (gameModel.gameNames([editAppid])[0] || editAppid)
             : (f.name || "")
+        loadedName = nameField.text
         exeField.text = f.custom_executable || ""
         typeBox.currentIndex = f.game_type === "proton" ? 1 : (f.game_type === "native" ? 2 : 0)
         runtimeField.text = runtimeText()
@@ -2060,12 +2070,26 @@ Window {
             elide: Text.ElideRight
         }
         RowLayout {
+            // Widgets QDialogButtonBox (GNOME/Breeze layout): the reset and
+            // diff actions lead, the accept/cancel pair closes the row.
             Layout.fillWidth: true
+            Controls.Button {
+                objectName: "diffButton"
+                text: qsTr("Diff vs Defaults")
+                onClicked: {
+                    var diff = gameModel.diffDefaults(editAppid, gameSettings.collect())
+                    diffText.text = diff !== "" ? diff : qsTr("(no differences)")
+                    diffDialog.open()
+                }
+            }
             Controls.Button {
                 objectName: "settingsReset"
                 visible: !gameSettings.defaultsMode && gameSettings.editAppid !== ""
                 text: qsTr("Reset to Global Defaults")
                 onClicked: gameSettings.resetFactory()
+            }
+            Item {
+                Layout.fillWidth: true
             }
             Controls.Button {
                 objectName: "settingsLaunch"
@@ -2077,6 +2101,9 @@ Window {
             Controls.Button {
                 objectName: "settingsSave"
                 text: qsTr("Save")
+                icon.name: gameModel.iconName(["document-save", "document-save-as"])
+                // The widgets made Save the default button.
+                highlighted: true
                 onClicked: gameSettings.save()
             }
             Controls.Button {
@@ -2089,16 +2116,8 @@ Window {
             Controls.Button {
                 objectName: "settingsCancel"
                 text: qsTr("Cancel")
+                icon.name: gameModel.iconName(["window-close", "dialog-cancel"])
                 onClicked: gameSettings.finish("cancelled")
-            }
-            Controls.Button {
-                objectName: "diffButton"
-                text: qsTr("Diff vs Defaults")
-                onClicked: {
-                    var diff = gameModel.diffDefaults(editAppid, gameSettings.collect())
-                    diffText.text = diff !== "" ? diff : qsTr("(no differences)")
-                    diffDialog.open()
-                }
             }
         }
     }
