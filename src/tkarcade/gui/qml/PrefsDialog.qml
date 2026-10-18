@@ -72,11 +72,12 @@ Window {
         }
         Controls.ScrollView {
             clip: true
+            objectName: "prefsScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
             Item {
                 width: parent.width
-                height: prefsForm.implicitHeight
+                implicitHeight: prefsForm.implicitHeight
                 WidgetsFormLayout {
                     id: prefsForm
                     objectName: "prefsForm"

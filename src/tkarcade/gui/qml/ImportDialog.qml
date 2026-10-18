@@ -142,11 +142,12 @@ Window {
                 }
                 Controls.ScrollView {
                     clip: true
+                    objectName: "importStlScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: stlForm.implicitHeight
+                        implicitHeight: stlForm.implicitHeight
                         ColumnLayout {
                             id: stlForm
                             width: parent.width

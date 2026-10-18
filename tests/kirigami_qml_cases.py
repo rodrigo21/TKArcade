@@ -1593,6 +1593,86 @@ def test_settings_window_title_and_footer(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_tab_bodies_scroll(qgui_app, xdg_env):
+    """A short window scrolls each tab body; no field is unreachable.
+
+    ScrollView takes its scrollable size from the content's implicit
+    size: the wrapper Item must advertise it (an explicit `height:`
+    alone leaves contentHeight at -1 and the content gets squeezed into
+    the viewport, hiding everything below the fold).
+    """
+    from PySide6.QtCore import QObject, QPointF
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-scroll"
+    cfg.general.name = "Scroll"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    cfg.env.vars = {"FOO": "bar"}
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    settings = win.findChild(QObject, "gameSettings")
+    settings.openFor("local-scroll")
+    QTest.qWait(150)
+    swin = _settings_window(qgui_app)
+    tabs = swin.findChild(QQuickItem, "settingsTabs")
+    # Shrink to a short window (the dialog stayed resizable in the
+    # widgets): the tab area keeps only the leftover height.
+    swin.setProperty("height", 560)
+    QTest.qWait(80)
+
+    bodies = {
+        0: "settingsGeneralScroll",
+        1: "settingsEnvRowsScroll",
+        2: "settingsPrePostScroll",
+        3: "settingsPerfScroll",
+        4: "settingsDisplayScroll",
+        5: "settingsLudusaviScroll",
+        6: "settingsSystemScroll",
+        7: "settingsWineScroll",
+        9: "settingsArtworkScroll",
+    }
+    for tab, name in bodies.items():
+        tabs.setProperty("currentIndex", tab)
+        QTest.qWait(150)
+        view = swin.findChild(QQuickItem, name)
+        assert view is not None, name
+        assert view.property("contentHeight") > 0, name
+        if view.property("contentHeight") <= view.property("height"):
+            continue
+        bar = _vertical_bar(view)
+        assert bar is not None and bar.property("visible") is True, name
+        assert bar.property("size") < 1, name
+        assert bar.property("position") == 0, name
+
+    # Display is the tall tab: scrolling to the end has to bring the
+    # last field of the last section fully into the viewport.
+    tabs.setProperty("currentIndex", 4)
+    QTest.qWait(150)
+    view = swin.findChild(QQuickItem, "settingsDisplayScroll")
+    flick = view.property("contentItem")
+    bottom = flick.property("contentHeight") - flick.property("height")
+    assert bottom > 0
+    flick.setProperty("contentY", bottom)
+    QTest.qWait(80)
+    field = swin.findChild(QQuickItem, "rtArgs")
+    assert field is not None
+    top = field.mapToItem(flick, QPointF(0, 0)).y()
+    assert top >= 0
+    assert top + field.property("height") <= flick.property("height")
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    settings.close()
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
     """Dependency Status: two columns of marks below the tabs."""
     import shiboken6
@@ -2081,6 +2161,10 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Preferences",))
+    # The form scrolls: its wrapper advertises the form's implicit size
+    # (an explicit `height:` alone leaves contentHeight at -1).
+    scroller = swin.findChild(QQuickItem, "prefsScroll")
+    assert scroller.property("contentHeight") > 0
     save = swin.findChild(QQuickItem, "prefsSave")
     pos = save.mapToScene(QPointF(save.property("width") / 2, 5)).toPoint()
     QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
@@ -3031,6 +3115,20 @@ def _settings_window(qgui_app):
     raise AssertionError(f"settings window never showed (have {titles})")
 
 
+def _vertical_bar(view):
+    """The visible vertical scroll bar of a ScrollView, or None."""
+    from PySide6.QtQuick import QQuickItem
+
+    for child in view.findChildren(QQuickItem):
+        if "ScrollBar" not in child.metaObject().className():
+            continue
+        if str(child.property("orientation")) != "Orientation.Vertical":
+            continue
+        if child.property("visible"):
+            return child
+    return None
+
+
 def test_settings_edit_saves_name(qgui_app, xdg_env):
     """Edit opens settings for the selection; Save persists the fields."""
     from PySide6.QtCore import QObject, QPointF, Qt
@@ -3309,6 +3407,9 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
     dlg.openStl()
     swin = _modal_window(qgui_app, ("Import Configurations",))
     assert dlg.property("stlRows") != []
+    # The STL list scrolls (contentHeight follows the rows, not -1).
+    scroller = swin.findChild(QQuickItem, "importStlScroll")
+    assert scroller.property("contentHeight") > 0
 
     def click(name):
         button = swin.findChild(QQuickItem, name)

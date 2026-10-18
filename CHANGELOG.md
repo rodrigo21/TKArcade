@@ -192,6 +192,12 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- Settings tabs scroll again: `ScrollView` takes its scrollable size
+  from the content's implicit size, so the tab wrappers (an explicit
+  `height:` only) left `contentHeight` at -1 and everything below the
+  fold was unreachable in short windows — Display, General and the
+  other tabs now show a scroll bar and reach their last fields. Same
+  fix in the Preferences form and the import dialog's STL list.
 - Middle-click on a game opens its settings in all three views (table
   rows, icons grid, cards), matching the widgets event filter; the QML
   gesture layer only accepted the left and right buttons.

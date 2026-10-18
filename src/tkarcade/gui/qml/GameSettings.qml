@@ -946,15 +946,20 @@ Window {
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            objectName: "settingsStack"
             currentIndex: tabBar.currentIndex
             Controls.ScrollView {
                 clip: true
                 objectName: "settingsGeneralScroll"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                // ScrollView takes its scrollable size from the content's
+                // implicitHeight; a plain Item has none, so sizing the
+                // wrapper with `height:` leaves contentHeight at -1 and the
+                // content is squeezed into the viewport (nothing scrolls).
                 Item {
                     width: parent.width
-                    height: generalForm.implicitHeight
+                    implicitHeight: generalForm.implicitHeight
                     WidgetsFormLayout {
                     id: generalForm
                     objectName: "settingsGeneralForm"
@@ -1201,11 +1206,12 @@ Window {
                 }
                 Controls.ScrollView {
                     clip: true
+                    objectName: "settingsEnvRowsScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: envForm.implicitHeight
+                        implicitHeight: envForm.implicitHeight
                         ColumnLayout {
                             id: envForm
                             objectName: "envForm"
@@ -1299,11 +1305,12 @@ Window {
                 Layout.fillHeight: true
                 Controls.ScrollView {
                     clip: true
+                    objectName: "settingsPrePostScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: ppForm.implicitHeight
+                        implicitHeight: ppForm.implicitHeight
                         WidgetsFormLayout {
                             id: ppForm
                             width: parent.width
@@ -1352,11 +1359,12 @@ Window {
                 Layout.fillHeight: true
                 Controls.ScrollView {
                     clip: true
+                    objectName: "settingsPerfScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: perfForm.implicitHeight
+                        implicitHeight: perfForm.implicitHeight
                         ColumnLayout {
                             id: perfForm
                             width: parent.width
@@ -1401,11 +1409,12 @@ Window {
                 Layout.fillHeight: true
                 Controls.ScrollView {
                     clip: true
+                    objectName: "settingsDisplayScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: dispForm.implicitHeight
+                        implicitHeight: dispForm.implicitHeight
                         ColumnLayout {
                             id: dispForm
                             width: parent.width
@@ -1574,11 +1583,12 @@ Window {
                 Layout.fillHeight: true
                 Controls.ScrollView {
                     clip: true
+                    objectName: "settingsLudusaviScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: luForm.implicitHeight
+                        implicitHeight: luForm.implicitHeight
                         WidgetsFormLayout {
                             id: luForm
                             objectName: "luForm"
@@ -1644,11 +1654,12 @@ Window {
                 Layout.fillHeight: true
                 Controls.ScrollView {
                     clip: true
+                    objectName: "settingsSystemScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: sysForm.implicitHeight
+                        implicitHeight: sysForm.implicitHeight
                         ColumnLayout {
                             id: sysForm
                             width: parent.width
@@ -1731,11 +1742,12 @@ Window {
                 Layout.fillHeight: true
                 Controls.ScrollView {
                     clip: true
+                    objectName: "settingsWineScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: wineForm.implicitHeight
+                        implicitHeight: wineForm.implicitHeight
                         WidgetsFormLayout {
                             id: wineForm
                             objectName: "wineForm"
@@ -1881,11 +1893,12 @@ Window {
                 Layout.fillHeight: true
                 Controls.ScrollView {
                     clip: true
+                    objectName: "settingsArtworkScroll"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Item {
                         width: parent.width
-                        height: artForm.implicitHeight
+                        implicitHeight: artForm.implicitHeight
                         WidgetsFormLayout {
                             id: artForm
                             width: parent.width

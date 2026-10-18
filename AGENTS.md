@@ -79,7 +79,10 @@ rewrite pushed history or tags.
   chaining plus fallback (`model?.gameIcon ?? ""`).
 - `Controls.ScrollView` manages its content x/y itself: never position
   content with `x` or anchors (silently reset, no warning) — wrap in a
-  plain Item and anchor/center inside that instead.
+  plain Item and center inside that instead. Scrolling needs the
+  content's **implicit** size: the wrapper must carry `implicitHeight`
+  (a plain Item has none), else the ScrollView sizes the content to the
+  viewport, `contentHeight` stays -1 and nothing scrolls at all.
 - QQC2 `onToggled` fires on user interaction only (unlike QWidgets):
   react to programmatic `setProperty("checked", ...)` (tests included)
   with `onCheckedChanged` instead.
