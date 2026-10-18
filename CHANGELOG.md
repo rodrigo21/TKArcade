@@ -457,6 +457,13 @@ Breaking config changes are called out explicitly under `Changed`.
   Steam-only lookups (ProtonDB, artwork) skip local rows.
 
 ### Changed
+- Settings bottom blocks: Dependency Status and Launch Command Preview
+  are group boxes with a centered checkbox title now (the dependency
+  list also lost its redundant second, nested frame) and unchecking
+  either one collapses the whole block, giving the tabs their room
+  back. Both choices persist (`[ui] show_dependency_status`, the
+  preview reuses the existing `show_preview`, so the Preferences dialog
+  and the dialog stay in sync).
 - The tray context menu is a QML menu now, opened at the icon through
   the model; entries, recent games and Close/Minimize-to-tray behave
   as before, and `Quit` still bypasses Close-to-tray. The shell still

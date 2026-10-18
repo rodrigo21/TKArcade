@@ -1286,19 +1286,25 @@ Window {
         <= 2
     )
 
-    # checkable: the title turns into a checkbox and an unchecked box
-    # collapses its content (QGroupBox::setCheckable parity).
+    # checkable: the title turns into a centered checkbox and an
+    # unchecked box collapses completely -- the whole height is freed
+    # (the widgets frame stayed drawn and empty, which is not wanted
+    # here: collapsing is how these blocks give the tabs room).
     box.setProperty("checkable", True)
     box.setProperty("checked", False)
     QTest.qWait(80)
     qgui_app.processEvents()
     checkbox = win.findChild(QQuickItem, "sectionTitle")
     assert checkbox is not None and checkbox.property("visible") is True
+    cx = checkbox.property("x") + checkbox.property("width") / 2
+    assert abs(cx - box.property("width") / 2) <= 2
     assert title.property("visible") is False
-    assert abs(frame.property("height") - 18) <= 2
+    assert frame.property("visible") is False
+    assert abs(box.property("implicitHeight") - checkbox.property("height")) <= 2
     box.setProperty("checked", True)
     QTest.qWait(80)
     qgui_app.processEvents()
+    assert frame.property("visible") is True
     assert frame.property("height") > 18
 
     real = [w for w in warnings if "graphics scene" not in w]
@@ -1698,22 +1704,31 @@ def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
 
     box = win.findChild(QQuickItem, "depStatusBox")
     frame = box.findChild(QQuickItem, "sectionFrame")
-    inner = box.findChild(QQuickItem, "depStatusFrame")
     grid = box.findChild(QQuickItem, "depStatusGrid")
-    assert box is not None and frame is not None and inner is not None and grid is not None
-    # Widgets: the group box sits below the tab widget, titled and framed,
-    # with the sunken panel nested inside the frame.
+    check = box.findChild(QQuickItem, "sectionTitle")
+    assert box is not None and frame is not None and grid is not None and check is not None
+    # Widgets: the group box sits below the tab widget, titled and framed
+    # -- with a single border (the widgets nested a sunken panel; the
+    # centered checkbox title replaces it).
     assert box.property("y") >= tabs.property("y") + tabs.property("height")
-    title = box.findChild(QQuickItem, "sectionTitleText")
-    assert title is not None and title.property("text") == "Dependency Status"
-    assert title.property("y") + title.property("height") <= frame.property("y")
+    assert check.property("text") == "Dependency Status"
+    assert check.property("checked") is True
+    # The plain label variant stays hidden while the box is checkable.
+    assert box.findChild(QQuickItem, "sectionTitleText").property("visible") is False
+    assert check.property("y") + check.property("height") <= frame.property("y")
     assert frame.property("y") + frame.property("height") <= box.property("height")
-    # The nested panel pads the grid by smallSpacing on every side.
+    frames = [
+        child
+        for child in box.findChildren(QQuickItem)
+        if child.property("objectName") == "sectionFrame"
+    ]
+    assert len(frames) == 1
     from PySide6.QtCore import QPointF
 
-    inset = inner.mapToItem(box, QPointF(0, 0)).y() - frame.mapToItem(box, QPointF(0, 0)).y()
-    assert 0 < inset < 12
-    assert abs(inner.property("height") - grid.property("height") - 8) <= 1
+    # The grid sits inside the frame, padded on every side.
+    inset = grid.mapToItem(box, QPointF(0, 0)).y() - frame.mapToItem(box, QPointF(0, 0)).y()
+    assert 0 < inset < 16
+    assert grid.property("y") + grid.property("height") <= frame.property("height")
 
     cells = [
         child
@@ -1766,6 +1781,20 @@ def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
         settings.statusText({"msg": "steam-missing"})
         == "Steam launch options lack tkarcade (add: tkarcade %command%)"
     )
+
+    # The centered checkbox collapses the whole block and persists the
+    # choice (a disabled box leaves the tabs their room back).
+    check.setProperty("checked", False)
+    QTest.qWait(80)
+    qgui_app.processEvents()
+    assert frame.property("visible") is False
+    assert abs(box.property("implicitHeight") - check.property("height")) <= 2
+    assert C.load_preferences().show_dependency_status is False
+    check.setProperty("checked", True)
+    QTest.qWait(60)
+    qgui_app.processEvents()
+    assert frame.property("visible") is True
+    assert C.load_preferences().show_dependency_status is True
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -3855,6 +3884,22 @@ def test_settings_preview_diff_flow(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     assert "/bin/true" in swin.findChild(QQuickItem, "previewText").property("text")
     assert swin.findChild(QQuickItem, "previewWrappers").property("text") != ""
+    # Centered checkbox title (widgets parity) that collapses the box
+    # and persists the flag the Preferences dialog also edits.
+    preview_box = swin.findChild(QQuickItem, "previewBox")
+    check = preview_box.findChild(QQuickItem, "sectionTitle")
+    frame = preview_box.findChild(QQuickItem, "sectionFrame")
+    assert check.property("text") == "Launch Command Preview"
+    assert check.property("checked") is True and frame.property("visible") is True
+    check.setProperty("checked", False)
+    QTest.qWait(80)
+    qgui_app.processEvents()
+    assert frame.property("visible") is False
+    assert C.load_preferences().show_preview is False
+    check.setProperty("checked", True)
+    QTest.qWait(60)
+    qgui_app.processEvents()
+    assert C.load_preferences().show_preview is True
     diff = swin.findChild(QQuickItem, "diffButton")
     pos = diff.mapToScene(
         QPointF(diff.property("width") / 2, diff.property("height") / 2)

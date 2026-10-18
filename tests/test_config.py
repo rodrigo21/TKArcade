@@ -339,6 +339,7 @@ _GAME_FIELDS = {
 
 _PREF_FIELDS = {
     "show_preview": False,
+    "show_dependency_status": False,
     "tray_enable": True,
     "tray_icon": "mono",
     "minimize_to_tray": True,

@@ -2052,6 +2052,7 @@ class GameListModel(QAbstractTableModel):
             return {}
         return {
             "showPreview": bool(prefs.show_preview),
+            "showDependencyStatus": bool(prefs.show_dependency_status),
             "trayEnable": bool(prefs.tray_enable),
             "trayIcon": str(prefs.tray_icon),
             "minimizeToTray": bool(prefs.minimize_to_tray),
@@ -2072,6 +2073,9 @@ class GameListModel(QAbstractTableModel):
         try:
             get = values.get if hasattr(values, "get") else lambda k, d=None: d
             prefs.show_preview = bool(get("showPreview", prefs.show_preview))
+            prefs.show_dependency_status = bool(
+                get("showDependencyStatus", prefs.show_dependency_status)
+            )
             prefs.tray_enable = bool(get("trayEnable", prefs.tray_enable))
             prefs.tray_icon = str(get("trayIcon", prefs.tray_icon))
             prefs.minimize_to_tray = bool(get("minimizeToTray", prefs.minimize_to_tray))

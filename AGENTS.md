@@ -83,6 +83,11 @@ rewrite pushed history or tags.
   content's **implicit** size: the wrapper must carry `implicitHeight`
   (a plain Item has none), else the ScrollView sizes the content to the
   viewport, `contentHeight` stays -1 and nothing scrolls at all.
+- A layout item's maximum size defaults to its implicit size, so a
+  collapsed `SectionBox` (frame hidden, title checkbox the only visible
+  child) shrinks to the checkbox unless the maximum hint is widened:
+  the component sets `Layout.maximumWidth: Number.POSITIVE_INFINITY`
+  itself, hosts still ask for `Layout.fillWidth: true`.
 - QQC2 `onToggled` fires on user interaction only (unlike QWidgets):
   react to programmatic `setProperty("checked", ...)` (tests included)
   with `onCheckedChanged` instead.

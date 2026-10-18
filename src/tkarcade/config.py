@@ -172,6 +172,7 @@ class Preferences:
     """Program-level preferences (never per-game)."""
 
     show_preview: bool = True
+    show_dependency_status: bool = True
     tray_enable: bool = False
     tray_icon: str = "normal"  # normal|mono
     minimize_to_tray: bool = False
@@ -729,6 +730,7 @@ def load_preferences() -> Preferences:
     if not isinstance(ui, dict):
         return out
     out.show_preview = _as_bool(ui.get("show_preview", True), True)
+    out.show_dependency_status = _as_bool(ui.get("show_dependency_status", True), True)
     out.tray_enable = _as_bool(ui.get("tray_enable", False), False)
     out.tray_icon = str(ui.get("tray_icon", "normal") or "normal")
     if out.tray_icon not in ("normal", "mono"):
@@ -804,6 +806,7 @@ def save_preferences(prefs: Preferences) -> Path:
     data = {
         "ui": {
             "show_preview": bool(prefs.show_preview),
+            "show_dependency_status": bool(prefs.show_dependency_status),
             "tray_enable": bool(prefs.tray_enable),
             "tray_icon": prefs.tray_icon if prefs.tray_icon in ("normal", "mono") else "normal",
             "minimize_to_tray": bool(prefs.minimize_to_tray),

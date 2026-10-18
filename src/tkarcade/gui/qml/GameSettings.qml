@@ -37,6 +37,10 @@ Window {
     // launch_mode/can_launch and offered Launch and Save & Launch.
     property bool launchMode: false
     property bool canLaunch: true
+    // Bottom blocks, persisted in the preferences like the widgets
+    // preview flag (toggled from their centered title checkboxes).
+    property bool previewVisible: true
+    property bool depStatusVisible: true
 
     // Outcome of a closing action, for that standalone editor only:
     // "saved" | "launch" | "cancelled". The shell ignores it (no listener).
@@ -222,7 +226,9 @@ Window {
         ptLog.checked = !!f.proton_log
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
-        previewCheck.checked = gameModel.loadPrefs().showPreview ?? true
+        var prefs = gameModel.loadPrefs()
+        previewVisible = prefs.showPreview ?? true
+        depStatusVisible = prefs.showDependencyStatus ?? true
         setEnvRows(f.env_vars || [])
         applyToolCheck(perfFeral, "gamemoderun")
         applyToolCheck(perfCachy, "game-performance")
@@ -644,6 +650,25 @@ Window {
             }
             choicePrompt.close()
         }
+    }
+
+    // The two bottom blocks toggle from their centered title checkboxes;
+    // both choices persist in the preferences (the widgets kept the
+    // preview flag in the Preferences dialog, the status box is ours).
+    function setPreviewVisible(on) {
+        if (previewVisible === on) {
+            return
+        }
+        previewVisible = on
+        gameModel.savePrefs({"showPreview": on})
+    }
+
+    function setDepStatusVisible(on) {
+        if (depStatusVisible === on) {
+            return
+        }
+        depStatusVisible = on
+        gameModel.savePrefs({"showDependencyStatus": on})
     }
 
     function refreshPreview() {
@@ -2003,49 +2028,40 @@ Window {
             objectName: "depStatusBox"
             Layout.fillWidth: true
             title: qsTr("Dependency Status")
+            checkable: true
+            checked: gameSettings.depStatusVisible
+            onCheckedChanged: gameSettings.setDepStatusVisible(checked)
             property var statusRows: []
-            // The widgets nests a sunken panel inside the group box
-            // (game_dialog._status_box): same second border here.
-            Controls.Frame {
-                objectName: "depStatusFrame"
+            GridLayout {
+                id: depGrid
+                objectName: "depStatusGrid"
                 Layout.fillWidth: true
-                padding: 0
-                implicitHeight: depGrid.implicitHeight + Kirigami.Units.smallSpacing * 2
-                GridLayout {
-                    id: depGrid
-                    objectName: "depStatusGrid"
-                    anchors.fill: parent
-                    anchors.margins: Kirigami.Units.smallSpacing
-                    columns: 2
-                    columnSpacing: Kirigami.Units.largeSpacing * 2
-                    rowSpacing: Kirigami.Units.smallSpacing
-                    Repeater {
-                        model: statusBox.statusRows
-                        delegate: Controls.Label {
-                            required property var modelData
-                            objectName: "depStatusLine"
-                            Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignTop
-                            textFormat: Text.RichText
-                            wrapMode: Text.WordWrap
-                            text: gameSettings.statusLine(modelData)
-                            onLinkActivated: (link) => gameModel.openPath(link)
-                        }
+                columns: 2
+                columnSpacing: Kirigami.Units.largeSpacing * 2
+                rowSpacing: Kirigami.Units.smallSpacing
+                Repeater {
+                    model: statusBox.statusRows
+                    delegate: Controls.Label {
+                        required property var modelData
+                        objectName: "depStatusLine"
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignTop
+                        textFormat: Text.RichText
+                        wrapMode: Text.WordWrap
+                        text: gameSettings.statusLine(modelData)
+                        onLinkActivated: (link) => gameModel.openPath(link)
                     }
                 }
             }
         }
-        RowLayout {
+        SectionBox {
+            id: previewBox
+            objectName: "previewBox"
             Layout.fillWidth: true
-            Controls.CheckBox {
-                id: previewCheck
-                text: qsTr("Launch Command Preview")
-                font.bold: true
-                checked: true
-            }
-        }
-        ColumnLayout {
-            visible: previewCheck.checked
+            title: qsTr("Launch Command Preview")
+            checkable: true
+            checked: gameSettings.previewVisible
+            onCheckedChanged: gameSettings.setPreviewVisible(checked)
             Controls.TextArea {
                 id: previewText
                 objectName: "previewText"
