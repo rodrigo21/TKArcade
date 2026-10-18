@@ -70,10 +70,14 @@ Window {
         }
         RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 id: pickOk
                 objectName: "editorPickOk"
                 text: qsTr("OK")
+                highlighted: true
                 onClicked: picker.report(appids[pickBox.currentIndex] || "")
             }
             Controls.Button {

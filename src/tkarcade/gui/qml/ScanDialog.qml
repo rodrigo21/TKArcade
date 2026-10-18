@@ -85,9 +85,14 @@ Window {
         }
         RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "scanConfirm"
                 text: qsTr("Add Selected")
+                // QDialogButtonBox: Add Selected (accept) then Cancel.
+                highlighted: true
                 onClicked: {
                     var n = gameModel.addScanned(scanDialog.picked)
                     if (page !== null) {
@@ -97,6 +102,7 @@ Window {
                 }
             }
             Controls.Button {
+                objectName: "scanCancel"
                 text: qsTr("Cancel")
                 onClicked: scanDialog.close()
             }

@@ -47,7 +47,11 @@ Kirigami.Dialog {
     }
     footer: RowLayout {
         Layout.fillWidth: true
+        Item {
+            Layout.fillWidth: true
+        }
         Controls.Button {
+            objectName: "categoryClose"
             text: qsTr("Close")
             onClicked: categoryDialog.close()
         }

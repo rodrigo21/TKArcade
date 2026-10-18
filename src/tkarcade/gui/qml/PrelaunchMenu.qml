@@ -192,18 +192,24 @@ Window {
         }
         RowLayout {
             Layout.fillWidth: true
-            Controls.Button {
-                objectName: "prelaunchLaunch"
-                text: qsTr("Launch")
-                enabled: prelaunch.canLaunch
-                icon.name: gameModel.iconName(["media-playback-start", "player-play"])
-                onClicked: prelaunch.launch()
+            Item {
+                Layout.fillWidth: true
             }
+            // Widgets QDialogButtonBox (KDE layout): Settings... (action),
+            // then Launch (accept) and Cancel, all right-aligned.
             Controls.Button {
                 objectName: "prelaunchSettings"
                 text: qsTr("Settings...")
                 icon.name: gameModel.iconName(["configure", "settings-configure"])
                 onClicked: prelaunch.openSettings()
+            }
+            Controls.Button {
+                objectName: "prelaunchLaunch"
+                text: qsTr("Launch")
+                enabled: prelaunch.canLaunch
+                highlighted: true
+                icon.name: gameModel.iconName(["media-playback-start", "player-play"])
+                onClicked: prelaunch.launch()
             }
             Controls.Button {
                 objectName: "prelaunchCancel"

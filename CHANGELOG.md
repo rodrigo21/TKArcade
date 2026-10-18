@@ -84,6 +84,15 @@ Breaking config changes are called out explicitly under `Changed`.
   when unnamed) and the button box matches the widgets' — Diff vs
   Defaults and Reset to Global Defaults lead, Save (default, save icon)
   and Cancel close the row on the right.
+- Dialogs (widgets parity): About looks like the widgets'
+  `QMessageBox.about` (information icon, text beside it, window sized to
+  the content, one right-aligned OK), Preferences becomes a widgets
+  QFormLayout (right-aligned label column, checkboxes indented in the
+  field column, form-sized window, widgets tooltips; the
+  kirigami-addons FormCard is gone) and every dialog button row
+  right-aligns Save/OK/Add Selected as the default button (Add, Scan,
+  Import, Pre-launch, Category, Columns, editor picker, the settings
+  prompts and the profile bulk edit).
 - Profile semantics (widgets parity): Save writes to the active profile
   target (live file keeps only the selection), dirty profile switches
   ask to discard first, Save As/Clone/Delete confirm overwrites, Reset

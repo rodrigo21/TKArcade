@@ -12,10 +12,12 @@ Window {
     objectName: "addGameDialog"
     title: qsTr("Add Game")
     modality: Qt.WindowModal
-    minimumWidth: Kirigami.Units.gridUnit * 26
-    minimumHeight: Kirigami.Units.gridUnit * 14
-    width: Kirigami.Units.gridUnit * 30
-    height: Kirigami.Units.gridUnit * 18
+    // Widgets AddSourceDialog: a short QDialog sized to its two rows and
+    // the button box.
+    minimumWidth: Kirigami.Units.gridUnit * 20
+    minimumHeight: Kirigami.Units.gridUnit * 8
+    width: Kirigami.Units.gridUnit * 26
+    height: body.implicitHeight + Kirigami.Units.largeSpacing * 2
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -64,6 +66,7 @@ Window {
     }
 
     ColumnLayout {
+        id: body
         anchors.fill: parent
         anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing
@@ -85,12 +88,18 @@ Window {
         }
         RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "addConfirm"
                 text: qsTr("OK")
+                // QDialogButtonBox(Ok | Cancel): accept first, default.
+                highlighted: true
                 onClicked: addGameDialog.accept()
             }
             Controls.Button {
+                objectName: "addCancel"
                 text: qsTr("Cancel")
                 onClicked: addGameDialog.close()
             }

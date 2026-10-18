@@ -2143,9 +2143,13 @@ Window {
         }
         footer: RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "settingsPromptOk"
                 text: qsTr("OK")
+                highlighted: true
                 onClicked: gameSettings.acceptProfileName()
             }
             Controls.Button {
@@ -2175,9 +2179,13 @@ Window {
         }
         footer: RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "settingsChoiceOk"
                 text: qsTr("OK")
+                highlighted: true
                 onClicked: gameSettings.acceptChoice()
             }
             Controls.Button {
@@ -2203,9 +2211,13 @@ Window {
         }
         footer: RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "bulkConfirm"
                 text: qsTr("OK")
+                highlighted: true
                 onClicked: gameSettings.acceptBulk()
             }
             Controls.Button {
@@ -2230,9 +2242,13 @@ Window {
         }
         footer: RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "presetConfirm"
                 text: qsTr("OK")
+                highlighted: true
                 onClicked: gameSettings.acceptEnvPreset()
             }
             Controls.Button {
@@ -2256,9 +2272,13 @@ Window {
         }
         footer: RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "mismatchConfirm"
                 text: qsTr("Apply Anyway")
+                highlighted: true
                 onClicked: gameSettings.applyEnvPresetByName(gameSettings.pendingPreset)
             }
             Controls.Button {
@@ -2286,10 +2306,14 @@ Window {
         }
         footer: RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 id: confirmOk
                 objectName: "settingsConfirmOk"
                 text: qsTr("OK")
+                highlighted: true
                 onClicked: gameSettings.acceptConfirm()
             }
             Controls.Button {
@@ -2317,6 +2341,9 @@ Window {
         }
         footer: RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 text: qsTr("Close")
                 onClicked: diffDialog.close()

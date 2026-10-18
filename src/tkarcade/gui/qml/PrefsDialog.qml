@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
-import org.kde.kirigamiaddons.formcard as FormCard
+import org.kde.kirigami.layouts as KirigamiLayouts
 
 // Preferences: a separate modal window like the widgets QDialog
 // (resizable, transient on the main window). `open()` keeps the old
@@ -13,10 +13,13 @@ Window {
     objectName: "prefsDialog"
     title: qsTr("Preferences")
     modality: Qt.WindowModal
-    minimumWidth: Kirigami.Units.gridUnit * 30
-    minimumHeight: Kirigami.Units.gridUnit * 24
-    width: Kirigami.Units.gridUnit * 34
-    height: Kirigami.Units.gridUnit * 30
+    // Widgets PreferencesDialog: a plain QFormLayout (checkboxes in the
+    // field column, right-aligned labels), a right-aligned Save/Cancel
+    // box, and a window sized to the form.
+    minimumWidth: Kirigami.Units.gridUnit * 20
+    minimumHeight: Kirigami.Units.gridUnit * 16
+    width: Kirigami.Units.gridUnit * 24
+    height: prefsForm.implicitHeight + footer.implicitHeight + Kirigami.Units.largeSpacing * 3
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -55,6 +58,7 @@ Window {
     }
 
     ColumnLayout {
+        id: body
         anchors.fill: parent
         anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing
@@ -73,99 +77,108 @@ Window {
             Item {
                 width: parent.width
                 height: prefsForm.implicitHeight
-                ColumnLayout {
+                WidgetsFormLayout {
                     id: prefsForm
+                    objectName: "prefsForm"
                     width: parent.width
-                    spacing: Kirigami.Units.smallSpacing
-                    FormCard.FormCard {
+                    Controls.CheckBox {
+                        objectName: "prefsShowPreview"
+                        text: qsTr("Show launch command preview")
+                        checked: prefsDialog.values.showPreview ?? true
+                        onClicked: prefsDialog.setPref("showPreview", checked)
+                        Controls.ToolTip.text: qsTr("Live preview box at the bottom of game dialogs.")
+                        Controls.ToolTip.visible: hovered
+                    }
+                    Controls.CheckBox {
+                        id: trayCheck
+                        objectName: "prefsTray"
+                        text: qsTr("Enable status bar icon")
+                        checked: prefsDialog.values.trayEnable ?? false
+                        onClicked: prefsDialog.setPref("trayEnable", checked)
+                        Controls.ToolTip.text: qsTr("Keep TKArcade in the system tray.")
+                        Controls.ToolTip.visible: hovered
+                    }
+                    Controls.ComboBox {
+                        objectName: "prefsTrayIcon"
                         Layout.fillWidth: true
-                        FormCard.FormCheckDelegate {
-                            text: qsTr("Show launch command preview")
-                            checked: prefsDialog.values.showPreview ?? true
-                            onClicked: prefsDialog.setPref("showPreview", checked)
-                        }
-                        FormCard.FormCheckDelegate {
-                            text: qsTr("Enable status bar icon")
-                            checked: prefsDialog.values.trayEnable ?? false
-                            onClicked: prefsDialog.setPref("trayEnable", checked)
-                        }
-                        FormCard.FormComboBoxDelegate {
-                            text: qsTr("Tray icon style:")
-                            model: [qsTr("Normal"), qsTr("Monochrome")]
-                            currentIndex: prefsDialog.values.trayIcon === "mono" ? 1 : 0
-                            onActivated: (index) => prefsDialog.setPref(
-                                "trayIcon", index === 1 ? "mono" : "normal")
-                        }
-                        FormCard.FormCheckDelegate {
-                            text: qsTr("Minimize to tray")
-                            checked: prefsDialog.values.minimizeToTray ?? false
-                            onClicked: prefsDialog.setPref("minimizeToTray", checked)
-                        }
-                        FormCard.FormCheckDelegate {
-                            text: qsTr("Close to tray")
-                            checked: prefsDialog.values.closeToTray ?? false
-                            onClicked: prefsDialog.setPref("closeToTray", checked)
-                        }
-                        FormCard.FormCheckDelegate {
-                            text: qsTr("Show recent games in tray menu")
-                            checked: prefsDialog.values.trayQuickLaunch ?? false
-                            onClicked: prefsDialog.setPref("trayQuickLaunch", checked)
-                        }
-                        FormCard.FormSpinBoxDelegate {
-                            id: quickSpin
-                            label: qsTr("Recent games:")
-                            from: 1
-                            to: 10
-                            onValueModified: prefsDialog.setPref("trayQuickCount", value)
-                        }
-                        // Plain row: FormTextFieldDelegate calls bare
-                        // i18ndc(), which needs a KLocalizedContext our
-                        // engine does not install (works, but logs
-                        // warnings). Indented like the delegates around it
-                        // and ordered before Language (widgets parity).
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: sgdbRow.implicitHeight
-                                + Kirigami.Units.largeSpacing * 2
-                            RowLayout {
-                                id: sgdbRow
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.leftMargin: Kirigami.Units.largeSpacing
-                                anchors.rightMargin: Kirigami.Units.largeSpacing
-                                Controls.Label {
-                                    text: qsTr("SteamGridDB key:")
-                                }
-                                Controls.TextField {
-                                    Layout.fillWidth: true
-                                    echoMode: Controls.TextField.Password
-                                    placeholderText: qsTr("Free key from steamgriddb.com")
-                                    text: prefsDialog.values.sgdbApiKey ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.sgdbApiKey !== text) {
-                                            prefsDialog.setPref("sgdbApiKey", text)
-                                        }
-                                    }
-                                }
+                        enabled: trayCheck.checked
+                        model: [qsTr("Normal"), qsTr("Monochrome")]
+                        KirigamiLayouts.FormData.label: qsTr("Tray icon style:")
+                        currentIndex: prefsDialog.values.trayIcon === "mono" ? 1 : 0
+                        onActivated: (index) => prefsDialog.setPref(
+                            "trayIcon", index === 1 ? "mono" : "normal")
+                    }
+                    Controls.CheckBox {
+                        text: qsTr("Minimize to tray")
+                        enabled: trayCheck.checked
+                        checked: prefsDialog.values.minimizeToTray ?? false
+                        onClicked: prefsDialog.setPref("minimizeToTray", checked)
+                    }
+                    Controls.CheckBox {
+                        text: qsTr("Close to tray")
+                        enabled: trayCheck.checked
+                        checked: prefsDialog.values.closeToTray ?? false
+                        onClicked: prefsDialog.setPref("closeToTray", checked)
+                    }
+                    Controls.CheckBox {
+                        id: quickCheck
+                        text: qsTr("Show recent games in tray menu")
+                        enabled: trayCheck.checked
+                        checked: prefsDialog.values.trayQuickLaunch ?? false
+                        onClicked: prefsDialog.setPref("trayQuickLaunch", checked)
+                        Controls.ToolTip.text: qsTr("Launch recent games through Steam (steam:// URL).")
+                        Controls.ToolTip.visible: hovered
+                    }
+                    Controls.SpinBox {
+                        id: quickSpin
+                        objectName: "prefsQuickCount"
+                        from: 1
+                        to: 10
+                        enabled: trayCheck.checked && quickCheck.checked
+                        onValueModified: prefsDialog.setPref("trayQuickCount", value)
+                        Controls.ToolTip.text: qsTr("How many recent games to list.")
+                        Controls.ToolTip.visible: hovered
+                        KirigamiLayouts.FormData.label: qsTr("Recent games:")
+                    }
+                    Controls.TextField {
+                        objectName: "prefsSgdb"
+                        Layout.fillWidth: true
+                        echoMode: Controls.TextField.Password
+                        placeholderText: qsTr("Free key from steamgriddb.com")
+                        text: prefsDialog.values.sgdbApiKey ?? ""
+                        onTextChanged: {
+                            if (prefsDialog.values.sgdbApiKey !== text) {
+                                prefsDialog.setPref("sgdbApiKey", text)
                             }
                         }
-                        FormCard.FormComboBoxDelegate {
-                            id: langCombo
-                            objectName: "prefsLanguage"
-                            text: qsTr("Language (restart to apply):")
-                            onActivated: (index) => prefsDialog.setPref(
-                                "language", prefsDialog.langCodes[index] || "system")
-                        }
+                        Controls.ToolTip.text: qsTr("SteamGridDB API key for missing artwork fallback.")
+                        Controls.ToolTip.visible: hovered
+                        KirigamiLayouts.FormData.label: qsTr("SteamGridDB key:")
+                    }
+                    Controls.ComboBox {
+                        id: langCombo
+                        objectName: "prefsLanguage"
+                        Layout.fillWidth: true
+                        KirigamiLayouts.FormData.label: qsTr("Language:")
+                        onActivated: (index) => prefsDialog.setPref(
+                            "language", prefsDialog.langCodes[index] || "system")
+                        Controls.ToolTip.text: qsTr("Takes effect on restart.")
+                        Controls.ToolTip.visible: hovered
                     }
                 }
             }
         }
         RowLayout {
+            id: footer
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "prefsSave"
                 text: qsTr("Save")
+                // QDialogButtonBox(Save | Cancel): accept first, default.
+                highlighted: true
                 onClicked: {
                     if (gameModel.savePrefs(prefsDialog.values)) {
                         prefsDialog.close()
@@ -175,6 +188,7 @@ Window {
                 }
             }
             Controls.Button {
+                objectName: "prefsCancel"
                 text: qsTr("Cancel")
                 onClicked: prefsDialog.close()
             }

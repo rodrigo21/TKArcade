@@ -116,6 +116,12 @@ rewrite pushed history or tags.
   style puts the title inside the frame at the top-left — not the
   widgets look. Layout rule, not a toolkit one: QtWidgets stays out of
   the tree (`tests/test_no_widgets.py` defines the allowed names).
+- Every dialog button row copies the KDE `QDialogButtonBox` layout:
+  Help/Reset/action buttons lead, the accept button then the reject come
+  last, and the whole cluster is right-aligned (spacer first) with the
+  accept button `highlighted`. Check the real layout with a
+  `QDialogButtonBox` under `QT_QPA_PLATFORMTHEME=kde` before guessing —
+  the offscreen default lays the same roles out differently.
 - Every widgets-style form is a `WidgetsFormLayout`, never a plain
   `KirigamiLayouts.FormLayout`: Kirigami sizes its grid to the form's
   natural width and centers it, so a wide dialog shows a hole left of

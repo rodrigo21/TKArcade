@@ -224,7 +224,11 @@ Window {
         }
         RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
+                objectName: "importClose"
                 text: qsTr("Close")
                 onClicked: importDialog.close()
             }

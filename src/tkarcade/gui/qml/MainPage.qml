@@ -2218,9 +2218,13 @@ Kirigami.Page {
         }
         footer: RowLayout {
             Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
             Controls.Button {
                 objectName: "bulkCatsOk"
                 text: qsTr("OK")
+                highlighted: true
                 onClicked: gamesPage.acceptBulkCats()
             }
             Controls.Button {
