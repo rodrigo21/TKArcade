@@ -1527,7 +1527,9 @@ def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     # Remove acts on the row that last held focus (the widgets selection).
     remove = swin.findChild(QQuickItem, "envRemove")
     assert remove.property("enabled") is False
-    click("envAdd")
+    # A game without variables shows one empty row to type into (as if
+    # Add had been clicked once with nothing filled in).
+    assert len(rows()) == 1
     click("envAdd")
     assert len(rows()) == 2
     first = rows()[0].childItems()[0]
@@ -1539,6 +1541,15 @@ def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     assert abs(head_var.property("x") - first.property("x")) <= 2
     assert abs(head_var.property("width") - first.property("width")) <= 8
     assert abs(head_val.property("x") - second.property("x")) <= 2
+    # The button row is centered and ordered Add, Bulk Edit..., Add
+    # Preset..., Remove (the destructive action travels last).
+    order = [
+        swin.findChild(QQuickItem, name) for name in ("envAdd", "envBulk", "envPreset", "envRemove")
+    ]
+    lefts = [b.mapToScene(QPointF(0, 0)).x() for b in order]
+    assert lefts == sorted(lefts) and len(set(lefts)) == 4
+    right = lefts[-1] + order[-1].property("width")
+    assert abs((lefts[0] + right) / 2 - swin.property("width") / 2) <= 3
     rows()[1].childItems()[0].forceActiveFocus()
     QTest.qWait(60)
     qgui_app.processEvents()
@@ -3270,9 +3281,12 @@ def test_settings_env_prepost_flow(qgui_app, xdg_env):
 
     tabs.setProperty("currentIndex", 1)
     qgui_app.processEvents()
-    assert dlg.envRowCount() == 0
-    click("envAdd")
+    # A game without variables already shows one empty row (nothing is
+    # saved unless it gets a key).
     assert dlg.envRowCount() == 1
+    assert C.load("local-doom").env.vars == {}
+    click("envAdd")
+    assert dlg.envRowCount() == 2
     dlg.setEnvRow(0, "FOO", "bar")
     tabs.setProperty("currentIndex", 2)
     qgui_app.processEvents()

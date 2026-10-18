@@ -449,6 +449,12 @@ Window {
         for (var i = 0; i < rows.length; i++) {
             envModel.append({"key": rows[i].key || "", "value": rows[i].value || ""})
         }
+        // The widgets table always showed a row to type into; with no
+        // variable saved, seed one empty row. An empty key is dropped on
+        // save, so nothing is added until the user fills it in.
+        if (envModel.count === 0) {
+            envModel.append({"key": "", "value": ""})
+        }
     }
 
     function envToText() {
@@ -1294,6 +1300,12 @@ Window {
                     }
                 }
                 RowLayout {
+                    // Centered, in the widgets order: Add, Bulk Edit...,
+                    // Add Preset..., then the destructive Remove last.
+                    Layout.fillWidth: true
+                    Item {
+                        Layout.fillWidth: true
+                    }
                     Controls.Button {
                         objectName: "envAdd"
                         text: qsTr("Add")
@@ -1301,6 +1313,16 @@ Window {
                             envModel.append({"key": "", "value": ""})
                             envForm.currentRow = envModel.count - 1
                         }
+                    }
+                    Controls.Button {
+                        objectName: "envBulk"
+                        text: qsTr("Bulk Edit...")
+                        onClicked: gameSettings.openBulk()
+                    }
+                    Controls.Button {
+                        objectName: "envPreset"
+                        text: qsTr("Add Preset...")
+                        onClicked: gameSettings.openPreset()
                     }
                     Controls.Button {
                         objectName: "envRemove"
@@ -1313,15 +1335,8 @@ Window {
                             envForm.currentRow = -1
                         }
                     }
-                    Controls.Button {
-                        objectName: "envBulk"
-                        text: qsTr("Bulk Edit...")
-                        onClicked: gameSettings.openBulk()
-                    }
-                    Controls.Button {
-                        objectName: "envPreset"
-                        text: qsTr("Add Preset...")
-                        onClicked: gameSettings.openPreset()
+                    Item {
+                        Layout.fillWidth: true
                     }
                 }
             }
@@ -2027,6 +2042,10 @@ Window {
             id: statusBox
             objectName: "depStatusBox"
             Layout.fillWidth: true
+            // A wider gap than the column spacing: the tab body and its
+            // scrolling viewport end here, the status block is the
+            // dialog's own footer (all tabs share this shell).
+            Layout.topMargin: Kirigami.Units.largeSpacing
             title: qsTr("Dependency Status")
             checkable: true
             checked: gameSettings.depStatusVisible

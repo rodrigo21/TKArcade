@@ -457,6 +457,11 @@ Breaking config changes are called out explicitly under `Changed`.
   Steam-only lookups (ProtonDB, artwork) skip local rows.
 
 ### Changed
+- Environment tab: a game without variables opens with one empty row
+  already there (the widgets table always showed one to type into; an
+  empty key is still dropped on save), the four buttons are centered and
+  ordered Add, Bulk Edit..., Add Preset..., Remove, and every tab keeps
+  a wider gap before the Dependency Status block below it.
 - Settings bottom blocks: Dependency Status and Launch Command Preview
   are group boxes with a centered checkbox title now (the dependency
   list also lost its redundant second, nested frame) and unchecking
