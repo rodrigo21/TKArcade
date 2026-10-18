@@ -1160,6 +1160,35 @@ Window {
                 Controls.Label {
                     text: qsTr("Per-game environment variables:")
                 }
+                RowLayout {
+                    // Widgets QTableWidget header; it lines up with the rows
+                    // below, whose third column holds the per-row remove
+                    // button (Kirigami only, hence the matching gap).
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+                    Controls.Label {
+                        objectName: "envHeaderVariable"
+                        Layout.fillWidth: true
+                        // QtQuick.Layouts splits the extra space proportionally
+                        // to the preferred widths, so both header cells ask for
+                        // the same hint to land on the row columns below.
+                        Layout.preferredWidth: Kirigami.Units.gridUnit
+                        horizontalAlignment: Text.AlignHCenter
+                        font.bold: true
+                        text: qsTr("Variable")
+                    }
+                    Controls.Label {
+                        objectName: "envHeaderValue"
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: Kirigami.Units.gridUnit
+                        horizontalAlignment: Text.AlignHCenter
+                        font.bold: true
+                        text: qsTr("Value")
+                    }
+                    Item {
+                        Layout.preferredWidth: envRemoveProto.implicitWidth
+                    }
+                }
                 Controls.ScrollView {
                     clip: true
                     Layout.fillWidth: true
@@ -1169,31 +1198,54 @@ Window {
                         height: envForm.implicitHeight
                         ColumnLayout {
                             id: envForm
+                            objectName: "envForm"
                             width: parent.width
                             spacing: Kirigami.Units.smallSpacing
+                            property int currentRow: -1
                             ListModel {
                                 id: envModel
+                            }
+                            Controls.ToolButton {
+                                id: envRemoveProto
+                                visible: false
+                                icon.name: "list-remove"
+                                display: Controls.AbstractButton.IconOnly
                             }
                             Repeater {
                                 model: envModel
                                 delegate: RowLayout {
+                                    objectName: "envRow"
                                     width: envForm.width
+                                    spacing: Kirigami.Units.smallSpacing
                                     Controls.TextField {
                                         Layout.fillWidth: true
                                         placeholderText: qsTr("Variable")
                                         text: key
                                         onTextChanged: envModel.setProperty(index, "key", text)
+                                        onActiveFocusChanged: {
+                                            if (activeFocus) {
+                                                envForm.currentRow = index
+                                            }
+                                        }
                                     }
                                     Controls.TextField {
                                         Layout.fillWidth: true
                                         placeholderText: qsTr("Value")
                                         text: value
                                         onTextChanged: envModel.setProperty(index, "value", text)
+                                        onActiveFocusChanged: {
+                                            if (activeFocus) {
+                                                envForm.currentRow = index
+                                            }
+                                        }
                                     }
                                     Controls.ToolButton {
                                         icon.name: "list-remove"
                                         display: Controls.AbstractButton.IconOnly
-                                        onClicked: envModel.remove(index)
+                                        onClicked: {
+                                            envModel.remove(index)
+                                            envForm.currentRow = -1
+                                        }
                                     }
                                 }
                             }
@@ -1203,8 +1255,22 @@ Window {
                 RowLayout {
                     Controls.Button {
                         objectName: "envAdd"
-                        text: qsTr("Add variable")
-                        onClicked: envModel.append({"key": "", "value": ""})
+                        text: qsTr("Add")
+                        onClicked: {
+                            envModel.append({"key": "", "value": ""})
+                            envForm.currentRow = envModel.count - 1
+                        }
+                    }
+                    Controls.Button {
+                        objectName: "envRemove"
+                        text: qsTr("Remove")
+                        // Widgets: removes the table's selected row. Here the
+                        // last row whose field took focus plays that role.
+                        enabled: envForm.currentRow >= 0 && envForm.currentRow < envModel.count
+                        onClicked: {
+                            envModel.remove(envForm.currentRow)
+                            envForm.currentRow = -1
+                        }
                     }
                     Controls.Button {
                         objectName: "envBulk"

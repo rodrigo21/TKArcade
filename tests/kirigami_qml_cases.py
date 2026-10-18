@@ -1467,6 +1467,88 @@ def test_settings_tabs_use_widgets_sections(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
+    """Environment tab: Variable/Value header and the Add/Remove pair."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-env"
+    cfg.general.name = "Env"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    settings = win.findChild(QObject, "gameSettings")
+    tabs = win.findChild(QQuickItem, "settingsTabs")
+    settings.openFor("local-env")
+    QTest.qWait(120)
+    qgui_app.processEvents()
+    swin = _settings_window(qgui_app)
+    tabs.setProperty("currentIndex", 1)
+    QTest.qWait(150)
+    qgui_app.processEvents()
+
+    def click(name):
+        button = swin.findChild(QQuickItem, name)
+        pos = button.mapToScene(
+            QPointF(button.property("width") / 2, button.property("height") / 2)
+        ).toPoint()
+        QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+        QTest.qWait(80)
+        qgui_app.processEvents()
+
+    def rows():
+        form = swin.findChild(QQuickItem, "envForm")
+        assert form is not None
+        return [
+            c
+            for c in form.childItems()
+            if c.property("objectName") == "envRow" and c.property("width") > 0
+        ]
+
+    # The widgets table header sits above the two field columns.
+    head_var = swin.findChild(QQuickItem, "envHeaderVariable")
+    head_val = swin.findChild(QQuickItem, "envHeaderValue")
+    assert head_var.property("text") == "Variable"
+    assert head_val.property("text") == "Value"
+    assert head_var.property("font").bold() and head_val.property("font").bold()
+    assert head_var.property("x") < head_val.property("x")
+
+    # Remove acts on the row that last held focus (the widgets selection).
+    remove = swin.findChild(QQuickItem, "envRemove")
+    assert remove.property("enabled") is False
+    click("envAdd")
+    click("envAdd")
+    assert len(rows()) == 2
+    first = rows()[0].childItems()[0]
+    second = rows()[0].childItems()[1]
+    first.setProperty("text", "A")
+    rows()[1].childItems()[0].setProperty("text", "B")
+    assert rows()[1].childItems()[0].property("text") == "B"
+    # The header columns line up with the row fields.
+    assert abs(head_var.property("x") - first.property("x")) <= 2
+    assert abs(head_var.property("width") - first.property("width")) <= 8
+    assert abs(head_val.property("x") - second.property("x")) <= 2
+    rows()[1].childItems()[0].forceActiveFocus()
+    QTest.qWait(60)
+    qgui_app.processEvents()
+    assert remove.property("enabled") is True
+    click("envRemove")
+    assert len(rows()) == 1
+    assert rows()[0].childItems()[0].property("text") == "A"
+    assert remove.property("enabled") is False
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
     """Dependency Status: two columns of marks below the tabs."""
     import shiboken6

@@ -75,6 +75,10 @@ Breaking config changes are called out explicitly under `Changed`.
   Ludusavi tab becomes a widgets form — checkboxes indented into the
   field column, "Game Name Override:"/"Coverage:" right-aligned labels
   and the prompts note in a spanning row.
+- Settings Environment tab (widgets parity): a bold Variable/Value
+  header row over the field columns and the widgets' Add/Remove pair —
+  Remove drops the row whose field last took focus (the table selection
+  it replaces); the per-row remove buttons stay.
 - Profile semantics (widgets parity): Save writes to the active profile
   target (live file keeps only the selection), dirty profile switches
   ask to discard first, Save As/Clone/Delete confirm overwrites, Reset
