@@ -66,6 +66,9 @@ Window {
     property string pendingPreset: ""
     property string ptLogDir: ""
     property var page: null
+    // JSON of the draft the preview was built from (see
+    // refreshPreviewIfStale); "" until the first refresh.
+    property string previewSnapshot: ""
     // Widgets _is_dark_theme: the status marks pick their palette from it.
     readonly property bool statusDark: Kirigami.Theme.backgroundColor.hslLightness < 0.5
 
@@ -770,6 +773,17 @@ Window {
             ? qsTr("No wrappers enabled")
             : qsTr("Will launch with: %1").arg(w)
         refreshDependencyStatus(false)
+        previewSnapshot = snapshot()
+    }
+
+    // Widgets _wire_preview: every field edit refreshed the preview (and
+    // the statuses behind it). Instead of wiring each of the dozens of
+    // controls, the poll below compares the draft — `snapshot()` is the
+    // same JSON the dirty check uses — and refreshes when it moved.
+    function refreshPreviewIfStale() {
+        if (snapshot() !== previewSnapshot) {
+            refreshPreview()
+        }
     }
 
     // Widgets Dependency Status: the draft's tools/paths as two columns of
@@ -1009,6 +1023,17 @@ Window {
             }
             settingsError.text = messages[status] || detail
         }
+    }
+
+    // Live preview/status while the dialog is open (widgets _wire_preview
+    // reacted to every widget). Cheap: `refreshPreviewIfStale` bails out
+    // unless the draft changed.
+    Timer {
+        objectName: "previewPoller"
+        interval: 200
+        repeat: true
+        running: gameSettings.visible
+        onTriggered: gameSettings.refreshPreviewIfStale()
     }
 
     ColumnLayout {
@@ -2162,7 +2187,11 @@ Window {
                         textFormat: Text.RichText
                         wrapMode: Text.WordWrap
                         text: gameSettings.statusLine(modelData)
-                        onLinkActivated: (link) => gameModel.openPath(link)
+                        onLinkActivated: (link) => {
+                            if (!gameModel.openPath(link) && gameSettings.page !== null) {
+                                gameSettings.page.notify(qsTr("Could not open the link."))
+                            }
+                        }
                     }
                 }
             }

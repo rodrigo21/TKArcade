@@ -112,6 +112,9 @@ Kirigami.Page {
     property string sortRole: "gameName"
     property bool sortDescending: false
     property string notice: ""
+    // Sticky status line (widgets QLabel): "Launched X." stayed until the
+    // next message, while `notice` is the transient one.
+    property string statusMessage: ""
     property var appDrawer: null
     property var viewArrowItem: null
     property var toolbarIconsItem: null
@@ -639,6 +642,26 @@ Kirigami.Page {
                 }
             }
             gamesPage.browsePurpose = ""
+        }
+    }
+
+    // Launch reporting for every path (toolbar, menus, delegates, tray):
+    // the widgets status line said "Launched X." and warned on a failed
+    // handoff; the QML shell keeps the warnings transient.
+    Connections {
+        target: gameModel
+        function onLaunchReported(ok, kind, name, detail) {
+            if (ok) {
+                gamesPage.statusMessage = qsTr("Launched %1.").arg(name)
+                return
+            }
+            if (kind === "steam") {
+                gamesPage.notify(qsTr("Could not ask Steam to launch the game."))
+            } else if (detail !== "") {
+                gamesPage.notify(qsTr("Could not launch %1: %2").arg(name).arg(detail))
+            } else {
+                gamesPage.notify(qsTr("Could not launch %1.").arg(name))
+            }
         }
     }
 
@@ -1250,13 +1273,21 @@ Kirigami.Page {
             visible: gamesPage.selectedIds.length <= 1
             enabled: gamesPage.menuInstall !== ""
             text: qsTr("Open Install Folder")
-            onTriggered: gameModel.openPath(gamesPage.menuInstall)
+            onTriggered: {
+                if (!gameModel.openPath(gamesPage.menuInstall)) {
+                    gamesPage.notify(qsTr("Could not open the install folder."))
+                }
+            }
         }
         Controls.MenuItem {
             visible: gamesPage.selectedIds.length <= 1
             enabled: gamesPage.menuPrefix !== ""
             text: qsTr("Open Proton Prefix")
-            onTriggered: gameModel.openPath(gamesPage.menuPrefix)
+            onTriggered: {
+                if (!gameModel.openPath(gamesPage.menuPrefix)) {
+                    gamesPage.notify(qsTr("Could not open the prefix folder."))
+                }
+            }
         }
         Controls.MenuItem {
             visible: gamesPage.selectedIds.length <= 1
@@ -2002,6 +2033,9 @@ Kirigami.Page {
             text: {
                 if (gamesPage.notice !== "") {
                     return gamesPage.notice
+                }
+                if (gamesPage.statusMessage !== "") {
+                    return gamesPage.statusMessage
                 }
                 var base = qsTr("%1 configured · %2 Steam games detected").arg(
                     gameModel.totalCount).arg(gameModel.steamDetectedCount)

@@ -398,6 +398,19 @@ Breaking config changes are called out explicitly under `Changed`.
   the TableView's own navigation is off (it moved the current index
   behind the page's selection bookkeeping), and Home/End/PageUp/
   PageDown move the selection through the same path as a click.
+- The settings dialog keeps its Launch Command Preview and Dependency
+  Status live: the widgets wired every field to a rebuild, the QML
+  dialog only refreshed on load, the runtime combo and its own button,
+  so the box could describe a command the fields no longer built. The
+  dialog now watches its own draft (the same snapshot the dirty check
+  uses) and rebuilds when it moved.
+- Every launch path reports itself (widgets parity): the model emitted
+  nothing, so a failed Steam handoff, a launcher that could not spawn
+  and a play request from the tray recents were all silent, and the
+  status line never carried the widgets' "Launched X." — the model now
+  emits `launchReported` and the shell shows the sticky status line or a
+  transient warning. The two "Open ... folder" menu entries and the
+  Dependency Status links no longer discard their `openPath` failures.
 
 ### Added
 - View switcher with per-view icons and Ctrl+1/2/3 shortcuts;

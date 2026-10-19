@@ -235,6 +235,11 @@ class GameListModel(QAbstractTableModel):
     browseFinished = Signal(str)
     displayModesFinished = Signal("QVariantList")
     coverageFinished = Signal(str, str)
+    # Widgets parity: every launch path reported itself (the status line
+    # said "Launched X.", the handoff failures warned — the tray recents
+    # ran the same code). The model only says what happened; the QML side
+    # owns the wording. kind is "steam" or "local".
+    launchReported = Signal(bool, str, str, str)
 
     @Slot(str, result=int)
     def roleId(self, roleName: str) -> int:
@@ -2401,10 +2406,12 @@ class GameListModel(QAbstractTableModel):
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:
         """Play routing: Steam ids via the client, local ids direct."""
+        kind = "steam" if steammod.is_steam_id(appid) else "local"
         try:
-            if steammod.is_steam_id(appid):
+            if kind == "steam":
                 if not appid.isdigit():
                     log.warning("play refused: not a Steam App ID: %s", appid)
+                    self.launchReported.emit(False, kind, self._display_name(appid), "")
                     return False
                 from PySide6.QtCore import QUrl
                 from PySide6.QtGui import QDesktopServices
@@ -2413,12 +2420,23 @@ class GameListModel(QAbstractTableModel):
                 ok = bool(QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")))
                 if not ok:
                     launchermod.consume_menu_skip(appid)
+                    self.launchReported.emit(False, kind, self._display_name(appid), "")
                 return ok
             launchermod.launch_local_detached(appid)
+            # Steam handoffs report nothing: the client owns the launch.
+            self.launchReported.emit(True, kind, self._display_name(appid), "")
             return True
         except Exception as e:  # never crash the list on a launch failure
             log.warning("play(%s) failed: %s", appid, e)
+            self.launchReported.emit(False, kind, self._display_name(appid), str(e))
             return False
+
+    def _display_name(self, appid: str) -> str:
+        """Name for status messages: the loaded row, else the AppID."""
+        for row in self._rows:
+            if row[0] == appid:
+                return str(row[1])
+        return str(appid or "")
 
 
 class GameFilterModel(QSortFilterProxyModel):

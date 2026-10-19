@@ -145,6 +145,41 @@ def test_model_play_failure_consumes_skip(qgui_app, xdg_env, monkeypatch):
     assert not L.menu_skip_path("213").exists()
 
 
+def test_model_play_reports_launch(qgui_app, xdg_env, monkeypatch):
+    """play() reports (ok, kind, name, detail) so the UI can speak.
+
+    The widgets wrote the status line and the handoff warnings in the
+    same code path the tray used; the QML shell gets the same events.
+    """
+    from PySide6.QtGui import QDesktopServices
+
+    from tkarcade import launcher as L
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    reports = []
+    model.launchReported.connect(lambda *args: reports.append(args))
+
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: False)
+    assert model.play("213") is False
+    assert reports[-1][0] is False
+    assert reports[-1][1] == "steam"
+
+    monkeypatch.setattr(L, "launch_local_detached", lambda appid: None)
+    assert model.play("local-doom") is True
+    ok, kind, name, detail = reports[-1]
+    assert (ok, kind, detail) == (True, "local", "")
+    assert name != ""
+
+    def boom(appid):
+        raise OSError("spawn failed")
+
+    monkeypatch.setattr(L, "launch_local_detached", boom)
+    assert model.play("local-doom") is False
+    assert reports[-1][0] is False
+    assert reports[-1][3] == "spawn failed"
+
+
 def test_proxy_sort_by_role(qgui_app, xdg_env):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 

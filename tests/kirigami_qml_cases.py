@@ -188,6 +188,45 @@ def _page_selected_ids(page):
     return ids.toVariant() if hasattr(ids, "toVariant") else ids
 
 
+def test_launch_reports_failure_and_status(qgui_app, xdg_env, monkeypatch):
+    """A local launch reports: sticky "Launched X.", warning on failure.
+
+    Widgets parity: every launch path reported itself (the tray recents
+    ran the same code), a failed handoff warned and a local launch left
+    "Launched X." in the status line.
+    """
+    from PySide6.QtCore import QObject
+
+    from tkarcade import launcher as launchermod
+
+    _save_one_game("local-boom", "Boom")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    label = win.findChild(QObject, "statusLabel")
+    model = engine.rootContext().contextProperty("gameModel")
+
+    def boom(appid):
+        raise OSError("no such executable")
+
+    monkeypatch.setattr(launchermod, "launch_local_detached", boom)
+    assert model.play("local-boom") is False
+    assert _wait_for(lambda: "Could not launch Boom" in label.property("text"))
+    assert "no such executable" in page.property("notice")
+    assert page.property("statusMessage") == ""
+
+    monkeypatch.setattr(launchermod, "launch_local_detached", lambda appid: None)
+    assert model.play("local-boom") is True
+    assert page.property("statusMessage") == "Launched Boom."
+    page.setProperty("notice", "")
+    assert _wait_for(lambda: "Launched Boom." in label.property("text"))
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_table_keyboard_navigation(qgui_app, xdg_env):
     """The table owns the keys and navigates like the widgets QTableView.
 
@@ -4535,6 +4574,89 @@ def test_settings_preview_diff_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
     assert win.findChild(QObject, "diffDialog").property("visible") is True
     assert "custom_executable" in win.findChild(QQuickItem, "diffText").property("text")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_preview_refreshes_live(qgui_app, xdg_env):
+    """Field edits refresh the preview and the status without any click.
+
+    Widgets `_wire_preview` connected every widget; the QML dialog polls
+    the draft instead (same JSON the dirty check uses).
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    preview = swin.findChild(QQuickItem, "previewText")
+    assert "/bin/true" in preview.property("text")
+
+    swin.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/echo")
+    assert _wait_for(lambda: "/bin/echo" in preview.property("text"), limit=300)
+
+    box = swin.findChild(QObject, "depStatusBox")
+    rows = box.property("statusRows")
+    rows = rows.toVariant() if hasattr(rows, "toVariant") else rows
+    before = [r["msg"] for r in rows]
+    assert before, "dependency status listed nothing"
+    swin.findChild(QQuickItem, "mhEnable").setProperty("checked", True)
+
+    def status_moved():
+        now = box.property("statusRows")
+        now = now.toVariant() if hasattr(now, "toVariant") else now
+        return [r["msg"] for r in now] != before
+
+    assert _wait_for(status_moved, limit=300), "status never refreshed"
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_preview_poll_settles(qgui_app, xdg_env, monkeypatch):
+    """The live poll refreshes once and then idles (no busy rebuild)."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    calls = []
+    original = model.previewCommand
+    monkeypatch.setattr(
+        model, "previewCommand", lambda appid, fields: calls.append(1) or original(appid, fields)
+    )
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    assert swin is not None
+    QTest.qWait(800)
+    settled = len(calls)
+    QTest.qWait(700)
+    assert len(calls) == settled, "preview kept rebuilding an unchanged draft"
+
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
