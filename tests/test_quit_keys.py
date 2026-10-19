@@ -47,3 +47,42 @@ def test_watchQuitKeys_installs_on_window(qgui_app, xdg_env):
     finally:
         win.deleteLater()
     qgui_app.processEvents()
+
+
+def test_escape_filter_closes_the_window(qgui_app):
+    from PySide6.QtCore import Qt
+    from PySide6.QtQuick import QQuickWindow
+
+    from tkarcade.gui.model import _EscapeFilter
+
+    win = QQuickWindow()
+    win.show()
+    filt = _EscapeFilter()
+    win.installEventFilter(filt)
+    try:
+        assert win.isVisible() is True
+        assert filt.eventFilter(win, _press(Qt.Key.Key_W, Qt.KeyboardModifier.NoModifier)) is False
+        assert (
+            filt.eventFilter(win, _press(Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)) is True
+        )
+        qgui_app.processEvents()
+        assert win.isVisible() is False
+    finally:
+        win.removeEventFilter(filt)
+        win.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_watchDialogKeys_installs_on_window(qgui_app, xdg_env):
+    from PySide6.QtQuick import QQuickWindow
+
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    win = QQuickWindow()
+    try:
+        model.watchDialogKeys(win)  # must never raise, must not abort
+        model.watchDialogKeys(None)
+    finally:
+        win.deleteLater()
+    qgui_app.processEvents()

@@ -26,6 +26,7 @@ Window {
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
+        gameModel.watchDialogKeys(addGameDialog)
         sourceBox.currentIndex = 0
         loadSteam()
         visible = true

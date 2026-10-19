@@ -30,7 +30,7 @@ Window {
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
-        gameModel.watchQuitKeys(prefsDialog)
+        gameModel.watchDialogKeys(prefsDialog)
         visible = true
     }
 

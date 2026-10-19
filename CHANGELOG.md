@@ -374,6 +374,15 @@ Breaking config changes are called out explicitly under `Changed`.
   tray-only, so a shell without a tray could not open the editor).
 - The defaults editor no longer offers Diff vs Defaults (widgets had
   that action for a game only; the editor edits the template itself).
+- Escape cancels the separate dialog windows (widgets parity): a QML
+  `Window` has no `QDialog` reject(), so Escape did nothing in About,
+  Preferences, Scan, Import, the game settings, Add, the editor picker,
+  Session History and the pre-launch menu. Each dialog now installs the
+  window-scoped filter that turns Escape into the same close its Cancel
+  button does (settings, picker and pre-launch keep reporting their
+  cancel outcome from `onClosing`), and an open popup — a confirmation
+  dialog or a combo menu — is dismissed first, in the widgets order,
+  instead of the window closing behind it.
 
 ### Added
 - View switcher with per-view icons and Ctrl+1/2/3 shortcuts;

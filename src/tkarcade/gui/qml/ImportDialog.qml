@@ -44,7 +44,7 @@ Window {
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
-        gameModel.watchQuitKeys(importDialog)
+        gameModel.watchDialogKeys(importDialog)
         visible = true
     }
 

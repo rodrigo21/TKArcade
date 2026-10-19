@@ -56,6 +56,7 @@ Window {
         artSource = art !== "" ? "file://" + art : ""
         protonText = qsTr("Proton: %1").arg(gameModel.protonLabel(appid))
         remaining = canLaunch ? Math.max(0, Number(timeout) || 0) : 0
+        gameModel.watchDialogKeys(prelaunch)
         visible = true
         requestActivate()
         if (remaining > 0) {

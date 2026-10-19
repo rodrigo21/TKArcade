@@ -2085,6 +2085,77 @@ def test_about_opens_modal_window(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_escape_closes_shell_dialogs(qgui_app, xdg_env):
+    """Escape cancels the separate dialog windows (widgets QDialog reject())."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtTest import QTest
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    about = win.findChild(QObject, "aboutDialog")
+    prefs = win.findChild(QObject, "prefsDialog")
+    history = win.findChild(QObject, "historyView")
+    about.open()
+    window = _modal_window(qgui_app, ("About TKArcade",))
+    assert about.property("visible") is True
+    QTest.keyClick(window, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: about.property("visible") is False), "About stayed open"
+    prefs.load()
+    prefs.open()
+    window = _modal_window(qgui_app, ("Preferences",))
+    assert prefs.property("visible") is True
+    QTest.keyClick(window, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: prefs.property("visible") is False), "Preferences stayed open"
+    history.open()
+    window = _modal_window(qgui_app, ("Session History",))
+    assert history.property("visible") is True
+    QTest.keyClick(window, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: history.property("visible") is False), "History stayed open"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env):
+    """Escape closes the open popup, then the dialog itself (QDialog order)."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dialog = win.findChild(QObject, "gameSettings")
+    confirm = win.findChild(QObject, "settingsConfirm")
+    # A confirmation popup goes first: the window keeps the edits.
+    dialog.resetDefaults()
+    assert _wait_for(lambda: confirm.property("opened") is True), "confirm did not open"
+    QTest.keyClick(swin, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: confirm.property("opened") is False), "Escape left the confirm open"
+    assert dialog.property("visible") is True
+    # A combo popup (a QQC2 Menu in the desktop style) comes first too.
+    combo = swin.findChild(QQuickItem, "settingsType")
+    pos = combo.mapToScene(
+        QPointF(combo.property("width") / 2, combo.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    assert _wait_for(lambda: _opened_popups(dialog) != []), "combo popup did not open"
+    QTest.keyClick(swin, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: _opened_popups(dialog) == []), "Escape left the combo popup open"
+    assert dialog.property("visible") is True
+    # Nothing left to dismiss: the window itself cancels.
+    QTest.keyClick(swin, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: dialog.property("visible") is False)
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_quit_shortcut_is_application_modal_proof(qgui_app, xdg_env):
     """Ctrl+Q lives at application scope so modal windows can't eat it."""
     from PySide6.QtCore import QObject, Qt
@@ -3190,6 +3261,23 @@ def _settings_window(qgui_app):
     raise AssertionError(f"settings window never showed (have {titles})")
 
 
+def _opened_popups(parent):
+    """Class names of the opened popups under `parent` (anything with `opened`)."""
+    from PySide6.QtCore import QObject
+
+    names = []
+    for child in parent.findChildren(QObject):
+        meta = child.metaObject()
+        if meta.indexOfProperty("opened") < 0:
+            continue
+        try:
+            if child.property("opened"):
+                names.append(meta.className())
+        except Exception:
+            continue
+    return names
+
+
 def _hit_reaches(host, target, pos):
     """Whether the hit test from the window root reaches `target`.
 
@@ -3581,6 +3669,32 @@ def test_quit_keys_on_every_window(qgui_app, xdg_env):
         src = (qml / name).read_text()
         assert "Keys.onPressed" in src, name
         assert "Qt.Key_Q" in src, name
+
+
+def test_every_dialog_watches_escape(qgui_app, xdg_env):
+    """Every separate dialog Window registers the Escape filter.
+
+    A QML Window has no QDialog reject(): the model filter is what turns
+    Escape into a cancel (and dismisses an open popup first).
+    """
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    qml = pathlib.Path(kapp.__file__).parent / "qml"
+    for name in (
+        "AboutDialog.qml",
+        "AddDialog.qml",
+        "EditorPicker.qml",
+        "GameSettings.qml",
+        "HistoryView.qml",
+        "ImportDialog.qml",
+        "PrefsDialog.qml",
+        "PrelaunchMenu.qml",
+        "ScanDialog.qml",
+    ):
+        src = (qml / name).read_text()
+        assert "watchDialogKeys" in src, name
 
 
 def test_kirigami_quit_action_neutered():
@@ -4634,6 +4748,50 @@ def test_editor_cancel_reports_cancelled(qgui_app, xdg_env):
     _click_editor_button(qgui_app, swin, "settingsCancel")
     assert decided == [("cancelled", "local-doom")]
     _editor_finish(qgui_app, engine, [swin])
+
+
+def test_editor_escape_reports_cancelled(qgui_app, xdg_env):
+    """Escape cancels the settings window: the launcher must not launch."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, appid="local-doom")
+    swin = _editor_window(qgui_app, "Game Settings")
+    QTest.keyClick(swin, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: bool(decided)), "Escape reported nothing"
+    assert decided == [("cancelled", "local-doom")]
+    _editor_finish(qgui_app, engine, [swin])
+
+
+def test_editor_picker_escape_reports_cancelled(qgui_app, xdg_env):
+    """Escape on the picker reports the empty AppID (widgets parity)."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, pick=True)
+    picker = _editor_window(qgui_app, "Edit Game")
+    QTest.keyClick(picker, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: bool(decided)), "Escape reported nothing"
+    assert decided == [("cancelled", "")]
+    _editor_finish(qgui_app, engine, [picker])
+
+
+def test_prelaunch_menu_escape_reports_cancelled(qgui_app, xdg_env):
+    """Escape on the pre-launch menu aborts the launch (widgets parity)."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(
+        qgui_app, mode="menu", appid="local-doom", name="Doom"
+    )
+    menu = _editor_window(qgui_app, "TKArcade — Doom")
+    QTest.keyClick(menu, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: bool(decided)), "Escape reported nothing"
+    assert decided == [("cancelled", "local-doom")]
+    _editor_finish(qgui_app, engine, [menu])
 
 
 def test_editor_save_and_launch_reports_launch(qgui_app, xdg_env):

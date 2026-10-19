@@ -36,6 +36,7 @@ Window {
         pickBox.model = labels
         pickBox.currentIndex = 0
         pickOk.enabled = labels.length > 0
+        gameModel.watchDialogKeys(picker)
         visible = true
         requestActivate()
     }

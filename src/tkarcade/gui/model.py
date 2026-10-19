@@ -13,6 +13,7 @@ from PySide6.QtCore import (
     Property,
     QAbstractTableModel,
     QEvent,
+    QMetaObject,
     QModelIndex,
     QObject,
     QSortFilterProxyModel,
@@ -115,6 +116,46 @@ class _QuitFilter(QObject):
         return False
 
 
+class _EscapeFilter(QObject):
+    """Escape closes a watched dialog: its topmost popup, else the window.
+
+    A QML `Window` is not a `QDialog`: nothing maps Escape to reject() for
+    it, and with no field focused its focus item is the window root, so the
+    key never reaches a QML `Keys` handler on the body. The popups go
+    first: a Kirigami dialog in these windows does not take focus (the
+    button that opened it keeps it), so Escape would otherwise close the
+    whole window behind an open confirmation.
+    """
+
+    def eventFilter(self, watched, event):
+        try:
+            if (
+                event.type() == QEvent.Type.KeyPress
+                and event.key() == Qt.Key.Key_Escape
+                and not event.isAutoRepeat()
+            ):
+                if not self._close_popup(watched):
+                    watched.close()
+                return True
+        except Exception:
+            pass
+        return False
+
+    @staticmethod
+    def _close_popup(window) -> bool:
+        """Close the last opened popup under `window` (False when none)."""
+        try:
+            opened = [
+                child
+                for child in window.findChildren(QObject)
+                if child.metaObject().indexOfProperty("opened") >= 0
+                and bool(child.property("opened"))
+            ]
+            return bool(opened) and QMetaObject.invokeMethod(opened[-1], "close")
+        except Exception:
+            return False
+
+
 class GameListModel(QAbstractTableModel):
     """Configured games for QML (id, name and source roles)."""
 
@@ -175,6 +216,7 @@ class GameListModel(QAbstractTableModel):
         self._tray_refresher = None
         self._tray_actions: dict = {}
         self._quit_filter = _QuitFilter()
+        self._escape_filter = _EscapeFilter()
         # Last Steam launch-options probe: (appid, status, detail). The
         # scan reads every profile's localconfig.vdf, so the dependency
         # status reuses it between the dialog's explicit refreshes.
@@ -2217,6 +2259,23 @@ class GameListModel(QAbstractTableModel):
                 window.installEventFilter(self._quit_filter)
         except Exception as e:
             log.warning("watchQuitKeys failed: %s", e)
+
+    @Slot(QObject)
+    def watchDialogKeys(self, window) -> None:
+        """Ctrl+Q plus Escape-to-cancel on a dialog window (best effort).
+
+        `watchQuitKeys` stays for the main window: Escape must never close
+        the shell. This is for the separate dialog `Window`s, where Escape
+        cancels like the widgets QDialog reject() and a close runs each
+        dialog's own onClosing (settings, picker and pre-launch report
+        their cancel outcome there).
+        """
+        try:
+            if window is not None:
+                window.installEventFilter(self._quit_filter)
+                window.installEventFilter(self._escape_filter)
+        except Exception as e:
+            log.warning("watchDialogKeys failed: %s", e)
 
     @Slot(result=bool)
     def hideOnClose(self) -> bool:

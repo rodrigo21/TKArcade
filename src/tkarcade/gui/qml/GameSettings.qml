@@ -91,7 +91,7 @@ Window {
         reload()
         errorText = ""
         tabBar.currentIndex = 0
-        gameModel.watchQuitKeys(gameSettings)
+        gameModel.watchDialogKeys(gameSettings)
         visible = true
     }
 
@@ -102,7 +102,7 @@ Window {
         pushToControls()
         errorText = ""
         tabBar.currentIndex = 0
-        gameModel.watchQuitKeys(gameSettings)
+        gameModel.watchDialogKeys(gameSettings)
         visible = true
     }
 
@@ -114,7 +114,7 @@ Window {
         refreshNewerFlag()
         errorText = ""
         tabBar.currentIndex = 0
-        gameModel.watchQuitKeys(gameSettings)
+        gameModel.watchDialogKeys(gameSettings)
         visible = true
     }
 
