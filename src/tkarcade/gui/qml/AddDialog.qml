@@ -68,8 +68,8 @@ Window {
     ColumnLayout {
         id: body
         anchors.fill: parent
-        // Widgets QDialog layout margin (11px at the default font size).
-        anchors.margins: Kirigami.Units.smallSpacing * 2
+        // Widgets QDialog layout margin: 12px (Breeze uses 10).
+        anchors.margins: Kirigami.Units.smallSpacing * 3
         spacing: Kirigami.Units.smallSpacing
         Controls.Label {
             text: qsTr("What kind of game is this?")

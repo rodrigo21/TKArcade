@@ -17,7 +17,8 @@ Window {
     // instead of filling a fixed rectangle.
     // QMessageBox wraps the text at its size hint instead of a wide box
     // (r240: 400x263). The height stays content driven: a QMessageBox
-    // pads the label more than a Kirigami column does.
+    // reserves an icon column and a wider label minimum, not more
+    // padding (its layout margin is the same 10px).
     minimumWidth: Kirigami.Units.gridUnit * 20
     minimumHeight: Kirigami.Units.gridUnit * 14
     width: Kirigami.Units.gridUnit * 22
@@ -34,7 +35,8 @@ Window {
     ColumnLayout {
         id: body
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.largeSpacing
+        // Widgets QMessageBox layout margin: 12px (Breeze uses 10).
+        anchors.margins: Kirigami.Units.smallSpacing * 3
         spacing: Kirigami.Units.largeSpacing
         // Focus-chain quit (see MainPage): fires even where the
         // Shortcut map stays silent.

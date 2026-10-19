@@ -457,12 +457,9 @@ Breaking config changes are called out explicitly under `Changed`.
   Steam-only lookups (ProtonDB, artwork) skip local rows.
 
 ### Changed
-- Dialog bodies use the widgets `QDialog` layout margin (12px at the
-  default font size, where Breeze uses 11px) instead of Kirigami's 18px
-  `largeSpacing`: the settings tab body and the small dialogs no longer
-  look inset next to the widgets windows, and each content-driven
-  window height reads that margin back from its body. About keeps the
-  wider margin, like `QMessageBox`.
+- Dialog bodies use a 12px layout margin, matching the widgets
+  `QDialog`/`QMessageBox` (10px under Breeze, 11px offscreen), and each
+  content-driven window height reads that margin back from its body.
 - Dialog sizes follow the widgets windows (r240): About is 396 wide
   (400 there), Preferences 414 (420), the pre-launch chooser 468 (480)
   with a height that hugs its content instead of a fixed 198px box, and
