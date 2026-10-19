@@ -2210,6 +2210,9 @@ Window {
             Layout.fillWidth: true
             Controls.Button {
                 objectName: "diffButton"
+                // Widgets offered Diff vs Defaults for a game only: the
+                // defaults editor edits the template itself.
+                visible: !gameSettings.defaultsMode
                 text: qsTr("Diff vs Defaults")
                 onClicked: {
                     var diff = gameModel.diffDefaults(editAppid, gameSettings.collect())

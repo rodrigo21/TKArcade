@@ -372,6 +372,8 @@ Breaking config changes are called out explicitly under `Changed`.
   edits.
 - Global Defaults is reachable from the hamburger menu (it was
   tray-only, so a shell without a tray could not open the editor).
+- The defaults editor no longer offers Diff vs Defaults (widgets had
+  that action for a game only; the editor edits the template itself).
 
 ### Added
 - View switcher with per-view icons and Ctrl+1/2/3 shortcuts;

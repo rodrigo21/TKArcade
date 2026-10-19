@@ -3736,6 +3736,8 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     reset = dswin.findChild(QQuickItem, "settingsReset")
     assert reset.property("visible") is True
     assert reset.property("text") == "Reset to Factory Defaults"
+    # ... and no Diff vs Defaults (widgets had it for a game only).
+    assert dswin.findChild(QQuickItem, "diffButton").property("visible") is False
     _click(dswin, "settingsReset")
     assert dswin.findChild(QQuickItem, "settingsTimeout").property("value") == 0
     assert C.load_defaults().general.menu_timeout == 9  # untouched in memory only
