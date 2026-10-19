@@ -133,7 +133,11 @@ Kirigami.Page {
 
     onViewModeChanged: {
         if (viewMode === "list") {
-            gamesPage.applySelectionToTable()
+            // `selectedIds` is the only source of truth: the TableView clears
+            // its selection model while it is hidden and clears it again when
+            // it comes back (measured), so the mirror is re-applied once the
+            // view has settled and never read back.
+            Qt.callLater(gamesPage.applySelectionToTable)
         }
     }
 
@@ -244,6 +248,9 @@ Kirigami.Page {
         if (row < 0 || row >= gameFilter.rowCount()) {
             return
         }
+        var gid = gameFilter.idAt(row)
+        selectedIds = [gid]
+        anchorId = gid
         var index = gameFilter.proxyIndex(row)
         gameTable.selectionModel.setCurrentIndex(
             index,
@@ -268,10 +275,15 @@ Kirigami.Page {
         }
         var from = Math.min(anchor, row)
         var to = Math.max(anchor, row)
-        gameTable.selectionModel.clearSelection()
+        var range = []
         for (var r = from; r <= to; r++) {
+            range.push(gameFilter.idAt(r))
+        }
+        selectedIds = range
+        gameTable.selectionModel.clearSelection()
+        for (var s = from; s <= to; s++) {
             gameTable.selectionModel.select(
-                gameFilter.proxyIndex(r),
+                gameFilter.proxyIndex(s),
                 QQmlModels.ItemSelectionModel.Select | selectFlags())
         }
         gameTable.selectionModel.setCurrentIndex(
@@ -365,19 +377,6 @@ Kirigami.Page {
         iconGrid.currentIndex = target
     }
 
-    function syncSelectedIds() {
-        var rows = gameTable.selectionModel.selectedRows()
-        var ids = []
-        for (var i = 0; i < rows.length; i++) {
-            ids.push(gameFilter.idAt(rows[i].row))
-        }
-        selectedIds = ids
-        var current = gameTable.selectionModel.currentIndex
-        if (current !== undefined && current.valid) {
-            anchorId = gameFilter.idAt(current.row)
-        }
-    }
-
     function tapGame(gid, mods) {
         if (mods & Qt.ControlModifier) {
             toggleSelect(gid)
@@ -389,17 +388,20 @@ Kirigami.Page {
     }
 
     function ensureSelection() {
-        var actual = []
-        var rows = gameTable.selectionModel.selectedRows()
-        for (var i = 0; i < rows.length; i++) {
-            var gid = gameFilter.idAt(rows[i].row)
-            if (gid !== "" && gameFilter.indexOf(gid) >= 0) {
-                actual.push(gid)
+        // The page owns the selection: keep the ids the model still has
+        // (nothing is read back from the table's selection model) and put
+        // the table mirror back when the list view is the one on screen.
+        var kept = []
+        for (var i = 0; i < selectedIds.length; i++) {
+            if (gameFilter.indexOf(selectedIds[i]) >= 0) {
+                kept.push(selectedIds[i])
             }
         }
-        selectedIds = actual
+        selectedIds = kept
         if (selectedIds.length === 0 && gameFilter.rowCount() > 0) {
             select(gameFilter.idAt(0))
+        } else if (viewMode === "list") {
+            gamesPage.applySelectionToTable()
         }
     }
 
@@ -597,13 +599,6 @@ Kirigami.Page {
             parts.push("t:" + seen[s] + (times > 1 ? "x" + times : ""))
         }
         console.log("TKARCADE_GEOMETRY " + parts.join(" "))
-    }
-
-    Connections {
-        target: gameTable.selectionModel
-        function onSelectionChanged() {
-            gamesPage.syncSelectedIds()
-        }
     }
 
     Connections {

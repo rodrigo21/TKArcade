@@ -192,6 +192,12 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- View switching keeps the selected game (list → icons → cards): the
+  hidden `TableView` drops its selection model's selection and clears it
+  again when it comes back, and the reverse sync mirrored that empty
+  selection back into the page's `selectedIds`, which the grids and the
+  row highlight read. The page now owns the selection (every keyboard
+  and click path writes it) and the table is a one-way mirror.
 - Settings tabs scroll again: `ScrollView` takes its scrollable size
   from the content's implicit size, so the tab wrappers (an explicit
   `height:` only) left `contentHeight` at -1 and everything below the

@@ -982,6 +982,52 @@ def test_view_button_cycles_modes(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_selection_survives_view_switches(qgui_app, xdg_env):
+    """Switching views keeps the row: the page owns the selection.
+
+    The hidden TableView drops its selection model's selection and clears it
+    again when it comes back; the old reverse sync mirrored that empty
+    selection back into `selectedIds`, so icons -> cards -> list lost the row
+    (found in the keyboard-navigation pass, pre-existing).
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid, name in (("a-one", "One"), ("b-two", "Two"), ("c-three", "Three")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    table = win.findChild(QQuickItem, "gameTable")
+    assert table is not None
+
+    rows = _table_rows(table, proxy)
+    assert len(rows) == 3
+    _click_row(qgui_app, win, rows[1])
+    QTest.qWait(60)
+    picked = _page_selected_ids(page)
+    assert len(picked) == 1
+
+    for mode in ("icons", "cards", "list"):
+        page.setProperty("viewMode", mode)
+        QTest.qWait(120)
+        assert _page_selected_ids(page) == picked, mode
+        if mode == "list":
+            # The table mirror is re-applied on the next event loop turn.
+            assert _wait_for(lambda: sorted(_selected_ids(table, proxy)) == picked)
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_icons_grid_shows_games(qgui_app, xdg_env):
     """Icons view renders one cell per game with its name."""
     from PySide6.QtCore import QObject
@@ -2789,10 +2835,14 @@ def test_table_delegates_never_lookup_by_visual_row():
         for i, line in enumerate(src, 1):
             if re.search(r"rowData\s*\(\s*row\s*\)", line):
                 offenders.append(f"{path.name}:{i}")
-            # idAt(row) is only safe with a declared JS loop var
-            # (extendSelect); delegates must use model.gameId instead.
-            if re.search(r"idAt\s*\(\s*row\s*\)", line) and not any(
-                "for (var row" in prev for prev in src[max(0, i - 4) : i]
+            # idAt(row) is only safe with a row that really is a proxy row:
+            # a declared JS loop var (extendSelect) or a page helper's own
+            # parameter (tableSingleSelect). A delegate's `row` is the
+            # visual row, so delegates must use model.gameId instead.
+            window = src[max(0, i - 8) : i]
+            if re.search(r"idAt\s*\(\s*row\s*\)", line) and not (
+                any("for (var row" in prev for prev in window)
+                or any(re.search(r"function\s+\w+\s*\(\s*row\b", prev) for prev in window)
             ):
                 offenders.append(f"{path.name}:{i}")
     # RowClickHandler instances must pass gid: (never row) plus page:
