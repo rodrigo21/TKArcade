@@ -7,23 +7,30 @@ additionally segfault during interpreter teardown *after* passing (exit
 139 with PASSED already printed).
 
 So the driver collects the case ids and runs them in **batches** of
-`BATCH` cases per `pytest` subprocess, serially. A case counts as passed
-when its PASSED line printed, which pytest flushes per write, so the
-lines before an abort survive. A batch whose abort swallowed cases (its
-PASSED lines are incomplete) is not trusted: the missing cases are
-re-run individually, and only those still lacking a PASSED line fail —
-real regressions fail assertions before PASSED, so nothing is masked.
+`BATCH` cases per `pytest` subprocess, one subprocess per CPU by
+default. A case counts as passed when its PASSED line printed, which
+pytest flushes per write, so the lines before an abort survive. A batch
+whose abort swallowed cases (its PASSED lines are incomplete) is not
+trusted: the missing cases are re-run individually, and only those still
+lacking a PASSED line fail — real regressions fail assertions before
+PASSED, so nothing is masked.
 
-Tuning knobs, all optional (the defaults keep the suite as it was):
+Tuning knobs, all optional:
 
     TKARCADE_QML_BATCH      cases per subprocess (default 8)
-    TKARCADE_QML_WORKERS    parallel subprocesses (default 1; >1 can
-                            flake timing-sensitive cases under load)
+    TKARCADE_QML_WORKERS    parallel subprocesses (default: one per CPU,
+                            capped at 8; each offscreen Qt process costs
+                            ~200MB. Parallel runs can flake the
+                            timing-sensitive cases under load: set 1 to
+                            run one at a time)
+
+Verbose progress (`-v` prints one line per finished batch):
+    python -m pytest tests/test_kirigami_qml.py -v -rP
 
 Single-case dev loop:
     python -m pytest "tests/kirigami_qml_cases.py::<name>" -o python_files="*.py"
 
-Fast loop without the QML suite (the rest is ~15s):
+Fast loop without the QML suite (~15s):
     python -m pytest tests/ -q -m "not qml"
 """
 
@@ -41,9 +48,15 @@ ROOT = Path(__file__).resolve().parent.parent
 # Cases per subprocess: sized well under the ~20-case abort threshold so a
 # batch normally finishes; anything it does lose is re-run individually.
 BATCH = int(os.environ.get("TKARCADE_QML_BATCH") or 8)
-# Serial by default: parallel offscreen Qt processes flake timing-sensitive
-# cases and abort under contention; one subprocess at a time.
-WORKERS = max(1, int(os.environ.get("TKARCADE_QML_WORKERS") or 1))
+WORKERS_MAX = 8  # each offscreen Qt subprocess holds ~200MB
+
+
+def _default_workers() -> int:
+    """One subprocess per CPU, capped at WORKERS_MAX."""
+    return max(1, min(os.cpu_count() or 1, WORKERS_MAX))
+
+
+WORKERS = max(1, int(os.environ.get("TKARCADE_QML_WORKERS") or _default_workers()))
 CASE_TIMEOUT = 240  # seconds a single case may take before we call it hung
 BATCH_SECONDS_PER_CASE = 30  # headroom per case before a batch gives up
 
@@ -159,13 +172,21 @@ def _run_unit(nodeids: list[str]) -> tuple[str, bool, int, str]:
 
 
 @pytest.mark.qml
-def test_qml_suite_isolated():
+def test_qml_suite_isolated(request):
     ids = _collect_ids()
     assert len(ids) >= 50, f"only {len(ids)} QML cases collected, expected 80+"
     batches = [ids[i : i + BATCH] for i in range(0, len(ids), BATCH)]
+    verbose = request.config.getoption("verbose") > 0
     failures: list[tuple[str, int, str]] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        for nodeid, passed, rc, out in pool.map(_run_unit, batches):
+        results = pool.map(_run_unit, batches)
+        for index, (nodeid, passed, rc, out) in enumerate(results, 1):
+            if verbose:
+                first = nodeid.split("+")[0].split("::")[-1]
+                print(
+                    f"QML batch {index}/{len(batches)} ({first}...): {'ok' if passed else 'FAIL'}",
+                    flush=True,
+                )
             if not passed:
                 failures.append((nodeid, rc, out))
     if failures:
