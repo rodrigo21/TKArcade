@@ -1043,6 +1043,19 @@ Kirigami.Page {
                                     }
                                     Controls.MenuSeparator {
                                     }
+                                    // Widgets Tools menu, same order: Validate
+                                    // Game leads the tool entries.
+                                    Controls.MenuItem {
+                                        objectName: "menuValidate"
+                                        text: qsTr("Validate Game")
+                                        onTriggered: {
+                                            if (gamesPage.selectedIds.length === 0) {
+                                                gamesPage.notify(qsTr("Select a game first."))
+                                                return
+                                            }
+                                            gamesPage.openValidateDialog(gamesPage.selectedIds[0])
+                                        }
+                                    }
                                     Controls.MenuItem {
                                         text: qsTr("Open Ludusavi...")
                                         onTriggered: {
@@ -1895,6 +1908,12 @@ Kirigami.Page {
         Controls.MenuItem {
             text: qsTr("Configure Columns…")
             onTriggered: columnsDialog.open()
+        }
+        Controls.MenuItem {
+            // Widgets header menu closed with Reset Columns.
+            objectName: "menuResetColumns"
+            text: qsTr("Reset Columns")
+            onTriggered: gamesPage.resetColumns()
         }
     }
     Kirigami.PlaceholderMessage {

@@ -2935,6 +2935,121 @@ def test_hamburger_global_defaults_entry(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_header_menu_resets_columns(qgui_app, xdg_env):
+    """Widgets header menu parity: it closes with Reset Columns."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    reset = win.findChild(QObject, "menuResetColumns")
+    assert reset is not None
+    proxy.setProperty("showAppId", False)
+    proxy.setProperty("showPlatform", True)
+    proxy.setProperty("showCategory", True)
+    qgui_app.processEvents()
+    _fire(reset)
+    qgui_app.processEvents()
+    assert proxy.property("showAppId") is True
+    assert proxy.property("showPlatform") is False
+    assert proxy.property("showCategory") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_hamburger_validates_the_selection(qgui_app, xdg_env):
+    """Widgets Tools menu parity: Validate Game validates the selection."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    bad = C.GameConfig()
+    bad.general.appid = "local-bad"
+    bad.general.name = "Bad"
+    bad.general.custom_executable = "/nonexistent/game"
+    bad.general.game_type = "native"
+    C.save(bad)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    validate = win.findChild(QObject, "menuValidate")
+    assert validate is not None
+    page.setProperty("selectedIds", [])
+    _fire(validate)
+    qgui_app.processEvents()
+    assert "Select a game first." in page.property("notice")
+    page.select("local-bad")
+    qgui_app.processEvents()
+    _fire(validate)
+    qgui_app.processEvents()
+    dialog = win.findChild(QObject, "validateDialog")
+    assert dialog.property("visible") is True
+    assert "nonexistent" in dialog.property("subtitle") or (
+        "not found" in dialog.property("subtitle")
+    )
+    dialog.close()
+    qgui_app.processEvents()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_profiles_refresh_on_focus(qgui_app, xdg_env):
+    """Widgets focusInEvent: focusing re-reads profiles written elsewhere."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    combo = swin.findChild(QQuickItem, "settingsProfiles")
+
+    def profiles():
+        model = combo.property("model")
+        model = model.toVariant() if hasattr(model, "toVariant") else model
+        return list(model or [])
+
+    assert profiles() == []
+
+    # Another writer (the CLI) saves a profile behind the dialog's back;
+    # the widgets re-read the list when the dialog got the focus again.
+    C.save_profile("local-doom", "fast", C.load("local-doom"))
+    win.requestActivate()
+    QTest.qWait(120)
+    swin.requestActivate()
+    assert _wait_for(lambda: profiles() == ["fast"], limit=300), "profiles not re-read"
+
+    # An active profile that vanished on disk is cleared (widgets did).
+    swin.switchProfile("fast")
+    C.delete_profile("local-doom", "fast")
+    swin.refreshProfiles()
+    qgui_app.processEvents()
+    assert profiles() == []
+    assert swin.property("dialogProfile") == ""
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     """Gear opens the columns dialog; header right-click opens its menu."""
     from PySide6.QtCore import QObject, QPointF, Qt

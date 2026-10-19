@@ -72,6 +72,15 @@ Window {
     // Widgets _is_dark_theme: the status marks pick their palette from it.
     readonly property bool statusDark: Kirigami.Theme.backgroundColor.hslLightness < 0.5
 
+    // Widgets GameDialog::focusInEvent: another writer (the CLI, a second
+    // editor) may have added or removed profiles while this window sat in
+    // the back, and the combo would keep listing the stale set.
+    onActiveChanged: {
+        if (active) {
+            gameSettings.refreshProfiles()
+        }
+    }
+
     function blankFields() {
         return {
             "appid": "",
@@ -395,6 +404,24 @@ Window {
         profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(name))
         lastLoaded = snapshot()
         refreshNewerFlag()
+    }
+
+    // Widgets focusInEvent: re-read the profile list, drop an active
+    // profile that vanished on disk, and leave the draft alone otherwise.
+    function refreshProfiles() {
+        if (defaultsMode || editAppid === "") {
+            return
+        }
+        var names = (gameModel.loadGame(editAppid).profiles || []).slice()
+        var current = (profileBox.model || []).slice()
+        if (names.join("\n") === current.join("\n")) {
+            return
+        }
+        if (dialogProfile !== "" && names.indexOf(dialogProfile) < 0) {
+            dialogProfile = ""
+        }
+        profileBox.model = names
+        profileBox.currentIndex = Math.max(0, names.indexOf(dialogProfile))
     }
 
     function acceptConfirm() {

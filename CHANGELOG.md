@@ -411,6 +411,16 @@ Breaking config changes are called out explicitly under `Changed`.
   emits `launchReported` and the shell shows the sticky status line or a
   transient warning. The two "Open ... folder" menu entries and the
   Dependency Status links no longer discard their `openPath` failures.
+- Two widgets menu entries are back where they belong: Validate Game
+  leads the Tools entries in the hamburger (it only existed in the game
+  context menu, and it validates the current selection, asking for one
+  like the widgets did) and the table header's right-click menu closes
+  with Reset Columns, as the widgets header context menu did — only the
+  columns dialog offered it before.
+- The settings dialog re-reads its profile list whenever the window is
+  focused again (widgets `focusInEvent`): a profile written from outside
+  — the CLI, a second editor — shows up without reopening the dialog,
+  and an active profile that vanished on disk is cleared.
 
 ### Added
 - View switcher with per-view icons and Ctrl+1/2/3 shortcuts;
