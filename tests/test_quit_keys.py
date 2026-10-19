@@ -53,11 +53,11 @@ def test_escape_filter_closes_the_window(qgui_app):
     from PySide6.QtCore import Qt
     from PySide6.QtQuick import QQuickWindow
 
-    from tkarcade.gui.model import _EscapeFilter
+    from tkarcade.gui.model import _DialogKeyFilter
 
     win = QQuickWindow()
     win.show()
-    filt = _EscapeFilter()
+    filt = _DialogKeyFilter()
     win.installEventFilter(filt)
     try:
         assert win.isVisible() is True

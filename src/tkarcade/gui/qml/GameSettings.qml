@@ -72,6 +72,11 @@ Window {
     // Widgets _is_dark_theme: the status marks pick their palette from it.
     readonly property bool statusDark: Kirigami.Theme.backgroundColor.hslLightness < 0.5
 
+    // Enter with one of the prompts below focused: the popup owns the key
+    // chain while it is open, and the body handler (further down) is not in
+    // it. The window-level Enter route lives in the Python key filter
+    // (gui/model.py), which reaches the open prompt's accept button.
+
     // Widgets GameDialog::focusInEvent: another writer (the CLI, a second
     // editor) may have added or removed profiles while this window sat in
     // the back, and the combo would keep listing the stale set.
@@ -2329,8 +2334,14 @@ Window {
         }
     }
 
+    // The prompts are Popups. Kirigami parents them to
+    // applicationWindow().overlay, which only exists inside a
+    // Kirigami.ApplicationWindow; this file is a plain modal Window, so
+    // without an explicit parent each prompt became a stray native window
+    // behind the settings window (unusable while the window is modal).
     Kirigami.Dialog {
         id: namePrompt
+        parent: gameSettings.contentItem
         objectName: "settingsNamePrompt"
         title: pendingPrompt === "mhName" ? qsTr("New MangoHud Configuration") : (pendingPrompt === "clone" ? qsTr("Clone profile") : qsTr("Save profile"))
         padding: Kirigami.Units.largeSpacing
@@ -2368,8 +2379,13 @@ Window {
 
     Kirigami.Dialog {
         id: choicePrompt
+        parent: gameSettings.contentItem
         objectName: "settingsChoicePrompt"
-        title: pendingPrompt === "mhTemplate" ? qsTr("Start from:") : qsTr("Gamescope Preset")
+        title: pendingPrompt === "gsPreset"
+            ? qsTr("Gamescope Preset")
+            : (pendingPrompt === "mhTemplate"
+                ? qsTr("Start from:")
+                : qsTr("Reuse artwork from…"))
         padding: Kirigami.Units.largeSpacing
         ColumnLayout {
             Controls.ComboBox {
@@ -2404,6 +2420,7 @@ Window {
 
     Kirigami.Dialog {
         id: bulkDialog
+        parent: gameSettings.contentItem
         objectName: "envBulkDialog"
         title: qsTr("Bulk Edit Environment")
         padding: Kirigami.Units.largeSpacing
@@ -2436,6 +2453,7 @@ Window {
 
     Kirigami.Dialog {
         id: presetDialog
+        parent: gameSettings.contentItem
         objectName: "envPresetDialog"
         title: qsTr("Add Env Preset")
         padding: Kirigami.Units.largeSpacing
@@ -2467,6 +2485,7 @@ Window {
 
     Kirigami.Dialog {
         id: mismatchDialog
+        parent: gameSettings.contentItem
         objectName: "envMismatchDialog"
         title: qsTr("Add Env Preset")
         padding: Kirigami.Units.largeSpacing
@@ -2497,6 +2516,7 @@ Window {
 
     Kirigami.Dialog {
         id: confirmDialog
+        parent: gameSettings.contentItem
         objectName: "settingsConfirm"
         title: confirmPurpose === "deleteProfile" ? qsTr("Delete Profile")
             : (confirmPurpose === "resetDefaults" ? qsTr("Reset Game")
@@ -2539,6 +2559,7 @@ Window {
 
     Kirigami.Dialog {
         id: diffDialog
+        parent: gameSettings.contentItem
         objectName: "diffDialog"
         title: qsTr("Differences from Global Defaults")
         padding: Kirigami.Units.largeSpacing

@@ -116,26 +116,37 @@ class _QuitFilter(QObject):
         return False
 
 
-class _EscapeFilter(QObject):
-    """Escape closes a watched dialog: its topmost popup, else the window.
+class _DialogKeyFilter(QObject):
+    """Escape closes a watched dialog; Enter takes its open popup's default.
 
     A QML `Window` is not a `QDialog`: nothing maps Escape to reject() for
     it, and with no field focused its focus item is the window root, so the
     key never reaches a QML `Keys` handler on the body. The popups go
-    first: a Kirigami dialog in these windows does not take focus (the
-    button that opened it keeps it), so its own CloseOnEscape never sees
-    the key and Escape would otherwise close the whole window behind it.
+    first, and they own the focus chain while they are open: a prompt's own
+    CloseOnEscape never sees an Escape and the body's
+    `Keys.onReturnPressed` never sees an Enter. Both are routed to the
+    popup here (a widgets modal's default button took Enter first).
     """
 
     def eventFilter(self, watched, event):
         try:
             if (
                 event.type() == QEvent.Type.KeyPress
-                and event.key() == Qt.Key.Key_Escape
                 and not event.isAutoRepeat()
+                and event.key() in (Qt.Key.Key_Escape, Qt.Key.Key_Return, Qt.Key.Key_Enter)
             ):
-                if not self._close_popup(watched):
-                    watched.close()
+                if event.key() == Qt.Key.Key_Escape:
+                    if not self._close_popup(watched):
+                        watched.close()
+                    return True
+                # Enter: with no popup open the body's own Keys handler runs
+                # (it knows the window's default buttons); with one open,
+                # press its accept button and swallow the key.
+                opened = _opened_popups(watched)
+                target = _highlighted_button(opened[-1]) if opened else None
+                if target is None:
+                    return False
+                QMetaObject.invokeMethod(target, "clicked")
                 return True
         except Exception:
             pass
@@ -255,7 +266,7 @@ class GameListModel(QAbstractTableModel):
         self._tray_refresher = None
         self._tray_actions: dict = {}
         self._quit_filter = _QuitFilter()
-        self._escape_filter = _EscapeFilter()
+        self._dialog_key_filter = _DialogKeyFilter()
         # Last Steam launch-options probe: (appid, status, detail). The
         # scan reads every profile's localconfig.vdf, so the dependency
         # status reuses it between the dialog's explicit refreshes.
@@ -2301,18 +2312,19 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(QObject)
     def watchDialogKeys(self, window) -> None:
-        """Ctrl+Q plus Escape-to-cancel on a dialog window (best effort).
+        """Ctrl+Q, Escape-to-cancel and Enter-to-accept on a dialog window.
 
         `watchQuitKeys` stays for the main window: Escape must never close
         the shell. This is for the separate dialog `Window`s, where Escape
         cancels like the widgets QDialog reject() and a close runs each
         dialog's own onClosing (settings, picker and pre-launch report
-        their cancel outcome there).
+        their cancel outcome there). Enter is routed only while a popup of
+        the window is open (the body's own Keys handler owns the rest).
         """
         try:
             if window is not None:
                 window.installEventFilter(self._quit_filter)
-                window.installEventFilter(self._escape_filter)
+                window.installEventFilter(self._dialog_key_filter)
         except Exception as e:
             log.warning("watchDialogKeys failed: %s", e)
 

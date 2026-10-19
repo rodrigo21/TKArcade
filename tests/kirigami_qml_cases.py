@@ -2196,6 +2196,61 @@ def test_select_all_and_empty_click_clears(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_artwork_donor_prompt_stays_in_settings(qgui_app, xdg_env):
+    """Artwork Find… opens a donor-titled prompt inside the settings window.
+
+    The prompt is a Kirigami.Dialog (Popup): with no explicit parent in a
+    plain Window it became a stray native window behind the modal
+    settings window, unusable, and its title fell through to the
+    Gamescope Preset branch.
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid, name in (("local-doom", "Doom"), ("local-quake", "Quake")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = "/bin/true"
+        C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 9)
+    qgui_app.processEvents()
+
+    _click(swin, "artDonorFind")
+    prompt = swin.findChild(QObject, "settingsChoicePrompt")
+    assert prompt is not None
+    assert prompt.property("visible") is True, (
+        f"parent={prompt.property('parent')} "
+        f"tab={swin.findChild(QQuickItem, 'settingsTabs').property('currentIndex')} "
+        f"warnings={[w for w in warnings if 'graphics scene' not in w]}"
+    )
+    assert "Gamescope" not in prompt.property("title")
+    parent = prompt.property("parent")
+    assert parent is not None, "choice prompt has no QML parent (stray window)"
+    # A parentless Kirigami.Dialog became its own top-level window: it sat
+    # behind this modal one, unusable. It must not be a top-level at all.
+    from PySide6.QtGui import QGuiApplication
+
+    titles = [w.title() for w in QGuiApplication.topLevelWindows()]
+    assert not [t for t in titles if t and t == prompt.property("title")], titles
+    assert swin.findChild(QQuickItem, "settingsChoiceBox").property("count") >= 1
+
+    _click(swin, "settingsChoiceOk")
+    donor = swin.findChild(QQuickItem, "artDonor").property("text")
+    assert donor in ("local-doom", "local-quake")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
     """Toolbar Play launches the first selected game."""
     from PySide6.QtCore import QObject
@@ -2404,8 +2459,7 @@ def test_escape_closes_shell_dialogs(qgui_app, xdg_env):
 
 def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env):
     """Escape closes the open popup, then the dialog itself (QDialog order)."""
-    from PySide6.QtCore import QObject, QPointF, Qt
-    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtCore import QObject, Qt
     from PySide6.QtTest import QTest
 
     _save_one_game("local-doom", "Doom")
@@ -2422,11 +2476,10 @@ def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env):
     assert _wait_for(lambda: confirm.property("opened") is False), "Escape left the confirm open"
     assert dialog.property("visible") is True
     # A combo popup (a QQC2 Menu in the desktop style) comes first too.
-    combo = swin.findChild(QQuickItem, "settingsType")
-    pos = combo.mapToScene(
-        QPointF(combo.property("width") / 2, combo.property("height") / 2)
-    ).toPoint()
-    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    # `_click` polls the window hit test: the dim overlay of the confirm
+    # just closed sits above everything for a moment and would swallow a
+    # raw click (the popups now render inside this window).
+    _click(swin, "settingsType")
     assert _wait_for(lambda: _opened_popups(dialog) != []), "combo popup did not open"
     QTest.keyClick(swin, Qt.Key.Key_Escape)
     assert _wait_for(lambda: _opened_popups(dialog) == []), "Escape left the combo popup open"
@@ -2558,9 +2611,7 @@ def test_quit_shortcut_is_application_modal_proof(qgui_app, xdg_env):
 
 def test_scan_flow_adds_steam_game(qgui_app, xdg_env, monkeypatch):
     """Scan lists unconfigured Steam games; Add Selected writes configs."""
-    from PySide6.QtCore import QObject, QPointF, Qt
-    from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
+    from PySide6.QtCore import QObject
 
     import tkarcade.steam as steammod
     from tkarcade import config as C
@@ -2575,9 +2626,7 @@ def test_scan_flow_adds_steam_game(qgui_app, xdg_env, monkeypatch):
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Add Games",))
-    confirm = swin.findChild(QQuickItem, "scanConfirm")
-    pos = confirm.mapToScene(QPointF(confirm.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _click(swin, "scanConfirm")
     qgui_app.processEvents()
     assert C.game_file("99").exists()
     assert C.game_file("100").exists()
@@ -2651,9 +2700,8 @@ def test_history_view_clears_row(qgui_app, xdg_env):
 
 def test_prefs_save_roundtrip(qgui_app, xdg_env):
     """Preferences dialog writes through to the prefs file."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -2679,9 +2727,7 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     # (an explicit `height:` alone leaves contentHeight at -1).
     scroller = swin.findChild(QQuickItem, "prefsScroll")
     assert scroller.property("contentHeight") > 0
-    save = swin.findChild(QQuickItem, "prefsSave")
-    pos = save.mapToScene(QPointF(save.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _click(swin, "prefsSave")
     qgui_app.processEvents()
     prefs = C.load_preferences()
     assert prefs.tray_icon == "mono"
@@ -4086,9 +4132,7 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
 
 def test_import_tarball_flow(qgui_app, xdg_env, tmp_path):
     """Backup tab imports the picked tarball and notifies."""
-    from PySide6.QtCore import QObject, QPointF, Qt
-    from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
+    from PySide6.QtCore import QObject
 
     from tkarcade import config as C
 
@@ -4104,11 +4148,7 @@ def test_import_tarball_flow(qgui_app, xdg_env, tmp_path):
     dlg.setProperty("tarballPath", str(tarball))
     dlg.setProperty("visible", True)
     swin = _modal_window(qgui_app, ("Import Configurations",))
-    confirm = swin.findChild(QQuickItem, "importTarballConfirm")
-    pos = confirm.mapToScene(
-        QPointF(confirm.property("width") / 2, confirm.property("height") / 2)
-    ).toPoint()
-    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _click(swin, "importTarballConfirm")
     qgui_app.processEvents()
     assert C.game_file("99").is_file()
     page = win.findChild(QObject, "gamesPage")
@@ -4343,11 +4383,7 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
         qgui_app.processEvents()
     name = swin.findChild(QQuickItem, "settingsName")
     name.setProperty("text", "Changed")
-    reset = swin.findChild(QQuickItem, "settingsReset")
-    pos = reset.mapToScene(
-        QPointF(reset.property("width") / 2, reset.property("height") / 2)
-    ).toPoint()
-    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _click(swin, "settingsReset")
     qgui_app.processEvents()
     assert win.findChild(QObject, "settingsConfirm").property("visible") is True
     dlg.acceptConfirm()
@@ -4604,7 +4640,7 @@ def test_settings_warning_and_tool_states(qgui_app, xdg_env, monkeypatch):
 
 def test_settings_preview_diff_flow(qgui_app, xdg_env):
     """Preview shows the launch command; Diff opens the defaults diff."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
 
@@ -4638,11 +4674,7 @@ def test_settings_preview_diff_flow(qgui_app, xdg_env):
     QTest.qWait(60)
     qgui_app.processEvents()
     assert C.load_preferences().show_preview is True
-    diff = swin.findChild(QQuickItem, "diffButton")
-    pos = diff.mapToScene(
-        QPointF(diff.property("width") / 2, diff.property("height") / 2)
-    ).toPoint()
-    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    _click(swin, "diffButton")
     qgui_app.processEvents()
     assert win.findChild(QObject, "diffDialog").property("visible") is True
     assert "custom_executable" in win.findChild(QQuickItem, "diffText").property("text")
@@ -4738,9 +4770,8 @@ def test_settings_preview_poll_settles(qgui_app, xdg_env, monkeypatch):
 
 def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     """Save targets the active profile; dirty switches prompt to discard."""
-    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -4781,11 +4812,9 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     assert name.property("text") == "Doom"
     box = swin.findChild(QQuickItem, "settingsProfiles")
     box.setProperty("currentIndex", 1)
-    delete = swin.findChild(QQuickItem, "settingsProfileDelete")
-    pos = delete.mapToScene(
-        QPointF(delete.property("width") / 2, delete.property("height") / 2)
-    ).toPoint()
-    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    # _click polls the hit test: the confirm just closed leaves its dim
+    # overlay above the window for a moment and would swallow a raw click.
+    _click(swin, "settingsProfileDelete")
     qgui_app.processEvents()
     assert confirm.property("visible") is True
     dlg.acceptConfirm()
