@@ -268,6 +268,13 @@ desktop; only option 2 buys module purity.
 - Repeater models must stay JS arrays (QVariantList from setProperty
   lays out at zero width); test via moveColumn(), never setProperty.
 - QEventPoint has no modifiers → MouseArea for Ctrl/Shift rows.
+- Switching views loses the selection: hiding the TableView drops its
+  selection model's selection, `syncSelectedIds` mirrors that back into
+  `selectedIds` and the row highlight plus the toolbar actions follow to
+  empty (the icons → cards → list switches all pass through it).
+  Pre-existing, found while giving the views focus (the keyboard
+  navigation pass); the widgets had a single view, so there is no
+  reference behaviour to copy.
 - Tests: structure-aware lookup only (rowColumn objectNames + parent
   modelData match); pump frames until delegates settle; XDG_CACHE_HOME
   already isolated per test, do NOT disable disk cache (breaks layout).
