@@ -2124,6 +2124,78 @@ def test_multi_select_ctrl_shift(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_select_all_and_empty_click_clears(qgui_app, xdg_env):
+    """Ctrl+A selects every game; an empty viewport click drops it again."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid in ("b-game", "a-game", "c-game"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    win, _engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    table = win.findChild(QQuickItem, "gameTable")
+    assert table is not None
+
+    def selected():
+        return sorted(_selected_ids(table, proxy))
+
+    def selected_js():
+        value = page.property("selectedIds")
+        if hasattr(value, "toVariant"):
+            value = value.toVariant()
+        return sorted(str(g) for g in (value or []))
+
+    table.forceActiveFocus()
+    qgui_app.processEvents()
+    QTest.keyClick(win, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+    qgui_app.processEvents()
+    assert selected() == ["a-game", "b-game", "c-game"]
+    assert selected_js() == ["a-game", "b-game", "c-game"]
+
+    # Empty area below the last row (the page is much taller than the rows).
+    empty = table.mapToScene(QPointF(table.width() / 2, table.height() - 24)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, empty)
+    qgui_app.processEvents()
+    assert selected() == []
+    assert selected_js() == []
+
+    # The icons view follows the same rule on its own empty area.
+    page.setProperty("viewMode", "icons")
+    qgui_app.processEvents()
+    grid = win.findChild(QQuickItem, "iconGrid")
+    assert grid is not None
+    grid.forceActiveFocus()
+    qgui_app.processEvents()
+    QTest.keyClick(win, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+    qgui_app.processEvents()
+    assert selected_js() == ["a-game", "b-game", "c-game"]
+    empty = grid.mapToScene(QPointF(grid.width() - 20, grid.height() - 20)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, empty)
+    qgui_app.processEvents()
+    assert selected_js() == []
+    page.setProperty("viewMode", "list")
+    qgui_app.processEvents()
+
+    # Ctrl+A inside a text field stays that field's Select All.
+    search = win.findChild(QQuickItem, "searchField")
+    assert search is not None
+    search.forceActiveFocus()
+    qgui_app.processEvents()
+    QTest.keyClick(win, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+    qgui_app.processEvents()
+    assert selected() == []
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_toolbar_play_plays_first_selected(qgui_app, xdg_env):
     """Toolbar Play launches the first selected game."""
     from PySide6.QtCore import QObject

@@ -16,10 +16,15 @@ Kirigami.Page {
     id: gamesPage
     objectName: "gamesPage"
     // Focus-chain quit: fires even where the Shortcut map stays silent.
+    // Ctrl+A only reaches here when the focused item did not take it (a
+    // text field selects its own text first).
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Q && (event.modifiers & Qt.ControlModifier)) {
             event.accepted = true
             Qt.quit()
+        } else if (event.matches(StandardKey.SelectAll)) {
+            event.accepted = true
+            gamesPage.selectAllGames()
         }
     }
     title: qsTr("Games")
@@ -326,6 +331,35 @@ Kirigami.Page {
         selectedIds = [gid]
         anchorId = gid
         syncIndexes(gid)
+    }
+
+    // Ctrl+A (widgets QTableView/QListWidget parity): every row the filter
+    // shows. The table mirror takes the whole set through
+    // applySelectionToTable.
+    function selectAllGames() {
+        var ids = []
+        for (var i = 0; i < gameFilter.rowCount(); i++) {
+            ids.push(gameFilter.idAt(i))
+        }
+        selectedIds = ids
+        anchorId = ids.length > 0 ? ids[0] : ""
+        if (viewMode === "list") {
+            applySelectionToTable()
+        } else if (viewMode === "icons") {
+            iconGrid.currentIndex = 0
+        }
+    }
+
+    // Clicking outside the rows drops the selection: the widgets
+    // QTableView cleared its selection on a viewport click that hit no
+    // model index. Called from the table's and the grid's empty area.
+    function clearSelection() {
+        selectedIds = []
+        anchorId = ""
+        if (gameTable.selectionModel !== null) {
+            gameTable.selectionModel.clearSelection()
+        }
+        iconGrid.currentIndex = -1
     }
 
     function syncIndexes(gid) {
@@ -1809,6 +1843,16 @@ Kirigami.Page {
                 }
             }
             onWidthChanged: gamesPage.fitGameColumn()
+
+            // Empty area of the viewport (below the last row): a tap there
+            // drops the selection. A handler, not a MouseArea: the view's
+            // Flickable swallows clicks on its own background, and a
+            // Flickable's children live in the scrolling content (which
+            // here is shorter than the viewport).
+            TapHandler {
+                objectName: "tableEmptyTap"
+                onTapped: gamesPage.clearSelection()
+            }
         }
         }
         // Foot rule above the status line: same hairline family as
@@ -1994,6 +2038,12 @@ Kirigami.Page {
             onRowTapped: (gid, mods) => gamesPage.tapGame(gid, mods)
             onMenuRequested: (gid) => gamesPage.openGameMenu(gid)
             onSettingsRequested: (gid) => gamesPage.openGameSettings(gid)
+        }
+        // Empty area of the viewport: a tap drops the selection (handler,
+        // not a MouseArea -- see the table's empty-area handler).
+        TapHandler {
+            objectName: "gridEmptyTap"
+            onTapped: gamesPage.clearSelection()
         }
         Kirigami.PlaceholderMessage {
             anchors.centerIn: parent
