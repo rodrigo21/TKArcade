@@ -929,6 +929,18 @@ def test_settings_defaults_roundtrip(qgui_app, xdg_env):
     assert C.load_defaults().gamemode.feral_gamemode is True
     assert C.load_defaults().general.menu_timeout == 11
     assert model.factoryGame("local-doom")["name"] == ""
+    # Reset applies the template (menu_timeout 11 above), not factory values.
+    assert model.templateGame("local-doom")["menu_timeout"] == 11
+    assert model.templateGame("local-doom")["appid"] == "local-doom"
+    # Downgrade gate: template and live file here are current, the last one
+    # stamps a future version.
+    assert model.needsNewerApp("local-doom", "") is False
+    assert model.needsNewerApp("", "") is False
+    C.game_file("local-new").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("local-new").write_text(
+        '[general]\nappid = "local-new"\nconfig_version = 999\n', encoding="utf-8"
+    )
+    assert model.needsNewerApp("local-new", "") is True
 
 
 def test_settings_coverage_reports(qgui_app, xdg_env):

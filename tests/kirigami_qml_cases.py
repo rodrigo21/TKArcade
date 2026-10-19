@@ -3642,7 +3642,7 @@ def test_settings_wine_flow(qgui_app, xdg_env):
 
 
 def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
-    """Reset confirms then persists factory now; Defaults edits the template."""
+    """Reset applies the Global Defaults template; Defaults edits it."""
     from PySide6.QtCore import QObject, QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
@@ -3654,6 +3654,14 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
     C.save(cfg)
+    C.save_profile("local-doom", "keepme", C.load("local-doom"))
+    # A customised Global Defaults template: Reset must apply *it*, never
+    # the built-in factory values (widgets _on_reset).
+    template = C.load_defaults()
+    template.general.name = "From Template"
+    template.general.custom_executable = "/bin/false"
+    template.general.menu_timeout = 9
+    C.save_defaults(template)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
@@ -3673,11 +3681,23 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     assert win.findChild(QObject, "settingsConfirm").property("visible") is True
     dlg.acceptConfirm()
     qgui_app.processEvents()
-    assert name.property("text") == ""
-    assert C.load("local-doom").general.name == ""
+    assert name.property("text") == "From Template"
+    live = C.load("local-doom")
+    assert live.general.name == "From Template"
+    assert live.general.custom_executable == "/bin/false"
+    assert live.general.menu_timeout == 9
+    # Profiles are never touched by a reset.
+    assert C.list_profiles("local-doom") == ["keepme"]
     dlg.openDefaults()
     qgui_app.processEvents()
     dswin = _modal_window(qgui_app, ("Global Defaults",))
+    # The defaults editor offers the widgets "Reset to Factory Defaults".
+    reset = dswin.findChild(QQuickItem, "settingsReset")
+    assert reset.property("visible") is True
+    assert reset.property("text") == "Reset to Factory Defaults"
+    _click(dswin, "settingsReset")
+    assert dswin.findChild(QQuickItem, "settingsTimeout").property("value") == 0
+    assert C.load_defaults().general.menu_timeout == 9  # untouched in memory only
     dswin.findChild(QQuickItem, "ntLaunch").setProperty("checked", False)
     save = dswin.findChild(QQuickItem, "settingsSave")
     pos = save.mapToScene(
@@ -3686,6 +3706,85 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     QTest.mouseClick(dswin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
     assert C.load_defaults().notifications.notify_on_launch is False
+    assert C.load_defaults().general.menu_timeout == 0
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_newer_version_gate(qgui_app, xdg_env):
+    """A newer-version config asks before Save downgrades it."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    C.game_file("local-new").parent.mkdir(parents=True, exist_ok=True)
+    C.game_file("local-new").write_text(
+        '[general]\nappid = "local-new"\nname = "Newer"\nconfig_version = 999\n',
+        encoding="utf-8",
+    )
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-new")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    name = swin.findChild(QQuickItem, "settingsName")
+    assert dlg.property("newerVersion") is True
+    name.setProperty("text", "Downgraded")
+    dlg.save()
+    qgui_app.processEvents()
+    confirm = win.findChild(QObject, "settingsConfirm")
+    assert confirm.property("visible") is True
+    assert dlg.property("confirmPurpose") == "newerApp"
+    assert dlg.property("visible") is True  # gate keeps the window open
+    assert "config_version = 999" in C.game_file("local-new").read_text(encoding="utf-8")
+    dlg.acceptConfirm()
+    qgui_app.processEvents()
+    assert dlg.property("newerVersion") is False
+    assert C.load("local-new").general.name == "Downgraded"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_profile_switch_save(qgui_app, xdg_env):
+    """Switching profiles with unsaved edits can Save them first."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    C.save_profile("local-doom", "slow", C.load("local-doom"))
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    name = swin.findChild(QQuickItem, "settingsName")
+    name.setProperty("text", "Edited Live")
+    dlg.requestProfileSwitch(0)
+    qgui_app.processEvents()
+    assert dlg.property("confirmPurpose") == "discardSwitch"
+    save = swin.findChild(QQuickItem, "settingsConfirmSave")
+    assert save is not None and save.property("visible") is True
+    # Kirigami.Dialog overlays never finish their enter fade offscreen, so
+    # synthetic clicks do not reach the footer: drive the accept directly.
+    dlg.acceptConfirmSave()
+    qgui_app.processEvents()
+    # Save kept the edit on the live file, then the switch happened.
+    assert C.load("local-doom").general.name == "Edited Live"
+    assert dlg.property("dialogProfile") == "slow"
+    assert name.property("text") == "Doom"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

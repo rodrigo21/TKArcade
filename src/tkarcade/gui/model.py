@@ -557,10 +557,48 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, result="QVariantMap")
     def factoryGame(self, appid: str) -> dict:
-        """Fresh built-in fields for Reset (unsaved until Save)."""
+        """Built-in factory fields (defaults editor Reset, unsaved until Save)."""
         cfg = cfgmod.GameConfig()
         cfg.general.appid = appid
         return self._game_to_map(cfg, appid)
+
+    @Slot(str, result="QVariantMap")
+    def templateGame(self, appid: str) -> dict:
+        """The user's Global Defaults template as fields for one game.
+
+        Widgets parity (_on_reset): Reset applies defaults.toml, never the
+        built-in factory values, and the AppID is kept. Profiles are not
+        touched (the caller clears the active profile).
+        """
+        try:
+            cfg = cfgmod.load_defaults()
+        except Exception as e:
+            log.warning("templateGame(%s) failed: %s", appid, e)
+            return {}
+        cfg.general.appid = appid
+        return self._game_to_map(cfg, appid)
+
+    @Slot(str, str, result=bool)
+    def needsNewerApp(self, appid: str, profile: str) -> bool:
+        """True when the source behind the dialog stamps a newer version.
+
+        Widgets _refresh_newer_flag parity: `profile` empty means the live
+        file, `appid` empty means the Global Defaults template. Gates Save
+        and Reset so a downgrade is explicit.
+        """
+        if appid:
+            path = (
+                cfgmod.profile_file(appid, profile)
+                if str(profile or "")
+                else cfgmod.game_file(appid)
+            )
+        else:
+            path = xdg.defaults_file()
+        try:
+            return cfgmod.needs_newer_app(path)
+        except Exception as e:
+            log.warning("needsNewerApp(%s, %s) failed: %s", appid, profile, e)
+            return False
 
     @Slot(str, "QVariantMap", result=str)
     def saveGame(self, appid: str, values) -> str:
@@ -604,10 +642,16 @@ class GameListModel(QAbstractTableModel):
 
     @staticmethod
     def _load_or_new(appid: str):
-        """The saved config, defaults for an unsaved Steam id, else None."""
+        """The saved config, defaults for an unsaved Steam id, else None.
+
+        Uses load_with_warning, so a config written by a newer TKArcade (or
+        an unreadable one) can still be overwritten once the GUI gate has
+        asked -- the widgets saved the same fallback config.
+        """
         if cfgmod.game_file(appid).is_file():
             try:
-                return cfgmod.load(appid)
+                cfg, _warning = cfgmod.load_with_warning(appid)
+                return cfg
             except Exception as e:
                 log.warning("saveGame(%s) failed: %s", appid, e)
                 return None
@@ -638,7 +682,7 @@ class GameListModel(QAbstractTableModel):
         self._apply_map(prof, data)
         try:
             cfgmod.save_profile(appid, active, prof)
-            live = cfgmod.load(appid)
+            live, _warning = cfgmod.load_with_warning(appid)
             live.general.active_profile = active
             cfgmod.save(live)
         except Exception as e:

@@ -360,6 +360,16 @@ Breaking config changes are called out explicitly under `Changed`.
 - Kirigami count properties live on the QMetaObject (drawer and
   status counts rendered `undefined` before); Steam play validates
   the AppID and drops the menu skip when the handoff fails.
+- Reset to Global Defaults applies the user's `defaults.toml` template
+  again (the built-in factory values had silently replaced it, ignoring
+  a customised template); the defaults editor gains the widgets "Reset
+  to Factory Defaults", in memory only so Cancel still discards it.
+- Save and Reset over a config written by a newer TKArcade ask first
+  and then really overwrite the file (the save path used to reject the
+  newer-version file outright, so the accepted downgrade failed).
+- Switching profiles with unsaved edits offers Save again (widgets
+  Save/Discard/Cancel); the old Discard/Cancel pair could only drop the
+  edits.
 
 ### Added
 - View switcher with per-view icons and Ctrl+1/2/3 shortcuts;

@@ -50,6 +50,11 @@ Window {
     property string pendingProfile: ""
     property string pendingName: ""
     property string confirmPurpose: ""
+    // Downgrade gate (widgets _newer_version): the source on screen was
+    // written by a newer TKArcade, so Save/Reset ask first. pendingGate
+    // remembers which action to retry once the user accepts.
+    property bool newerVersion: false
+    property string pendingGate: ""
     property string pendingBrowse: ""
     property var wineToolsData: []
     property var fields: ({})
@@ -106,6 +111,7 @@ Window {
         defaultsMode = true
         fields = gameModel.loadDefaults()
         pushToControls()
+        refreshNewerFlag()
         errorText = ""
         tabBar.currentIndex = 0
         gameModel.watchQuitKeys(gameSettings)
@@ -145,6 +151,14 @@ Window {
     function reload() {
         fields = gameModel.loadGame(editAppid)
         pushToControls()
+        refreshNewerFlag()
+    }
+
+    // Widgets _refresh_newer_flag: the live file, the active profile file
+    // or the Global Defaults template, whichever the dialog is showing.
+    function refreshNewerFlag() {
+        newerVersion = gameModel.needsNewerApp(
+            defaultsMode ? "" : editAppid, defaultsMode ? "" : dialogProfile)
     }
 
     // Read-only Proton tool/version row (widgets parity); tracks the Game
@@ -335,7 +349,7 @@ Window {
         if (isDirty()) {
             pendingProfile = name
             confirmLabel.text = qsTr(
-                "Discard unsaved changes and switch to profile '%1'? (the saved profile is kept.)").arg(name)
+                "You have unsaved changes. Save them before switching to profile '%1'?\n(The saved profile is kept.)").arg(name)
             confirmPurpose = "discardSwitch"
             confirmOk.text = qsTr("Discard")
             confirmDialog.open()
@@ -351,6 +365,7 @@ Window {
             pushToControls()
             gameModel.markActiveProfile(editAppid, "")
             lastLoaded = snapshot()
+            refreshNewerFlag()
             return
         }
         var content = gameModel.profileContent(editAppid, name)
@@ -365,6 +380,7 @@ Window {
         profileBox.currentIndex = Math.max(0, (profileBox.model || []).indexOf(name))
         gameModel.markActiveProfile(editAppid, name)
         lastLoaded = snapshot()
+        refreshNewerFlag()
     }
 
     function afterProfileSaved(name) {
@@ -375,6 +391,7 @@ Window {
         profileBox.model = (fresh.profiles || []).slice()
         profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(name))
         lastLoaded = snapshot()
+        refreshNewerFlag()
     }
 
     function acceptConfirm() {
@@ -405,15 +422,32 @@ Window {
                     lastLoaded = snapshot()
                 }
             }
-        } else if (confirmPurpose === "resetFactory") {
+        } else if (confirmPurpose === "resetDefaults") {
             confirmDialog.close()
-            var vals = gameModel.factoryGame(editAppid)
+            var vals = gameModel.templateGame(editAppid)
             vals.active_profile = ""
             if (gameModel.saveGame(editAppid, vals) === "") {
                 settingsError.text = qsTr("Could not reset the game.")
                 return
             }
             reload()
+        } else if (confirmPurpose === "newerApp") {
+            // Downgrade accepted: retry the action the gate interrupted.
+            confirmDialog.close()
+            newerVersion = false
+            var gate = pendingGate
+            pendingGate = ""
+            if (gate === "save") {
+                save()
+            } else if (gate === "saveLaunch") {
+                saveAndLaunch()
+            } else if (gate === "saveSwitch") {
+                if (saveFields()) {
+                    switchProfile(pendingProfile)
+                }
+            } else if (gate === "reset") {
+                resetDefaults()
+            }
         } else if (confirmPurpose === "clearPrefix") {
             confirmDialog.close()
             var msg = gameModel.clearCustomPrefix(editAppid)
@@ -424,15 +458,58 @@ Window {
         confirmPurpose = ""
     }
 
-    function resetFactory() {
+    // Profile switch with unsaved edits: Save keeps them on the current
+    // source first (widgets _confirm_discard_changes, Save default),
+    // Discard drops them, Cancel stays.
+    function acceptConfirmSave() {
+        confirmDialog.close()
+        if (pendingProfile === "") {
+            return
+        }
+        pendingGate = "saveSwitch"
+        if (saveFields()) {
+            switchProfile(pendingProfile)
+        }
+    }
+
+    // Ask before downgrading a config written by a newer TKArcade
+    // (widgets _confirm_newer_overwrite); acceptConfirm retries via
+    // pendingGate.
+    function askNewerOverwrite() {
+        confirmLabel.text = qsTr("%1 Saving now will downgrade it and may lose settings. Continue?")
+            .arg(qsTr("This configuration was written by a newer TKArcade."))
+        confirmPurpose = "newerApp"
+        confirmOk.text = qsTr("OK")
+        confirmDialog.open()
+    }
+
+    // Per game: apply the Global Defaults *template* (widgets _on_reset),
+    // written immediately -- a staged reset that Cancel silently discards
+    // proved too easy to mistake for applied.
+    function resetDefaults() {
+        if (editAppid === "") {
+            return
+        }
+        if (newerVersion) {
+            pendingGate = "reset"
+            askNewerOverwrite()
+            return
+        }
         var detail = dialogProfile !== ""
             ? qsTr("Unsaved changes to profile '%1' will be discarded (the saved profile is kept).").arg(dialogProfile)
             : (isDirty() ? qsTr("Unsaved changes will be discarded.")
                 : qsTr("This overwrites the saved game config."))
         confirmLabel.text = qsTr("Reset this game to the Global Defaults template now?\n%1").arg(detail)
-        confirmPurpose = "resetFactory"
+        confirmPurpose = "resetDefaults"
         confirmOk.text = qsTr("Reset")
         confirmDialog.open()
+    }
+
+    // Defaults editor: built-in factory values, in memory only -- Cancel
+    // discards them, Save writes defaults.toml (widgets _on_reset_factory).
+    function resetFactoryFields() {
+        fields = gameModel.factoryGame("")
+        pushToControls()
     }
 
     function collectEnv() {
@@ -770,19 +847,26 @@ Window {
     }
 
     function save() {
+        pendingGate = "save"
         if (saveFields()) {
             finish("saved")
         }
     }
 
-    // Write the form; false means a validation error is on screen and the
-    // window must stay open.
+    // Write the form; false means a validation error (or the downgrade
+    // gate, which needs pendingGate set by the caller) is on screen and
+    // the window must stay open.
     function saveFields() {
+        if (newerVersion) {
+            askNewerOverwrite()
+            return false
+        }
         if (defaultsMode) {
             if (!gameModel.saveDefaults(collect())) {
                 settingsError.text = qsTr("Could not save the defaults.")
                 return false
             }
+            newerVersion = false
             return true
         }
         var created = gameModel.saveGame(editAppid, collect())
@@ -793,6 +877,7 @@ Window {
             return false
         }
         lastLoaded = snapshot()
+        newerVersion = false
         if (editAppid === "" && page !== null) {
             page.select(created)
         }
@@ -801,6 +886,7 @@ Window {
 
     // "Save & Launch" (editor only): persist, then hand the launch back.
     function saveAndLaunch() {
+        pendingGate = "saveLaunch"
         if (saveFields()) {
             finish("launch")
         }
@@ -2133,9 +2219,13 @@ Window {
             }
             Controls.Button {
                 objectName: "settingsReset"
-                visible: !gameSettings.defaultsMode && gameSettings.editAppid !== ""
-                text: qsTr("Reset to Global Defaults")
-                onClicked: gameSettings.resetFactory()
+                visible: gameSettings.defaultsMode || gameSettings.editAppid !== ""
+                text: gameSettings.defaultsMode
+                    ? qsTr("Reset to Factory Defaults")
+                    : qsTr("Reset to Global Defaults")
+                onClicked: gameSettings.defaultsMode
+                    ? gameSettings.resetFactoryFields()
+                    : gameSettings.resetDefaults()
             }
             Item {
                 Layout.fillWidth: true
@@ -2341,10 +2431,11 @@ Window {
         id: confirmDialog
         objectName: "settingsConfirm"
         title: confirmPurpose === "deleteProfile" ? qsTr("Delete Profile")
-            : (confirmPurpose === "resetFactory" ? qsTr("Reset Game")
+            : (confirmPurpose === "resetDefaults" ? qsTr("Reset Game")
             : (confirmPurpose === "overwriteProfile" ? qsTr("Save Profile")
             : (confirmPurpose === "clearPrefix" ? qsTr("Clear Prefix")
-            : qsTr("Unsaved Changes"))))
+            : (confirmPurpose === "newerApp" ? qsTr("Newer Configuration")
+            : qsTr("Unsaved Changes")))))
         padding: Kirigami.Units.largeSpacing
         ColumnLayout {
             Controls.Label {
@@ -2364,6 +2455,12 @@ Window {
                 text: qsTr("OK")
                 highlighted: true
                 onClicked: gameSettings.acceptConfirm()
+            }
+            Controls.Button {
+                objectName: "settingsConfirmSave"
+                visible: confirmPurpose === "discardSwitch"
+                text: qsTr("Save")
+                onClicked: gameSettings.acceptConfirmSave()
             }
             Controls.Button {
                 text: qsTr("Cancel")
