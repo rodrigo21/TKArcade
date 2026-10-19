@@ -276,11 +276,35 @@ Kirigami.Page {
         gamesPage.scrollTableTo(row)
     }
 
+    function tablePageRows() {
+        // Qt item views page by the rows that fit the viewport.
+        return Math.max(1, Math.floor(gameTable.height / tableRowHeight()))
+    }
+
+    function moveTableSelectionPage(delta) {
+        moveTableSelection(delta * tablePageRows())
+    }
+
     function moveTableSelection(delta) {
         var current = gameTable.selectionModel.currentIndex
         var row = current !== undefined && current.valid ? current.row : 0
         row = Math.max(0, Math.min(gameFilter.rowCount() - 1, row + delta))
         tableSingleSelect(row)
+    }
+
+    function gridColumns() {
+        return Math.max(1, Math.floor(iconGrid.width / iconGrid.cellWidth))
+    }
+
+    function moveGridPage(delta) {
+        var step = gridColumns() * Math.max(1, Math.floor(iconGrid.height / iconGrid.cellHeight))
+        var count = iconGrid.count
+        if (count === 0) {
+            return
+        }
+        var target = Math.max(0, Math.min(count - 1, iconGrid.currentIndex + delta * step))
+        iconGrid.currentIndex = target
+        select(gameFilter.idAt(target))
     }
 
     function select(gid) {
@@ -1526,6 +1550,11 @@ Kirigami.Page {
             Layout.fillHeight: true
             clip: true
             model: gameFilter
+            // The view owns the arrow keys (the widgets QTableView had
+            // focus): the built-in navigation would move the current
+            // index behind the page's own selection bookkeeping.
+            focus: gamesPage.viewMode === "list"
+            keyNavigationEnabled: false
             // Drag/autofit can push content past the edge: an
             // as-needed bar brings the outer columns back.
             Controls.ScrollBar.horizontal: Controls.ScrollBar {
@@ -1722,6 +1751,24 @@ Kirigami.Page {
             Keys.onDownPressed: {
                 gamesPage.moveTableSelection(1)
             }
+            // Qt item-view keys (QTableView parity): Home/End and a page.
+            // The Keys type has no home/end/page signals, so these arrive
+            // through the generic handler.
+            Keys.onPressed: (event) => {
+                if (event.key === Qt.Key_Home) {
+                    event.accepted = true
+                    gamesPage.tableSingleSelect(0)
+                } else if (event.key === Qt.Key_End) {
+                    event.accepted = true
+                    gamesPage.tableSingleSelect(gameFilter.rowCount() - 1)
+                } else if (event.key === Qt.Key_PageUp) {
+                    event.accepted = true
+                    gamesPage.moveTableSelectionPage(-1)
+                } else if (event.key === Qt.Key_PageDown) {
+                    event.accepted = true
+                    gamesPage.moveTableSelectionPage(1)
+                }
+            }
             onWidthChanged: gamesPage.fitGameColumn()
         }
         }
@@ -1849,19 +1896,48 @@ Kirigami.Page {
         objectName: "iconGrid"
         anchors.fill: parent
         visible: gamesPage.viewMode === "icons"
+        // The view in front owns the keys (the widgets QListWidget in icon
+        // mode had focus); the arrows were dead without it.
+        focus: gamesPage.viewMode === "icons"
         model: gameFilter
         clip: true
         cellWidth: gamesPage.iconSize + Kirigami.Units.largeSpacing * 2
         cellHeight: gamesPage.iconSize + 64
         onCountChanged: gamesPage.ensureSelection()
-        Keys.onUpPressed: iconGrid.moveCurrentIndexUp()
-        Keys.onDownPressed: iconGrid.moveCurrentIndexDown()
-        Keys.onLeftPressed: iconGrid.moveCurrentIndexLeft()
-        Keys.onRightPressed: iconGrid.moveCurrentIndexRight()
+        // Qt item-view keys: arrows move the current cell, Home/End jump
+        // to the ends, Page keys move a screenful.
+        Keys.onUpPressed: {
+            iconGrid.moveCurrentIndexUp()
+            gamesPage.select(gameFilter.idAt(iconGrid.currentIndex))
+        }
+        Keys.onDownPressed: {
+            iconGrid.moveCurrentIndexDown()
+            gamesPage.select(gameFilter.idAt(iconGrid.currentIndex))
+        }
+        Keys.onLeftPressed: {
+            iconGrid.moveCurrentIndexLeft()
+            gamesPage.select(gameFilter.idAt(iconGrid.currentIndex))
+        }
+        Keys.onRightPressed: {
+            iconGrid.moveCurrentIndexRight()
+            gamesPage.select(gameFilter.idAt(iconGrid.currentIndex))
+        }
+        // Keys has no home/end/page signals: the generic handler.
         Keys.onPressed: (event) => {
-            if (event.key === Qt.Key_Up || event.key === Qt.Key_Down
-                    || event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
-                gamesPage.select(gameFilter.idAt(iconGrid.currentIndex))
+            if (event.key === Qt.Key_Home) {
+                event.accepted = true
+                iconGrid.currentIndex = 0
+                gamesPage.select(gameFilter.idAt(0))
+            } else if (event.key === Qt.Key_End) {
+                event.accepted = true
+                iconGrid.currentIndex = iconGrid.count - 1
+                gamesPage.select(gameFilter.idAt(iconGrid.count - 1))
+            } else if (event.key === Qt.Key_PageUp) {
+                event.accepted = true
+                gamesPage.moveGridPage(-1)
+            } else if (event.key === Qt.Key_PageDown) {
+                event.accepted = true
+                gamesPage.moveGridPage(1)
             }
         }
         delegate: GameIconDelegate {

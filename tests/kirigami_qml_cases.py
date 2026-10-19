@@ -176,6 +176,112 @@ def test_middle_click_opens_settings(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def _current_row(table):
+    """The row the table's selection model calls current (-1 when none)."""
+    cur = table.property("selectionModel").property("currentIndex")
+    return cur.row() if cur is not None and cur.isValid() else -1
+
+
+def _page_selected_ids(page):
+    """`selectedIds` as a Python list (the property is a JS array)."""
+    ids = page.property("selectedIds")
+    return ids.toVariant() if hasattr(ids, "toVariant") else ids
+
+
+def test_table_keyboard_navigation(qgui_app, xdg_env):
+    """The table owns the keys and navigates like the widgets QTableView.
+
+    Without the focus the arrow handlers were dead: the page root kept
+    the focus, so Up/Down (not to mention Home/End) never moved the
+    selection.
+    """
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    for i in range(30):
+        _save_one_game(f"local-k{i:02d}", f"Key {i:02d}")
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    table = win.findChild(QQuickItem, "gameTable")
+    page = win.findChild(QObject, "gamesPage")
+    assert win.property("activeFocusItem").objectName() == "gameTable"
+    rows = proxy.rowCount()
+    assert rows == 30
+
+    QTest.keyClick(win, Qt.Key.Key_Down)
+    QTest.qWait(80)
+    assert _current_row(table) == 1
+    assert _page_selected_ids(page) == [proxy.idAt(1)]
+
+    QTest.keyClick(win, Qt.Key.Key_End)
+    QTest.qWait(80)
+    assert _current_row(table) == rows - 1
+    assert _page_selected_ids(page) == [proxy.idAt(rows - 1)]
+
+    QTest.keyClick(win, Qt.Key.Key_Home)
+    QTest.qWait(80)
+    assert _current_row(table) == 0
+    assert _page_selected_ids(page) == [proxy.idAt(0)]
+
+    QTest.keyClick(win, Qt.Key.Key_PageDown)
+    QTest.qWait(80)
+    page_row = _current_row(table)
+    assert 0 < page_row < rows - 1
+    assert _page_selected_ids(page) == [proxy.idAt(page_row)]
+
+    QTest.keyClick(win, Qt.Key.Key_PageUp)
+    QTest.qWait(80)
+    assert _current_row(table) == 0
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_icon_grid_keyboard_navigation(qgui_app, xdg_env):
+    """The icons view takes the keys too: arrows, Home/End, Page keys."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    for i in range(30):
+        _save_one_game(f"local-k{i:02d}", f"Key {i:02d}")
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    grid = win.findChild(QQuickItem, "iconGrid")
+    page = win.findChild(QObject, "gamesPage")
+    page.setProperty("viewMode", "icons")
+    QTest.qWait(250)
+
+    grid.setProperty("currentIndex", 0)
+    QTest.qWait(60)
+    QTest.keyClick(win, Qt.Key.Key_Right)
+    QTest.qWait(80)
+    assert grid.property("currentIndex") == 1
+    assert _page_selected_ids(page) == [proxy.idAt(1)]
+
+    QTest.keyClick(win, Qt.Key.Key_End)
+    QTest.qWait(80)
+    assert grid.property("currentIndex") == proxy.rowCount() - 1
+    assert _page_selected_ids(page) == [proxy.idAt(proxy.rowCount() - 1)]
+
+    QTest.keyClick(win, Qt.Key.Key_Home)
+    QTest.qWait(80)
+    assert grid.property("currentIndex") == 0
+    assert _page_selected_ids(page) == [proxy.idAt(0)]
+
+    QTest.keyClick(win, Qt.Key.Key_PageDown)
+    QTest.qWait(80)
+    assert grid.property("currentIndex") > 0
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_header_sort_toggles_indicator_and_order(qgui_app, xdg_env):
     """Header taps drive proxy sort; the indicator follows the state."""
     from PySide6.QtCore import QObject, QUrl

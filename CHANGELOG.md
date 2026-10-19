@@ -391,6 +391,13 @@ Breaking config changes are called out explicitly under `Changed`.
   Save & Launch in the editor's launch mode, the current import page's
   own Import, Launch while it can launch); an open popup's accept goes
   first, and an editable TextArea keeps Return for its own newline.
+- Keyboard navigation in the game list (widgets parity): the views
+  never took focus, so the table's Up/Down — and the icons grid's
+  arrows — were dead code, and the table had no Home/End/Page keys at
+  all. The visible view now holds the focus like the widgets view did,
+  the TableView's own navigation is off (it moved the current index
+  behind the page's selection bookkeeping), and Home/End/PageUp/
+  PageDown move the selection through the same path as a click.
 
 ### Added
 - View switcher with per-view icons and Ctrl+1/2/3 shortcuts;
