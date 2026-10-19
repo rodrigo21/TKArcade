@@ -16,12 +16,20 @@ Window {
     // is one window with a source row, so the height follows the pages
     // and the list scrolls past the cap.
     readonly property real importListCap: Kirigami.Units.gridUnit * 22
+    // The height follows the page on screen: a StackLayout reports its
+    // tallest child, so the tarball page would stay as tall as an STL
+    // list loaded earlier until the window is reopened.
+    readonly property real pageHeight: importDialog.source === 0
+        ? tarballPage.implicitHeight
+        : importDialog.source === 1
+            ? stlPage.implicitHeight
+            : predPage.implicitHeight
     minimumWidth: Kirigami.Units.gridUnit * 24
     minimumHeight: Kirigami.Units.gridUnit * 10
     width: Kirigami.Units.gridUnit * 30
     height: Math.max(
         minimumHeight,
-        sourceRow.implicitHeight + Math.min(importListCap, stack.implicitHeight)
+        sourceRow.implicitHeight + Math.min(importListCap, pageHeight)
             + importFooter.implicitHeight
             + body.spacing * 2 + body.anchors.margins * 2)
     visible: false
@@ -106,11 +114,11 @@ Window {
             }
         }
         StackLayout {
-            id: stack
             Layout.fillWidth: true
             Layout.fillHeight: true
             currentIndex: importDialog.source
             ColumnLayout {
+                id: tarballPage
                 spacing: Kirigami.Units.smallSpacing
                 Controls.Label {
                     Layout.fillWidth: true
@@ -146,6 +154,7 @@ Window {
                 }
             }
             ColumnLayout {
+                id: stlPage
                 spacing: Kirigami.Units.smallSpacing
                 Controls.Label {
                     Layout.fillWidth: true
@@ -223,6 +232,7 @@ Window {
                 }
             }
             ColumnLayout {
+                id: predPage
                 spacing: Kirigami.Units.smallSpacing
                 Controls.Label {
                     Layout.fillWidth: true

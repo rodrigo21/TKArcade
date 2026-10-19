@@ -86,10 +86,13 @@ rewrite pushed history or tags.
 - Dialog windows are sized, never a fixed rectangle: the width follows
   the widgets reference (r240, measured off the system install) and the
   height the body content plus the body margins, with lists capped so a
-  long list scrolls instead of growing the window. A height that
-  follows Repeater-built content means the ScrollView syncs its content
-  size a layout pass **after** the window is mapped: tests wait
-  (`QTest.qWait`) before asserting `contentHeight`.
+  long list scrolls instead of growing the window; a stacked page reads
+  the **current** page's implicit height (a `StackLayout` reports its
+  tallest child, so the backup-file page would stay as tall as an STL
+  list loaded earlier). A height that follows Repeater-built content
+  means the ScrollView syncs its content size a layout pass **after**
+  the window is mapped: tests wait (`QTest.qWait`) before asserting
+  `contentHeight`.
 - Dialog bodies keep the widgets `QDialog` layout margin
   (`Kirigami.Units.smallSpacing * 2`, 12px where Breeze uses 11px):
   `largeSpacing` (18px) reads as inset next to the widgets dialogs.

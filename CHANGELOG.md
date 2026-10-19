@@ -468,7 +468,9 @@ Breaking config changes are called out explicitly under `Changed`.
   with a height that hugs its content instead of a fixed 198px box, and
   Scan (Add Games) and Import size themselves to their lists instead of
   a fixed rectangle — the STL import buttons leave the scrolling list
-  for a widgets-style Select All / Select None / Import row.
+  for a widgets-style Select All / Select None / Import row, and the
+  Import window follows the page on screen (a long STL list no longer
+  stretches the backup-file page).
 - Environment tab: a game without variables opens with one empty row
   already there (the widgets table always showed one to type into; an
   empty key is still dropped on save), the four buttons are centered and
