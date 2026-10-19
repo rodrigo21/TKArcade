@@ -26,8 +26,9 @@ sha256sums=('SKIP')
 pkgver() {
     cd "$_basename"
 
-    # No tags yet (pre-0.1): fall back to rev-count versioning.
-    (git describe --long --tags 2>/dev/null || echo "v0.0.0-$(git rev-list --count HEAD)-g$(git rev-parse --short HEAD)") | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+    # Release tags are vX.Y.Z; the legacy widgets-* tag and branch tags
+    # stay out of the version. No tags yet (pre-0.1): rev-count fallback.
+    (git describe --long --tags --match 'v*' 2>/dev/null || echo "v0.0.0-$(git rev-list --count HEAD)-g$(git rev-parse --short HEAD)") | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 build() {
