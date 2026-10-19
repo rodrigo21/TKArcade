@@ -40,8 +40,19 @@ PRESETS: dict[str, Preset] = {
         proton=("ge", "cachyos", "dw"),
         note="Needs a Wayland session; no-op where the build lacks winewayland.",
     ),
-    "Disable VSync (Mesa)": Preset(vars={"vblank_mode": "0"}, drivers=("amd", "intel")),
-    "Disable VSync (NVIDIA)": Preset(vars={"__GL_SYNC_TO_VBLANK": "0"}, drivers=("nvidia",)),
+    "Disable VSync (Mesa)": Preset(
+        vars={"vblank_mode": "0"},
+        drivers=("amd", "intel"),
+        note="OpenGL (GLX) only: it is one of Mesa's driconf options and the "
+        "environment variable overrides drirc (checked against Mesa's "
+        "xmlconfig test). Vulkan ignores it "
+        "(MESA_VK_WSI_PRESENT_MODE/DXVK have their own).",
+    ),
+    "Disable VSync (NVIDIA)": Preset(
+        vars={"__GL_SYNC_TO_VBLANK": "0"},
+        drivers=("nvidia",),
+        note="OpenGL (GLX) only, per the driver README; Vulkan/DXVK ignore it.",
+    ),
     "FSR4 Upgrade (Proton)": Preset(
         vars={"PROTON_FSR4_UPGRADE": "1"},
         proton=("ge", "cachyos", "dw"),
