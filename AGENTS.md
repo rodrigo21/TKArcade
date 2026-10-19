@@ -36,9 +36,14 @@ The suite must pass with and without `pytest-qt` installed: never
 monkeypatch Qt globals at fixture scope (patch inside the test body so
 teardown hooks see a healthy QApplication).
 QML cases live in `tests/kirigami_qml_cases.py` (not collected by
-default); `tests/test_kirigami_qml.py` runs each in its own subprocess
-(the whole file segfaults in one process on Qt 6.12 GC teardown).
+default); `tests/test_kirigami_qml.py` runs them in short-lived
+subprocess batches (the whole file aborts in one process on Qt 6.12 GC
+teardown) and re-runs in isolation whatever a crashing batch swallowed.
 Single case: `pytest "tests/kirigami_qml_cases.py::<name>" -o python_files="*.py"`.
+Fast loop without the QML suite (~15s; the QML driver is marked `qml`):
+`pytest tests/ -q -m "not qml"`. The driver reads `TKARCADE_QML_BATCH`
+(cases per subprocess, default 8) and `TKARCADE_QML_WORKERS` (parallel
+subprocesses, default 1 — more flakes timing-sensitive cases under load).
 
 GUI changes need an offscreen screenshot check. Push each commit batch
 created during build mode (the Arch package builds from git); never

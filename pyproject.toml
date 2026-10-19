@@ -25,6 +25,9 @@ dev = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+  "qml: offscreen QML suite (slow: one short-lived subprocess per case)",
+]
 
 # AppImage (single entry) via pyproject-appimage; see packaging/appimage/.
 [tool.pyproject-appimage]
