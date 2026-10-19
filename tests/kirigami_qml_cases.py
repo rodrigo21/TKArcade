@@ -2519,6 +2519,47 @@ def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_hamburger_global_defaults_entry(qgui_app, xdg_env):
+    """The hamburger menu opens the Global Defaults editor (widgets menu)."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "1"
+    C.save(cfg)
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    burger = win.findChild(QQuickItem, "hamburgerButton")
+    menu = win.findChild(QObject, "hamburgerMenu")
+    center = burger.mapToScene(
+        QPointF(burger.property("width") / 2, burger.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, center)
+    for _ in range(20):
+        qgui_app.processEvents()
+        if menu.property("visible"):
+            break
+    entry = menu.findChild(QObject, "menuDefaults")
+    assert entry is not None
+    assert entry.property("text") == "Global Defaults..."
+    _fire(entry)
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    assert dlg.property("defaultsMode") is True
+    assert dlg.property("visible") is True
+    dswin = _modal_window(qgui_app, ("Global Defaults",))
+    assert (
+        dswin.findChild(QQuickItem, "settingsReset").property("text") == "Reset to Factory Defaults"
+    )
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     """Gear opens the columns dialog; header right-click opens its menu."""
     from PySide6.QtCore import QObject, QPointF, Qt

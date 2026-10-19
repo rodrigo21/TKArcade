@@ -232,7 +232,9 @@ def _tray_callbacks(root, log) -> dict:
         root.findChild(QObject, "aboutDialog").open()
 
     def open_defaults() -> None:
-        root.findChild(QObject, "gameSettings").openDefaults()
+        # Same path as the hamburger entry: sets the transient parent so the
+        # editor is centered on the main window.
+        root.findChild(QObject, "gamesPage").openDefaultsSettings()
 
     return {
         "toggle": _tray_action(log, "toggle", toggle_visible),

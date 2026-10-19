@@ -370,6 +370,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Switching profiles with unsaved edits offers Save again (widgets
   Save/Discard/Cancel); the old Discard/Cancel pair could only drop the
   edits.
+- Global Defaults is reachable from the hamburger menu (it was
+  tray-only, so a shell without a tray could not open the editor).
 
 ### Added
 - View switcher with per-view icons and Ctrl+1/2/3 shortcuts;

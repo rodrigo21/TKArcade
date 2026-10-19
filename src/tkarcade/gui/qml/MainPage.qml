@@ -1059,6 +1059,11 @@ Kirigami.Page {
                                         }
                                     }
                                     Controls.MenuItem {
+                                        objectName: "menuDefaults"
+                                        text: qsTr("Global Defaults...")
+                                        onTriggered: gamesPage.openDefaultsSettings()
+                                    }
+                                    Controls.MenuItem {
                                         text: qsTr("About...")
                                         onTriggered: aboutDialog.open()
                                     }
@@ -1966,6 +1971,14 @@ Kirigami.Page {
         gameSettings.page = gamesPage
         gameSettings.transientParent = Controls.ApplicationWindow.window
         gameSettings.openNew()
+    }
+
+    // The Global Defaults editor (same window in defaults mode), reachable
+    // from the tray and the hamburger like the widgets Settings menu.
+    function openDefaultsSettings() {
+        gameSettings.page = gamesPage
+        gameSettings.transientParent = Controls.ApplicationWindow.window
+        gameSettings.openDefaults()
     }
 
     function settingsOpen() {
