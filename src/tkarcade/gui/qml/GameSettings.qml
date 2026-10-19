@@ -1024,6 +1024,13 @@ Window {
                 Qt.quit()
             }
         }
+        focus: true
+        // Enter hits the default button like the widgets QDialog (an open
+        // popup's accept first, else ours); a focused TextArea keeps Return.
+        Keys.onReturnPressed: (event) => {
+            event.accepted = true
+            gameModel.pressDefault(gameSettings, ["settingsSaveLaunch", "settingsSave"])
+        }
         Controls.TabBar {
             id: tabBar
             objectName: "settingsTabs"

@@ -383,6 +383,14 @@ Breaking config changes are called out explicitly under `Changed`.
   cancel outcome from `onClosing`), and an open popup — a confirmation
   dialog or a combo menu — is dismissed first, in the widgets order,
   instead of the window closing behind it.
+- Enter activates a dialog's default button (widgets parity): the QML
+  `Window`s ignored Return, so About, Preferences, Scan, Import, Add,
+  the game settings, the picker, Session History and the pre-launch
+  menu could only be confirmed with the mouse. Every dialog body now
+  takes the key and fires the button the widgets made default (Save,
+  Save & Launch in the editor's launch mode, the current import page's
+  own Import, Launch while it can launch); an open popup's accept goes
+  first, and an editable TextArea keeps Return for its own newline.
 
 ### Added
 - View switcher with per-view icons and Ctrl+1/2/3 shortcuts;

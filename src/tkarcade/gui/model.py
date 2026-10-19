@@ -123,8 +123,8 @@ class _EscapeFilter(QObject):
     it, and with no field focused its focus item is the window root, so the
     key never reaches a QML `Keys` handler on the body. The popups go
     first: a Kirigami dialog in these windows does not take focus (the
-    button that opened it keeps it), so Escape would otherwise close the
-    whole window behind an open confirmation.
+    button that opened it keeps it), so its own CloseOnEscape never sees
+    the key and Escape would otherwise close the whole window behind it.
     """
 
     def eventFilter(self, watched, event):
@@ -145,15 +145,49 @@ class _EscapeFilter(QObject):
     def _close_popup(window) -> bool:
         """Close the last opened popup under `window` (False when none)."""
         try:
-            opened = [
-                child
-                for child in window.findChildren(QObject)
-                if child.metaObject().indexOfProperty("opened") >= 0
-                and bool(child.property("opened"))
-            ]
+            opened = _opened_popups(window)
             return bool(opened) and QMetaObject.invokeMethod(opened[-1], "close")
         except Exception:
             return False
+
+
+def _opened_popups(window) -> list:
+    """The opened popups under `window`, in tree order (never raises).
+
+    Everything that can be dismissed or accepted exposes `opened` (Popup,
+    Kirigami.Dialog, Menu); the last one is the innermost of the open ones.
+    """
+    opened = []
+    try:
+        for child in window.findChildren(QObject):
+            if child.metaObject().indexOfProperty("opened") < 0:
+                continue
+            if child.property("opened"):
+                opened.append(child)
+    except Exception:
+        pass
+    return opened
+
+
+def _highlighted_button(popup):
+    """The popup's clickable accept button: its highlighted one, or None.
+
+    Our dialog button rows keep the accept button `highlighted` (see
+    AGENTS.md), which is what Enter has to hit inside an open popup.
+    """
+    for child in popup.findChildren(QObject):
+        try:
+            if child.metaObject().indexOfProperty("highlighted") < 0:
+                continue
+            if (
+                child.property("highlighted")
+                and child.property("visible")
+                and child.property("enabled")
+            ):
+                return child
+        except Exception:
+            continue
+    return None
 
 
 class GameListModel(QAbstractTableModel):
@@ -2276,6 +2310,35 @@ class GameListModel(QAbstractTableModel):
                 window.installEventFilter(self._escape_filter)
         except Exception as e:
             log.warning("watchDialogKeys failed: %s", e)
+
+    @Slot(QObject, list)
+    def pressDefault(self, window, names) -> None:
+        """Enter in a dialog: the popup's accept button, else the named one.
+
+        The widgets QDialogs sent Enter to their default button, and an
+        open modal QMessageBox took it first. QML buttons ignore Enter, so
+        each dialog body calls this from its `Keys.onReturnPressed` (a
+        window `Shortcut` would steal the key from an editable TextArea,
+        which has to keep it). `names` lists the dialog's default buttons
+        in priority order; the first visible, enabled one fires — the
+        settings window uses that to make Save & Launch the default in
+        launch mode, while a combo page keeps Enter on its own Import.
+        """
+        try:
+            opened = _opened_popups(window)
+            target = _highlighted_button(opened[-1]) if opened else None
+            if target is None:
+                for name in names or ():
+                    candidate = window.findChild(QObject, str(name))
+                    if candidate is None:
+                        continue
+                    if candidate.property("visible") and candidate.property("enabled"):
+                        target = candidate
+                        break
+            if target is not None:
+                QMetaObject.invokeMethod(target, "clicked")
+        except Exception as e:
+            log.warning("pressDefault failed: %s", e)
 
     @Slot(result=bool)
     def hideOnClose(self) -> bool:

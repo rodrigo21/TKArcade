@@ -2156,6 +2156,104 @@ def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_enter_presses_the_default_button(qgui_app, xdg_env):
+    """Enter hits the widget's default button (OK, Save, Close)."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    _save_one_game("local-doom", "Doom")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    about = win.findChild(QObject, "aboutDialog")
+    about.open()
+    window = _modal_window(qgui_app, ("About TKArcade",))
+    _settle_focus(window)
+    QTest.keyClick(window, Qt.Key.Key_Return)
+    assert _wait_for(lambda: about.property("visible") is False), "About ignored Enter"
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    _settle_focus(swin)
+    dialog = win.findChild(QObject, "gameSettings")
+    name = swin.findChild(QQuickItem, "settingsName")
+    name.setProperty("text", "Doom II")
+    QTest.keyClick(swin, Qt.Key.Key_Return)
+    assert _wait_for(lambda: dialog.property("visible") is False), "settings ignored Enter"
+    assert C.load("local-doom").general.name == "Doom II"
+    history = win.findChild(QObject, "historyView")
+    history.open()
+    window = _modal_window(qgui_app, ("Session History",))
+    _settle_focus(window)
+    QTest.keyClick(window, Qt.Key.Key_Return)
+    assert _wait_for(lambda: history.property("visible") is False), "History ignored Enter"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_enter_accepts_the_open_confirm(qgui_app, xdg_env):
+    """Enter goes to the open popup's accept button first (QMessageBox parity)."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    _save_one_game("local-doom", "Doom")
+    template = C.load_defaults()
+    template.general.name = "From Template"
+    C.save_defaults(template)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    _settle_focus(swin)
+    dialog = win.findChild(QObject, "gameSettings")
+    confirm = win.findChild(QObject, "settingsConfirm")
+    dialog.resetDefaults()
+    assert _wait_for(lambda: confirm.property("opened") is True), "confirm did not open"
+    QTest.keyClick(swin, Qt.Key.Key_Return)
+    assert _wait_for(lambda: confirm.property("opened") is False), "Enter missed the confirm"
+    assert dialog.property("visible") is True  # still the settings window
+    assert C.load("local-doom").general.name == "From Template"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_enter_keeps_the_text_area_newline(qgui_app, xdg_env):
+    """Enter in an editable TextArea stays a newline (never the default button)."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    _settle_focus(swin)
+    dialog = win.findChild(QObject, "gameSettings")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 8)
+    notes = swin.findChild(QQuickItem, "settingsNotes")
+    notes.forceActiveFocus()
+    QTest.qWait(120)
+    before = notes.property("text")
+    QTest.keyClick(swin, Qt.Key.Key_Return)
+    assert _wait_for(lambda: notes.property("text") != before), "TextArea lost Return"
+    assert dialog.property("visible") is True  # the settings window never saved
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_quit_shortcut_is_application_modal_proof(qgui_app, xdg_env):
     """Ctrl+Q lives at application scope so modal windows can't eat it."""
     from PySide6.QtCore import QObject, Qt
@@ -2198,6 +2296,32 @@ def test_scan_flow_adds_steam_game(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
     assert C.game_file("99").exists()
     assert C.game_file("100").exists()
+    assert proxy.rowCount() == 2
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_scan_enter_adds_selected(qgui_app, xdg_env, monkeypatch):
+    """Enter on the scan window adds the selected games (its default button)."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtTest import QTest
+
+    import tkarcade.steam as steammod
+    from tkarcade import config as C
+
+    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3"), ("100", "Quake 4")])
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "scanDialog")
+    dialog.setProperty("candidates", [["99", "Doom 3"], ["100", "Quake 4"]])
+    dialog.open()
+    swin = _modal_window(qgui_app, ("Add Games",))
+    _settle_focus(swin)
+    QTest.keyClick(swin, Qt.Key.Key_Return)
+    assert _wait_for(lambda: C.game_file("100").exists()), "Enter added nothing"
+    assert C.game_file("99").exists()
     assert proxy.rowCount() == 2
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -2282,6 +2406,41 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     assert real == []
     win.close()
     _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_prefs_enter_saves(qgui_app, xdg_env):
+    """Enter saves the Preferences window (the widgets default button)."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "prefsDialog")
+    dialog.open()
+    swin = _modal_window(qgui_app, ("Preferences",))
+    dialog.setProperty(
+        "values",
+        {
+            "showPreview": True,
+            "trayEnable": False,
+            "trayIcon": "mono",
+            "minimizeToTray": False,
+            "closeToTray": False,
+            "trayQuickLaunch": False,
+            "trayQuickCount": 3,
+            "sgdbApiKey": "secret",
+        },
+    )
+    _settle_focus(swin)
+    QTest.keyClick(swin, Qt.Key.Key_Return)
+    assert _wait_for(lambda: C.load_preferences().sgdb_api_key == "secret"), "Enter ignored"
+    assert _wait_for(lambda: dialog.property("visible") is False), "Save left the window open"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
     qgui_app.processEvents()
 
 
@@ -3278,6 +3437,18 @@ def _opened_popups(parent):
     return names
 
 
+def _settle_focus(window):
+    """Wait for a dialog window to take focus (its body owns Return).
+
+    A freshly mapped dialog has no focus item yet offscreen (no window
+    manager activates it): the first key event is delivered to the window
+    root and a `Keys` handler on the body never sees it.
+    """
+    assert _wait_for(lambda: window.property("activeFocusItem") is not None), (
+        "dialog window never took focus"
+    )
+
+
 def _hit_reaches(host, target, pos):
     """Whether the hit test from the window root reaches `target`.
 
@@ -3396,6 +3567,27 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
     created = proxy.idAt(0)
     assert created.startswith("local-")
     assert C.load(created).general.name == "Doom"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_add_dialog_enter_confirms(qgui_app, xdg_env):
+    """Enter on the Add window confirms the source (its default button)."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    _click(win, "titleAdd")
+    add = _modal_window(qgui_app, ("Add Game",))
+    add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
+    _settle_focus(add)
+    QTest.keyClick(add, Qt.Key.Key_Return)
+    swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsName").property("text") == ""
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3650,6 +3842,37 @@ def test_import_tarball_flow(qgui_app, xdg_env, tmp_path):
     qgui_app.processEvents()
 
 
+def test_import_enter_imports_the_current_page(qgui_app, xdg_env, tmp_path):
+    """Enter imports on the current page (its own button, never Close)."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "99"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    tarball = tmp_path / "backup.tar.gz"
+    assert "Exported to" in model.exportTarball(str(tarball))
+    C.game_file("99").unlink()
+    dlg = win.findChild(QObject, "importDialog")
+    dlg.open()
+    swin = _modal_window(qgui_app, ("Import Configurations",))
+    _settle_focus(swin)
+    dlg.setProperty("tarballPath", str(tarball))
+    QTest.keyClick(swin, Qt.Key.Key_Return)
+    assert _wait_for(lambda: C.game_file("99").is_file()), "Enter did not import"
+    page = win.findChild(QObject, "gamesPage")
+    assert page.property("notice").startswith("Imported")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_quit_keys_on_every_window(qgui_app, xdg_env):
     """Every window handles Ctrl+Q through the focus chain (Shortcut backup)."""
     import pathlib
@@ -3695,6 +3918,34 @@ def test_every_dialog_watches_escape(qgui_app, xdg_env):
     ):
         src = (qml / name).read_text()
         assert "watchDialogKeys" in src, name
+
+
+def test_every_dialog_has_a_default_button(qgui_app, xdg_env):
+    """Every dialog body routes Enter to its default button.
+
+    QQC2 buttons ignore Enter, so `Keys.onReturnPressed` on the body is
+    what reproduces the widgets QDialog default button (a window
+    `Shortcut` would steal the key from an editable TextArea).
+    """
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    qml = pathlib.Path(kapp.__file__).parent / "qml"
+    for name in (
+        "AboutDialog.qml",
+        "AddDialog.qml",
+        "EditorPicker.qml",
+        "GameSettings.qml",
+        "HistoryView.qml",
+        "ImportDialog.qml",
+        "PrefsDialog.qml",
+        "PrelaunchMenu.qml",
+        "ScanDialog.qml",
+    ):
+        src = (qml / name).read_text()
+        assert "Keys.onReturnPressed" in src, name
+        assert "gameModel.pressDefault" in src, name
 
 
 def test_kirigami_quit_action_neutered():
@@ -4764,6 +5015,42 @@ def test_editor_escape_reports_cancelled(qgui_app, xdg_env):
     _editor_finish(qgui_app, engine, [swin])
 
 
+def test_editor_enter_saves_and_launches(qgui_app, xdg_env):
+    """Enter reports "launch": a launch-capable editor defaults to Save & Launch.
+
+    The widgets made `b_save_launch` the default in launch mode
+    (game_dialog.py), Save only otherwise.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, appid="local-doom")
+    swin = _editor_window(qgui_app, "Game Settings")
+    _settle_focus(swin)
+    QTest.keyClick(swin, Qt.Key.Key_Return)
+    assert _wait_for(lambda: bool(decided)), "Enter reported nothing"
+    assert decided == [("launch", "local-doom")]
+    _editor_finish(qgui_app, engine, [swin])
+
+
+def test_prelaunch_menu_enter_launches(qgui_app, xdg_env):
+    """Enter on the pre-launch menu launches (the widgets default button)."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(
+        qgui_app, mode="menu", appid="local-doom", name="Doom"
+    )
+    menu = _editor_window(qgui_app, "TKArcade — Doom")
+    _settle_focus(menu)
+    QTest.keyClick(menu, Qt.Key.Key_Return)
+    assert _wait_for(lambda: bool(decided)), "Enter reported nothing"
+    assert decided == [("launch", "local-doom")]
+    _editor_finish(qgui_app, engine, [menu])
+
+
 def test_editor_picker_escape_reports_cancelled(qgui_app, xdg_env):
     """Escape on the picker reports the empty AppID (widgets parity)."""
     from PySide6.QtCore import Qt
@@ -4881,6 +5168,25 @@ def test_editor_pick_cancel_reports_cancelled(qgui_app, xdg_env):
     _click_editor_button(qgui_app, picker, "editorPickCancel")
     assert decided == [("cancelled", "")]
     _editor_finish(qgui_app, engine, [picker])
+
+
+def test_editor_picker_enter_picks(qgui_app, xdg_env):
+    """Enter on the picker takes the selected game (its default button)."""
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    _root, engine, _model, decided, _warnings = _load_editor(qgui_app, pick=True)
+    picker = _editor_window(qgui_app, "Edit Game")
+    box = picker.findChild(QObject, "editorPickBox")
+    assert _wait_for(lambda: box.property("count") >= 1), "picker never listed a game"
+    _settle_focus(picker)
+    QTest.keyClick(picker, Qt.Key.Key_Return)
+    swin = _editor_window(qgui_app, "Game Settings")
+    assert decided == []  # the pick opened the editor, it did not decide
+    assert swin.findChild(QQuickItem, "settingsName").property("text") == "Doom"
+    _editor_finish(qgui_app, engine, [picker, swin])
 
 
 def test_prelaunch_menu_opens_settings_and_launches(qgui_app, xdg_env):

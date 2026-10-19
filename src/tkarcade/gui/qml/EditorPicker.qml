@@ -58,6 +58,13 @@ Window {
         anchors.fill: parent
         // Widgets QDialog layout margin: 12px (Breeze uses 10).
         anchors.margins: Kirigami.Units.smallSpacing * 3
+        focus: true
+        // Enter hits the default button like the widgets QDialog (an open
+        // popup's accept first, else ours); a focused TextArea keeps Return.
+        Keys.onReturnPressed: (event) => {
+            event.accepted = true
+            gameModel.pressDefault(picker, ["editorPickOk"])
+        }
         Controls.Label {
             text: qsTr("Game:")
             Layout.fillWidth: true
