@@ -22,7 +22,7 @@ Window {
     minimumWidth: Kirigami.Units.gridUnit * 24
     minimumHeight: Kirigami.Units.gridUnit * 8
     width: Kirigami.Units.gridUnit * 26
-    height: content.implicitHeight + Kirigami.Units.largeSpacing * 2
+    height: content.implicitHeight + content.anchors.margins * 2
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -128,7 +128,8 @@ Window {
     ColumnLayout {
         id: content
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.largeSpacing
+        // Widgets QDialog layout margin (11px at the default font size).
+        anchors.margins: Kirigami.Units.smallSpacing * 2
         spacing: Kirigami.Units.smallSpacing
 
         RowLayout {

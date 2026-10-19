@@ -21,7 +21,7 @@ Window {
     minimumWidth: Kirigami.Units.gridUnit * 20
     minimumHeight: Kirigami.Units.gridUnit * 14
     width: Kirigami.Units.gridUnit * 22
-    height: body.implicitHeight + Kirigami.Units.largeSpacing * 2
+    height: body.implicitHeight + body.anchors.margins * 2
     visible: false
     color: Kirigami.Theme.backgroundColor
 

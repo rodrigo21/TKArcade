@@ -90,6 +90,10 @@ rewrite pushed history or tags.
   follows Repeater-built content means the ScrollView syncs its content
   size a layout pass **after** the window is mapped: tests wait
   (`QTest.qWait`) before asserting `contentHeight`.
+- Dialog bodies keep the widgets `QDialog` layout margin
+  (`Kirigami.Units.smallSpacing * 2`, 12px where Breeze uses 11px):
+  `largeSpacing` (18px) reads as inset next to the widgets dialogs.
+  `AboutDialog` is the exception (a `QMessageBox` pads its label more).
 - A layout item's maximum size defaults to its implicit size, so a
   collapsed `SectionBox` (frame hidden, title checkbox the only visible
   child) shrinks to the checkbox unless the maximum hint is widened:

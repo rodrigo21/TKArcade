@@ -927,7 +927,9 @@ Window {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.largeSpacing
+        // Widgets QDialog layout margin (11px at the default font size):
+        // largeSpacing left the tab body visibly inset.
+        anchors.margins: Kirigami.Units.smallSpacing * 2
         spacing: Kirigami.Units.smallSpacing
         // Focus-chain quit (see MainPage): fires even where the
         // Shortcut map stays silent.

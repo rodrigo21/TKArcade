@@ -55,7 +55,8 @@ Window {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.largeSpacing
+        // Widgets QDialog layout margin (11px at the default font size).
+        anchors.margins: Kirigami.Units.smallSpacing * 2
         Controls.Label {
             text: qsTr("Game:")
             Layout.fillWidth: true

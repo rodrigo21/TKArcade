@@ -20,7 +20,7 @@ Window {
     minimumWidth: Kirigami.Units.gridUnit * 20
     minimumHeight: Kirigami.Units.gridUnit * 16
     width: Kirigami.Units.gridUnit * 23
-    height: body.implicitHeight + Kirigami.Units.largeSpacing * 2
+    height: body.implicitHeight + body.anchors.margins * 2
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -61,7 +61,8 @@ Window {
     ColumnLayout {
         id: body
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.largeSpacing
+        // Widgets QDialog layout margin (11px at the default font size).
+        anchors.margins: Kirigami.Units.smallSpacing * 2
         spacing: Kirigami.Units.smallSpacing
         // Focus-chain quit (see MainPage): fires even where the
         // Shortcut map stays silent.
