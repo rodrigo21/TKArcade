@@ -48,7 +48,10 @@ per CPU capped at 8; parallel runs can flake timing-sensitive cases
 under load, set 1 to force serial). `pytest -v -rP
 tests/test_kirigami_qml.py` prints one line per finished batch with its
 wall time; the `-git` PKGBUILD `check()` runs it that way so a slow
-build names the culprit (the driver is one test, ~85% of the wall time).
+build names the culprit (the driver is one test, ~85% of the wall time)
+and adds `--show-capture=stdout`: plain `-rP` also dumps the captured
+log/stderr of every passing test, and those expected warnings and errors
+read like build failures.
 
 GUI changes need an offscreen screenshot check. Push each commit batch
 created during build mode (the Arch package builds from git); never

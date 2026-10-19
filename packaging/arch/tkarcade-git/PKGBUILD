@@ -43,9 +43,12 @@ build() {
 check() {
     cd "$_basename"
 
-    # -v names every finished test (the stalled one is the next), -rP
-    # prints the QML driver's per-batch progress, --durations the slowest.
-    QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v -rP --durations=25
+    # -v names every finished test (the stalled one is the next) and -rP
+    # prints the QML driver's per-batch progress; --show-capture=stdout
+    # limits that to stdout, so the captured log/stderr of the passing
+    # tests (expected warnings and errors) does not read as a failure.
+    # --durations names the slowest test.
+    QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v -rP --show-capture=stdout --durations=25
 }
 
 package() {
