@@ -42,16 +42,19 @@
   (`wlr-randr`/`kanshi`), X11 (`xrandr`), `off`.
 - [x] Per-game audio output: route to a chosen sink via `pactl`/`pw-cli`
   on launch, restore on exit.
-- [ ] Audio sink labels: `list_sinks` promises `(name, description)` but
-  returns `(name, name)` — the description is never queried, the second
-  item is dead end to end (`audioSinks` re-duplicates it, the QML only
-  reads `[0]`), so the combo shows the raw node name
-  (`alsa_output.pci-…analog-stereo`). Either parse `pactl list sinks`
-  for real `Description:` labels (QML shows it, stores the name) or drop
-  the pair. Deferred pending real-display review of the audio picker.
+- [x] Audio sink labels: done (`735d280`). `list_sinks` parsed
+  `pactl list short sinks`, which only reports the node name, so the
+  promised `(name, description)` pair was a dead end (`audioSinks`
+  re-duplicated it, the QML read `[0]`, the combo listed
+  `alsa_output.pci-…analog-stereo`). The long form is parsed for real
+  `Description:` labels now — the picker shows the description, the
+  config keeps the node name — with the name as the fallback.
 - [x] Review env presets against vendor docs (Mesa/NVIDIA semantics drift;
   verify `vblank_mode` / `__GL_SYNC_TO_VBLANK` values). Recurring: re-audit
-  on every release tag (last: 2026-09-30 + installed-build checks).
+  on every release tag (last: 2026-10-19, vsync pair re-checked against
+  Mesa's current driconf registry + xmlconfig env-override test and the
+  580.x NVIDIA README: values stand, both are OpenGL/GLX only — Vulkan
+  needs its own present mode, so the presets carry that in their `note`).
 - [ ] Block Internet per game (net namespace, unprivileged). DEFERRED for
   now: not cheap enough (LAN/achievements/Proton-under-userns risk matrix).
   Lighter alternative already shipped: `WINE_BLOCK_HOSTS` preset.
@@ -117,9 +120,12 @@ footer (Diff/Reset leading, Save default + Cancel on the right); About as
 a `QMessageBox.about` lookalike; Preferences and every other dialog as a
 widgets form with a right-aligned button box.
 
-Left open (deliberate, not regressions): the widgets `Reset to Factory
-Defaults` in the Global Defaults dialog and the General form's wider
-Kirigami side margins.
+Closed since the note above: the widgets `Reset to Factory Defaults` in the
+Global Defaults dialog (`92b0624`) and the General form's side margins —
+the wide form used to keep Kirigami's centered grid; `WidgetsFormLayout`
+(2026-10-17) binds the implicit width to the actual one, and the measured
+General tab now matches the widgets QFormLayout (label column right against
+the field column, fields to the edge). Nothing left open here.
 
 ### Equivalence map (audit 2026-10-07)
 - [x] QMainWindow → ApplicationWindow
