@@ -12,10 +12,20 @@ Window {
     objectName: "scanDialog"
     title: qsTr("Add Games")
     modality: Qt.WindowModal
-    minimumWidth: Kirigami.Units.gridUnit * 26
-    minimumHeight: Kirigami.Units.gridUnit * 18
-    width: Kirigami.Units.gridUnit * 32
-    height: Kirigami.Units.gridUnit * 24
+    // Widgets _ScanDialog hugged its table (278x268 for two entries):
+    // the window follows the checkbox list and scrolls once the list
+    // would grow past the cap.
+    readonly property real scanListCap: Kirigami.Units.gridUnit * 20
+    minimumWidth: Kirigami.Units.gridUnit * 18
+    minimumHeight: Kirigami.Units.gridUnit * 10
+    width: Math.min(
+        Kirigami.Units.gridUnit * 40,
+        Math.max(minimumWidth, scanList.implicitWidth + Kirigami.Units.largeSpacing * 2))
+    height: Math.max(
+        minimumHeight,
+        scanHeader.implicitHeight + Math.min(scanListCap, scanList.implicitHeight)
+            + scanFooter.implicitHeight
+            + Kirigami.Units.smallSpacing * 2 + Kirigami.Units.largeSpacing * 2)
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -50,6 +60,7 @@ Window {
             }
         }
         Controls.Label {
+            id: scanHeader
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             text: qsTr("Steam games without a saved configuration:")
@@ -59,6 +70,7 @@ Window {
             Layout.fillWidth: true
             Layout.fillHeight: true
             ColumnLayout {
+                id: scanList
                 width: parent.width
                 spacing: Kirigami.Units.smallSpacing
                 Repeater {
@@ -84,6 +96,7 @@ Window {
             }
         }
         RowLayout {
+            id: scanFooter
             Layout.fillWidth: true
             Item {
                 Layout.fillWidth: true

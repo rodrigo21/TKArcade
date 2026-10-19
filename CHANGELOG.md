@@ -457,6 +457,12 @@ Breaking config changes are called out explicitly under `Changed`.
   Steam-only lookups (ProtonDB, artwork) skip local rows.
 
 ### Changed
+- Dialog sizes follow the widgets windows (r240): About is 396 wide
+  (400 there), Preferences 414 (420), the pre-launch chooser 468 (480)
+  with a height that hugs its content instead of a fixed 198px box, and
+  Scan (Add Games) and Import size themselves to their lists instead of
+  a fixed rectangle — the STL import buttons leave the scrolling list
+  for a widgets-style Select All / Select None / Import row.
 - Environment tab: a game without variables opens with one empty row
   already there (the widgets table always showed one to type into; an
   empty key is still dropped on save), the four buttons are centered and

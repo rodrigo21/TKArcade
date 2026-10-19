@@ -15,10 +15,12 @@ Window {
     // Widgets QMessageBox.about: information icon beside the text, one
     // right-aligned default button, and the box hugging its content
     // instead of filling a fixed rectangle.
-    // QMessageBox wraps the text at its size hint instead of a wide box.
-    minimumWidth: Kirigami.Units.gridUnit * 22
+    // QMessageBox wraps the text at its size hint instead of a wide box
+    // (r240: 400x263). The height stays content driven: a QMessageBox
+    // pads the label more than a Kirigami column does.
+    minimumWidth: Kirigami.Units.gridUnit * 20
     minimumHeight: Kirigami.Units.gridUnit * 14
-    width: Kirigami.Units.gridUnit * 24
+    width: Kirigami.Units.gridUnit * 22
     height: body.implicitHeight + Kirigami.Units.largeSpacing * 2
     visible: false
     color: Kirigami.Theme.backgroundColor
@@ -69,8 +71,8 @@ Window {
             Controls.Button {
                 objectName: "aboutOk"
                 text: qsTr("OK")
-                // QMessageBox widens its buttons beyond the short label.
-                Layout.minimumWidth: Kirigami.Units.gridUnit * 5
+                // No extra minimum: the QQC2 style already widens a
+                // short label the way QMessageBox does (80px there).
                 highlighted: true
                 onClicked: aboutDialog.close()
             }

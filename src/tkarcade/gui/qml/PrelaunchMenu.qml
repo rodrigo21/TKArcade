@@ -16,9 +16,13 @@ Window {
     objectName: "prelaunchMenu"
     title: qsTr("TKArcade — %1").arg(name || appid || qsTr("game"))
     modality: Qt.WindowModal
+    // Widgets MenuDialog: setMinimumWidth(480) and a height that hugs
+    // the content (480x121 for name + Proton line + buttons). The
+    // landscape artwork is a Kirigami addition, so ours stays taller.
     minimumWidth: Kirigami.Units.gridUnit * 24
-    width: Kirigami.Units.gridUnit * 32
-    height: Kirigami.Units.gridUnit * 11
+    minimumHeight: Kirigami.Units.gridUnit * 8
+    width: Kirigami.Units.gridUnit * 26
+    height: content.implicitHeight + Kirigami.Units.largeSpacing * 2
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -122,6 +126,7 @@ Window {
     }
 
     ColumnLayout {
+        id: content
         anchors.fill: parent
         anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.smallSpacing

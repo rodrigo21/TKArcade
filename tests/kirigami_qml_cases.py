@@ -3446,6 +3446,7 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
 
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
     import tkarcade.steam as steammod
     from tkarcade import config as C
@@ -3462,8 +3463,14 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
     dlg.openStl()
     swin = _modal_window(qgui_app, ("Import Configurations",))
     assert dlg.property("stlRows") != []
-    # The STL list scrolls (contentHeight follows the rows, not -1).
+    # The STL list scrolls (contentHeight follows the rows, not -1). The
+    # window height follows the list (content sizing), so the ScrollView
+    # syncs its content size a layout pass after the window is mapped.
     scroller = swin.findChild(QQuickItem, "importStlScroll")
+    for _ in range(20):
+        if scroller.property("contentHeight") > 0:
+            break
+        QTest.qWait(20)
     assert scroller.property("contentHeight") > 0
 
     def click(name):

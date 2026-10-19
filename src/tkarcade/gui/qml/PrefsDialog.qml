@@ -15,11 +15,12 @@ Window {
     modality: Qt.WindowModal
     // Widgets PreferencesDialog: a plain QFormLayout (checkboxes in the
     // field column, right-aligned labels), a right-aligned Save/Cancel
-    // box, and a window sized to the form.
+    // box, and a window sized to the form. `resize(420, 280)` with the
+    // layout minimum landing at 420x312 at the time.
     minimumWidth: Kirigami.Units.gridUnit * 20
     minimumHeight: Kirigami.Units.gridUnit * 16
-    width: Kirigami.Units.gridUnit * 24
-    height: prefsForm.implicitHeight + footer.implicitHeight + Kirigami.Units.largeSpacing * 3
+    width: Kirigami.Units.gridUnit * 23
+    height: body.implicitHeight + Kirigami.Units.largeSpacing * 2
     visible: false
     color: Kirigami.Theme.backgroundColor
 

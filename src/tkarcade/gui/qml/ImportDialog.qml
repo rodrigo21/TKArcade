@@ -12,10 +12,18 @@ Window {
     objectName: "importDialog"
     title: qsTr("Import Configurations")
     modality: Qt.WindowModal
-    minimumWidth: Kirigami.Units.gridUnit * 30
-    minimumHeight: Kirigami.Units.gridUnit * 24
-    width: Kirigami.Units.gridUnit * 36
-    height: Kirigami.Units.gridUnit * 30
+    // Widgets flows: a 373x101 chooser plus a 520x380 STL dialog. This
+    // is one window with a source row, so the height follows the pages
+    // and the list scrolls past the cap.
+    readonly property real importListCap: Kirigami.Units.gridUnit * 22
+    minimumWidth: Kirigami.Units.gridUnit * 24
+    minimumHeight: Kirigami.Units.gridUnit * 10
+    width: Kirigami.Units.gridUnit * 30
+    height: Math.max(
+        minimumHeight,
+        sourceRow.implicitHeight + Math.min(importListCap, stack.implicitHeight)
+            + importFooter.implicitHeight
+            + Kirigami.Units.smallSpacing * 2 + Kirigami.Units.largeSpacing * 2)
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -79,6 +87,7 @@ Window {
             }
         }
         RowLayout {
+            id: sourceRow
             Layout.fillWidth: true
             Controls.Button {
                 text: qsTr("Backup File…")
@@ -95,6 +104,7 @@ Window {
             }
         }
         StackLayout {
+            id: stack
             Layout.fillWidth: true
             Layout.fillHeight: true
             currentIndex: importDialog.source
@@ -172,32 +182,39 @@ Window {
                                     }
                                 }
                             }
-                            RowLayout {
-                                Controls.Button {
-                                    text: qsTr("Select All")
-                                    onClicked: {
-                                        var all = []
-                                        for (var i = 0; i < importDialog.stlRows.length; i++) {
-                                            all.push(importDialog.stlRows[i][0])
-                                        }
-                                        importDialog.stlPicked = all
-                                    }
-                                }
-                                Controls.Button {
-                                    text: qsTr("Select None")
-                                    onClicked: importDialog.stlPicked = []
-                                }
-                                Controls.Button {
-                                    objectName: "importStlConfirm"
-                                    text: qsTr("Import from SteamTinkerLaunch")
-                                    onClicked: {
-                                        var msg = gameModel.importStl(importDialog.stlPicked)
-                                        if (msg !== "") {
-                                            importDialog.notify(msg)
-                                            importDialog.close()
-                                        }
-                                    }
-                                }
+                        }
+                    }
+                }
+                // Widgets StlImportDialog: Select All / Select None lead,
+                // the import button closes the right-aligned row. Outside
+                // the scroll area, or a long list pushes it out of view.
+                RowLayout {
+                    Layout.fillWidth: true
+                    Controls.Button {
+                        text: qsTr("Select All")
+                        onClicked: {
+                            var all = []
+                            for (var i = 0; i < importDialog.stlRows.length; i++) {
+                                all.push(importDialog.stlRows[i][0])
+                            }
+                            importDialog.stlPicked = all
+                        }
+                    }
+                    Controls.Button {
+                        text: qsTr("Select None")
+                        onClicked: importDialog.stlPicked = []
+                    }
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                    Controls.Button {
+                        objectName: "importStlConfirm"
+                        text: qsTr("Import from SteamTinkerLaunch")
+                        onClicked: {
+                            var msg = gameModel.importStl(importDialog.stlPicked)
+                            if (msg !== "") {
+                                importDialog.notify(msg)
+                                importDialog.close()
                             }
                         }
                     }
@@ -224,6 +241,7 @@ Window {
             }
         }
         RowLayout {
+            id: importFooter
             Layout.fillWidth: true
             Item {
                 Layout.fillWidth: true
