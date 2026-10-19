@@ -820,14 +820,17 @@ def test_audio_session_switches_and_restores(monkeypatch):
     def fake_run(cmd, **kwargs):
         calls.append(cmd[-1] if cmd[0].endswith("pactl") else cmd[0])
         if cmd[1] == "list":
-            return Proc("1\talsa_hdmi\n2\talsa_usb\n")
+            return Proc(
+                "Sink #1\n\tName: alsa_hdmi\n\tDescription: HDMI Estéreo\n"
+                "Sink #2\n\tName: alsa_usb\n\tDescription: USB Headset\n"
+            )
         if cmd[1] == "get-default-sink":
             return Proc("alsa_hdmi\n")
         return Proc("", 0)
 
     monkeypatch.setattr("tkarcade.backends.audio.shutil.which", lambda *a: "/bin/pactl")
     monkeypatch.setattr("tkarcade.backends.audio.subprocess.run", fake_run)
-    assert au.list_sinks() == [("alsa_hdmi", "alsa_hdmi"), ("alsa_usb", "alsa_usb")]
+    assert au.list_sinks() == [("alsa_hdmi", "HDMI Estéreo"), ("alsa_usb", "USB Headset")]
     assert au.default_sink() == "alsa_hdmi"
     session = au.AudioSession("alsa_usb")
     with session:
@@ -837,6 +840,32 @@ def test_audio_session_switches_and_restores(monkeypatch):
     monkeypatch.setattr("tkarcade.backends.audio.shutil.which", lambda *a: None)
     assert au.list_sinks() == []
     assert au.AudioSession("alsa_usb").start() != []  # missing pactl warns
+
+
+def test_parse_sinks_reads_the_description(monkeypatch):
+    """`pactl list sinks` pairs each Name with its Description.
+
+    The short form reported the node name only, so the picker listed
+    `alsa_output.pci-…analog-stereo`; a sink without a Description still
+    falls back to its name.
+    """
+    sample = (
+        "Sink #47\n"
+        "\tState: SUSPENDED\n"
+        "\tName: alsa_output.pci-0000_00_1b.0.analog-stereo\n"
+        "\tDescription: Áudio interno Estéreo analógico\n"
+        "\tDriver: PipeWire\n"
+        "\tProperties:\n"
+        '\t\tdevice.description = "Áudio interno Estéreo analógico"\n'
+        "Sink #48\n"
+        "\tName: alsa_output.usb-headset\n"
+        "\tState: RUNNING\n"
+    )
+    assert au._parse_sinks(sample) == [
+        ("alsa_output.pci-0000_00_1b.0.analog-stereo", "Áudio interno Estéreo analógico"),
+        ("alsa_output.usb-headset", "alsa_output.usb-headset"),
+    ]
+    assert au._parse_sinks("") == []
 
 
 def test_fps_limit_strangle_fallback(monkeypatch, tmp_path):

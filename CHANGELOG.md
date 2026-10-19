@@ -198,6 +198,13 @@ Breaking config changes are called out explicitly under `Changed`.
   selection back into the page's `selectedIds`, which the grids and the
   row highlight read. The page now owns the selection (every keyboard
   and click path writes it) and the table is a one-way mirror.
+- Audio output sink picker lists the `pactl` Description instead of the
+  raw node name (`alsa_output.pci-…analog-stereo`): `list_sinks` parsed
+  only `pactl list short sinks` and returned `(name, name)`, so the
+  promised description was a dead end — `audioSinks` re-duplicated it and
+  the combo read the first column. The long form is parsed now (a sink
+  without a Description falls back to its name) and the config keeps
+  storing the node name the launcher needs.
 - Settings tabs scroll again: `ScrollView` takes its scrollable size
   from the content's implicit size, so the tab wrappers (an explicit
   `height:` only) left `contentHeight` at -1 and everything below the

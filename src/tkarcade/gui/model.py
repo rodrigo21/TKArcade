@@ -2226,11 +2226,11 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(result=list)
     def audioSinks(self) -> list:
-        """[[name, name]] output sinks for the audio picker."""
+        """[[name, label]] output sinks for the audio picker."""
         from ..backends import audio as aubackend
 
         try:
-            return [[n, n] for n, _desc in aubackend.list_sinks()]
+            return [[n, desc or n] for n, desc in aubackend.list_sinks()]
         except Exception:
             return []
 

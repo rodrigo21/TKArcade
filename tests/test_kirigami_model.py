@@ -1180,3 +1180,19 @@ def test_tray_action_dispatch(qgui_app, xdg_env, monkeypatch):
     assert played == ["local-doom"]
     model._tray_actions["defaults"] = lambda: None
     assert model.trayDefaultsAvailable() is True
+
+
+def test_audio_sinks_pair_name_and_label(qgui_app, xdg_env, monkeypatch):
+    """audioSinks keeps the node name for config and the label for the UI."""
+    from tkarcade.backends import audio as aubackend
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    monkeypatch.setattr(
+        aubackend,
+        "list_sinks",
+        lambda: [("alsa_hdmi", "HDMI Estéreo"), ("alsa_usb", "")],
+    )
+    assert model.audioSinks() == [["alsa_hdmi", "HDMI Estéreo"], ["alsa_usb", "alsa_usb"]]
+    monkeypatch.setattr(aubackend, "list_sinks", lambda: [])
+    assert model.audioSinks() == []

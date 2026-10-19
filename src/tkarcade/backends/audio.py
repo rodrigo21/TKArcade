@@ -22,6 +22,28 @@ def _pactl() -> str | None:
         return None
 
 
+def _parse_sinks(text: str) -> list[tuple[str, str]]:
+    """[(name, description)] from `pactl list sinks` (description or name).
+
+    The short form reports the node name only; the long form carries the
+    human `Description:` the picker shows (the config still stores the
+    name). A sink without one falls back to its name.
+    """
+    out: list[tuple[str, str]] = []
+    name = ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Name:"):
+            name = stripped[len("Name:") :].strip()
+        elif stripped.startswith("Description:") and name:
+            desc = stripped[len("Description:") :].strip()
+            out.append((name, desc or name))
+            name = ""
+    if name:  # trailing sink without a Description
+        out.append((name, name))
+    return out
+
+
 def list_sinks() -> list[tuple[str, str]]:
     """[(name, description)] output sinks, [] when pactl is missing."""
     exe = _pactl()
@@ -29,23 +51,18 @@ def list_sinks() -> list[tuple[str, str]]:
         return []
     try:
         proc = subprocess.run(
-            [exe, "list", "short", "sinks"],
+            [exe, "list", "sinks"],
             capture_output=True,
             text=True,
             timeout=15,
             check=False,
         )
     except Exception as e:
-        log.debug("pactl list failed: %s", e)
+        log.debug("pactl list sinks failed: %s", e)
         return []
     if proc.returncode != 0:
         return []
-    out = []
-    for line in proc.stdout.splitlines():
-        parts = line.split("\t")
-        if len(parts) >= 2 and parts[1].strip():
-            out.append((parts[1].strip(), parts[1].strip()))
-    return out
+    return _parse_sinks(proc.stdout)
 
 
 def default_sink() -> str:

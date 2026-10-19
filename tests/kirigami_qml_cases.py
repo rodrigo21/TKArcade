@@ -5047,17 +5047,25 @@ def test_library_category_filter_bulk(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_settings_audio_sink_flow(qgui_app, xdg_env):
-    """Audio group lists sinks with a system-default entry; saves empty."""
+def test_settings_audio_sink_flow(qgui_app, xdg_env, monkeypatch):
+    """The sink picker labels the Description and stores the node name.
+
+    `pactl list short sinks` reported the node name only, so the combo
+    listed `alsa_output.pci-…analog-stereo`; the Description now labels the
+    entry while the config keeps the name the launcher needs.
+    """
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
+    from tkarcade.backends import audio as aubackend
 
+    monkeypatch.setattr(aubackend, "list_sinks", lambda: [("alsa_usb", "USB Headset")])
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
+    cfg.audio.sink = "alsa_usb"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
@@ -5068,6 +5076,12 @@ def test_settings_audio_sink_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
     box = swin.findChild(QQuickItem, "auSink")
     assert box is not None
+    entries = box.property("model")
+    assert [e["data"] for e in entries] == ["", "alsa_usb"]
+    assert entries[1]["text"] == "USB Headset"
+    assert dlg.audioSinkData() == "alsa_usb"
+    box.setProperty("currentIndex", 0)
+    qgui_app.processEvents()
     assert dlg.audioSinkData() == ""
     dlg.save()
     qgui_app.processEvents()

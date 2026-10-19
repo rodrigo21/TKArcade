@@ -697,7 +697,9 @@ Window {
         var items = [{"text": qsTr("(System default)"), "data": ""}]
         var idx = 0
         for (var i = 0; i < sinks.length; i++) {
-            items.push({"text": sinks[i][0], "data": sinks[i][0]})
+            // The picker lists the human Description pactl reports; the
+            // config keeps storing the node name (sinks[i][0]).
+            items.push({"text": sinks[i][1] || sinks[i][0], "data": sinks[i][0]})
             if (sinks[i][0] === select) {
                 idx = i + 1
             }
