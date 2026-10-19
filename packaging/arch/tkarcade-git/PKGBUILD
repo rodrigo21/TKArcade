@@ -42,7 +42,9 @@ build() {
 check() {
     cd "$_basename"
 
-    QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
+    # -v names every finished test (the stalled one is the next), -rP
+    # prints the QML driver's per-batch progress, --durations the slowest.
+    QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v -rP --durations=25
 }
 
 package() {

@@ -42,10 +42,13 @@ teardown) and re-runs in isolation whatever a crashing batch swallowed.
 Single case: `pytest "tests/kirigami_qml_cases.py::<name>" -o python_files="*.py"`.
 Fast loop without the QML suite (~15s; the QML driver is marked `qml`):
 `pytest tests/ -q -m "not qml"`. The driver reads `TKARCADE_QML_BATCH`
-(cases per subprocess, default 8) and `TKARCADE_QML_WORKERS` (parallel
-subprocesses, default one per CPU capped at 8; parallel runs can flake
-timing-sensitive cases under load, set 1 to force serial). `pytest -v
--rP tests/test_kirigami_qml.py` prints one line per finished batch.
+(cases per subprocess; default 8 serial, 4 with up to four workers, 2
+above) and `TKARCADE_QML_WORKERS` (parallel subprocesses, default one
+per CPU capped at 8; parallel runs can flake timing-sensitive cases
+under load, set 1 to force serial). `pytest -v -rP
+tests/test_kirigami_qml.py` prints one line per finished batch with its
+wall time; the `-git` PKGBUILD `check()` runs it that way so a slow
+build names the culprit (the driver is one test, ~85% of the wall time).
 
 GUI changes need an offscreen screenshot check. Push each commit batch
 created during build mode (the Arch package builds from git); never

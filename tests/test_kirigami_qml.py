@@ -17,7 +17,10 @@ PASSED, so nothing is masked.
 
 Tuning knobs, all optional:
 
-    TKARCADE_QML_BATCH      cases per subprocess (default 8)
+    TKARCADE_QML_BATCH      cases per subprocess (default follows the
+                            worker count: 8 serial, 4 up to four, 2
+                            above -- smaller batches lose less to an
+                            abort and balance better across workers)
     TKARCADE_QML_WORKERS    parallel subprocesses (default: one per CPU,
                             capped at 8; each offscreen Qt process costs
                             ~200MB. Parallel runs can flake the
@@ -38,6 +41,7 @@ import concurrent.futures
 import os
 import subprocess
 import sys
+import time
 import warnings
 from pathlib import Path
 
@@ -45,9 +49,6 @@ import pytest
 
 CASES = Path(__file__).resolve().parent / "kirigami_qml_cases.py"
 ROOT = Path(__file__).resolve().parent.parent
-# Cases per subprocess: sized well under the ~20-case abort threshold so a
-# batch normally finishes; anything it does lose is re-run individually.
-BATCH = int(os.environ.get("TKARCADE_QML_BATCH") or 8)
 WORKERS_MAX = 8  # each offscreen Qt subprocess holds ~200MB
 
 
@@ -57,6 +58,26 @@ def _default_workers() -> int:
 
 
 WORKERS = max(1, int(os.environ.get("TKARCADE_QML_WORKERS") or _default_workers()))
+
+
+def _default_batch(workers: int) -> int:
+    """Cases per subprocess, scaled down as workers go up.
+
+    Serial, a big batch amortizes the ~0.7s pytest start; with several
+    workers the tail latency and the cases lost to an abort dominate, so
+    four and then two pay off (measured on 4 cores: 8 -> 70s, 6 -> 59s,
+    4 -> 59s, 2 -> 62s with zero aborts).
+    """
+    if workers <= 2:
+        return 8
+    if workers <= 4:
+        return 4
+    return 2
+
+
+# Sized well under the ~20-case abort threshold so a batch normally
+# finishes; anything it does lose is re-run individually.
+BATCH = max(1, int(os.environ.get("TKARCADE_QML_BATCH") or _default_batch(WORKERS)))
 CASE_TIMEOUT = 240  # seconds a single case may take before we call it hung
 BATCH_SECONDS_PER_CASE = 30  # headroom per case before a batch gives up
 
@@ -141,16 +162,17 @@ def _run_one(nodeid: str) -> tuple[str, bool, int, str]:
         return nodeid, False, -1, out if isinstance(out, str) else str(out)
 
 
-def _run_unit(nodeids: list[str]) -> tuple[str, bool, int, str]:
+def _run_unit(nodeids: list[str]) -> tuple[str, bool, int, str, float]:
     """One unit of work: a batch, with lost cases re-run one by one.
 
-    Returns the same tuple shape as `_run_one` (a failed unit reports only
-    the cases that failed, and their output).
+    Returns the same tuple shape as `_run_one` plus the wall time (a failed
+    unit reports only the cases that failed, and their output).
     """
+    started = time.perf_counter()
     passed, rc, out = _run_batch(nodeids)
     lost = [n for n in nodeids if n not in passed]
     if not lost:
-        return "+".join(nodeids), True, rc, out
+        return "+".join(nodeids), True, rc, out, time.perf_counter() - started
 
     warnings.warn(
         f"QML batch aborted (rc={rc}), re-ran {len(lost)} of {len(nodeids)} "
@@ -167,8 +189,8 @@ def _run_unit(nodeids: list[str]) -> tuple[str, bool, int, str]:
         report = case_out
         if len(failures) > 1:
             report += "\n".join(f"--- {n} (rc={c}) ---\n{o[-6000:]}" for n, c, o in failures[1:])
-        return nodeid, False, rc, report
-    return "+".join(nodeids), True, rc, out
+        return nodeid, False, rc, report, time.perf_counter() - started
+    return "+".join(nodeids), True, rc, out, time.perf_counter() - started
 
 
 @pytest.mark.qml
@@ -180,11 +202,12 @@ def test_qml_suite_isolated(request):
     failures: list[tuple[str, int, str]] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as pool:
         results = pool.map(_run_unit, batches)
-        for index, (nodeid, passed, rc, out) in enumerate(results, 1):
+        for index, (nodeid, passed, rc, out, seconds) in enumerate(results, 1):
             if verbose:
                 first = nodeid.split("+")[0].split("::")[-1]
                 print(
-                    f"QML batch {index}/{len(batches)} ({first}...): {'ok' if passed else 'FAIL'}",
+                    f"QML batch {index}/{len(batches)} ({first}...): "
+                    f"{'ok' if passed else 'FAIL'} ({seconds:.1f}s)",
                     flush=True,
                 )
             if not passed:
