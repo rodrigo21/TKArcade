@@ -68,20 +68,125 @@ def _header_texts(header) -> set[str]:
     return titles
 
 
-def test_table_headers(qgui_app, xdg_env):
+def _check_header_titles(win):
     """The native header shows every column title."""
     from PySide6.QtQuick import QQuickItem
 
+    header = win.findChild(QQuickItem, "tableHeader")
+    assert header is not None
+    titles = _header_texts(header)
+    assert {"Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
+
+
+def _check_header_cell_tiling(win):
+    """Header cells start at x=0 with the same widths as the body."""
+    from PySide6.QtQuick import QQuickItem
+
+    header = win.findChild(QQuickItem, "tableHeader")
+    found = {}
+
+    def walk(item):
+        try:
+            name = item.objectName()
+        except Exception:
+            return
+        if name.startswith("headerCell"):
+            try:
+                found[name] = (round(item.property("x"), 1), round(item.property("width"), 1))
+            except Exception:
+                pass
+        try:
+            kids = item.childItems()
+        except Exception:
+            return
+        for kid in kids:
+            walk(kid)
+
+    walk(header)
+    assert found.get("headerCell0") == (0.0, 36.0), found
+    ordered = [found[k] for k in sorted(found, key=lambda n: int(n[10:]))]
+    xs = [x for x, _w in ordered]
+    assert xs == sorted(xs), found  # no overlaps/gaps out of order
+
+
+def _check_page_header_height(win):
+    """Drawer "Library" bar matches the page header so separators align."""
+    import pathlib
+
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    drawer_bar = win.findChild(QQuickItem, "drawerHeaderBar")
+    assert drawer_bar is not None
+    page_headers = []
+    for child in win.findChildren(QObject):
+        try:
+            class_name = child.metaObject().className()
+        except Exception:
+            continue
+        if "ToolBarPageHeader" in class_name:
+            try:
+                page_headers.append(child.property("height"))
+            except Exception:
+                continue
+    assert page_headers, "no Kirigami page header found"
+    drawer_h = drawer_bar.property("height")
+    page_h = max(h for h in page_headers if h is not None)
+    assert drawer_h > 0
+    assert page_h > 0
+    assert abs(drawer_h - page_h) <= 1, (drawer_h, page_h)
+    # Plain Item header (never a ToolBar): a toolbar header makes
+    # Kirigami inset the drawer-edge separator around the header zone,
+    # leaving the vertical line short of the header lines.
+    main_src = (pathlib.Path(kapp.__file__).parent / "qml" / "main.qml").read_text()
+    assert "header: Item {" in main_src
+    assert "header: Controls.ToolBar" not in main_src
+
+
+def _check_view_shortcuts(win):
+    """View modes show Dolphin-style icons; Ctrl+1/2/3 switch directly."""
+    import pathlib
+
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    page = win.findChild(QObject, "gamesPage")
+    assert page is not None
+    for name, sequence in (
+        ("viewShortcutList", "Ctrl+1"),
+        ("viewShortcutIcons", "Ctrl+2"),
+        ("viewShortcutCards", "Ctrl+3"),
+    ):
+        found = win.findChild(QObject, name)
+        assert found is not None, name
+        assert found.property("sequence") == sequence, name
+    button = win.findChild(QQuickItem, "viewButton")
+    assert button is not None
+    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
+    for icon in ("view-list-details", "view-list-icons", "view-grid"):
+        assert icon in src, icon
+
+
+def test_header_and_view_structure(qgui_app, xdg_env):
+    """Header titles/tiling, drawer-page header height and view shortcuts.
+
+    Read-only checks of the one default window; each loaded its own
+    window before.
+    """
     from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = "1"
     C.save(cfg)
     win, _engine, _proxy, warnings = _load_main(qgui_app)
-    header = win.findChild(QQuickItem, "tableHeader")
-    assert header is not None
-    titles = _header_texts(header)
-    assert {"Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
+    _check_header_titles(win)
+    _check_header_cell_tiling(win)
+    _check_page_header_height(win)
+    _check_view_shortcuts(win)
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -653,47 +758,30 @@ def _load_main(qgui_app, engine_out=None):
     return win, engine, game_filter, warnings
 
 
-def test_row_selection_follows_tap(qgui_app, xdg_env):
+def test_row_selection_and_numbering(qgui_app, xdg_env):
+    """A tap selects the tapped game; gutter numbers follow proxy order."""
+    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
+    from tkarcade.gui.model import GameListModel
 
     for appid in ("b-game", "a-game"):
         cfg = C.GameConfig()
         cfg.general.appid = appid
         C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
-    from PySide6.QtCore import QObject
-
     page = win.findChild(QObject, "gamesPage")
-    assert page is not None
     table = win.findChild(QQuickItem, "gameTable")
+    assert page is not None
+    assert table is not None
+
     page.tapGame("b-game", 0)
     qgui_app.processEvents()
     assert _selected_ids(table, proxy) == ["b-game"]
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
 
-
-def test_row_numbers_follow_proxy_order(qgui_app, xdg_env):
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    for appid in ("b-game", "a-game"):
-        cfg = C.GameConfig()
-        cfg.general.appid = appid
-        C.save(cfg)
-    win, _engine, proxy, warnings = _load_main(qgui_app)
-    table = win.findChild(QQuickItem, "gameTable")
-    assert table is not None
     header = win.findChild(QQuickItem, "tableHeader")
     assert header is not None
-    from tkarcade.gui.model import GameListModel
-
     before = [proxy.data(proxy.index(r, 0), GameListModel.IdRole) for r in range(proxy.rowCount())]
     assert before == ["a-game", "b-game"]
     proxy.sortBy("gameId", True)
@@ -861,44 +949,6 @@ def test_drawer_open_survives_restart(qgui_app, xdg_env):
     assert real2 == []
     win2.close()
     engine2.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_drawer_header_library_centered(qgui_app, xdg_env):
-    """Library sits on the header center (button balanced both sides)."""
-    from PySide6.QtCore import QPointF, Qt
-    from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    btn = win.findChild(QQuickItem, "drawerHeaderButton")
-    assert btn is not None
-    pos = btn.mapToScene(QPointF(btn.property("width") / 2, 5)).toPoint()
-    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
-    for _ in range(10):
-        qgui_app.processEvents()
-    bar = win.findChild(QQuickItem, "drawerHeaderBar")
-    label = None
-    for item in bar.findChildren(QQuickItem):
-        try:
-            if item.property("visible") and item.property("text") == "Library":
-                label = item
-                break
-        except Exception:
-            continue
-    assert label is not None
-    bar_cx = bar.mapToScene(QPointF(0, 0)).x() + float(bar.property("width") or 0) / 2
-    label_cx = label.mapToScene(QPointF(0, 0)).x() + float(label.property("width") or 0) / 2
-    assert abs(label_cx - bar_cx) <= 1.0
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
     qgui_app.processEvents()
 
 
@@ -1599,26 +1649,32 @@ Window {
     qgui_app.processEvents()
 
 
-def test_settings_tabs_use_widgets_sections(qgui_app, xdg_env):
+def _check_settings_title_footer(swin, appid):
+    """Title names the game; Diff/Reset lead the footer, Save/Cancel close."""
+    from PySide6.QtQuick import QQuickItem
+
+    # Widgets GameDialog: "Game Settings — <name> (<appid>)".
+    assert swin.title() == f"Game Settings — Sections ({appid})"
+
+    diff = swin.findChild(QQuickItem, "diffButton")
+    reset = swin.findChild(QQuickItem, "settingsReset")
+    save = swin.findChild(QQuickItem, "settingsSave")
+    cancel = swin.findChild(QQuickItem, "settingsCancel")
+    for item in (diff, reset, save, cancel):
+        assert item is not None
+        assert item.property("width") > 0
+    # QDialogButtonBox layout: Diff then Reset on the left, Save then
+    # Cancel on the right, with Save as the default button.
+    assert diff.property("x") < reset.property("x")
+    assert save.property("x") > reset.property("x") + reset.property("width")
+    assert cancel.property("x") > save.property("x") + save.property("width")
+    assert save.property("highlighted") is True
+
+
+def _check_settings_sections(win, settings, tabs, qgui_app):
     """Performance/System groups are SectionBoxes; fields fill the tab."""
-    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "local-sections"
-    cfg.general.name = "Sections"
-    cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
-    C.save(cfg)
-    win, engine, _proxy, warnings = _load_main(qgui_app)
-    settings = win.findChild(QObject, "gameSettings")
-    settings.openFor("local-sections")
-    QTest.qWait(120)
-    qgui_app.processEvents()
-    tabs = win.findChild(QQuickItem, "settingsTabs")
 
     def visible_titles(index):
         tabs.setProperty("currentIndex", index)
@@ -1656,6 +1712,141 @@ def test_settings_tabs_use_widgets_sections(qgui_app, xdg_env):
     assert abs(name.property("x") + name.property("width") - form.property("width")) <= 24
     assert abs(note.property("x")) <= 1
     assert abs(note.property("width") - form.property("width")) <= 1
+
+
+def _check_dependency_box(win, settings, tabs, qgui_app):
+    """Dependency Status: two columns of marks below the tabs."""
+    import shiboken6
+    from PySide6.QtCore import QPointF
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    box = win.findChild(QQuickItem, "depStatusBox")
+    frame = box.findChild(QQuickItem, "sectionFrame")
+    grid = box.findChild(QQuickItem, "depStatusGrid")
+    check = box.findChild(QQuickItem, "sectionTitle")
+    assert box is not None and frame is not None and grid is not None and check is not None
+    # Widgets: the group box sits below the tab widget, titled and framed
+    # -- with a single border (the widgets nested a sunken panel; the
+    # centered checkbox title replaces it).
+    assert box.property("y") >= tabs.property("y") + tabs.property("height")
+    assert check.property("text") == "Dependency Status"
+    assert check.property("checked") is True
+    # The plain label variant stays hidden while the box is checkable.
+    assert box.findChild(QQuickItem, "sectionTitleText").property("visible") is False
+    assert check.property("y") + check.property("height") <= frame.property("y")
+    assert frame.property("y") + frame.property("height") <= box.property("height")
+    frames = [
+        child
+        for child in box.findChildren(QQuickItem)
+        if child.property("objectName") == "sectionFrame"
+    ]
+    assert len(frames) == 1
+
+    # The grid sits inside the frame, padded on every side.
+    inset = grid.mapToItem(box, QPointF(0, 0)).y() - frame.mapToItem(box, QPointF(0, 0)).y()
+    assert 0 < inset < 16
+    assert grid.property("y") + grid.property("height") <= frame.property("height")
+
+    cells = [
+        child
+        for child in grid.childItems()
+        if shiboken6.isValid(child) and child.property("objectName") == "depStatusLine"
+    ]
+    # Prefix + broken/custom exe + gamescope/mangohud/upscale/ludusavi +
+    # the two wheels: a local game never gets the Steam launch-options line.
+    assert len(cells) == 8
+    assert grid.property("columns") == 2
+    # Row-major packing (the widgets reflow keeps visible lines first):
+    # cells 0/1 share a row, cell 2 opens the second one.
+    assert abs(cells[1].property("y") - cells[0].property("y")) <= 1
+    assert cells[1].property("x") > cells[0].property("x") + 50
+    assert cells[2].property("y") > cells[0].property("y")
+    assert abs(cells[2].property("x") - cells[0].property("x")) <= 1
+    # Every line is a colored mark plus text, never raw markup.
+    for cell in cells:
+        text = cell.property("text")
+        assert text.startswith('<span style="color:#'), text
+        assert text.split(">", 1)[1][0] in "✓⚠●"
+    assert "No custom prefix" in cells[0].property("text")
+
+    # The widgets picked the mark palette from the theme's darkness.
+    dark = settings.property("statusDark")
+    assert settings.statusColor("ok") == ("#7ee787" if dark else "#1a7f37")
+    assert settings.statusColor("warn") == ("#f47067" if dark else "#d1242f")
+    assert settings.statusColor("note") == ("#e3b341" if dark else "#9a6700")
+    # The wording is the widgets' (game_dialog._binary_status/_set_status).
+    assert (
+        settings.statusText({"msg": "prefix-none"}) == "No custom prefix — game launches directly"
+    )
+    assert (
+        settings.statusText({"msg": "binary-off", "args": ["mangohud", "/usr/bin/mangohud"]})
+        == "mangohud — /usr/bin/mangohud (off)"
+    )
+    assert (
+        settings.statusText({"msg": "binary-missing", "args": ["mangohud"]})
+        == "mangohud not found in PATH — skipped at launch"
+    )
+    assert (
+        settings.statusText({"msg": "binary-missing-fatal", "args": ["zink-run"]})
+        == "zink-run not found in PATH — launch will fail"
+    )
+    assert (
+        settings.statusText({"msg": "hook-missing", "args": ["pre-hook", "/tmp/gone.sh"]})
+        == "pre-hook not found: /tmp/gone.sh"
+    )
+    assert (
+        settings.statusText({"msg": "steam-missing"})
+        == "Steam launch options lack tkarcade (add: tkarcade %command%)"
+    )
+
+    # The centered checkbox collapses the whole block and persists the
+    # choice (a disabled box leaves the tabs their room back).
+    check.setProperty("checked", False)
+    QTest.qWait(80)
+    qgui_app.processEvents()
+    assert frame.property("visible") is False
+    assert abs(box.property("implicitHeight") - check.property("height")) <= 2
+    assert C.load_preferences().show_dependency_status is False
+    check.setProperty("checked", True)
+    QTest.qWait(60)
+    qgui_app.processEvents()
+    assert frame.property("visible") is True
+    assert C.load_preferences().show_dependency_status is True
+
+
+def test_settings_window_chrome_and_sections(qgui_app, xdg_env):
+    """Window title/footer, the tab sections and the Dependency Status box.
+
+    One main window and one settings dialog cover what three cases each
+    built for themselves; the dependency box toggles preferences, so it
+    runs last.
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-sections"
+    cfg.general.name = "Sections"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    settings = win.findChild(QObject, "gameSettings")
+    settings.openFor("local-sections")
+    QTest.qWait(120)
+    qgui_app.processEvents()
+    swin = _settings_window(qgui_app)
+    tabs = win.findChild(QQuickItem, "settingsTabs")
+
+    _check_settings_title_footer(swin, "local-sections")
+    _check_settings_sections(win, settings, tabs, qgui_app)
+    _check_dependency_box(win, settings, tabs, qgui_app)
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -1751,50 +1942,6 @@ def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_settings_window_title_and_footer(qgui_app, xdg_env):
-    """Title names the game; Diff/Reset lead the footer, Save/Cancel close."""
-    from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "local-title"
-    cfg.general.name = "Title Game"
-    cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
-    C.save(cfg)
-    win, engine, _proxy, warnings = _load_main(qgui_app)
-    settings = win.findChild(QObject, "gameSettings")
-    settings.openFor("local-title")
-    QTest.qWait(150)
-    qgui_app.processEvents()
-    swin = _settings_window(qgui_app)
-    # Widgets GameDialog: "Game Settings — <name> (<appid>)".
-    assert swin.title() == "Game Settings — Title Game (local-title)"
-
-    diff = swin.findChild(QQuickItem, "diffButton")
-    reset = swin.findChild(QQuickItem, "settingsReset")
-    save = swin.findChild(QQuickItem, "settingsSave")
-    cancel = swin.findChild(QQuickItem, "settingsCancel")
-    for item in (diff, reset, save, cancel):
-        assert item is not None
-        assert item.property("width") > 0
-    # QDialogButtonBox layout: Diff then Reset on the left, Save then
-    # Cancel on the right, with Save as the default button.
-    assert diff.property("x") < reset.property("x")
-    assert save.property("x") > reset.property("x") + reset.property("width")
-    assert cancel.property("x") > save.property("x") + save.property("width")
-    assert save.property("highlighted") is True
-
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
-
-
 def test_settings_tab_bodies_scroll(qgui_app, xdg_env):
     """A short window scrolls each tab body; no field is unreachable.
 
@@ -1866,131 +2013,6 @@ def test_settings_tab_bodies_scroll(qgui_app, xdg_env):
     top = field.mapToItem(flick, QPointF(0, 0)).y()
     assert top >= 0
     assert top + field.property("height") <= flick.property("height")
-
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    settings.close()
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_dependency_status_box_matches_widgets(qgui_app, xdg_env):
-    """Dependency Status: two columns of marks below the tabs."""
-    import shiboken6
-    from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "local-status"
-    cfg.general.name = "Status"
-    cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
-    C.save(cfg)
-    win, engine, _proxy, warnings = _load_main(qgui_app)
-    settings = win.findChild(QObject, "gameSettings")
-    tabs = win.findChild(QQuickItem, "settingsTabs")
-    assert settings is not None and tabs is not None
-    settings.openFor("local-status")
-    QTest.qWait(120)
-    qgui_app.processEvents()
-
-    box = win.findChild(QQuickItem, "depStatusBox")
-    frame = box.findChild(QQuickItem, "sectionFrame")
-    grid = box.findChild(QQuickItem, "depStatusGrid")
-    check = box.findChild(QQuickItem, "sectionTitle")
-    assert box is not None and frame is not None and grid is not None and check is not None
-    # Widgets: the group box sits below the tab widget, titled and framed
-    # -- with a single border (the widgets nested a sunken panel; the
-    # centered checkbox title replaces it).
-    assert box.property("y") >= tabs.property("y") + tabs.property("height")
-    assert check.property("text") == "Dependency Status"
-    assert check.property("checked") is True
-    # The plain label variant stays hidden while the box is checkable.
-    assert box.findChild(QQuickItem, "sectionTitleText").property("visible") is False
-    assert check.property("y") + check.property("height") <= frame.property("y")
-    assert frame.property("y") + frame.property("height") <= box.property("height")
-    frames = [
-        child
-        for child in box.findChildren(QQuickItem)
-        if child.property("objectName") == "sectionFrame"
-    ]
-    assert len(frames) == 1
-    from PySide6.QtCore import QPointF
-
-    # The grid sits inside the frame, padded on every side.
-    inset = grid.mapToItem(box, QPointF(0, 0)).y() - frame.mapToItem(box, QPointF(0, 0)).y()
-    assert 0 < inset < 16
-    assert grid.property("y") + grid.property("height") <= frame.property("height")
-
-    cells = [
-        child
-        for child in grid.childItems()
-        if shiboken6.isValid(child) and child.property("objectName") == "depStatusLine"
-    ]
-    # Prefix + broken/custom exe + gamescope/mangohud/upscale/ludusavi +
-    # the two wheels: a local game never gets the Steam launch-options line.
-    assert len(cells) == 8
-    assert grid.property("columns") == 2
-    # Row-major packing (the widgets reflow keeps visible lines first):
-    # cells 0/1 share a row, cell 2 opens the second one.
-    assert abs(cells[1].property("y") - cells[0].property("y")) <= 1
-    assert cells[1].property("x") > cells[0].property("x") + 50
-    assert cells[2].property("y") > cells[0].property("y")
-    assert abs(cells[2].property("x") - cells[0].property("x")) <= 1
-    # Every line is a colored mark plus text, never raw markup.
-    for cell in cells:
-        text = cell.property("text")
-        assert text.startswith('<span style="color:#'), text
-        assert text.split(">", 1)[1][0] in "✓⚠●"
-    assert "No custom prefix" in cells[0].property("text")
-
-    # The widgets picked the mark palette from the theme's darkness.
-    dark = settings.property("statusDark")
-    assert settings.statusColor("ok") == ("#7ee787" if dark else "#1a7f37")
-    assert settings.statusColor("warn") == ("#f47067" if dark else "#d1242f")
-    assert settings.statusColor("note") == ("#e3b341" if dark else "#9a6700")
-    # The wording is the widgets' (game_dialog._binary_status/_set_status).
-    assert (
-        settings.statusText({"msg": "prefix-none"}) == "No custom prefix — game launches directly"
-    )
-    assert (
-        settings.statusText({"msg": "binary-off", "args": ["mangohud", "/usr/bin/mangohud"]})
-        == "mangohud — /usr/bin/mangohud (off)"
-    )
-    assert (
-        settings.statusText({"msg": "binary-missing", "args": ["mangohud"]})
-        == "mangohud not found in PATH — skipped at launch"
-    )
-    assert (
-        settings.statusText({"msg": "binary-missing-fatal", "args": ["zink-run"]})
-        == "zink-run not found in PATH — launch will fail"
-    )
-    assert (
-        settings.statusText({"msg": "hook-missing", "args": ["pre-hook", "/tmp/gone.sh"]})
-        == "pre-hook not found: /tmp/gone.sh"
-    )
-    assert (
-        settings.statusText({"msg": "steam-missing"})
-        == "Steam launch options lack tkarcade (add: tkarcade %command%)"
-    )
-
-    # The centered checkbox collapses the whole block and persists the
-    # choice (a disabled box leaves the tabs their room back).
-    check.setProperty("checked", False)
-    QTest.qWait(80)
-    qgui_app.processEvents()
-    assert frame.property("visible") is False
-    assert abs(box.property("implicitHeight") - check.property("height")) <= 2
-    assert C.load_preferences().show_dependency_status is False
-    check.setProperty("checked", True)
-    QTest.qWait(60)
-    qgui_app.processEvents()
-    assert frame.property("visible") is True
-    assert C.load_preferences().show_dependency_status is True
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -3185,48 +3207,6 @@ def test_header_titles_share_styled_delegate():
     assert "Margin" not in strip
 
 
-def test_header_cells_tile_from_zero(qgui_app, xdg_env):
-    """Header cells start at x=0 with the same widths as the body."""
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, proxy, warnings = _load_main(qgui_app)
-    header = win.findChild(QQuickItem, "tableHeader")
-    found = {}
-
-    def walk(item):
-        try:
-            name = item.objectName()
-        except Exception:
-            return
-        if name.startswith("headerCell"):
-            try:
-                found[name] = (round(item.property("x"), 1), round(item.property("width"), 1))
-            except Exception:
-                pass
-        try:
-            kids = item.childItems()
-        except Exception:
-            return
-        for kid in kids:
-            walk(kid)
-
-    walk(header)
-    assert found.get("headerCell0") == (0.0, 36.0), found
-    ordered = [found[k] for k in sorted(found, key=lambda n: int(n[10:]))]
-    xs = [x for x, _w in ordered]
-    assert xs == sorted(xs), found  # no overlaps/gaps out of order
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
-
-
 def test_header_width_matches_table_for_unfitted_columns(qgui_app, xdg_env):
     """Header cell width equals the table's column width, fitted or not.
 
@@ -3504,9 +3484,13 @@ def test_narrow_window_shrinks_columns_to_fit(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_view_switcher_has_icons_and_shortcuts(qgui_app, xdg_env):
-    """View modes show Dolphin-style icons; Ctrl+1/2/3 switch directly."""
-    from PySide6.QtCore import QObject
+def test_window_chrome_geometry(qgui_app, xdg_env):
+    """Header/foot rules, gutter strips, table frame and status padding.
+
+    Read-only checks of the one default window, so one QML load covers
+    them all (they each loaded their own before).
+    """
+    from PySide6.QtCore import QObject, QPointF
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
@@ -3515,109 +3499,67 @@ def test_view_switcher_has_icons_and_shortcuts(qgui_app, xdg_env):
     cfg.general.appid = "1"
     C.save(cfg)
     win, _engine, _proxy, warnings = _load_main(qgui_app)
-    page = win.findChild(QObject, "gamesPage")
-    assert page is not None
-    for name, sequence in (
-        ("viewShortcutList", "Ctrl+1"),
-        ("viewShortcutIcons", "Ctrl+2"),
-        ("viewShortcutCards", "Ctrl+3"),
-    ):
-        found = win.findChild(QObject, name)
-        assert found is not None, name
-        assert found.property("sequence") == sequence, name
-    button = win.findChild(QQuickItem, "viewButton")
-    assert button is not None
-    import pathlib
+    header = win.findChild(QQuickItem, "tableHeader")
+    table = win.findChild(QQuickItem, "gameTable")
+    assert header is not None
+    assert table is not None
 
-    from tkarcade.gui import kirigami_app as kapp
+    # A grid line closes the header row across every column.
+    line = win.findChild(QQuickItem, "tableHeaderBottomLine")
+    assert line is not None
+    assert line.property("height") == 1
+    # Full width like the foot rule (covers the gutter too).
+    assert line.property("x") == 0
+    assert abs(line.property("width") - header.property("width")) <= 1
+    bottom = line.property("y") + line.property("height")
+    assert abs(bottom - header.property("height")) <= 1, (bottom, header.property("height"))
 
-    src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
-    for icon in ("view-list-details", "view-list-icons", "view-grid"):
-        assert icon in src, icon
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
+    # The gutter divider crosses rows and the empty area below.
+    full = win.findChild(QQuickItem, "gutterFullLine")
+    assert full is not None
+    assert full.property("width") == 1
+    # Same box as the per-cell dividers: gutter width (36) minus 1px.
+    assert full.property("x") == 36 - 1
+    # Overlay sibling of the table: same top and bottom, never scrolls.
+    assert abs(full.property("y") - table.property("y")) <= 1
+    assert (
+        abs(
+            full.property("y")
+            + full.property("height")
+            - table.property("y")
+            - table.property("height")
+        )
+        <= 1
+    )
 
+    # The framed gutter continues through rows and empty area (TKS).
+    strip = win.findChild(QQuickItem, "gutterBackStrip")
+    assert strip is not None
+    assert strip.property("x") == 0
+    assert strip.property("width") == 36
+    assert abs(strip.property("y") - header.property("height")) <= 1
+    assert (
+        abs(
+            strip.property("y")
+            + strip.property("height")
+            - table.property("y")
+            - table.property("height")
+        )
+        <= 1
+    )
 
-def test_drawer_and_page_headers_share_height(qgui_app, xdg_env):
-    """Drawer "Library" bar matches the page header so separators align."""
-    import pathlib
+    # A rule closes the table above the status line.
+    foot = win.findChild(QQuickItem, "tableFooterTopLine")
+    assert foot is not None
+    assert foot.property("height") == 1
+    assert round(float(foot.property("width") or 0), 1) == round(
+        float(table.property("width") or 0), 1
+    )
+    table_bottom = table.mapToScene(QPointF(0, 0)).y() + float(table.property("height") or 0)
+    foot_bottom = foot.mapToScene(QPointF(0, 0)).y() + float(foot.property("height") or 0)
+    assert abs(foot_bottom - table_bottom) <= 1
 
-    from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-    from tkarcade.gui import kirigami_app as kapp
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    drawer_bar = win.findChild(QQuickItem, "drawerHeaderBar")
-    assert drawer_bar is not None
-    page_headers = []
-    for child in win.findChildren(QObject):
-        try:
-            class_name = child.metaObject().className()
-        except Exception:
-            continue
-        if "ToolBarPageHeader" in class_name:
-            try:
-                page_headers.append(child.property("height"))
-            except Exception:
-                continue
-    assert page_headers, "no Kirigami page header found"
-    drawer_h = drawer_bar.property("height")
-    page_h = max(h for h in page_headers if h is not None)
-    assert drawer_h > 0 and page_h > 0
-    assert abs(drawer_h - page_h) <= 1, (drawer_h, page_h)
-    # Plain Item header (never a ToolBar): a toolbar header makes
-    # Kirigami inset the drawer-edge separator around the header zone,
-    # leaving the vertical line short of the header lines.
-    main_src = (pathlib.Path(kapp.__file__).parent / "qml" / "main.qml").read_text()
-    assert "header: Item {" in main_src
-    assert "header: Controls.ToolBar" not in main_src
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_status_label_clears_footer_lines(qgui_app, xdg_env):
-    """Status text keeps padding from the separator above and edge below."""
-    from PySide6.QtCore import QObject
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    label = win.findChild(QObject, "statusLabel")
-    assert label is not None
-    assert label.property("leftPadding") > 0
-    assert label.property("topPadding") > 0
-    assert label.property("bottomPadding") > 0
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_list_frame_is_flush_and_rounded(qgui_app, xdg_env):
-    """The TKS-style frame hugs the table: no margins, rounded corners."""
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    # The TKS-style frame hugs the table: no margins, rounded corners.
     frame = win.findChild(QQuickItem, "listFrame")
     assert frame is not None
     assert frame.property("x") == 0 and frame.property("y") == 0
@@ -3632,68 +3574,14 @@ def test_list_frame_is_flush_and_rounded(qgui_app, xdg_env):
 
     src = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert "border.width: 1" in src
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
 
+    # Status text keeps padding from the separator above and edge below.
+    label = win.findChild(QObject, "statusLabel")
+    assert label is not None
+    assert label.property("leftPadding") > 0
+    assert label.property("topPadding") > 0
+    assert label.property("bottomPadding") > 0
 
-def test_table_header_bottom_line_spans_width(qgui_app, xdg_env):
-    """A grid line closes the header row across every column."""
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    line = win.findChild(QQuickItem, "tableHeaderBottomLine")
-    assert line is not None
-    header = win.findChild(QQuickItem, "tableHeader")
-    assert header is not None
-    assert line.property("height") == 1
-    # Full width like the foot rule (covers the gutter too).
-    assert line.property("x") == 0
-    assert abs(line.property("width") - header.property("width")) <= 1
-    bottom = line.property("y") + line.property("height")
-    assert abs(bottom - header.property("height")) <= 1, (bottom, header.property("height"))
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_gutter_line_runs_full_table_height(qgui_app, xdg_env):
-    """The gutter divider crosses rows and the empty area below."""
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    line = win.findChild(QQuickItem, "gutterFullLine")
-    assert line is not None
-    table = win.findChild(QQuickItem, "gameTable")
-    assert table is not None
-    assert line.property("width") == 1
-    # Same box as the per-cell dividers: gutter width (36) minus 1px.
-    assert line.property("x") == 36 - 1
-    # Overlay sibling of the table: same top and bottom, never scrolls.
-    assert abs(line.property("y") - table.property("y")) <= 1
-    assert (
-        abs(
-            line.property("y")
-            + line.property("height")
-            - table.property("y")
-            - table.property("height")
-        )
-        <= 1
-    )
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3905,10 +3793,15 @@ def test_add_dialog_enter_confirms(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_settings_env_prepost_flow(qgui_app, xdg_env):
-    """Environment rows and Pre/Post fields persist through the dialog."""
+def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
+    """Env rows and Pre/Post, the GameMode pair, and bulk/preset edits.
+
+    Three sessions of the settings dialog on one main window (each case
+    these replace loaded its own).
+    """
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -3919,16 +3812,17 @@ def test_settings_env_prepost_flow(qgui_app, xdg_env):
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    page.select("local-doom")
-    qgui_app.processEvents()
-    page.openGameSettings("local-doom")
-    swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
-    tabs = swin.findChild(QQuickItem, "settingsTabs")
 
     def click(name):
         _click(swin, name)
 
+    # Environment rows and Pre/Post fields persist through the dialog.
+    page.select("local-doom")
+    qgui_app.processEvents()
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    tabs = swin.findChild(QQuickItem, "settingsTabs")
     tabs.setProperty("currentIndex", 1)
     qgui_app.processEvents()
     # A game without variables already shows one empty row (nothing is
@@ -3947,31 +3841,9 @@ def test_settings_env_prepost_flow(qgui_app, xdg_env):
     assert reloaded.env.vars == {"FOO": "bar"}
     assert reloaded.pre_post.pre_command == "/bin/echo"
     assert reloaded.pre_post.timeout == 30
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
 
-
-def test_settings_gamemode_exclusive(qgui_app, xdg_env):
-    """GameMode pair is mutually exclusive and persists."""
-    from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "local-doom"
-    cfg.general.name = "Doom"
-    cfg.general.custom_executable = "/bin/true"
-    C.save(cfg)
-    win, engine, _proxy, warnings = _load_main(qgui_app)
-    page = win.findChild(QObject, "gamesPage")
+    # GameMode pair is mutually exclusive and persists.
     page.openGameSettings("local-doom")
-    swin = _settings_window(qgui_app)
-    dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 3)
     QTest.qWait(200)
     for _ in range(5):
@@ -3990,6 +3862,30 @@ def test_settings_gamemode_exclusive(qgui_app, xdg_env):
     reloaded = C.load("local-doom")
     assert reloaded.gamemode.feral_gamemode is False
     assert reloaded.gamemode.cachyos_game_performance is True
+
+    # Bulk edit replaces rows; preset merges missing keys.
+    page.openGameSettings("local-doom")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 1)
+    qgui_app.processEvents()
+    click("envBulk")
+    assert win.findChild(QObject, "envBulkDialog").property("visible") is True
+    swin.findChild(QQuickItem, "envBulkArea").setProperty("text", "A=1\n# skip\nB=2")
+    dlg.acceptBulk()
+    assert dlg.envRowCount() == 2
+    click("envPreset")
+    assert win.findChild(QObject, "envPresetDialog").property("visible") is True
+    dlg.acceptEnvPreset()
+    qgui_app.processEvents()
+    if win.findChild(QObject, "envMismatchDialog").property("visible") is True:
+        dlg.applyEnvPresetByName(dlg.property("pendingPreset"))
+        qgui_app.processEvents()
+    assert dlg.envRowCount() > 2
+    dlg.save()
+    qgui_app.processEvents()
+    env = C.load("local-doom").env.vars
+    assert env["A"] == "1"
+    assert len(env) > 2
+
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4268,8 +4164,12 @@ def test_kirigami_quit_action_neutered():
     assert 'quitAction.shortcut = ""' in src
 
 
-def test_settings_ludusavi_system_flow(qgui_app, xdg_env):
-    """Ludusavi and System fields persist through the dialog."""
+def test_settings_system_and_wine_flow(qgui_app, xdg_env):
+    """Ludusavi/System fields persist; Wine edits Steam games only.
+
+    One main window covers both games and all three tabs: the two cases
+    this replaces each loaded their own.
+    """
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
@@ -4280,12 +4180,17 @@ def test_settings_ludusavi_system_flow(qgui_app, xdg_env):
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
     C.save(cfg)
+    steam = C.GameConfig()
+    steam.general.appid = "99"
+    C.save(steam)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     tabs = swin.findChild(QQuickItem, "settingsTabs")
+
+    # Ludusavi and System fields persist through the dialog.
     assert swin.findChild(QQuickItem, "settingsLog").property("text") != ""
     tabs.setProperty("currentIndex", 5)
     qgui_app.processEvents()
@@ -4308,28 +4213,10 @@ def test_settings_ludusavi_system_flow(qgui_app, xdg_env):
     assert reloaded.session.inhibit_idle is True
     assert reloaded.nightlight.disable_during_game is True
     assert reloaded.nightlight.provider == "plasma"
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
 
-
-def test_settings_wine_flow(qgui_app, xdg_env):
-    """Wine tab edits a Steam game and stays off for local games."""
-    from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "99"
-    C.save(cfg)
-    win, engine, _proxy, warnings = _load_main(qgui_app)
-    page = win.findChild(QObject, "gamesPage")
+    # Wine tab edits a Steam game and stays off for local games.
     page.openGameSettings("99")
-    swin = _settings_window(qgui_app)
-    dlg = win.findChild(QObject, "gameSettings")
+    qgui_app.processEvents()
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 7)
     qgui_app.processEvents()
     assert swin.findChild(QQuickItem, "wineForm").property("enabled") is True
@@ -4342,14 +4229,10 @@ def test_settings_wine_flow(qgui_app, xdg_env):
     assert reloaded.proton.fresh_prefix is True
     assert reloaded.proton.winetricks_verbs == ["dotnet48"]
     assert reloaded.debug.winedebug == "+err"
-    local = C.GameConfig()
-    local.general.appid = "local-doom"
-    local.general.name = "Doom"
-    local.general.custom_executable = "/bin/true"
-    C.save(local)
     page.openGameSettings("local-doom")
     qgui_app.processEvents()
     assert swin.findChild(QQuickItem, "wineForm").property("enabled") is False
+
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4608,54 +4491,6 @@ def test_clone_reset_menu_flows(qgui_app, xdg_env):
     qgui_app.processEvents()
     assert C.load("local-doom").general.name == ""
     assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_settings_env_bulk_preset_flow(qgui_app, xdg_env):
-    """Bulk edit replaces rows; preset merges missing keys."""
-    from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "local-doom"
-    cfg.general.name = "Doom"
-    cfg.general.custom_executable = "/bin/true"
-    C.save(cfg)
-    win, engine, _proxy, warnings = _load_main(qgui_app)
-    page = win.findChild(QObject, "gamesPage")
-    page.openGameSettings("local-doom")
-    swin = _settings_window(qgui_app)
-    dlg = win.findChild(QObject, "gameSettings")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 1)
-    qgui_app.processEvents()
-
-    def click(name):
-        _click(swin, name)
-
-    click("envBulk")
-    assert win.findChild(QObject, "envBulkDialog").property("visible") is True
-    swin.findChild(QQuickItem, "envBulkArea").setProperty("text", "A=1\n# skip\nB=2")
-    dlg.acceptBulk()
-    assert dlg.envRowCount() == 2
-    click("envPreset")
-    assert win.findChild(QObject, "envPresetDialog").property("visible") is True
-    dlg.acceptEnvPreset()
-    qgui_app.processEvents()
-    if win.findChild(QObject, "envMismatchDialog").property("visible") is True:
-        dlg.applyEnvPresetByName(dlg.property("pendingPreset"))
-        qgui_app.processEvents()
-    assert dlg.envRowCount() > 2
-    dlg.save()
-    qgui_app.processEvents()
-    env = C.load("local-doom").env.vars
-    assert env["A"] == "1"
-    assert len(env) > 2
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -5103,68 +4938,6 @@ def test_no_gutter_game_header_stub():
     assert "visible: logical !== 0" in src
 
 
-def test_table_footer_rule_closes_table(qgui_app, xdg_env):
-    """A rule closes the table above the status line."""
-    from PySide6.QtCore import QPointF
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    foot = win.findChild(QQuickItem, "tableFooterTopLine")
-    assert foot is not None
-    assert foot.property("height") == 1
-    table = win.findChild(QQuickItem, "gameTable")
-    assert round(float(foot.property("width") or 0), 1) == round(
-        float(table.property("width") or 0), 1
-    )
-    table_bottom = table.mapToScene(QPointF(0, 0)).y() + float(table.property("height") or 0)
-    foot_bottom = foot.mapToScene(QPointF(0, 0)).y() + float(foot.property("height") or 0)
-    assert abs(foot_bottom - table_bottom) <= 1
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_gutter_back_strip_runs_full_height(qgui_app, xdg_env):
-    """The framed gutter continues through rows and empty area (TKS)."""
-    from PySide6.QtQuick import QQuickItem
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
-    strip = win.findChild(QQuickItem, "gutterBackStrip")
-    assert strip is not None
-    table = win.findChild(QQuickItem, "gameTable")
-    header = win.findChild(QQuickItem, "tableHeader")
-    assert table is not None and header is not None
-    assert strip.property("x") == 0
-    assert strip.property("width") == 36
-    assert abs(strip.property("y") - header.property("height")) <= 1
-    assert (
-        abs(
-            strip.property("y")
-            + strip.property("height")
-            - table.property("y")
-            - table.property("height")
-        )
-        <= 1
-    )
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
-
-
 def test_row_hover_tracks_mouse(qgui_app, xdg_env):
     """Hovering a row washes it lightly (TKS) without selecting."""
     from PySide6.QtCore import QObject
@@ -5236,16 +5009,9 @@ def _button_bounds(win, labels):
     return left, right
 
 
-def test_toolbar_icons_pinned_and_filter_fills(qgui_app, xdg_env):
+def _check_toolbar_pinned(win, qgui_app):
     """Icons pin to the corner; the filter fills buttons-to-icons."""
     from PySide6.QtCore import QPointF
-
-    from tkarcade import config as C
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "1"
-    C.save(cfg)
-    win, _engine, _proxy, warnings = _load_main(qgui_app)
 
     # ActionToolBar instantiates displayComponents twice (toolbar row
     # plus hidden overflow twin): measure the visible instances.
@@ -5267,23 +5033,54 @@ def test_toolbar_icons_pinned_and_filter_fills(qgui_app, xdg_env):
     # Right-aligned row: buttons sit left of the filter with no overlap.
     assert group_right <= search_left + 1, (group_left, group_right, search_left)
     assert group_left >= 0
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    _engine.deleteLater()
-    qgui_app.processEvents()
 
 
-def test_window_minimum_size(qgui_app, xdg_env):
-    """The window never shrinks below 1280x720 (crowding guard)."""
+def _check_drawer_header_centered(win, qgui_app):
+    """Library sits on the header center (button balanced both sides)."""
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    btn = win.findChild(QQuickItem, "drawerHeaderButton")
+    assert btn is not None
+    pos = btn.mapToScene(QPointF(btn.property("width") / 2, 5)).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    for _ in range(10):
+        qgui_app.processEvents()
+    bar = win.findChild(QQuickItem, "drawerHeaderBar")
+    label = None
+    for item in bar.findChildren(QQuickItem):
+        try:
+            if item.property("visible") and item.property("text") == "Library":
+                label = item
+                break
+        except Exception:
+            continue
+    assert label is not None
+    bar_cx = bar.mapToScene(QPointF(0, 0)).x() + float(bar.property("width") or 0) / 2
+    label_cx = label.mapToScene(QPointF(0, 0)).x() + float(label.property("width") or 0) / 2
+    assert abs(label_cx - bar_cx) <= 1.0
+
+
+def test_toolbar_and_window_chrome(qgui_app, xdg_env):
+    """Toolbar pinning, the window size floor and the drawer header.
+
+    Read-only checks of the one default window (the drawer header click
+    expands the drawer, so it goes last).
+    """
     from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = "1"
     C.save(cfg)
     win, _engine, _proxy, warnings = _load_main(qgui_app)
+
+    _check_toolbar_pinned(win, qgui_app)
+    # The window never shrinks below 1280x720 (crowding guard).
     assert win.property("minimumWidth") == 1280
     assert win.property("minimumHeight") == 720
+    _check_drawer_header_centered(win, qgui_app)
+
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
