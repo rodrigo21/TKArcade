@@ -246,7 +246,7 @@ def test_preferences_roundtrip(xdg_env):
     from tkarcade import xdg as xdgmod
 
     prefs = C.load_preferences()
-    assert prefs.show_preview is True and prefs.tray_enable is False
+    assert prefs.show_preview is False and prefs.tray_enable is False
     assert prefs.tray_icon == "normal"
     prefs.show_preview = False
     prefs.tray_enable = True
@@ -575,7 +575,7 @@ def test_preferences_unreadable_falls_back_to_defaults(xdg_env, monkeypatch):
 
     monkeypatch.setattr(C.tomllib, "load", _denied)
     prefs = C.load_preferences()  # must not raise: dialogs stay open
-    assert prefs.show_preview is True
+    assert prefs.show_preview is False
 
 
 def test_needs_newer_app(xdg_env):

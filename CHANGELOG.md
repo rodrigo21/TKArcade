@@ -531,6 +531,26 @@ Breaking config changes are called out explicitly under `Changed`.
   Steam-only lookups (ProtonDB, artwork) skip local rows.
 
 ### Changed
+- Settings window: every tab now shares the same framed sections. General
+  splits into Game and Profile, Environment gets an "Environment
+  Variables" box that fills the tab (its Add/Bulk Edit/Add Preset/Remove
+  row stays under the frame), and the Notes box is five lines tall
+  instead of a half-page editor. The last tab is "Artwork/Notes": an
+  ampersand in a QQC2 button text is a mnemonic, and the escaped source
+  elided at the default width.
+- Compatibility stays reachable for local games: the Proton box is
+  hidden and the Wine fields are disabled with a note saying the
+  settings apply to Steam games only, instead of a greyed-out tab button.
+- Settings window: eight tabs instead of ten. The new Launch tab gathers
+  the executable, prefix, extra args, working directory, pre-launch menu
+  and log file, with the pre/post commands as a group of their own;
+  Ludusavi becomes a "Saves" group inside System and Notes sits under
+  Artwork; MangoHud and the RT upscaler join Performance; Wine/Proton
+  becomes Compatibility, split into Wine and Proton groups.
+- Settings footer blocks (Dependency Status, Launch Command Preview)
+  start collapsed: they are reference material, and expanded they cost
+  every tab a third of its height. Expanding one still persists the
+  choice for the next window.
 - Dialog bodies use a 12px layout margin, matching the widgets
   `QDialog`/`QMessageBox` (10px under Breeze, 11px offscreen), and each
   content-driven window height reads that margin back from its body.

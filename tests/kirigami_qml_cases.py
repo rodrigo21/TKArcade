@@ -4,6 +4,54 @@ import PySide6.QtQuickControls2  # noqa: F401 (registers QQC2 wrappers)
 
 OFFSCREEN_NOISE = ("was not placed in the graphics scene",)
 
+# Settings TabBar order (GameSettings.qml) and the scroll body behind each
+# tab. Named here so a reshuffle updates one table, not a dozen indices.
+# QQC2 reads `&` in a button text as a mnemonic, and eight tabs share
+# ~94px at the default width (Compatibility is exactly 13 chars), so the
+# title is kept to 13 characters without spaces to avoid eliding.
+SETTINGS_TAB_TITLES = (
+    "General",
+    "Launch",
+    "Environment",
+    "Compatibility",
+    "Performance",
+    "Display",
+    "System",
+    "Artwork/Notes",
+)
+(
+    TAB_GENERAL,
+    TAB_LAUNCH,
+    TAB_ENV,
+    TAB_COMPAT,
+    TAB_PERF,
+    TAB_DISPLAY,
+    TAB_SYSTEM,
+    TAB_ART,
+) = range(len(SETTINGS_TAB_TITLES))
+
+SETTINGS_TAB_BODIES = {
+    TAB_GENERAL: "settingsGeneralScroll",
+    TAB_LAUNCH: "settingsLaunchScroll",
+    TAB_ENV: "settingsEnvRowsScroll",
+    TAB_COMPAT: "settingsWineScroll",
+    TAB_PERF: "settingsPerfScroll",
+    TAB_DISPLAY: "settingsDisplayScroll",
+    TAB_SYSTEM: "settingsSystemScroll",
+    TAB_ART: "settingsArtworkScroll",
+}
+
+
+def _settings_tab(swin, index):
+    """Switch the settings TabBar to `index` and let the page settle."""
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    tabs = swin.findChild(QQuickItem, "settingsTabs")
+    assert tabs is not None
+    tabs.setProperty("currentIndex", index)
+    QTest.qWait(150)
+
 
 def test_main_qml_loads_with_model(qgui_app, xdg_env):
     from PySide6.QtCore import QUrl
@@ -1692,16 +1740,27 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
     # Every desktop-integration group draws the widgets QGroupBox look:
     # centered title above a framed panel (the QQC2 GroupBox painted the
     # title inside the frame at the top-left).
-    assert visible_titles(3) == ["System"]
-    assert visible_titles(6) == ["Audio", "Idle Suspend", "Night Light", "Notifications"]
-    assert visible_titles(4) == ["Display Mode", "Gamescope", "MangoHud", "RT Upscaler"]
+    assert visible_titles(TAB_GENERAL) == ["Game", "Profile"]
+    assert visible_titles(TAB_LAUNCH) == ["Launch", "Pre/Post Commands"]
+    assert visible_titles(TAB_ENV) == ["Environment Variables"]
+    # A local game has no compatdata prefix: only the Wine box is shown
+    # (with its note), never Proton.
+    assert visible_titles(TAB_COMPAT) == ["Wine"]
+    assert visible_titles(TAB_PERF) == ["Game Mode", "MangoHud", "RT Upscaler"]
+    assert visible_titles(TAB_DISPLAY) == ["Display Mode", "Gamescope"]
+    assert visible_titles(TAB_SYSTEM) == [
+        "Audio",
+        "Idle Suspend",
+        "Night Light",
+        "Notifications",
+        "Saves (Ludusavi)",
+    ]
+    assert visible_titles(TAB_ART) == ["Artwork", "Notes"]
 
     # Ludusavi: the widgets form layout indents the checkboxes into the
     # field column, stretches the name field across the panel and puts
-    # the note in a spanning row.
-    tabs.setProperty("currentIndex", 5)
-    QTest.qWait(150)
-    qgui_app.processEvents()
+    # the note in a spanning row (inside the System tab's Saves box).
+    _settings_tab(win, TAB_SYSTEM)
     form = win.findChild(QQuickItem, "luForm")
     name = win.findChild(QQuickItem, "luName")
     enable = win.findChild(QQuickItem, "luEnable")
@@ -1733,7 +1792,13 @@ def _check_dependency_box(win, settings, tabs, qgui_app):
     # centered checkbox title replaces it).
     assert box.property("y") >= tabs.property("y") + tabs.property("height")
     assert check.property("text") == "Dependency Status"
-    assert check.property("checked") is True
+    # The footer blocks start collapsed (reference material); expand this
+    # one to measure the layout the widgets had.
+    assert check.property("checked") is False and frame.property("visible") is False
+    check.setProperty("checked", True)
+    QTest.qWait(120)
+    qgui_app.processEvents()
+    assert check.property("checked") is True and frame.property("visible") is True
     # The plain label variant stays hidden while the box is checkable.
     assert box.findChild(QQuickItem, "sectionTitleText").property("visible") is False
     assert check.property("y") + check.property("height") <= frame.property("y")
@@ -1876,7 +1941,7 @@ def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     QTest.qWait(120)
     qgui_app.processEvents()
     swin = _settings_window(qgui_app)
-    tabs.setProperty("currentIndex", 1)
+    tabs.setProperty("currentIndex", TAB_ENV)
     QTest.qWait(150)
     qgui_app.processEvents()
 
@@ -1970,21 +2035,12 @@ def test_settings_tab_bodies_scroll(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     tabs = swin.findChild(QQuickItem, "settingsTabs")
     # Shrink to a short window (the dialog stayed resizable in the
-    # widgets): the tab area keeps only the leftover height.
-    swin.setProperty("height", 560)
+    # widgets): the tab area keeps only the leftover height. The footer
+    # blocks start collapsed, so this has to be shorter than before.
+    swin.setProperty("height", 420)
     QTest.qWait(80)
 
-    bodies = {
-        0: "settingsGeneralScroll",
-        1: "settingsEnvRowsScroll",
-        2: "settingsPrePostScroll",
-        3: "settingsPerfScroll",
-        4: "settingsDisplayScroll",
-        5: "settingsLudusaviScroll",
-        6: "settingsSystemScroll",
-        7: "settingsWineScroll",
-        9: "settingsArtworkScroll",
-    }
+    bodies = SETTINGS_TAB_BODIES
     for tab, name in bodies.items():
         tabs.setProperty("currentIndex", tab)
         QTest.qWait(150)
@@ -1998,11 +2054,11 @@ def test_settings_tab_bodies_scroll(qgui_app, xdg_env):
         assert bar.property("size") < 1, name
         assert bar.property("position") == 0, name
 
-    # Display is the tall tab: scrolling to the end has to bring the
-    # last field of the last section fully into the viewport.
-    tabs.setProperty("currentIndex", 4)
+    # Performance is the tall tab (three groups): scrolling to the end has
+    # to bring the last field of the last section fully into the viewport.
+    tabs.setProperty("currentIndex", TAB_PERF)
     QTest.qWait(150)
-    view = swin.findChild(QQuickItem, "settingsDisplayScroll")
+    view = swin.findChild(QQuickItem, "settingsPerfScroll")
     flick = view.property("contentItem")
     bottom = flick.property("contentHeight") - flick.property("height")
     assert bottom > 0
@@ -2017,6 +2073,92 @@ def test_settings_tab_bodies_scroll(qgui_app, xdg_env):
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     settings.close()
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_tabs_regrouped(qgui_app, xdg_env):
+    """Eight tabs: the fields that moved follow their new page.
+
+    The launch fields left General for Launch, MangoHud/RT Upscaler left
+    Display for Performance, and the old Ludusavi/Notes pages are groups
+    inside System and the artwork tab now.
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    _save_one_game("local-tabs", "Tabs")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-tabs")
+    swin = _settings_window(qgui_app)
+    tabs = swin.findChild(QQuickItem, "settingsTabs")
+
+    assert tabs.property("count") == len(SETTINGS_TAB_TITLES)
+    # TabBar delegates are ListView items: itemAt() is not reachable from
+    # Python, so read the buttons from the tree and order them by x.
+    import shiboken6
+
+    buttons = [
+        b
+        for b in tabs.findChildren(QQuickItem)
+        if shiboken6.isValid(b) and "TabButton" in b.metaObject().className()
+    ]
+    assert len(buttons) == len(SETTINGS_TAB_TITLES)
+    buttons.sort(key=lambda b: b.property("x"))
+    assert [b.property("text") for b in buttons] == list(SETTINGS_TAB_TITLES)
+
+    def shown(*names):
+        out = []
+        for name in names:
+            item = swin.findChild(QQuickItem, name)
+            assert item is not None, name
+            if item.isVisible():
+                out.append(name)
+        return out
+
+    general = (
+        "settingsAppid",
+        "settingsName",
+        "settingsType",
+        "settingsPlatform",
+        "settingsCats",
+        "settingsProfiles",
+    )
+    launch = (
+        "settingsExe",
+        "settingsPrefix",
+        "settingsArgs",
+        "settingsCwd",
+        "settingsMenu",
+        "settingsTimeout",
+        "settingsLog",
+        "ppPre",
+        "ppPreArgs",
+        "ppPost",
+        "ppPostArgs",
+        "ppTimeout",
+        "ppShell",
+    )
+    _settings_tab(swin, TAB_GENERAL)
+    assert shown(*general) == list(general)
+    assert shown(*launch) == []
+    _settings_tab(swin, TAB_LAUNCH)
+    assert shown(*launch) == list(launch)
+    assert shown("settingsPlatform", "settingsCats") == []
+    _settings_tab(swin, TAB_PERF)
+    assert shown("perfFeral", "mhEnable", "rtEnable") == ["perfFeral", "mhEnable", "rtEnable"]
+    _settings_tab(swin, TAB_DISPLAY)
+    assert shown("gsEnable", "mhEnable", "rtEnable") == ["gsEnable"]
+    _settings_tab(swin, TAB_SYSTEM)
+    assert shown("luEnable", "luName", "luCoverage") == ["luEnable", "luName", "luCoverage"]
+    _settings_tab(swin, TAB_ART)
+    assert shown("artIcon", "settingsNotes") == ["artIcon", "settingsNotes"]
+    assert shown("luEnable") == []
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
@@ -2219,7 +2361,7 @@ def test_artwork_donor_prompt_stays_in_settings(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 9)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
     qgui_app.processEvents()
 
     _click(swin, "artDonorFind")
@@ -2577,7 +2719,7 @@ def test_enter_keeps_the_text_area_newline(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     _settle_focus(swin)
     dialog = win.findChild(QObject, "gameSettings")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 8)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
     notes = swin.findChild(QQuickItem, "settingsNotes")
     notes.forceActiveFocus()
     QTest.qWait(120)
@@ -3941,7 +4083,7 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
     tabs = swin.findChild(QQuickItem, "settingsTabs")
-    tabs.setProperty("currentIndex", 1)
+    tabs.setProperty("currentIndex", TAB_ENV)
     qgui_app.processEvents()
     # A game without variables already shows one empty row (nothing is
     # saved unless it gets a key).
@@ -3950,7 +4092,7 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
     click("envAdd")
     assert dlg.envRowCount() == 2
     dlg.setEnvRow(0, "FOO", "bar")
-    tabs.setProperty("currentIndex", 2)
+    tabs.setProperty("currentIndex", TAB_LAUNCH)
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "ppPre").setProperty("text", "/bin/echo")
     swin.findChild(QQuickItem, "ppTimeout").setProperty("value", 30)
@@ -3962,7 +4104,7 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
 
     # GameMode pair is mutually exclusive and persists.
     page.openGameSettings("local-doom")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 3)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_PERF)
     QTest.qWait(200)
     for _ in range(5):
         qgui_app.processEvents()
@@ -3983,7 +4125,7 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
 
     # Bulk edit replaces rows; preset merges missing keys.
     page.openGameSettings("local-doom")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 1)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ENV)
     qgui_app.processEvents()
     click("envBulk")
     assert win.findChild(QObject, "envBulkDialog").property("visible") is True
@@ -4035,7 +4177,7 @@ def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 4)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_DISPLAY)
     qgui_app.processEvents()
 
     def click(name, host):
@@ -4051,6 +4193,9 @@ def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     dlg.acceptChoice()
     assert prompt.property("opened") is False
     assert swin.findChild(QQuickItem, "gsArgs").property("text") != ""
+    # MangoHud lives in Performance now: its New Configuration... flow
+    # runs from that tab, then the display assertions continue.
+    _settings_tab(swin, TAB_PERF)
     click("mhNew", swin)
     name_prompt = swin.findChild(QObject, "settingsNamePrompt")
     assert name_prompt.property("visible") is True
@@ -4059,6 +4204,7 @@ def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     assert prompt.property("visible") is True
     dlg.acceptChoice()
     assert dlg.mhConfigData() == "testmh.conf"
+    _settings_tab(swin, TAB_DISPLAY)
     dlg.setProperty("dmodeCurrent", "1920x1080@60")
     swin.findChild(QQuickItem, "dmodeBox").setProperty("editText", "1920x1080@60")
     qgui_app.processEvents()
@@ -4284,6 +4430,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     """
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -4304,7 +4451,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
 
     # Ludusavi and System fields persist through the dialog.
     assert swin.findChild(QQuickItem, "settingsLog").property("text") != ""
-    tabs.setProperty("currentIndex", 5)
+    tabs.setProperty("currentIndex", TAB_SYSTEM)
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "luEnable").setProperty("checked", True)
     swin.findChild(QQuickItem, "luName").setProperty("text", "Doom 3")
@@ -4312,7 +4459,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
     assert dlg.property("editAppid") == "local-doom"
     page.openGameSettings("local-doom")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 6)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_SYSTEM)
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "seInhibit").setProperty("checked", True)
     swin.findChild(QQuickItem, "nlDisable").setProperty("checked", True)
@@ -4329,9 +4476,12 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     # Wine tab edits a Steam game and stays off for local games.
     page.openGameSettings("99")
     qgui_app.processEvents()
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 7)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_COMPAT)
     qgui_app.processEvents()
     assert swin.findChild(QQuickItem, "wineForm").property("enabled") is True
+    # A Steam game gets both boxes and no "Steam only" note.
+    assert swin.findChild(QQuickItem, "wineSteamOnlyNote").property("visible") is False
+    assert swin.findChild(QQuickItem, "ptLog").property("visible") is True
     swin.findChild(QQuickItem, "ptFresh").setProperty("checked", True)
     swin.findChild(QQuickItem, "ptVerbs").setProperty("text", "dotnet48")
     swin.findChild(QQuickItem, "ptDebug").setProperty("currentIndex", 2)
@@ -4342,8 +4492,19 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     assert reloaded.proton.winetricks_verbs == ["dotnet48"]
     assert reloaded.debug.winedebug == "+err"
     page.openGameSettings("local-doom")
+    # save() closed the dialog, so reopening starts on the first tab: pick
+    # Compatibility again before asserting on visibility (Qt Quick's
+    # `visible` reports hidden ancestors too).
+    QTest.qWait(150)
+    qgui_app.processEvents()
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_COMPAT)
+    QTest.qWait(100)
     qgui_app.processEvents()
     assert swin.findChild(QQuickItem, "wineForm").property("enabled") is False
+    # Local game: the tab stays reachable, the Wine fields grey out with a
+    # note and the Proton box is gone (there is no prefix to set up).
+    assert swin.findChild(QQuickItem, "wineSteamOnlyNote").property("visible") is True
+    assert swin.findChild(QQuickItem, "ptLog").property("visible") is False
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -4664,16 +4825,19 @@ def test_settings_preview_diff_flow(qgui_app, xdg_env):
     check = preview_box.findChild(QQuickItem, "sectionTitle")
     frame = preview_box.findChild(QQuickItem, "sectionFrame")
     assert check.property("text") == "Launch Command Preview"
-    assert check.property("checked") is True and frame.property("visible") is True
-    check.setProperty("checked", False)
+    # Collapsed by default (it is reference material, not editing space);
+    # expanding it persists the flag the Preferences dialog also edits.
+    assert check.property("checked") is False and frame.property("visible") is False
+    check.setProperty("checked", True)
     QTest.qWait(80)
+    qgui_app.processEvents()
+    assert frame.property("visible") is True
+    assert C.load_preferences().show_preview is True
+    check.setProperty("checked", False)
+    QTest.qWait(60)
     qgui_app.processEvents()
     assert frame.property("visible") is False
     assert C.load_preferences().show_preview is False
-    check.setProperty("checked", True)
-    QTest.qWait(60)
-    qgui_app.processEvents()
-    assert C.load_preferences().show_preview is True
     _click(swin, "diffButton")
     qgui_app.processEvents()
     assert win.findChild(QObject, "diffDialog").property("visible") is True
@@ -4856,7 +5020,9 @@ def test_settings_general_formlayout_wide(qgui_app, xdg_env):
     form = swin.findChild(QQuickItem, "settingsGeneralForm")
     assert form.property("wideMode") is True
     name = swin.findChild(QQuickItem, "settingsName")
-    assert name.property("x") > 100  # buddy column, labels aside
+    # Labels keep a right-aligned column of their own (it shrank with the
+    # launch rows that used to carry the tab's longest captions).
+    assert name.property("x") > 60
     # The field column takes the tab (widgets QFormLayout), no centered cap.
     assert abs(name.property("x") + name.property("width") - form.property("width")) <= 24
     real = [w for w in warnings if "graphics scene" not in w]
@@ -4887,14 +5053,14 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     swin.findChild(QQuickItem, "settingsPlatform").setProperty("text", "PC")
     swin.findChild(QQuickItem, "settingsArgs").setProperty("text", "--fullscreen")
     swin.findChild(QQuickItem, "settingsCwd").setProperty("text", "/tmp")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 4)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_PERF)
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "mhFps").setProperty("value", 60)
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 7)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_COMPAT)
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "winePrefix").setProperty("text", "/tmp/pfx")
     assert isinstance(dlg.property("wineToolsData"), list)
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 9)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "artDonor").setProperty("text", "480")
     dlg.save()
@@ -5008,7 +5174,7 @@ def test_settings_audio_sink_flow(qgui_app, xdg_env, monkeypatch):
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", 6)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_SYSTEM)
     qgui_app.processEvents()
     box = swin.findChild(QQuickItem, "auSink")
     assert box is not None

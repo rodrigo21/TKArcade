@@ -38,9 +38,13 @@ Window {
     property bool launchMode: false
     property bool canLaunch: true
     // Bottom blocks, persisted in the preferences like the widgets
-    // preview flag (toggled from their centered title checkboxes).
-    property bool previewVisible: true
-    property bool depStatusVisible: true
+    // preview flag (toggled from their centered title checkboxes). They
+    // start collapsed: reference material, not editing space.
+    property bool previewVisible: false
+    property bool depStatusVisible: false
+    // Wine/Proton only mean something for a Steam id (or the defaults
+    // template): a local game has no compatdata prefix to edit.
+    readonly property bool wineAvailable: defaultsMode || ((fields.is_steam || false) && editAppid !== "")
 
     // Outcome of a closing action, for that standalone editor only:
     // "saved" | "launch" | "cancelled". The shell ignores it (no listener).
@@ -258,8 +262,8 @@ Window {
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
         var prefs = gameModel.loadPrefs()
-        previewVisible = prefs.showPreview ?? true
-        depStatusVisible = prefs.showDependencyStatus ?? true
+        previewVisible = prefs.showPreview ?? false
+        depStatusVisible = prefs.showDependencyStatus ?? false
         setEnvRows(f.env_vars || [])
         applyToolCheck(perfFeral, "gamemoderun")
         applyToolCheck(perfCachy, "game-performance")
@@ -1099,10 +1103,13 @@ Window {
                 text: qsTr("General")
             }
             Controls.TabButton {
+                text: qsTr("Launch")
+            }
+            Controls.TabButton {
                 text: qsTr("Environment")
             }
             Controls.TabButton {
-                text: qsTr("Pre/Post Commands")
+                text: qsTr("Compatibility")
             }
             Controls.TabButton {
                 text: qsTr("Performance")
@@ -1111,20 +1118,10 @@ Window {
                 text: qsTr("Display")
             }
             Controls.TabButton {
-                text: qsTr("Ludusavi")
-            }
-            Controls.TabButton {
                 text: qsTr("System")
             }
             Controls.TabButton {
-                text: qsTr("Wine / Proton")
-                enabled: ((fields.is_steam || false) && editAppid !== "") || defaultsMode
-            }
-            Controls.TabButton {
-                text: qsTr("Notes")
-            }
-            Controls.TabButton {
-                text: qsTr("Artwork")
+                text: qsTr("Artwork/Notes")
             }
         }
         StackLayout {
@@ -1143,308 +1140,397 @@ Window {
                 // content is squeezed into the viewport (nothing scrolls).
                 Item {
                     width: parent.width
-                    implicitHeight: generalForm.implicitHeight
-                    WidgetsFormLayout {
-                    id: generalForm
-                    objectName: "settingsGeneralForm"
-                    // Fill the tab like the widgets form layout: labels in
-                    // their own right-aligned column, fields stretched to
-                    // the tab edge.
-                    width: parent.width
-                Controls.TextField {
-                    id: appidField
-                    objectName: "settingsAppid"
-                    visible: editAppid !== ""
-                    readOnly: true
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Steam App ID:")
-                }
-                Controls.TextField {
-                    id: nameField
-                    objectName: "settingsName"
-                    // Always shown per-game (widgets parity); readonly and
-                    // Steam-sourced for Steam games.
-                    visible: !defaultsMode
-                    readOnly: fields.is_steam || false
-                    placeholderText: qsTr("Game name")
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Game name:")
-                }
-                Controls.ComboBox {
-                    id: typeBox
-                    objectName: "settingsType"
-                    Layout.fillWidth: true
-                    model: [qsTr("Automatic"), qsTr("Proton"), qsTr("Native Linux")]
-                    KirigamiLayouts.FormData.label: qsTr("Game type:")
-                    onActivated: runtimeField.text = gameSettings.runtimeText()
-                }
-                Controls.TextField {
-                    id: runtimeField
-                    objectName: "settingsRuntime"
-                    visible: !defaultsMode && editAppid !== "" && (fields.is_steam || false)
-                    readOnly: true
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Custom executable:")
-                    Controls.TextField {
-                        id: exeField
-                        objectName: "settingsExe"
-                        placeholderText: qsTr("Game executable")
-                        Layout.fillWidth: true
-                    }
-                    Controls.Button {
-                        objectName: "settingsBrowse"
-                        text: qsTr("Browse…")
-                        onClicked: gameModel.browseExecutable()
-                    }
-                    Connections {
-                        target: gameModel
-                        function onBrowseFinished(picked) {
-                            if (!gameSettings.visible || picked === "") {
-                                gameSettings.pendingBrowse = ""
-                                return
-                            }
-                            if (gameSettings.pendingBrowse === "launchCwd") {
-                                cwdField.text = picked
-                            } else if (gameSettings.pendingBrowse === "winePrefix") {
-                                winePrefixField.text = picked
-                            } else if (gameSettings.pendingBrowse.indexOf("art:") === 0) {
-                                var kind = gameSettings.pendingBrowse.slice(4)
-                                var msg = gameModel.storeArtwork(
-                                    editAppid, kind, picked)
-                                if (msg !== "") {
-                                    settingsError.text = msg
-                                } else if (kind === "icon") {
-                                    artIconField.text = gameModel.artworkPath(editAppid, kind)
-                                } else if (kind === "cover") {
-                                    artCoverField.text = gameModel.artworkPath(editAppid, kind)
-                                } else {
-                                    artBannerField.text = gameModel.artworkPath(editAppid, kind)
+                    implicitHeight: generalColumn.implicitHeight
+                    ColumnLayout {
+                        id: generalColumn
+                        width: parent.width
+                        spacing: Kirigami.Units.smallSpacing
+                        SectionBox {
+                            title: qsTr("Game")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: generalForm
+                                objectName: "settingsGeneralForm"
+                                // Fill the panel like the widgets form layout:
+                                // labels in their own right-aligned column,
+                                // fields stretched to the frame edge.
+                                Layout.fillWidth: true
+                                Controls.TextField {
+                                    id: appidField
+                                    objectName: "settingsAppid"
+                                    visible: editAppid !== ""
+                                    readOnly: true
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Steam App ID:")
                                 }
-                            } else {
-                                exeField.text = picked
-                                if (nameField.visible && nameField.text === "") {
-                                    var parts = picked.split("/")
-                                    nameField.text = parts[parts.length - 1]
+                                Controls.TextField {
+                                    id: nameField
+                                    objectName: "settingsName"
+                                    // Always shown per-game (widgets parity); readonly and
+                                    // Steam-sourced for Steam games.
+                                    visible: !defaultsMode
+                                    readOnly: fields.is_steam || false
+                                    placeholderText: qsTr("Game name")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Game name:")
+                                }
+                                Controls.ComboBox {
+                                    id: typeBox
+                                    objectName: "settingsType"
+                                    Layout.fillWidth: true
+                                    model: [qsTr("Automatic"), qsTr("Proton"), qsTr("Native Linux")]
+                                    KirigamiLayouts.FormData.label: qsTr("Game type:")
+                                    onActivated: runtimeField.text = gameSettings.runtimeText()
+                                }
+                                Controls.TextField {
+                                    id: runtimeField
+                                    objectName: "settingsRuntime"
+                                    visible: !defaultsMode && editAppid !== "" && (fields.is_steam || false)
+                                    readOnly: true
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
+                                }
+                                Controls.TextField {
+                                    id: platformField
+                                    objectName: "settingsPlatform"
+                                    placeholderText: qsTr("e.g. PC")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Platform:")
+                                }
+                                Controls.TextField {
+                                    id: catsField
+                                    objectName: "settingsCats"
+                                    placeholderText: qsTr("Action, Retro (comma-separated)")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Categories:")
                                 }
                             }
-                            gameSettings.pendingBrowse = ""
                         }
-                    }
-                }
-                Controls.TextField {
-                    id: prefixField
-                    objectName: "settingsPrefix"
-                    placeholderText: qsTr("e.g. zink-run")
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Custom command prefix:")
-                }
-                Controls.TextField {
-                    id: argsField
-                    objectName: "settingsArgs"
-                    placeholderText: qsTr("e.g. --fullscreen -v")
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Extra launch args:")
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Working directory:")
-                    Controls.TextField {
-                        id: cwdField
-                        objectName: "settingsCwd"
-                        placeholderText: qsTr("empty = game folder")
-                        Layout.fillWidth: true
-                    }
-                    Controls.Button {
-                        objectName: "settingsCwdBrowse"
-                        text: qsTr("Browse…")
-                        onClicked: {
-                            gameSettings.pendingBrowse = "launchCwd"
-                            gameModel.pickDir(qsTr("Working directory"), qsTr("Select"))
-                        }
-                    }
-                }
-                Controls.TextField {
-                    id: platformField
-                    objectName: "settingsPlatform"
-                    placeholderText: qsTr("e.g. PC")
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Platform:")
-                }
-                Controls.TextField {
-                    id: catsField
-                    objectName: "settingsCats"
-                    placeholderText: qsTr("Action, Retro (comma-separated)")
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Categories:")
-                }
-                Controls.CheckBox {
-                    id: menuCheck
-                    objectName: "settingsMenu"
-                    text: qsTr("Show menu before launch")
-                }
-                Controls.SpinBox {
-                    id: timeoutSpin
-                    objectName: "settingsTimeout"
-                    from: 0
-                    to: 600
-                    KirigamiLayouts.FormData.label: qsTr("Menu timeout (seconds):")
-                }
-                RowLayout {
-                    visible: editAppid !== ""
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Profile:")
-                    Controls.ComboBox {
-                        id: profileBox
-                        objectName: "settingsProfiles"
-                        Layout.fillWidth: true
-                        textRole: "display"
-                        onActivated: (index) => gameSettings.requestProfileSwitch(index)
-                    }
-                    Controls.Button {
-                        objectName: "settingsProfileSave"
-                        text: qsTr("Save As…")
-                        onClicked: gameSettings.askProfileName("saveAs")
-                    }
-                    Controls.Button {
-                        objectName: "settingsProfileClone"
-                        text: qsTr("Clone…")
-                        onClicked: gameSettings.askProfileName("clone")
-                    }
-                    Controls.Button {
-                        objectName: "settingsProfileDelete"
-                        text: qsTr("Delete")
-                        onClicked: {
-                            var profiles = profileBox.model || []
-                            var name = profiles[profileBox.currentIndex] || ""
-                            if (name === "") {
-                                return
-                            }
-                            confirmLabel.text = qsTr("Delete profile '%1'? This cannot be undone.").arg(name)
-                            confirmPurpose = "deleteProfile"
-                            confirmOk.text = qsTr("Delete")
-                            confirmDialog.open()
-                        }
-                    }
-                }
-                RowLayout {
-                    visible: editAppid !== ""
-                    Layout.fillWidth: true
-                    KirigamiLayouts.FormData.label: qsTr("Log File:")
-                    Controls.TextField {
-                        id: logField
-                        objectName: "settingsLog"
-                        readOnly: true
-                        Layout.fillWidth: true
-                    }
-                    Controls.Button {
-                        objectName: "settingsLogOpen"
-                        text: qsTr("Open")
-                        onClicked: {
-                            if (!gameModel.openPath(logField.text)) {
-                                settingsError.text = qsTr("Could not open the log file.")
+                        SectionBox {
+                            title: qsTr("Profile")
+                            Layout.fillWidth: true
+                            visible: editAppid !== ""
+                            WidgetsFormLayout {
+                                Layout.fillWidth: true
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Active:")
+                                    Controls.ComboBox {
+                                        id: profileBox
+                                        objectName: "settingsProfiles"
+                                        Layout.fillWidth: true
+                                        textRole: "display"
+                                        onActivated: (index) => gameSettings.requestProfileSwitch(index)
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsProfileSave"
+                                        text: qsTr("Save As…")
+                                        onClicked: gameSettings.askProfileName("saveAs")
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsProfileClone"
+                                        text: qsTr("Clone…")
+                                        onClicked: gameSettings.askProfileName("clone")
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsProfileDelete"
+                                        text: qsTr("Delete")
+                                        onClicked: {
+                                            var profiles = profileBox.model || []
+                                            var name = profiles[profileBox.currentIndex] || ""
+                                            if (name === "") {
+                                                return
+                                            }
+                                            confirmLabel.text = qsTr("Delete profile '%1'? This cannot be undone.").arg(name)
+                                            confirmPurpose = "deleteProfile"
+                                            confirmOk.text = qsTr("Delete")
+                                            confirmDialog.open()
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                }
                 }
             }
+            Controls.ScrollView {
+                clip: true
+                objectName: "settingsLaunchScroll"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                // ScrollView takes its scrollable size from the content's
+                // implicitHeight; a plain Item has none, so sizing the
+                // wrapper with `height:` leaves contentHeight at -1 and the
+                // content is squeezed into the viewport (nothing scrolls).
+                Item {
+                    width: parent.width
+                    implicitHeight: launchColumn.implicitHeight
+                    ColumnLayout {
+                        id: launchColumn
+                        width: parent.width
+                        spacing: Kirigami.Units.smallSpacing
+                        SectionBox {
+                            title: qsTr("Launch")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                Layout.fillWidth: true
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Custom executable:")
+                                    Controls.TextField {
+                                        id: exeField
+                                        objectName: "settingsExe"
+                                        placeholderText: qsTr("Game executable")
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsBrowse"
+                                        text: qsTr("Browse…")
+                                        onClicked: gameModel.browseExecutable()
+                                    }
+                                    Connections {
+                                        target: gameModel
+                                        function onBrowseFinished(picked) {
+                                            if (!gameSettings.visible || picked === "") {
+                                                gameSettings.pendingBrowse = ""
+                                                return
+                                            }
+                                            if (gameSettings.pendingBrowse === "launchCwd") {
+                                                cwdField.text = picked
+                                            } else if (gameSettings.pendingBrowse === "winePrefix") {
+                                                winePrefixField.text = picked
+                                            } else if (gameSettings.pendingBrowse.indexOf("art:") === 0) {
+                                                var kind = gameSettings.pendingBrowse.slice(4)
+                                                var msg = gameModel.storeArtwork(
+                                                    editAppid, kind, picked)
+                                                if (msg !== "") {
+                                                    settingsError.text = msg
+                                                } else if (kind === "icon") {
+                                                    artIconField.text = gameModel.artworkPath(editAppid, kind)
+                                                } else if (kind === "cover") {
+                                                    artCoverField.text = gameModel.artworkPath(editAppid, kind)
+                                                } else {
+                                                    artBannerField.text = gameModel.artworkPath(editAppid, kind)
+                                                }
+                                            } else {
+                                                exeField.text = picked
+                                                if (nameField.visible && nameField.text === "") {
+                                                    var parts = picked.split("/")
+                                                    nameField.text = parts[parts.length - 1]
+                                                }
+                                            }
+                                            gameSettings.pendingBrowse = ""
+                                        }
+                                    }
+                                }
+                                Controls.TextField {
+                                    id: prefixField
+                                    objectName: "settingsPrefix"
+                                    placeholderText: qsTr("e.g. zink-run")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Custom command prefix:")
+                                }
+                                Controls.TextField {
+                                    id: argsField
+                                    objectName: "settingsArgs"
+                                    placeholderText: qsTr("e.g. --fullscreen -v")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Extra launch args:")
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Working directory:")
+                                    Controls.TextField {
+                                        id: cwdField
+                                        objectName: "settingsCwd"
+                                        placeholderText: qsTr("empty = game folder")
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsCwdBrowse"
+                                        text: qsTr("Browse…")
+                                        onClicked: {
+                                            gameSettings.pendingBrowse = "launchCwd"
+                                            gameModel.pickDir(qsTr("Working directory"), qsTr("Select"))
+                                        }
+                                    }
+                                }
+                                Controls.CheckBox {
+                                    id: menuCheck
+                                    objectName: "settingsMenu"
+                                    text: qsTr("Show menu before launch")
+                                }
+                                Controls.SpinBox {
+                                    id: timeoutSpin
+                                    objectName: "settingsTimeout"
+                                    from: 0
+                                    to: 600
+                                    KirigamiLayouts.FormData.label: qsTr("Menu timeout (seconds):")
+                                }
+                                RowLayout {
+                                    visible: editAppid !== ""
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Log File:")
+                                    Controls.TextField {
+                                        id: logField
+                                        objectName: "settingsLog"
+                                        readOnly: true
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsLogOpen"
+                                        text: qsTr("Open")
+                                        onClicked: {
+                                            if (!gameModel.openPath(logField.text)) {
+                                                settingsError.text = qsTr("Could not open the log file.")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        SectionBox {
+                            title: qsTr("Pre/Post Commands")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: ppForm
+                                Layout.fillWidth: true
+                                Controls.TextField {
+                                    id: ppPre
+                                    objectName: "ppPre"
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Pre-launch command:")
+                                }
+                                Controls.TextField {
+                                    id: ppPreArgs
+                                    objectName: "ppPreArgs"
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Pre-launch arguments:")
+                                }
+                                Controls.TextField {
+                                    id: ppPost
+                                    objectName: "ppPost"
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Post-exit command:")
+                                }
+                                Controls.TextField {
+                                    id: ppPostArgs
+                                    objectName: "ppPostArgs"
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Post-exit arguments:")
+                                }
+                                Controls.SpinBox {
+                                    id: ppTimeout
+                                    objectName: "ppTimeout"
+                                    from: 1
+                                    to: 3600
+                                    KirigamiLayouts.FormData.label: qsTr("Timeout (seconds):")
+                                }
+                                Controls.CheckBox {
+                                    id: ppShell
+                                    objectName: "ppShell"
+                                    text: qsTr("Run in shell (bash -c)")
+                                }
+                            }
+                        }
+                    }
+                }
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Controls.Label {
-                    text: qsTr("Per-game environment variables:")
-                }
-                RowLayout {
-                    // Widgets QTableWidget header; it lines up with the rows
-                    // below, whose third column holds the per-row remove
-                    // button (Kirigami only, hence the matching gap).
-                    Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
-                    Controls.Label {
-                        objectName: "envHeaderVariable"
-                        Layout.fillWidth: true
-                        // QtQuick.Layouts splits the extra space proportionally
-                        // to the preferred widths, so both header cells ask for
-                        // the same hint to land on the row columns below.
-                        Layout.preferredWidth: Kirigami.Units.gridUnit
-                        horizontalAlignment: Text.AlignHCenter
-                        font.bold: true
-                        text: qsTr("Variable")
-                    }
-                    Controls.Label {
-                        objectName: "envHeaderValue"
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: Kirigami.Units.gridUnit
-                        horizontalAlignment: Text.AlignHCenter
-                        font.bold: true
-                        text: qsTr("Value")
-                    }
-                    Item {
-                        Layout.preferredWidth: envRemoveProto.implicitWidth
-                    }
-                }
-                Controls.ScrollView {
-                    clip: true
-                    objectName: "settingsEnvRowsScroll"
+                SectionBox {
+                    title: qsTr("Environment Variables")
+                    fillHeight: true
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Item {
-                        width: parent.width
-                        implicitHeight: envForm.implicitHeight
-                        ColumnLayout {
-                            id: envForm
-                            objectName: "envForm"
+                    RowLayout {
+                        // Widgets QTableWidget header; it lines up with the rows
+                        // below, whose third column holds the per-row remove
+                        // button (Kirigami only, hence the matching gap).
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+                        Controls.Label {
+                            objectName: "envHeaderVariable"
+                            Layout.fillWidth: true
+                            // QtQuick.Layouts splits the extra space proportionally
+                            // to the preferred widths, so both header cells ask for
+                            // the same hint to land on the row columns below.
+                            Layout.preferredWidth: Kirigami.Units.gridUnit
+                            horizontalAlignment: Text.AlignHCenter
+                            font.bold: true
+                            text: qsTr("Variable")
+                        }
+                        Controls.Label {
+                            objectName: "envHeaderValue"
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: Kirigami.Units.gridUnit
+                            horizontalAlignment: Text.AlignHCenter
+                            font.bold: true
+                            text: qsTr("Value")
+                        }
+                        Item {
+                            Layout.preferredWidth: envRemoveProto.implicitWidth
+                        }
+                    }
+                    Controls.ScrollView {
+                        clip: true
+                        objectName: "settingsEnvRowsScroll"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Item {
                             width: parent.width
-                            spacing: Kirigami.Units.smallSpacing
-                            property int currentRow: -1
-                            ListModel {
-                                id: envModel
-                            }
-                            Controls.ToolButton {
-                                id: envRemoveProto
-                                visible: false
-                                icon.name: "list-remove"
-                                display: Controls.AbstractButton.IconOnly
-                            }
-                            Repeater {
-                                model: envModel
-                                delegate: RowLayout {
-                                    objectName: "envRow"
-                                    width: envForm.width
-                                    spacing: Kirigami.Units.smallSpacing
-                                    Controls.TextField {
-                                        Layout.fillWidth: true
-                                        placeholderText: qsTr("Variable")
-                                        text: key
-                                        onTextChanged: envModel.setProperty(index, "key", text)
-                                        onActiveFocusChanged: {
-                                            if (activeFocus) {
-                                                envForm.currentRow = index
+                            implicitHeight: envForm.implicitHeight
+                            ColumnLayout {
+                                id: envForm
+                                objectName: "envForm"
+                                width: parent.width
+                                spacing: Kirigami.Units.smallSpacing
+                                property int currentRow: -1
+                                ListModel {
+                                    id: envModel
+                                }
+                                Controls.ToolButton {
+                                    id: envRemoveProto
+                                    visible: false
+                                    icon.name: "list-remove"
+                                    display: Controls.AbstractButton.IconOnly
+                                }
+                                Repeater {
+                                    model: envModel
+                                    delegate: RowLayout {
+                                        objectName: "envRow"
+                                        width: envForm.width
+                                        spacing: Kirigami.Units.smallSpacing
+                                        Controls.TextField {
+                                            Layout.fillWidth: true
+                                            placeholderText: qsTr("Variable")
+                                            text: key
+                                            onTextChanged: envModel.setProperty(index, "key", text)
+                                            onActiveFocusChanged: {
+                                                if (activeFocus) {
+                                                    envForm.currentRow = index
+                                                }
                                             }
                                         }
-                                    }
-                                    Controls.TextField {
-                                        Layout.fillWidth: true
-                                        placeholderText: qsTr("Value")
-                                        text: value
-                                        onTextChanged: envModel.setProperty(index, "value", text)
-                                        onActiveFocusChanged: {
-                                            if (activeFocus) {
-                                                envForm.currentRow = index
+                                        Controls.TextField {
+                                            Layout.fillWidth: true
+                                            placeholderText: qsTr("Value")
+                                            text: value
+                                            onTextChanged: envModel.setProperty(index, "value", text)
+                                            onActiveFocusChanged: {
+                                                if (activeFocus) {
+                                                    envForm.currentRow = index
+                                                }
                                             }
                                         }
-                                    }
-                                    Controls.ToolButton {
-                                        icon.name: "list-remove"
-                                        display: Controls.AbstractButton.IconOnly
-                                        onClicked: {
-                                            envModel.remove(index)
-                                            envForm.currentRow = -1
+                                        Controls.ToolButton {
+                                            icon.name: "list-remove"
+                                            display: Controls.AbstractButton.IconOnly
+                                            onClicked: {
+                                                envModel.remove(index)
+                                                envForm.currentRow = -1
+                                            }
                                         }
                                     }
                                 }
@@ -1493,55 +1579,168 @@ Window {
                     }
                 }
             }
-            ColumnLayout {
+            Controls.ScrollView {
+                clip: true
+                objectName: "settingsWineScroll"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Controls.ScrollView {
-                    clip: true
-                    objectName: "settingsPrePostScroll"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Item {
+                // ScrollView takes its scrollable size from the content's
+                // implicitHeight; a plain Item has none, so sizing the
+                // wrapper with `height:` leaves contentHeight at -1 and the
+                // content is squeezed into the viewport (nothing scrolls).
+                Item {
+                    width: parent.width
+                    implicitHeight: compatColumn.implicitHeight
+                    ColumnLayout {
+                        id: compatColumn
                         width: parent.width
-                        implicitHeight: ppForm.implicitHeight
-                        WidgetsFormLayout {
-                            id: ppForm
-                            width: parent.width
-                            Controls.TextField {
-                                id: ppPre
-                                objectName: "ppPre"
+                        spacing: Kirigami.Units.smallSpacing
+                        SectionBox {
+                            title: qsTr("Wine")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: wineForm
+                                objectName: "wineForm"
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Pre-launch command:")
+                                enabled: gameSettings.wineAvailable
+                                Controls.CheckBox {
+                                    id: ptFresh
+                                    objectName: "ptFresh"
+                                    text: qsTr("Delete prefix before launch (fresh start)")
+                                    Controls.ToolTip.text: qsTr("Deletes the compatdata prefix so Steam recreates it. WIPES saves inside the prefix — rely on cloud or Ludusavi backups!")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.TextField {
+                                    id: ptVerbs
+                                    objectName: "ptVerbs"
+                                    placeholderText: qsTr("dotnet48 vcrun2022 (space-separated)")
+                                    Controls.ToolTip.text: qsTr("Winetricks verbs installed via protontricks before launch.")
+                                    Controls.ToolTip.visible: hovered
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Custom prefix dir:")
+                                    Controls.TextField {
+                                        id: winePrefixField
+                                        objectName: "winePrefix"
+                                        placeholderText: qsTr("empty = Steam default")
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "winePrefixBrowse"
+                                        text: qsTr("Browse…")
+                                        onClicked: {
+                                            gameSettings.pendingBrowse = "winePrefix"
+                                            gameModel.pickDir(qsTr("Custom prefix dir"), qsTr("Select"))
+                                        }
+                                    }
+                                    Controls.Button {
+                                        objectName: "winePrefixCreate"
+                                        text: qsTr("Create")
+                                        onClicked: {
+                                            var msg = gameModel.ensurePrefix(editAppid)
+                                            if (msg !== "") {
+                                                settingsError.text = msg
+                                            }
+                                        }
+                                    }
+                                    Controls.Button {
+                                        objectName: "winePrefixClear"
+                                        text: qsTr("Clear…")
+                                        onClicked: {
+                                            if (winePrefixField.text.trim() === "") {
+                                                return
+                                            }
+                                            confirmLabel.text = qsTr(
+                                                "Delete the custom prefix dir now?\n%1\nSaves inside are lost.").arg(
+                                                winePrefixField.text.trim())
+                                            confirmPurpose = "clearPrefix"
+                                            confirmOk.text = qsTr("Delete")
+                                            confirmDialog.open()
+                                        }
+                                    }
+                                    Controls.Button {
+                                        objectName: "winePrefixOpen"
+                                        text: qsTr("Open")
+                                        onClicked: {
+                                            if (!gameModel.openPath(gameModel.prefixDir(editAppid))) {
+                                                settingsError.text = qsTr("Could not open the prefix folder.")
+                                            }
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Compat tool:")
+                                    Controls.ComboBox {
+                                        id: wineToolBox
+                                        objectName: "wineTool"
+                                        textRole: "text"
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "wineToolApply"
+                                        text: qsTr("Apply")
+                                        onClicked: {
+                                            var msg = gameModel.applyWineVersion(editAppid, gameSettings.wineToolData())
+                                            if (msg !== "") {
+                                                settingsError.text = msg
+                                            } else {
+                                                gameSettings.refreshWineTools(gameSettings.wineToolData())
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                            Controls.TextField {
-                                id: ppPreArgs
-                                objectName: "ppPreArgs"
+                            // A local game has no compatdata prefix: the tab
+                            // stays reachable and says why, instead of a grey
+                            // wall (or a disabled tab button).
+                            Controls.Label {
+                                objectName: "wineSteamOnlyNote"
+                                visible: !gameSettings.wineAvailable
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Pre-launch arguments:")
+                                wrapMode: Text.WordWrap
+                                text: qsTr("Wine and Proton settings apply to Steam games only.")
                             }
-                            Controls.TextField {
-                                id: ppPost
-                                objectName: "ppPost"
+                        }
+                        SectionBox {
+                            title: qsTr("Proton")
+                            Layout.fillWidth: true
+                            visible: gameSettings.wineAvailable
+                            WidgetsFormLayout {
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Post-exit command:")
-                            }
-                            Controls.TextField {
-                                id: ppPostArgs
-                                objectName: "ppPostArgs"
-                                Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Post-exit arguments:")
-                            }
-                            Controls.SpinBox {
-                                id: ppTimeout
-                                objectName: "ppTimeout"
-                                from: 1
-                                to: 3600
-                                KirigamiLayouts.FormData.label: qsTr("Timeout (seconds):")
-                            }
-                            Controls.CheckBox {
-                                id: ppShell
-                                objectName: "ppShell"
-                                text: qsTr("Run in shell (bash -c)")
+                                enabled: gameSettings.wineAvailable
+                                RowLayout {
+                                    visible: editAppid !== ""
+                                    Layout.fillWidth: true
+                                    Controls.CheckBox {
+                                        id: ptLog
+                                        objectName: "ptLog"
+                                        text: qsTr("Capture Proton log (disk-heavy)")
+                                        Controls.ToolTip.text: qsTr("Sets PROTON_LOG=1 with a per-game log dir (Proton only).")
+                                        Controls.ToolTip.visible: hovered
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        text: qsTr("Open")
+                                        onClicked: {
+                                            if (!gameModel.openPath(ptLogDir)) {
+                                                settingsError.text = qsTr("Could not open the Proton log folder.")
+                                            }
+                                        }
+                                    }
+                                }
+                                Controls.ComboBox {
+                                    id: ptDebug
+                                    objectName: "ptDebug"
+                                    Layout.fillWidth: true
+                                    model: [qsTr("Off"), qsTr("Quiet (-all)"), qsTr("Errors (+err)"), qsTr("Warnings (+warn,+err)")]
+                                    Controls.ToolTip.text: qsTr("Sets WINEDEBUG for Wine/Proton output.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("Wine Debug:")
+                                }
                             }
                         }
                     }
@@ -1563,7 +1762,7 @@ Window {
                             width: parent.width
                             spacing: Kirigami.Units.smallSpacing
                             SectionBox {
-                                title: qsTr("System")
+                                title: qsTr("Game Mode")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
                                     Layout.fillWidth: true
@@ -1590,6 +1789,67 @@ Window {
                                                 perfFeral.checked = false
                                             }
                                         }
+                                    }
+                                }
+                            }
+                            SectionBox {
+                                title: qsTr("MangoHud")
+                                Layout.fillWidth: true
+                                WidgetsFormLayout {
+                                    Controls.CheckBox {
+                                        id: mhEnable
+                                        objectName: "mhEnable"
+                                        text: qsTr("Enable MangoHud")
+                                    }
+                                    Controls.TextField {
+                                        id: mhArgs
+                                        objectName: "mhArgs"
+                                        Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("MangoHud Options:")
+                                    }
+                                    // Kirigami keeps the FPS cap the widgets
+                                    // r240 dropped from its dialog.
+                                    Controls.SpinBox {
+                                        id: mhFps
+                                        objectName: "mhFps"
+                                        from: 0
+                                        to: 999
+                                        KirigamiLayouts.FormData.label: qsTr("FPS limit (0 = off):")
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("MangoHud Configuration:")
+                                        Controls.ComboBox {
+                                            id: mhConf
+                                            objectName: "mhConf"
+                                            textRole: "text"
+                                            Layout.fillWidth: true
+                                        }
+                                        Controls.Button {
+                                            objectName: "mhNew"
+                                            text: qsTr("New Configuration…")
+                                            onClicked: gameSettings.askProfileName("mhName")
+                                        }
+                                    }
+                                }
+                            }
+                            SectionBox {
+                                title: qsTr("RT Upscaler")
+                                Layout.fillWidth: true
+                                WidgetsFormLayout {
+                                    Controls.CheckBox {
+                                        id: rtEnable
+                                        objectName: "rtEnable"
+                                        text: qsTr("Enable RT Upscaler (linux-rt-upscaler)")
+                                        Controls.ToolTip.text: qsTr("SRCNN upscaling for X11/XWayland windows; forces PROTON_ENABLE_WAYLAND=0.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.TextField {
+                                        id: rtArgs
+                                        objectName: "rtArgs"
+                                        Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("Upscaler Options:")
+                                        placeholderText: qsTr("-m 4x24 (see upscale --help-all)")
                                     }
                                 }
                             }
@@ -1706,138 +1966,6 @@ Window {
                                     }
                                 }
                             }
-                            SectionBox {
-                                title: qsTr("MangoHud")
-                                Layout.fillWidth: true
-                                WidgetsFormLayout {
-                                    Controls.CheckBox {
-                                        id: mhEnable
-                                        objectName: "mhEnable"
-                                        text: qsTr("Enable MangoHud")
-                                    }
-                                    Controls.TextField {
-                                        id: mhArgs
-                                        objectName: "mhArgs"
-                                        Layout.fillWidth: true
-                                        KirigamiLayouts.FormData.label: qsTr("MangoHud Options:")
-                                    }
-                                    // Kirigami keeps the FPS cap the widgets
-                                    // r240 dropped from its dialog.
-                                    Controls.SpinBox {
-                                        id: mhFps
-                                        objectName: "mhFps"
-                                        from: 0
-                                        to: 999
-                                        KirigamiLayouts.FormData.label: qsTr("FPS limit (0 = off):")
-                                    }
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        KirigamiLayouts.FormData.label: qsTr("MangoHud Configuration:")
-                                        Controls.ComboBox {
-                                            id: mhConf
-                                            objectName: "mhConf"
-                                            textRole: "text"
-                                            Layout.fillWidth: true
-                                        }
-                                        Controls.Button {
-                                            objectName: "mhNew"
-                                            text: qsTr("New Configuration…")
-                                            onClicked: gameSettings.askProfileName("mhName")
-                                        }
-                                    }
-                                }
-                            }
-                            SectionBox {
-                                title: qsTr("RT Upscaler")
-                                Layout.fillWidth: true
-                                WidgetsFormLayout {
-                                    Controls.CheckBox {
-                                        id: rtEnable
-                                        objectName: "rtEnable"
-                                        text: qsTr("Enable RT Upscaler (linux-rt-upscaler)")
-                                        Controls.ToolTip.text: qsTr("SRCNN upscaling for X11/XWayland windows; forces PROTON_ENABLE_WAYLAND=0.")
-                                        Controls.ToolTip.visible: hovered
-                                    }
-                                    Controls.TextField {
-                                        id: rtArgs
-                                        objectName: "rtArgs"
-                                        Layout.fillWidth: true
-                                        KirigamiLayouts.FormData.label: qsTr("Upscaler Options:")
-                                        placeholderText: qsTr("-m 4x24 (see upscale --help-all)")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Controls.ScrollView {
-                    clip: true
-                    objectName: "settingsLudusaviScroll"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Item {
-                        width: parent.width
-                        implicitHeight: luForm.implicitHeight
-                        WidgetsFormLayout {
-                            id: luForm
-                            objectName: "luForm"
-                            width: parent.width
-                            Controls.CheckBox {
-                                id: luEnable
-                                objectName: "luEnable"
-                                text: qsTr("Enable Ludusavi for this game")
-                            }
-                            Controls.CheckBox {
-                                id: luRestore
-                                objectName: "luRestore"
-                                text: qsTr("Restore backup before launch")
-                                Controls.ToolTip.text: qsTr("Unchecked = --no-restore")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.CheckBox {
-                                id: luBackup
-                                objectName: "luBackup"
-                                text: qsTr("Back up after exit")
-                                Controls.ToolTip.text: qsTr("Unchecked = --no-backup")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.TextField {
-                                id: luName
-                                objectName: "luName"
-                                placeholderText: qsTr("Leave empty to detect the game from Steam")
-                                Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Game Name Override:")
-                            }
-                            Controls.CheckBox {
-                                id: luGui
-                                objectName: "luGui"
-                                text: qsTr("Show Prompts (--gui)")
-                                Controls.ToolTip.text: qsTr("With prompts enabled, restore and backup can be declined per session.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.Label {
-                                // The widgets adds this note as a spanning row
-                                // (addRow with a single widget), not as a field.
-                                objectName: "luNote"
-                                KirigamiLayouts.FormData.isSection: true
-                                Layout.fillWidth: true
-                                wrapMode: Text.WordWrap
-                                text: qsTr("With prompts enabled, restore and backup can be declined per session.")
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                visible: editAppid !== ""
-                                KirigamiLayouts.FormData.label: qsTr("Coverage:")
-                                Controls.Button {
-                                    objectName: "luCoverage"
-                                    text: qsTr("Check Coverage...")
-                                    onClicked: gameModel.checkCoverage(editAppid, luName.text)
-                                }
-                            }
                         }
                     }
                 }
@@ -1926,264 +2054,201 @@ Window {
                                     }
                                 }
                             }
-                        }
-                    }
-                }
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Controls.ScrollView {
-                    clip: true
-                    objectName: "settingsWineScroll"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Item {
-                        width: parent.width
-                        implicitHeight: wineForm.implicitHeight
-                        WidgetsFormLayout {
-                            id: wineForm
-                            objectName: "wineForm"
-                            width: parent.width
-                            enabled: ((fields.is_steam || false) && editAppid !== "") || defaultsMode
-                            Controls.CheckBox {
-                                id: ptFresh
-                                objectName: "ptFresh"
-                                text: qsTr("Delete prefix before launch (fresh start)")
-                                Controls.ToolTip.text: qsTr("Deletes the compatdata prefix so Steam recreates it. WIPES saves inside the prefix — rely on cloud or Ludusavi backups!")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.TextField {
-                                id: ptVerbs
-                                objectName: "ptVerbs"
-                                placeholderText: qsTr("dotnet48 vcrun2022 (space-separated)")
-                                Controls.ToolTip.text: qsTr("Winetricks verbs installed via protontricks before launch.")
-                                Controls.ToolTip.visible: hovered
+                            SectionBox {
+                                title: qsTr("Saves (Ludusavi)")
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Custom prefix dir:")
-                                Controls.TextField {
-                                    id: winePrefixField
-                                    objectName: "winePrefix"
-                                    placeholderText: qsTr("empty = Steam default")
+                                WidgetsFormLayout {
+                                    id: luForm
+                                    objectName: "luForm"
                                     Layout.fillWidth: true
-                                }
-                                Controls.Button {
-                                    objectName: "winePrefixBrowse"
-                                    text: qsTr("Browse…")
-                                    onClicked: {
-                                        gameSettings.pendingBrowse = "winePrefix"
-                                        gameModel.pickDir(qsTr("Custom prefix dir"), qsTr("Select"))
+                                    Controls.CheckBox {
+                                        id: luEnable
+                                        objectName: "luEnable"
+                                        text: qsTr("Enable Ludusavi for this game")
                                     }
-                                }
-                                Controls.Button {
-                                    objectName: "winePrefixCreate"
-                                    text: qsTr("Create")
-                                    onClicked: {
-                                        var msg = gameModel.ensurePrefix(editAppid)
-                                        if (msg !== "") {
-                                            settingsError.text = msg
+                                    Controls.CheckBox {
+                                        id: luRestore
+                                        objectName: "luRestore"
+                                        text: qsTr("Restore backup before launch")
+                                        Controls.ToolTip.text: qsTr("Unchecked = --no-restore")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.CheckBox {
+                                        id: luBackup
+                                        objectName: "luBackup"
+                                        text: qsTr("Back up after exit")
+                                        Controls.ToolTip.text: qsTr("Unchecked = --no-backup")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.TextField {
+                                        id: luName
+                                        objectName: "luName"
+                                        placeholderText: qsTr("Leave empty to detect the game from Steam")
+                                        Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("Game Name Override:")
+                                    }
+                                    Controls.CheckBox {
+                                        id: luGui
+                                        objectName: "luGui"
+                                        text: qsTr("Show Prompts (--gui)")
+                                        Controls.ToolTip.text: qsTr("With prompts enabled, restore and backup can be declined per session.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Label {
+                                        // The widgets adds this note as a spanning row
+                                        // (addRow with a single widget), not as a field.
+                                        objectName: "luNote"
+                                        KirigamiLayouts.FormData.isSection: true
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: qsTr("With prompts enabled, restore and backup can be declined per session.")
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        visible: editAppid !== ""
+                                        KirigamiLayouts.FormData.label: qsTr("Coverage:")
+                                        Controls.Button {
+                                            objectName: "luCoverage"
+                                            text: qsTr("Check Coverage...")
+                                            onClicked: gameModel.checkCoverage(editAppid, luName.text)
                                         }
                                     }
                                 }
-                                Controls.Button {
-                                    objectName: "winePrefixClear"
-                                    text: qsTr("Clear…")
-                                    onClicked: {
-                                        if (winePrefixField.text.trim() === "") {
-                                            return
-                                        }
-                                        confirmLabel.text = qsTr(
-                                            "Delete the custom prefix dir now?\n%1\nSaves inside are lost.").arg(
-                                            winePrefixField.text.trim())
-                                        confirmPurpose = "clearPrefix"
-                                        confirmOk.text = qsTr("Delete")
-                                        confirmDialog.open()
-                                    }
-                                }
-                                Controls.Button {
-                                    objectName: "winePrefixOpen"
-                                    text: qsTr("Open")
-                                    onClicked: {
-                                        if (!gameModel.openPath(gameModel.prefixDir(editAppid))) {
-                                            settingsError.text = qsTr("Could not open the prefix folder.")
-                                        }
-                                    }
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Compat tool:")
-                                Controls.ComboBox {
-                                    id: wineToolBox
-                                    objectName: "wineTool"
-                                    textRole: "text"
-                                    Layout.fillWidth: true
-                                }
-                                Controls.Button {
-                                    objectName: "wineToolApply"
-                                    text: qsTr("Apply")
-                                    onClicked: {
-                                        var msg = gameModel.applyWineVersion(editAppid, gameSettings.wineToolData())
-                                        if (msg !== "") {
-                                            settingsError.text = msg
-                                        } else {
-                                            gameSettings.refreshWineTools(gameSettings.wineToolData())
-                                        }
-                                    }
-                                }
-                            }
-                            RowLayout {
-                                visible: editAppid !== ""
-                                Layout.fillWidth: true
-                                Controls.CheckBox {
-                                    id: ptLog
-                                    objectName: "ptLog"
-                                    text: qsTr("Capture Proton log (disk-heavy)")
-                                    Controls.ToolTip.text: qsTr("Sets PROTON_LOG=1 with a per-game log dir (Proton only).")
-                                    Controls.ToolTip.visible: hovered
-                                    Layout.fillWidth: true
-                                }
-                                Controls.Button {
-                                    text: qsTr("Open")
-                                    onClicked: {
-                                        if (!gameModel.openPath(ptLogDir)) {
-                                            settingsError.text = qsTr("Could not open the Proton log folder.")
-                                        }
-                                    }
-                                }
-                            }
-                            Controls.ComboBox {
-                                id: ptDebug
-                                objectName: "ptDebug"
-                                Layout.fillWidth: true
-                                model: [qsTr("Off"), qsTr("Quiet (-all)"), qsTr("Errors (+err)"), qsTr("Warnings (+warn,+err)")]
-                                Controls.ToolTip.text: qsTr("Sets WINEDEBUG for Wine/Proton output.")
-                                Controls.ToolTip.visible: hovered
-                                KirigamiLayouts.FormData.label: qsTr("Wine Debug:")
                             }
                         }
                     }
                 }
             }
-            ColumnLayout {
+            Controls.ScrollView {
+                clip: true
+                objectName: "settingsArtworkScroll"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Controls.TextArea {
-                    id: notesArea
-                    objectName: "settingsNotes"
-                    placeholderText: qsTr("Notes for this game…")
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                }
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Controls.ScrollView {
-                    clip: true
-                    objectName: "settingsArtworkScroll"
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Item {
+                // ScrollView takes its scrollable size from the content's
+                // implicitHeight; a plain Item has none, so sizing the
+                // wrapper with `height:` leaves contentHeight at -1 and the
+                // content is squeezed into the viewport (nothing scrolls).
+                Item {
+                    width: parent.width
+                    implicitHeight: artColumn.implicitHeight
+                    ColumnLayout {
+                        id: artColumn
                         width: parent.width
-                        implicitHeight: artForm.implicitHeight
-                        WidgetsFormLayout {
-                            id: artForm
-                            width: parent.width
-                            RowLayout {
+                        spacing: Kirigami.Units.smallSpacing
+                        SectionBox {
+                            title: qsTr("Artwork")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: artForm
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Icon override:")
-                                Controls.TextField {
-                                    id: artIconField
-                                    objectName: "artIcon"
-                                    readOnly: true
+                                RowLayout {
                                     Layout.fillWidth: true
-                                }
-                                Controls.Button {
-                                    objectName: "artIconPick"
-                                    text: qsTr("Pick…")
-                                    onClicked: {
-                                        gameSettings.pendingBrowse = "art:icon"
-                                        gameModel.pickPath(qsTr("Icon image"), qsTr("Select"))
+                                    KirigamiLayouts.FormData.label: qsTr("Icon override:")
+                                    Controls.TextField {
+                                        id: artIconField
+                                        objectName: "artIcon"
+                                        readOnly: true
+                                        Layout.fillWidth: true
                                     }
-                                }
-                                Controls.Button {
-                                    objectName: "artIconClear"
-                                    text: qsTr("Clear")
-                                    onClicked: gameSettings.clearArtwork("icon")
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Cover image:")
-                                Controls.TextField {
-                                    id: artCoverField
-                                    objectName: "artCover"
-                                    readOnly: true
-                                    Layout.fillWidth: true
-                                }
-                                Controls.Button {
-                                    objectName: "artCoverPick"
-                                    text: qsTr("Pick…")
-                                    onClicked: {
-                                        gameSettings.pendingBrowse = "art:cover"
-                                        gameModel.pickPath(qsTr("Cover image"), qsTr("Select"))
-                                    }
-                                }
-                                Controls.Button {
-                                    objectName: "artCoverClear"
-                                    text: qsTr("Clear")
-                                    onClicked: gameSettings.clearArtwork("cover")
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Banner image:")
-                                Controls.TextField {
-                                    id: artBannerField
-                                    objectName: "artBanner"
-                                    readOnly: true
-                                    Layout.fillWidth: true
-                                }
-                                Controls.Button {
-                                    objectName: "artBannerPick"
-                                    text: qsTr("Pick…")
-                                    onClicked: {
-                                        gameSettings.pendingBrowse = "art:banner"
-                                        gameModel.pickPath(qsTr("Banner image"), qsTr("Select"))
-                                    }
-                                }
-                                Controls.Button {
-                                    objectName: "artBannerClear"
-                                    text: qsTr("Clear")
-                                    onClicked: gameSettings.clearArtwork("banner")
-                                }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Donor AppID:")
-                                Controls.TextField {
-                                    id: artDonorField
-                                    objectName: "artDonor"
-                                    placeholderText: qsTr("Steam AppID to reuse art from")
-                                    Layout.fillWidth: true
-                                }
-                                Controls.Button {
-                                    objectName: "artDonorFind"
-                                    text: qsTr("Find…")
-                                    onClicked: {
-                                        var rows = gameModel.donorCandidates("")
-                                        var items = []
-                                        for (var i = 0; i < rows.length; i++) {
-                                            items.push({"text": rows[i][1] + " [" + rows[i][0] + "]", "data": rows[i][0]})
+                                    Controls.Button {
+                                        objectName: "artIconPick"
+                                        text: qsTr("Pick…")
+                                        onClicked: {
+                                            gameSettings.pendingBrowse = "art:icon"
+                                            gameModel.pickPath(qsTr("Icon image"), qsTr("Select"))
                                         }
-                                        gameSettings.askChoice("artDonor", items, "")
                                     }
+                                    Controls.Button {
+                                        objectName: "artIconClear"
+                                        text: qsTr("Clear")
+                                        onClicked: gameSettings.clearArtwork("icon")
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Cover image:")
+                                    Controls.TextField {
+                                        id: artCoverField
+                                        objectName: "artCover"
+                                        readOnly: true
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "artCoverPick"
+                                        text: qsTr("Pick…")
+                                        onClicked: {
+                                            gameSettings.pendingBrowse = "art:cover"
+                                            gameModel.pickPath(qsTr("Cover image"), qsTr("Select"))
+                                        }
+                                    }
+                                    Controls.Button {
+                                        objectName: "artCoverClear"
+                                        text: qsTr("Clear")
+                                        onClicked: gameSettings.clearArtwork("cover")
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Banner image:")
+                                    Controls.TextField {
+                                        id: artBannerField
+                                        objectName: "artBanner"
+                                        readOnly: true
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "artBannerPick"
+                                        text: qsTr("Pick…")
+                                        onClicked: {
+                                            gameSettings.pendingBrowse = "art:banner"
+                                            gameModel.pickPath(qsTr("Banner image"), qsTr("Select"))
+                                        }
+                                    }
+                                    Controls.Button {
+                                        objectName: "artBannerClear"
+                                        text: qsTr("Clear")
+                                        onClicked: gameSettings.clearArtwork("banner")
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Donor AppID:")
+                                    Controls.TextField {
+                                        id: artDonorField
+                                        objectName: "artDonor"
+                                        placeholderText: qsTr("Steam AppID to reuse art from")
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "artDonorFind"
+                                        text: qsTr("Find…")
+                                        onClicked: {
+                                            var rows = gameModel.donorCandidates("")
+                                            var items = []
+                                            for (var i = 0; i < rows.length; i++) {
+                                                items.push({"text": rows[i][1] + " [" + rows[i][0] + "]", "data": rows[i][0]})
+                                            }
+                                            gameSettings.askChoice("artDonor", items, "")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        SectionBox {
+                            title: qsTr("Notes")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                Layout.fillWidth: true
+                                Controls.TextArea {
+                                    id: notesArea
+                                    objectName: "settingsNotes"
+                                    placeholderText: qsTr("Notes for this game…")
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                    // Five lines of the default font: a note
+                                    // box, not a document editor. The implicit
+                                    // height is what sizes the section frame.
+                                    implicitHeight: Kirigami.Units.gridUnit * 6
                                 }
                             }
                         }

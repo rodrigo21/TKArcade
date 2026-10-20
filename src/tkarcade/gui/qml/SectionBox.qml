@@ -24,6 +24,10 @@ ColumnLayout {
     property alias checked: titleBox.checked
     default property alias content: frameColumn.data
     property real padding: Kirigami.Units.largeSpacing
+    // Content-driven height by default (a form or a list of fields). Set
+    // this when the content has to stretch to the page instead — an
+    // inner ScrollView (the Environment table) fills the leftover space.
+    property bool fillHeight: false
 
     // A collapsed box (frame hidden) has the title checkbox as its only
     // visible child, and a layout item is then clamped to that implicit
@@ -53,6 +57,7 @@ ColumnLayout {
         id: frame
         objectName: "sectionFrame"
         Layout.fillWidth: true
+        Layout.fillHeight: root.fillHeight
         padding: 0
         visible: !root.checkable || root.checked
         implicitHeight: frameColumn.implicitHeight + root.padding * 2
