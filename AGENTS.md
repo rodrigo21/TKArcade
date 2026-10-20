@@ -15,7 +15,10 @@ License: GPL-3.0-or-later.
 - Python >= 3.12, Linux. Default flow is `uv` with system site packages:
   `uv venv --system-site-packages` (reuses Arch/CachyOS packages, never
   plain `venv`/`pip` into the system interpreter). Run checks with
-  `.venv/bin/python`; `ruff` stays the system binary.
+  `.venv/bin/python`; `ruff` stays the system binary. Refresh the project
+  with `uv pip install -e . --no-deps`: plain `uv pip install -e .`
+  installs a PyPI PySide6 into the venv, whose QML dir has no
+  org.kde.kirigami/org.kde.desktop and every GUI boot test then fails.
 - Exception: `PKGBUILD check()` always uses system packages only
   (no uv in the chroot).
 - The launcher (`src/tkarcade/launcher.py`, `config.py`, `backends/`,
