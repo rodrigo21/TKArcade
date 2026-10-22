@@ -46,6 +46,12 @@ changes get a `CHANGELOG.md` entry under Unreleased, with explicit
 `VER` with CHANGELOG notes. After a tag: bump the release PKGBUILD
 (`pkgver` + tarball sha), rebuild `-git`, check upscale/presets.
 
+Big changes go on a short-lived branch off `main`; `main` stays intact
+until the change is approved. Land them with `git merge --squash` plus
+one commit (no merge commit when a squash is possible), then delete the
+branch locally and on the remote. Trivial fixes and docs may commit to
+`main` directly.
+
 ## Packaging
 
 * `packaging/arch/tkarcade` — release tarball package.

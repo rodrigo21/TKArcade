@@ -72,6 +72,23 @@ rewrite pushed history or tags.
 - User-facing changes get a `CHANGELOG.md` entry under Unreleased, with
   explicit **BREAKING** notes.
 
+## Branches and merges
+
+- Big changes (multi-file features, GUI/QML work, risky refactors,
+  anything that needs manual testing) land on a short-lived branch off
+  `main`; `main` stays untouched until the change is approved. Trivial
+  fixes and docs may commit to `main` directly.
+- Integrate with `git merge --squash <branch>` and one commit on `main`
+  (no merge commit when a squash is possible), then delete the branch
+  locally and on the remote.
+- The squashed commit carries the final message and the usual trailers;
+  the branch keeps the granular history for review.
+- A squash leaves the branch "unmerged" to git, so delete it with
+  `git branch -D` and `git push origin --delete <branch>`.
+- The `-git` PKGBUILD pins the branch it is built from: if a feature
+  branch was used for `-git` builds, point the pin back at `main`
+  before deleting the branch.
+
 ## Kirigami/QML rules (hard-won, do not regress)
 
 - Repeater models must stay JS arrays end to end: a QVariantList
