@@ -12,8 +12,11 @@ License: GPL-3.0-or-later.
 
 ## Work state
 
-Read the `## In progress` section of `TODO.md` before starting, and
-update it before you stop mid-task (session history is not memory).
+`docs/STATE.md` is an ambient instruction (`instructions` in
+`opencode.json`), so it is already in context: it carries the branch,
+the last landed change, the next step and the open decisions. Refresh
+it with `/handoff` before stopping mid-task — session history is not
+memory, and this file is what a fresh session sees.
 
 ## Environment
 
