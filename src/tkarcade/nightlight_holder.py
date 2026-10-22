@@ -49,7 +49,8 @@ def main() -> int:
         return 4
 
     print(f"cookie={cookie}", flush=True)
-    # Block until signal. stdin close also stops (launcher killed pipe).
+    # Block until SIGTERM/SIGINT: the launcher terminates the holder when
+    # the session ends (that is what releases the inhibit).
     try:
         while not stop.is_set():
             if stop.wait(0.5):

@@ -52,6 +52,42 @@ def loads_kv1(text: str) -> dict | None:
         return None
 
 
+def _vdf_library_section(data: dict) -> dict:
+    """The libraries dict, whichever root key the file uses."""
+    for root_key in ("libraryfolders", "LibraryFolders"):
+        section = data.get(root_key)
+        if isinstance(section, dict):
+            return section
+    return {}
+
+
+def _section_paths(libs: dict) -> list[Path]:
+    """Existing paths in a parsed section (dicts, or legacy bare strings)."""
+    out = []
+    for v in libs.values():
+        if isinstance(v, dict) and "path" in v:
+            out.append(Path(str(v["path"])))
+        elif isinstance(v, str) and v.strip():
+            # Legacy layout stores libraries as bare strings
+            # ("1" "/mnt/steam") instead of {"path": ...} dicts.
+            out.append(Path(v.strip()))
+    return [p for p in out if p.exists()]
+
+
+def _regex_paths(text: str) -> list[Path]:
+    """Fallback extraction: `"path"` values plus legacy numeric-key pairs."""
+    out = []
+    for m in re.finditer(r'"path"\s+"([^"]+)"', text):
+        p = Path(m.group(1))
+        if p.exists():
+            out.append(p)
+    for m in re.finditer(r'"\d+"\s+"([^"]+)"', text):
+        p = Path(m.group(1))
+        if p.exists() and p not in out:
+            out.append(p)
+    return out
+
+
 def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
     """Parse libraryfolders.vdf without deps (KV1 subset). Returns library paths."""
     try:
@@ -59,17 +95,9 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
     except Exception:
         return []
     data = loads_kv1(text)
-    if data is not None:
-        libs = data.get("libraryfolders", {})
-        out = [Path(str(v["path"])) for v in libs.values() if isinstance(v, dict) and "path" in v]
-        return [p for p in out if p.exists()]
-    # fallback: crude "path" "..." extraction
-    out = []
-    for m in re.finditer(r'"path"\s+"([^"]+)"', text):
-        p = Path(m.group(1))
-        if p.exists():
-            out.append(p)
-    return out
+    if data is None:
+        return _regex_paths(text)
+    return _section_paths(_vdf_library_section(data))
 
 
 def library_paths() -> list[Path]:
@@ -310,9 +338,10 @@ def find_game_icon(appid: str, landscape: bool = False) -> Path | None:
 def launch_options_status(appid: str) -> tuple[str, str]:
     """Check Steam launch options for tkarcade. Read-only.
 
-    Returns (status, detail) with status 'ok' (options contain
+    Returns (status, options) with status 'ok' (options contain
     tkarcade), 'missing' (options found without it) or 'unknown'
-    (no Steam userdata found).
+    (no Steam userdata found). `options` is the raw LaunchOptions
+    string for 'ok' and '' otherwise: the caller words the message.
     """
     found_any = False
     for root in steam_roots():
@@ -330,10 +359,10 @@ def launch_options_status(appid: str) -> tuple[str, str]:
             found_any = True
             options = _launch_options_from_text(text, appid)
             if options is not None and "tkarcade" in options.lower():
-                return "ok", f"Steam launch options: {options}"
+                return "ok", options
     if found_any:
-        return "missing", "Steam launch options lack tkarcade (add: tkarcade %command%)"
-    return "unknown", "Steam userdata not found"
+        return "missing", ""
+    return "unknown", ""
 
 
 def _launch_options_from_text(text: str, appid: str) -> str | None:

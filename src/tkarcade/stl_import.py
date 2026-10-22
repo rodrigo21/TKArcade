@@ -1,6 +1,6 @@
 """SteamTinkerLaunch config importer (stdlib only, read-only on STL files).
 
-Reads STL per-game files (~/.config/steamtinkerlaunch/gamecfgs/id/<aid>)
+Reads STL per-game files (~/.config/steamtinkerlaunch/gamecfgs/id/<aid>.conf)
 which are shell-style VAR="value" files, and maps the subset common to
 both programs onto a GameConfig. Anything else is reported, never guessed.
 """
@@ -127,41 +127,51 @@ def _exists_on_disk(command: str) -> bool:
     return os.path.exists(os.path.expanduser(first)) or shutil.which(first) is not None
 
 
-def map_to_gameconfig(appid: str, stl: dict[str, str]) -> tuple[cfgmod.GameConfig, list[str]]:
-    """Map STL vars onto a GameConfig. Returns (config, report notes)."""
-    cfg = cfgmod.GameConfig()
-    cfg.general.appid = appid
-    report: list[str] = []
+# STL vars whose value "1" flips a GameConfig flag (section, attribute).
+_TOGGLES = (
+    ("USEGAMEMODERUN", "gamemode", "feral_gamemode"),
+    ("USEMANGOHUD", "mangohud", "enable"),
+    ("PROTON_LOG", "debug", "proton_log"),
+)
 
-    def get(key: str) -> str:
-        return stl.get(key, "")
+#: STL-only settings with no TKArcade equivalent (counted for the report).
+_NO_EQUIVALENT = ("USEPROTON", "ENABLE_VKBASALT", "USEVKBASALT", "REDIRCOMPDATA", "USESLR")
 
-    if get("USEGAMEMODERUN") == "1":
-        cfg.gamemode.feral_gamemode = True
-    if get("USEGAMESCOPE") == "1":
-        cfg.gamescope.enable = True
-        try:
-            args = [t for t in shlex.split(get("GAMESCOPE_ARGS")) if t != "--"]
-        except ValueError:
-            args = []
-            report.append("GAMESCOPE_ARGS had unbalanced quotes; dropped")
-        cfg.gamescope.args = " ".join(args)
-    if get("USEMANGOHUD") == "1":
-        cfg.mangohud.enable = True
 
+def _map_switches(get, cfg: cfgmod.GameConfig, report: list[str]) -> None:
+    """Flag toggles, plus USEGAMESCOPE (enable + its argument list)."""
+    for key, section, attr in _TOGGLES:
+        if get(key) == "1":
+            setattr(getattr(cfg, section), attr, True)
+    if get("USEGAMESCOPE") != "1":
+        return
+    cfg.gamescope.enable = True
+    try:
+        args = [t for t in shlex.split(get("GAMESCOPE_ARGS")) if t != "--"]
+    except ValueError:
+        args = []
+        report.append("GAMESCOPE_ARGS had unbalanced quotes; dropped")
+    cfg.gamescope.args = " ".join(args)
+
+
+def _map_custom_command(get, cfg: cfgmod.GameConfig, report: list[str]) -> None:
+    """CUSTOMCMD becomes the pre-launch hook, or the exe in "only" mode."""
     customcmd, customargs = get("CUSTOMCMD"), get("CUSTOMCMD_ARGS")
-    if get("USECUSTOMCMD") == "1" and _is_set(customcmd):
-        if get("ONLY_CUSTOMCMD") == "1":
-            cfg.general.custom_executable = customcmd
-        else:
-            cfg.pre_post.pre_command = customcmd
-            try:
-                cfg.pre_post.pre_args = shlex.split(customargs)
-            except ValueError:
-                report.append("CUSTOMCMD_ARGS had unbalanced quotes; dropped")
-            report.append(
-                "CUSTOMCMD runs alongside the game here (STL fork/inject modes unsupported)"
-            )
+    if get("USECUSTOMCMD") != "1" or not _is_set(customcmd):
+        return
+    if get("ONLY_CUSTOMCMD") == "1":
+        cfg.general.custom_executable = customcmd
+        return
+    cfg.pre_post.pre_command = customcmd
+    try:
+        cfg.pre_post.pre_args = shlex.split(customargs)
+    except ValueError:
+        report.append("CUSTOMCMD_ARGS had unbalanced quotes; dropped")
+    report.append("CUSTOMCMD runs alongside the game here (STL fork/inject modes unsupported)")
+
+
+def _map_hooks(get, cfg: cfgmod.GameConfig, report: list[str]) -> None:
+    """USERSTART / USERSTOP override the pre / post hooks."""
     if _is_set(get("USERSTART")):
         if cfg.pre_post.pre_command:
             report.append(f"USERSTART {get('USERSTART')!r} replaced CUSTOMCMD as pre-launch hook")
@@ -171,33 +181,49 @@ def map_to_gameconfig(appid: str, stl: dict[str, str]) -> tuple[cfgmod.GameConfi
         cfg.pre_post.post_command = get("USERSTOP")
         cfg.pre_post.post_args = []
 
+
+def _map_proton(get, cfg: cfgmod.GameConfig, report: list[str]) -> None:
+    """Winetricks verbs and the Wine debug selector."""
     verbs = (get("WINETRICKSPAKS") or "").split()
     cfg.proton.winetricks_verbs = [v for v in verbs if v.lower() not in _UNSET]
-    if get("PROTON_LOG") == "1":
-        cfg.debug.proton_log = True
     winedebug = get("STLWINEDEBUG")
     if winedebug and winedebug not in _KNOWN_WINEDEBUG:
         report.append(f"STLWINEDEBUG {winedebug!r} has no equivalent selector; left Off")
     elif winedebug:
         cfg.debug.winedebug = winedebug
 
-    skipped_placeholders = 0
+
+def _env_skip(key: str, value: str) -> str:
+    """Why an STL var is not imported as an env var: "" / "off" / "path"."""
+    if not value or key == "PROTON_LOG" or not key.startswith(_ENV_PREFIXES):
+        return "off"
+    if "STLCFGDIR" in value:
+        return "path"
+    if key in _PRUNABLE_OFF and value.strip().lower() in _PRUNE_VALUES:
+        return "off"
+    return ""
+
+
+def _collect_env(stl: dict[str, str], cfg: cfgmod.GameConfig, report: list[str]) -> None:
+    """Import STL vars straight onto env vars, minus placeholders and offs."""
+    skipped_paths = 0
     pruned_off = 0
     for key, value in stl.items():
-        if not value or key == "PROTON_LOG" or not key.startswith(_ENV_PREFIXES):
-            continue
-        if "STLCFGDIR" in value:
-            skipped_placeholders += 1
-            continue
-        if key in _PRUNABLE_OFF and value.strip().lower() in _PRUNE_VALUES:
+        skip = _env_skip(key, value)
+        if skip == "path":
+            skipped_paths += 1
+        elif skip == "off":
             pruned_off += 1
-            continue
-        cfg.env.vars[key] = value
-    if skipped_placeholders:
-        report.append(f"{skipped_placeholders} env-style value(s) referenced STL paths; skipped")
+        elif not skip:
+            cfg.env.vars[key] = value
+    if skipped_paths:
+        report.append(f"{skipped_paths} env-style value(s) referenced STL paths; skipped")
     if pruned_off:
         report.append(f"{pruned_off} default-off value(s) dropped (same as unset)")
 
+
+def _audit_hook_paths(cfg: cfgmod.GameConfig, report: list[str]) -> None:
+    """Warn about hook / executable paths that are missing on disk."""
     for label, path in (
         ("pre-launch hook", cfg.pre_post.pre_command),
         ("post-exit hook", cfg.pre_post.post_command),
@@ -206,15 +232,32 @@ def map_to_gameconfig(appid: str, stl: dict[str, str]) -> tuple[cfgmod.GameConfi
         if path and not _exists_on_disk(path):
             report.append(f"{label} not found on disk: {path}")
 
-    ignored = sum(
-        1
-        for key in ("USEPROTON", "ENABLE_VKBASALT", "USEVKBASALT", "REDIRCOMPDATA", "USESLR")
-        if _is_set(get(key))
-    )
+
+def _note_ignored(get, report: list[str]) -> None:
+    """Count STL-only settings with no equivalent, as one report line."""
+    ignored = sum(1 for key in _NO_EQUIVALENT if _is_set(get(key)))
     if ignored:
         report.append(
             f"{ignored} STL-only setting(s) have no equivalent (proton version, vkBasalt, ...)"
         )
+
+
+def map_to_gameconfig(appid: str, stl: dict[str, str]) -> tuple[cfgmod.GameConfig, list[str]]:
+    """Map STL vars onto a GameConfig. Returns (config, report notes)."""
+    cfg = cfgmod.GameConfig()
+    cfg.general.appid = appid
+    report: list[str] = []
+
+    def get(key: str) -> str:
+        return stl.get(key, "")
+
+    _map_switches(get, cfg, report)
+    _map_custom_command(get, cfg, report)
+    _map_hooks(get, cfg, report)
+    _map_proton(get, cfg, report)
+    _collect_env(stl, cfg, report)
+    _audit_hook_paths(cfg, report)
+    _note_ignored(get, report)
 
     cfg.notes.text = f"Imported from SteamTinkerLaunch config for AppID {appid}."
     return cfg, report

@@ -25,6 +25,11 @@ This installs `tkarcade`: the launcher for Steam Launch Options
 Gamescope, MangoHud, Ludusavi, `protontricks`) are optional and come
 from your distro.
 
+The GUI needs PySide6 (Qt) 6.12 or newer: 6.12.0 carries the fixes for
+CVE-2026-8168 (SVG), CVE-2026-105923 (VectorImage) and CVE-2026-15037
+(QDom). Tool and AppImage installs resolve it from PyPI; the Arch
+package already ships 6.12.
+
 ## Steam usage
 
 Set the game's Launch Options to one of:
@@ -49,10 +54,13 @@ double-click the ProtonDB rating to open its page; the Played column
 totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.
 
-**Game dialog** — tabs for General, Environment (variables + curated
-presets), Pre/Post Commands, Performance, Display (Gamescope, MangoHud,
-RT upscaler, monitor mode), Ludusavi, System, Wine/Proton and Notes.
-The footer shows the live wrapper summary and a launch-command preview.
+**Game dialog** — tabs for General, Launch (executable, prefix, extra
+args, working directory, pre-launch menu, pre/post commands),
+Environment (variables + curated presets), Compatibility (Wine and
+Proton), Performance (GameMode, MangoHud, RT upscaler), Display
+(Gamescope, monitor mode), System (notifications, idle suspend, night
+light, audio, Ludusavi saves) and Artwork/Notes. The footer shows the
+live wrapper summary and a launch-command preview.
 
 **Profiles** — named snapshots per game. Selecting one changes what
 launches; saving with a profile active writes the profile (Game

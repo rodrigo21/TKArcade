@@ -8,12 +8,18 @@ packages only (no uv in the chroot).
 
 ```bash
 uv venv --system-site-packages .venv
-uv pip install --python .venv/bin/python --no-deps .
-python3 -m pytest tests/ -q
+uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
+.venv/bin/python -m pytest tests/ -q
 ruff check src/ tests/
 ruff format --check src/ tests/  # line-length 100, see pyproject.toml
-QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -c "..."  # GUI smoke
+QT_QPA_PLATFORM=offscreen PYTHONPATH=src .venv/bin/python -c "..."  # GUI smoke
 ```
+
+`-e` keeps `./.venv/bin/tkarcade` on the live tree and
+`--no-build-isolation` reuses the system build backend. `--no-deps` is
+load-bearing: without it uv installs its own PySide6 into the venv,
+which shadows the distro one and makes Qt miss the system QML modules
+(`module "org.kde.kirigami" is not installed`).
 
 The suite must pass with and without `pytest-qt` installed: never
 monkeypatch Qt globals at fixture scope (patch inside the test body so
@@ -69,24 +75,28 @@ GitHub releases accept files up to 2 GB, so size is not an issue.
 This project is developed with AI assistance (OpenCode with
 managed/free models), reviewed by the maintainer. Every commit carries
 a `Co-Authored-By` trailer plus an `AI-Model:` trailer with the model
-in use (from the gitignored `.opencode-model` file); a local
-`commit-msg` hook (see `scripts/git-hooks/`, enabled via
-`git config core.hooksPath scripts/git-hooks`) adds both
+in use (from the gitignored `.opencode-model` file, one model per line;
+several lines join into a single trailer for a batch a second model
+worked on); a local `commit-msg` hook (see `scripts/git-hooks/`,
+enabled via `git config core.hooksPath scripts/git-hooks`) adds both
 automatically. Agent instructions live in `AGENTS.md`.
 
 ## Translations (Qt Linguist)
 
-GUI strings go through `self.tr()` (or `QCoreApplication.translate`
-at module level); display text and saved data stay split in combos so
-translations never break config round-trips. CLI/launcher text stays
-English by design.
+GUI strings go through QML `qsTr()`, with one Python exception: the
+native tray menu (`gui/tray.py`) has no QML counterpart, so its labels
+use `QCoreApplication.translate()` in a `TrayMenu` context. Display text
+and saved data stay split in combos so translations never break config
+round-trips. CLI/launcher text stays English by design.
 
 ```bash
-python3 scripts/extract-messages.py  # refresh translations/*.ts
-# translate new strings (Linguist GUI or edit XML), then:
-lrelease6 translations/tkarcade_pt_BR.ts \
-  -qm src/tkarcade/translations/tkarcade_pt_BR.qm
+bash scripts/refresh-translations.sh  # lupdate + the untranslated report
+# translate leftovers, then rerun it to recompile the .qm
 ```
+Never run lupdate on a subset of files: it marks every other context
+vanished. The refresh script always passes the full QML set plus
+`gui/tray.py`, and `-no-obsolete` prunes the vanished entries.
 
 Commit both `.ts` (source) and `.qm` (runtime payload, travels in the
-wheel). `tests/test_i18n.py` fails on any untranslated `tr()` literal.
+wheel). `tests/test_i18n.py` fails on any untranslated `qsTr()` or
+`translate()` literal.

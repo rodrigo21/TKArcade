@@ -25,11 +25,20 @@ def _silence_notifications(monkeypatch):
     (delenv / drop from the subprocess env).
     """
     monkeypatch.setenv("TKARCADE_NO_NOTIFY", "1")
+    # Same for background network: the Kirigami page calls
+    # fetchMissing() on load; tests stay offline unless they delenv.
+    monkeypatch.setenv("TKARCADE_NO_BG_FETCH", "1")
 
 
-@pytest.fixture(scope="module")
-def qt_app():
-    """Single offscreen QApplication shared by GUI tests in a module."""
+@pytest.fixture(scope="session")
+def qgui_app():
+    """The single offscreen QApplication shared by headless Qt tests.
+
+    A QApplication, matching the shell: the Plasma platform theme supplies
+    the tray icon through KStatusNotifierItem, whose constructor creates a
+    QMenu, so a QGuiApplication aborts inside QSystemTrayIcon.show()
+    (measured; see TODO.md). The fixture name predates that finding.
+    """
     pytest.importorskip("PySide6.QtWidgets")
     from PySide6.QtWidgets import QApplication
 

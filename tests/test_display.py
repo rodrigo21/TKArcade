@@ -182,28 +182,6 @@ def test_x11_context_manager_restores(tmp_path, monkeypatch):
     assert len(x) == 2 and "1920x1080" in x[0] and "2560x1440" in x[1]
 
 
-def test_display_fields_collect_and_populate(qt_app, xdg_env):
-    from tkarcade import config as C
-    from tkarcade.gui.game_dialog import GameDialog
-
-    cfg = C.GameConfig()
-    cfg.general.appid = "161"
-    cfg.display.provider = "plasma"
-    cfg.display.output = "DP-3"
-    cfg.display.mode = "1920x1080@60"
-    C.save(cfg)
-    d = GameDialog(None, "161", "T")
-    assert d.e_dout.text() == "DP-3"
-    assert d.e_dmode.currentText() == "1920x1080@60"
-    assert d.cb_dprov.currentData() == "plasma"
-    d.e_dmode.setCurrentText("1280x720")
-    d._collect()
-    assert d.cfg.display.mode == "1280x720"
-    d.accept()
-    assert C.load("161").display.mode == "1280x720"
-    d.close()
-
-
 def test_offered_modes_lists_backend_modes(tmp_path, monkeypatch):
     from tkarcade.backends import display as D
 
@@ -217,21 +195,6 @@ def test_offered_modes_lists_backend_modes(tmp_path, monkeypatch):
     assert D.offered_modes("plasma", "NOPE") == modes  # unknown output falls back
     assert D.offered_modes("gnome", "") == []
     assert D.offered_modes("x11", "") != []
-
-
-def test_mode_picker_lists_offered_and_keeps_manual(qt_app, xdg_env, monkeypatch):
-    from tkarcade import config as C
-    from tkarcade.backends import display as dispmod
-    from tkarcade.gui.game_dialog import GameDialog
-
-    monkeypatch.setattr(dispmod, "offered_modes", lambda *a: [(None, "1920x1080@60", False)])
-    cfg = C.GameConfig()
-    cfg.general.appid = "163"
-    cfg.display.mode = "1280x720@60"
-    C.save(cfg)
-    d = GameDialog(None, "163", "T")
-    assert d.e_dmode.currentText() == "1280x720@60"  # manual value survives refill
-    d.close()
 
 
 def test_restore_rc_failure_warns(tmp_path, monkeypatch, caplog):
@@ -400,11 +363,19 @@ def test_partial_dip_restores_x11(tmp_path, monkeypatch):
 
 
 def test_sleep_interrupted_restores_plasma(tmp_path, monkeypatch):
+    """A Ctrl-C during the dip must restore the previous mode.
+
+    run() is stubbed because subprocess polls its child with time.sleep()
+    while waiting on the timeout: with time.sleep raising here, the
+    interrupt could land inside the first call, before the dip restore
+    point exists — a race that only shows up under load.
+    """
     import pytest
 
     from tkarcade.backends import display as D
 
     _bindir(tmp_path, monkeypatch)
+    _stub_run(tmp_path, monkeypatch)
 
     def boom(s):
         raise KeyboardInterrupt()

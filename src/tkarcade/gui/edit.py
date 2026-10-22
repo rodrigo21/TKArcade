@@ -10,7 +10,7 @@ Exit 0 = outcome delivered (launch/saved/cancelled), 2 = unavailable
 internal error. Anything on stderr is diagnostic noise the parent logs.
 
 Usage: python -m tkarcade.gui.edit [--appid ID] [--pick]
-       [--can-launch | --no-can-launch]
+       [--can-launch | --no-can-launch] [--menu]
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import sys
 
 
@@ -34,39 +35,70 @@ def _ensure_qapp(tool: str) -> bool:
     return True
 
 
-def pick_game_appid() -> str:
-    """Show a game picker dialog. Returns the AppID or '' when cancelled."""
-    from PySide6.QtCore import QCoreApplication
-    from PySide6.QtWidgets import QApplication, QInputDialog
-
+def menu_timeout(appid: str) -> int:
+    """Countdown seconds for the pre-launch menu (0 = wait forever)."""
     from .. import config as cfgmod
+
+    try:
+        return max(0, int(cfgmod.load_effective(appid).general.menu_timeout or 0))
+    except Exception:
+        return 0
+
+
+def game_name(appid: str) -> str:
+    """Display name for the window title ('' when unknown)."""
     from .. import steam as steammod
 
-    app = QApplication.instance() or QApplication(sys.argv)
-    from .helpers import install_translations, preferred_language
+    try:
+        names = {a: n for a, n in steammod.list_games()}
+        names.update(steammod.local_names())
+    except Exception:
+        return ""
+    return names.get(appid, "")
 
+
+def run_editor(appid: str, menu: bool = False, can_launch: bool = True, pick: bool = False):
+    """Show the editor (or the pre-launch menu); returns (outcome, appid).
+
+    Outcomes: 'launch', 'saved', 'cancelled' or 'unavailable' (the QML
+    side could not be created). A window closed some other way counts as
+    'cancelled': never launch on unknown user intent.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    from .i18n import install_translations, preferred_language
+    from .kirigami_app import build_engine
+
+    app = QApplication.instance() or QApplication(sys.argv)
     install_translations(app, preferred_language())
-    names = {a: n for a, n in steammod.list_games()}
-    configured = set(cfgmod.list_appids())
-    entries = [(a, names.get(a, a)) for a in configured]
-    entries += [(a, n) for a, n in names.items() if a not in configured]
-    if not entries:
-        return ""
-    labels = [f"{n} [{a}]" for a, n in entries]
-    choice, ok = QInputDialog.getItem(
-        None,
-        QCoreApplication.translate("edit", "Edit Game"),
-        QCoreApplication.translate("edit", "Game:"),
-        labels,
-        0,
-        False,
-    )
-    if not ok or not choice:
-        return ""
-    for appid, _name in entries:
-        if choice.endswith(f"[{appid}]"):
-            return appid
-    return ""
+    engine, _model, _filter = build_engine("Editor.qml")
+    roots = engine.rootObjects()
+    if not roots:
+        print("tkarcade: could not load the editor interface", file=sys.stderr)
+        return "unavailable", appid
+    root = roots[0]
+    result = {"outcome": "cancelled", "appid": appid}
+
+    def on_decided(outcome, decided_appid) -> None:
+        result["outcome"] = str(outcome or "cancelled")
+        result["appid"] = str(decided_appid or appid)
+        app.quit()
+
+    root.decided.connect(on_decided)
+    root.setProperty("mode", "menu" if menu else "edit")
+    root.setProperty("appid", (appid or "").strip())
+    root.setProperty("name", game_name(appid))
+    root.setProperty("canLaunch", bool(can_launch))
+    root.setProperty("pick", bool(pick))
+    root.setProperty("timeout", menu_timeout(appid) if menu else 0)
+    # Editor.qml is an invisible 1x1 host: start() is what creates the real
+    # window (settings, picker or pre-launch menu). Without this call the
+    # child opens nothing and app.exec() waits forever -- the CLI --edit and
+    # --menu flows hung until Ctrl+C while the QML harness (which calls
+    # start() itself) stayed green.
+    root.start()
+    app.exec()
+    return result["outcome"], result["appid"]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -90,48 +122,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
-    if not _ensure_qapp("settings editor"):
+    tool = "--menu" if args.menu else "--edit"
+    if not _ensure_qapp(tool):
         return 2
-    from PySide6.QtWidgets import QApplication, QDialog
-
-    from .. import steam as steammod
-
-    app = QApplication.instance() or QApplication(sys.argv)
-    from .helpers import install_translations, preferred_language
-
-    install_translations(app, preferred_language())
+    if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
+        os.environ["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     appid = (args.appid or "").strip()
-    if not appid and args.pick:
-        appid = pick_game_appid()
-        if not appid:
-            print(json.dumps({"outcome": "cancelled", "appid": ""}))
-            return 0
-    names = {a: n for a, n in steammod.list_games()}
-    if args.menu:
-        from .. import config as cfgmod
-        from .menu_dialog import MenuDialog
-
-        timeout = 0
-        if appid:
-            try:
-                timeout = cfgmod.load_effective(appid).general.menu_timeout
-            except Exception:
-                timeout = 0
-        dlg = MenuDialog(
-            None, appid, names.get(appid, ""), can_launch=args.can_launch, timeout=timeout
-        )
-    else:
-        from .game_dialog import GameDialog
-
-        dlg = GameDialog(
-            None, appid, names.get(appid, ""), launch_mode=True, can_launch=args.can_launch
-        )
-    result = dlg.exec()
-    if int(result) != int(QDialog.DialogCode.Accepted):
-        outcome = "cancelled"
-    else:
-        outcome = "launch" if dlg.launch_requested else "saved"
-    print(json.dumps({"outcome": outcome, "appid": appid}))
+    outcome, picked = run_editor(
+        appid,
+        menu=args.menu,
+        can_launch=args.can_launch,
+        pick=bool(args.pick and not appid),
+    )
+    if outcome == "unavailable":
+        return 2
+    print(json.dumps({"outcome": outcome, "appid": picked}), flush=True)
     return 0
 
 

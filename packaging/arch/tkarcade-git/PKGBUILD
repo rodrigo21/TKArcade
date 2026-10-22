@@ -2,13 +2,13 @@
 
 _basename=tkarcade
 pkgname=tkarcade-git
-pkgver=1.1.1.r7.gfc0f12e
+pkgver=0.0.0.r356.g197de7a
 pkgrel=1
 pkgdesc='Minimal Steam launch wrapper'
 arch=('any')
 url='https://github.com/rodrigo21/TKArcade'
 license=('GPL-3.0-or-later')
-depends=('hicolor-icon-theme' 'python' 'pyside6' 'python-vdf' 'python-jeepney')
+depends=('hicolor-icon-theme' 'python' 'pyside6' 'python-vdf' 'python-jeepney' 'kirigami')
 makedepends=('git' 'python-build' 'python-installer' 'python-hatchling' 'python-uv-dynamic-versioning' 'qt6-tools')
 checkdepends=('python-pytest')
 optdepends=('gamemode: Feral GameMode support'
@@ -20,26 +20,35 @@ optdepends=('gamemode: Feral GameMode support'
             'libnotify: desktop notifications')
 conflicts=('tkarcade')
 provides=("tkarcade=${pkgver}")
-source=("$_basename::git+https://github.com/rodrigo21/TKArcade.git#branch=main")
+source=("$_basename::git+https://github.com/rodrigo21/TKArcade.git#branch=kirigami")
 sha256sums=('SKIP')
 
 pkgver() {
     cd "$_basename"
 
-    # No tags yet (pre-0.1): fall back to rev-count versioning.
-    (git describe --long --tags 2>/dev/null || echo "v0.0.0-$(git rev-list --count HEAD)-g$(git rev-parse --short HEAD)") | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+    # Release tags are vX.Y.Z; the legacy widgets-* tag and branch tags
+    # stay out of the version. No tags yet (pre-0.1): rev-count fallback.
+    (git describe --long --tags --match 'v*' 2>/dev/null || echo "v0.0.0-$(git rev-list --count HEAD)-g$(git rev-parse --short HEAD)") | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 build() {
     cd "$_basename"
 
+    # python -m build leaves older wheels behind; dist/*.whl would then
+    # install several of them and collide on usr/bin/tkarcade.
+    rm -rf dist
     python -m build --wheel --no-isolation
 }
 
 check() {
     cd "$_basename"
 
-    QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
+    # -v names every finished test (the stalled one is the next) and -rP
+    # prints the QML driver's per-batch progress; --show-capture=stdout
+    # limits that to stdout, so the captured log/stderr of the passing
+    # tests (expected warnings and errors) does not read as a failure.
+    # --durations names the slowest test.
+    QT_QPA_PLATFORM=offscreen python -m pytest tests/ -v -rP --show-capture=stdout --durations=25
 }
 
 package() {
@@ -49,5 +58,8 @@ package() {
 
     install -Dm644 packaging/tkarcade.desktop "$pkgdir/usr/share/applications/tkarcade.desktop"
     install -Dm644 src/tkarcade/icons/tkarcade.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/tkarcade.svg"
+    for icon in packaging/icons/hicolor/scalable/actions/*.svg; do
+        install -Dm644 "$icon" "$pkgdir/usr/share/icons/hicolor/scalable/actions/$(basename "$icon")"
+    done
     install -Dm644 packaging/man/tkarcade.1 "$pkgdir/usr/share/man/man1/tkarcade.1"
 }

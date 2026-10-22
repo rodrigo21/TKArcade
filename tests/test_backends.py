@@ -6,6 +6,7 @@ import pytest
 
 from tkarcade import config as C
 from tkarcade import steam as S
+from tkarcade.backends import audio as au
 from tkarcade.backends import gamemode as gm
 from tkarcade.backends import ludusavi as lu
 from tkarcade.backends import nightlight as nl
@@ -806,3 +807,83 @@ def test_tool_mapping_cached_by_mtime(monkeypatch, tmp_path, xdg_env):
     assert pm.compat_tool_name("42") == "proton_9"
     assert pm.compat_tool_name("43") is None
     pm.clear_tool_cache()
+
+
+def test_audio_session_switches_and_restores(monkeypatch):
+    calls = []
+
+    class Proc:
+        def __init__(self, out="", rc=0):
+            self.stdout = out
+            self.returncode = rc
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd[-1] if cmd[0].endswith("pactl") else cmd[0])
+        if cmd[1] == "list":
+            return Proc(
+                "Sink #1\n\tName: alsa_hdmi\n\tDescription: HDMI Estéreo\n"
+                "Sink #2\n\tName: alsa_usb\n\tDescription: USB Headset\n"
+            )
+        if cmd[1] == "get-default-sink":
+            return Proc("alsa_hdmi\n")
+        return Proc("", 0)
+
+    monkeypatch.setattr("tkarcade.backends.audio.shutil.which", lambda *a: "/bin/pactl")
+    monkeypatch.setattr("tkarcade.backends.audio.subprocess.run", fake_run)
+    assert au.list_sinks() == [("alsa_hdmi", "HDMI Estéreo"), ("alsa_usb", "USB Headset")]
+    assert au.default_sink() == "alsa_hdmi"
+    session = au.AudioSession("alsa_usb")
+    with session:
+        assert calls[-1] == "alsa_usb"
+    assert calls[-1] == "alsa_hdmi"  # restored on exit
+    assert au.AudioSession("").start() == []  # empty sink: no-op
+    monkeypatch.setattr("tkarcade.backends.audio.shutil.which", lambda *a: None)
+    assert au.list_sinks() == []
+    assert au.AudioSession("alsa_usb").start() != []  # missing pactl warns
+
+
+def test_parse_sinks_reads_the_description(monkeypatch):
+    """`pactl list sinks` pairs each Name with its Description.
+
+    The short form reported the node name only, so the picker listed
+    `alsa_output.pci-…analog-stereo`; a sink without a Description still
+    falls back to its name.
+    """
+    sample = (
+        "Sink #47\n"
+        "\tState: SUSPENDED\n"
+        "\tName: alsa_output.pci-0000_00_1b.0.analog-stereo\n"
+        "\tDescription: Áudio interno Estéreo analógico\n"
+        "\tDriver: PipeWire\n"
+        "\tProperties:\n"
+        '\t\tdevice.description = "Áudio interno Estéreo analógico"\n'
+        "Sink #48\n"
+        "\tName: alsa_output.usb-headset\n"
+        "\tState: RUNNING\n"
+    )
+    assert au._parse_sinks(sample) == [
+        ("alsa_output.pci-0000_00_1b.0.analog-stereo", "Áudio interno Estéreo analógico"),
+        ("alsa_output.usb-headset", "alsa_output.usb-headset"),
+    ]
+    assert au._parse_sinks("") == []
+
+
+def test_fps_limit_strangle_fallback(monkeypatch, tmp_path):
+    from tkarcade.launcher import build_final_command
+
+    cfg = C.GameConfig()
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    cfg.mangohud.fps_limit = 60
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (bindir / "strangle").write_text('#!/bin/sh\nexec "$@"\n')
+    (bindir / "strangle").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}/usr/bin:/bin")
+    cmd, _env, warns = build_final_command(cfg, ["/bin/true"])
+    assert cmd[:2] == ["strangle", "60"]
+    assert any("libstrangle" in w for w in warns)
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    monkeypatch.setattr("tkarcade.launcher.shutil.which", lambda *a: None)
+    _cmd, _env, warns = build_final_command(cfg, ["/bin/true"])
+    assert any("ignoring" in w for w in warns)

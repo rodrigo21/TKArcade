@@ -1,8 +1,16 @@
-"""Bundled application icons (normal + monochrome tray variant)."""
+"""Bundled application icons for the GUI (QtGui only, never QtWidgets).
+
+Same two styles the packaged icons ship (normal + monochrome tray
+variant), used by the tray controller and the window icon.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
+
+#: Theme names tried, in order, when the bundled files are missing (an
+#: unpackaged source tree is the only realistic case).
+_THEME_FALLBACKS = ("tkarcade", "computer")
 
 
 def icon_path(style: str = "normal") -> Path | None:
@@ -16,7 +24,12 @@ def icon_path(style: str = "normal") -> Path | None:
 
 
 def app_icon(style: str = "normal"):
-    """QIcon for a style, falling back to a standard theme icon."""
+    """QIcon for a style, falling back to the theme entry.
+
+    The widgets reference fell back to the QtWidgets style's computer
+    icon; the package installs the same name into hicolor, so the theme
+    lookup covers it without pulling QtWidgets in.
+    """
     from PySide6.QtGui import QIcon
 
     path = icon_path(style)
@@ -24,9 +37,8 @@ def app_icon(style: str = "normal"):
         icon = QIcon(str(path))
         if not icon.isNull():
             return icon
-    from PySide6.QtWidgets import QApplication, QStyle
-
-    app = QApplication.instance()
-    if app is not None:
-        return app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+    for name in _THEME_FALLBACKS:
+        icon = QIcon.fromTheme(name)
+        if not icon.isNull():
+            return icon
     return QIcon()

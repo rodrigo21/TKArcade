@@ -4,12 +4,12 @@ from tkarcade import presets as pm
 
 
 def test_apply_preset_merges_missing_only():
-    vars = {"WINE_FULLSCREEN_FSR": "0"}
-    assert pm.apply_preset(vars, "FSR Upscaling (Wine/Proton)") == []
-    assert vars["WINE_FULLSCREEN_FSR"] == "0"
-    assert pm.apply_preset(vars, "Faster Shaders (RADV)") == ["RADV_PERFTEST"]
-    assert vars["RADV_PERFTEST"] == "gpl"
-    assert pm.apply_preset(vars, "No Such Preset") == []
+    env = {"WINE_FULLSCREEN_FSR": "0"}
+    assert pm.apply_preset(env, "FSR Upscaling (Wine/Proton)") == []
+    assert env["WINE_FULLSCREEN_FSR"] == "0"
+    assert pm.apply_preset(env, "Faster Shaders (RADV)") == ["RADV_PERFTEST"]
+    assert env["RADV_PERFTEST"] == "gpl"
+    assert pm.apply_preset(env, "No Such Preset") == []
 
 
 def test_preset_catalog_schema():
@@ -64,6 +64,26 @@ def test_proton_wayland_preset_tag():
 
     assert pm.PRESETS["Proton Wayland"].vars == {"PROTON_ENABLE_WAYLAND": "1"}
     assert pm.PRESETS["Proton Wayland"].proton == ("ge", "cachyos", "dw")
+
+
+def test_vsync_presets_audited():
+    """The two VSync presets are GL/GLX-scoped and still valid (2026-10-19).
+
+    Mesa keeps `vblank_mode` as a driconf option (0 = never synchronise)
+    and its own xmlconfig test proves the environment variable overrides
+    drirc; the NVIDIA README still documents the boolean
+    `__GL_SYNC_TO_VBLANK`. Neither touches Vulkan (its own present mode,
+    MESA_VK_WSI_PRESENT_MODE, or DXVK's dxgi.syncInterval).
+    """
+    import tkarcade.presets as pm
+
+    mesa = pm.PRESETS["Disable VSync (Mesa)"]
+    assert mesa.vars == {"vblank_mode": "0"}
+    assert mesa.drivers == ("amd", "intel")
+    assert "OpenGL" in mesa.note
+    nvidia = pm.PRESETS["Disable VSync (NVIDIA)"]
+    assert nvidia.vars == {"__GL_SYNC_TO_VBLANK": "0"}
+    assert "OpenGL" in nvidia.note
 
 
 def test_fps_limit_preset():

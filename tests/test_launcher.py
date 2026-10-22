@@ -187,13 +187,17 @@ def test_global_log_carries_duration(xdg_env):
     assert "appid=11" in line and " dur=" in line
 
 
-def test_peel_edit_appid():
-    from tkarcade.launcher import peel_edit_appid
+def test_peel_display_appid():
+    from tkarcade.launcher import peel_display_appid
 
-    assert peel_edit_appid(["588950"]) == ("588950", [])
-    assert peel_edit_appid(["/bin/echo", "hi"]) == ("", ["/bin/echo", "hi"])
-    assert peel_edit_appid([]) == ("", [])
-    assert peel_edit_appid(["12", "34"]) == ("", ["12", "34"])
+    assert peel_display_appid(["588950"]) == ("588950", [])
+    assert peel_display_appid(["/bin/echo", "hi"]) == ("", ["/bin/echo", "hi"])
+    assert peel_display_appid([]) == ("", [])
+    assert peel_display_appid(["12", "34"]) == ("", ["12", "34"])
+    # A local id qualifies only when it names a configured game.
+    assert peel_display_appid(["local-glxgears"], {"local-glxgears"}) == ("local-glxgears", [])
+    assert peel_display_appid(["local-nope"], {"local-glxgears"}) == ("", ["local-nope"])
+    assert peel_display_appid(["glxgears"], {"local-glxgears"}) == ("", ["glxgears"])
 
 
 def test_menu_without_display_launches_directly(xdg_env, monkeypatch):
@@ -233,6 +237,17 @@ def test_menu_flag_shows_editor_once_without_display(xdg_env, monkeypatch):
     assert log.read_text().count("launching directly") == 1
 
 
+def test_menu_positional_appid_resolves_like_edit(xdg_env, monkeypatch):
+    """`--menu <appid>` peels the positional AppID exactly like `--edit`."""
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    r = _run(_env(xdg_env), "--menu", "21")
+    assert r.returncode == 0, r.stderr
+    assert "cannot resolve AppID" not in r.stderr
+    log = xdg_env["state"] / "tkarcade" / "games" / "21.log"
+    assert "no game command to run" in log.read_text()
+
+
 def test_clean_gui_env():
     from tkarcade.launcher import clean_gui_env
 
@@ -247,79 +262,6 @@ def test_clean_gui_env():
     assert clean_gui_env({}) == {}
     only_steam = {"LD_LIBRARY_PATH": "/a/steam-runtime/b"}
     assert "LD_LIBRARY_PATH" not in clean_gui_env(only_steam)
-
-
-def test_edit_child_headless(xdg_env, monkeypatch):
-    monkeypatch.delenv("DISPLAY", raising=False)
-    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
-    r = _run(_env(xdg_env), "-m", "tkarcade.gui.edit", "--appid", "1")
-    assert r.returncode == 2
-
-
-def test_editor_menu_parsing(monkeypatch):
-    import subprocess as sp
-
-    from tkarcade import launcher as L
-
-    seen = {}
-
-    def fake_run(cmd, **kw):
-        seen["cmd"] = cmd
-        seen["env"] = kw.get("env", {})
-
-        class P:
-            returncode = 0
-            stdout = '{"outcome": "launch", "appid": "42"}\n'
-            stderr = ""
-
-        return P()
-
-    monkeypatch.setattr(sp, "run", fake_run)
-    assert L.run_editor_menu("42") == ("launch", "42")
-    assert "-m" in seen["cmd"] and "tkarcade.gui.edit" in seen["cmd"]
-    assert "LD_LIBRARY_PATH" not in seen["env"] or "steam-runtime" not in seen["env"].get(
-        "LD_LIBRARY_PATH", ""
-    )
-
-
-def test_editor_menu_crash_means_cancelled(monkeypatch):
-    import subprocess as sp
-
-    from tkarcade import launcher as L
-
-    class P:
-        returncode = 1
-        stdout = ""
-        stderr = "boom"
-
-    monkeypatch.setattr(sp, "run", lambda *a, **k: P())
-    assert L.run_editor_menu("42") == ("cancelled", "42")
-
-
-def test_editor_menu_bad_output_cancelled(monkeypatch):
-    import subprocess as sp
-
-    from tkarcade import launcher as L
-
-    class P:
-        returncode = 0
-        stdout = "not json\n"
-        stderr = ""
-
-    monkeypatch.setattr(sp, "run", lambda *a, **k: P())
-    assert L.run_editor_menu("42") == ("cancelled", "42")
-
-
-def test_editor_menu_spawn_fallback_headless(monkeypatch):
-    from tkarcade import launcher as L
-
-    def boom(*a, **k):
-        raise OSError("noexec")
-
-    monkeypatch.setattr("subprocess.run", boom)
-    monkeypatch.delenv("DISPLAY", raising=False)
-    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
-    assert L.run_editor_menu("42") == ("unavailable", "42")
 
 
 def test_help_documents_exit_codes(xdg_env):
@@ -396,7 +338,7 @@ def test_launcher_gui_dispatch(xdg_env, monkeypatch):
     from tkarcade import launcher as L
 
     calls = []
-    monkeypatch.setattr("tkarcade.gui.app.main", lambda: calls.append("gui") or 0)
+    monkeypatch.setattr("tkarcade.gui.kirigami_app.main", lambda *a: calls.append("gui") or 0)
     monkeypatch.setenv("DISPLAY", ":0")
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     monkeypatch.setattr(sys, "argv", ["tkarcade"])
@@ -483,3 +425,159 @@ def test_local_dry_run_uses_custom_executable(xdg_env, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "AppID: local-doom" in out
     assert str(exe) in out
+
+
+def test_setup_logging_no_duplicate_handler(xdg_env):
+    import logging
+
+    from tkarcade.launcher import setup_logging
+
+    setup_logging("30")
+    setup_logging("30")
+    targets = [
+        getattr(h, "baseFilename", "")
+        for h in logging.getLogger().handlers
+        if getattr(h, "baseFilename", "").endswith("30.log")
+    ]
+    assert len(targets) == 1
+
+
+def test_dry_run_loads_config_once(xdg_env, monkeypatch):
+    from tkarcade import launcher as L
+
+    _save("31")
+    calls = []
+    real = C.load_effective
+
+    def counting(appid):
+        calls.append(appid)
+        return real(appid)
+
+    monkeypatch.setattr(L.cfgmod, "load_effective", counting)
+    assert L.main(["--appid", "31", "--dry-run", "--", "/bin/true"]) == 0
+    assert calls == ["31"]
+
+
+def test_nonexecutable_exit_13(xdg_env, tmp_path):
+    exe = tmp_path / "noexec"
+    exe.write_text("#!/bin/sh\necho hi\n")  # deliberately left non-executable
+    _save("32")
+    assert _run(_env(xdg_env), "--appid", "32", str(exe)).returncode == 13
+
+
+# --- run_editor_menu: the child protocol (in-process, no Qt) ---------------
+
+
+def _fake_child(monkeypatch, *, returncode=0, stdout="", stderr="", boom=None):
+    """Stub subprocess.run; returns the list the launcher called with."""
+    from tkarcade import launcher as L
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        if boom is not None:
+            raise boom
+        return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(L.subprocess, "run", fake_run)
+    return calls
+
+
+def test_editor_menu_parses_the_child_outcome(monkeypatch):
+    from tkarcade import launcher as L
+
+    calls = _fake_child(monkeypatch, stdout='{"outcome": "saved", "appid": "7"}\n')
+    assert L.run_editor_menu("7") == ("saved", "7")
+    cmd, kwargs = calls[0]
+    assert cmd[1:] == ["-m", "tkarcade.gui.edit", "--appid", "7", "--can-launch"]
+    assert kwargs["capture_output"] is True
+
+
+def test_editor_menu_passes_the_pick_menu_and_env(monkeypatch):
+    from tkarcade import launcher as L
+
+    calls = _fake_child(monkeypatch, stdout='{"outcome": "launch", "appid": "42"}')
+    monkeypatch.setenv(
+        "LD_LIBRARY_PATH",
+        "/opt/x:/home/u/.local/share/Steam/ubuntu12_32/steam-runtime/pinned",
+    )
+    assert L.run_editor_menu("", for_menu=True, can_launch=False) == ("launch", "42")
+    cmd, kwargs = calls[0]
+    assert cmd[1:] == [
+        "-m",
+        "tkarcade.gui.edit",
+        "--pick",
+        "--no-can-launch",
+        "--menu",
+    ]
+    assert "Steam" not in kwargs["env"].get("LD_LIBRARY_PATH", "")
+
+
+def test_edit_targets_a_positional_local_game(xdg_env, monkeypatch):
+    """`--edit local-glxgears` opens that game, not the picker."""
+    from tkarcade import launcher as L
+
+    _save(
+        "local-glxgears",
+        general={"name": "glxgears", "custom_executable": "/usr/bin/glxgears"},
+    )
+    calls = _fake_child(monkeypatch, stdout='{"outcome": "cancelled", "appid": "local-glxgears"}')
+    assert L.main(["--edit", "local-glxgears"]) == 0
+    cmd, _ = calls[0]
+    assert cmd[1:] == ["-m", "tkarcade.gui.edit", "--appid", "local-glxgears", "--can-launch"]
+
+
+def test_menu_targets_a_positional_local_game(xdg_env, monkeypatch):
+    from tkarcade import launcher as L
+
+    _save(
+        "local-glxgears",
+        general={"name": "glxgears", "custom_executable": "/usr/bin/glxgears"},
+    )
+    calls = _fake_child(monkeypatch, stdout='{"outcome": "cancelled", "appid": "local-glxgears"}')
+    assert L.main(["--menu", "local-glxgears"]) == 0
+    cmd, _ = calls[0]
+    assert cmd[1:] == [
+        "-m",
+        "tkarcade.gui.edit",
+        "--appid",
+        "local-glxgears",
+        "--can-launch",
+        "--menu",
+    ]
+
+
+def test_editor_menu_crash_is_cancelled(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, returncode=1, stderr="Traceback (most recent call last):")
+    assert L.run_editor_menu("7") == ("cancelled", "7")
+
+
+def test_editor_menu_bad_output_is_cancelled(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, stdout="not json at all")
+    assert L.run_editor_menu("7") == ("cancelled", "7")
+
+
+def test_editor_menu_bad_outcome_is_cancelled(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, stdout='{"outcome": "explode", "appid": "7"}')
+    assert L.run_editor_menu("7") == ("cancelled", "7")
+
+
+def test_editor_menu_exit_two_is_unavailable(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, returncode=2, stderr="tkarcade: --edit needs a display")
+    assert L.run_editor_menu("7") == ("unavailable", "7")
+
+
+def test_editor_menu_spawn_failure_is_unavailable(monkeypatch):
+    from tkarcade import launcher as L
+
+    _fake_child(monkeypatch, boom=OSError("no such file"))
+    assert L.run_editor_menu("7") == ("unavailable", "7")

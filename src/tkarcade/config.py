@@ -55,6 +55,10 @@ class GeneralConfig:
     menu_timeout: int = 0  # auto-launch countdown in seconds (0 = wait forever)
     custom_prefix: str = ""  # e.g. "zink-run", innermost command wrapper
     active_profile: str = ""  # last used profile (GUI selection memory)
+    categories: list[str] = field(default_factory=list)  # tags, multiple per game
+    platform: str = ""  # manual platform label (e.g. "PC", "Steam Deck")
+    launch_args: str = ""  # extra args appended to the game command
+    launch_cwd: str = ""  # working-directory override ("" = exe folder for local games)
 
 
 @dataclass
@@ -89,6 +93,7 @@ class MangohudConfig:
     enable: bool = False
     args: str = ""
     config_file: str = ""  # filename inside MangoHud config dir, "" = default
+    fps_limit: int = 0  # MangoHud fps_limit (0 = off)
 
 
 @dataclass
@@ -145,13 +150,32 @@ class RtUpscaleConfig:
 class ProtonConfig:
     fresh_prefix: bool = False
     winetricks_verbs: list[str] = field(default_factory=list)
+    wine_prefix: str = ""  # custom compatdata dir ("" = Steam default location)
+    wine_version: str = ""  # preferred compat tool ("" = Steam default)
+
+
+@dataclass
+class ArtworkConfig:
+    icon: str = ""  # explicit per-game icon override (file path)
+    cover: str = ""  # explicit per-game cover/portrait image (file path)
+    banner: str = ""  # explicit per-game banner/landscape image (file path)
+    donor_appid: str = ""  # reuse another game's art (e.g. a Steam donor)
+
+
+@dataclass
+class AudioConfig:
+    sink: str = ""  # output sink for the session ("" = system default)
 
 
 @dataclass
 class Preferences:
     """Program-level preferences (never per-game)."""
 
-    show_preview: bool = True
+    # The settings footer blocks start collapsed: they are reference
+    # material (dependency marks, the launch command), and expanded they
+    # cost every tab a third of its height.
+    show_preview: bool = False
+    show_dependency_status: bool = False
     tray_enable: bool = False
     tray_icon: str = "normal"  # normal|mono
     minimize_to_tray: bool = False
@@ -159,11 +183,14 @@ class Preferences:
     sgdb_api_key: str = ""
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
+    column_widths: str = ""  # fitted widths, e.g. "1=210,2=90"
     tray_quick_launch: bool = True  # recent games section in the tray menu
     tray_quick_count: int = 5  # recent games shown (1-10)
     language: str = "system"  # system locale, "en" for English, or a locale code
     main_window_size: str = ""  # "WxH", "" means the 1280x720 default
     main_window_maximized: bool = False  # restore maximized on open
+    drawer_mode: str = "collapsible"  # overlay|collapsible (Kirigami drawer)
+    drawer_collapsed: bool = True  # collapsible drawer starts collapsed
 
 
 @dataclass
@@ -182,7 +209,9 @@ class GameConfig:
     debug: DebugConfig = field(default_factory=DebugConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
     proton: ProtonConfig = field(default_factory=ProtonConfig)
+    audio: AudioConfig = field(default_factory=AudioConfig)
     rtupscale: RtUpscaleConfig = field(default_factory=RtUpscaleConfig)
+    artwork: ArtworkConfig = field(default_factory=ArtworkConfig)
     # Unknown keys preserved per section for forward-compat round-trip:
     # {section: {key: value}}. Written back verbatim on save.
     extra: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -214,7 +243,9 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "debug": _to_toml_value(cfg.debug),
         "session": _to_toml_value(cfg.session),
         "proton": _to_toml_value(cfg.proton),
+        "audio": _to_toml_value(cfg.audio),
         "rtupscale": _to_toml_value(cfg.rtupscale),
+        "artwork": _to_toml_value(cfg.artwork),
     }
     for section, keys in cfg.extra.items():
         if section in data and isinstance(data[section], dict):
@@ -351,6 +382,8 @@ def delete_profile(appid: str, name: str) -> None:
 def clone_game(src_appid: str, dest_appid: str) -> None:
     """Copy a game's live config plus profiles to another AppID.
 
+    The destination snapshot is rewritten with the destination AppID
+    (a plain byte copy would keep the source id inside the file).
     Overwrites the destination (callers confirm first). Raises
     ValueError when the source has nothing saved.
     """
@@ -363,11 +396,17 @@ def clone_game(src_appid: str, dest_appid: str) -> None:
     if not live.is_file():
         raise ValueError(f"no saved config for {src!r}")
     shutil.copyfile(live, game_file(dest))
+    cfg = load(dest)  # reads the copy; invalid TOML loads as fresh built-ins
+    cfg.general.appid = dest_appid
+    save(cfg)
     profiles = profiles_dir(src)
     if profiles.is_dir():
         dest_profiles = profiles_dir(dest)
         shutil.rmtree(dest_profiles, ignore_errors=True)
         shutil.copytree(profiles, dest_profiles)
+        for name in list_profiles(dest):
+            prof = load_profile(dest, name)
+            save_profile(dest, name, prof)
 
 
 def orphaned_profiles() -> list[tuple[str, int]]:
@@ -495,12 +534,16 @@ SECTION_KEYS: dict[str, set[str]] = {
         "menu_timeout",
         "custom_prefix",
         "active_profile",
+        "categories",
+        "platform",
+        "launch_args",
+        "launch_cwd",
     },
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
     "gamemode": {"feral_gamemode", "cachyos_game_performance"},
     "gamescope": {"enable", "args"},
-    "mangohud": {"enable", "args", "config_file"},
+    "mangohud": {"enable", "args", "config_file", "fps_limit"},
     "ludusavi": {"enable", "restore", "backup", "name_override", "use_gui"},
     "nightlight": {"disable_during_game", "provider"},
     "display": {"provider", "output", "mode", "dip_seconds"},
@@ -508,8 +551,10 @@ SECTION_KEYS: dict[str, set[str]] = {
     "notes": {"text"},
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
-    "proton": {"fresh_prefix", "winetricks_verbs"},
+    "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
+    "audio": {"sink"},
     "rtupscale": {"enable", "args"},
+    "artwork": {"icon", "cover", "banner", "donor_appid"},
 }
 
 
@@ -621,6 +666,10 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.general.menu_timeout = max(0, _as_int(g.get("menu_timeout", 0), 0))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
     cfg.general.active_profile = str(g.get("active_profile", ""))
+    cfg.general.categories = [c.strip() for c in _str_list(g.get("categories", [])) if c.strip()]
+    cfg.general.platform = str(g.get("platform", ""))
+    cfg.general.launch_args = str(g.get("launch_args", ""))
+    cfg.general.launch_cwd = str(g.get("launch_cwd", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}
@@ -630,7 +679,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.pre_post.pre_args = _str_list(p.get("pre_args", []))
     cfg.pre_post.post_command = str(p.get("post_command", ""))
     cfg.pre_post.post_args = _str_list(p.get("post_args", []))
-    cfg.pre_post.timeout = _as_int(p.get("timeout", 60), 60)
+    cfg.pre_post.timeout = max(1, min(3600, _as_int(p.get("timeout", 60), 60)))
     cfg.pre_post.run_in_shell = _as_bool(p.get("run_in_shell", False), False)
     gm = _section(data, "gamemode")
     cfg.gamemode.feral_gamemode = _as_bool(gm.get("feral_gamemode", False), False)
@@ -644,6 +693,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.mangohud.enable = _as_bool(mh.get("enable", False), False)
     cfg.mangohud.args = str(mh.get("args", ""))
     cfg.mangohud.config_file = str(mh.get("config_file", ""))
+    cfg.mangohud.fps_limit = max(0, _as_int(mh.get("fps_limit", 0), 0))
     cfg.ludusavi = _load_ludusavi(data.get("ludusavi", {}), cfg.extra)
     nl = _section(data, "nightlight")
     cfg.nightlight.disable_during_game = _as_bool(nl.get("disable_during_game", False), False)
@@ -661,6 +711,14 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.session.inhibit_idle = _as_bool(_section(data, "session").get("inhibit_idle", False), False)
     cfg.proton.fresh_prefix = _as_bool(_section(data, "proton").get("fresh_prefix", False), False)
     cfg.proton.winetricks_verbs = _str_list(_section(data, "proton").get("winetricks_verbs", []))
+    cfg.proton.wine_prefix = str(_section(data, "proton").get("wine_prefix", ""))
+    cfg.proton.wine_version = str(_section(data, "proton").get("wine_version", ""))
+    cfg.audio.sink = str(_section(data, "audio").get("sink", ""))
+    art = _section(data, "artwork")
+    cfg.artwork.icon = str(art.get("icon", ""))
+    cfg.artwork.cover = str(art.get("cover", ""))
+    cfg.artwork.banner = str(art.get("banner", ""))
+    cfg.artwork.donor_appid = str(art.get("donor_appid", "")).strip()
     rt = _section(data, "rtupscale")
     cfg.rtupscale.enable = _as_bool(rt.get("enable", False), False)
     cfg.rtupscale.args = str(rt.get("args", ""))
@@ -674,7 +732,8 @@ def load_preferences() -> Preferences:
     ui = data.get("ui", {}) if isinstance(data, dict) else {}
     if not isinstance(ui, dict):
         return out
-    out.show_preview = _as_bool(ui.get("show_preview", True), True)
+    out.show_preview = _as_bool(ui.get("show_preview", False), False)
+    out.show_dependency_status = _as_bool(ui.get("show_dependency_status", False), False)
     out.tray_enable = _as_bool(ui.get("tray_enable", False), False)
     out.tray_icon = str(ui.get("tray_icon", "normal") or "normal")
     if out.tray_icon not in ("normal", "mono"):
@@ -684,6 +743,7 @@ def load_preferences() -> Preferences:
     out.sgdb_api_key = str(ui.get("sgdb_api_key", "") or "")
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
+    out.column_widths = _clean_width_map(str(ui.get("column_widths", "") or ""))
     out.tray_quick_launch = _as_bool(ui.get("tray_quick_launch", True), True)
     out.tray_quick_count = _clamp_quick_count(ui.get("tray_quick_count", 5))
     lang = str(ui.get("language", "system") or "system").strip()
@@ -692,6 +752,9 @@ def load_preferences() -> Preferences:
     )
     out.main_window_size = _clean_window_size(ui.get("main_window_size", ""))
     out.main_window_maximized = _as_bool(ui.get("main_window_maximized", False), False)
+    mode = str(ui.get("drawer_mode", "collapsible") or "collapsible").strip()
+    out.drawer_mode = mode if mode in ("overlay", "collapsible") else "collapsible"
+    out.drawer_collapsed = _as_bool(ui.get("drawer_collapsed", True), True)
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -700,7 +763,28 @@ def load_preferences() -> Preferences:
 
 def _clean_int_list(text: str) -> str:
     """Normalize a comma list to digits-only, preserving order ("" stays "")."""
-    return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdigit())
+    # isdecimal (not isdigit): int() only accepts decimal digits, so other
+    # "digits" (superscripts, fractions) must be dropped, not crash int().
+    return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdecimal())
+
+
+def _clean_width_map(text: str) -> str:
+    """Normalize 'logical=px' pairs (logical 0-11, px 20-2000).
+
+    The upper bound must match the table width the model writes
+    (12 columns): a smaller one silently dropped every width for the
+    library columns past 'Source' on the next load.
+    """
+    out = []
+    for part in (x.strip() for x in text.split(",")):
+        if "=" not in part:
+            continue
+        left, _, right = part.partition("=")
+        if left.strip().isdecimal() and right.strip().isdecimal():
+            logical, width = int(left.strip()), int(right.strip())
+            if 0 <= logical <= 11 and 20 <= width <= 2000:
+                out.append(f"{logical}={width}")
+    return ",".join(out)
 
 
 def _clamp_quick_count(value: object) -> int:
@@ -725,6 +809,7 @@ def save_preferences(prefs: Preferences) -> Path:
     data = {
         "ui": {
             "show_preview": bool(prefs.show_preview),
+            "show_dependency_status": bool(prefs.show_dependency_status),
             "tray_enable": bool(prefs.tray_enable),
             "tray_icon": prefs.tray_icon if prefs.tray_icon in ("normal", "mono") else "normal",
             "minimize_to_tray": bool(prefs.minimize_to_tray),
@@ -732,11 +817,18 @@ def save_preferences(prefs: Preferences) -> Path:
             "sgdb_api_key": prefs.sgdb_api_key,
             "column_order": _clean_int_list(prefs.column_order),
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
+            "column_widths": _clean_width_map(prefs.column_widths),
             "tray_quick_launch": bool(prefs.tray_quick_launch),
             "tray_quick_count": _clamp_quick_count(prefs.tray_quick_count),
             "language": prefs.language if isinstance(prefs.language, str) else "system",
             "main_window_size": _clean_window_size(prefs.main_window_size),
             "main_window_maximized": bool(prefs.main_window_maximized),
+            "drawer_mode": (
+                prefs.drawer_mode
+                if prefs.drawer_mode in ("overlay", "collapsible")
+                else "collapsible"
+            ),
+            "drawer_collapsed": bool(prefs.drawer_collapsed),
         }
     }
     _write_atomic(path, _render_toml(data))
@@ -909,7 +1001,7 @@ def export_configs(dest: str | Path) -> Path:
     import tarfile
 
     dest = Path(dest)
-    if not dest.suffixes[-2:] == [".tar", ".gz"]:
+    if dest.suffixes[-2:] != [".tar", ".gz"]:
         dest = dest.with_suffix(".tar.gz") if dest.suffix != ".gz" else dest
     with tarfile.open(dest, "w:gz") as tar:
         defaults = xdg.defaults_file()
@@ -942,8 +1034,10 @@ def import_configs(src: str | Path) -> list[str]:
     if not src.is_file():
         raise ValueError(f"not found: {src}")
     base = xdg.app_config_dir()
+    # Guarded outside `with` so extraction errors keep their own type
+    # instead of reading as invalid archives; `with tar` below closes it.
     try:
-        tar = tarfile.open(src, "r:gz")
+        tar = tarfile.open(src, "r:gz")  # noqa: SIM115
     except (tarfile.TarError, OSError) as e:
         raise ValueError(f"invalid archive: {e}") from e
     with tar:

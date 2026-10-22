@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -28,8 +27,85 @@ def grid_path(appid: str) -> Path:
     return xdg.app_cache_dir() / "grids" / f"{appid}.png"
 
 
+#: Manual artwork slots per game (user-picked files, copied in).
+MANUAL_KINDS = ("icon", "cover", "banner")
+
+
+def manual_dir(appid: str) -> Path:
+    return xdg.app_cache_dir() / "artwork" / xdg.safe_stem(str(appid))
+
+
+def manual_path(appid: str, kind: str) -> Path | None:
+    """Stored manual file for a slot, or None (unknown kind or missing)."""
+    if kind not in MANUAL_KINDS:
+        return None
+    for suffix in (".png", ".jpg", ".jpeg", ".webp"):
+        cand = manual_dir(appid) / f"{kind}{suffix}"
+        try:
+            if cand.is_file():
+                return cand
+        except Exception:
+            continue
+    return None
+
+
+def store_manual(appid: str, kind: str, src: str) -> Path | None:
+    """Copy an image into the manual slot. None on any failure."""
+    if kind not in MANUAL_KINDS:
+        return None
+    try:
+        origin = Path(src).expanduser()
+        if not origin.is_file() or origin.suffix.lower() not in (
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp",
+        ):
+            return None
+        dest_dir = manual_dir(appid)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / f"{kind}{origin.suffix.lower()}"
+        # Drop the other suffix variants of this same slot so it keeps
+        # exactly one file; the other kinds are left untouched.
+        for suffix in (".png", ".jpg", ".jpeg", ".webp"):
+            old = dest_dir / f"{kind}{suffix}"
+            if old != dest:
+                try:
+                    old.unlink()
+                except OSError:
+                    pass
+        import shutil
+
+        shutil.copyfile(origin, dest)
+        return dest
+    except Exception as e:
+        log.debug("store_manual failed: %s", e)
+        return None
+
+
+def clear_manual(appid: str, kind: str) -> bool:
+    """Remove a manual slot. True when something was deleted."""
+    try:
+        found = manual_path(appid, kind)
+    except Exception:
+        return False
+    if found is None:
+        return False
+    try:
+        found.unlink()
+        return True
+    except OSError:
+        return False
+
+
 def resolve_icon(appid: str, landscape: bool = False) -> Path | None:
-    """Our cached grid first, then Steam librarycache art."""
+    """Manual override first, then our cached grid, then Steam art."""
+    try:
+        manual = manual_path(appid, "icon" if not landscape else "banner")
+        if manual is not None:
+            return manual
+    except Exception:
+        pass
     grid = grid_path(appid)
     try:
         if grid.is_file():

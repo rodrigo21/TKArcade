@@ -10,6 +10,7 @@ independent toggles.
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 
@@ -29,6 +30,35 @@ def find() -> tuple[str | None, str | None]:
     if is_flatpak_path(path) or "flatpak" in path:
         return path, "flatpak ludusavi may not see Proton prefixes; prefer standalone binary"
     return path, None
+
+
+def _wrap_options(name_override: str, restore: bool, backup: bool, use_gui: bool) -> list[str]:
+    """`ludusavi wrap` prefix with the name and restore/backup/gui flags."""
+    opts = ["ludusavi", "wrap"]
+    if (name_override or "").strip():
+        opts += ["--name", name_override.strip()]
+    else:
+        opts += ["--infer", "steam"]
+    if not restore:
+        opts.append("--no-restore")
+    if not backup:
+        opts.append("--no-backup")
+    if use_gui:
+        opts.append("--gui")
+    return opts
+
+
+def _inner_command(game_cmd: list[str], rc_file: str) -> tuple[list[str], str]:
+    """The game command, wrapped in `sh -c` when rc_file wants the exit code.
+
+    Returns (command, warning); the warning is set when rc_file was asked
+    but `sh` is missing, so the code stays masked by ludusavi wrap.
+    """
+    if not rc_file:
+        return list(game_cmd), ""
+    if shutil.which("sh"):
+        return ["sh", "-c", _SH_EXIT_SENTINEL, rc_file, *game_cmd], ""
+    return list(game_cmd), "sh not found, game exit code may be masked by ludusavi wrap"
 
 
 def wrap_command(
@@ -61,24 +91,52 @@ def wrap_command(
         return list(game_cmd), warnings
     # Bare name (PATH lookup at launch), consistent with the other
     # wrappers; `path` above is only used for the missing/flatpak checks.
-    cmd = ["ludusavi", "wrap"]
-    if (name_override or "").strip():
-        cmd += ["--name", name_override.strip()]
-    else:
-        cmd += ["--infer", "steam"]
-    if not restore:
-        cmd += ["--no-restore"]
-    if not backup:
-        cmd += ["--no-backup"]
-    if use_gui:
-        cmd += ["--gui"]
-    inner = list(game_cmd)
-    if rc_file and shutil.which("sh"):
-        inner = ["sh", "-c", _SH_EXIT_SENTINEL, rc_file, *game_cmd]
-    elif rc_file:
-        warnings.append("sh not found, game exit code may be masked by ludusavi wrap")
+    cmd = _wrap_options(name_override, restore, backup, use_gui)
+    inner, inner_warn = _inner_command(game_cmd, rc_file)
+    if inner_warn:
+        warnings.append(inner_warn)
     cmd += ["--", *inner]
     return cmd, warnings
+
+
+def _find_manifest_title(path: str, appid: str, name_override: str) -> tuple[str, str]:
+    """Resolve a game's manifest title. Returns (title, failure detail)."""
+    if (name_override or "").strip():
+        find_cmd = [path, "find", "--api", "--", name_override.strip()]
+    else:
+        find_cmd = [path, "find", "--api", "--steam-id", str(appid)]
+    try:
+        found = subprocess.run(find_cmd, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return "", f"ludusavi find failed: {e}"
+    if found.returncode != 0:
+        return "", ""
+    try:
+        games = json.loads(found.stdout or "{}").get("games", {})
+    except ValueError:
+        return "", ""
+    return (next(iter(games)) if isinstance(games, dict) else ""), ""
+
+
+def _preview_files(path: str, title: str) -> tuple[dict, str]:
+    """The manifest's file map for a title. Returns (files, failure detail)."""
+    try:
+        preview = subprocess.run(
+            [path, "backup", "--preview", "--api", title],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return {}, f"ludusavi preview failed: {e}"
+    if preview.returncode != 0:
+        return {}, "ludusavi preview failed"
+    try:
+        entry = json.loads(preview.stdout or "{}").get("games", {}).get(title, {})
+    except ValueError:
+        entry = {}
+    files = entry.get("files", {}) if isinstance(entry, dict) else {}
+    return (files if isinstance(files, dict) else {}), ""
 
 
 def check_coverage(appid: str, name_override: str = "") -> tuple[str, str]:
@@ -88,44 +146,17 @@ def check_coverage(appid: str, name_override: str = "") -> tuple[str, str]:
     nothing on disk), 'no-entry' (no manifest entry) or 'unavailable'.
     Resolves by Steam ID, or by exact title with a name override.
     """
-    import json
-
     path, _warn = find()
     if not path:
         return "unavailable", "ludusavi not found in PATH"
-    if (name_override or "").strip():
-        find_cmd = [path, "find", "--api", "--", name_override.strip()]
-    else:
-        find_cmd = [path, "find", "--api", "--steam-id", str(appid)]
-    try:
-        found = subprocess.run(find_cmd, capture_output=True, text=True, timeout=120)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return "unavailable", f"ludusavi find failed: {e}"
-    title = ""
-    if found.returncode == 0:
-        try:
-            games = json.loads(found.stdout or "{}").get("games", {})
-            title = next(iter(games)) if isinstance(games, dict) else ""
-        except ValueError:
-            title = ""
+    title, failed = _find_manifest_title(path, appid, name_override)
+    if failed:
+        return "unavailable", failed
     if not title:
         return "no-entry", "No manifest entry for this game"
-    try:
-        preview = subprocess.run(
-            [path, "backup", "--preview", "--api", title],
-            capture_output=True,
-            text=True,
-            timeout=180,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return "unavailable", f"ludusavi preview failed: {e}"
-    if preview.returncode != 0:
-        return "unavailable", "ludusavi preview failed"
-    try:
-        entry = json.loads(preview.stdout or "{}").get("games", {}).get(title, {})
-    except ValueError:
-        entry = {}
-    files = entry.get("files", {}) if isinstance(entry, dict) else {}
+    files, failed = _preview_files(path, title)
+    if failed:
+        return "unavailable", failed
     total = 0
     for info in files.values():
         size = info.get("bytes", 0) if isinstance(info, dict) else 0
