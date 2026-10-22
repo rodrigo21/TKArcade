@@ -1,5 +1,24 @@
 # TODO — deferred ideas
 
+## In progress
+
+Where the work stands. Update it before stopping mid-task: a new session
+reads this section first, so it must stand on its own.
+
+- `main` at `9cfb001` (squash of the `game-types` work: explicit game
+  types, local Wine/umu runtimes, graphics layers). The branch is gone
+  locally and on the remote.
+- Verified at the merge: 377 tests (QML driver included), ruff clean,
+  `-git` rebuilt as `0.0.0.r485.g9cfb001-1`.
+- Next: shrink `AGENTS.md` — move the Kirigami/QML rules to
+  `docs/QML-NOTES.md` and the project policies to `docs/POLICIES.md`,
+  keep a short index with "read this before touching QML".
+- Open decisions: combined DXVK + vkd3d toggles (the single
+  `[graphics] layer` picks one at a time), winetricks on a local
+  backend, `runtime.prefix_name`.
+- Nothing blocking. The `-git` PKGBUILD `pkgver` stays dirty on purpose
+  (never committed outside a release).
+
 - [x] Kirigami game settings shell (General/Notes in a modal
   `Window` like the widgets QDialog — resizable, `WindowModal`,
   transient on the main window; TabBar, load/save/profile slots,

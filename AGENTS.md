@@ -10,6 +10,11 @@ License: GPL-3.0-or-later.
   messages and GUI strings in English.
 - Short, factual, no superlatives. Surface disagreements honestly.
 
+## Work state
+
+Read the `## In progress` section of `TODO.md` before starting, and
+update it before you stop mid-task (session history is not memory).
+
 ## Environment
 
 - Python >= 3.12, Linux. Default flow is `uv` with system site packages:
