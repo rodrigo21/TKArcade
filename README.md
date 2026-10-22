@@ -43,6 +43,45 @@ The AppID resolves automatically from the Steam environment. Logs go to
 `$XDG_STATE_HOME/tkarcade/games/<appid>.log` (full) plus a one-line
 entry per run in `launcher.log`.
 
+## Local games
+
+Games added with **Add → Local** keep their own origin. `[general]
+game_type` is `native` (Linux), `wine` or `umu`; Steam games use
+`proton` or `native`. A missing or legacy `auto` value is refused (exit
+18): pick the type in the settings dialog, there is no detection.
+
+Local Windows games never borrow Steam's Proton. `wine` runs the game
+with the configured wine binary (or `wine` from PATH); `umu` runs
+`umu-run` with `PROTONPATH` set to an installed Proton build. Proton
+installs are discovered in Steam's `compatibilitytools.d` and
+`steamapps/common` plus the extra directories in Preferences.
+TKArcade only reads what is on disk: install and update Proton with
+ProtonPlus/ProtonUp-Qt, Wine with the distro.
+
+Prefixes live in `$XDG_DATA_HOME/tkarcade/prefixes/<appid>` by default.
+Preferences moves the base, and a per-game `[runtime] prefix_dir` wins.
+`[runtime] wine_binary` and `[runtime] proton_path` override the global
+choices per game.
+
+`[graphics] layer` (`dxvk`, `vkd3d`, `vkd3d-wine`, or empty) copies the
+newest matching build found in the configured DXVK/vkd3d directories
+into the prefix at launch and selects it through `WINEDLLOVERRIDES`.
+DXVK covers D3D9/10/11, vkd3d-proton covers D3D12, and Wine's builtin
+vkd3d has lower compatibility. A marker (`tkarcade-graphics.json`)
+records the copied files; **Remove from prefix** deletes only those.
+
+```toml
+[general]
+appid = "local-doom"
+game_type = "umu"
+
+[runtime]
+proton_path = "/home/user/GE-Proton10-25"
+
+[graphics]
+layer = "dxvk"
+```
+
 ## GUI guide
 
 **Main window** — filter by name/App ID (or issues only); drag column
@@ -56,11 +95,12 @@ icon lists recent games for quick launch through Steam.
 
 **Game dialog** — tabs for General, Launch (executable, prefix, extra
 args, working directory, pre-launch menu, pre/post commands),
-Environment (variables + curated presets), Compatibility (Wine and
-Proton), Performance (GameMode, MangoHud, RT upscaler), Display
-(Gamescope, monitor mode), System (notifications, idle suspend, night
-light, audio, Ludusavi saves) and Artwork/Notes. The footer shows the
-live wrapper summary and a launch-command preview.
+Environment (variables + curated presets), Compatibility (Steam Proton
+settings, or the Windows runtime for local games: Wine binary or umu
+Proton, prefix, graphics layer), Performance (GameMode, MangoHud, RT
+upscaler), Display (Gamescope, monitor mode), System (notifications,
+idle suspend, night light, audio, Ludusavi saves) and Artwork/Notes. The
+footer shows the live wrapper summary and a launch-command preview.
 
 **Profiles** — named snapshots per game. Selecting one changes what
 launches; saving with a profile active writes the profile (Game
@@ -77,6 +117,9 @@ warn instead of silently resetting.
 * `$XDG_CONFIG_HOME/tkarcade/games/<appid>.toml` — per-game snapshot.
 * `$XDG_CONFIG_HOME/tkarcade/profiles/<appid>/<name>.toml` — profiles.
 * `$XDG_CONFIG_HOME/tkarcade/defaults.toml` — new-game template only.
+* `$XDG_DATA_HOME/tkarcade/prefixes/<appid>/` — local Windows prefixes
+  (default base; Preferences can move it, per-game `runtime.prefix_dir`
+  wins).
 * `$XDG_STATE_HOME/tkarcade/games/<appid>.log` and `launcher.log`.
 * `$XDG_CACHE_HOME/tkarcade/` — e.g. the ProtonDB tier cache.
 
@@ -87,8 +130,10 @@ Export/import everything with `tkarcade --export FILE` /
 
 0 ok (the game's own code when it runs); 10 AppID not resolved;
 11 empty game command; 12 pre-launch hook failed; 13 game executable
-not found; 14 custom prefix binary not found; 15 display needed but
-missing; 16 export/import failed; 17 validation issues found.
+not found; 14 custom prefix, wine/umu runtime or Proton install not
+found; 15 display needed but missing; 16 export/import failed;
+17 validation issues found; 18 game type not set (or invalid for the
+game's origin).
 See `tkarcade --help` and `man tkarcade` (man ships in the Arch packages).
 
 ## Troubleshooting

@@ -315,3 +315,17 @@ dispatch). Each needs one look on a real compositor:
   drag / resize / autofit gestures.
 - Category and Artwork dialogs, and the pt_BR catalog in situ.
 - Audio sink picker (left untouched on this branch).
+
+## After game-types (deferred)
+
+- winetricks/protontricks per local backend: the Compatibility Wine box
+  is Steam-only; a local prefix needs the verbs run through the chosen
+  wine binary (or `protontricks` for a umu Proton install).
+- Running indicator and Terminate action in the GUI (the launcher
+  already writes per-game logs; no PID state is kept today).
+- `runtime.prefix_name`: a friendly name under the prefix base instead
+  of the AppID (and a picker for existing prefixes).
+- Combined DXVK + vkd3d-proton toggles: they are complementary
+  (D3D9/10/11 vs D3D12), not alternatives; the single `[graphics]
+  layer` choice forces one at a time today.
+

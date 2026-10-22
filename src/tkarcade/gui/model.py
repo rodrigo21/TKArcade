@@ -24,11 +24,12 @@ from PySide6.QtCore import (
 
 from .. import artwork as artmod
 from .. import config as cfgmod
+from .. import graphics as graphicsmod
 from .. import history as histmod
 from .. import launcher as launchermod
 from .. import protondb as pdbmod
+from .. import runtimes, xdg
 from .. import steam as steammod
-from .. import xdg
 from ..backends.notify import format_duration
 
 log = logging.getLogger("tkarcade.kirigami")
@@ -425,7 +426,9 @@ class GameListModel(QAbstractTableModel):
             last_played,
             last_secs,
             gcfg.general.platform if gcfg is not None else "",
-            (gcfg.general.game_type if gcfg is not None else "auto").title(),
+            cfgmod.normalize_game_type(gcfg.general.game_type).title()
+            if gcfg is not None and cfgmod.normalize_game_type(gcfg.general.game_type)
+            else ("Not set" if gcfg is not None else ""),
             self._row_wine(appid, gcfg, is_steam),
             self._row_install_dir(appid, gcfg),
             ", ".join(gcfg.general.categories) if gcfg is not None else "",
@@ -569,7 +572,7 @@ class GameListModel(QAbstractTableModel):
             "load_warning": warning or "",
             "name": g.name,
             "custom_executable": g.custom_executable,
-            "game_type": g.game_type if g.game_type in ("auto", "proton", "native") else "auto",
+            "game_type": cfgmod.normalize_game_type(g.game_type),
             "show_menu": bool(g.show_menu),
             "menu_timeout": max(0, min(600, int(g.menu_timeout or 0))),
             "custom_prefix": g.custom_prefix,
@@ -626,6 +629,10 @@ class GameListModel(QAbstractTableModel):
             "wine_version": cfg.proton.wine_version,
             "proton_log": bool(cfg.debug.proton_log),
             "winedebug": cfg.debug.winedebug,
+            "runtime_wine_binary": cfg.runtime.wine_binary,
+            "runtime_proton_path": cfg.runtime.proton_path,
+            "runtime_prefix_dir": cfg.runtime.prefix_dir,
+            "graphics_layer": cfgmod.normalize_graphics_layer(cfg.graphics.layer),
         }
 
     @Slot(str, result="QVariantMap")
@@ -787,14 +794,17 @@ class GameListModel(QAbstractTableModel):
     def _apply_map(cfg, data: dict) -> None:
         """Write settings form fields into a config (no save, no refresh)."""
         cfg.general.custom_executable = str(data.get("custom_executable", "")).strip()
-        game_type = str(data.get("game_type", "auto"))
-        cfg.general.game_type = game_type if game_type in ("auto", "proton", "native") else "auto"
+        cfg.general.game_type = cfgmod.normalize_game_type(data.get("game_type", ""))
         cfg.general.show_menu = bool(data.get("show_menu", False))
         try:
             cfg.general.menu_timeout = max(0, min(600, int(data.get("menu_timeout", 0) or 0)))
         except (TypeError, ValueError):
             cfg.general.menu_timeout = 0
         cfg.general.custom_prefix = str(data.get("custom_prefix", "")).strip()
+        cfg.runtime.wine_binary = str(data.get("runtime_wine_binary", "")).strip()
+        cfg.runtime.proton_path = str(data.get("runtime_proton_path", "")).strip()
+        cfg.runtime.prefix_dir = str(data.get("runtime_prefix_dir", "")).strip()
+        cfg.graphics.layer = cfgmod.normalize_graphics_layer(data.get("graphics_layer", ""))
         cats = data.get("categories", [])
         if isinstance(cats, str):
             cats = [c.strip() for c in cats.split(",")]
@@ -1660,6 +1670,8 @@ class GameListModel(QAbstractTableModel):
             if not steammod.is_steam_id(appid):
                 cfg.general.name = str(dict(values or {}).get("name", "")).strip()
             cmd, _env, warnings = launchermod.build_final_command(cfg, ["%command%"])
+        except launchermod.GameTypeNotSetError:
+            return {"command": "(choose a game type to preview)", "wrappers": "", "warnings": []}
         except Exception as e:  # never break the dialog on preview
             return {"command": f"(preview unavailable: {e})", "wrappers": "", "warnings": []}
         try:
@@ -1867,6 +1879,61 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             target = None
         return str(target) if target is not None else ""
+
+    @Slot(str, result="QVariantMap")
+    def runtimeOptions(self, appid: str) -> dict:
+        """Global runtime choices and discovered Proton installs for the dialog."""
+        prefs = cfgmod.load_preferences()
+        protons = runtimes.proton_installs(prefs.proton_dirs)
+        default_prefix = ""
+        if appid:
+            try:
+                default_prefix = os.fspath(cfgmod.prefix_dir(appid, "", prefs.prefix_base))
+            except Exception:
+                default_prefix = ""
+        return {
+            "wine": str(prefs.wine_binary or ""),
+            "prefix_base": str(prefs.prefix_base or ""),
+            "default_prefix": default_prefix,
+            "protons": [{"name": p.name, "path": os.fspath(p.path)} for p in protons],
+        }
+
+    @Slot(str, result="QVariantMap")
+    def graphicsState(self, appid: str) -> dict:
+        """Installed layers (marker) and newest available versions for a game."""
+        prefs = cfgmod.load_preferences()
+        prefix = None
+        if appid:
+            try:
+                cfg = cfgmod.load(appid)
+                prefix = cfgmod.prefix_dir(appid, cfg.runtime.prefix_dir, prefs.prefix_base)
+            except Exception:
+                prefix = None
+        available = {}
+        for kind in ("dxvk", "vkd3d"):
+            found = runtimes.pick_graphics(kind, graphicsmod.layer_dirs(kind, prefs))
+            available[kind] = found.name if found else ""
+        return {
+            "prefix": os.fspath(prefix) if prefix is not None else "",
+            "installed": graphicsmod.installed(prefix) if prefix is not None else {},
+            "available": available,
+        }
+
+    @Slot(str, result=str)
+    def removeGraphics(self, appid: str) -> str:
+        """Delete the graphics files TKArcade copied into the prefix ('' = ok)."""
+        if not appid:
+            return "Choose a game first."
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception as e:
+            return f"Could not read the config: {e}"
+        prefs = cfgmod.load_preferences()
+        prefix = cfgmod.prefix_dir(appid, cfg.runtime.prefix_dir, prefs.prefix_base)
+        removed, warnings = graphicsmod.uninstall(prefix)
+        log.info("graphics: removed %d file(s) from %s", removed, prefix)
+        self.refresh()
+        return warnings[0] if warnings else ""
 
     @Slot(str, result=str)
     def shaderDir(self, appid: str) -> str:
@@ -2197,6 +2264,11 @@ class GameListModel(QAbstractTableModel):
             "trayQuickCount": int(prefs.tray_quick_count),
             "sgdbApiKey": str(prefs.sgdb_api_key),
             "language": str(prefs.language),
+            "prefixBase": str(prefs.prefix_base),
+            "wineBinary": str(prefs.wine_binary),
+            "protonDirs": str(prefs.proton_dirs),
+            "dxvkDirs": str(prefs.dxvk_dirs),
+            "vkd3dDirs": str(prefs.vkd3d_dirs),
         }
 
     @Slot("QVariantMap", result=bool)
@@ -2223,6 +2295,11 @@ class GameListModel(QAbstractTableModel):
             prefs.sgdb_api_key = str(get("sgdbApiKey", prefs.sgdb_api_key))
             lang = str(get("language", prefs.language)).strip() or "system"
             prefs.language = lang
+            prefs.prefix_base = str(get("prefixBase", prefs.prefix_base)).strip()
+            prefs.wine_binary = str(get("wineBinary", prefs.wine_binary)).strip()
+            prefs.proton_dirs = str(get("protonDirs", prefs.proton_dirs)).strip()
+            prefs.dxvk_dirs = str(get("dxvkDirs", prefs.dxvk_dirs)).strip()
+            prefs.vkd3d_dirs = str(get("vkd3dDirs", prefs.vkd3d_dirs)).strip()
             cfgmod.save_preferences(prefs)
         except Exception as e:
             log.warning("savePrefs failed: %s", e)

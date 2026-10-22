@@ -175,6 +175,76 @@ Window {
                         Controls.ToolTip.text: qsTr("Takes effect on restart.")
                         Controls.ToolTip.visible: hovered
                     }
+                    Controls.TextField {
+                        objectName: "prefsPrefixBase"
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("Default: $XDG_DATA_HOME/tkarcade/prefixes")
+                        text: prefsDialog.values.prefixBase ?? ""
+                        onTextChanged: {
+                            if (prefsDialog.values.prefixBase !== text) {
+                                prefsDialog.setPref("prefixBase", text)
+                            }
+                        }
+                        KirigamiLayouts.FormData.label: qsTr("Prefix base:")
+                        Controls.ToolTip.text: qsTr("Local games use <base>/<AppID> unless the game overrides the path.")
+                        Controls.ToolTip.visible: hovered
+                    }
+                    Controls.TextField {
+                        objectName: "prefsWineBinary"
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("Default: wine from PATH")
+                        text: prefsDialog.values.wineBinary ?? ""
+                        onTextChanged: {
+                            if (prefsDialog.values.wineBinary !== text) {
+                                prefsDialog.setPref("wineBinary", text)
+                            }
+                        }
+                        KirigamiLayouts.FormData.label: qsTr("Wine binary:")
+                        Controls.ToolTip.text: qsTr("Wine executable (path or name) for non-Steam games.")
+                        Controls.ToolTip.visible: hovered
+                    }
+                    Controls.TextField {
+                        objectName: "prefsProtonDirs"
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("One directory per entry (: separated)")
+                        text: prefsDialog.values.protonDirs ?? ""
+                        onTextChanged: {
+                            if (prefsDialog.values.protonDirs !== text) {
+                                prefsDialog.setPref("protonDirs", text)
+                            }
+                        }
+                        KirigamiLayouts.FormData.label: qsTr("Proton directories:")
+                        Controls.ToolTip.text: qsTr("Extra Proton installs, on top of Steam's compatibilitytools.d.")
+                        Controls.ToolTip.visible: hovered
+                    }
+                    Controls.TextField {
+                        objectName: "prefsDxvkDirs"
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("One directory per entry (: separated)")
+                        text: prefsDialog.values.dxvkDirs ?? ""
+                        onTextChanged: {
+                            if (prefsDialog.values.dxvkDirs !== text) {
+                                prefsDialog.setPref("dxvkDirs", text)
+                            }
+                        }
+                        KirigamiLayouts.FormData.label: qsTr("DXVK directories:")
+                        Controls.ToolTip.text: qsTr("Directories holding one DXVK version per subdirectory.")
+                        Controls.ToolTip.visible: hovered
+                    }
+                    Controls.TextField {
+                        objectName: "prefsVkd3dDirs"
+                        Layout.fillWidth: true
+                        placeholderText: qsTr("One directory per entry (: separated)")
+                        text: prefsDialog.values.vkd3dDirs ?? ""
+                        onTextChanged: {
+                            if (prefsDialog.values.vkd3dDirs !== text) {
+                                prefsDialog.setPref("vkd3dDirs", text)
+                            }
+                        }
+                        KirigamiLayouts.FormData.label: qsTr("vkd3d-proton directories:")
+                        Controls.ToolTip.text: qsTr("Directories holding one vkd3d-proton version per subdirectory.")
+                        Controls.ToolTip.visible: hovered
+                    }
                 }
             }
         }

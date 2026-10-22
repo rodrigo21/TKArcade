@@ -63,6 +63,8 @@ def launch_summary(
     title = f"TKArcade — {name.strip() or appid}"
     if game_type == "native":
         head = f"Native · {runtime}" if runtime else "Native"
+    elif game_type == "wine":
+        head = f"Wine · {runtime}" if runtime else "Wine"
     else:
         head = (proton_display or "").strip() or "Proton"
     parts = [head, *(wrappers or [])]

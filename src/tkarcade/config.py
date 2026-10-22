@@ -40,9 +40,25 @@ class DisplayProvider(StrEnum):
 
 
 class GameType(StrEnum):
-    AUTO = "auto"
     PROTON = "proton"
     NATIVE = "native"
+    WINE = "wine"
+    UMU = "umu"
+
+
+#: Game type values this build understands. Empty means "not set": the GUI
+#: blocks Save and the launcher refuses to guess (exit 18).
+GAME_TYPES = frozenset(t.value for t in GameType)
+
+
+def normalize_game_type(value: object) -> str:
+    """Return a known game type, or "" (unset).
+
+    Legacy configs carry "auto" or no key at all; both load as unset
+    without rewriting the file (no migration shims before 1.0).
+    """
+    text = str(value or "").strip().lower()
+    return text if text in GAME_TYPES else ""
 
 
 @dataclass
@@ -50,7 +66,7 @@ class GeneralConfig:
     appid: str = ""
     name: str = ""  # display name for local (non-Steam) games; Steam names come from Steam
     custom_executable: str = ""
-    game_type: str = "auto"  # auto|proton|native
+    game_type: str = ""  # "" (not set)|proton|native|wine|umu
     show_menu: bool = False  # pre-launch menu (also forced by --menu flag)
     menu_timeout: int = 0  # auto-launch countdown in seconds (0 = wait forever)
     custom_prefix: str = ""  # e.g. "zink-run", innermost command wrapper
@@ -155,6 +171,32 @@ class ProtonConfig:
 
 
 @dataclass
+class RuntimeConfig:
+    """Per-game runtime path overrides (empty = use the global setting)."""
+
+    wine_binary: str = ""  # wine executable path or name
+    proton_path: str = ""  # umu PROTONPATH (install dir or compatibilitytools name)
+    prefix_dir: str = ""  # full prefix dir; empty = <prefix_base>/<appid>
+
+
+#: Graphics layers offered for local Wine/UMU games. "" disables the
+#: layer; "vkd3d-wine" is Wine's own builtin vkd3d (lower compatibility).
+GRAPHICS_LAYERS = ("dxvk", "vkd3d", "vkd3d-wine")
+
+
+def normalize_graphics_layer(value: object) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in GRAPHICS_LAYERS else ""
+
+
+@dataclass
+class GraphicsConfig:
+    """Graphics translation layer installed into a local game's prefix."""
+
+    layer: str = ""  # ""|dxvk|vkd3d|vkd3d-wine
+
+
+@dataclass
 class ArtworkConfig:
     icon: str = ""  # explicit per-game icon override (file path)
     cover: str = ""  # explicit per-game cover/portrait image (file path)
@@ -187,6 +229,13 @@ class Preferences:
     tray_quick_launch: bool = True  # recent games section in the tray menu
     tray_quick_count: int = 5  # recent games shown (1-10)
     language: str = "system"  # system locale, "en" for English, or a locale code
+    # Runtime paths (empty = built-in default). Directory lists use the
+    # platform path separator (":") so paths with commas survive.
+    prefix_base: str = ""  # "" = $XDG_DATA_HOME/tkarcade/prefixes
+    wine_binary: str = ""  # "" = wine from PATH
+    proton_dirs: str = ""  # extra Proton install dirs (version subdirs)
+    dxvk_dirs: str = ""  # DXVK dirs (one version per subdir)
+    vkd3d_dirs: str = ""  # vkd3d-proton dirs (one version per subdir)
     main_window_size: str = ""  # "WxH", "" means the 1280x720 default
     main_window_maximized: bool = False  # restore maximized on open
     drawer_mode: str = "collapsible"  # overlay|collapsible (Kirigami drawer)
@@ -209,6 +258,8 @@ class GameConfig:
     debug: DebugConfig = field(default_factory=DebugConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
     proton: ProtonConfig = field(default_factory=ProtonConfig)
+    runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
+    graphics: GraphicsConfig = field(default_factory=GraphicsConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
     rtupscale: RtUpscaleConfig = field(default_factory=RtUpscaleConfig)
     artwork: ArtworkConfig = field(default_factory=ArtworkConfig)
@@ -243,6 +294,8 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "debug": _to_toml_value(cfg.debug),
         "session": _to_toml_value(cfg.session),
         "proton": _to_toml_value(cfg.proton),
+        "runtime": _to_toml_value(cfg.runtime),
+        "graphics": _to_toml_value(cfg.graphics),
         "audio": _to_toml_value(cfg.audio),
         "rtupscale": _to_toml_value(cfg.rtupscale),
         "artwork": _to_toml_value(cfg.artwork),
@@ -522,6 +575,19 @@ def save_defaults(cfg: GameConfig) -> Path:
     return path
 
 
+def prefix_dir(appid: str, per_game: str = "", base: str = "") -> Path:
+    """Prefix directory for a game.
+
+    Per-game override wins; otherwise ``<base>/<safe appid>``, where an
+    empty base means the built-in XDG data location. safe_stem keeps a
+    crafted AppID from escaping the directory.
+    """
+    if per_game.strip():
+        return Path(per_game.strip()).expanduser()
+    root = Path(base.strip()).expanduser() if base.strip() else xdg.default_prefix_base()
+    return root / xdg.safe_stem(appid)
+
+
 # Single source of truth for known sections/keys (load, save, extra).
 SECTION_KEYS: dict[str, set[str]] = {
     "general": {
@@ -552,6 +618,8 @@ SECTION_KEYS: dict[str, set[str]] = {
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
     "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
+    "runtime": {"wine_binary", "proton_path", "prefix_dir"},
+    "graphics": {"layer"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
     "artwork": {"icon", "cover", "banner", "donor_appid"},
@@ -661,7 +729,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     g = _section(data, "general")
     cfg.general.name = str(g.get("name", ""))
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
-    cfg.general.game_type = str(g.get("game_type", "auto"))
+    cfg.general.game_type = normalize_game_type(g.get("game_type", ""))
     cfg.general.show_menu = _as_bool(g.get("show_menu", False), False)
     cfg.general.menu_timeout = max(0, _as_int(g.get("menu_timeout", 0), 0))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
@@ -713,6 +781,11 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.proton.winetricks_verbs = _str_list(_section(data, "proton").get("winetricks_verbs", []))
     cfg.proton.wine_prefix = str(_section(data, "proton").get("wine_prefix", ""))
     cfg.proton.wine_version = str(_section(data, "proton").get("wine_version", ""))
+    rt = _section(data, "runtime")
+    cfg.runtime.wine_binary = str(rt.get("wine_binary", "")).strip()
+    cfg.runtime.proton_path = str(rt.get("proton_path", "")).strip()
+    cfg.runtime.prefix_dir = str(rt.get("prefix_dir", "")).strip()
+    cfg.graphics.layer = normalize_graphics_layer(_section(data, "graphics").get("layer", ""))
     cfg.audio.sink = str(_section(data, "audio").get("sink", ""))
     art = _section(data, "artwork")
     cfg.artwork.icon = str(art.get("icon", ""))
@@ -752,6 +825,11 @@ def load_preferences() -> Preferences:
     )
     out.main_window_size = _clean_window_size(ui.get("main_window_size", ""))
     out.main_window_maximized = _as_bool(ui.get("main_window_maximized", False), False)
+    out.prefix_base = str(ui.get("prefix_base", "") or "").strip()
+    out.wine_binary = str(ui.get("wine_binary", "") or "").strip()
+    out.proton_dirs = _clean_path_list(ui.get("proton_dirs", ""))
+    out.dxvk_dirs = _clean_path_list(ui.get("dxvk_dirs", ""))
+    out.vkd3d_dirs = _clean_path_list(ui.get("vkd3d_dirs", ""))
     mode = str(ui.get("drawer_mode", "collapsible") or "collapsible").strip()
     out.drawer_mode = mode if mode in ("overlay", "collapsible") else "collapsible"
     out.drawer_collapsed = _as_bool(ui.get("drawer_collapsed", True), True)
@@ -759,6 +837,12 @@ def load_preferences() -> Preferences:
         out.minimize_to_tray = False
         out.close_to_tray = False
     return out
+
+
+def _clean_path_list(text: object) -> str:
+    """Normalize a path-separator list: strip entries, drop empties."""
+    parts = str(text or "").split(os.pathsep)
+    return os.pathsep.join(p.strip() for p in parts if p.strip())
 
 
 def _clean_int_list(text: str) -> str:
@@ -823,6 +907,11 @@ def save_preferences(prefs: Preferences) -> Path:
             "language": prefs.language if isinstance(prefs.language, str) else "system",
             "main_window_size": _clean_window_size(prefs.main_window_size),
             "main_window_maximized": bool(prefs.main_window_maximized),
+            "prefix_base": str(prefs.prefix_base or "").strip(),
+            "wine_binary": str(prefs.wine_binary or "").strip(),
+            "proton_dirs": _clean_path_list(prefs.proton_dirs),
+            "dxvk_dirs": _clean_path_list(prefs.dxvk_dirs),
+            "vkd3d_dirs": _clean_path_list(prefs.vkd3d_dirs),
             "drawer_mode": (
                 prefs.drawer_mode
                 if prefs.drawer_mode in ("overlay", "collapsible")

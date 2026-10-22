@@ -28,6 +28,7 @@ def _env(xdg_env):
 def _save(appid, **kw):
     cfg = C.GameConfig()
     cfg.general.appid = appid
+    cfg.general.game_type = "native"
     for section, values in kw.items():
         target = getattr(cfg, section)
         for key, value in values.items():
@@ -36,6 +37,7 @@ def _save(appid, **kw):
 
 
 def test_dry_run(xdg_env):
+    _save("1")
     r = _run(_env(xdg_env), "--appid", "1", "--dry-run", "--", "/bin/echo", "hi")
     assert r.returncode == 0
     assert "AppID: 1" in r.stdout and "/bin/echo hi" in r.stdout
@@ -44,6 +46,47 @@ def test_dry_run(xdg_env):
 def test_no_appid(xdg_env):
     r = _run(_env(xdg_env), "--", "/bin/echo", "hi")
     assert r.returncode == 10
+
+
+def test_unset_game_type_exits_18(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "39"
+    C.save(cfg)
+    r = _run(_env(xdg_env), "--appid", "39", "/bin/true")
+    assert r.returncode == 18
+    assert "game type not set" in r.stderr
+
+
+def test_local_game_cannot_borrow_proton(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-nope"
+    cfg.general.game_type = "proton"
+    C.save(cfg)
+    r = _run(_env(xdg_env), "--appid", "local-nope", "/bin/true")
+    assert r.returncode == 18
+    assert "Steam AppID" in r.stderr
+
+
+def test_validate_flags_unset_game_type(xdg_env):
+    from tkarcade import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "38"
+    C.save(cfg)
+    assert any("game type not set" in i for i in L.validate_game("38"))
+
+
+def test_wine_missing_binary_exit_14(xdg_env, tmp_path):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-wine"
+    cfg.general.game_type = "wine"
+    cfg.general.custom_executable = "/games/doom.exe"
+    C.save(cfg)
+    env = _env(xdg_env)
+    env["PATH"] = str(tmp_path / "empty")
+    r = _run(env, "--appid", "local-wine")
+    assert r.returncode == 14
+    assert "wine binary not found" in r.stderr
 
 
 def test_run_and_pre_hook_abort(xdg_env):
@@ -173,6 +216,7 @@ def test_validate_clean(xdg_env):
 
     cfg = C.GameConfig()
     cfg.general.appid = "31"
+    cfg.general.game_type = "native"
     C.save(cfg)
     assert L.cmd_validate(["31"]) == 0
 
@@ -294,6 +338,7 @@ def test_validate_dangling_profile(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "33"
     cfg.general.active_profile = "gone"
+    cfg.general.game_type = "native"
     C.save(cfg)
     issues = L.validate_game("33")
     assert any("gone" in i and "live config" in i for i in issues)
@@ -391,6 +436,7 @@ def test_validate_flags_missing_custom_executable(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     cfg.general.custom_executable = "/nonexistent/doom"
+    cfg.general.game_type = "native"
     C.save(cfg)
     assert L.validate_game("local-doom") == [
         "local-doom: custom_executable not found: /nonexistent/doom"

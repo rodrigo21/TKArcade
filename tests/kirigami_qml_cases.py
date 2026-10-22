@@ -1743,9 +1743,9 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
     assert visible_titles(TAB_GENERAL) == ["Game", "Profile"]
     assert visible_titles(TAB_LAUNCH) == ["Launch", "Pre/Post Commands"]
     assert visible_titles(TAB_ENV) == ["Environment Variables"]
-    # A local game has no compatdata prefix: only the Wine box is shown
-    # (with its note), never Proton.
-    assert visible_titles(TAB_COMPAT) == ["Wine"]
+    # A local game has its own Wine/umu runtime section (with the Steam
+    # Proton box and its note right below, never the Proton box).
+    assert visible_titles(TAB_COMPAT) == ["Windows runtime", "Wine"]
     assert visible_titles(TAB_PERF) == ["Game Mode", "MangoHud", "RT Upscaler"]
     assert visible_titles(TAB_DISPLAY) == ["Display Mode", "Gamescope"]
     assert visible_titles(TAB_SYSTEM) == [
@@ -2599,15 +2599,18 @@ def test_escape_closes_shell_dialogs(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env):
+def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env, monkeypatch):
     """Escape closes the open popup, then the dialog itself (QDialog order)."""
     from PySide6.QtCore import QObject, Qt
     from PySide6.QtTest import QTest
 
-    _save_one_game("local-doom", "Doom")
+    import tkarcade.steam as steammod
+
+    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3")])
+    _save_one_game("99", "Doom 3", "proton")
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    page.openGameSettings("local-doom")
+    page.openGameSettings("99")
     swin = _settings_window(qgui_app)
     dialog = win.findChild(QObject, "gameSettings")
     confirm = win.findChild(QObject, "settingsConfirm")
@@ -4438,9 +4441,11 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
     C.save(cfg)
     steam = C.GameConfig()
     steam.general.appid = "99"
+    steam.general.game_type = "proton"
     C.save(steam)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
@@ -4505,6 +4510,136 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     # note and the Proton box is gone (there is no prefix to set up).
     assert swin.findChild(QQuickItem, "wineSteamOnlyNote").property("visible") is True
     assert swin.findChild(QQuickItem, "ptLog").property("visible") is False
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
+    """Local games pick Wine or a umu Proton, a prefix and a layer.
+
+    The graphics layer is installed at launch; the dialog only reports
+    what the marker holds and can remove exactly those files again.
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+    from tkarcade import graphics as G
+    from tkarcade import runtimes
+
+    _save_one_game("local-doom", "Doom", "wine")
+    saved = C.load("local-doom")
+    saved.graphics.layer = "dxvk"
+    C.save(saved)
+    proton_dir = xdg_env["home"] / "GE-Proton10-1"
+    proton_dir.mkdir()
+    (proton_dir / "proton").write_text("#!/bin/sh\nexit 0\n")
+    monkeypatch.setattr(
+        runtimes,
+        "proton_installs",
+        lambda extra="": [runtimes.ProtonInstall(proton_dir.name, proton_dir.resolve())],
+    )
+    # A fake DXVK version in the default Lutris location, already copied
+    # into the game prefix (as a launch would have done).
+    prefix = C.prefix_dir("local-doom")
+    prefix.mkdir(parents=True)
+    version = xdg_env["data"] / "lutris" / "runtime" / "dxvk" / "v9.9"
+    (version / "x64").mkdir(parents=True)
+    for dll in ("d3d11.dll", "dxgi.dll"):
+        (version / "x64" / dll).write_bytes(b"fake dll")
+    ok, install_warnings = G.install(prefix, "dxvk", C.load_preferences())
+    assert ok, install_warnings
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    _settings_tab(swin, TAB_COMPAT)
+
+    type_box = swin.findChild(QQuickItem, "settingsType")
+    wine_field = swin.findChild(QQuickItem, "settingsLocalWine")
+    proton_box = swin.findChild(QQuickItem, "settingsLocalProton")
+    prefix_field = swin.findChild(QQuickItem, "settingsLocalPrefix")
+    gfx_box = swin.findChild(QQuickItem, "settingsGraphicsLayer")
+    status = swin.findChild(QQuickItem, "settingsGfxStatus")
+    remove = swin.findChild(QQuickItem, "settingsGfxRemove")
+
+    # The origin decides the choices: a local game gets native/Wine/umu,
+    # and the saved "wine" type selects the second entry.
+    assert type_box.property("count") == 3
+    assert type_box.property("model") == [
+        "Linux (native)",
+        "Windows (Wine)",
+        "Windows (Proton via UMU)",
+    ]
+    assert type_box.property("currentIndex") == 1
+    assert wine_field.property("visible") is True
+    assert proton_box.property("visible") is False
+    assert prefix_field.property("visible") is True
+    assert gfx_box.property("visible") is True
+    assert gfx_box.property("currentIndex") == 1
+    assert "DXVK v9.9" in status.property("text")
+    assert remove.property("enabled") is True
+
+    # umu swaps the Wine path for the discovered Proton installs.
+    type_box.setProperty("currentIndex", 2)
+    QTest.qWait(80)
+    assert wine_field.property("visible") is False
+    assert proton_box.property("visible") is True
+    assert proton_box.property("count") == 1
+    type_box.setProperty("currentIndex", 1)
+    QTest.qWait(80)
+
+    # Wine path and prefix dir round-trip through Save.
+    wine_field.setProperty("text", "/opt/wine/bin/wine")
+    prefix_field.setProperty("text", str(prefix))
+    gfx_box.setProperty("currentIndex", 1)
+    dlg.save()
+    QTest.qWait(50)
+    cfg = C.load("local-doom")
+    assert cfg.general.game_type == "wine"
+    assert cfg.runtime.wine_binary == "/opt/wine/bin/wine"
+    assert cfg.runtime.prefix_dir == str(prefix)
+    assert cfg.runtime.proton_path == ""
+    assert cfg.graphics.layer == "dxvk"
+
+    # umu records the chosen Proton install path.
+    page.openGameSettings("local-doom")
+    QTest.qWait(150)
+    _settings_tab(swin, TAB_COMPAT)
+    type_box.setProperty("currentIndex", 2)
+    QTest.qWait(80)
+    proton_box.setProperty("currentIndex", 0)
+    dlg.save()
+    QTest.qWait(50)
+    cfg = C.load("local-doom")
+    assert cfg.general.game_type == "umu"
+    assert cfg.runtime.proton_path == str(proton_dir.resolve())
+
+    # Opening again restores the umu choice and the installed layer;
+    # scrolling to the end reaches the remove button.
+    page.openGameSettings("local-doom")
+    QTest.qWait(150)
+    _settings_tab(swin, TAB_COMPAT)
+    assert type_box.property("currentIndex") == 2
+    assert proton_box.property("currentIndex") == 0
+    assert "DXVK v9.9" in status.property("text")
+    view = swin.findChild(QQuickItem, "settingsWineScroll")
+    flick = view.property("contentItem")
+    flick.setProperty("contentY", flick.property("contentHeight") - flick.property("height"))
+    QTest.qWait(80)
+    _click(swin, "settingsGfxRemove")
+    QTest.qWait(50)
+    assert not (prefix / "drive_c" / "windows" / "system32" / "d3d11.dll").is_file()
+    assert not G.marker_path(prefix).is_file()
+    assert remove.property("enabled") is False
+    assert "Nothing installed" in status.property("text")
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -4682,6 +4817,10 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     swin = _settings_window(qgui_app)
     assert proxy.rowCount() == 0
     assert swin.findChild(QQuickItem, "settingsAppid").property("text") == "99"
+    # Steam games must name the game type: no auto-detection and no guess.
+    click("settingsSave", swin)
+    assert not C.game_file("99").is_file()
+    swin.findChild(QQuickItem, "settingsType").setProperty("currentIndex", 0)
     click("settingsSave", swin)
     assert C.game_file("99").is_file()
     click("titleAdd", win)
@@ -5429,13 +5568,14 @@ def _click_editor_button(qgui_app, window, name):
     QTest.qWait(30)
 
 
-def _save_one_game(appid, name):
+def _save_one_game(appid, name, game_type="native"):
     from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = appid
     cfg.general.name = name
     cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = game_type
     C.save(cfg)
 
 

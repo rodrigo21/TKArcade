@@ -1,6 +1,7 @@
 """Config load/save: snapshots, defaults fallback, enums, forward-compat."""
 
 import shutil
+from pathlib import Path
 
 from tkarcade import config as C
 
@@ -328,6 +329,10 @@ _GAME_FIELDS = {
     "proton.winetricks_verbs": ["corefonts"],
     "proton.wine_prefix": "/tmp/opencode/prefix",
     "proton.wine_version": "GE-Proton9-1",
+    "runtime.wine_binary": "/tmp/opencode/wine/bin/wine",
+    "runtime.proton_path": "/tmp/opencode/GE-Proton9-1",
+    "runtime.prefix_dir": "/tmp/opencode/local-prefix",
+    "graphics.layer": "dxvk",
     "audio.sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
     "rtupscale.enable": True,
     "rtupscale.args": "--scale",
@@ -355,6 +360,11 @@ _PREF_FIELDS = {
     "main_window_maximized": True,
     "drawer_mode": "overlay",
     "drawer_collapsed": False,
+    "prefix_base": "/tmp/opencode/prefixes",
+    "wine_binary": "/tmp/opencode/wine",
+    "proton_dirs": "/tmp/opencode/proton-a:/tmp/opencode/proton-b",
+    "dxvk_dirs": "/tmp/opencode/dxvk",
+    "vkd3d_dirs": "/tmp/opencode/vkd3d",
 }
 
 
@@ -384,6 +394,21 @@ def test_every_field_roundtrips(xdg_env):
     loaded = C.load_preferences()
     for name, value in _PREF_FIELDS.items():
         assert getattr(loaded, name) == value, f"{name} did not survive save/load"
+
+
+def test_prefix_dir_resolution(xdg_env, monkeypatch):
+    from tkarcade import xdg as xdgmod
+
+    monkeypatch.setenv("XDG_DATA_HOME", "/tmp/opencode/data")
+    assert C.prefix_dir("local-doom") == Path("/tmp/opencode/data/tkarcade/prefixes/local-doom")
+    assert C.prefix_dir("../evil") == Path("/tmp/opencode/data/tkarcade/prefixes/evil")
+    assert C.prefix_dir("local-doom", base="/tmp/opencode/base") == Path(
+        "/tmp/opencode/base/local-doom"
+    )
+    assert C.prefix_dir("local-doom", per_game="/tmp/opencode/custom") == Path(
+        "/tmp/opencode/custom"
+    )
+    assert xdgmod.default_prefix_base() == Path("/tmp/opencode/data/tkarcade/prefixes")
 
 
 def test_winetricks_runs_and_skips_repeat(xdg_env, fake_bin, monkeypatch, tmp_path):

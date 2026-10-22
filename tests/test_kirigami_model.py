@@ -660,13 +660,14 @@ def test_library_columns_roles(qgui_app, xdg_env):
     cfg.general.name = "Doom"
     cfg.general.platform = "PC"
     cfg.general.categories = ["Action"]
+    cfg.general.game_type = "native"
     C.save(cfg)
     model = GameListModel()
     assert model.columnCount() == 12
     row = model.rowData(0)
     assert row["gamePlatform"] == "PC"
     assert row["gameCategory"] == "Action"
-    assert row["gameRunner"] == "Auto"
+    assert row["gameRunner"] == "Native"
     assert row["gameLastPlayed"] == "—"
     assert row["gameLastSecs"] == -1
     game_filter = GameFilterModel()
@@ -1129,6 +1130,7 @@ def test_game_issues_cache_invalidated_on_refresh(qgui_app, xdg_env):
     cfg.general.appid = "local-broken"
     cfg.general.name = "Broken"
     cfg.general.custom_executable = "/nonexistent/doom"
+    cfg.general.game_type = "native"
     C.save(cfg)  # missing executable -> validation issue
     model = GameListModel()
     assert model.gameIssues("local-broken") != []

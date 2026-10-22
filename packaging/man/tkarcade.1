@@ -11,6 +11,12 @@ automatically from the Steam environment. Per-game settings live in
 TOML snapshots under \fB$XDG_CONFIG_HOME/tkarcade/\fR; run without
 arguments (or with \fB--gui\fR) for the settings GUI.
 .PP
+Steam games launch through their Steam Proton runtime (\fBproton\fR) or
+natively (\fBnative\fR); local games through \fBnative\fR, a Wine binary
+(\fBwine\fR) or Proton via \fBumu-run\fR (\fBumu\fR). Local Windows
+prefixes default to \fB$XDG_DATA_HOME/tkarcade/prefixes/<appid>\fR and
+may install DXVK or vkd3d-proton into the prefix at launch.
+.PP
 Logs go to \fB$XDG_STATE_HOME/tkarcade/games/<appid>.log\fR (full)
 plus a one-line entry per run in \fBlauncher.log\fR.
 .SH OPTIONS
@@ -55,9 +61,10 @@ Print the version and exit.
 .SH EXIT CODES
 0 ok: game ran (its own code), or menu/editor exited without launching.
 10 AppID not resolved. 11 empty game command. 12 pre-launch hook
-failed. 13 game executable not found. 14 custom prefix binary not
-found. 15 display needed but missing. 16 export/import failed.
-17 validation issues found.
+failed. 13 game executable not found. 14 custom prefix, wine/umu runtime
+or Proton install not found. 15 display needed but missing. 16
+export/import failed. 17 validation issues found. 18 game type not set
+(or invalid for the game's origin).
 .SH FILES
 .TP
 .I $XDG_CONFIG_HOME/tkarcade/games/<appid>.toml
@@ -68,5 +75,10 @@ Named per-game profiles.
 .TP
 .I $XDG_CONFIG_HOME/tkarcade/defaults.toml
 New-game template only.
+.TP
+.I $XDG_DATA_HOME/tkarcade/prefixes/<appid>/
+Local Windows Wine prefix (default base; Preferences or the per-game
+\fBruntime.prefix_dir\fR can move it). TKArcade writes
+\fBtkarcade-graphics.json\fR here when a DXVK/vkd3d layer is installed.
 .SH "SEE ALSO"
 Project home: https://github.com/rodrigo21/TKArcade

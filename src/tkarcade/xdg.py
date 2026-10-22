@@ -31,6 +31,10 @@ def state_home() -> Path:
     return _env_home("XDG_STATE_HOME", ".local/state")
 
 
+def data_home() -> Path:
+    return _env_home("XDG_DATA_HOME", ".local/share")
+
+
 def app_config_dir() -> Path:
     return config_home() / "tkarcade"
 
@@ -61,6 +65,11 @@ def game_log_file(appid: str) -> Path:
 
 def defaults_file() -> Path:
     return app_config_dir() / "defaults.toml"
+
+
+def default_prefix_base() -> Path:
+    """Built-in base directory for game prefixes (preferences may override)."""
+    return data_home() / "tkarcade" / "prefixes"
 
 
 def preferences_file() -> Path:

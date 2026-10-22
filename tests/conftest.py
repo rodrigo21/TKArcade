@@ -69,7 +69,7 @@ def xdg_env(monkeypatch, tmp_path):
         "STEAM_ROOT",
     ):
         monkeypatch.delenv(var, raising=False)
-    return {"home": home, "config": cfg, "state": state}
+    return {"home": home, "config": cfg, "state": state, "data": data}
 
 
 @pytest.fixture

@@ -29,7 +29,7 @@ offscreen screenshot check.
 The launcher (`src/tkarcade/launcher.py`, `config.py`, `backends/`,
 `proton.py`, `steam.py`, `xdg.py`, `nightlight_holder.py`) must stay
 **stdlib-only**: it runs on every game start. PySide6/vdf/jeepney are
-for GUI/helpers only. Exit codes 10-17 are part of the CLI contract.
+for GUI/helpers only. Exit codes 10-18 are part of the CLI contract.
 No config migration shims pre-1.0; since 0.9.0 files carry a
 `config_version` stamp and newer files fail loudly, never silently.
 

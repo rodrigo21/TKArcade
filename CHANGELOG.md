@@ -6,6 +6,24 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Settings Compatibility for local games: a Windows runtime section
+  (Wine binary or one of the discovered umu Proton installs, prefix dir
+  with the Preferences default as placeholder, graphics layer) and a
+  "Remove from prefix" button that deletes only the files the graphics
+  marker records.
+- Graphics layers for local Windows games: DXVK, vkd3d-proton or Wine's
+  builtin vkd3d per game. At launch the newest version found in the
+  configured directories is copied into the prefix and selected with
+  `WINEDLLOVERRIDES`; a marker file records exactly what was copied, so
+  removal (GUI button or `uninstall`) never touches other files, and
+  switching layers does not delete anything. Missing versions warn and
+  fall back to the builtin DLLs instead of blocking the launch.
+- Local Windows games: the explicit game type now includes Wine (system
+  `wine` or a configured binary) and Proton through `umu-run`. Both use
+  `WINEPREFIX` under the configurable prefix base (per-game override
+  wins) and never borrow Steam's Proton runtime; `umu` also needs a
+  chosen Proton install (`PROTONPATH`). Missing pieces fail with exit 14
+  (or 13 when no executable is configured) instead of a broken launch.
 - Pre-launch menu (widgets parity): landscape artwork with a play-icon
   fallback, the "name (appid)" header and the "Proton: <tool>" line.
 - Settings General (widgets parity): the Game name field shows the Steam
@@ -181,6 +199,12 @@ Breaking config changes are called out explicitly under `Changed`.
   behind by a crash is removed and reclaimed.
 
 ### Changed
+- **BREAKING**: the game type is explicit. `auto` and configs without a
+  `game_type` load as "not set": the settings window blocks Save until
+  Steam games pick Windows (Proton) or Linux (native), and the launcher
+  refuses to guess with exit 18. There is no migration shim (pre-1.0);
+  existing files are kept as they are, nothing is rewritten or deleted.
+  Local games now pick native, Wine or Proton via `umu-run` explicitly.
 - Package metadata requires `PySide6>=6.12`: Qt 6.12.0 is the first
   branch with the fixes for CVE-2026-8168 (SVG nesting DoS),
   CVE-2026-105923 (VectorImage null dereference) and CVE-2026-15037

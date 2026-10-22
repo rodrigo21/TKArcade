@@ -62,6 +62,10 @@ Window {
     property string pendingBrowse: ""
     property var wineToolsData: []
     property var fields: ({})
+    // Local Windows runtime (wine/umu) choices and graphics-layer status.
+    property var protonChoices: []
+    property var gfxInfo: ({})
+    property string gfxStatus: ""
     property string errorText: ""
     property string pendingPrompt: "" // "saveAs" | "clone" | ""
     property var dmodeModel: [{"text": "", "data": ""}]
@@ -95,7 +99,7 @@ Window {
             "appid": "",
             "name": "",
             "custom_executable": "",
-            "game_type": "auto",
+            "game_type": "",
             "show_menu": false,
             "menu_timeout": 0,
             "custom_prefix": "",
@@ -182,16 +186,110 @@ Window {
             defaultsMode ? "" : editAppid, defaultsMode ? "" : dialogProfile)
     }
 
-    // Read-only Proton tool/version row (widgets parity); tracks the Game
-    // type combo so switching to Native clears it.
+    // Read-only runtime row; tracks the Game type combo so switching
+    // clears it (Steam) or names the local Wine/umu runtime.
+    function typeValues() {
+        return (defaultsMode || (fields.is_steam || false))
+            ? ["proton", "native"]
+            : ["native", "wine", "umu"]
+    }
+
     function runtimeText() {
-        if (defaultsMode || editAppid === "" || !(fields.is_steam || false)) {
+        if (defaultsMode || editAppid === "") {
             return ""
         }
-        if (typeBox.currentIndex === 2) {
+        if (!(fields.is_steam || false)) {
+            if (typeBox.currentIndex === 1) {
+                var wine = localWineField.text.trim()
+                return wine !== "" ? wine : qsTr("Wine from PATH")
+            }
+            if (typeBox.currentIndex === 2) {
+                var i = protonBox.currentIndex
+                if (i >= 0 && i < protonChoices.length) {
+                    return qsTr("Proton via umu: %1").arg(protonChoices[i].name)
+                }
+                return qsTr("Proton via umu (choose an install)")
+            }
+            return qsTr("Native (no runtime)")
+        }
+        if (typeBox.currentIndex === 1) {
             return qsTr("Native (no Proton)")
         }
         return gameModel.detectedRuntime(editAppid)
+    }
+
+    // Discovered Proton installs and the global Wine/prefix defaults.
+    function refreshRuntime() {
+        var opts = gameModel.runtimeOptions(editAppid)
+        var wine = opts.wine || ""
+        localWineField.placeholderText = wine !== ""
+            ? qsTr("empty = %1").arg(wine)
+            : qsTr("empty = wine from PATH")
+        localPrefixField.placeholderText = (opts.default_prefix || "") !== ""
+            ? qsTr("empty = %1").arg(opts.default_prefix)
+            : qsTr("empty = the prefix base in Preferences")
+        protonChoices = opts.protons || []
+        protonBox.model = protonChoices.map(function(p) { return p.name })
+        localWineField.text = fields.runtime_wine_binary || ""
+        localPrefixField.text = fields.runtime_prefix_dir || ""
+        var chosen = fields.runtime_proton_path || ""
+        var idx = -1
+        for (var i = 0; i < protonChoices.length; i++) {
+            if (protonChoices[i].path === chosen) {
+                idx = i
+                break
+            }
+        }
+        protonBox.currentIndex = idx
+        refreshGfx(true)
+        runtimeField.text = runtimeText()
+    }
+
+    function refreshGfx(reset) {
+        gfxInfo = gameModel.graphicsState(editAppid)
+        if (reset === true) {
+            gfxBox.currentIndex = {
+                "": 0,
+                "dxvk": 1,
+                "vkd3d": 2,
+                "vkd3d-wine": 3
+            }[fields.graphics_layer] ?? 0
+        }
+        gfxStatus = gfxStatusText()
+    }
+
+    function gfxLayer() {
+        return ["", "dxvk", "vkd3d", "vkd3d-wine"][gfxBox.currentIndex] || ""
+    }
+
+    function gfxStatusText() {
+        var installed = gfxInfo.installed || {}
+        var available = gfxInfo.available || {}
+        var parts = []
+        if (installed.dxvk) {
+            parts.push("DXVK " + installed.dxvk)
+        }
+        if (installed.vkd3d) {
+            parts.push("vkd3d-proton " + installed.vkd3d)
+        }
+        var text = parts.length > 0
+            ? qsTr("In the prefix: %1").arg(parts.join(", "))
+            : qsTr("Nothing installed in the prefix yet (installed at launch).")
+        var layer = gfxLayer()
+        if (layer === "dxvk" && !available.dxvk) {
+            text += " " + qsTr("No DXVK version found in the configured directories.")
+        } else if (layer === "vkd3d" && !available.vkd3d) {
+            text += " " + qsTr("No vkd3d-proton version found in the configured directories.")
+        }
+        return text
+    }
+
+    function protonChoicePath() {
+        var i = protonBox.currentIndex
+        if (i < 0 || i >= protonChoices.length) {
+            return ""
+        }
+        return protonChoices[i].path || ""
     }
 
     function pushToControls() {
@@ -202,7 +300,11 @@ Window {
             : (f.name || "")
         loadedName = nameField.text
         exeField.text = f.custom_executable || ""
-        typeBox.currentIndex = f.game_type === "proton" ? 1 : (f.game_type === "native" ? 2 : 0)
+        var types = typeValues()
+        var typeIndex = types.indexOf(f.game_type || "")
+        typeBox.currentIndex = typeIndex >= 0
+            ? typeIndex
+            : ((f.is_steam || defaultsMode) ? -1 : 0)
         runtimeField.text = runtimeText()
         prefixField.text = f.custom_prefix || ""
         argsField.text = f.launch_args || ""
@@ -273,6 +375,7 @@ Window {
         // After the availability pass, so the wrapper summary never
         // advertises a tool the command builder will skip (widgets
         // parity: gamemoderun missing -> GameMode stays out of the list).
+        refreshRuntime()
         refreshPreview()
         // Opening the dialog is the one moment the Steam launch-options
         // scan runs (it reads the userdata files).
@@ -297,7 +400,7 @@ Window {
         return {
             "name": nameField.text,
             "custom_executable": exeField.text,
-            "game_type": ["auto", "proton", "native"][typeBox.currentIndex] || "auto",
+            "game_type": typeValues()[typeBox.currentIndex] || "",
             "show_menu": menuCheck.checked,
             "menu_timeout": timeoutSpin.value,
             "custom_prefix": prefixField.text,
@@ -347,6 +450,10 @@ Window {
             "winetricks_verbs": ptVerbs.text,
             "proton_log": ptLog.checked,
             "winedebug": ["", "-all", "+err", "+warn,+err"][ptDebug.currentIndex] || "",
+            "runtime_wine_binary": localWineField.text,
+            "runtime_proton_path": protonChoicePath(),
+            "runtime_prefix_dir": localPrefixField.text,
+            "graphics_layer": gfxLayer(),
             "active_profile": dialogProfile
         }
     }
@@ -913,6 +1020,13 @@ Window {
             askNewerOverwrite()
             return false
         }
+        // Steam games must name the type explicitly: no auto-detection and
+        // no silent guess (the launcher refuses with exit 18). The defaults
+        // template may stay unset, which keeps new games unset too.
+        if (!defaultsMode && (fields.is_steam || false) && typeBox.currentIndex < 0) {
+            settingsError.text = qsTr("Choose the game type: Windows (Proton) or Linux (native).")
+            return false
+        }
         if (defaultsMode) {
             if (!gameModel.saveDefaults(collect())) {
                 settingsError.text = qsTr("Could not save the defaults.")
@@ -1178,14 +1292,28 @@ Window {
                                     id: typeBox
                                     objectName: "settingsType"
                                     Layout.fillWidth: true
-                                    model: [qsTr("Automatic"), qsTr("Proton"), qsTr("Native Linux")]
+                                    // The origin decides the choices: Steam
+                                    // games use the Steam Proton runtime, local
+                                    // games their own Wine or umu-run Proton.
+                                    model: (defaultsMode || (fields.is_steam || false))
+                                        ? [qsTr("Windows (Proton)"), qsTr("Linux (native)")]
+                                        : [
+                                            qsTr("Linux (native)"),
+                                            qsTr("Windows (Wine)"),
+                                            qsTr("Windows (Proton via UMU)")
+                                        ]
+                                    displayText: currentIndex >= 0 ? currentText : qsTr("Choose...")
                                     KirigamiLayouts.FormData.label: qsTr("Game type:")
-                                    onActivated: runtimeField.text = gameSettings.runtimeText()
+                                    onActivated: {
+                                        runtimeField.text = gameSettings.runtimeText()
+                                        gfxStatus = gameSettings.gfxStatusText()
+                                    }
                                 }
                                 Controls.TextField {
                                     id: runtimeField
                                     objectName: "settingsRuntime"
-                                    visible: !defaultsMode && editAppid !== "" && (fields.is_steam || false)
+                                    visible: !defaultsMode && editAppid !== ""
+                                        && typeBox.currentIndex >= 0
                                     readOnly: true
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
@@ -1299,6 +1427,10 @@ Window {
                                                 cwdField.text = picked
                                             } else if (gameSettings.pendingBrowse === "winePrefix") {
                                                 winePrefixField.text = picked
+                                            } else if (gameSettings.pendingBrowse === "localWine") {
+                                                localWineField.text = picked
+                                            } else if (gameSettings.pendingBrowse === "localPrefix") {
+                                                localPrefixField.text = picked
                                             } else if (gameSettings.pendingBrowse.indexOf("art:") === 0) {
                                                 var kind = gameSettings.pendingBrowse.slice(4)
                                                 var msg = gameModel.storeArtwork(
@@ -1596,6 +1728,110 @@ Window {
                         width: parent.width
                         spacing: Kirigami.Units.smallSpacing
                         SectionBox {
+                            title: qsTr("Windows runtime")
+                            Layout.fillWidth: true
+                            visible: !defaultsMode && !(fields.is_steam || false)
+                            WidgetsFormLayout {
+                                id: localForm
+                                objectName: "localRuntimeForm"
+                                Layout.fillWidth: true
+                                Controls.Label {
+                                    objectName: "localRuntimeHint"
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: qsTr("Local Windows games run through Wine or Proton (umu-run). Nothing is downloaded: pick an installed tool.")
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: typeBox.currentIndex === 1
+                                    KirigamiLayouts.FormData.label: qsTr("Wine binary:")
+                                    Controls.TextField {
+                                        id: localWineField
+                                        objectName: "settingsLocalWine"
+                                        Layout.fillWidth: true
+                                        onTextChanged: runtimeField.text = gameSettings.runtimeText()
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsLocalWineBrowse"
+                                        text: qsTr("Browse…")
+                                        onClicked: {
+                                            gameSettings.pendingBrowse = "localWine"
+                                            gameModel.pickPath(qsTr("Wine binary"), qsTr("Select"))
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: typeBox.currentIndex === 2
+                                    KirigamiLayouts.FormData.label: qsTr("Proton:")
+                                    Controls.ComboBox {
+                                        id: protonBox
+                                        objectName: "settingsLocalProton"
+                                        Layout.fillWidth: true
+                                        displayText: count > 0 ? currentText : qsTr("No Proton install found")
+                                        onActivated: runtimeField.text = gameSettings.runtimeText()
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: typeBox.currentIndex >= 1
+                                    KirigamiLayouts.FormData.label: qsTr("Prefix dir:")
+                                    Controls.TextField {
+                                        id: localPrefixField
+                                        objectName: "settingsLocalPrefix"
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsLocalPrefixBrowse"
+                                        text: qsTr("Browse…")
+                                        onClicked: {
+                                            gameSettings.pendingBrowse = "localPrefix"
+                                            gameModel.pickDir(qsTr("Prefix dir"), qsTr("Select"))
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: typeBox.currentIndex >= 1
+                                    KirigamiLayouts.FormData.label: qsTr("Graphics layer:")
+                                    Controls.ComboBox {
+                                        id: gfxBox
+                                        objectName: "settingsGraphicsLayer"
+                                        Layout.fillWidth: true
+                                        model: [
+                                            qsTr("Off (Wine builtin)"),
+                                            qsTr("DXVK (D3D9/10/11)"),
+                                            qsTr("vkd3d-proton (D3D12)"),
+                                            qsTr("vkd3d (Wine builtin, lower compatibility)")
+                                        ]
+                                        onActivated: gfxStatus = gameSettings.gfxStatusText()
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: typeBox.currentIndex >= 1
+                                    Controls.Label {
+                                        objectName: "settingsGfxStatus"
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: gameSettings.gfxStatus
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsGfxRemove"
+                                        text: qsTr("Remove from prefix")
+                                        enabled: Object.keys(gameSettings.gfxInfo.installed || {}).length > 0
+                                        onClicked: {
+                                            var msg = gameModel.removeGraphics(editAppid)
+                                            if (msg !== "") {
+                                                settingsError.text = msg
+                                            }
+                                            gameSettings.refreshGfx(false)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        SectionBox {
                             title: qsTr("Wine")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
@@ -1702,7 +1938,7 @@ Window {
                                 visible: !gameSettings.wineAvailable
                                 Layout.fillWidth: true
                                 wrapMode: Text.WordWrap
-                                text: qsTr("Wine and Proton settings apply to Steam games only.")
+                                text: qsTr("These are Steam Proton settings. Local games use the Windows runtime section.")
                             }
                         }
                         SectionBox {
