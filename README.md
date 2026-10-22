@@ -25,6 +25,11 @@ This installs `tkarcade`: the launcher for Steam Launch Options
 Gamescope, MangoHud, Ludusavi, `protontricks`) are optional and come
 from your distro.
 
+The GUI needs PySide6 (Qt) 6.12 or newer: 6.12.0 carries the fixes for
+CVE-2026-8168 (SVG), CVE-2026-105923 (VectorImage) and CVE-2026-15037
+(QDom). Tool and AppImage installs resolve it from PyPI; the Arch
+package already ships 6.12.
+
 ## Steam usage
 
 Set the game's Launch Options to one of:

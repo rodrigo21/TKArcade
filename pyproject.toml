@@ -10,8 +10,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "GPL-3.0-or-later" }
 authors = [{ name = "TKArcade contributors" }]
+# Qt 6.12 is the first branch with the fixes for CVE-2026-8168 (SVG),
+# CVE-2026-105923 (VectorImage) and CVE-2026-15037 (QDom): keep the floor.
 dependencies = [
-  "PySide6",
+  "PySide6>=6.12",
   "vdf",
   "jeepney",
 ]

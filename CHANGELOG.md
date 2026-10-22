@@ -180,6 +180,13 @@ Breaking config changes are called out explicitly under `Changed`.
   tray (clears minimized, shows, raises, activates). A socket left
   behind by a crash is removed and reclaimed.
 
+### Changed
+- Package metadata requires `PySide6>=6.12`: Qt 6.12.0 is the first
+  branch with the fixes for CVE-2026-8168 (SVG nesting DoS),
+  CVE-2026-105923 (VectorImage null dereference) and CVE-2026-15037
+  (QDom XML injection). Tool and AppImage installs now resolve a
+  patched Qt; the Arch package already depended on 6.12.
+
 ### Removed
 - The parked QtWidgets implementation (`src/tkarcade/widgets/` and its
   test module): the Kirigami QML shell replaced it, the launcher already
