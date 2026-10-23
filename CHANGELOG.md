@@ -24,6 +24,11 @@ Breaking config changes are called out explicitly under `Changed`.
   wins) and never borrow Steam's Proton runtime; `umu` also needs a
   chosen Proton install (`PROTONPATH`). Missing pieces fail with exit 14
   (or 13 when no executable is configured) instead of a broken launch.
+- Winetricks for local Windows games: `[runtime] winetricks_verbs` runs
+  the host `winetricks` against the game prefix before launch, with
+  `WINE` set to the chosen Wine binary or, for umu, the selected
+  Proton's `files/bin/wine`. The prefix must exist (launch once first);
+  the recorded prefix+verbs skip the rerun, and failures only warn.
 - Pre-launch menu (widgets parity): landscape artwork with a play-icon
   fallback, the "name (appid)" header and the "Proton: <tool>" line.
 - Settings General (widgets parity): the Game name field shows the Steam

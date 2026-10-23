@@ -30,6 +30,7 @@ from . import graphics as graphicsmod
 from . import proton as protonmod
 from . import runtimes, xdg
 from . import steam as steammod
+from . import winetricks as wtmod
 from .backends import audio as au_backend
 from .backends import display as disp_backend
 from .backends import gamemode as gm_backend
@@ -1130,9 +1131,19 @@ def _prepare_launch(appid: str, cfg: cfgmod.GameConfig) -> None:
     # afterwards so later launches (and winetricks state) stay consistent.
     if cfg.proton.fresh_prefix:
         _disarm_fresh_prefix(appid, cfg)
-    if cfg.proton.winetricks_verbs:
-        for w in protonmod.run_winetricks(appid, cfg.proton.winetricks_verbs):
-            log.warning("winetricks: %s", w)
+    game_type = cfgmod.normalize_game_type(cfg.general.game_type)
+    if game_type == "proton":
+        run = protonmod.run_winetricks(appid, cfg.proton.winetricks_verbs)
+    elif game_type in ("wine", "umu") and cfg.runtime.winetricks_verbs:
+        prefs = cfgmod.load_preferences()
+        prefix = cfgmod.prefix_dir(appid, cfg.runtime.prefix_dir, prefs.prefix_base)
+        wine = runtimes.wine_binary(cfg.runtime.wine_binary or prefs.wine_binary)
+        proton = runtimes.find_proton(cfg.runtime.proton_path, prefs.proton_dirs)
+        run = wtmod.run_local(appid, prefix, game_type, wine, proton, cfg.runtime.winetricks_verbs)
+    else:
+        run = []
+    for w in run:
+        log.warning("winetricks: %s", w)
 
 
 def _final_command(

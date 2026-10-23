@@ -36,9 +36,13 @@ outside the repo, and do not travel between clones.
 - Exception: `PKGBUILD check()` always uses system packages only
   (no uv in the chroot).
 - The launcher (`src/tkarcade/launcher.py`, `config.py`, `backends/`,
-  `proton.py`, `steam.py`, `xdg.py`, `nightlight_holder.py`) must stay
-  **stdlib-only**: it runs on every game start. PySide6/vdf/jeepney are
-  for GUI/helpers only.
+  `proton.py`, `steam.py`, `xdg.py`, `nightlight_holder.py`,
+  `winetricks.py`) must stay **stdlib-only**: it runs on every game
+  start. PySide6/vdf/jeepney are for GUI/helpers only.
+- Refresh the editable install after a pull or a machine switch:
+  `./scripts/bootstrap.sh` re-points `.venv` at this checkout and
+  reinstalls the tree. A synced/copied `.venv` keeps the other
+  machine's path until then.
 
 ## Verify before finishing
 

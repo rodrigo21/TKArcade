@@ -177,6 +177,7 @@ class RuntimeConfig:
     wine_binary: str = ""  # wine executable path or name
     proton_path: str = ""  # umu PROTONPATH (install dir or compatibilitytools name)
     prefix_dir: str = ""  # full prefix dir; empty = <prefix_base>/<appid>
+    winetricks_verbs: list[str] = field(default_factory=list)
 
 
 #: Graphics translation layers offered for local Wine/UMU games. DXVK and
@@ -625,7 +626,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
     "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
-    "runtime": {"wine_binary", "proton_path", "prefix_dir"},
+    "runtime": {"wine_binary", "proton_path", "prefix_dir", "winetricks_verbs"},
     "graphics": {"dxvk", "vkd3d"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
@@ -792,6 +793,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.runtime.wine_binary = str(rt.get("wine_binary", "")).strip()
     cfg.runtime.proton_path = str(rt.get("proton_path", "")).strip()
     cfg.runtime.prefix_dir = str(rt.get("prefix_dir", "")).strip()
+    cfg.runtime.winetricks_verbs = _str_list(rt.get("winetricks_verbs", []))
     gfx = _section(data, "graphics")
     cfg.graphics.dxvk = _as_bool(gfx.get("dxvk", False), False)
     cfg.graphics.vkd3d = normalize_graphics_vkd3d(gfx.get("vkd3d", ""))

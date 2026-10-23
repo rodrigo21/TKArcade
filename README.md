@@ -61,7 +61,10 @@ ProtonPlus/ProtonUp-Qt, Wine with the distro.
 Prefixes live in `$XDG_DATA_HOME/tkarcade/prefixes/<appid>` by default.
 Preferences moves the base, and a per-game `[runtime] prefix_dir` wins.
 `[runtime] wine_binary` and `[runtime] proton_path` override the global
-choices per game.
+choices per game. `[runtime] winetricks_verbs` runs the host
+`winetricks` before launch against an existing prefix (`WINE` is the
+chosen Wine binary, or the selected Proton's `files/bin/wine` for umu);
+launch once first so the runtime creates the prefix.
 
 `[graphics] dxvk` and `[graphics] vkd3d` copy the newest matching builds
 found in the configured DXVK/vkd3d directories into the prefix at launch

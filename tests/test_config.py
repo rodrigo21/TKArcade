@@ -332,6 +332,7 @@ _GAME_FIELDS = {
     "runtime.wine_binary": "/tmp/opencode/wine/bin/wine",
     "runtime.proton_path": "/tmp/opencode/GE-Proton9-1",
     "runtime.prefix_dir": "/tmp/opencode/local-prefix",
+    "runtime.winetricks_verbs": ["corefonts"],
     "graphics.dxvk": True,
     "graphics.vkd3d": "proton",
     "audio.sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",

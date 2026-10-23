@@ -933,6 +933,7 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
     cfg.general.appid = "99"
     cfg.proton.fresh_prefix = True
     cfg.proton.winetricks_verbs = ["dotnet48"]
+    cfg.runtime.winetricks_verbs = ["corefonts"]
     cfg.debug.proton_log = True
     cfg.debug.winedebug = "+err"
     C.save(cfg)
@@ -940,16 +941,19 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
     fields = model.loadGame("99")
     assert fields["fresh_prefix"] is True
     assert fields["winetricks_verbs"] == "dotnet48"
+    assert fields["runtime_winetricks_verbs"] == "corefonts"
     assert fields["proton_log"] is True
     assert fields["winedebug"] == "+err"
     assert model.protonLogDir("99").endswith("99/proton")
     out = dict(fields)
     out["winedebug"] = "bogus"
     out["winetricks_verbs"] = "vcrun2022 dotnet48"
+    out["runtime_winetricks_verbs"] = "corefonts vcrun2019"
     assert model.saveGame("99", out) == "99"
     reloaded = C.load("99")
     assert reloaded.debug.winedebug == ""
     assert reloaded.proton.winetricks_verbs == ["vcrun2022", "dotnet48"]
+    assert reloaded.runtime.winetricks_verbs == ["corefonts", "vcrun2019"]
 
 
 def test_settings_defaults_roundtrip(qgui_app, xdg_env):

@@ -232,6 +232,7 @@ Window {
         protonBox.model = protonChoices.map(function(p) { return p.name })
         localWineField.text = fields.runtime_wine_binary || ""
         localPrefixField.text = fields.runtime_prefix_dir || ""
+        localVerbs.text = fields.runtime_winetricks_verbs || ""
         var chosen = fields.runtime_proton_path || ""
         var idx = -1
         for (var i = 0; i < protonChoices.length; i++) {
@@ -450,6 +451,7 @@ Window {
             "runtime_wine_binary": localWineField.text,
             "runtime_proton_path": protonChoicePath(),
             "runtime_prefix_dir": localPrefixField.text,
+            "runtime_winetricks_verbs": localVerbs.text,
             "graphics_dxvk": gfxDxvk.checked,
             "graphics_vkd3d": gfxVkd3dValue(),
             "active_profile": dialogProfile
@@ -1835,6 +1837,19 @@ Window {
                                             }
                                             gameSettings.refreshGfx(false)
                                         }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: typeBox.currentIndex >= 1
+                                    KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
+                                    Controls.TextField {
+                                        id: localVerbs
+                                        objectName: "settingsLocalVerbs"
+                                        Layout.fillWidth: true
+                                        placeholderText: qsTr("dotnet48 vcrun2022 (space-separated)")
+                                        Controls.ToolTip.text: qsTr("Installed with winetricks into this prefix before launch; the prefix must already exist.")
+                                        Controls.ToolTip.visible: hovered
                                     }
                                 }
                             }

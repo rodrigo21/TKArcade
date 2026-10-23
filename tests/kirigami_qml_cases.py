@@ -4568,6 +4568,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     prefix_field = swin.findChild(QQuickItem, "settingsLocalPrefix")
     gfx_dxvk = swin.findChild(QQuickItem, "settingsGraphicsDxvk")
     gfx_vkd3d = swin.findChild(QQuickItem, "settingsGraphicsVkd3d")
+    local_verbs = swin.findChild(QQuickItem, "settingsLocalVerbs")
     status = swin.findChild(QQuickItem, "settingsGfxStatus")
     remove = swin.findChild(QQuickItem, "settingsGfxRemove")
 
@@ -4587,6 +4588,8 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert gfx_dxvk.property("checked") is True
     assert gfx_vkd3d.property("visible") is True
     assert gfx_vkd3d.property("currentIndex") == 0
+    assert local_verbs.property("visible") is True
+    assert local_verbs.property("text") == ""
     assert "DXVK v9.9" in status.property("text")
     assert remove.property("enabled") is True
 
@@ -4604,6 +4607,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     prefix_field.setProperty("text", str(prefix))
     gfx_dxvk.setProperty("checked", True)
     gfx_vkd3d.setProperty("currentIndex", 1)
+    local_verbs.setProperty("text", "dotnet48 vcrun2022")
     dlg.save()
     QTest.qWait(50)
     cfg = C.load("local-doom")
@@ -4613,6 +4617,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert cfg.runtime.proton_path == ""
     assert cfg.graphics.dxvk is True
     assert cfg.graphics.vkd3d == "proton"
+    assert cfg.runtime.winetricks_verbs == ["dotnet48", "vcrun2022"]
 
     # umu records the chosen Proton install path.
     page.openGameSettings("local-doom")
