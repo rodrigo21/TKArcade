@@ -674,6 +674,21 @@ Kirigami.Page {
         }
     }
 
+    // Terminate feedback: the launcher stops the game and the indicator
+    // clears itself on the next poll.
+    Connections {
+        target: gameModel
+        function onTerminateReported(ok, name, detail) {
+            if (ok) {
+                gamesPage.statusMessage = qsTr("Stopping %1...").arg(name)
+            } else if (detail !== "") {
+                gamesPage.notify(qsTr("Could Not Stop %1: %2").arg(name).arg(detail))
+            } else {
+                gamesPage.notify(qsTr("Could Not Stop %1.").arg(name))
+            }
+        }
+    }
+
     // Launch reporting for every path (toolbar, menus, delegates, tray):
     // the widgets status line said "Launched X." and warned on a failed
     // handoff; the QML shell keeps the warnings transient.
@@ -1275,6 +1290,14 @@ Kirigami.Page {
             onTriggered: gameModel.play(gamesPage.menuGid)
         }
         Controls.MenuItem {
+            objectName: "menuTerminate"
+            // runningIds is the notifying half: isRunning() is a plain call.
+            visible: gamesPage.selectedIds.length <= 1
+                && gameModel.runningIds.indexOf(gamesPage.menuGid) >= 0
+            text: qsTr("Terminate")
+            onTriggered: gameModel.terminate(gamesPage.menuGid)
+        }
+        Controls.MenuItem {
             visible: gamesPage.selectedIds.length <= 1
             text: qsTr("Edit Settings")
             onTriggered: gamesPage.openGameSettings(gamesPage.menuGid)
@@ -1756,6 +1779,17 @@ Kirigami.Page {
                             color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                             elide: Text.ElideRight
                         }
+                        // Running indicator: a small play glyph, so the
+                        // name column keeps its width for the name.
+                        Kirigami.Icon {
+                            objectName: "runningIndicator"
+                            visible: model?.gameRunning ?? false
+                            source: "media-playback-start"
+                            color: Kirigami.Theme.positiveTextColor
+                            Layout.preferredWidth: Kirigami.Units.iconSizes.small
+                            Layout.preferredHeight: Kirigami.Units.iconSizes.small
+                            Layout.alignment: Qt.AlignVCenter
+                        }
                     }
                 }
                 // plain text columns
@@ -2074,6 +2108,7 @@ Kirigami.Page {
                         onRowTapped: (gid, mods) => gamesPage.tapGame(gid, mods)
                         onMenuRequested: (gid) => gamesPage.openGameMenu(gid)
                         onSettingsRequested: (gid) => gamesPage.openGameSettings(gid)
+                        onTerminateRequested: (gid) => gameModel.terminate(gid)
                     }
                 }
             }

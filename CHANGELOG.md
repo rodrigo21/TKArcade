@@ -6,6 +6,18 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Running indicator and Terminate action in the GUI: the launcher
+  records the game it is playing under
+  `$XDG_STATE_HOME/tkarcade/running/` and removes the record on exit, so
+  every launch path (GUI, tray, Steam's launch options) shows the game
+  as running in the table, icons and cards views. `Terminate` in the
+  game context menu (and on the card) sends SIGTERM to the launcher,
+  which forwards it to the game's process group — wrappers such as
+  `gamemoderun`, `gamescope` and `ludusavi wrap` included — and then
+  restores the display, audio and nightlight sessions on the way out;
+  a launcher that ignores the signal is SIGKILLed with its group after
+  ten seconds. Stale records left by a crashed launcher are swept at the
+  next launch or by the GUI.
 - Add game flow: the Add dialog keeps its two sources (Steam Game,
   Local Game) and, for local games, a Game Type combo (Linux native,
   Windows Wine, Windows Proton via UMU) that preselects the same field

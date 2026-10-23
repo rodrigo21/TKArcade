@@ -19,12 +19,14 @@ Kirigami.Card {
     required property string gameTierBg
     required property string gameTierFg
     required property string gameIcon
+    required property bool gameRunning
     property bool selected: false
 
     signal playRequested(string gid)
     signal rowTapped(string gid, int modifiers)
     signal menuRequested(string gid)
     signal settingsRequested(string gid)
+    signal terminateRequested(string gid)
 
     Layout.maximumWidth: Kirigami.Units.gridUnit * 18
 
@@ -38,7 +40,9 @@ Kirigami.Card {
         Controls.Label {
             objectName: "cardPlayed"
             Layout.fillWidth: true
-            text: gamePlayed
+            // The running game takes the slot the played time occupies.
+            text: gameCard.gameRunning ? qsTr("Running") : gameCard.gamePlayed
+            color: gameCard.gameRunning ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.textColor
             opacity: 0.7
             elide: Text.ElideRight
         }
@@ -73,6 +77,13 @@ Kirigami.Card {
             text: qsTr("Play")
             icon.name: "media-playback-start"
             onTriggered: gameCard.playRequested(gameCard.gameId)
+        },
+        Kirigami.Action {
+            objectName: "cardTerminate"
+            visible: gameCard.gameRunning
+            text: qsTr("Terminate")
+            icon.name: "process-stop"
+            onTriggered: gameCard.terminateRequested(gameCard.gameId)
         }
     ]
 

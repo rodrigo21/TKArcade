@@ -322,12 +322,12 @@ dispatch). Each needs one look on a real compositor:
 
 ## Add game flow and casing (agreed 2026-10-23)
 
-- [ ] Add dialog: keep two sources (`Steam Game`, `Local Game`); Steam
+- [x] Add dialog: keep two sources (`Steam Game`, `Local Game`); Steam
   shows its picker, Local shows a `Game Type` combo with the three
   runtime choices (Linux Native / Windows Wine / Windows Proton via UMU)
   and opens Settings with that type preselected. The type stays editable
   in Settings afterwards — switching Wine/UMU needs no new entry.
-- [ ] Settings: non-blocking hint when the executable ends in
+- [x] Settings: non-blocking hint when the executable ends in
   `.exe`/`.bat`/`.msi` while the type is `Linux (Native)`, with a
   `Switch to Wine` action (today such a game saves as native and fails
   at launch).
@@ -339,8 +339,9 @@ dispatch). Each needs one look on a real compositor:
 
 ## After game-types (deferred)
 
-- Running indicator and Terminate action in the GUI (the launcher
-  already writes per-game logs; no PID state is kept today).
+- [x] Running indicator and Terminate action in the GUI (the launcher
+  writes a per-game record under the XDG state dir; Terminate goes to
+  the launcher, which forwards it to the game's process group).
 - [x] `runtime.prefix_name`: a friendly name under the prefix base instead
   of the AppID, with a picker for existing prefixes in Settings.
 

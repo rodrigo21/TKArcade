@@ -105,6 +105,7 @@ def test_model_role_names_are_game_prefixed(qgui_app):
         b"gamePlayedSecs",
         b"gamePlayedTip",
         b"gameRunner",
+        b"gameRunning",
         b"gameSource",
         b"gameTier",
         b"gameTierBg",
@@ -1245,3 +1246,60 @@ def test_audio_sinks_pair_name_and_label(qgui_app, xdg_env, monkeypatch):
     assert model.audioSinks() == [["alsa_hdmi", "HDMI Estéreo"], ["alsa_usb", "alsa_usb"]]
     monkeypatch.setattr(aubackend, "list_sinks", lambda: [])
     assert model.audioSinks() == []
+
+
+def test_model_running_role_and_terminate(qgui_app, xdg_env):
+    import json
+    import signal
+    import subprocess
+    import sys
+
+    from tkarcade import running
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-run"
+    cfg.general.name = "Runner"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "native"
+    C.save(cfg)
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
+    )
+    try:
+        path = running.record_path("local-run")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "appid": "local-run",
+                    "pid": child.pid,
+                    "start": running.process_start_time(child.pid),
+                    "started": 0,
+                }
+            )
+        )
+        model = GameListModel()
+        model._refresh_running()
+        assert model.isRunning("local-run") is True
+        assert model.runningIds == ["local-run"]
+        row = next(
+            i
+            for i in range(model.rowCount())
+            if model.data(model.index(i, 0), model.IdRole) == "local-run"
+        )
+        assert model.data(model.index(row, 0), model.RunningRole) is True
+        assert model.rowData(row)["gameRunning"] is True
+        reported = []
+        model.terminateReported.connect(lambda *args: reported.append(args))
+        assert model.terminate("local-run") is True
+        assert child.wait(timeout=10) == -signal.SIGTERM
+        assert reported == [(True, "Runner", "")]
+        model._refresh_running()
+        assert model.isRunning("local-run") is False
+        assert model.runningIds == []
+        assert model.data(model.index(row, 0), model.RunningRole) is False
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=10)

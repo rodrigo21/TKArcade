@@ -627,3 +627,68 @@ def test_editor_menu_spawn_failure_is_unavailable(monkeypatch):
 
     _fake_child(monkeypatch, boom=OSError("no such file"))
     assert L.run_editor_menu("7") == ("unavailable", "7")
+
+
+def _wait_for(path, timeout=30.0):
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists():
+            return True
+        time.sleep(0.05)
+    return path.exists()
+
+
+def test_running_record_covers_the_game(xdg_env):
+    """The launcher records itself while the game runs, then clears it."""
+    from tkarcade import running
+
+    _save("rec1")
+    record = running.record_path("rec1")
+    script = (
+        "import json, os, sys\n"
+        f"d = json.load(open({str(record)!r}))\n"
+        "sys.exit(0 if d['pid'] == os.getppid() and d['appid'] == 'rec1' else 3)\n"
+    )
+    r = _run(_env(xdg_env), "--appid", "rec1", sys.executable, "-c", script)
+    assert r.returncode == 0, r.stderr
+    assert not record.exists()
+
+
+def test_terminate_stops_the_game_and_clears_the_record(xdg_env, tmp_path):
+    """SIGTERM to the launcher stops the game, then the launcher exits."""
+    import signal
+    import time
+
+    from tkarcade import running
+
+    _save("rec2")
+    marker = tmp_path / "game.pid"
+    game = f"import os, time\nopen({str(marker)!r}, 'w').write(str(os.getpid()))\ntime.sleep(120)\n"
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "tkarcade.launcher", "--appid", "rec2", sys.executable, "-c", game],
+        env=_env(xdg_env),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        # Like the GUI's launch: the launcher owns its own session, so
+        # the signal forwarding cannot reach this test process.
+        start_new_session=True,
+    )
+    record = running.record_path("rec2")
+    try:
+        assert _wait_for(record), "no running record"
+        assert _wait_for(marker), "game never started"
+        game_pid = int(marker.read_text())
+        os.kill(proc.pid, signal.SIGTERM)
+        assert proc.wait(timeout=30) is not None
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=10)
+    assert proc.returncode != -signal.SIGTERM  # exited on its own path
+    assert not record.exists()
+    deadline = time.monotonic() + 10
+    while running.process_start_time(game_pid) is not None and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert running.process_start_time(game_pid) is None

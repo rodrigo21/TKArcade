@@ -28,6 +28,7 @@ from pathlib import Path
 from . import config as cfgmod
 from . import graphics as graphicsmod
 from . import proton as protonmod
+from . import running as runmod
 from . import runtimes, xdg
 from . import steam as steammod
 from . import winetricks as wtmod
@@ -1248,7 +1249,7 @@ def _run_game_process(
     if run_cwd:
         log.info("cwd: %s", run_cwd)
     try:
-        proc = subprocess.run(final_cmd, env=env, cwd=run_cwd)
+        proc = subprocess.Popen(final_cmd, env=env, cwd=run_cwd)
     except OSError as e:
         # FileNotFoundError: missing binary. PermissionError/ETXTBSY and
         # friends: present but not runnable. Same contract exit (13) either
@@ -1264,7 +1265,12 @@ def _run_game_process(
         )
         write_global_log(appid, 13, final_cmd)
         return True, 13
-    game_rc = _read_wrap_rc_file(rc_file, proc.returncode) if rc_file else proc.returncode
+    # The record tells the GUI the game is running; the signal handlers
+    # are installed first so a Terminate right after the record appears
+    # still reaches the game instead of killing the launcher.
+    with runmod.forward_signals(proc), runmod.Record(appid):
+        returncode = proc.wait()
+    game_rc = _read_wrap_rc_file(rc_file, returncode) if rc_file else returncode
     log.info("game exit=%s", game_rc)
     return False, game_rc
 
@@ -1332,6 +1338,8 @@ def _launch_pipeline(
     appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str], args: argparse.Namespace
 ) -> int:
     """Build the final command, honour --dry-run, then run the pipeline."""
+    # A launcher killed without cleanup leaves a stale running record.
+    runmod.sweep()
     # Sentinel file so the real game exit code survives `ludusavi wrap`
     # (which returns 0 even when the game crashes). Empty = wrap off.
     wrap_active = bool(cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup))

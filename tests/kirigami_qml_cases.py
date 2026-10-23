@@ -1469,6 +1469,7 @@ def test_game_card_binds_roles(qgui_app):
             "gameTierBg": "#FFC107",
             "gameTierFg": "#000000",
             "gameIcon": "",
+            "gameRunning": False,
         },
     )
     real = [w for w in warnings if "graphics scene" not in w]
@@ -1487,6 +1488,7 @@ def test_game_icon_delegate_binds_roles(qgui_app):
             "gameId": "local-doom",
             "gamePlayed": "38s",
             "gameIcon": "",
+            "gameRunning": False,
         },
     )
     real = [w for w in warnings if "graphics scene" not in w]

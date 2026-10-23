@@ -16,6 +16,7 @@ Item {
     required property string gameId
     required property string gamePlayed
     required property string gameIcon
+    required property bool gameRunning
     property int cellSize: 96
     property bool selected: false
 
@@ -85,7 +86,8 @@ Item {
             objectName: "iconPlayed"
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-            text: iconCell.gamePlayed
+            text: iconCell.gameRunning ? qsTr("Running") : iconCell.gamePlayed
+            color: iconCell.gameRunning ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.textColor
             opacity: 0.7
             elide: Text.ElideRight
         }

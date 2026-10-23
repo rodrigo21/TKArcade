@@ -18,6 +18,7 @@ from PySide6.QtCore import (
     QObject,
     QSortFilterProxyModel,
     Qt,
+    QTimer,
     Signal,
     Slot,
 )
@@ -28,6 +29,7 @@ from .. import graphics as graphicsmod
 from .. import history as histmod
 from .. import launcher as launchermod
 from .. import protondb as pdbmod
+from .. import running as runningmod
 from .. import runtimes, xdg
 from .. import steam as steammod
 from ..backends.notify import format_duration
@@ -222,6 +224,7 @@ class GameListModel(QAbstractTableModel):
     WineRole = Qt.ItemDataRole.UserRole + 15
     InstallDirRole = Qt.ItemDataRole.UserRole + 16
     CategoryRole = Qt.ItemDataRole.UserRole + 17
+    RunningRole = Qt.ItemDataRole.UserRole + 18
 
     ROLE_NAMES = (
         "gameId",
@@ -241,6 +244,7 @@ class GameListModel(QAbstractTableModel):
         "gameWine",
         "gameInstallDir",
         "gameCategory",
+        "gameRunning",
     )
 
     refreshed = Signal()
@@ -252,6 +256,15 @@ class GameListModel(QAbstractTableModel):
     # ran the same code). The model only says what happened; the QML side
     # owns the wording. kind is "steam" or "local".
     launchReported = Signal(bool, str, str, str)
+    # The GUI asked a running game's launcher to stop (ok, name, error).
+    terminateReported = Signal(bool, str, str)
+    # The set of running AppIDs changed (indicator repaint).
+    runningChanged = Signal()
+
+    # How often the running records are re-read, and how long a
+    # terminating launcher gets before its process group is SIGKILLed.
+    RUNNING_POLL_MS = 2000
+    TERMINATE_GRACE_MS = 10_000
 
     @Slot(str, result=int)
     def roleId(self, roleName: str) -> int:
@@ -272,7 +285,25 @@ class GameListModel(QAbstractTableModel):
         # scan reads every profile's localconfig.vdf, so the dependency
         # status reuses it between the dialog's explicit refreshes.
         self._steam_status: tuple[str, str, str] | None = None
+        # Live running records by AppID (the launcher owns the files).
+        self._running: dict[str, dict] = {}
         self.backgroundDone.connect(self.refresh)
+        self._running_timer = QTimer(self)
+        self._running_timer.setInterval(self.RUNNING_POLL_MS)
+        self._running_timer.timeout.connect(self._refresh_running)
+        self._running_timer.start()
+        # Escalation for a launcher that ignored the SIGTERM (model-owned
+        # so a destroyed model cannot fire into nothing).
+        self._kill_record: dict | None = None
+        self._kill_timer = QTimer(self)
+        self._kill_timer.setSingleShot(True)
+        self._kill_timer.timeout.connect(self._force_kill)
+        # Timers outlive a Python-side test teardown if left running: the
+        # event loop may deliver a queued timeout after the C++ object is
+        # gone. Stop them with the object they belong to, and let the
+        # callbacks check the flag in case a timeout is already in flight.
+        self._closing = False
+        self.destroyed.connect(self._stop_timers)
         self.refresh()
 
     def _count_total(self) -> int:
@@ -313,6 +344,7 @@ class GameListModel(QAbstractTableModel):
             GameListModel.WineRole: b"gameWine",
             GameListModel.InstallDirRole: b"gameInstallDir",
             GameListModel.CategoryRole: b"gameCategory",
+            GameListModel.RunningRole: b"gameRunning",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -334,6 +366,8 @@ class GameListModel(QAbstractTableModel):
         if not index.isValid() or not 0 <= index.row() < len(self._rows):
             return None
         row = self._rows[index.row()]
+        if role == GameListModel.RunningRole:
+            return self.isRunning(str(row[0]))
         cols = {
             GameListModel.IdRole: 0,
             GameListModel.NameRole: 1,
@@ -379,11 +413,15 @@ class GameListModel(QAbstractTableModel):
         )
         if not 0 <= row < len(self._rows):
             return {}
-        return dict(zip(keys, self._rows[row], strict=True))
+        data = dict(zip(keys, self._rows[row], strict=True))
+        data["gameRunning"] = self.isRunning(str(self._rows[row][0]))
+        return data
 
     @Slot()
     def refresh(self) -> None:
         """Reload rows from disk (Steam names first, local names merged)."""
+        if self._closing:
+            return
         names = {a: n for a, n in steammod.list_games()}
         self._steam_detected = len(names)
         names.update(steammod.local_names())
@@ -395,10 +433,77 @@ class GameListModel(QAbstractTableModel):
             stats = {}
         rows = [self._row(appid, names, stats) for appid in cfgmod.list_appids()]
         rows.sort(key=lambda r: r[1].lower())
+        self._running = self._load_running()
         self.beginResetModel()
         self._rows = rows
         self.endResetModel()
         self.refreshed.emit()
+
+    def _load_running(self) -> dict[str, dict]:
+        """Live running records by AppID (never raises: a poll, not a load)."""
+        try:
+            return runningmod.list_running()
+        except Exception as e:
+            log.warning("running records unreadable: %s", e)
+            return {}
+
+    def _stop_timers(self) -> None:
+        self._closing = True
+        for timer in (self._running_timer, self._kill_timer):
+            try:
+                timer.stop()
+            except RuntimeError:
+                pass  # already deleted with the C++ parent
+
+    def _refresh_running(self) -> None:
+        """Re-read the launcher's records; repaint only on a change."""
+        if self._closing:
+            return
+        running = self._load_running()
+        changed = running.keys() != self._running.keys()
+        self._running = running
+        if not changed:
+            return
+        if self._rows:
+            self.dataChanged.emit(
+                self.index(0, 0), self.index(len(self._rows) - 1, 0), [GameListModel.RunningRole]
+            )
+        self.runningChanged.emit()
+
+    def _running_ids(self) -> list[str]:
+        return list(self._running)
+
+    # QML bindings cannot depend on isRunning(); this list is their
+    # notifying dependency (menu entries, badges).
+    runningIds = Property("QVariantList", _running_ids, notify=runningChanged)
+
+    @Slot(str, result=bool)
+    def isRunning(self, appid: str) -> bool:
+        """True while a launcher we started still has the game open."""
+        return str(appid) in self._running
+
+    @Slot(str, result=bool)
+    def terminate(self, appid: str) -> bool:
+        """Ask the game's launcher to stop it (SIGTERM, then SIGKILL)."""
+        record = runningmod.terminate(appid)
+        name = self._display_name(appid)
+        if record is None:
+            self._refresh_running()
+            self.terminateReported.emit(False, name, "")
+            return False
+        self._kill_record = record
+        self._kill_timer.start(self.TERMINATE_GRACE_MS)
+        self.terminateReported.emit(True, name, "")
+        return True
+
+    def _force_kill(self) -> None:
+        """A launcher that ignored SIGTERM takes the group down with it."""
+        if self._closing:
+            return
+        record, self._kill_record = self._kill_record, None
+        if record and runningmod.kill(record):
+            log.warning("terminate: SIGKILL to the process group of pid %s", record.get("pid"))
+        self._refresh_running()
 
     def _row(self, appid: str, names: dict, stats: dict) -> tuple:
         """One table row for an AppID (column order mirrors `rowData`)."""
