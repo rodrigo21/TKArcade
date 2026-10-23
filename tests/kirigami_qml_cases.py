@@ -1753,6 +1753,7 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
     assert visible_titles(TAB_SYSTEM) == [
         "Audio",
         "Idle Suspend",
+        "Network",
         "Night Light",
         "Notifications",
         "Saves (Ludusavi)",
@@ -4582,6 +4583,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_SYSTEM)
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "seInhibit").setProperty("checked", True)
+    swin.findChild(QQuickItem, "blockInternet").setProperty("checked", True)
     swin.findChild(QQuickItem, "nlDisable").setProperty("checked", True)
     swin.findChild(QQuickItem, "nlProv").setProperty("currentIndex", 1)
     dlg.save()
@@ -4590,6 +4592,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     assert reloaded.ludusavi.enable is True
     assert reloaded.ludusavi.name_override == "Doom 3"
     assert reloaded.session.inhibit_idle is True
+    assert reloaded.network.block_internet is True
     assert reloaded.nightlight.disable_during_game is True
     assert reloaded.nightlight.provider == "plasma"
 

@@ -1018,3 +1018,43 @@ def test_wine_needs_an_executable():
     cfg = _local_cfg("wine", exe="")
     with pytest.raises(GameExecutableMissingError):
         build_final_command(cfg, [])
+
+
+def test_block_internet_wraps_with_unshare(monkeypatch):
+    from tkarcade.backends import network
+
+    monkeypatch.setattr(network.shutil, "which", lambda name: "/usr/bin/unshare")
+    monkeypatch.setattr(
+        network.subprocess,
+        "run",
+        lambda *a, **k: type("P", (), {"returncode": 0, "stderr": b""})(),
+    )
+    network.available.cache_clear()
+    try:
+        cmd, warnings = network.wrap_command(["/bin/true"], True)
+    finally:
+        network.available.cache_clear()
+    assert cmd == ["unshare", "-Urn", "--", "/bin/true"]
+    assert warnings == []
+
+
+def test_block_internet_off_does_not_wrap(monkeypatch):
+    from tkarcade.backends import network
+
+    network.available.cache_clear()
+    cmd, warnings = network.wrap_command(["/bin/true"], False)
+    assert cmd == ["/bin/true"]
+    assert warnings == []
+
+
+def test_block_internet_unavailable_keeps_command(monkeypatch):
+    from tkarcade.backends import network
+
+    monkeypatch.setattr(network.shutil, "which", lambda name: None)
+    network.available.cache_clear()
+    try:
+        cmd, warnings = network.wrap_command(["/bin/true"], True)
+    finally:
+        network.available.cache_clear()
+    assert cmd == ["/bin/true"]
+    assert any("Block Internet" in w for w in warnings)

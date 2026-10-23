@@ -325,6 +325,7 @@ _GAME_FIELDS = {
     "debug.proton_log": True,
     "debug.winedebug": "+all",
     "session.inhibit_idle": True,
+    "network.block_internet": True,
     "proton.fresh_prefix": True,
     "proton.winetricks_verbs": ["corefonts"],
     "proton.wine_prefix": "/tmp/opencode/prefix",

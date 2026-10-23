@@ -692,3 +692,32 @@ def test_terminate_stops_the_game_and_clears_the_record(xdg_env, tmp_path):
     while running.process_start_time(game_pid) is not None and time.monotonic() < deadline:
         time.sleep(0.02)
     assert running.process_start_time(game_pid) is None
+
+
+def test_block_internet_wraps_the_game(monkeypatch):
+    from tkarcade.backends import network
+    from tkarcade.launcher import active_wrappers, build_final_command
+
+    monkeypatch.setattr(network, "available", lambda: True)
+    cfg = C.GameConfig()
+    cfg.general.game_type = "native"
+    cfg.general.appid = "77"
+    cfg.network.block_internet = True
+    cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
+    assert not warnings
+    assert cmd == ["unshare", "-Urn", "--", "/bin/true"]
+    assert "Block Internet" in active_wrappers(cfg)
+
+
+def test_block_internet_unavailable_exits_14(xdg_env, monkeypatch):
+    from tkarcade.backends import network
+    from tkarcade.launcher import _final_command
+
+    monkeypatch.setattr(network, "available", lambda: False)
+    cfg = C.GameConfig()
+    cfg.general.appid = "78"
+    cfg.general.game_type = "native"
+    cfg.network.block_internet = True
+    rc, cmd, _env, _warnings = _final_command("78", cfg, ["/bin/true"], "")
+    assert rc == 14
+    assert cmd == []

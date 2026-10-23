@@ -36,6 +36,7 @@ from .backends import audio as au_backend
 from .backends import display as disp_backend
 from .backends import gamemode as gm_backend
 from .backends import ludusavi as lu_backend
+from .backends import network as net_backend
 from .backends import nightlight as nl_backend
 from .backends import notify as notify_backend
 from .backends import overlay as ov_backend
@@ -361,6 +362,10 @@ def _apply_wrappers(
 ) -> tuple[list[str], list[str]]:
     """Layer the enabled wrappers inner (mangohud) to outer (ludusavi)."""
     warnings: list[str] = []
+    # Network isolation is innermost: the game loses the network, while
+    # the Ludusavi wrap (outermost) keeps its own for cloud backup.
+    cmd, w = net_backend.wrap_command(cmd, cfg.network.block_internet)
+    warnings += w
     cmd, w = ov_backend.apply_mangohud(cmd, cfg.mangohud.enable, cfg.mangohud.args)
     warnings += w
     cmd, w = rtu_backend.apply(cmd, cfg.rtupscale.enable, cfg.rtupscale.args)
@@ -515,6 +520,7 @@ def active_wrappers(cfg: cfgmod.GameConfig) -> list[str]:
         ("RT Upscaler", cfg.rtupscale.enable),
         ("Ludusavi", cfg.ludusavi.enable and (cfg.ludusavi.restore or cfg.ludusavi.backup)),
         ("Night Light", cfg.nightlight.disable_during_game),
+        ("Block Internet", cfg.network.block_internet),
         ("Idle Inhibit", cfg.session.inhibit_idle),
         ("Fresh Prefix", cfg.proton.fresh_prefix),
     )
@@ -704,6 +710,10 @@ def validate_game(appid: str) -> list[str]:
     issues += _runtime_issues(appid, eff)
     issues += _graphics_issue(appid, eff)
     issues += _exe_issues(appid, eff)
+    if eff.network.block_internet and not net_backend.available():
+        issues.append(
+            f"{appid}: block_internet is on but unprivileged network namespaces are unavailable"
+        )
     display_issue = _display_issue(appid, eff)
     if display_issue:
         issues.append(display_issue)
@@ -1179,6 +1189,17 @@ def _final_command(
         write_global_log(appid, 13, game_cmd)
         _remove_wrap_rc_file(rc_file)
         return 13, [], {}, []
+    if cfg.network.block_internet and not net_backend.available():
+        problem = (
+            "block_internet requires unprivileged user namespaces "
+            "(unshare -Urn); enable them or turn the option off"
+        )
+        log.error("%s", problem)
+        print(f"tkarcade: {problem}", file=sys.stderr)
+        notify_backend.send("TKArcade: cannot launch", problem, "critical")
+        write_global_log(appid, 14, game_cmd)
+        _remove_wrap_rc_file(rc_file)
+        return 14, [], {}, []
     return 0, final_cmd, extra_env, warnings
 
 

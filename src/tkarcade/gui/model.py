@@ -32,6 +32,7 @@ from .. import protondb as pdbmod
 from .. import running as runningmod
 from .. import runtimes, xdg
 from .. import steam as steammod
+from ..backends import network as net_backend
 from ..backends.notify import format_duration
 
 log = logging.getLogger("tkarcade.kirigami")
@@ -723,6 +724,7 @@ class GameListModel(QAbstractTableModel):
             "ludusavi_gui": bool(cfg.ludusavi.use_gui),
             "notify_on_launch": bool(cfg.notifications.notify_on_launch),
             "inhibit_idle": bool(cfg.session.inhibit_idle),
+            "block_internet": bool(cfg.network.block_internet),
             "nl_disable": bool(cfg.nightlight.disable_during_game),
             "nl_provider": cfg.nightlight.provider
             if cfg.nightlight.provider in ("auto", "plasma", "gnome", "off")
@@ -974,6 +976,7 @@ class GameListModel(QAbstractTableModel):
         cfg.ludusavi.use_gui = bool(data.get("ludusavi_gui", True))
         cfg.notifications.notify_on_launch = bool(data.get("notify_on_launch", True))
         cfg.session.inhibit_idle = bool(data.get("inhibit_idle", False))
+        cfg.network.block_internet = bool(data.get("block_internet", False))
         cfg.nightlight.disable_during_game = bool(data.get("nl_disable", False))
         nl_provider = str(data.get("nl_provider", "auto"))
         cfg.nightlight.provider = (
@@ -987,6 +990,11 @@ class GameListModel(QAbstractTableModel):
         cfg.debug.proton_log = bool(data.get("proton_log", False))
         winedebug = str(data.get("winedebug", ""))
         cfg.debug.winedebug = winedebug if winedebug in ("", "-all", "+err", "+warn,+err") else ""
+
+    @Slot(result=bool)
+    def networkIsolationAvailable(self) -> bool:
+        """True when the launcher can build an unprivileged network namespace."""
+        return net_backend.available()
 
     @Slot("QVariantMap", result=bool)
     def saveDefaults(self, values) -> bool:

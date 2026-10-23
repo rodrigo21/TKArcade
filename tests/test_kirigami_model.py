@@ -905,6 +905,7 @@ def test_settings_ludusavi_system_roundtrip(qgui_app, xdg_env):
     cfg.ludusavi.enable = True
     cfg.ludusavi.name_override = "Doom 3"
     cfg.session.inhibit_idle = True
+    cfg.network.block_internet = True
     cfg.nightlight.disable_during_game = True
     cfg.nightlight.provider = "plasma"
     C.save(cfg)
@@ -914,6 +915,7 @@ def test_settings_ludusavi_system_roundtrip(qgui_app, xdg_env):
     assert fields["ludusavi_restore"] is True
     assert fields["ludusavi_name"] == "Doom 3"
     assert fields["inhibit_idle"] is True
+    assert fields["block_internet"] is True
     assert fields["nl_provider"] == "plasma"
     assert model.gameLogFile("local-doom").endswith("local-doom.log")
     out = dict(fields)
@@ -1299,7 +1301,14 @@ def test_model_running_role_and_terminate(qgui_app, xdg_env):
         assert model.isRunning("local-run") is False
         assert model.runningIds == []
         assert model.data(model.index(row, 0), model.RunningRole) is False
+        # Stop the model's timers before the next test: its 10 s kill
+        # timer would otherwise fire mid-QML-suite, in a process that no
+        # longer owns the C++ object (pytestqt processes events there).
+        model._stop_timers()
+        model.deleteLater()
+        qgui_app.processEvents()
     finally:
         if child.poll() is None:
             child.kill()
             child.wait(timeout=10)
+        running.record_path("local-run").unlink(missing_ok=True)

@@ -157,6 +157,13 @@ class SessionConfig:
 
 
 @dataclass
+class NetworkConfig:
+    """Per-game network isolation (unprivileged network namespace)."""
+
+    block_internet: bool = False
+
+
+@dataclass
 class RtUpscaleConfig:
     enable: bool = False
     args: str = ""
@@ -266,6 +273,7 @@ class GameConfig:
     notes: NotesConfig = field(default_factory=NotesConfig)
     debug: DebugConfig = field(default_factory=DebugConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
+    network: NetworkConfig = field(default_factory=NetworkConfig)
     proton: ProtonConfig = field(default_factory=ProtonConfig)
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
     graphics: GraphicsConfig = field(default_factory=GraphicsConfig)
@@ -302,6 +310,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "notes": _to_toml_value(cfg.notes),
         "debug": _to_toml_value(cfg.debug),
         "session": _to_toml_value(cfg.session),
+        "network": _to_toml_value(cfg.network),
         "proton": _to_toml_value(cfg.proton),
         "runtime": _to_toml_value(cfg.runtime),
         "graphics": _to_toml_value(cfg.graphics),
@@ -628,6 +637,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "notes": {"text"},
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
+    "network": {"block_internet"},
     "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
     "runtime": {"wine_binary", "proton_path", "prefix_dir", "prefix_name", "winetricks_verbs"},
     "graphics": {"dxvk", "vkd3d"},
@@ -788,6 +798,9 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.debug.proton_log = _as_bool(_section(data, "debug").get("proton_log", False), False)
     cfg.debug.winedebug = str(_section(data, "debug").get("winedebug", ""))
     cfg.session.inhibit_idle = _as_bool(_section(data, "session").get("inhibit_idle", False), False)
+    cfg.network.block_internet = _as_bool(
+        _section(data, "network").get("block_internet", False), False
+    )
     cfg.proton.fresh_prefix = _as_bool(_section(data, "proton").get("fresh_prefix", False), False)
     cfg.proton.winetricks_verbs = _str_list(_section(data, "proton").get("winetricks_verbs", []))
     cfg.proton.wine_prefix = str(_section(data, "proton").get("wine_prefix", ""))

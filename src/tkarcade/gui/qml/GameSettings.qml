@@ -383,6 +383,7 @@ Window {
         luGui.checked = f.ludusavi_gui ?? true
         ntLaunch.checked = f.notify_on_launch ?? true
         seInhibit.checked = !!f.inhibit_idle
+        blockInternet.checked = !!f.block_internet
         nlDisable.checked = !!f.nl_disable
         nlProv.currentIndex = {"auto": 0, "plasma": 1, "gnome": 2, "off": 3}[f.nl_provider] ?? 0
         logField.text = editAppid !== "" ? gameModel.gameLogFile(editAppid) : ""
@@ -473,6 +474,7 @@ Window {
             "ludusavi_gui": luGui.checked,
             "notify_on_launch": ntLaunch.checked,
             "inhibit_idle": seInhibit.checked,
+            "block_internet": blockInternet.checked,
             "nl_disable": nlDisable.checked,
             "nl_provider": ["auto", "plasma", "gnome", "off"][nlProv.currentIndex] || "auto",
             "fresh_prefix": ptFresh.checked,
@@ -2362,6 +2364,29 @@ Window {
                                         text: qsTr("Inhibit Idle Suspend While Playing")
                                         Controls.ToolTip.text: qsTr("Holds a logind Idle Lock During the Session. Sleep Lock Is Not Included (Needs Privileges).")
                                         Controls.ToolTip.visible: hovered
+                                    }
+                                }
+                            }
+                            SectionBox {
+                                title: qsTr("Network")
+                                Layout.fillWidth: true
+                                WidgetsFormLayout {
+                                    Layout.fillWidth: true
+                                    Controls.CheckBox {
+                                        id: blockInternet
+                                        objectName: "blockInternet"
+                                        text: qsTr("Block Internet While the Game Runs")
+                                        Controls.ToolTip.text: qsTr("Runs the Game in an Unprivileged Network Namespace (unshare -Urn). Multiplayer, Achievements and Online Services Will Not Work.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Label {
+                                        objectName: "blockInternetHint"
+                                        visible: blockInternet.checked
+                                            && !gameModel.networkIsolationAvailable()
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        color: Kirigami.Theme.negativeTextColor
+                                        text: qsTr("Unprivileged Network Namespaces Are Unavailable Here; the Launcher Will Refuse to Start This Game.")
                                     }
                                 }
                             }

@@ -6,6 +6,16 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Block Internet per game (Settings, "Network" section): the game runs
+  in an unprivileged network namespace (`unshare -Urn`), so it has no
+  route, DNS or interface except loopback. Multiplayer, achievements,
+  online services and anything else that needs the network stop working,
+  which is the point. The wrapper is applied innermost: pre/post hooks
+  and the Ludusavi cloud restore/backup keep their own network. When the
+  kernel or a sandbox forbids unprivileged user namespaces, the launcher
+  refuses to start the game (exit 14) instead of silently going online,
+  and `--validate` reports it. Known caveats (Proton and anti-cheat
+  behaviour) are in `docs/plans/network-isolation.md`.
 - Running indicator and Terminate action in the GUI: the launcher
   records the game it is playing under
   `$XDG_STATE_HOME/tkarcade/running/` and removes the record on exit, so
