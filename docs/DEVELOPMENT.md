@@ -11,14 +11,30 @@ the tree editable and enables the commit hook. It writes only inside
 the working tree, never in `$HOME`. Re-run it after a pull or a machine
 switch: a synced/copied `.venv` keeps the other machine's path.
 
-`scripts/check.sh` is the single gate for a change (lint, format, fast
-suite; extra pytest args are forwarded). What bootstrap runs, and the
-checks:
+`scripts/check.sh` is the single gate for a change: lint, format, then
+tests. It takes a mode, then optional pytest targets:
+
+```bash
+scripts/check.sh                       # fast suite, no QML driver (~20s)
+scripts/check.sh --changed             # only what git shows as touched
+scripts/check.sh --qml                 # full suite, QML driver included
+scripts/check.sh tests/test_config.py  # the given targets only
+```
+
+`--changed` maps `src/tkarcade/<name>.py` to `tests/test_<name>.py`
+(anything under `backends/` to `tests/test_backends.py`, `test_no_widgets.py`
+always when source changed, `pyproject.toml`/`packaging/` to
+`tests/test_packaging.py`). A touched file without that pair, or any
+`.qml` change, widens the run to the whole suite: the gate never skips a
+change silently. Use it while working; run the fast suite whole once
+before finishing, and `--qml` only when QML or the tests themselves
+changed.
+
+What bootstrap runs, and the raw commands:
 
 ```bash
 uv venv --system-site-packages .venv
 uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
-scripts/check.sh
 .venv/bin/python -m pytest tests/ -q          # full suite, ~90s
 ruff check src/ tests/
 ruff format --check src/ tests/  # line-length 100, see pyproject.toml
