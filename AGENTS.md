@@ -93,5 +93,7 @@ see a healthy QApplication). Driver knobs and QML rules live in
 Read the relevant one before the first change in that area:
 
 - `docs/QML-NOTES.md` — Kirigami/QML rules and the QML test driver.
-- `docs/POLICIES.md` — config compatibility, XDG, deps, dev environment,
-  `-git` builds, Flatpak, CLI exit codes.
+- `docs/DEVELOPMENT.md` — dev environment, commits/tags/releases,
+  packaging, AppImage.
+- `docs/POLICIES.md` — config compatibility, XDG, deps, `-git` builds,
+  Flatpak, CLI exit codes.

@@ -8,12 +8,18 @@ packages only (no uv in the chroot).
 
 On a fresh clone, `./scripts/bootstrap.sh` creates the venv, installs
 the tree editable and enables the commit hook. It writes only inside
-the working tree, never in `$HOME`. The explicit commands:
+the working tree, never in `$HOME`. Re-run it after a pull or a machine
+switch: a synced/copied `.venv` keeps the other machine's path.
+
+`scripts/check.sh` is the single gate for a change (lint, format, fast
+suite; extra pytest args are forwarded). What bootstrap runs, and the
+checks:
 
 ```bash
 uv venv --system-site-packages .venv
 uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
-.venv/bin/python -m pytest tests/ -q
+scripts/check.sh
+.venv/bin/python -m pytest tests/ -q          # full suite, ~90s
 ruff check src/ tests/
 ruff format --check src/ tests/  # line-length 100, see pyproject.toml
 QT_QPA_PLATFORM=offscreen PYTHONPATH=src .venv/bin/python -c "..."  # GUI smoke
