@@ -5,26 +5,26 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, clean and in sync with `origin/main` (the only dirty
-  file is the `-git` PKGBUILD `pkgver`, left uncommitted on purpose).
-  The short-lived branches `add-game-flow` and `casing-audit` landed as
-  two squashed, signed commits and were deleted locally and on origin.
-- Last landed: the Add game flow with the `.exe` hint, then the
-  capitalization audit. `AddDialog` keeps `Steam Game` / `Local Game`
-  and, for local games, a Game Type combo that preselects the same
-  field in Settings; Settings warns when a Windows executable runs as
-  Linux native and offers the Wine/Proton switch without blocking the
-  save. Every label, button, menu entry, dialog title, checkbox, column
-  and status message is Title Case, in the pt_BR catalog too; tool names
-  (`wine`, `umu-run`, `winetricks`, `vkd3d-proton`, `logind`,
-  `compatibilitytools.d`, `MangoHud`, `DXVK`) keep their spelling and
-  flags/paths stay verbatim.
-- Verified: 383 passed under `scripts/check.sh` on the squashed `main`
-  (384 with `--qml` on the branch, same tree), ruff clean, translations
-  complete (0 untranslated), offscreen screenshots showed no clipping.
-- Next: the deferred item in `TODO.md` "After game-types" — a running
-  indicator and a Terminate action in the GUI (the launcher writes
-  per-game logs but keeps no PID state today). New session and branch
-  off `main`; it touches the launcher/backends, so read
-  `docs/POLICIES.md` first.
+- Branch: `main`, clean and in sync with `origin/main`; the only dirty
+  file is the `-git` PKGBUILD `pkgver`, left uncommitted on purpose.
+- Last landed: the Add game flow (Game Type combo in the Add dialog,
+  `.exe` hint with the Wine/Proton switch in Settings) and the
+  capitalization audit (Title Case for labels, menus, titles, columns,
+  status messages and the pt_BR catalog; tool names and flags verbatim).
+  Both were short-lived branches, squashed and deleted.
+- Verified on `main` after the squash: `scripts/check.sh` 383 passed,
+  ruff check and format clean, `refresh-translations.sh` 0 untranslated
+  (the branch tree ran 384 under `--qml`, same content), offscreen
+  screenshots showed no clipped or overlapping text.
+- Next: the "After game-types" item in `TODO.md` — a running indicator
+  and a Terminate action in the GUI. The launcher writes per-game logs
+  but keeps no PID state, so this starts with the process bookkeeping in
+  the launcher/backends (stdlib-only invariant). New branch off `main`;
+  read `docs/POLICIES.md` first.
+- Open decisions: where the PID record lives (a file under the XDG state
+  dir next to the logs, versus a lock/socket) and how it is cleaned when
+  a game exits or the GUI restarts; whether Terminate signals the whole
+  process group (wrappers such as `gamemoderun`/`gamescope` sit in
+  between) and with which signal; and whether the indicator polls or
+  reacts to the launcher's exit.
 - Nothing blocking.
