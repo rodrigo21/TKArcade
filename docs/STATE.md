@@ -5,28 +5,24 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `add-game-flow`, two commits ahead of `main`, in sync with
-  `origin/add-game-flow`, working tree clean (the only dirty file is the
-  `-git` PKGBUILD `pkgver`, left uncommitted on purpose). Not merged:
-  `main` awaits the maintainer's approval.
-- Last landed: the Add game flow and the `.exe` hint. `AddDialog` keeps
-  `Steam Game` / `Local Game` and, for local games, a labelled Game Type
-  combo that preselects the same field in Settings
-  (`openNewGameSettings` → `openNew(gameType)`); the type stays editable
-  and saves as usual. Settings (Launch tab, under the executable) warns
-  when a `.exe`/`.bat`/`.msi` runs as Linux native, with `Switch to
-  Wine` (local) or `Switch to Proton` (Steam): it only changes the combo
-  and never blocks saving. New strings translated in pt_BR.
+- Branch: `casing-audit`, one signed commit on top of `add-game-flow`,
+  both pushed to origin (added with a plain `git push -u`, no
+  force). `add-game-flow` must land before this one, and it still
+  awaits the maintainer's approval.
+- Last landed: the capitalization audit. Every QML label, button, menu
+  entry, dialog title, checkbox, column and status message is Title
+  Case, and so is the pt_BR catalog (capitalize content words, lowercase
+  pt articles/prepositions). Tool names keep their spelling (`wine`,
+  `umu-run`, `winetricks`, `vkd3d-proton`, `logind`,
+  `compatibilitytools.d`, `MangoHud`, `DXVK`), flags and paths stay
+  verbatim, `(s)`/`(ies)` plural markers stay lowercase. The same pass
+  hit the status messages the GUI model builds in Python
+  (`gui/model.py`, not translated) and the tray menu.
 - Verified: 384 passed under `scripts/check.sh --qml`, ruff check and
-  format clean, offscreen screenshots of the Add dialog and the hint row
-  (no clipping, rows aligned), `.venv` reinstalled. Nothing code-side
-  changed since, so nothing was re-run.
-- Next: the capitalization audit (TODO "Add game flow and casing", last
-  item) in a new session and branch — Title Case for labels, buttons,
-  menus, titles and columns, sentence case kept for tooltips/info text,
-  tool names unchanged, pt_BR catalog carried over before
-  `refresh-translations.sh`.
-- Open decisions for that audit: placeholders (`empty = …`, `e.g. …`)
-  stay lowercase (recommended), and whether Title Case reaches the pt_BR
-  translations (recommended: keep them sentence case).
+  format clean, `refresh-translations.sh` reports 0 untranslated,
+  offscreen screenshots of the main page, Add dialog, all eight Settings
+  tabs and Preferences show no clipped or overlapping text.
+- Next: the two branches land (squash `add-game-flow`, then
+  `casing-audit`), then the deferred items in `TODO.md` ("After
+  game-types": running indicator and Terminate action).
 - Nothing blocking.

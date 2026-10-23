@@ -14,7 +14,7 @@ import org.kde.kirigami as Kirigami
 Window {
     id: prelaunch
     objectName: "prelaunchMenu"
-    title: qsTr("TKArcade — %1").arg(name || appid || qsTr("game"))
+    title: qsTr("TKArcade — %1").arg(name || appid || qsTr("Game"))
     modality: Qt.WindowModal
     // Widgets MenuDialog: setMinimumWidth(480) and a height that hugs
     // the content (480x121 for name + Proton line + buttons). The
@@ -105,7 +105,7 @@ Window {
         var lines = []
         var stats = gameModel.playStats(appid)
         if (stats && stats.runs) {
-            lines.push(qsTr("Played %1 over %2 session(s)").arg(stats.total).arg(stats.runs))
+            lines.push(qsTr("Played %1 Over %2 Session(s)").arg(stats.total).arg(stats.runs))
         }
         var wrappers = gameModel.activeWrappers(appid)
         if (wrappers !== "") {

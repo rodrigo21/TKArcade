@@ -93,19 +93,19 @@ Window {
                     width: parent.width
                     Controls.CheckBox {
                         objectName: "prefsShowPreview"
-                        text: qsTr("Show launch command preview")
+                        text: qsTr("Show Launch Command Preview")
                         checked: prefsDialog.values.showPreview ?? true
                         onClicked: prefsDialog.setPref("showPreview", checked)
-                        Controls.ToolTip.text: qsTr("Live preview box at the bottom of game dialogs.")
+                        Controls.ToolTip.text: qsTr("Live Preview Box at the Bottom of Game Dialogs.")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.CheckBox {
                         id: trayCheck
                         objectName: "prefsTray"
-                        text: qsTr("Enable status bar icon")
+                        text: qsTr("Enable Status Bar Icon")
                         checked: prefsDialog.values.trayEnable ?? false
                         onClicked: prefsDialog.setPref("trayEnable", checked)
-                        Controls.ToolTip.text: qsTr("Keep TKArcade in the system tray.")
+                        Controls.ToolTip.text: qsTr("Keep TKArcade in the System Tray.")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.ComboBox {
@@ -113,30 +113,30 @@ Window {
                         Layout.fillWidth: true
                         enabled: trayCheck.checked
                         model: [qsTr("Normal"), qsTr("Monochrome")]
-                        KirigamiLayouts.FormData.label: qsTr("Tray icon style:")
+                        KirigamiLayouts.FormData.label: qsTr("Tray Icon Style:")
                         currentIndex: prefsDialog.values.trayIcon === "mono" ? 1 : 0
                         onActivated: (index) => prefsDialog.setPref(
                             "trayIcon", index === 1 ? "mono" : "normal")
                     }
                     Controls.CheckBox {
-                        text: qsTr("Minimize to tray")
+                        text: qsTr("Minimize to Tray")
                         enabled: trayCheck.checked
                         checked: prefsDialog.values.minimizeToTray ?? false
                         onClicked: prefsDialog.setPref("minimizeToTray", checked)
                     }
                     Controls.CheckBox {
-                        text: qsTr("Close to tray")
+                        text: qsTr("Close to Tray")
                         enabled: trayCheck.checked
                         checked: prefsDialog.values.closeToTray ?? false
                         onClicked: prefsDialog.setPref("closeToTray", checked)
                     }
                     Controls.CheckBox {
                         id: quickCheck
-                        text: qsTr("Show recent games in tray menu")
+                        text: qsTr("Show Recent Games in Tray Menu")
                         enabled: trayCheck.checked
                         checked: prefsDialog.values.trayQuickLaunch ?? false
                         onClicked: prefsDialog.setPref("trayQuickLaunch", checked)
-                        Controls.ToolTip.text: qsTr("Launch recent games through Steam (steam:// URL).")
+                        Controls.ToolTip.text: qsTr("Launch Recent Games Through Steam (steam:// URL).")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.SpinBox {
@@ -146,24 +146,24 @@ Window {
                         to: 10
                         enabled: trayCheck.checked && quickCheck.checked
                         onValueModified: prefsDialog.setPref("trayQuickCount", value)
-                        Controls.ToolTip.text: qsTr("How many recent games to list.")
+                        Controls.ToolTip.text: qsTr("How Many Recent Games to List.")
                         Controls.ToolTip.visible: hovered
-                        KirigamiLayouts.FormData.label: qsTr("Recent games:")
+                        KirigamiLayouts.FormData.label: qsTr("Recent Games:")
                     }
                     Controls.TextField {
                         objectName: "prefsSgdb"
                         Layout.fillWidth: true
                         echoMode: Controls.TextField.Password
-                        placeholderText: qsTr("Free key from steamgriddb.com")
+                        placeholderText: qsTr("Free Key from steamgriddb.com")
                         text: prefsDialog.values.sgdbApiKey ?? ""
                         onTextChanged: {
                             if (prefsDialog.values.sgdbApiKey !== text) {
                                 prefsDialog.setPref("sgdbApiKey", text)
                             }
                         }
-                        Controls.ToolTip.text: qsTr("SteamGridDB API key for missing artwork fallback.")
+                        Controls.ToolTip.text: qsTr("SteamGridDB API Key for Missing Artwork Fallback.")
                         Controls.ToolTip.visible: hovered
-                        KirigamiLayouts.FormData.label: qsTr("SteamGridDB key:")
+                        KirigamiLayouts.FormData.label: qsTr("SteamGridDB Key:")
                     }
                     Controls.ComboBox {
                         id: langCombo
@@ -172,7 +172,7 @@ Window {
                         KirigamiLayouts.FormData.label: qsTr("Language:")
                         onActivated: (index) => prefsDialog.setPref(
                             "language", prefsDialog.langCodes[index] || "system")
-                        Controls.ToolTip.text: qsTr("Takes effect on restart.")
+                        Controls.ToolTip.text: qsTr("Takes Effect on Restart.")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.TextField {
@@ -185,8 +185,8 @@ Window {
                                 prefsDialog.setPref("prefixBase", text)
                             }
                         }
-                        KirigamiLayouts.FormData.label: qsTr("Prefix base:")
-                        Controls.ToolTip.text: qsTr("Local games use <base>/<AppID> unless the game overrides the path.")
+                        KirigamiLayouts.FormData.label: qsTr("Prefix Base:")
+                        Controls.ToolTip.text: qsTr("Local Games Use <base>/<AppID> Unless the Game Overrides the Path.")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.TextField {
@@ -199,50 +199,50 @@ Window {
                                 prefsDialog.setPref("wineBinary", text)
                             }
                         }
-                        KirigamiLayouts.FormData.label: qsTr("Wine binary:")
-                        Controls.ToolTip.text: qsTr("Wine executable (path or name) for non-Steam games.")
+                        KirigamiLayouts.FormData.label: qsTr("Wine Binary:")
+                        Controls.ToolTip.text: qsTr("Wine Executable (Path or Name) for Non-Steam Games.")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.TextField {
                         objectName: "prefsProtonDirs"
                         Layout.fillWidth: true
-                        placeholderText: qsTr("One directory per entry (: separated)")
+                        placeholderText: qsTr("One Directory per Entry (: Separated)")
                         text: prefsDialog.values.protonDirs ?? ""
                         onTextChanged: {
                             if (prefsDialog.values.protonDirs !== text) {
                                 prefsDialog.setPref("protonDirs", text)
                             }
                         }
-                        KirigamiLayouts.FormData.label: qsTr("Proton directories:")
-                        Controls.ToolTip.text: qsTr("Extra Proton installs, on top of Steam's compatibilitytools.d.")
+                        KirigamiLayouts.FormData.label: qsTr("Proton Directories:")
+                        Controls.ToolTip.text: qsTr("Extra Proton Installs, on Top of Steam's compatibilitytools.d.")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.TextField {
                         objectName: "prefsDxvkDirs"
                         Layout.fillWidth: true
-                        placeholderText: qsTr("One directory per entry (: separated)")
+                        placeholderText: qsTr("One Directory per Entry (: Separated)")
                         text: prefsDialog.values.dxvkDirs ?? ""
                         onTextChanged: {
                             if (prefsDialog.values.dxvkDirs !== text) {
                                 prefsDialog.setPref("dxvkDirs", text)
                             }
                         }
-                        KirigamiLayouts.FormData.label: qsTr("DXVK directories:")
-                        Controls.ToolTip.text: qsTr("Directories holding one DXVK version per subdirectory.")
+                        KirigamiLayouts.FormData.label: qsTr("DXVK Directories:")
+                        Controls.ToolTip.text: qsTr("Directories Holding One DXVK Version per Subdirectory.")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.TextField {
                         objectName: "prefsVkd3dDirs"
                         Layout.fillWidth: true
-                        placeholderText: qsTr("One directory per entry (: separated)")
+                        placeholderText: qsTr("One Directory per Entry (: Separated)")
                         text: prefsDialog.values.vkd3dDirs ?? ""
                         onTextChanged: {
                             if (prefsDialog.values.vkd3dDirs !== text) {
                                 prefsDialog.setPref("vkd3dDirs", text)
                             }
                         }
-                        KirigamiLayouts.FormData.label: qsTr("vkd3d-proton directories:")
-                        Controls.ToolTip.text: qsTr("Directories holding one vkd3d-proton version per subdirectory.")
+                        KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Directories:")
+                        Controls.ToolTip.text: qsTr("Directories Holding One vkd3d-proton Version per Subdirectory.")
                         Controls.ToolTip.visible: hovered
                     }
                 }
@@ -263,7 +263,7 @@ Window {
                     if (gameModel.savePrefs(prefsDialog.values)) {
                         prefsDialog.close()
                     } else if (page !== null) {
-                        page.notify(qsTr("Could not save preferences."))
+                        page.notify(qsTr("Could Not Save Preferences."))
                     }
                 }
             }

@@ -331,7 +331,7 @@ dispatch). Each needs one look on a real compositor:
   `.exe`/`.bat`/`.msi` while the type is `Linux (Native)`, with a
   `Switch to Wine` action (today such a game saves as native and fails
   at launch).
-- [ ] Capitalization audit across the program (QML labels, dialog
+- [x] Capitalization audit across the program (QML labels, dialog
   titles, menus, pt_BR catalog): Title Case for every word of labels,
   but never rewrite proper nouns or tool names that are deliberately
   lowercase (`wine`, `umu-run`, `winetricks`, `vkBasalt`, `MangoHud`,

@@ -265,7 +265,7 @@ def test_played_tip_role(qgui_app, xdg_env):
     proxy = GameFilterModel()
     proxy.setSourceModel(model)
     tip = proxy.data(proxy.index(0, 0), GameListModel.PlayedTipRole)
-    assert tip == "No recorded sessions"
+    assert tip == "No Recorded Sessions"
 
 
 def test_ludusavi_missing_reports(qgui_app, xdg_env, monkeypatch):
@@ -274,7 +274,7 @@ def test_ludusavi_missing_reports(qgui_app, xdg_env, monkeypatch):
     from tkarcade.gui.model import GameListModel
 
     monkeypatch.setattr(shutil, "which", lambda _name: None)
-    assert GameListModel().openLudusavi() == "Ludusavi was not found in PATH."
+    assert GameListModel().openLudusavi() == "Ludusavi Was Not Found in PATH."
 
 
 def test_about_text_names_program(qgui_app, xdg_env):
@@ -628,9 +628,9 @@ def test_library_schema_slots(qgui_app, xdg_env, tmp_path):
     C.save(cfg)
     model = GameListModel()
     assert model.allCategories() == []
-    assert model.setCategories([], "Action") == "Select games first."
+    assert model.setCategories([], "Action") == "Select Games First."
     assert model.setCategories(["local-doom"], "Action, Retro ,") == (
-        "Set 2 categor(ies) on 1 game(s)."
+        "Set 2 Categor(ies) on 1 Game(s)."
     )
     assert C.load("local-doom").general.categories == ["Action", "Retro"]
     assert model.allCategories() == ["Action", "Retro"]
@@ -643,13 +643,13 @@ def test_library_schema_slots(qgui_app, xdg_env, tmp_path):
     assert C.load("local-doom").artwork.icon == ""
     assert isinstance(model.wineTools(), list)
     assert model.applyWineVersion("local-doom", "proton_9") == (
-        "Version selection needs a Steam game."
+        "Version Selection Needs a Steam Game."
     )
     assert model.prefixDir("local-doom") == ""
     assert model.ensurePrefix("local-doom") == (
-        "Set a custom prefix dir first (Steam creates its own)."
+        "Set a Custom Prefix Dir First (Steam Creates Its Own)."
     )
-    assert model.clearCustomPrefix("local-doom") == "No custom prefix set."
+    assert model.clearCustomPrefix("local-doom") == "No Custom Prefix Set."
 
 
 def test_library_columns_roles(qgui_app, xdg_env):
@@ -858,14 +858,14 @@ def test_clone_reset_games(qgui_app, xdg_env):
     targets = model.cloneTargets("local-doom")
     assert targets == [["local-quake", "local-quake"]]
     assert model.cloneGameTo("local-doom", "???", False) == "Invalid game ID: ???"
-    assert model.cloneGameTo("local-doom", "local-doom", False) == "Source and target are the same."
+    assert model.cloneGameTo("local-doom", "local-doom", False) == "Source and Target Are the Same."
     assert model.cloneGameTo("local-doom", "local-quake", False) == "OVERWRITE"
     assert model.cloneGameTo("local-doom", "local-new", False) == "Cloned local-doom to local-new."
     assert C.game_file("local-new").is_file()
     assert (C.profiles_dir("local-new") / "fast.toml").is_file()
     assert model.cloneGameTo("local-doom", "local-quake", True).startswith("Cloned")
-    assert model.resetGames([]) == "Select games first."
-    assert model.resetGames(["local-doom"]) == "Reset 1 game(s) to the Global Defaults template."
+    assert model.resetGames([]) == "Select Games First."
+    assert model.resetGames(["local-doom"]) == "Reset 1 Game(s) to the Global Defaults Template."
     assert C.load("local-doom").general.name == ""
     assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
 
@@ -1056,12 +1056,12 @@ def test_export_import_tarball_roundtrip(qgui_app, xdg_env, tmp_path):
     assert "Exported to" in model.exportTarball(str(dest))
     assert dest.is_file()
     assert model.exportTarball("") == ""
-    assert model.exportTarball(str(tmp_path / "missing" / "x.tar.gz")).startswith("Export failed")
+    assert model.exportTarball(str(tmp_path / "missing" / "x.tar.gz")).startswith("Export Failed")
     C.game_file("99").unlink()
-    assert model.importTarball(str(dest)) == "Imported 1 game(s)"
+    assert model.importTarball(str(dest)) == "Imported 1 Game(s)"
     assert C.game_file("99").is_file()
     assert model.importTarball("") == ""
-    assert model.importTarball(str(tmp_path / "nope.tar.gz")).startswith("Import failed")
+    assert model.importTarball(str(tmp_path / "nope.tar.gz")).startswith("Import Failed")
 
 
 def test_stl_import_flow(qgui_app, xdg_env, monkeypatch):
@@ -1080,16 +1080,16 @@ def test_stl_import_flow(qgui_app, xdg_env, monkeypatch):
     (stl_id / "99.conf").write_text('USE_GAMEMODE="1"\n')
     model = GameListModel()
     assert model.stlCandidates() == [["99", "Doom 3"]]
-    assert "steamtinkerlaunch' profile" in model.importStl(["99"])
+    assert "steamtinkerlaunch' Profile" in model.importStl(["99"])
     assert C.profile_file("99", "steamtinkerlaunch").is_file()
     assert "Skipped" in model.importStl(["100"])
-    assert model.importStl([]) == "Nothing selected."
+    assert model.importStl([]) == "Nothing Selected."
 
 
 def test_import_predecessor_without_source(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 
-    assert GameListModel().importPredecessor().startswith("Import failed")
+    assert GameListModel().importPredecessor().startswith("Import Failed")
 
 
 def _filtered(qgui_app, appids=("213", "local-doom")):

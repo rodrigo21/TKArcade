@@ -56,7 +56,7 @@ Window {
         if (sourceBox.currentIndex === 0) {
             if (steamRows.length === 0) {
                 if (page !== null) {
-                    page.notify(qsTr("Every Steam game is already configured."))
+                    page.notify(qsTr("Every Steam Game Is Already Configured."))
                 }
                 addGameDialog.close()
                 return
@@ -89,7 +89,7 @@ Window {
             gameModel.pressDefault(addGameDialog, ["addConfirm"])
         }
         Controls.Label {
-            text: qsTr("What kind of game is this?")
+            text: qsTr("What Kind of Game Is This?")
         }
         Controls.ComboBox {
             id: sourceBox
@@ -108,7 +108,7 @@ Window {
             Layout.fillWidth: true
             // Same three choices as Settings, in the same order.
             model: [
-                qsTr("Linux (native)"),
+                qsTr("Linux (Native)"),
                 qsTr("Windows (Wine)"),
                 qsTr("Windows (Proton via UMU)")
             ]

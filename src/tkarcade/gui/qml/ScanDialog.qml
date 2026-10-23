@@ -72,7 +72,7 @@ Window {
             id: scanHeader
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
-            text: qsTr("Steam games without a saved configuration:")
+            text: qsTr("Steam Games without a Saved Configuration:")
         }
         Controls.ScrollView {
             clip: true
@@ -118,7 +118,7 @@ Window {
                 onClicked: {
                     var n = gameModel.addScanned(scanDialog.picked)
                     if (page !== null) {
-                        page.notify(qsTr("Added %1 game(s).").arg(n))
+                        page.notify(qsTr("Added %1 Game(s).").arg(n))
                     }
                     scanDialog.close()
                 }

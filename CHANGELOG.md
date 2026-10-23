@@ -237,6 +237,13 @@ Breaking config changes are called out explicitly under `Changed`.
   DXVK checkbox plus a D3D12 layer combo, and the status line/removal
   covers both. Configs with the old key load with every layer off (no
   migration shim, pre-1.0).
+- UI wording is Title Case across the program: labels, buttons, menus,
+  window and dialog titles, checkboxes, table columns and status
+  messages, in English and in the pt_BR catalog. Tool names keep their
+  own spelling (`wine`, `umu-run`, `winetricks`, `vkd3d-proton`,
+  `MangoHud`, `DXVK`, `logind`, `compatibilitytools.d`), command-line
+  flags and paths stay verbatim, and the "(s)"/"(ies)" plural markers
+  stay lowercase.
 - Package metadata requires `PySide6>=6.12`: Qt 6.12.0 is the first
   branch with the fixes for CVE-2026-8168 (SVG nesting DoS),
   CVE-2026-105923 (VectorImage null dereference) and CVE-2026-15037

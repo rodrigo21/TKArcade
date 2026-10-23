@@ -71,7 +71,7 @@ Window {
             }
             Controls.Label {
                 Layout.preferredWidth: historyView.colLast
-                text: qsTr("Last played")
+                text: qsTr("Last Played")
                 font.bold: true
             }
             Controls.Label {
@@ -82,7 +82,7 @@ Window {
             }
             Controls.Label {
                 Layout.preferredWidth: historyView.colTotal
-                text: qsTr("Total time")
+                text: qsTr("Total Time")
                 font.bold: true
                 horizontalAlignment: Text.AlignRight
             }
@@ -169,7 +169,7 @@ Window {
         objectName: "historyClearAllDialog"
         title: qsTr("Clear History")
         dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Clear all session history? This cannot be undone.")
+        subtitle: qsTr("Clear All Session History? This Cannot Be Undone.")
         customFooterActions: [
             Kirigami.Action {
                 objectName: "historyClearAllConfirm"

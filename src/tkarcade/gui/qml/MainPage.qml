@@ -91,7 +91,7 @@ Kirigami.Page {
             // pages get a shorter filter so the icons still fit.
             // Shared with the elastics below (single source of truth).
             implicitWidth: gamesPage.titleFilterWidth
-            placeholderText: qsTr("Filter by name or ID…")
+            placeholderText: qsTr("Filter by Name or ID…")
             onTextChanged: gameFilter.textQuery = text
         }
         Item {
@@ -441,7 +441,7 @@ Kirigami.Page {
 
     function playSelected() {
         if (selectedIds.length === 0) {
-            gamesPage.notify(qsTr("Select a game first."))
+            gamesPage.notify(qsTr("Select a Game First."))
             return
         }
         gameModel.play(selectedIds[0])
@@ -449,7 +449,7 @@ Kirigami.Page {
 
     function openSettingsForSelection() {
         if (selectedIds.length === 0) {
-            gamesPage.notify(qsTr("Select a game first."))
+            gamesPage.notify(qsTr("Select a Game First."))
             return
         }
         gamesPage.openGameSettings(selectedIds[0])
@@ -457,7 +457,7 @@ Kirigami.Page {
 
     function openRemoveDialog() {
         if (selectedIds.length === 0) {
-            gamesPage.notify(qsTr("Select games first."))
+            gamesPage.notify(qsTr("Select Games First."))
             return
         }
         removeDialog.open()
@@ -481,7 +481,7 @@ Kirigami.Page {
 
     function openResetDialog() {
         if (selectedIds.length === 0) {
-            gamesPage.notify(qsTr("Select games first."))
+            gamesPage.notify(qsTr("Select Games First."))
             return
         }
         resetRows = selectedIds.slice()
@@ -517,7 +517,7 @@ Kirigami.Page {
         validateGid = gid
         validateIssues = gameModel.validateGame(gid)
         if (validateIssues.length === 0) {
-            gamesPage.notify(qsTr("No issues found."))
+            gamesPage.notify(qsTr("No Issues Found."))
             return
         }
         validateDialog.open()
@@ -685,11 +685,11 @@ Kirigami.Page {
                 return
             }
             if (kind === "steam") {
-                gamesPage.notify(qsTr("Could not ask Steam to launch the game."))
+                gamesPage.notify(qsTr("Could Not Ask Steam to Launch the Game."))
             } else if (detail !== "") {
-                gamesPage.notify(qsTr("Could not launch %1: %2").arg(name).arg(detail))
+                gamesPage.notify(qsTr("Could Not Launch %1: %2").arg(name).arg(detail))
             } else {
-                gamesPage.notify(qsTr("Could not launch %1.").arg(name))
+                gamesPage.notify(qsTr("Could Not Launch %1.").arg(name))
             }
         }
     }
@@ -981,7 +981,7 @@ Kirigami.Page {
     Kirigami.Action {
         id: actionAdd
         objectName: "actionAdd"
-        text: qsTr("Add game")
+        text: qsTr("Add Game")
         icon.name: "list-add"
         onTriggered: addGameDialog.open()
     }
@@ -1049,7 +1049,7 @@ Kirigami.Page {
                                             var cands = gameModel.scanCandidates()
                                             if (cands.length === 0) {
                                                 gamesPage.notify(
-                                                    qsTr("Every Steam game is already configured."))
+                                                    qsTr("Every Steam Game Is Already Configured."))
                                                 return
                                             }
                                             scanDialog.candidates = cands
@@ -1065,7 +1065,7 @@ Kirigami.Page {
                                     }
                                     Controls.MenuItem {
                                         objectName: "issuesOnly"
-                                        text: qsTr("With issues only")
+                                        text: qsTr("With Issues Only")
                                         checkable: true
                                         checked: gameFilter.issuesOnly
                                         onTriggered: gameFilter.issuesOnly = checked
@@ -1079,7 +1079,7 @@ Kirigami.Page {
                                         text: qsTr("Validate Game")
                                         onTriggered: {
                                             if (gamesPage.selectedIds.length === 0) {
-                                                gamesPage.notify(qsTr("Select a game first."))
+                                                gamesPage.notify(qsTr("Select a Game First."))
                                                 return
                                             }
                                             gamesPage.openValidateDialog(gamesPage.selectedIds[0])
@@ -1098,7 +1098,7 @@ Kirigami.Page {
                                         text: qsTr("Open Logs Folder")
                                         onTriggered: {
                                             if (!gameModel.openPath(gameModel.logsDir())) {
-                                                gamesPage.notify(qsTr("Could not open the logs folder."))
+                                                gamesPage.notify(qsTr("Could Not Open the Logs Folder."))
                                             }
                                         }
                                     }
@@ -1107,7 +1107,7 @@ Kirigami.Page {
                                         onTriggered: {
                                             var rows = gameModel.orphanedProfiles()
                                             if (rows.length === 0) {
-                                                gamesPage.notify(qsTr("No orphaned profiles."))
+                                                gamesPage.notify(qsTr("No Orphaned Profiles."))
                                                 return
                                             }
                                             var ids = []
@@ -1218,7 +1218,7 @@ Kirigami.Page {
                 onMoved: gamesPage.setViewSize(value)
             }
             Controls.Label {
-                text: qsTr("Sort by")
+                text: qsTr("Sort By")
                 font.bold: true
             }
             Controls.RadioButton {
@@ -1252,7 +1252,7 @@ Kirigami.Page {
                 onToggled: gamesPage.setSort("gameSource", gamesPage.sortDescending)
             }
             Controls.CheckBox {
-                text: qsTr("Reverse order")
+                text: qsTr("Reverse Order")
                 checked: gamesPage.sortDescending
                 onToggled: gamesPage.setSort(gamesPage.sortRole, checked)
             }
@@ -1317,7 +1317,7 @@ Kirigami.Page {
             text: qsTr("Open Install Folder")
             onTriggered: {
                 if (!gameModel.openPath(gamesPage.menuInstall)) {
-                    gamesPage.notify(qsTr("Could not open the install folder."))
+                    gamesPage.notify(qsTr("Could Not Open the Install Folder."))
                 }
             }
         }
@@ -1327,7 +1327,7 @@ Kirigami.Page {
             text: qsTr("Open Proton Prefix")
             onTriggered: {
                 if (!gameModel.openPath(gamesPage.menuPrefix)) {
-                    gamesPage.notify(qsTr("Could not open the prefix folder."))
+                    gamesPage.notify(qsTr("Could Not Open the Prefix Folder."))
                 }
             }
         }
@@ -1374,7 +1374,7 @@ Kirigami.Page {
             text: qsTr("Set Categories…")
             onTriggered: {
                 if (gamesPage.selectedIds.length === 0) {
-                    gamesPage.notify(qsTr("Select games first."))
+                    gamesPage.notify(qsTr("Select Games First."))
                     return
                 }
                 bulkCatsField.text = ""
@@ -1814,7 +1814,7 @@ Kirigami.Page {
                         id: tierHover
                     }
                     Controls.ToolTip.visible: tierHover.hovered && (model?.gameTier ?? "") !== ""
-                    Controls.ToolTip.text: qsTr("Open ProtonDB page")
+                    Controls.ToolTip.text: qsTr("Open ProtonDB Page")
                 }
                 // source (logical 5 shares the plain label above)
             }
@@ -1958,8 +1958,8 @@ Kirigami.Page {
     Kirigami.PlaceholderMessage {
         anchors.centerIn: parent
         visible: gamesPage.viewMode === "list" && gameFilter.rowCount() === 0
-        text: qsTr("No games configured yet")
-        explanation: qsTr("1. Add a Steam game · 2. Edit its settings · 3. Set its Steam launch options to tkarcade %command%")
+        text: qsTr("No Games Configured Yet")
+        explanation: qsTr("1. Add a Steam Game · 2. Edit Its Settings · 3. Set Its Steam Launch Options to tkarcade %command%")
     }
     RowLayout {
         anchors.centerIn: parent
@@ -2048,8 +2048,8 @@ Kirigami.Page {
         Kirigami.PlaceholderMessage {
             anchors.centerIn: parent
             visible: iconGrid.count === 0
-            text: qsTr("No games yet")
-            explanation: qsTr("Add a native Linux game to get started.")
+            text: qsTr("No Games Yet")
+            explanation: qsTr("Add a Native Linux Game to Get Started.")
         }
     }
 
@@ -2080,8 +2080,8 @@ Kirigami.Page {
             Kirigami.PlaceholderMessage {
                 Layout.fillWidth: true
                 visible: gameFilter.rowCount() === 0
-                text: qsTr("No games yet")
-                explanation: qsTr("Add a native Linux game to get started.")
+                text: qsTr("No Games Yet")
+                explanation: qsTr("Add a Native Linux Game to Get Started.")
             }
         }
     }
@@ -2101,14 +2101,14 @@ Kirigami.Page {
                 if (gamesPage.statusMessage !== "") {
                     return gamesPage.statusMessage
                 }
-                var base = qsTr("%1 configured · %2 Steam games detected").arg(
+                var base = qsTr("%1 Configured · %2 Steam Games Detected").arg(
                     gameModel.totalCount).arg(gameModel.steamDetectedCount)
                 var filtered = gameFilter.textQuery !== ""
                     || gameFilter.issuesOnly
                     || gameFilter.sourceKey !== "all"
                     || gameFilter.categoryKey !== ""
                 if (filtered) {
-                    return base + qsTr(" · %1 shown").arg(gameFilter.rowCount())
+                    return base + qsTr(" · %1 Shown").arg(gameFilter.rowCount())
                 }
                 return base
             }
@@ -2165,9 +2165,9 @@ Kirigami.Page {
         title: qsTr("Remove Games")
         dialogType: KirigamiDialogs.PromptDialog.Warning
         subtitle: gamesPage.selectedIds.length === 1
-            ? qsTr("Remove the configuration for %1?").arg(
+            ? qsTr("Remove the Configuration for %1?").arg(
                 gameModel.gameNames(gamesPage.selectedIds)[0])
-            : qsTr("Remove the configurations for %1 games?").arg(
+            : qsTr("Remove the Configurations for %1 Games?").arg(
                 gamesPage.selectedIds.length)
         customFooterActions: [
             Kirigami.Action {
@@ -2209,7 +2209,7 @@ Kirigami.Page {
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: qsTr("These games were removed but still have saved profiles:")
+                text: qsTr("These Games Were Removed but Still Have Saved Profiles:")
             }
             Repeater {
                 model: cleanupDialog.leftovers
@@ -2240,7 +2240,7 @@ Kirigami.Page {
                 onTriggered: {
                     var n = gameModel.cleanProfiles(cleanupDialog.picked)
                     gamesPage.notify(
-                        qsTr("Cleaned profiles for %1 game(s).").arg(n))
+                        qsTr("Cleaned Profiles for %1 Game(s).").arg(n))
                     cleanupDialog.close()
                 }
             },
@@ -2257,7 +2257,7 @@ Kirigami.Page {
         objectName: "shaderDialog"
         title: qsTr("Clear Shader Cache")
         dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Delete %1 of shader cache for %2? Steam rebuilds it on demand.").arg(
+        subtitle: qsTr("Delete %1 of Shader Cache for %2? Steam Rebuilds It on Demand.").arg(
             gamesPage.menuShaderSize).arg(gamesPage.menuGid)
         customFooterActions: [
             Kirigami.Action {
@@ -2283,7 +2283,7 @@ Kirigami.Page {
         objectName: "historyDialog"
         title: qsTr("Clear History")
         dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Clear session history for %1? This cannot be undone.").arg(
+        subtitle: qsTr("Clear Session History for %1? This Cannot Be Undone.").arg(
             gamesPage.menuGid)
         customFooterActions: [
             Kirigami.Action {
@@ -2293,7 +2293,7 @@ Kirigami.Page {
                 onTriggered: {
                     var n = gameModel.clearHistory(gamesPage.menuGid)
                     gamesPage.notify(
-                        qsTr("Cleared %1 session(s).").arg(n))
+                        qsTr("Cleared %1 Session(s).").arg(n))
                     historyDialog.close()
                 }
             },
@@ -2329,7 +2329,7 @@ Kirigami.Page {
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: qsTr("Clone into game:")
+                text: qsTr("Clone into Game:")
             }
             Controls.ComboBox {
                 id: cloneBox
@@ -2359,7 +2359,7 @@ Kirigami.Page {
         objectName: "overwriteDialog"
         title: qsTr("Clone Settings")
         dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Overwrite the saved settings for %1?").arg(gamesPage.cloneDest)
+        subtitle: qsTr("Overwrite the Saved Settings for %1?").arg(gamesPage.cloneDest)
         customFooterActions: [
             Kirigami.Action {
                 objectName: "overwriteConfirm"
@@ -2391,7 +2391,7 @@ Kirigami.Page {
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: qsTr("Comma-separated tags (empty clears). Applies to %1 game(s).").arg(
+                text: qsTr("Comma-Separated Tags (Empty Clears). Applies to %1 Game(s).").arg(
                     gamesPage.selectedIds.length)
             }
             Controls.TextField {
@@ -2426,7 +2426,7 @@ Kirigami.Page {
         objectName: "resetDialog"
         title: qsTr("Reset to Global Defaults")
         dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Reset %1 game(s) to the Global Defaults template now?\nThis overwrites their saved configs (profiles are kept).").arg(
+        subtitle: qsTr("Reset %1 Game(s) to the Global Defaults Template Now?\nThis Overwrites Their Saved Configs (Profiles Are Kept).").arg(
             gamesPage.resetRows.length)
         customFooterActions: [
             Kirigami.Action {

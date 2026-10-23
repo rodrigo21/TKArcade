@@ -363,7 +363,7 @@ def test_launch_reports_failure_and_status(qgui_app, xdg_env, monkeypatch):
 
     monkeypatch.setattr(launchermod, "launch_local_detached", boom)
     assert model.play("local-boom") is False
-    assert _wait_for(lambda: "Could not launch Boom" in label.property("text"))
+    assert _wait_for(lambda: "Could Not Launch Boom" in label.property("text"))
     assert "no such executable" in page.property("notice")
     assert page.property("statusMessage") == ""
 
@@ -1745,7 +1745,7 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
     assert visible_titles(TAB_ENV) == ["Environment Variables"]
     # A local game has its own Wine/umu runtime section (with the Steam
     # Proton box and its note right below, never the Proton box).
-    assert visible_titles(TAB_COMPAT) == ["Windows runtime", "Wine"]
+    assert visible_titles(TAB_COMPAT) == ["Windows Runtime", "Wine"]
     assert visible_titles(TAB_PERF) == ["Game Mode", "MangoHud", "RT Upscaler"]
     assert visible_titles(TAB_DISPLAY) == ["Display Mode", "Gamescope"]
     assert visible_titles(TAB_SYSTEM) == [
@@ -1835,7 +1835,7 @@ def _check_dependency_box(win, settings, tabs, qgui_app):
         text = cell.property("text")
         assert text.startswith('<span style="color:#'), text
         assert text.split(">", 1)[1][0] in "✓⚠●"
-    assert "No custom prefix" in cells[0].property("text")
+    assert "No Custom Prefix" in cells[0].property("text")
 
     # The widgets picked the mark palette from the theme's darkness.
     dark = settings.property("statusDark")
@@ -1844,27 +1844,27 @@ def _check_dependency_box(win, settings, tabs, qgui_app):
     assert settings.statusColor("note") == ("#e3b341" if dark else "#9a6700")
     # The wording is the widgets' (game_dialog._binary_status/_set_status).
     assert (
-        settings.statusText({"msg": "prefix-none"}) == "No custom prefix — game launches directly"
+        settings.statusText({"msg": "prefix-none"}) == "No Custom Prefix — Game Launches Directly"
     )
     assert (
         settings.statusText({"msg": "binary-off", "args": ["mangohud", "/usr/bin/mangohud"]})
-        == "mangohud — /usr/bin/mangohud (off)"
+        == "mangohud — /usr/bin/mangohud (Off)"
     )
     assert (
         settings.statusText({"msg": "binary-missing", "args": ["mangohud"]})
-        == "mangohud not found in PATH — skipped at launch"
+        == "mangohud Not Found in PATH — Skipped at Launch"
     )
     assert (
         settings.statusText({"msg": "binary-missing-fatal", "args": ["zink-run"]})
-        == "zink-run not found in PATH — launch will fail"
+        == "zink-run Not Found in PATH — Launch Will Fail"
     )
     assert (
         settings.statusText({"msg": "hook-missing", "args": ["pre-hook", "/tmp/gone.sh"]})
-        == "pre-hook not found: /tmp/gone.sh"
+        == "pre-hook Not Found: /tmp/gone.sh"
     )
     assert (
         settings.statusText({"msg": "steam-missing"})
-        == "Steam launch options lack tkarcade (add: tkarcade %command%)"
+        == "Steam Launch Options Lack tkarcade (Add: tkarcade %command%)"
     )
 
     # The centered checkbox collapses the whole block and persists the
@@ -2978,7 +2978,7 @@ def test_footer_shows_filtered_count(qgui_app, xdg_env):
     assert "shown" not in status.property("text")
     proxy.setProperty("textQuery", "doom")
     qgui_app.processEvents()
-    assert "1 shown" in status.property("text")
+    assert "1 Shown" in status.property("text")
     proxy.setProperty("textQuery", "")
     qgui_app.processEvents()
     assert "shown" not in status.property("text")
@@ -2986,7 +2986,7 @@ def test_footer_shows_filtered_count(qgui_app, xdg_env):
     proxy.setProperty("categoryKey", "Retro")
     qgui_app.processEvents()
     assert proxy.rowCount() == 1
-    assert "1 shown" in status.property("text")
+    assert "1 Shown" in status.property("text")
     proxy.setProperty("categoryKey", "")
     qgui_app.processEvents()
     assert "shown" not in status.property("text")
@@ -3090,7 +3090,7 @@ def test_toolbar_actions_in_header_and_quit_shortcut(qgui_app, xdg_env):
     win, _engine, _proxy, warnings = _load_main(qgui_app)
     for name, label in (
         ("actionPlay", "Play"),
-        ("actionAdd", "Add game"),
+        ("actionAdd", "Add Game"),
         ("actionEdit", "Edit..."),
         ("actionRemove", "Remove"),
     ):
@@ -3317,7 +3317,7 @@ def test_hamburger_validates_the_selection(qgui_app, xdg_env):
     page.setProperty("selectedIds", [])
     _fire(validate)
     qgui_app.processEvents()
-    assert "Select a game first." in page.property("notice")
+    assert "Select a Game First." in page.property("notice")
     page.select("local-bad")
     qgui_app.processEvents()
     _fire(validate)
@@ -3325,7 +3325,7 @@ def test_hamburger_validates_the_selection(qgui_app, xdg_env):
     dialog = win.findChild(QObject, "validateDialog")
     assert dialog.property("visible") is True
     assert "nonexistent" in dialog.property("subtitle") or (
-        "not found" in dialog.property("subtitle")
+        "Not Found" in dialog.property("subtitle")
     )
     dialog.close()
     qgui_app.processEvents()
@@ -4694,7 +4694,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     # and the saved "wine" type selects the second entry.
     assert type_box.property("count") == 3
     assert type_box.property("model") == [
-        "Linux (native)",
+        "Linux (Native)",
         "Windows (Wine)",
         "Windows (Proton via UMU)",
     ]
@@ -4798,7 +4798,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert not (prefix / "drive_c" / "windows" / "system32" / "d3d11.dll").is_file()
     assert not G.marker_path(prefix).is_file()
     assert remove.property("enabled") is False
-    assert "Nothing installed" in status.property("text")
+    assert "Nothing Installed" in status.property("text")
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -4986,7 +4986,7 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     add2 = _modal_window(qgui_app, ("Add Game",))
     add2.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
     click("addConfirm", add2)
-    _modal_window(qgui_app, ("Add game",))
+    _modal_window(qgui_app, ("Add Game",))
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -5593,7 +5593,7 @@ def _check_toolbar_pinned(win, qgui_app):
     assert search_right - search_left >= 100
     assert search_left >= 0 and search_right <= icons_right + 1
 
-    group_left, group_right = _button_bounds(win, ("Play", "Add game", "Edit...", "Remove"))
+    group_left, group_right = _button_bounds(win, ("Play", "Add Game", "Edit...", "Remove"))
     assert group_left is not None and group_right is not None
     # Right-aligned row: buttons sit left of the filter with no overlap.
     assert group_right <= search_left + 1, (group_left, group_right, search_left)

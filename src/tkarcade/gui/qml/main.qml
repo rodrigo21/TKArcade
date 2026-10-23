@@ -105,7 +105,7 @@ Kirigami.ApplicationWindow {
                     Layout.alignment: Qt.AlignVCenter
                     icon.name: gameModel.iconName(["input-gamepad", "applications-games"])
                     enabled: sourceDrawer.collapsible
-                    Controls.ToolTip.text: sourceDrawer.collapsed ? qsTr("Expand sidebar") : qsTr("Collapse sidebar")
+                    Controls.ToolTip.text: sourceDrawer.collapsed ? qsTr("Expand Sidebar") : qsTr("Collapse Sidebar")
                     Controls.ToolTip.visible: hovered
                     onClicked: {
                         sourceDrawer.collapsed = !sourceDrawer.collapsed

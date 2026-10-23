@@ -61,7 +61,7 @@ Kirigami.Dialog {
 
     ColumnLayout {
         Controls.Label {
-            text: qsTr("Uncheck to hide, arrows to reorder.")
+            text: qsTr("Uncheck to Hide, Arrows to Reorder.")
         }
         Repeater {
             // Static literal: JS array end to end, never a QVariantList.
@@ -81,14 +81,14 @@ Kirigami.Dialog {
                 }
                 Controls.ToolButton {
                     icon.name: "go-up"
-                    text: qsTr("Move up")
+                    text: qsTr("Move Up")
                     display: Controls.AbstractButton.IconOnly
                     enabled: page !== null && page.columnOrder.indexOf(logical) > 2
                     onClicked: page.moveColumn(logical, -1)
                 }
                 Controls.ToolButton {
                     icon.name: "go-down"
-                    text: qsTr("Move down")
+                    text: qsTr("Move Down")
                     display: Controls.AbstractButton.IconOnly
                     enabled: page !== null && page.columnOrder.indexOf(logical) < page.columnOrder.length - 1
                     onClicked: page.moveColumn(logical, 1)

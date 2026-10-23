@@ -133,7 +133,7 @@ Window {
                 Controls.Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: qsTr("A tarball created by Export:")
+                    text: qsTr("A Tarball Created by Export:")
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -169,7 +169,7 @@ Window {
                 Controls.Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: qsTr("Configured games with an STL config (imports as profiles):")
+                    text: qsTr("Configured Games with an STL Config (Imports as Profiles):")
                 }
                 Controls.ScrollView {
                     clip: true
@@ -247,7 +247,7 @@ Window {
                 Controls.Label {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: qsTr("Copy configs from the predecessor project (missing files only, never overwrites):")
+                    text: qsTr("Copy Configs from the Predecessor Project (Missing Files Only, Never Overwrites):")
                 }
                 Controls.Button {
                     objectName: "importPredecessorConfirm"

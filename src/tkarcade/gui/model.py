@@ -38,11 +38,11 @@ log = logging.getLogger("tkarcade.kirigami")
 def validate_local_game(name: str, exe: str) -> str:
     """Return an error string, or '' when the pair is acceptable."""
     if not name.strip():
-        return "Give the game a name."
+        return "Give the Game a Name."
     if not exe.strip():
-        return "Pick the game executable."
+        return "Pick the Game Executable."
     if not os.path.isfile(exe.strip()) and shutil.which(exe.strip()) is None:
-        return f"Executable not found: {exe.strip()}"
+        return f"Executable Not Found: {exe.strip()}"
     return ""
 
 
@@ -74,7 +74,7 @@ def _dep_binary(name: str, enabled: bool, note: str = "") -> dict:
 def _played_cells(st) -> tuple[str, int, str, str, int]:
     """(duration, seconds, tooltip, last played, last epoch) for one game."""
     if st is None:
-        return "—", -1, "No recorded sessions", "—", -1
+        return "—", -1, "No Recorded Sessions", "—", -1
     last = st.last.replace("T", " ")
     try:
         from datetime import datetime
@@ -428,7 +428,7 @@ class GameListModel(QAbstractTableModel):
             gcfg.general.platform if gcfg is not None else "",
             cfgmod.normalize_game_type(gcfg.general.game_type).title()
             if gcfg is not None and cfgmod.normalize_game_type(gcfg.general.game_type)
-            else ("Not set" if gcfg is not None else ""),
+            else ("Not Set" if gcfg is not None else ""),
             self._row_wine(appid, gcfg, is_steam),
             self._row_install_dir(appid, gcfg),
             ", ".join(gcfg.general.categories) if gcfg is not None else "",
@@ -505,7 +505,7 @@ class GameListModel(QAbstractTableModel):
         """
         threading.Thread(
             target=self._pick_worker,
-            args=("Game executable", "Select", False, ""),
+            args=("Game Executable", "Select", False, ""),
             daemon=True,
         ).start()
 
@@ -514,7 +514,7 @@ class GameListModel(QAbstractTableModel):
         """Generic folder picker off the GUI thread; result via browseFinished."""
         threading.Thread(
             target=self._pick_dir_worker,
-            args=(title or "Pick a folder", accept_label or "Select"),
+            args=(title or "Pick a Folder", accept_label or "Select"),
             daemon=True,
         ).start()
 
@@ -533,7 +533,7 @@ class GameListModel(QAbstractTableModel):
         """Generic open picker off the GUI thread; result via browseFinished."""
         threading.Thread(
             target=self._pick_worker,
-            args=(title or "Pick a file", accept_label or "Open", False, ""),
+            args=(title or "Pick a File", accept_label or "Open", False, ""),
             daemon=True,
         ).start()
 
@@ -542,7 +542,7 @@ class GameListModel(QAbstractTableModel):
         """Generic save picker off the GUI thread; result via browseFinished."""
         threading.Thread(
             target=self._pick_worker,
-            args=(title or "Save file", accept_label or "Save", True, filename or ""),
+            args=(title or "Save File", accept_label or "Save", True, filename or ""),
             daemon=True,
         ).start()
 
@@ -1010,7 +1010,7 @@ class GameListModel(QAbstractTableModel):
         """Bulk-set category tags from comma text. Returns a status message."""
         ids = [str(a) for a in appids or []]
         if not ids:
-            return "Select games first."
+            return "Select Games First."
         cats = [c.strip() for c in str(text or "").split(",") if c.strip()]
         count = 0
         for appid in ids:
@@ -1022,21 +1022,21 @@ class GameListModel(QAbstractTableModel):
             except Exception as e:
                 log.warning("setCategories(%s) failed: %s", appid, e)
         self.refresh()
-        return f"Set {len(cats)} categor(ies) on {count} game(s)."
+        return f"Set {len(cats)} Categor(ies) on {count} Game(s)."
 
     @Slot(str, str, str, result=str)
     def storeArtwork(self, appid: str, kind: str, src: str) -> str:
         """Copy an image into the manual slot and point the config at it."""
         dest = artmod.store_manual(appid, kind, src)
         if dest is None:
-            return "Pick a PNG, JPG or WebP image file."
+            return "Pick a PNG, JPG or WebP Image File."
         try:
             cfg = cfgmod.load(appid)
             setattr(cfg.artwork, kind, os.fspath(dest))
             cfgmod.save(cfg)
         except Exception as e:
             log.warning("storeArtwork(%s) failed: %s", appid, e)
-            return "Could not save the artwork path."
+            return "Could Not Save the Artwork Path."
         self.refresh()
         return ""
 
@@ -1081,7 +1081,7 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             system = None
         if system:
-            rows.append([f"system wine ({system})", ""])
+            rows.append([f"System wine ({system})", ""])
         return rows
 
     @Slot(result=bool)
@@ -1101,16 +1101,16 @@ class GameListModel(QAbstractTableModel):
     def applyWineVersion(self, appid: str, tool: str) -> str:
         """Point Steam's compat mapping at a tool. '' on success, else why."""
         if not steammod.is_steam_id(appid) or not appid.isdigit():
-            return "Version selection needs a Steam game."
+            return "Version Selection Needs a Steam Game."
         tool = str(tool or "").strip()
         if not tool:
-            return "Pick a compat tool first."
+            return "Pick a Compat Tool First."
         if self.steamRunning():
-            return "Quit Steam first: it rewrites config.vdf on exit."
+            return "Quit Steam First: It Rewrites config.vdf on Exit."
         try:
             import vdf
         except ImportError:
-            return "The vdf module is missing."
+            return "The vdf Module Is Missing."
         for root in steammod.steam_roots():
             path = root / "config" / "config.vdf"
             if not path.is_file():
@@ -1127,7 +1127,7 @@ class GameListModel(QAbstractTableModel):
                     vdf.dump(data, handle, pretty=True)
             except Exception as e:
                 log.warning("applyWineVersion(%s) failed: %s", appid, e)
-                return f"Could not update {path}: {e}"
+                return f"Could Not Update {path}: {e}"
             try:
                 cfg = cfgmod.load(appid)
                 cfg.proton.wine_version = tool
@@ -1139,7 +1139,7 @@ class GameListModel(QAbstractTableModel):
             protonmod.clear_tool_cache()
             self.refresh()
             return ""
-        return "No Steam config.vdf found."
+        return "No Steam config.vdf Found."
 
     @Slot(str, result=str)
     def ensurePrefix(self, appid: str) -> str:
@@ -1147,13 +1147,13 @@ class GameListModel(QAbstractTableModel):
         try:
             custom = cfgmod.load(appid).proton.wine_prefix.strip()
         except Exception as e:
-            return f"Could not read the config: {e}"
+            return f"Could Not Read the Config: {e}"
         if not custom:
-            return "Set a custom prefix dir first (Steam creates its own)."
+            return "Set a Custom Prefix Dir First (Steam Creates Its Own)."
         try:
             Path(custom).expanduser().mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            return f"Could not create {custom}: {e}"
+            return f"Could Not Create {custom}: {e}"
         return ""
 
     @Slot(str, result=str)
@@ -1164,23 +1164,23 @@ class GameListModel(QAbstractTableModel):
         try:
             custom = cfgmod.load(appid).proton.wine_prefix.strip()
         except Exception as e:
-            return f"Could not read the config: {e}"
+            return f"Could Not Read the Config: {e}"
         if not custom:
-            return "No custom prefix set."
+            return "No Custom Prefix Set."
         target = Path(custom).expanduser()
         try:
             resolved = target.resolve()
             home = Path.home().resolve()
             if resolved == home or resolved == home.parent or len(resolved.parts) <= 2:
-                return f"Refusing to delete {resolved}."
+                return f"Refusing to Delete {resolved}."
             if not target.is_dir():
-                return f"Not a directory: {target}."
+                return f"Not a Directory: {target}."
         except Exception as e:
-            return f"Could not inspect {target}: {e}"
+            return f"Could Not Inspect {target}: {e}"
         try:
             _shutil.rmtree(target)
         except Exception as e:
-            return f"Could not delete {target}: {e}"
+            return f"Could Not Delete {target}: {e}"
         return f"Cleared {target}."
 
     @Slot(str, str, result=str)
@@ -1203,7 +1203,7 @@ class GameListModel(QAbstractTableModel):
         if not cand or xdg.safe_stem(cand) != cand:
             return f"Invalid game ID: {dest}"
         if cand == src:
-            return "Source and target are the same."
+            return "Source and Target Are the Same."
         if cfgmod.game_file(cand).is_file() and not force:
             return "OVERWRITE"
         try:
@@ -1218,7 +1218,7 @@ class GameListModel(QAbstractTableModel):
         """Reset live configs to the Global Defaults template (keeps profiles)."""
         ids = [str(a) for a in appids or []]
         if not ids:
-            return "Select games first."
+            return "Select Games First."
         count = 0
         for appid in ids:
             try:
@@ -1229,7 +1229,7 @@ class GameListModel(QAbstractTableModel):
             except Exception as e:
                 log.warning("resetGames(%s) failed: %s", appid, e)
         self.refresh()
-        return f"Reset {count} game(s) to the Global Defaults template."
+        return f"Reset {count} Game(s) to the Global Defaults Template."
 
     @Slot(str, str, result="QVariantMap")
     def profileContent(self, appid: str, name: str) -> dict:
@@ -1447,7 +1447,7 @@ class GameListModel(QAbstractTableModel):
         try:
             saved = cfgmod.export_configs(path)
         except (OSError, ValueError) as e:
-            return f"Export failed: {e}"
+            return f"Export Failed: {e}"
         return f"Exported to {saved}"
 
     @Slot(str, result=str)
@@ -1459,9 +1459,9 @@ class GameListModel(QAbstractTableModel):
         try:
             imported = cfgmod.import_configs(path)
         except (OSError, ValueError) as e:
-            return f"Import failed: {e}"
+            return f"Import Failed: {e}"
         self.refresh()
-        return f"Imported {len(imported)} game(s)"
+        return f"Imported {len(imported)} Game(s)"
 
     @Slot(result=list)
     def stlCandidates(self) -> list:
@@ -1509,16 +1509,16 @@ class GameListModel(QAbstractTableModel):
         self.refresh()
         lines = []
         if imported:
-            lines.append("Imported as the 'steamtinkerlaunch' profile (live config untouched):")
+            lines.append("Imported as the 'steamtinkerlaunch' Profile (Live Config Untouched):")
             lines += [f"  • {a}" for a in imported]
-            lines.append("Open the game, pick the profile in the Profile row to try it.")
+            lines.append("Open the Game, Pick the Profile in the Profile Row to Try It.")
         if skipped:
-            lines.append("Skipped (no STL config found):")
+            lines.append("Skipped (No STL Config Found):")
             lines += [f"  • {a}" for a in skipped]
         details = "\n".join(f"{a}: {'; '.join(r)}" for a, r in reports.items() if r)
         if details:
             lines += ["", "Notes:", details]
-        return "\n".join(lines) or "Nothing selected."
+        return "\n".join(lines) or "Nothing Selected."
 
     @Slot(result=str)
     def importPredecessor(self) -> str:
@@ -1526,10 +1526,10 @@ class GameListModel(QAbstractTableModel):
         try:
             imported, skipped = cfgmod.import_tksteamlaunch()
         except (OSError, ValueError) as e:
-            return f"Import failed: {e}"
-        lines = [f"Imported {len(imported)} file(s)."]
+            return f"Import Failed: {e}"
+        lines = [f"Imported {len(imported)} File(s)."]
         if skipped:
-            lines.append(f"Skipped {len(skipped)} existing file(s).")
+            lines.append(f"Skipped {len(skipped)} Existing File(s).")
         self.refresh()
         return "\n".join(lines)
 
@@ -1677,16 +1677,16 @@ class GameListModel(QAbstractTableModel):
                 cfg.general.name = str(dict(values or {}).get("name", "")).strip()
             cmd, _env, warnings = launchermod.build_final_command(cfg, ["%command%"])
         except launchermod.GameTypeNotSetError:
-            return {"command": "(choose a game type to preview)", "wrappers": "", "warnings": []}
+            return {"command": "(Choose a Game Type to Preview)", "wrappers": "", "warnings": []}
         except Exception as e:  # never break the dialog on preview
-            return {"command": f"(preview unavailable: {e})", "wrappers": "", "warnings": []}
+            return {"command": f"(Preview Unavailable: {e})", "wrappers": "", "warnings": []}
         try:
             wrappers = launchermod.active_wrappers(cfg)
         except Exception:
             wrappers = []
         return {
-            "command": shlex.join(cmd) if cmd else "(empty command)",
-            "wrappers": " · ".join(wrappers) if wrappers else "No wrappers enabled",
+            "command": shlex.join(cmd) if cmd else "(Empty Command)",
+            "wrappers": " · ".join(wrappers) if wrappers else "No Wrappers Enabled",
             "warnings": warnings,
         }
 
@@ -1704,7 +1704,7 @@ class GameListModel(QAbstractTableModel):
                 cfg.general.name = str(dict(values or {}).get("name", "")).strip()
             return cfgmod.diff_vs_defaults(cfg)
         except Exception as e:
-            return f"(diff unavailable: {e})"
+            return f"(Diff Unavailable: {e})"
 
     def _dep_draft(self, appid: str, values) -> object | None:
         """Config for the dialog (unsaved) state, or None on any failure."""
@@ -1858,9 +1858,9 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             clipboard = None
         if clipboard is None:  # e.g. offscreen/minimal platform
-            return "Clipboard unavailable on this platform."
+            return "Clipboard Unavailable on This Platform."
         clipboard.setText(text)
-        return f"Copied to clipboard: {text}"
+        return f"Copied to Clipboard: {text}"
 
     @Slot(str, result=str)
     def installDir(self, appid: str) -> str:
@@ -1987,11 +1987,11 @@ class GameListModel(QAbstractTableModel):
     def removeGraphics(self, appid: str) -> str:
         """Delete the graphics files TKArcade copied into the prefix ('' = ok)."""
         if not appid:
-            return "Choose a game first."
+            return "Choose a Game First."
         try:
             cfg = cfgmod.load(appid)
         except Exception as e:
-            return f"Could not read the config: {e}"
+            return f"Could Not Read the Config: {e}"
         prefs = cfgmod.load_preferences()
         prefix = cfgmod.prefix_dir(
             appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
@@ -2060,7 +2060,7 @@ class GameListModel(QAbstractTableModel):
             shutil.rmtree(target)
         except Exception as e:
             return f"{appid}: {e}"
-        return f"Cleared {size} of shader cache."
+        return f"Cleared {size} of Shader Cache."
 
     @Slot(str, result=list)
     def validateGame(self, appid: str) -> list:
@@ -2248,16 +2248,16 @@ class GameListModel(QAbstractTableModel):
 
         exe = shutil.which("ludusavi")
         if not exe:
-            return "Ludusavi was not found in PATH."
+            return "Ludusavi Was Not Found in PATH."
         if "/flatpak/" in exe or "flatpak" in exe:
             return (
-                "Flatpak Ludusavi detected: it may not see Proton prefixes. "
-                "Prefer the standalone binary."
+                "Flatpak Ludusavi Detected: It May Not See Proton Prefixes. "
+                "Prefer the Standalone Binary."
             )
         try:
             subprocess.Popen([exe])
         except Exception as e:
-            return f"Could not open Ludusavi: {e}"
+            return f"Could Not Open Ludusavi: {e}"
         return ""
 
     @Slot(result=str)
@@ -2292,9 +2292,9 @@ class GameListModel(QAbstractTableModel):
 
         lines = [
             f"TKArcade {__version__}",
-            "Minimal Steam launch wrapper. License: GPL-3.0-or-later.",
+            "Minimal Steam Launch Wrapper. License: GPL-3.0-or-later.",
             "",
-            f"Python {platform.python_version()} on {platform.system()}",
+            f"Python {platform.python_version()} On {platform.system()}",
             f"PySide6 {pyside_version} (Qt {qt_version})",
             f"vdf {vdf_version} (MIT) · jeepney {jeepney_version} (MIT)",
             "",
