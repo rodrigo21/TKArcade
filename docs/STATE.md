@@ -16,10 +16,11 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
   allowed and reported; renaming never moves files. Design:
   `docs/plans/prefix-name.md`. Also landed: the venv-refresh rule in
   `AGENTS.md`.
-- Verified: 383 tests fast and 384 with the QML driver via
-  `scripts/check.sh --qml`, ruff check and format clean; the full QML
-  driver passed on a rerun (one offscreen batch segfault, unrelated
-  geometry case). `.venv` reinstalled after the merge.
+- Verified: 383 passed under `scripts/check.sh --qml`, ruff check and
+  format clean. One unrelated offscreen geometry case failed inside the
+  QML batch and passed on rerun (the full QML driver then went green).
+  `.venv` reinstalled after the merge; no code changed since, so nothing
+  was re-run.
 - Next: the Add game flow (TODO "Add game flow and casing") — two
   sources, `Steam Game`/`Local Game`, a `Game Type` combo for local
   games, then the `.exe`-as-native hint and the capitalization audit.
