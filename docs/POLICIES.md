@@ -23,3 +23,13 @@ Standing decisions that shape every change. `AGENTS.md` links here.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,
   13 missing exe, 14 missing prefix/wine/umu/Proton runtime, 15 no display,
   16 import/export, 17 validation issues, 18 game type not set).
+
+## Dev environment
+
+- `PKGBUILD check()` runs on system packages only: no uv inside the
+  chroot. The `.venv` is for local runs, not for packaging.
+- `./scripts/bootstrap.sh` re-points `.venv` at this checkout after a
+  pull or a machine switch; a synced/copied `.venv` keeps the other
+  machine's path until then.
+- The `-git` PKGBUILD pins the branch it is built from: point the pin
+  back at `main` before deleting a feature branch.

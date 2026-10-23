@@ -141,3 +141,27 @@ failure. `AGENTS.md` links here.
   windows with `createObject(null)` and keeps them in JS properties
   (no QObject parent); the shell's own windows are nested and only ever
   shown while the main window is visible.
+
+## Test driver
+
+`tests/test_kirigami_qml.py` runs `kirigami_qml_cases.py` in short-lived
+`pytest` subprocesses (the whole file aborts in one process on Qt 6.12
+GC teardown); a batch that aborts re-runs its swallowed cases in
+isolation, and a case counts as passed once its `PASSED` line printed
+(a teardown segfault after it is expected).
+
+- Fast loop without QML (~17s): `pytest tests/ -q -m "not qml"`, which
+  `scripts/check.sh` runs. Full run (~90s): `pytest tests/ -q`.
+- Knobs: `TKARCADE_QML_BATCH` (cases per subprocess; default 8 serial,
+  4 up to four workers, 2 above) and `TKARCADE_QML_WORKERS` (default one
+  per CPU, capped at 8). Parallel runs can flake timing-sensitive cases
+  under load: set `TKARCADE_QML_WORKERS=1` to force serial.
+- `pytest -v -rP tests/test_kirigami_qml.py` prints one line per
+  finished batch with its wall time; the `-git` PKGBUILD runs it that
+  way so a slow build names the culprit (plus `--show-capture=stdout`:
+  plain `-rP` also dumps the captured log/stderr of every passing
+  test).
+- Failures are bounded: the assertion shows a tail per case and the
+  `/tmp/tkarcade-qml-fail-*.log` path with the full output.
+- Single case:
+  `pytest "tests/kirigami_qml_cases.py::<name>" -o python_files="*.py"`.
