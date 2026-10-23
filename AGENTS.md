@@ -24,6 +24,25 @@ Larger designs are ordinary committed docs under `docs/plans/`. Never
 rely on plan-mode scratch files: they live in `$HOME/.opencode/plan`,
 outside the repo, and do not travel between clones.
 
+## Context hygiene
+
+Every request re-sends the whole session, so one large tool result costs
+its tokens on every later turn. Keep sessions short and their output
+small:
+
+- One session per feature: `/handoff` at the boundary and start a new
+  one. Carrying several features in one session is the main way a
+  conversation reaches the context limit.
+- Visual checks (offscreen screenshots) run in a subagent or a short
+  session. A screenshot stays in the context as base64 for the rest of
+  the session.
+- Never dump a whole file, binary or large diff: use `grep`, `sed -n`
+  ranges, `tail` and `git diff --stat`. `strings` on a binary is banned.
+- Broad code searches go through the `explore` subagent, which returns a
+  summary instead of every match.
+- Prefer counts and tails (`grep -c`, `pytest -q | tail`) over printing
+  full output; `opencode.json` caps `tool_output` as a backstop.
+
 ## Environment
 
 - Python >= 3.12, Linux. Default flow is `uv` with system site packages:

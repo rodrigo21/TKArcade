@@ -2,6 +2,16 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "console-openrouter/~deepseek/deepseek-flash-latest",
   "instructions": ["docs/STATE.md"],
+  "tool_output": {
+    "max_lines": 400,
+    "max_bytes": 24000
+  },
+  "compaction": {
+    "auto": true,
+    "keep": {
+      "tokens": 30000
+    }
+  },
   "agents": {
     "build": {
       "model": "console-openrouter/~deepseek/deepseek-flash-latest"

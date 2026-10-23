@@ -14,7 +14,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   setup, combined graphics layers (`graphics.dxvk` bool +
   `graphics.vkd3d` `""`/`proton`/`wine`, breaking), and local
   winetricks (`[runtime] winetricks_verbs`, host `winetricks` against
-  an existing prefix, Proton's `files/bin/wine` for umu).
+  an existing prefix, Proton's `files/bin/wine` for umu), plus context
+  hygiene: `tool_output` caps and compaction `keep.tokens` in
+  `opencode.json`, and the rules in `AGENTS.md`.
 - Verified on `main`: 382 tests (QML driver included), ruff check and
   format clean, offscreen screenshot of the Compatibility tab reviewed,
   `.venv` refreshed with `scripts/bootstrap.sh`, `-git` rebuilt as
