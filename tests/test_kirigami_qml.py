@@ -30,6 +30,9 @@ Tuning knobs, all optional:
 Verbose progress (`-v` prints one line per finished batch):
     python -m pytest tests/test_kirigami_qml.py -v -rP
 
+A failing batch reports a bounded tail; the full output goes to
+`/tmp/tkarcade-qml-fail-*.log` (path printed in the assertion).
+
 Single-case dev loop:
     python -m pytest "tests/kirigami_qml_cases.py::<name>" -o python_files="*.py"
 
@@ -41,6 +44,7 @@ import concurrent.futures
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import warnings
 from pathlib import Path
@@ -80,6 +84,13 @@ def _default_batch(workers: int) -> int:
 BATCH = max(1, int(os.environ.get("TKARCADE_QML_BATCH") or _default_batch(WORKERS)))
 CASE_TIMEOUT = 240  # seconds a single case may take before we call it hung
 BATCH_SECONDS_PER_CASE = 30  # headroom per case before a batch gives up
+
+# A failing suite can lose dozens of batches at once; the assertion keeps a
+# tail per failure and points at a log with the rest, so one bad run does not
+# flood the caller's context.
+REPORT_CHARS = 1000  # tail kept per failure inside a unit report
+REPORT_CASES = 2  # failures rendered per unit report
+REPORT_UNITS = 3  # failed units rendered in the final assertion
 
 
 def _base_cmd(*args: str) -> list[str]:
@@ -162,11 +173,32 @@ def _run_one(nodeid: str) -> tuple[str, bool, int, str]:
         return nodeid, False, -1, out if isinstance(out, str) else str(out)
 
 
+def _write_failure_log(entries: list[tuple[str, int, str]]) -> Path:
+    """Persist the full failure output so the assertion only carries a tail."""
+    fd, name = tempfile.mkstemp(prefix="tkarcade-qml-fail-", suffix=".log")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        for nodeid, rc, out in entries:
+            fh.write(f"--- {nodeid} (rc={rc}) ---\n{out}\n")
+    return Path(name)
+
+
+def _failure_tail(entries: list[tuple[str, int, str]], limit: int) -> str:
+    """Bounded block per failure: the assertion sits at the end of the output."""
+    shown = entries[:limit]
+    text = "\n".join(
+        f"--- {nodeid} (rc={rc}) ---\n{out[-REPORT_CHARS:]}" for nodeid, rc, out in shown
+    )
+    if len(entries) > limit:
+        text += f"\n... and {len(entries) - limit} more case(s), full output in the log."
+    return text
+
+
 def _run_unit(nodeids: list[str]) -> tuple[str, bool, int, str, float]:
     """One unit of work: a batch, with lost cases re-run one by one.
 
-    Returns the same tuple shape as `_run_one` plus the wall time (a failed
-    unit reports only the cases that failed, and their output).
+    Returns the same tuple shape as `_run_one` plus the wall time. A failed
+    unit reports only its failed cases: a bounded tail in the assertion and a
+    `/tmp/tkarcade-qml-fail-*.log` path with the full output.
     """
     started = time.perf_counter()
     passed, rc, out = _run_batch(nodeids)
@@ -185,10 +217,9 @@ def _run_unit(nodeids: list[str]) -> tuple[str, bool, int, str, float]:
         if not ok:
             failures.append((nodeid, rc, case_out))
     if failures:
-        nodeid, rc, case_out = failures[0]
-        report = case_out
-        if len(failures) > 1:
-            report += "\n".join(f"--- {n} (rc={c}) ---\n{o[-6000:]}" for n, c, o in failures[1:])
+        nodeid, rc, _ = failures[0]
+        log = _write_failure_log(failures)
+        report = f"full output: {log}\n{_failure_tail(failures, REPORT_CASES)}"
         return nodeid, False, rc, report, time.perf_counter() - started
     return "+".join(nodeids), True, rc, out, time.perf_counter() - started
 
@@ -213,5 +244,7 @@ def test_qml_suite_isolated(request):
             if not passed:
                 failures.append((nodeid, rc, out))
     if failures:
-        report = "\n".join(f"--- {n} (rc={c}) ---\n{o[-6000:]}" for n, c, o in failures)
-        raise AssertionError(f"{len(failures)}/{len(ids)} QML cases failed:\n{report}")
+        report = "\n".join(out for _, _, out in failures[:REPORT_UNITS])
+        if len(failures) > REPORT_UNITS:
+            report += f"\n... and {len(failures) - REPORT_UNITS} more unit(s) failed."
+        raise AssertionError(f"{len(failures)}/{len(batches)} QML batches failed:\n{report}")
