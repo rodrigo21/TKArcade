@@ -197,6 +197,10 @@ Breaking config changes are called out explicitly under `Changed`.
   second launch pings it and exits 0; the primary comes back from the
   tray (clears minimized, shows, raises, activates). A socket left
   behind by a crash is removed and reclaimed.
+- Developer setup: `scripts/bootstrap.sh` recreates the venv (system
+  site packages), the editable install and the commit hook on a fresh
+  clone, writing only inside the working tree. `.opencode-model` is
+  versioned now, so `AI-Model:` trailers match on every machine.
 
 ### Changed
 - **BREAKING**: the game type is explicit. `auto` and configs without a

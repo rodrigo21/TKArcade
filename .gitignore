@@ -8,7 +8,6 @@ build/
 dist/
 *.egg-info/
 .env
-.opencode-model
 # makepkg outputs, per package dir (repo src/ is source, not build dir)
 packaging/arch/tkarcade/pkg/
 packaging/arch/tkarcade/src/

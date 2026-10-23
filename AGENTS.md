@@ -18,6 +18,10 @@ the last landed change, the next step and the open decisions. Refresh
 it with `/handoff` before stopping mid-task — session history is not
 memory, and this file is what a fresh session sees.
 
+Larger designs are ordinary committed docs under `docs/plans/`. Never
+rely on plan-mode scratch files: they live in `$HOME/.opencode/plan`,
+outside the repo, and do not travel between clones.
+
 ## Environment
 
 - Python >= 3.12, Linux. Default flow is `uv` with system site packages:
@@ -71,8 +75,9 @@ rewrite pushed history or tags.
 ## Commits (one per area/theme)
 
 - Message + `Co-Authored-By: OpenCode <noreply@opencode.ai>` trailer.
-- `AI-Model:` trailer comes from `.opencode-model` (gitignored) via the
+- `AI-Model:` trailer comes from the versioned `.opencode-model` via the
   `scripts/git-hooks/commit-msg` hook (`core.hooksPath` is set repo-local).
+  Versioning it keeps the trailer identical on every clone.
 - Keep `opencode.json` in sync with the models actually in use: root
   `model` is the default for new sessions, `agents.build.model` is the
   build agent (only the agent field takes a `#variant`). Update both, plus

@@ -6,6 +6,10 @@ interpreter. Run checks with `.venv/bin/python`; `ruff` stays the
 system binary. Exception: `PKGBUILD check()` always uses system
 packages only (no uv in the chroot).
 
+On a fresh clone, `./scripts/bootstrap.sh` creates the venv, installs
+the tree editable and enables the commit hook. It writes only inside
+the working tree, never in `$HOME`. The explicit commands:
+
 ```bash
 uv venv --system-site-packages .venv
 uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
@@ -37,7 +41,7 @@ No config migration shims pre-1.0; since 0.9.0 files carry a
 
 One commit per area/theme, message plus
 `Co-Authored-By: OpenCode <noreply@opencode.ai>` trailer. The
-`AI-Model:` trailer comes from `.opencode-model` (gitignored) via the
+`AI-Model:` trailer comes from the versioned `.opencode-model` via the
 `scripts/git-hooks/commit-msg` hook (`core.hooksPath` is set
 repo-local). Sign commits/tags with GPG when pinentry answers, push
 each signed batch, never rewrite pushed history or tags. User-facing
@@ -81,11 +85,23 @@ GitHub releases accept files up to 2 GB, so size is not an issue.
 This project is developed with AI assistance (OpenCode with
 managed/free models), reviewed by the maintainer. Every commit carries
 a `Co-Authored-By` trailer plus an `AI-Model:` trailer with the model
-in use (from the gitignored `.opencode-model` file, one model per line;
+in use (from the versioned `.opencode-model` file, one model per line;
 several lines join into a single trailer for a batch a second model
 worked on); a local `commit-msg` hook (see `scripts/git-hooks/`,
 enabled via `git config core.hooksPath scripts/git-hooks`) adds both
 automatically. Agent instructions live in `AGENTS.md`.
+
+The working state travels through `docs/STATE.md` and the git history,
+never through plan-mode scratch files: OpenCode writes those under
+`$HOME/.opencode/plan`, which is per-machine and outside the repo. A
+larger design is a normal, committed document under `docs/plans/`.
+Sessions are not versioned either (the SQLite database and its JSON
+exports are large and machine-local); to move one on purpose:
+
+```bash
+opencode session export <session-id> > /shared/tkarcade-session.json
+opencode session import --directory <checkout> /shared/tkarcade-session.json
+```
 
 ## Translations (Qt Linguist)
 
