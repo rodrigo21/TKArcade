@@ -177,6 +177,7 @@ class RuntimeConfig:
     wine_binary: str = ""  # wine executable path or name
     proton_path: str = ""  # umu PROTONPATH (install dir or compatibilitytools name)
     prefix_dir: str = ""  # full prefix dir; empty = <prefix_base>/<appid>
+    prefix_name: str = ""  # friendly dir name under prefix_base ("" = appid)
     winetricks_verbs: list[str] = field(default_factory=list)
 
 
@@ -583,17 +584,19 @@ def save_defaults(cfg: GameConfig) -> Path:
     return path
 
 
-def prefix_dir(appid: str, per_game: str = "", base: str = "") -> Path:
+def prefix_dir(appid: str, per_game: str = "", base: str = "", name: str = "") -> Path:
     """Prefix directory for a game.
 
-    Per-game override wins; otherwise ``<base>/<safe appid>``, where an
-    empty base means the built-in XDG data location. safe_stem keeps a
-    crafted AppID from escaping the directory.
+    Per-game override wins; otherwise ``<base>/<safe name>`` falling back
+    to the safe AppID, where an empty base means the built-in XDG data
+    location. safe_stem keeps a crafted name from escaping the directory.
     """
     if per_game.strip():
         return Path(per_game.strip()).expanduser()
     root = Path(base.strip()).expanduser() if base.strip() else xdg.default_prefix_base()
-    return root / xdg.safe_stem(appid)
+    stem = xdg.safe_stem(name.strip()) if name.strip() else ""
+    # Empty and names that sanitize down to nothing ("../", "...") fall back.
+    return root / (stem if stem not in ("", "unknown") else xdg.safe_stem(appid))
 
 
 # Single source of truth for known sections/keys (load, save, extra).
@@ -626,7 +629,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
     "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
-    "runtime": {"wine_binary", "proton_path", "prefix_dir", "winetricks_verbs"},
+    "runtime": {"wine_binary", "proton_path", "prefix_dir", "prefix_name", "winetricks_verbs"},
     "graphics": {"dxvk", "vkd3d"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
@@ -793,6 +796,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.runtime.wine_binary = str(rt.get("wine_binary", "")).strip()
     cfg.runtime.proton_path = str(rt.get("proton_path", "")).strip()
     cfg.runtime.prefix_dir = str(rt.get("prefix_dir", "")).strip()
+    cfg.runtime.prefix_name = str(rt.get("prefix_name", "")).strip()
     cfg.runtime.winetricks_verbs = _str_list(rt.get("winetricks_verbs", []))
     gfx = _section(data, "graphics")
     cfg.graphics.dxvk = _as_bool(gfx.get("dxvk", False), False)

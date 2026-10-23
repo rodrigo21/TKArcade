@@ -6,6 +6,13 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Friendly prefix names for local Windows games: `[runtime] prefix_name`
+  puts the prefix under the prefix base as a readable directory instead
+  of the game id (`prefix_dir` still wins when set). Settings offers a
+  name field, a hint with the resolved directory and a picker of the
+  existing Wine prefixes under the base; sharing a prefix between games
+  stays possible and is reported there. Renaming only changes the config
+  — nothing on disk is moved.
 - Settings Compatibility for local games: a Windows runtime section
   (Wine binary or one of the discovered umu Proton installs, prefix dir
   with the Preferences default as placeholder, graphics layer) and a

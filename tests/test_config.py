@@ -332,6 +332,7 @@ _GAME_FIELDS = {
     "runtime.wine_binary": "/tmp/opencode/wine/bin/wine",
     "runtime.proton_path": "/tmp/opencode/GE-Proton9-1",
     "runtime.prefix_dir": "/tmp/opencode/local-prefix",
+    "runtime.prefix_name": "Doom Eternal",
     "runtime.winetricks_verbs": ["corefonts"],
     "graphics.dxvk": True,
     "graphics.vkd3d": "proton",
@@ -410,7 +411,34 @@ def test_prefix_dir_resolution(xdg_env, monkeypatch):
     assert C.prefix_dir("local-doom", per_game="/tmp/opencode/custom") == Path(
         "/tmp/opencode/custom"
     )
+    assert C.prefix_dir("local-doom", base="/tmp/opencode/base", name="Doom Eternal") == Path(
+        "/tmp/opencode/base/Doom_Eternal"
+    )
+    # A full path still wins over the friendly name.
+    assert C.prefix_dir("local-doom", per_game="/tmp/opencode/custom", name="ignored") == Path(
+        "/tmp/opencode/custom"
+    )
+    # Blank or dot-only names fall back to the safe AppID.
+    assert C.prefix_dir("local-doom", name="   ") == Path(
+        "/tmp/opencode/data/tkarcade/prefixes/local-doom"
+    )
+    assert C.prefix_dir("local-doom", name="../") == Path(
+        "/tmp/opencode/data/tkarcade/prefixes/local-doom"
+    )
     assert xdgmod.default_prefix_base() == Path("/tmp/opencode/data/tkarcade/prefixes")
+
+
+def test_iter_prefixes_only_complete_windows_prefixes(xdg_env, tmp_path):
+    from tkarcade import xdg as xdgmod
+
+    base = tmp_path / "prefixes"
+    (base / "good" / "drive_c").mkdir(parents=True)
+    (base / "good" / "system.reg").write_text("")
+    (base / "incomplete" / "drive_c").mkdir(parents=True)
+    (base / "plain").mkdir()
+    (base / "file").write_text("")
+    assert [p.name for p in xdgmod.iter_prefixes(str(base))] == ["good"]
+    assert xdgmod.iter_prefixes(str(tmp_path / "missing")) == []
 
 
 def test_winetricks_runs_and_skips_repeat(xdg_env, fake_bin, monkeypatch, tmp_path):

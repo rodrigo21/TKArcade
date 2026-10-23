@@ -72,5 +72,27 @@ def default_prefix_base() -> Path:
     return data_home() / "tkarcade" / "prefixes"
 
 
+def is_wine_prefix(path: Path) -> bool:
+    """True when the directory looks like a Windows prefix Wine can reuse."""
+    return (path / "drive_c").is_dir() and (path / "system.reg").is_file()
+
+
+def iter_prefixes(base: str = "") -> list[Path]:
+    """Existing Wine prefixes under the base, sorted by name (never raises)."""
+    root = Path(base.strip()).expanduser() if base.strip() else default_prefix_base()
+    try:
+        entries = list(root.iterdir())
+    except OSError:
+        return []
+    found: list[Path] = []
+    for entry in entries:
+        try:
+            if entry.is_dir() and is_wine_prefix(entry):
+                found.append(entry)
+        except OSError:
+            continue
+    return sorted(found, key=lambda p: p.name.lower())
+
+
 def preferences_file() -> Path:
     return app_config_dir() / "preferences.toml"

@@ -59,7 +59,9 @@ TKArcade only reads what is on disk: install and update Proton with
 ProtonPlus/ProtonUp-Qt, Wine with the distro.
 
 Prefixes live in `$XDG_DATA_HOME/tkarcade/prefixes/<appid>` by default.
-Preferences moves the base, and a per-game `[runtime] prefix_dir` wins.
+Preferences moves the base, and a per-game `[runtime] prefix_dir` wins;
+`[runtime] prefix_name` uses a readable directory name instead of the
+game id (sanitized, still under the base).
 `[runtime] wine_binary` and `[runtime] proton_path` override the global
 choices per game. `[runtime] winetricks_verbs` runs the host
 `winetricks` before launch against an existing prefix (`WINE` is the
@@ -124,7 +126,7 @@ warn instead of silently resetting.
 * `$XDG_CONFIG_HOME/tkarcade/defaults.toml` — new-game template only.
 * `$XDG_DATA_HOME/tkarcade/prefixes/<appid>/` — local Windows prefixes
   (default base; Preferences can move it, per-game `runtime.prefix_dir`
-  wins).
+  wins, `runtime.prefix_name` picks a readable directory name).
 * `$XDG_STATE_HOME/tkarcade/games/<appid>.log` and `launcher.log`.
 * `$XDG_CACHE_HOME/tkarcade/` — e.g. the ProtonDB tier cache.
 

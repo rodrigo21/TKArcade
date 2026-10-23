@@ -62,6 +62,14 @@ and without `pytest-qt`; never monkeypatch Qt globals at fixture scope
 (patch inside the test body). GUI changes need an offscreen screenshot
 check.
 
+Refresh the local venv after the last change on the branch and again
+after the merge, so the maintainer can test the new build before and
+after landing it (the version comes from git describe):
+
+```bash
+uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
+```
+
 ## Commits
 
 One per area/theme: message plus a

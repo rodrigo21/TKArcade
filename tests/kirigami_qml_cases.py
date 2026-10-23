@@ -4548,6 +4548,9 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     # into the game prefix (as a launch would have done).
     prefix = C.prefix_dir("local-doom")
     prefix.mkdir(parents=True)
+    reused = prefix.parent / "Reused"
+    (reused / "drive_c").mkdir(parents=True)
+    (reused / "system.reg").write_text("")
     version = xdg_env["data"] / "lutris" / "runtime" / "dxvk" / "v9.9"
     (version / "x64").mkdir(parents=True)
     for dll in ("d3d11.dll", "dxgi.dll"):
@@ -4566,6 +4569,8 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     wine_field = swin.findChild(QQuickItem, "settingsLocalWine")
     proton_box = swin.findChild(QQuickItem, "settingsLocalProton")
     prefix_field = swin.findChild(QQuickItem, "settingsLocalPrefix")
+    name_field = swin.findChild(QQuickItem, "settingsLocalPrefixName")
+    name_hint = swin.findChild(QQuickItem, "settingsLocalPrefixHint")
     gfx_dxvk = swin.findChild(QQuickItem, "settingsGraphicsDxvk")
     gfx_vkd3d = swin.findChild(QQuickItem, "settingsGraphicsVkd3d")
     local_verbs = swin.findChild(QQuickItem, "settingsLocalVerbs")
@@ -4608,12 +4613,29 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     gfx_dxvk.setProperty("checked", True)
     gfx_vkd3d.setProperty("currentIndex", 1)
     local_verbs.setProperty("text", "dotnet48 vcrun2022")
+    # The friendly name resolves under the prefix base and warns about
+    # the directory it will create; the picker lists complete prefixes.
+    assert name_field.property("visible") is True
+    name_field.setProperty("text", "Friendly Doom")
+    QTest.qWait(50)
+    assert (prefix.parent / "Friendly_Doom").as_posix() in name_hint.property("text")
+    from PySide6.QtCore import QMetaObject
+
+    assert QMetaObject.invokeMethod(dlg, "openPrefixChoices") is True
+    QTest.qWait(80)
+    rows = swin.findChild(QQuickItem, "settingsPrefixPickerRows")
+    assert rows.property("count") == 1
+    picker = swin.findChild(QObject, "settingsPrefixPicker")
+    assert picker is not None
+    QMetaObject.invokeMethod(picker, "close")
+    QTest.qWait(50)
     dlg.save()
     QTest.qWait(50)
     cfg = C.load("local-doom")
     assert cfg.general.game_type == "wine"
     assert cfg.runtime.wine_binary == "/opt/wine/bin/wine"
     assert cfg.runtime.prefix_dir == str(prefix)
+    assert cfg.runtime.prefix_name == "Friendly Doom"
     assert cfg.runtime.proton_path == ""
     assert cfg.graphics.dxvk is True
     assert cfg.graphics.vkd3d == "proton"
@@ -4631,6 +4653,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     cfg = C.load("local-doom")
     assert cfg.general.game_type == "umu"
     assert cfg.runtime.proton_path == str(proton_dir.resolve())
+    assert cfg.runtime.prefix_dir == str(prefix)
 
     # Opening again restores the umu choice and the installed layer;
     # scrolling to the end reaches the remove button.
@@ -4643,9 +4666,22 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     view = swin.findChild(QQuickItem, "settingsWineScroll")
     flick = view.property("contentItem")
     flick.setProperty("contentY", flick.property("contentHeight") - flick.property("height"))
-    QTest.qWait(80)
-    _click(swin, "settingsGfxRemove")
+    QTest.qWait(200)
+    flick.setProperty("contentY", flick.property("contentHeight") - flick.property("height"))
+    QTest.qWait(120)
+    from PySide6.QtCore import QPointF, Qt
+
+    # The vertical scroll bar now overlays the right edge of the form
+    # (the hint row made the content taller), so click the left half.
+    pos = remove.mapToScene(QPointF(12, remove.property("height") / 2))
+    for _ in range(40):
+        if _hit_reaches(swin, remove, pos):
+            break
+        QTest.qWait(25)
+        pos = remove.mapToScene(QPointF(12, remove.property("height") / 2))
+    QTest.mouseClick(swin, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos.toPoint())
     QTest.qWait(50)
+    assert not G.marker_path(prefix).is_file()
     assert not (prefix / "drive_c" / "windows" / "system32" / "d3d11.dll").is_file()
     assert not G.marker_path(prefix).is_file()
     assert remove.property("enabled") is False

@@ -956,6 +956,49 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
     assert reloaded.runtime.winetricks_verbs == ["corefonts", "vcrun2019"]
 
 
+def test_prefix_name_state_and_choices(qgui_app, xdg_env, tmp_path):
+    from tkarcade.gui.model import GameListModel
+
+    prefs = C.load_preferences()
+    prefs.prefix_base = str(tmp_path / "prefixes")
+    C.save_preferences(prefs)
+    base = tmp_path / "prefixes"
+    (base / "Doom" / "drive_c").mkdir(parents=True)
+    (base / "Doom" / "system.reg").write_text("")
+    (base / "NotAPrefix").mkdir()
+
+    for appid, name in (("local-a", "Doom"), ("local-b", "Doom")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.runtime.prefix_name = name
+        C.save(cfg)
+
+    model = GameListModel()
+    fields = model.loadGame("local-a")
+    assert fields["runtime_prefix_name"] == "Doom"
+    out = dict(fields)
+    out["runtime_prefix_name"] = "Doom Eternal"
+    assert model.saveGame("local-a", out) == "local-a"
+    assert C.load("local-a").runtime.prefix_name == "Doom Eternal"
+
+    state = model.prefixNameState("local-a", "Doom")
+    assert state["target"] == str(base / "Doom")
+    assert state["sanitized"] == "Doom"
+    assert state["renamed"] is False
+    assert state["exists"] is True
+    assert state["is_prefix"] is True
+    assert len(state["shared"]) == 1
+
+    renamed = model.prefixNameState("local-a", "My Doom")
+    assert renamed["sanitized"] == "My_Doom"
+    assert renamed["renamed"] is True
+    assert renamed["exists"] is False
+
+    choices = model.prefixChoices("local-a")
+    assert [c["name"] for c in choices] == ["Doom"]
+    assert choices[0]["path"] == str(base / "Doom")
+
+
 def test_settings_defaults_roundtrip(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

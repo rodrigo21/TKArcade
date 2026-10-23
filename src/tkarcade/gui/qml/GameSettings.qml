@@ -64,6 +64,9 @@ Window {
     property var fields: ({})
     // Local Windows runtime (wine/umu) choices and graphics-layer status.
     property var protonChoices: []
+    // Friendly prefix-name picker (local Windows games).
+    property var prefixChoices: []
+    property string prefixHint: ""
     property var gfxInfo: ({})
     property string gfxStatus: ""
     property string errorText: ""
@@ -232,6 +235,8 @@ Window {
         protonBox.model = protonChoices.map(function(p) { return p.name })
         localWineField.text = fields.runtime_wine_binary || ""
         localPrefixField.text = fields.runtime_prefix_dir || ""
+        localPrefixNameField.text = fields.runtime_prefix_name || ""
+        refreshPrefixHint()
         localVerbs.text = fields.runtime_winetricks_verbs || ""
         var chosen = fields.runtime_proton_path || ""
         var idx = -1
@@ -244,6 +249,31 @@ Window {
         protonBox.currentIndex = idx
         refreshGfx(true)
         runtimeField.text = runtimeText()
+    }
+
+    // Friendly prefix directory: sanitization, sharing and creation hints.
+    function refreshPrefixHint() {
+        if (editAppid === "") {
+            prefixHint = ""
+            return
+        }
+        var state = gameModel.prefixNameState(editAppid, localPrefixNameField.text)
+        var parts = []
+        if (state.renamed === true) {
+            parts.push(qsTr("Saved as: %1").arg(state.sanitized))
+        }
+        if ((state.shared || []).length > 0) {
+            parts.push(qsTr("Shared with: %1").arg(state.shared.join(", ")))
+        }
+        parts.push(state.exists === true
+            ? qsTr("Prefix: %1").arg(state.target)
+            : qsTr("Created at launch: %1").arg(state.target))
+        prefixHint = parts.join(" — ")
+    }
+
+    function openPrefixChoices() {
+        prefixChoices = gameModel.prefixChoices(editAppid)
+        prefixDialog.open()
     }
 
     function refreshGfx(reset) {
@@ -451,6 +481,7 @@ Window {
             "runtime_wine_binary": localWineField.text,
             "runtime_proton_path": protonChoicePath(),
             "runtime_prefix_dir": localPrefixField.text,
+            "runtime_prefix_name": localPrefixNameField.text,
             "runtime_winetricks_verbs": localVerbs.text,
             "graphics_dxvk": gfxDxvk.checked,
             "graphics_vkd3d": gfxVkd3dValue(),
@@ -1775,6 +1806,34 @@ Window {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     visible: typeBox.currentIndex >= 1
+                                    KirigamiLayouts.FormData.label: qsTr("Prefix name:")
+                                    Controls.TextField {
+                                        id: localPrefixNameField
+                                        objectName: "settingsLocalPrefixName"
+                                        Layout.fillWidth: true
+                                        placeholderText: editAppid !== ""
+                                            ? qsTr("empty = %1").arg(editAppid)
+                                            : qsTr("empty = the game id")
+                                        onTextChanged: gameSettings.refreshPrefixHint()
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsLocalPrefixNameChoose"
+                                        text: qsTr("Choose…")
+                                        onClicked: gameSettings.openPrefixChoices()
+                                    }
+                                }
+                                Controls.Label {
+                                    objectName: "settingsLocalPrefixHint"
+                                    visible: typeBox.currentIndex >= 1 && gameSettings.prefixHint !== ""
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: Kirigami.Units.gridUnit * 8
+                                    wrapMode: Text.WordWrap
+                                    opacity: 0.7
+                                    text: gameSettings.prefixHint
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: typeBox.currentIndex >= 1
                                     KirigamiLayouts.FormData.label: qsTr("Prefix dir:")
                                     Controls.TextField {
                                         id: localPrefixField
@@ -2834,6 +2893,55 @@ Window {
             Controls.Button {
                 text: qsTr("Cancel")
                 onClicked: mismatchDialog.close()
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: prefixDialog
+        parent: gameSettings.contentItem
+        objectName: "settingsPrefixPicker"
+        title: qsTr("Existing Prefixes")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Layout.fillWidth: true
+            Controls.Label {
+                objectName: "settingsPrefixPickerEmpty"
+                visible: prefixChoiceRows.count === 0
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: qsTr("No Wine prefix found under the prefix base.")
+            }
+            ListView {
+                id: prefixChoiceRows
+                objectName: "settingsPrefixPickerRows"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 14)
+                clip: true
+                model: gameSettings.prefixChoices
+                delegate: Controls.ItemDelegate {
+                    required property var modelData
+                    width: ListView.view ? ListView.view.width : 100
+                    text: (modelData.games || []).length > 0
+                        ? qsTr("%1 — %2").arg(modelData.name).arg(modelData.games.join(", "))
+                        : modelData.name
+                    onClicked: {
+                        localPrefixNameField.text = modelData.name
+                        gameSettings.refreshPrefixHint()
+                        prefixDialog.close()
+                    }
+                }
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
+            Controls.Button {
+                objectName: "settingsPrefixPickerClose"
+                text: qsTr("Close")
+                onClicked: prefixDialog.close()
             }
         }
     }

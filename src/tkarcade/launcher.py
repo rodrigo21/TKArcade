@@ -258,7 +258,9 @@ def _runtime_paths(cfg: cfgmod.GameConfig) -> dict:
     prefs = cfgmod.load_preferences()
     appid = cfg.general.appid.strip()
     return {
-        "prefix": cfgmod.prefix_dir(appid, cfg.runtime.prefix_dir, prefs.prefix_base),
+        "prefix": cfgmod.prefix_dir(
+            appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+        ),
         "wine": runtimes.wine_binary(cfg.runtime.wine_binary or prefs.wine_binary),
         "proton": runtimes.find_proton(cfg.runtime.proton_path, prefs.proton_dirs),
         "prefs": prefs,
@@ -1136,7 +1138,9 @@ def _prepare_launch(appid: str, cfg: cfgmod.GameConfig) -> None:
         run = protonmod.run_winetricks(appid, cfg.proton.winetricks_verbs)
     elif game_type in ("wine", "umu") and cfg.runtime.winetricks_verbs:
         prefs = cfgmod.load_preferences()
-        prefix = cfgmod.prefix_dir(appid, cfg.runtime.prefix_dir, prefs.prefix_base)
+        prefix = cfgmod.prefix_dir(
+            appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+        )
         wine = runtimes.wine_binary(cfg.runtime.wine_binary or prefs.wine_binary)
         proton = runtimes.find_proton(cfg.runtime.proton_path, prefs.proton_dirs)
         run = wtmod.run_local(appid, prefix, game_type, wine, proton, cfg.runtime.winetricks_verbs)

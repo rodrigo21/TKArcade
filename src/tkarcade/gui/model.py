@@ -632,6 +632,7 @@ class GameListModel(QAbstractTableModel):
             "runtime_wine_binary": cfg.runtime.wine_binary,
             "runtime_proton_path": cfg.runtime.proton_path,
             "runtime_prefix_dir": cfg.runtime.prefix_dir,
+            "runtime_prefix_name": cfg.runtime.prefix_name,
             "runtime_winetricks_verbs": " ".join(cfg.runtime.winetricks_verbs),
             "graphics_dxvk": bool(cfg.graphics.dxvk),
             "graphics_vkd3d": cfgmod.normalize_graphics_vkd3d(cfg.graphics.vkd3d),
@@ -806,6 +807,7 @@ class GameListModel(QAbstractTableModel):
         cfg.runtime.wine_binary = str(data.get("runtime_wine_binary", "")).strip()
         cfg.runtime.proton_path = str(data.get("runtime_proton_path", "")).strip()
         cfg.runtime.prefix_dir = str(data.get("runtime_prefix_dir", "")).strip()
+        cfg.runtime.prefix_name = str(data.get("runtime_prefix_name", "")).strip()
         cfg.runtime.winetricks_verbs = _split_args(str(data.get("runtime_winetricks_verbs", "")))
         cfg.graphics.dxvk = bool(data.get("graphics_dxvk", False))
         cfg.graphics.vkd3d = cfgmod.normalize_graphics_vkd3d(data.get("graphics_vkd3d", ""))
@@ -1892,7 +1894,10 @@ class GameListModel(QAbstractTableModel):
         default_prefix = ""
         if appid:
             try:
-                default_prefix = os.fspath(cfgmod.prefix_dir(appid, "", prefs.prefix_base))
+                cfg = cfgmod.load(appid)
+                default_prefix = os.fspath(
+                    cfgmod.prefix_dir(appid, "", prefs.prefix_base, cfg.runtime.prefix_name)
+                )
             except Exception:
                 default_prefix = ""
         return {
@@ -1902,6 +1907,59 @@ class GameListModel(QAbstractTableModel):
             "protons": [{"name": p.name, "path": os.fspath(p.path)} for p in protons],
         }
 
+    @staticmethod
+    def _prefix_users(prefs: cfgmod.Preferences) -> dict[str, list[str]]:
+        """AppIDs resolved to each prefix directory (names and full overrides)."""
+        usage: dict[str, list[str]] = {}
+        for appid in cfgmod.list_appids():
+            try:
+                cfg = cfgmod.load(appid)
+            except Exception:
+                continue
+            path = cfgmod.prefix_dir(
+                appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+            )
+            usage.setdefault(os.fspath(path), []).append(appid)
+        return usage
+
+    @Slot(str, str, result="QVariantMap")
+    def prefixNameState(self, appid: str, name: str) -> dict:
+        """Resolved prefix for a friendly name, sanitization and sharing info."""
+        prefs = cfgmod.load_preferences()
+        target = cfgmod.prefix_dir(appid, "", prefs.prefix_base, name)
+        others = [a for a in self._prefix_users(prefs).get(os.fspath(target), []) if a != appid]
+        names = {a: n for a, n in steammod.list_games()}
+        names.update(steammod.local_names())
+        typed = name.strip()
+        return {
+            "target": os.fspath(target),
+            "sanitized": target.name,
+            "renamed": bool(typed) and target.name != typed,
+            "shared": [names.get(a, a) for a in others],
+            "exists": target.is_dir(),
+            "is_prefix": xdg.is_wine_prefix(target),
+        }
+
+    @Slot(str, result="QVariantList")
+    def prefixChoices(self, appid: str) -> list:
+        """Existing Wine prefixes under the base, with the games using each."""
+        prefs = cfgmod.load_preferences()
+        usage = self._prefix_users(prefs)
+        names = {a: n for a, n in steammod.list_games()}
+        names.update(steammod.local_names())
+        out = []
+        for path in xdg.iter_prefixes(prefs.prefix_base):
+            users = usage.get(os.fspath(path), [])
+            out.append(
+                {
+                    "name": path.name,
+                    "path": os.fspath(path),
+                    "games": [names.get(a, a) for a in users],
+                    "current": appid in users,
+                }
+            )
+        return out
+
     @Slot(str, result="QVariantMap")
     def graphicsState(self, appid: str) -> dict:
         """Installed layers (marker) and newest available versions for a game."""
@@ -1910,7 +1968,9 @@ class GameListModel(QAbstractTableModel):
         if appid:
             try:
                 cfg = cfgmod.load(appid)
-                prefix = cfgmod.prefix_dir(appid, cfg.runtime.prefix_dir, prefs.prefix_base)
+                prefix = cfgmod.prefix_dir(
+                    appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+                )
             except Exception:
                 prefix = None
         available = {}
@@ -1933,7 +1993,9 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             return f"Could not read the config: {e}"
         prefs = cfgmod.load_preferences()
-        prefix = cfgmod.prefix_dir(appid, cfg.runtime.prefix_dir, prefs.prefix_base)
+        prefix = cfgmod.prefix_dir(
+            appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+        )
         removed, warnings = graphicsmod.uninstall(prefix)
         log.info("graphics: removed %d file(s) from %s", removed, prefix)
         self.refresh()

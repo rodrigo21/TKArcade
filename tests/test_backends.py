@@ -964,10 +964,19 @@ def test_prefix_overrides(xdg_env, fake_bin, tmp_path):
     cfg.runtime.prefix_dir = str(tmp_path / "custom-prefix")
     _cmd, env, _warnings = build_final_command(cfg, [])
     assert env["WINEPREFIX"] == str(tmp_path / "custom-prefix")
+    cfg.runtime.prefix_dir = ""
+    cfg.runtime.prefix_name = "Friendly Doom"
+    _cmd, env, _warnings = build_final_command(cfg, [])
+    assert env["WINEPREFIX"] == str(xdg_env["data"] / "tkarcade" / "prefixes" / "Friendly_Doom")
+    cfg.runtime.prefix_dir = str(tmp_path / "named-override")
+    cfg.runtime.prefix_name = "ignored"
+    _cmd, env, _warnings = build_final_command(cfg, [])
+    assert env["WINEPREFIX"] == str(tmp_path / "named-override")
+    cfg.runtime.prefix_dir = ""
+    cfg.runtime.prefix_name = ""
     prefs = C.load_preferences()
     prefs.prefix_base = str(tmp_path / "bases")
     C.save_preferences(prefs)
-    cfg.runtime.prefix_dir = ""
     _cmd, env, _warnings = build_final_command(cfg, [])
     assert env["WINEPREFIX"] == str(tmp_path / "bases" / "local-doom")
 

@@ -320,10 +320,27 @@ dispatch). Each needs one look on a real compositor:
 - Category and Artwork dialogs, and the pt_BR catalog in situ.
 - Audio sink picker (left untouched on this branch).
 
+## Add game flow and casing (agreed 2026-10-23)
+
+- [ ] Add dialog: keep two sources (`Steam Game`, `Local Game`); Steam
+  shows its picker, Local shows a `Game Type` combo with the three
+  runtime choices (Linux Native / Windows Wine / Windows Proton via UMU)
+  and opens Settings with that type preselected. The type stays editable
+  in Settings afterwards — switching Wine/UMU needs no new entry.
+- [ ] Settings: non-blocking hint when the executable ends in
+  `.exe`/`.bat`/`.msi` while the type is `Linux (Native)`, with a
+  `Switch to Wine` action (today such a game saves as native and fails
+  at launch).
+- [ ] Capitalization audit across the program (QML labels, dialog
+  titles, menus, pt_BR catalog): Title Case for every word of labels,
+  but never rewrite proper nouns or tool names that are deliberately
+  lowercase (`wine`, `umu-run`, `winetricks`, `vkBasalt`, `MangoHud`,
+  `DXVK`).
+
 ## After game-types (deferred)
 
 - Running indicator and Terminate action in the GUI (the launcher
   already writes per-game logs; no PID state is kept today).
-- `runtime.prefix_name`: a friendly name under the prefix base instead
-  of the AppID (and a picker for existing prefixes).
+- [x] `runtime.prefix_name`: a friendly name under the prefix base instead
+  of the AppID, with a picker for existing prefixes in Settings.
 
