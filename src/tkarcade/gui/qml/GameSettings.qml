@@ -123,10 +123,13 @@ Window {
         visible = true
     }
 
-    function openNew() {
+    function openNew(gameType) {
         editAppid = ""
         defaultsMode = false
         fields = blankFields()
+        // The Add dialog preselects the local game type; empty leaves the
+        // native default that pushToControls already applies.
+        fields.game_type = gameType || ""
         pushToControls()
         errorText = ""
         tabBar.currentIndex = 0
@@ -1483,6 +1486,39 @@ Window {
                                                 }
                                             }
                                             gameSettings.pendingBrowse = ""
+                                        }
+                                    }
+                                }
+                                // A Windows executable saved as Linux
+                                // (native) fails at launch: hint at it
+                                // without blocking the save, and offer the
+                                // type switch that makes the launch work.
+                                RowLayout {
+                                    objectName: "settingsExeHint"
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: ""
+                                    visible: !defaultsMode && typeBox.currentIndex >= 0
+                                        && typeValues()[typeBox.currentIndex] === "native"
+                                        && /\.(exe|bat|msi)$/i.test(exeField.text.trim())
+                                    Controls.Label {
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: qsTr("This looks like a Windows executable, but the game type is Linux (native).")
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsSwitchType"
+                                        text: (fields.is_steam || false)
+                                            ? qsTr("Switch to Proton")
+                                            : qsTr("Switch to Wine")
+                                        onClicked: {
+                                            var types = typeValues()
+                                            var index = types.indexOf(
+                                                (fields.is_steam || false) ? "proton" : "wine")
+                                            if (index >= 0) {
+                                                typeBox.currentIndex = index
+                                                runtimeField.text = gameSettings.runtimeText()
+                                                gfxStatus = gameSettings.gfxStatusText()
+                                            }
                                         }
                                     }
                                 }

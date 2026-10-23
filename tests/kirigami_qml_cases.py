@@ -4019,8 +4019,13 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
     click("titleAdd", win)
     add = _modal_window(qgui_app, ("Add Game",))
     add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
+    type_box = add.findChild(QQuickItem, "addGameType")
+    assert type_box is not None
+    # Local games open Settings with the native type preselected.
+    assert type_box.property("currentIndex") == 0
     click("addConfirm", add)
     swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsType").property("currentIndex") == 0
     swin.findChild(QQuickItem, "settingsName").setProperty("text", "Doom")
     swin.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
     click("settingsSave", swin)
@@ -4028,6 +4033,114 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
     created = proxy.idAt(0)
     assert created.startswith("local-")
     assert C.load(created).general.name == "Doom"
+    assert C.load(created).general.game_type == "native"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_add_local_game_type_preselects_settings(qgui_app, xdg_env):
+    """The Add dialog's Game Type combo lands preselected in Settings."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    win, engine, proxy, warnings = _load_main(qgui_app)
+
+    def click(name, host):
+        _click(host, name)
+
+    click("titleAdd", win)
+    add = _modal_window(qgui_app, ("Add Game",))
+    assert add.findChild(QQuickItem, "addGameType").property("visible") is False
+    add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
+    type_box = add.findChild(QQuickItem, "addGameType")
+    assert type_box.property("visible") is True
+    type_box.setProperty("currentIndex", 2)
+    click("addConfirm", add)
+    swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsType").property("currentIndex") == 2
+    swin.findChild(QQuickItem, "settingsName").setProperty("text", "Umu Test")
+    swin.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
+    click("settingsSave", swin)
+    assert proxy.rowCount() == 1
+    assert C.load(proxy.idAt(0)).general.game_type == "umu"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_exe_hint_switches_to_wine(qgui_app, xdg_env, tmp_path):
+    """A native game with a .exe warns and switches to Wine on request."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    exe = tmp_path / "game.exe"
+    exe.write_text("")
+    win, engine, proxy, warnings = _load_main(qgui_app)
+
+    def click(name, host):
+        _click(host, name)
+
+    click("titleAdd", win)
+    add = _modal_window(qgui_app, ("Add Game",))
+    add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
+    click("addConfirm", add)
+    swin = _settings_window(qgui_app)
+    _settings_tab(swin, TAB_LAUNCH)
+    hint = swin.findChild(QQuickItem, "settingsExeHint")
+    assert hint.property("visible") is False
+    swin.findChild(QQuickItem, "settingsExe").setProperty("text", str(exe))
+    qgui_app.processEvents()
+    assert hint.property("visible") is True
+    assert swin.findChild(QQuickItem, "settingsSwitchType").property("text") == "Switch to Wine"
+    click("settingsSwitchType", swin)
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "settingsType").property("currentIndex") == 1
+    assert hint.property("visible") is False
+    swin.findChild(QQuickItem, "settingsName").setProperty("text", "Hinted")
+    click("settingsSave", swin)
+    assert proxy.rowCount() == 1
+    assert C.load(proxy.idAt(0)).general.game_type == "wine"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_exe_hint_on_steam_offers_proton(qgui_app, xdg_env, tmp_path):
+    """A native Steam game with a .exe switches to Proton, not Wine."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    exe = tmp_path / "steam.exe"
+    exe.write_text("")
+    cfg = C.GameConfig()
+    cfg.general.appid = "98"
+    cfg.general.name = "Steam Exe"
+    cfg.general.game_type = "native"
+    cfg.general.custom_executable = str(exe)
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    win.findChild(QObject, "gamesPage").openGameSettings("98")
+    swin = _settings_window(qgui_app)
+    _settings_tab(swin, TAB_LAUNCH)
+    hint = swin.findChild(QQuickItem, "settingsExeHint")
+    assert hint.property("visible") is True
+    assert swin.findChild(QQuickItem, "settingsSwitchType").property("text") == "Switch to Proton"
+    _click(swin, "settingsSwitchType")
+    qgui_app.processEvents()
+    # Steam typeValues() is [proton, native].
+    assert swin.findChild(QQuickItem, "settingsType").property("currentIndex") == 0
+    assert hint.property("visible") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

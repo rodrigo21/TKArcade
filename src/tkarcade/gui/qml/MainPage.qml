@@ -2141,10 +2141,10 @@ Kirigami.Page {
         gameSettings.openFor(appid)
     }
 
-    function openNewGameSettings() {
+    function openNewGameSettings(gameType) {
         gameSettings.page = gamesPage
         gameSettings.transientParent = Controls.ApplicationWindow.window
-        gameSettings.openNew()
+        gameSettings.openNew(gameType)
     }
 
     // The Global Defaults editor (same window in defaults mode), reachable

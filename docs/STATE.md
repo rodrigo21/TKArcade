@@ -5,24 +5,28 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, clean, in sync with `origin/main`.
-- Last landed: friendly prefix names — `[runtime] prefix_name` puts a
-  local Windows game under the prefix base as a readable directory
-  (`prefix_dir` still wins; empty/unsanitizable names fall back to the
-  AppID, no migration), the launcher and the GUI resolve it through the
-  same `config.prefix_dir`, Settings gained the name field, a resolved
-  path/sharing hint and a picker of complete Wine prefixes
-  (`xdg.iter_prefixes`, `drive_c` + `system.reg`). Sharing a prefix is
-  allowed and reported; renaming never moves files. Design:
-  `docs/plans/prefix-name.md`. Also landed: the venv-refresh rule in
-  `AGENTS.md`.
-- Verified: 383 passed under `scripts/check.sh --qml`, ruff check and
-  format clean. One unrelated offscreen geometry case failed inside the
-  QML batch and passed on rerun (the full QML driver then went green).
-  `.venv` reinstalled after the merge; no code changed since, so nothing
-  was re-run.
-- Next: the Add game flow (TODO "Add game flow and casing") — two
-  sources, `Steam Game`/`Local Game`, a `Game Type` combo for local
-  games, then the `.exe`-as-native hint and the capitalization audit.
-- Nothing blocking. The `-git` PKGBUILD `pkgver` stays dirty on purpose
-  and is never committed as part of a work-state update.
+- Branch: `add-game-flow`, two commits ahead of `main`, in sync with
+  `origin/add-game-flow`, working tree clean (the only dirty file is the
+  `-git` PKGBUILD `pkgver`, left uncommitted on purpose). Not merged:
+  `main` awaits the maintainer's approval.
+- Last landed: the Add game flow and the `.exe` hint. `AddDialog` keeps
+  `Steam Game` / `Local Game` and, for local games, a labelled Game Type
+  combo that preselects the same field in Settings
+  (`openNewGameSettings` → `openNew(gameType)`); the type stays editable
+  and saves as usual. Settings (Launch tab, under the executable) warns
+  when a `.exe`/`.bat`/`.msi` runs as Linux native, with `Switch to
+  Wine` (local) or `Switch to Proton` (Steam): it only changes the combo
+  and never blocks saving. New strings translated in pt_BR.
+- Verified: 384 passed under `scripts/check.sh --qml`, ruff check and
+  format clean, offscreen screenshots of the Add dialog and the hint row
+  (no clipping, rows aligned), `.venv` reinstalled. Nothing code-side
+  changed since, so nothing was re-run.
+- Next: the capitalization audit (TODO "Add game flow and casing", last
+  item) in a new session and branch — Title Case for labels, buttons,
+  menus, titles and columns, sentence case kept for tooltips/info text,
+  tool names unchanged, pt_BR catalog carried over before
+  `refresh-translations.sh`.
+- Open decisions for that audit: placeholders (`empty = …`, `e.g. …`)
+  stay lowercase (recommended), and whether Title Case reaches the pt_BR
+  translations (recommended: keep them sentence case).
+- Nothing blocking.

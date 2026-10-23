@@ -6,6 +6,14 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Add game flow: the Add dialog keeps its two sources (Steam Game,
+  Local Game) and, for local games, a Game Type combo (Linux native,
+  Windows Wine, Windows Proton via UMU) that preselects the same field
+  in Settings. The type stays editable there afterwards.
+- Settings warns when the configured executable ends in `.exe`/`.bat`/
+  `.msi` but the game type is Linux (native), and offers a one-click
+  switch to Wine (local games) or Proton (Steam games). The hint does
+  not block saving.
 - Friendly prefix names for local Windows games: `[runtime] prefix_name`
   puts the prefix under the prefix base as a readable directory instead
   of the game id (`prefix_dir` still wins when set). Settings offers a

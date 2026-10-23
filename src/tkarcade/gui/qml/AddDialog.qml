@@ -6,7 +6,8 @@ import org.kde.kirigami as Kirigami
 
 // Add game entry point (widgets AddSourceDialog parity): pick the
 // source, then run its flow — Steam picker opens settings for the
-// AppID, Local opens blank settings. Modal window like the rest.
+// AppID, Local picks the game type and opens blank settings with it
+// preselected. Modal window like the rest.
 Window {
     id: addGameDialog
     objectName: "addGameDialog"
@@ -23,13 +24,21 @@ Window {
 
     property var page: null
     property var steamRows: []
+    // Values behind typeBox, in the same order as its labels.
+    readonly property var gameTypes: ["native", "wine", "umu"]
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
         gameModel.watchDialogKeys(addGameDialog)
         sourceBox.currentIndex = 0
+        typeBox.currentIndex = 0
         loadSteam()
         visible = true
+    }
+
+    function selectedGameType() {
+        var index = typeBox.currentIndex
+        return (index >= 0 && index < gameTypes.length) ? gameTypes[index] : "native"
     }
 
     function loadSteam() {
@@ -62,7 +71,7 @@ Window {
         }
         addGameDialog.close()
         if (page !== null) {
-            page.openNewGameSettings()
+            page.openNewGameSettings(selectedGameType())
         }
     }
 
@@ -86,7 +95,23 @@ Window {
             id: sourceBox
             objectName: "addSource"
             Layout.fillWidth: true
-            model: [qsTr("Steam game"), qsTr("Local Linux game")]
+            model: [qsTr("Steam Game"), qsTr("Local Game")]
+        }
+        Controls.Label {
+            text: qsTr("Game Type")
+            visible: sourceBox.currentIndex === 1
+        }
+        Controls.ComboBox {
+            id: typeBox
+            objectName: "addGameType"
+            visible: sourceBox.currentIndex === 1
+            Layout.fillWidth: true
+            // Same three choices as Settings, in the same order.
+            model: [
+                qsTr("Linux (native)"),
+                qsTr("Windows (Wine)"),
+                qsTr("Windows (Proton via UMU)")
+            ]
         }
         Controls.ComboBox {
             id: steamBox
