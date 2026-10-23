@@ -5,24 +5,26 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `casing-audit`, one signed commit on top of `add-game-flow`,
-  both pushed to origin (added with a plain `git push -u`, no
-  force). `add-game-flow` must land before this one, and it still
-  awaits the maintainer's approval.
-- Last landed: the capitalization audit. Every QML label, button, menu
-  entry, dialog title, checkbox, column and status message is Title
-  Case, and so is the pt_BR catalog (capitalize content words, lowercase
-  pt articles/prepositions). Tool names keep their spelling (`wine`,
-  `umu-run`, `winetricks`, `vkd3d-proton`, `logind`,
-  `compatibilitytools.d`, `MangoHud`, `DXVK`), flags and paths stay
-  verbatim, `(s)`/`(ies)` plural markers stay lowercase. The same pass
-  hit the status messages the GUI model builds in Python
-  (`gui/model.py`, not translated) and the tray menu.
-- Verified: 384 passed under `scripts/check.sh --qml`, ruff check and
-  format clean, `refresh-translations.sh` reports 0 untranslated,
-  offscreen screenshots of the main page, Add dialog, all eight Settings
-  tabs and Preferences show no clipped or overlapping text.
-- Next: the two branches land (squash `add-game-flow`, then
-  `casing-audit`), then the deferred items in `TODO.md` ("After
-  game-types": running indicator and Terminate action).
+- Branch: `main`, clean and in sync with `origin/main` (the only dirty
+  file is the `-git` PKGBUILD `pkgver`, left uncommitted on purpose).
+  The short-lived branches `add-game-flow` and `casing-audit` landed as
+  two squashed, signed commits and were deleted locally and on origin.
+- Last landed: the Add game flow with the `.exe` hint, then the
+  capitalization audit. `AddDialog` keeps `Steam Game` / `Local Game`
+  and, for local games, a Game Type combo that preselects the same
+  field in Settings; Settings warns when a Windows executable runs as
+  Linux native and offers the Wine/Proton switch without blocking the
+  save. Every label, button, menu entry, dialog title, checkbox, column
+  and status message is Title Case, in the pt_BR catalog too; tool names
+  (`wine`, `umu-run`, `winetricks`, `vkd3d-proton`, `logind`,
+  `compatibilitytools.d`, `MangoHud`, `DXVK`) keep their spelling and
+  flags/paths stay verbatim.
+- Verified: 383 passed under `scripts/check.sh` on the squashed `main`
+  (384 with `--qml` on the branch, same tree), ruff clean, translations
+  complete (0 untranslated), offscreen screenshots showed no clipping.
+- Next: the deferred item in `TODO.md` "After game-types" — a running
+  indicator and a Terminate action in the GUI (the launcher writes
+  per-game logs but keeps no PID state today). New session and branch
+  off `main`; it touches the launcher/backends, so read
+  `docs/POLICIES.md` first.
 - Nothing blocking.
