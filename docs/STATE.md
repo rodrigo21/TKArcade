@@ -5,10 +5,10 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `block-internet` (short-lived, not merged yet); the only
-  dirty file besides the feature is the `-git` PKGBUILD `pkgver`, left
+- Branch: `main`, clean and in sync with `origin/main` (squash
+  `eb89066`); the only dirty file is the `-git` PKGBUILD `pkgver`, left
   uncommitted on purpose.
-- Last landed on the branch: Block Internet per game
+- Last landed on `main`: Block Internet per game
   (`[network] block_internet`). The launcher wraps the game innermost in
   `unshare -Urn -- <game>`: a user namespace (no root) plus a network
   namespace with no route, DNS or interface except a loopback that is
