@@ -63,12 +63,13 @@ Preferences moves the base, and a per-game `[runtime] prefix_dir` wins.
 `[runtime] wine_binary` and `[runtime] proton_path` override the global
 choices per game.
 
-`[graphics] layer` (`dxvk`, `vkd3d`, `vkd3d-wine`, or empty) copies the
-newest matching build found in the configured DXVK/vkd3d directories
-into the prefix at launch and selects it through `WINEDLLOVERRIDES`.
-DXVK covers D3D9/10/11, vkd3d-proton covers D3D12, and Wine's builtin
-vkd3d has lower compatibility. A marker (`tkarcade-graphics.json`)
-records the copied files; **Remove from prefix** deletes only those.
+`[graphics] dxvk` and `[graphics] vkd3d` copy the newest matching builds
+found in the configured DXVK/vkd3d directories into the prefix at launch
+and select them through `WINEDLLOVERRIDES`. DXVK covers D3D9/10/11 and
+vkd3d-proton covers D3D12, so the two combine (`dxvk = true` plus
+`vkd3d = "proton"`); `vkd3d = "wine"` keeps Wine's builtin vkd3d, which
+has lower compatibility. A marker (`tkarcade-graphics.json`) records the
+copied files; **Remove from prefix** deletes only those.
 
 ```toml
 [general]
@@ -79,7 +80,8 @@ game_type = "umu"
 proton_path = "/home/user/GE-Proton10-25"
 
 [graphics]
-layer = "dxvk"
+dxvk = true
+vkd3d = "proton"
 ```
 
 ## GUI guide
@@ -97,7 +99,7 @@ icon lists recent games for quick launch through Steam.
 args, working directory, pre-launch menu, pre/post commands),
 Environment (variables + curated presets), Compatibility (Steam Proton
 settings, or the Windows runtime for local games: Wine binary or umu
-Proton, prefix, graphics layer), Performance (GameMode, MangoHud, RT
+Proton, prefix, DXVK and vkd3d layers), Performance (GameMode, MangoHud, RT
 upscaler), Display (Gamescope, monitor mode), System (notifications,
 idle suspend, night light, audio, Ludusavi saves) and Artwork/Notes. The
 footer shows the live wrapper summary and a launch-command preview.

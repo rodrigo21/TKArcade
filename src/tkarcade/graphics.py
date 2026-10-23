@@ -3,8 +3,9 @@
 Installing copies the version's DLLs into the prefix and records exactly
 what was copied in ``<prefix>/tkarcade-graphics.json``; removing only
 deletes those recorded files. Switching layers never deletes anything:
-the layer is selected per launch through ``WINEDLLOVERRIDES`` ("n,b"
-prefers the copied DLL, "b" forces Wine's own implementation).
+each layer is selected per launch through ``WINEDLLOVERRIDES`` ("n,b"
+prefers the copied DLL, "b" forces Wine's own implementation). DXVK and
+vkd3d-proton cover different Direct3D versions, so both can be enabled.
 
 Stdlib only: the launcher installs the layer at launch.
 """
@@ -19,22 +20,38 @@ from . import runtimes
 MARKER = "tkarcade-graphics.json"
 MARKER_VERSION = 1
 
-#: WINEDLLOVERRIDES per layer. The empty layer forces the builtin DLLs so
-#: a previously installed layer stops winning until it is removed.
-OVERRIDES = {
-    "": "d3d9,d3d10core,d3d11,d3d12,dxgi=b",
-    "dxvk": "d3d9,d3d10core,d3d11,dxgi=n,b;d3d12=b",
-    "vkd3d": "d3d12=n,b;d3d9,d3d10core,d3d11,dxgi=b",
-    "vkd3d-wine": "d3d9,d3d10core,d3d11,d3d12,dxgi=b",
-}
+#: WINEDLLOVERRIDES fragments. DXVK and vkd3d-proton cover different
+#: Direct3D versions, so a prefix can run both; anything not enabled is
+#: forced to the builtin DLL so a layer copied earlier stops winning.
+_BUILTIN = "d3d9,d3d10core,d3d11,d3d12,dxgi=b"
+_DXVK = "d3d9,d3d10core,d3d11,dxgi=n,b"
+_VKD3D = "d3d12=n,b"
 
-#: Marker layer key per configured layer.
+#: Marker layer key per installed layer.
 _LAYER_KIND = {"dxvk": "dxvk", "vkd3d": "vkd3d"}
 
 
-def overrides(layer: str) -> str:
-    """WINEDLLOVERRIDES value for a layer ("" for unknown/off)."""
-    return OVERRIDES.get(layer, OVERRIDES[""])
+def overrides(dxvk: bool = False, vkd3d: str = "") -> str:
+    """WINEDLLOVERRIDES value for the enabled layers.
+
+    ``vkd3d`` is "" (Wine builtin), "proton" (vkd3d-proton) or "wine"
+    (forced builtin, same effect as "" but explicit).
+    """
+    if not dxvk and vkd3d != "proton":
+        return _BUILTIN
+    parts = [_DXVK if dxvk else "d3d9,d3d10core,d3d11,dxgi=b"]
+    parts.append(_VKD3D if vkd3d == "proton" else "d3d12=b")
+    return ";".join(parts)
+
+
+def enabled_kinds(dxvk: bool, vkd3d: str) -> list[str]:
+    """Layer kinds that must be copied into the prefix for this setting."""
+    kinds = []
+    if dxvk:
+        kinds.append("dxvk")
+    if vkd3d == "proton":
+        kinds.append("vkd3d")
+    return kinds
 
 
 def marker_path(prefix: Path) -> Path:
@@ -165,19 +182,27 @@ def uninstall(prefix: Path, kind: str = "") -> tuple[int, list[str]]:
     return removed, warnings
 
 
-def launch_env(prefix: Path, layer: str, prefs: object) -> tuple[dict, list[str]]:
-    """Environment for the configured layer, installing it first.
+def launch_env(prefix: Path, dxvk: bool, vkd3d: str, prefs: object) -> tuple[dict, list[str]]:
+    """Environment for the enabled layers, installing them first.
 
-    Empty layer: no overrides unless a previous install left a marker
-    (then force the builtin DLLs so the old layer stops winning).
+    All layers off: no overrides unless a previous install left a marker
+    (then force the builtin DLLs so the old layer stops winning). A layer
+    whose version is missing falls back for its own Direct3D versions.
     """
     prefix = Path(prefix)
-    if layer in (None, ""):
-        if marker_path(prefix).is_file():
-            return {"WINEDLLOVERRIDES": overrides("")}, []
-        return {}, []
-    if layer in _LAYER_KIND:
-        ok, warnings = install(prefix, layer, prefs)
+    effective_dxvk = bool(dxvk)
+    effective_vkd3d = vkd3d if vkd3d in ("proton", "wine") else ""
+    attempted = effective_dxvk or effective_vkd3d == "proton"
+    warnings: list[str] = []
+    if effective_dxvk:
+        ok, w = install(prefix, "dxvk", prefs)
+        warnings += w
+        effective_dxvk = ok
+    if effective_vkd3d == "proton":
+        ok, w = install(prefix, "vkd3d", prefs)
+        warnings += w
         if not ok:
-            return {"WINEDLLOVERRIDES": overrides("")}, warnings
-    return {"WINEDLLOVERRIDES": overrides(layer)}, []
+            effective_vkd3d = ""
+    if effective_vkd3d != "wine" and not attempted and not marker_path(prefix).is_file():
+        return {}, warnings
+    return {"WINEDLLOVERRIDES": overrides(effective_dxvk, effective_vkd3d)}, warnings

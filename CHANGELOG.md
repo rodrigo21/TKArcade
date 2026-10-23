@@ -209,6 +209,14 @@ Breaking config changes are called out explicitly under `Changed`.
   refuses to guess with exit 18. There is no migration shim (pre-1.0);
   existing files are kept as they are, nothing is rewritten or deleted.
   Local games now pick native, Wine or Proton via `umu-run` explicitly.
+- **BREAKING**: graphics layers combine instead of picking one.
+  `graphics.layer` is replaced by `graphics.dxvk` (bool) and
+  `graphics.vkd3d` (`"proton"`, `"wine"` or off): DXVK covers
+  D3D9/10/11 and vkd3d-proton covers D3D12, so both run in the same
+  prefix, selected per API through `WINEDLLOVERRIDES`. Settings show a
+  DXVK checkbox plus a D3D12 layer combo, and the status line/removal
+  covers both. Configs with the old key load with every layer off (no
+  migration shim, pre-1.0).
 - Package metadata requires `PySide6>=6.12`: Qt 6.12.0 is the first
   branch with the fixes for CVE-2026-8168 (SVG nesting DoS),
   CVE-2026-105923 (VectorImage null dereference) and CVE-2026-15037

@@ -427,7 +427,10 @@ def _build_env(
         if game_type == "umu" and proton is not None:
             env["PROTONPATH"] = str(proton.path)
         layer_env, w = graphicsmod.launch_env(
-            runtime["prefix"], cfg.graphics.layer, runtime.get("prefs")
+            runtime["prefix"],
+            cfg.graphics.dxvk,
+            cfg.graphics.vkd3d,
+            runtime.get("prefs"),
         )
         warnings += w
         for key, value in layer_env.items():
@@ -615,17 +618,18 @@ def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
 
 
 def _graphics_issue(appid: str, eff: cfgmod.GameConfig) -> list[str]:
-    """A selected graphics layer without an installed version to copy."""
+    """Enabled graphics layers without an installed version to copy."""
     if cfgmod.normalize_game_type(eff.general.game_type) not in ("wine", "umu"):
         return []
-    layer = cfgmod.normalize_graphics_layer(eff.graphics.layer)
-    if layer not in ("dxvk", "vkd3d"):
+    kinds = graphicsmod.enabled_kinds(eff.graphics.dxvk, eff.graphics.vkd3d)
+    if not kinds:
         return []
-    kind = "dxvk" if layer == "dxvk" else "vkd3d"
     prefs = cfgmod.load_preferences()
-    if runtimes.pick_graphics(kind, graphicsmod.layer_dirs(layer, prefs)) is None:
-        return [f"{appid}: graphics layer {layer!r} has no installed version"]
-    return []
+    return [
+        f"{appid}: graphics layer {kind!r} has no installed version"
+        for kind in kinds
+        if runtimes.pick_graphics(kind, graphicsmod.layer_dirs(kind, prefs)) is None
+    ]
 
 
 def _exe_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:

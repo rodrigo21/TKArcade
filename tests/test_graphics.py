@@ -127,46 +127,61 @@ def test_uninstall_ignores_unsafe_marker_paths(xdg_env, tmp_path):
     assert not ok.exists()
 
 
-def test_overrides_per_layer():
-    assert G.overrides("") == "d3d9,d3d10core,d3d11,d3d12,dxgi=b"
-    assert G.overrides("dxvk").startswith("d3d9,d3d10core,d3d11,dxgi=n,b")
-    assert G.overrides("dxvk").endswith("d3d12=b")
-    assert G.overrides("vkd3d").startswith("d3d12=n,b")
-    assert G.overrides("vkd3d-wine") == G.overrides("")
+def test_overrides_compose_layers():
+    builtin = "d3d9,d3d10core,d3d11,d3d12,dxgi=b"
+    assert G.overrides() == builtin
+    assert G.overrides(dxvk=True) == "d3d9,d3d10core,d3d11,dxgi=n,b;d3d12=b"
+    assert G.overrides(vkd3d="proton") == "d3d9,d3d10core,d3d11,dxgi=b;d3d12=n,b"
+    assert G.overrides(dxvk=True, vkd3d="proton") == ("d3d9,d3d10core,d3d11,dxgi=n,b;d3d12=n,b")
+    assert G.overrides(vkd3d="wine") == builtin
 
 
 def test_launch_env_off_and_installed(xdg_env, tmp_path):
     prefix = tmp_path / "prefix"
     prefs = _prefs(tmp_path)
-    assert G.launch_env(prefix, "", prefs) == ({}, [])
+    assert G.launch_env(prefix, False, "", prefs) == ({}, [])
     base = tmp_path / "dxvk"
     _version(base, "v2.6.2", "d3d11.dll")
     prefs = _prefs(tmp_path, "dxvk", base)
-    env, warnings = G.launch_env(prefix, "dxvk", prefs)
+    env, warnings = G.launch_env(prefix, True, "", prefs)
     assert warnings == []
     assert env["WINEDLLOVERRIDES"].startswith("d3d9,d3d10core,d3d11,dxgi=n,b")
-    # Turning the layer off after an install forces the builtin DLLs.
-    env, warnings = G.launch_env(prefix, "", prefs)
+    # Turning every layer off after an install forces the builtin DLLs.
+    env, warnings = G.launch_env(prefix, False, "", prefs)
     assert warnings == []
-    assert env["WINEDLLOVERRIDES"] == G.overrides("")
+    assert env["WINEDLLOVERRIDES"] == G.overrides()
     assert G.installed(prefix) == {"dxvk": "v2.6.2"}
+
+
+def test_launch_env_installs_both_layers(xdg_env, tmp_path):
+    dxvk = tmp_path / "dxvk"
+    vkd3d = tmp_path / "vkd3d"
+    _version(dxvk, "v2.6.2", "d3d11.dll")
+    _version(vkd3d, "v2.13", "d3d12.dll")
+    prefs = _prefs(tmp_path, "dxvk", dxvk)
+    prefs.vkd3d_dirs = str(vkd3d)
+    prefix = tmp_path / "prefix"
+    env, warnings = G.launch_env(prefix, True, "proton", prefs)
+    assert warnings == []
+    assert G.installed(prefix) == {"dxvk": "v2.6.2", "vkd3d": "v2.13"}
+    assert env["WINEDLLOVERRIDES"] == G.overrides(dxvk=True, vkd3d="proton")
 
 
 def test_launch_env_without_versions_warns_and_falls_back(xdg_env, tmp_path):
     prefix = tmp_path / "prefix"
     prefs = _prefs(tmp_path, "vkd3d", tmp_path / "nowhere")
-    env, warnings = G.launch_env(prefix, "vkd3d", prefs)
+    env, warnings = G.launch_env(prefix, False, "proton", prefs)
     assert any("vkd3d" in w for w in warnings)
-    assert env["WINEDLLOVERRIDES"] == G.overrides("")
+    assert env["WINEDLLOVERRIDES"] == G.overrides()
     assert not G.marker_path(prefix).is_file()
 
 
 def test_vkd3d_wine_layer_installs_nothing(xdg_env, tmp_path):
     prefix = tmp_path / "prefix"
     prefs = _prefs(tmp_path)
-    env, warnings = G.launch_env(prefix, "vkd3d-wine", prefs)
+    env, warnings = G.launch_env(prefix, False, "wine", prefs)
     assert warnings == []
-    assert env["WINEDLLOVERRIDES"] == G.overrides("")
+    assert env["WINEDLLOVERRIDES"] == G.overrides()
     assert not G.marker_path(prefix).is_file()
 
 
@@ -183,7 +198,7 @@ def test_launcher_installs_the_layer(xdg_env, fake_bin):
     cfg.general.appid = "local-doom"
     cfg.general.game_type = "wine"
     cfg.general.custom_executable = "/games/doom.exe"
-    cfg.graphics.layer = "dxvk"
+    cfg.graphics.dxvk = True
     _cmd, env, warnings = build_final_command(cfg, [])
     prefix = xdg_env["data"] / "tkarcade/prefixes/local-doom"
     assert (prefix / "drive_c/windows/system32/d3d11.dll").is_file()
@@ -204,7 +219,7 @@ def test_launcher_respects_a_game_override(xdg_env, fake_bin):
     cfg.general.appid = "local-doom"
     cfg.general.game_type = "wine"
     cfg.general.custom_executable = "/games/doom.exe"
-    cfg.graphics.layer = "dxvk"
+    cfg.graphics.dxvk = True
     cfg.env.vars = {"WINEDLLOVERRIDES": "d3d11=n"}
     _cmd, env, warnings = build_final_command(cfg, [])
     assert env["WINEDLLOVERRIDES"] == "d3d11=n"
@@ -218,7 +233,7 @@ def test_validate_flags_missing_graphics_version(xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.game_type = "wine"
     cfg.general.custom_executable = "/bin/true"
-    cfg.graphics.layer = "dxvk"
+    cfg.graphics.dxvk = True
     C.save(cfg)
     issues = L.validate_game("local-doom")
     assert any("no installed version" in i for i in issues)

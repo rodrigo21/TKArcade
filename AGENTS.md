@@ -9,6 +9,8 @@ License: GPL-3.0-or-later.
 - Chat with the maintainer in Portuguese; code, docs, comments, commit
   messages and GUI strings in English.
 - Short, factual, no superlatives. Surface disagreements honestly.
+- Rename the session to the task in progress whenever the work moves to
+  a new area: the title is what a later session sees first.
 
 ## Work state
 

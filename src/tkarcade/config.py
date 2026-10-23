@@ -179,21 +179,28 @@ class RuntimeConfig:
     prefix_dir: str = ""  # full prefix dir; empty = <prefix_base>/<appid>
 
 
-#: Graphics layers offered for local Wine/UMU games. "" disables the
-#: layer; "vkd3d-wine" is Wine's own builtin vkd3d (lower compatibility).
-GRAPHICS_LAYERS = ("dxvk", "vkd3d", "vkd3d-wine")
+#: Graphics translation layers offered for local Wine/UMU games. DXVK and
+#: vkd3d-proton cover different Direct3D versions, so they combine; "wine"
+#: is Wine's own builtin vkd3d for D3D12 (lower compatibility).
+GRAPHICS_VKD3D_MODES = ("", "proton", "wine")
 
 
-def normalize_graphics_layer(value: object) -> str:
+def normalize_graphics_vkd3d(value: object) -> str:
+    """Configured D3D12 layer: "" (builtin), "proton" or "wine"."""
     text = str(value or "").strip().lower()
-    return text if text in GRAPHICS_LAYERS else ""
+    if text in ("proton", "vkd3d-proton"):
+        return "proton"
+    if text in ("wine", "vkd3d-wine"):
+        return "wine"
+    return ""
 
 
 @dataclass
 class GraphicsConfig:
-    """Graphics translation layer installed into a local game's prefix."""
+    """Graphics translation layers installed into a local game's prefix."""
 
-    layer: str = ""  # ""|dxvk|vkd3d|vkd3d-wine
+    dxvk: bool = False  # D3D9/10/11 through DXVK
+    vkd3d: str = ""  # ""|proton|wine for D3D12
 
 
 @dataclass
@@ -619,7 +626,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "session": {"inhibit_idle"},
     "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
     "runtime": {"wine_binary", "proton_path", "prefix_dir"},
-    "graphics": {"layer"},
+    "graphics": {"dxvk", "vkd3d"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
     "artwork": {"icon", "cover", "banner", "donor_appid"},
@@ -785,7 +792,9 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.runtime.wine_binary = str(rt.get("wine_binary", "")).strip()
     cfg.runtime.proton_path = str(rt.get("proton_path", "")).strip()
     cfg.runtime.prefix_dir = str(rt.get("prefix_dir", "")).strip()
-    cfg.graphics.layer = normalize_graphics_layer(_section(data, "graphics").get("layer", ""))
+    gfx = _section(data, "graphics")
+    cfg.graphics.dxvk = _as_bool(gfx.get("dxvk", False), False)
+    cfg.graphics.vkd3d = normalize_graphics_vkd3d(gfx.get("vkd3d", ""))
     cfg.audio.sink = str(_section(data, "audio").get("sink", ""))
     art = _section(data, "artwork")
     cfg.artwork.icon = str(art.get("icon", ""))

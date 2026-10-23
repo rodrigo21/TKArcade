@@ -4534,7 +4534,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
 
     _save_one_game("local-doom", "Doom", "wine")
     saved = C.load("local-doom")
-    saved.graphics.layer = "dxvk"
+    saved.graphics.dxvk = True
     C.save(saved)
     proton_dir = xdg_env["home"] / "GE-Proton10-1"
     proton_dir.mkdir()
@@ -4566,7 +4566,8 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     wine_field = swin.findChild(QQuickItem, "settingsLocalWine")
     proton_box = swin.findChild(QQuickItem, "settingsLocalProton")
     prefix_field = swin.findChild(QQuickItem, "settingsLocalPrefix")
-    gfx_box = swin.findChild(QQuickItem, "settingsGraphicsLayer")
+    gfx_dxvk = swin.findChild(QQuickItem, "settingsGraphicsDxvk")
+    gfx_vkd3d = swin.findChild(QQuickItem, "settingsGraphicsVkd3d")
     status = swin.findChild(QQuickItem, "settingsGfxStatus")
     remove = swin.findChild(QQuickItem, "settingsGfxRemove")
 
@@ -4582,8 +4583,10 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert wine_field.property("visible") is True
     assert proton_box.property("visible") is False
     assert prefix_field.property("visible") is True
-    assert gfx_box.property("visible") is True
-    assert gfx_box.property("currentIndex") == 1
+    assert gfx_dxvk.property("visible") is True
+    assert gfx_dxvk.property("checked") is True
+    assert gfx_vkd3d.property("visible") is True
+    assert gfx_vkd3d.property("currentIndex") == 0
     assert "DXVK v9.9" in status.property("text")
     assert remove.property("enabled") is True
 
@@ -4599,7 +4602,8 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     # Wine path and prefix dir round-trip through Save.
     wine_field.setProperty("text", "/opt/wine/bin/wine")
     prefix_field.setProperty("text", str(prefix))
-    gfx_box.setProperty("currentIndex", 1)
+    gfx_dxvk.setProperty("checked", True)
+    gfx_vkd3d.setProperty("currentIndex", 1)
     dlg.save()
     QTest.qWait(50)
     cfg = C.load("local-doom")
@@ -4607,7 +4611,8 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert cfg.runtime.wine_binary == "/opt/wine/bin/wine"
     assert cfg.runtime.prefix_dir == str(prefix)
     assert cfg.runtime.proton_path == ""
-    assert cfg.graphics.layer == "dxvk"
+    assert cfg.graphics.dxvk is True
+    assert cfg.graphics.vkd3d == "proton"
 
     # umu records the chosen Proton install path.
     page.openGameSettings("local-doom")

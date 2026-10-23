@@ -632,7 +632,8 @@ class GameListModel(QAbstractTableModel):
             "runtime_wine_binary": cfg.runtime.wine_binary,
             "runtime_proton_path": cfg.runtime.proton_path,
             "runtime_prefix_dir": cfg.runtime.prefix_dir,
-            "graphics_layer": cfgmod.normalize_graphics_layer(cfg.graphics.layer),
+            "graphics_dxvk": bool(cfg.graphics.dxvk),
+            "graphics_vkd3d": cfgmod.normalize_graphics_vkd3d(cfg.graphics.vkd3d),
         }
 
     @Slot(str, result="QVariantMap")
@@ -804,7 +805,8 @@ class GameListModel(QAbstractTableModel):
         cfg.runtime.wine_binary = str(data.get("runtime_wine_binary", "")).strip()
         cfg.runtime.proton_path = str(data.get("runtime_proton_path", "")).strip()
         cfg.runtime.prefix_dir = str(data.get("runtime_prefix_dir", "")).strip()
-        cfg.graphics.layer = cfgmod.normalize_graphics_layer(data.get("graphics_layer", ""))
+        cfg.graphics.dxvk = bool(data.get("graphics_dxvk", False))
+        cfg.graphics.vkd3d = cfgmod.normalize_graphics_vkd3d(data.get("graphics_vkd3d", ""))
         cats = data.get("categories", [])
         if isinstance(cats, str):
             cats = [c.strip() for c in cats.split(",")]

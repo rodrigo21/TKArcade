@@ -248,18 +248,15 @@ Window {
     function refreshGfx(reset) {
         gfxInfo = gameModel.graphicsState(editAppid)
         if (reset === true) {
-            gfxBox.currentIndex = {
-                "": 0,
-                "dxvk": 1,
-                "vkd3d": 2,
-                "vkd3d-wine": 3
-            }[fields.graphics_layer] ?? 0
+            gfxDxvk.checked = fields.graphics_dxvk === true
+            var index = ["", "proton", "wine"].indexOf(fields.graphics_vkd3d || "")
+            gfxVkd3d.currentIndex = index >= 0 ? index : 0
         }
         gfxStatus = gfxStatusText()
     }
 
-    function gfxLayer() {
-        return ["", "dxvk", "vkd3d", "vkd3d-wine"][gfxBox.currentIndex] || ""
+    function gfxVkd3dValue() {
+        return ["", "proton", "wine"][gfxVkd3d.currentIndex] || ""
     }
 
     function gfxStatusText() {
@@ -275,10 +272,10 @@ Window {
         var text = parts.length > 0
             ? qsTr("In the prefix: %1").arg(parts.join(", "))
             : qsTr("Nothing installed in the prefix yet (installed at launch).")
-        var layer = gfxLayer()
-        if (layer === "dxvk" && !available.dxvk) {
+        if (gfxDxvk.checked && !available.dxvk) {
             text += " " + qsTr("No DXVK version found in the configured directories.")
-        } else if (layer === "vkd3d" && !available.vkd3d) {
+        }
+        if (gfxVkd3dValue() === "proton" && !available.vkd3d) {
             text += " " + qsTr("No vkd3d-proton version found in the configured directories.")
         }
         return text
@@ -453,7 +450,8 @@ Window {
             "runtime_wine_binary": localWineField.text,
             "runtime_proton_path": protonChoicePath(),
             "runtime_prefix_dir": localPrefixField.text,
-            "graphics_layer": gfxLayer(),
+            "graphics_dxvk": gfxDxvk.checked,
+            "graphics_vkd3d": gfxVkd3dValue(),
             "active_profile": dialogProfile
         }
     }
@@ -1793,15 +1791,25 @@ Window {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     visible: typeBox.currentIndex >= 1
-                                    KirigamiLayouts.FormData.label: qsTr("Graphics layer:")
+                                    KirigamiLayouts.FormData.label: qsTr("DXVK:")
+                                    Controls.CheckBox {
+                                        id: gfxDxvk
+                                        objectName: "settingsGraphicsDxvk"
+                                        text: qsTr("D3D9/10/11 through DXVK")
+                                        onCheckedChanged: gfxStatus = gameSettings.gfxStatusText()
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: typeBox.currentIndex >= 1
+                                    KirigamiLayouts.FormData.label: qsTr("D3D12 layer:")
                                     Controls.ComboBox {
-                                        id: gfxBox
-                                        objectName: "settingsGraphicsLayer"
+                                        id: gfxVkd3d
+                                        objectName: "settingsGraphicsVkd3d"
                                         Layout.fillWidth: true
                                         model: [
                                             qsTr("Off (Wine builtin)"),
-                                            qsTr("DXVK (D3D9/10/11)"),
-                                            qsTr("vkd3d-proton (D3D12)"),
+                                            qsTr("vkd3d-proton"),
                                             qsTr("vkd3d (Wine builtin, lower compatibility)")
                                         ]
                                         onActivated: gfxStatus = gameSettings.gfxStatusText()

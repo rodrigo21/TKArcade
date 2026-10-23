@@ -329,7 +329,4 @@ dispatch). Each needs one look on a real compositor:
   already writes per-game logs; no PID state is kept today).
 - `runtime.prefix_name`: a friendly name under the prefix base instead
   of the AppID (and a picker for existing prefixes).
-- Combined DXVK + vkd3d-proton toggles: they are complementary
-  (D3D9/10/11 vs D3D12), not alternatives; the single `[graphics]
-  layer` choice forces one at a time today.
 
