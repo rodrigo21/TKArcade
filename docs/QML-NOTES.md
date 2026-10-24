@@ -136,6 +136,14 @@ failure. `AGENTS.md` links here.
   past the window, `ScrollView` clip swallows synthetic clicks silently
   (identical geometry, no warnings). Keep the default window tall enough
   that tab controls stay above the fold offscreen.
+- The header title row sizes its filter from the buttons' real widths,
+  never from a guess: translated labels are wider than English and a
+  wide window shows them (text buttons above 1600px). The
+  `titleDelegate` is a `Component`, so its button ids are invisible at
+  page scope — the measurement belongs inside the row. Pre-fix, pt_BR at
+  the maximized 1440p/1.5 width (~1700px) hid the whole actions row
+  (view, Columns, hamburger) in Kirigami's overflow; the subprocess case
+  in `test_kirigami_app.py` pins the desktop style and a larger font.
 - Content windows (settings and friends) are separate modal `Window`s
   (`WindowModal`, transient on the main window): resizable, no PageRow
   tiling surprises. Tests drive them through `topLevelWindows()` by

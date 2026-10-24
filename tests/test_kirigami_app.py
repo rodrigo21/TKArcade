@@ -205,6 +205,69 @@ def test_main_installs_the_preferred_language(tmp_path):
     assert r.returncode == 0 and "OK" in r.stdout, r.stdout + r.stderr
 
 
+def test_toolbar_survives_translated_labels(tmp_path):
+    """Wider translated labels must not hide the header actions.
+
+    The title row's filter width used to follow a fixed guess (380px for
+    the four text buttons). pt_BR labels are wider than English, and at
+    the maximized 1440p/1.5 width (~1700) the row overran its slot and
+    Kirigami pushed the whole actions row (view, Columns, hamburger) into
+    overflow. Out of process: the desktop style is pinned at application
+    creation, and it is the style whose extra padding tips the row over.
+    """
+    script = textwrap.dedent(
+        """
+        from PySide6.QtCore import QPointF
+        from PySide6.QtGui import QFont
+        from PySide6.QtQuick import QQuickItem
+        from PySide6.QtWidgets import QApplication
+
+        from tkarcade.gui import i18n
+        from tkarcade.gui.kirigami_app import build_engine
+
+        app = QApplication([])
+        font = QFont(app.font())
+        font.setPointSizeF(11)
+        app.setFont(font)
+        assert i18n.install_translations(app, "pt_BR") == "pt_BR"
+        engine, _model, _filter = build_engine("main.qml")
+        win = engine.rootObjects()[0]
+        win.setProperty("width", 1700)
+        win.setProperty("height", 900)
+        win.show()
+        for _ in range(40):
+            app.processEvents()
+
+        def visible(name):
+            for item in win.findChildren(QQuickItem, name):
+                if item.property("visible"):
+                    return item
+            return None
+
+        remove = visible("titleRemove")
+        assert remove is not None and remove.property("text") == "Remover"
+        for name in ("toolbarIcons", "columnsButton", "hamburgerButton"):
+            item = visible(name)
+            assert item is not None, name
+            left = item.mapToScene(QPointF(0, 0)).x()
+            right = item.mapToScene(QPointF(item.property("width"), 0)).x()
+            assert 0 <= left and right <= win.property("width"), (name, left, right)
+        print("OK")
+        """
+    )
+    env = _shell_env(tmp_path)
+    env["QT_QUICK_CONTROLS_STYLE"] = "org.kde.desktop"
+    r = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=120,
+    )
+    assert r.returncode == 0 and "OK" in r.stdout, r.stdout + r.stderr
+
+
 # --- TKARCADE_OPEN: open one dialog at launch (real-display checks) --------
 
 

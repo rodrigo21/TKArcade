@@ -296,6 +296,13 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- The header actions (view, Columns, hamburger/Preferences) no longer
+  disappear in pt_BR: once the window is wide enough to show the four
+  title buttons with text, the search filter's width came from a fixed
+  380px guess for them. Wider translated labels made the title row
+  overrun the space Kirigami reserves, and the whole actions row went to
+  the overflow menu. The cap now follows the real button widths,
+  measured inside the title component; English never hit it.
 - The Kirigami shell follows `preferences.language`: only the
   standalone editor installed the bundled catalog, and the shell built
   its window untranslated, so the language picker (or a seeded

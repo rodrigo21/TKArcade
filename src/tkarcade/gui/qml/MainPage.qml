@@ -32,10 +32,17 @@ Kirigami.Page {
     // plain RowLayout honors fillWidth, so the filter stays centered
     // while the actions row (view icons) pins right at any width.
     titleDelegate: RowLayout {
+        id: titleRow
         // Content-sized (no fill/preferred tug-of-war with the toolbar):
         // fixed elastics + fixed filter keep geometry identical at any
         // width, so nothing ever hides or overflows.
         spacing: Kirigami.Units.smallSpacing
+        // The filter cap follows the real button widths. A fixed guess
+        // left translated labels (wider than English) pushing the
+        // actions row into overflow; the ids live in this Component,
+        // so the page scope cannot measure them.
+        property real buttonsWidth: btnPlay.implicitWidth + btnAdd.implicitWidth + btnEdit.implicitWidth + btnRemove.implicitWidth
+        property int filterWidth: Math.max(240, Math.min(gamesPage.titleFilterWant, gamesPage.width - gamesPage.titleReserve - 2 * buttonsWidth - 6 * Kirigami.Units.smallSpacing))
         Controls.ToolButton {
             id: btnPlay
             objectName: "titlePlay"
@@ -82,15 +89,15 @@ Kirigami.Page {
             // (the buttons width pushes it right), so the left one
             // absorbs the buttons width back out. Zeroed on tiny
             // pages: fitting beats centering there.
-            implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - 2 * (btnPlay.width + btnAdd.width + btnEdit.width + btnRemove.width
-                + 3 * Kirigami.Units.smallSpacing) - gamesPage.titleFilterWidth) / 2)
+            implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - 2 * (titleRow.buttonsWidth
+                + 3 * Kirigami.Units.smallSpacing) - titleRow.filterWidth) / 2)
         }
         Kirigami.SearchField {
             objectName: "searchField"
             // Page-based (never our own row width: that loops). Narrow
             // pages get a shorter filter so the icons still fit.
             // Shared with the elastics below (single source of truth).
-            implicitWidth: gamesPage.titleFilterWidth
+            implicitWidth: titleRow.filterWidth
             placeholderText: qsTr("Filter by Name or ID…")
             onTextChanged: gameFilter.textQuery = text
         }
@@ -99,7 +106,7 @@ Kirigami.Page {
             // Larger twin (see spacerA): with buttons+filter+title all
             // fixed, the icons toolbar keeps a constant ~170px room.
             // Zeroed on tiny pages with its twin.
-            implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - gamesPage.titleFilterWidth) / 2)
+            implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - titleRow.filterWidth) / 2)
         }
     }
     // Flush against the window toolbar, like plasma-systemmonitor.
@@ -130,11 +137,10 @@ Kirigami.Page {
     // Title-row geometry (single source of truth). The reserve keeps
     // room for the icons toolbar at any size (+handle room in overlay,
     // where the drawer button joins the header); the filter clamps to
-    // [600, 1200] with a fit cap so the corner never overflows.
+    // [600, 1200] with a fit cap so the corner never overflows. The cap
+    // itself lives on the title row, which can measure the buttons.
     property int titleReserve: (gamesPage.appDrawer && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible) ? 218 : 170
-    property int titleButtonsGuess: compactToolbar ? 170 : 380
     property int titleFilterWant: Math.min(1200, Math.max(gamesPage.width < 1000 ? 240 : 600, gamesPage.width * 0.45))
-    property int titleFilterWidth: gamesPage.width < 1000 ? 240 : Math.min(titleFilterWant, gamesPage.width - titleReserve - 2 * titleButtonsGuess - 20)
 
     onViewModeChanged: {
         if (viewMode === "list") {
