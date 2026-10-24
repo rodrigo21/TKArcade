@@ -17,7 +17,10 @@ Window {
     // field column, right-aligned labels), a right-aligned Save/Cancel
     // box, and a window sized to the form. `resize(420, 280)` with the
     // layout minimum landing at 420x312 at the time.
-    minimumWidth: Kirigami.Units.gridUnit * 20
+    // FormLayout keeps its label column at any width now (WidgetsFormLayout
+    // pins wideMode), so the window minimum has to fit the form's own
+    // minimum: the widgets dialog landed at 420x312 for the same reason.
+    minimumWidth: Kirigami.Units.gridUnit * 23
     minimumHeight: Kirigami.Units.gridUnit * 16
     width: Kirigami.Units.gridUnit * 23
     height: body.implicitHeight + body.anchors.margins * 2

@@ -300,17 +300,6 @@ desktop; only option 2 buys module purity.
   ("Cannot anchor to an item that isn't a parent or sibling") and
   `z: -1` lands under the card background, which eats the press.
 
-### Real-display checks (offscreen cannot verdict these)
-
-Runbook: `docs/plans/real-display-checks.md` (steps, acceptance
-criteria, failure symptoms and the code to look at per item). Launch
-with `scripts/display-check.sh` for a throwaway profile, and
-`TKARCADE_OPEN=<surface>` to open one dialog directly. Items: tray menu
-(native `QMenu`, not the ruled-out QML popup), settings
-`WidgetsFormLayout` rows, table/header gestures, Category and Artwork
-dialogs, pt_BR in situ, audio sink picker. Record results in the table
-at the end of that document.
-
 ## Add game flow and casing (agreed 2026-10-23)
 
 - [x] Add dialog: keep two sources (`Steam Game`, `Local Game`); Steam

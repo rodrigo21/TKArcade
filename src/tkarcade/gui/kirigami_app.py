@@ -348,6 +348,16 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
+    # The interface language comes from the preferences (the picker in
+    # Preferences), not from LANG, and the catalog has to be installed
+    # before the engine loads: every qsTr() in the QML, and the Python-side
+    # tray strings, resolve at creation time. Without this the shipped
+    # pt_BR catalog was only ever used by the standalone editor.
+    from .i18n import install_translations, preferred_language
+
+    language = install_translations(app, preferred_language())
+    if language:
+        log.debug("interface language: %s", language)
     # Before the UI: a follower has nothing to build, it just wakes the
     # primary (which may be sitting in the tray) and exits 0.
     server = single_instance()

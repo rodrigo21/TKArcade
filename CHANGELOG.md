@@ -290,6 +290,20 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- The Kirigami shell follows `preferences.language`: only the
+  standalone editor installed the bundled catalog, and the shell built
+  its window untranslated, so the language picker (or a seeded
+  `pt_BR`) left the whole interface in English. `main()` installs the
+  catalog before the engine loads, which covers the QML strings and the
+  Python-side tray menu alike.
+- Settings never stacks a label above its field: Kirigami's `FormLayout`
+  drops to a one-column form whenever the dialog is narrower than the
+  form's *natural* width, and the Launch tab's hidden `.exe` hint row
+  (a wrapped sentence at its full line width) inflated that width on a
+  real display, so only that tab showed labels above the fields.
+  `WidgetsFormLayout` pins `wideMode`, the hint label no longer reports
+  its unwrapped line as width, and a QML case checks every tab at the
+  default and at the minimum width.
 - View switching keeps the selected game (list → icons → cards): the
   hidden `TableView` drops its selection model's selection and clears it
   again when it comes back, and the reverse sync mirrored that empty

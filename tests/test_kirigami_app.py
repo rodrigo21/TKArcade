@@ -97,6 +97,23 @@ def test_single_instance_recovers_a_stale_socket(qgui_app, monkeypatch, tmp_path
         server.close()
 
 
+def _shell_env(tmp_path):
+    """Environment for an out-of-process `main()`: sandboxed, offscreen."""
+    env = dict(os.environ)
+    env["PYTHONPATH"] = "src"
+    env["QT_QPA_PLATFORM"] = "offscreen"
+    env["HOME"] = str(tmp_path)
+    # The single-instance socket lives in the temp dir: keep it inside the
+    # sandbox so a real running shell cannot answer for this one.
+    (tmp_path / "tmp").mkdir(exist_ok=True)
+    env["TMPDIR"] = str(tmp_path / "tmp")
+    for var in ("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"):
+        (tmp_path / var).mkdir(exist_ok=True)
+        env[var] = str(tmp_path / var)
+    env.pop("TKARCADE_TEST_GUI", None)
+    return env
+
+
 def test_main_boots_the_shell(tmp_path):
     """`main()` builds its own QApplication and runs the shell.
 
@@ -125,18 +142,58 @@ def test_main_boots_the_shell(tmp_path):
         print("OK")
         """
     )
-    env = dict(os.environ)
-    env["PYTHONPATH"] = "src"
-    env["QT_QPA_PLATFORM"] = "offscreen"
-    env["HOME"] = str(tmp_path)
-    # The single-instance socket lives in the temp dir: keep it inside the
-    # sandbox so a real running shell cannot answer for this one.
-    (tmp_path / "tmp").mkdir(exist_ok=True)
-    env["TMPDIR"] = str(tmp_path / "tmp")
-    for var in ("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"):
-        (tmp_path / var).mkdir(exist_ok=True)
-        env[var] = str(tmp_path / var)
-    env.pop("TKARCADE_TEST_GUI", None)
+    env = _shell_env(tmp_path)
+    r = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=120,
+    )
+    assert r.returncode == 0 and "OK" in r.stdout, r.stdout + r.stderr
+
+
+def test_main_installs_the_preferred_language(tmp_path):
+    """The shell loads the catalog the preferences name, before the engine.
+
+    Out of process for the same reason as the boot test, and because the
+    translator is process-wide: `preferences.language = pt_BR` has to
+    reach the QML strings and the Python-side tray menu, which only holds
+    if `main()` installs it before the engine builds the window.
+    """
+    script = textwrap.dedent(
+        """
+        from PySide6.QtCore import QCoreApplication
+        from PySide6.QtWidgets import QApplication
+
+        from tkarcade import config as C
+        from tkarcade.gui import kirigami_app
+
+        prefs = C.load_preferences()
+        prefs.language = "pt_BR"
+        C.save_preferences(prefs)
+
+
+        def fake_exec(self):
+            for _ in range(20):
+                self.processEvents()
+            assert QCoreApplication.translate("MainPage", "Games") == "Jogos"
+            assert QCoreApplication.translate("GameSettings", "Save") == "Salvar"
+            assert (
+                QCoreApplication.translate("TrayMenu", "Show / Hide")
+                == "Mostrar / Ocultar"
+            )
+            return 0
+
+
+        QApplication.exec = fake_exec
+        code = kirigami_app.main([])
+        assert code == 0, code
+        print("OK")
+        """
+    )
+    env = _shell_env(tmp_path)
     r = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True,

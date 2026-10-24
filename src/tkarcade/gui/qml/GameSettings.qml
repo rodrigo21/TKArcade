@@ -1503,6 +1503,14 @@ Window {
                                         && /\.(exe|bat|msi)$/i.test(exeField.text.trim())
                                     Controls.Label {
                                         Layout.fillWidth: true
+                                        // A wrapped sentence reports its whole
+                                        // line as implicit width, and this row
+                                        // counts toward the form's natural width
+                                        // even while hidden: the Launch tab used
+                                        // to be the one that overflowed. The
+                                        // label takes whatever fillWidth gives.
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
                                         wrapMode: Text.WordWrap
                                         text: qsTr("This Looks Like a Windows Executable, but the Game Type Is Linux (Native).")
                                     }

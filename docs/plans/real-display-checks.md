@@ -1,7 +1,8 @@
 # Real-display checks
 
-Status: prepared (2026-10-24), awaiting the maintainer's pass on a real
-compositor. Runbook for the items offscreen tests cannot verdict.
+Status: passed (2026-10-24) on Plasma Wayland; the two failures it
+found (stacked Launch rows, shell ignoring the language) are fixed.
+Runbook for the items offscreen tests cannot verdict.
 
 The QML suite asserts geometry, state and dispatch on `QT_QPA_PLATFORM=
 offscreen`. That cannot answer "does the tray menu appear under the
@@ -190,12 +191,12 @@ Where: `backends/audio.py` (`list_sinks`, long-form parse),
 
 | # | Item | Date | Result | Notes |
 | --- | --- | --- | --- | --- |
-| 1 | Tray menu | | | |
-| 2 | Settings layout | | | |
-| 3 | Table and header | | | |
-| 4 | Category/Artwork | | | |
-| 5 | pt_BR in situ | | | |
-| 6 | Audio sink picker | | | |
+| 1 | Tray menu | 2026-10-24 | ok | Native `QMenu` under the icon |
+| 2 | Settings layout | 2026-10-24 | ok | Launch tab stacked labels (fixed); re-checked in en and pt_BR, at the default and minimum width |
+| 3 | Table and header | 2026-10-24 | ok | Drag/reorder/sort, resize, autofit, persistence after restart |
+| 4 | Category/Artwork | 2026-10-24 | ok | Seeded cover and banner render; filter applies |
+| 5 | pt_BR in situ | 2026-10-24 | ok | The shell installed no catalog at all (fixed); clean on the second run |
+| 6 | Audio sink picker | 2026-10-24 | ok | Descriptions listed, node name saved |
 
 Fill Result with `ok` or `failed`; a failure gets its own `TODO.md` item
 (or branch) with the screenshot attached. When the pass is clean, delete

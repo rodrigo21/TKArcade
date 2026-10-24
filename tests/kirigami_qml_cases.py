@@ -2850,6 +2850,7 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     """Preferences dialog writes through to the prefs file."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -2875,6 +2876,19 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     # (an explicit `height:` alone leaves contentHeight at -1).
     scroller = swin.findChild(QQuickItem, "prefsScroll")
     assert scroller.property("contentHeight") > 0
+    # The form keeps its label column at every allowed width (WidgetsFormLayout
+    # pins wideMode), so the window minimum must fit it: shrink to the minimum
+    # and check that no row runs past the right edge.
+    swin.setProperty("width", swin.property("minimumWidth"))
+    QTest.qWait(200)
+    form = swin.findChild(QQuickItem, "prefsForm")
+    assert form.property("wideMode") is True
+    form_width = form.property("width")
+    for item in form.findChildren(QQuickItem):
+        if not item.isVisible():
+            continue
+        right = item.property("x") + item.property("width")
+        assert right <= form_width + 1, f"{item.metaObject().className()} runs past the form edge"
     _click(swin, "prefsSave")
     qgui_app.processEvents()
     prefs = C.load_preferences()
@@ -5330,6 +5344,77 @@ def test_settings_general_formlayout_wide(qgui_app, xdg_env):
     assert abs(name.property("x") + name.property("width") - form.property("width")) <= 24
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_tabs_formlayout_never_stack(qgui_app, xdg_env):
+    """Every tab keeps labels beside fields, even at the minimum width.
+
+    Kirigami's FormLayout falls back to a one-column form (label above the
+    field) when the form is narrower than its natural width, and a hidden
+    wrapped hint or a wide placeholder can inflate that width: the Launch
+    tab stacked its labels on a real display with the dialog still fitting
+    the screen. WidgetsFormLayout pins wideMode, so no tab may ever stack.
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    QTest.qWait(400)
+
+    def visible_forms():
+        return [
+            item
+            for item in swin.findChildren(QQuickItem)
+            if item.property("wideMode") is not None and item.isVisible()
+        ]
+
+    seen = {}
+    for width in (None, "minimum"):
+        if width == "minimum":
+            swin.setProperty("width", swin.property("minimumWidth"))
+            QTest.qWait(300)
+        for index, title in enumerate(SETTINGS_TAB_TITLES):
+            _settings_tab(swin, index)
+            forms = visible_forms()
+            assert all(form.property("wideMode") is True for form in forms), (
+                f"{title} stacked at width {width}"
+            )
+            seen[title] = seen.get(title, 0) + len(forms)
+            if title != "Launch" or not forms:
+                continue
+            args = swin.findChild(QQuickItem, "settingsArgs")
+            # Label column on the left, the field taking the rest of the tab.
+            assert args.property("x") > 60
+            args_right = args.property("x") + args.property("width")
+            assert args_right <= forms[0].property("width") + 1
+
+    # Every tab but Environment (its own rows, no FormLayout) has forms;
+    # a rename that hides one from the search would otherwise pass silently.
+    assert {title for title, count in seen.items() if not count} == {"Environment"}
+
+    # The wrapped hint row is the one that dragged the form past the edge:
+    # shown at the minimum width, its label must wrap inside the tab.
+    _settings_tab(swin, TAB_LAUNCH)
+    swin.findChild(QQuickItem, "settingsExe").setProperty("text", "Doom.exe")
+    QTest.qWait(200)
+    hint = swin.findChild(QQuickItem, "settingsExeHint")
+    assert hint.property("visible") is True
+    hint_right = hint.property("x") + hint.property("width")
+    assert hint_right <= visible_forms()[0].property("width") + 1
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
