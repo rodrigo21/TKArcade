@@ -5,32 +5,33 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, clean and in sync with `origin/main` (squash
-  `eb89066`); the only dirty file is the `-git` PKGBUILD `pkgver`, left
-  uncommitted on purpose.
-- Last landed on `main`: Block Internet per game
-  (`[network] block_internet`). The launcher wraps the game innermost in
-  `unshare -Urn -- <game>`: a user namespace (no root) plus a network
-  namespace with no route, DNS or interface except a loopback that is
-  never brought up. Ludusavi cloud restore/backup and the pre/post hooks
-  stay outside and keep their network. When the host forbids
-  unprivileged user namespaces the launcher refuses (exit 14) instead
-  of going online; `--validate` reports it (exit 17). The option lives
-  in Settings → System → Network, with a red hint when the host cannot
-  build the namespace. Risk matrix and decisions:
-  `docs/plans/network-isolation.md`.
-- Verified on the branch: `scripts/check.sh --qml` 401 passed, ruff
-  check and format clean, `refresh-translations.sh` 0 untranslated
-  (pt_BR strings added), offscreen screenshots of the Network section
-  and of the unavailable-hint variant showed no clipping, overlap or
-  QML warnings. A pytestqt teardown segfault (leftover model timers
-  firing during the QML driver) was fixed by stopping/ deleting the
-  model in `test_model_running_role_and_terminate`.
-- Also complete (landed earlier): the Add game flow, the `.exe` hint,
-  the running indicator and Terminate action.
-- Next: the remaining deferred `TODO.md` item — the vkBasalt successor
-  (vkBasalt is unmaintained; evaluate forks or ReShade-on-Linux when
-  mature), or whatever the maintainer asks for. New branch off `main`;
-  read `docs/POLICIES.md` first.
-- Open decisions: none for the running indicator or block_internet.
-  Nothing blocking.
+- Branch: `main`, clean and in sync with `origin/main`; the only dirty
+  file is the `-git` PKGBUILD `pkgver`, left uncommitted on purpose.
+- Last landed on `main`: Block Internet per game (`[network]
+  block_internet`). The launcher wraps the game innermost in
+  `unshare -Urn -- <game>`; hosts that forbid unprivileged user
+  namespaces are refused (exit 14, `--validate` 17) instead of going
+  online. Option in Settings → System → Network; risk matrix in
+  `docs/plans/network-isolation.md`. Also landed earlier: the running
+  indicator and Terminate action (`docs/plans/running-indicator.md`),
+  the Add game flow and the `.exe` hint.
+- Verified on the current tree: `scripts/check.sh --qml` 401 passed,
+  ruff check and format clean, `refresh-translations.sh` 0 untranslated,
+  offscreen screenshots of the Network section and of its
+  unavailable-hint variant showed no clipping, overlap or QML warnings.
+- Next concrete step: pt_BR catalog hygiene. `translations/tkarcade_pt_BR.ts`
+  has 31 entries marked `type="unfinished"` that already carry text;
+  clear the flag on those, recompile, and make
+  `scripts/refresh-translations.sh` report unfinished-with-text (its
+  `untranslated: 0` hides them today). Small, no behaviour change.
+- After that: the "Real-display checks" list in `TODO.md` needs the
+  maintainer on a real compositor (tray menu, `WidgetsFormLayout`,
+  table/header gestures, category/artwork dialogs, pt_BR in situ, audio
+  picker); a release pass (Unreleased has nine groups, `-git` PKGBUILD,
+  `diff -r` against TKSteamLaunch, package versions) waits for the
+  maintainer's version/tag decision.
+- Deferred by the maintainer (2026-10-23): the vkBasalt successor item
+  stays out of scope; do not pick it up without a new request.
+- Open decisions: none for the running indicator or block_internet;
+  release numbering and signing are the maintainer's.
+- Nothing blocking.
