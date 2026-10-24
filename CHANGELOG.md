@@ -6,6 +6,12 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- `TKARCADE_OPEN=<surface>` opens one GUI dialog at launch (`settings`,
+  `settings:<appid>`, `artwork:<appid>`, `defaults`, `add`, `category`,
+  `prefs`, `about`), and `scripts/display-check.sh` launches the shell
+  against a throwaway profile with three seeded games. Together they are
+  the runbook in `docs/plans/real-display-checks.md` for the checks
+  offscreen tests cannot verdict. Nothing changes without the variable.
 - Block Internet per game (Settings, "Network" section): the game runs
   in an unprivileged network namespace (`unshare -Urn`), so it has no
   route, DNS or interface except loopback. Multiplayer, achievements,

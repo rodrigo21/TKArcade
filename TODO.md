@@ -302,24 +302,14 @@ desktop; only option 2 buys module purity.
 
 ### Real-display checks (offscreen cannot verdict these)
 
-Everything below passed offscreen assertions only (geometry, state,
-dispatch). Each needs one look on a real compositor:
-
-- Tray menu popup: right-click must deliver `activated(Context)` on the
-  KStatusNotifierItem path (left click is already wired through
-  `Trigger`); position under the icon (the SNI reports no geometry, so
-  it comes from `QCursor.pos()`), keyboard focus, click-outside
-  dismissal, the non-native QQC2 look, and whether the compositor
-  accepts a transient popup of a hidden shell window at all (offscreen
-  it does; fallback is a `Window { flags: Qt.Popup }` menu with
-  hand-built rows). The icon itself registers in the Plasma
-  `StatusNotifierWatcher` (measured).
-- Settings window: `WidgetsFormLayout` rows side by side (the widgets
-  QFormLayout puts label and field on one line) below the tabs.
-- Table: the added columns (Source, Category, ...) and the header
-  drag / resize / autofit gestures.
-- Category and Artwork dialogs, and the pt_BR catalog in situ.
-- Audio sink picker (left untouched on this branch).
+Runbook: `docs/plans/real-display-checks.md` (steps, acceptance
+criteria, failure symptoms and the code to look at per item). Launch
+with `scripts/display-check.sh` for a throwaway profile, and
+`TKARCADE_OPEN=<surface>` to open one dialog directly. Items: tray menu
+(native `QMenu`, not the ruled-out QML popup), settings
+`WidgetsFormLayout` rows, table/header gestures, Category and Artwork
+dialogs, pt_BR in situ, audio sink picker. Record results in the table
+at the end of that document.
 
 ## Add game flow and casing (agreed 2026-10-23)
 

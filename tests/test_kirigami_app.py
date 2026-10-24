@@ -146,3 +146,103 @@ def test_main_boots_the_shell(tmp_path):
         timeout=120,
     )
     assert r.returncode == 0 and "OK" in r.stdout, r.stdout + r.stderr
+
+
+# --- TKARCADE_OPEN: open one dialog at launch (real-display checks) --------
+
+
+class _Stub:
+    """Records the QML methods called on it, whatever their name."""
+
+    def __init__(self, name):
+        self.name = name
+        self.calls = []
+
+    def __getattr__(self, attr):
+        def record(*args):
+            self.calls.append((attr, args))
+
+        return record
+
+
+class _FakeRoot:
+    """`findChild(QObject, name)` over a fixed set of stubs."""
+
+    def __init__(self, *names):
+        self.stubs = {name: _Stub(name) for name in names}
+
+    def findChild(self, _type, name):
+        return self.stubs.get(name)
+
+    def calls(self, name):
+        return self.stubs[name].calls
+
+
+def test_parse_open_request():
+    from tkarcade.gui.kirigami_app import parse_open_request
+
+    assert parse_open_request("settings:730") == ("settings", "730")
+    assert parse_open_request("artwork: 730 ") == ("artwork", "730")
+    assert parse_open_request("Settings") == ("settings", "")
+    assert parse_open_request("prefs") == ("prefs", "")
+    assert parse_open_request("prefs:") == ("prefs", "")
+    assert parse_open_request("") == ("", "")
+
+
+def test_open_surface_opens_the_named_dialog():
+    import logging
+
+    from tkarcade.gui.kirigami_app import SETTINGS_TAB_ARTWORK, open_surface
+
+    log = logging.getLogger("test")
+    root = _FakeRoot(
+        "gamesPage", "settingsTabs", "addGameDialog", "categoryDialog", "prefsDialog", "aboutDialog"
+    )
+
+    assert open_surface(root, log, "settings:730") is True
+    assert root.calls("gamesPage") == [("openGameSettings", ("730",))]
+
+    assert open_surface(root, log, "settings") is True
+    assert root.calls("gamesPage")[-1] == ("openSettingsForSelection", ())
+
+    assert open_surface(root, log, "artwork:730") is True
+    assert root.calls("settingsTabs")[-1] == ("setProperty", ("currentIndex", SETTINGS_TAB_ARTWORK))
+
+    assert open_surface(root, log, "add") is True
+    assert root.calls("addGameDialog") == [("open", ())]
+
+    assert open_surface(root, log, "category") is True
+    assert root.calls("categoryDialog") == [("openDialog", ())]
+
+    assert open_surface(root, log, "defaults") is True
+    assert root.calls("gamesPage")[-1] == ("openDefaultsSettings", ())
+
+    assert open_surface(root, log, "prefs") is True
+    assert root.calls("prefsDialog") == [("load", ()), ("open", ())]
+
+    assert open_surface(root, log, "about") is True
+    assert root.calls("aboutDialog") == [("open", ())]
+
+
+def test_open_surface_refuses_an_unknown_name(caplog):
+    import logging
+
+    from tkarcade.gui.kirigami_app import open_surface
+
+    root = _FakeRoot("gamesPage")
+    with caplog.at_level(logging.WARNING, logger="test"):
+        assert open_surface(root, logging.getLogger("test"), "nope:1") is False
+    assert "unknown surface" in caplog.text
+    assert "settings" in caplog.text  # the message lists the valid names
+
+
+def test_open_surface_survives_a_missing_dialog(caplog):
+    """A broken check logs and lets the shell come up (no crash, no exit)."""
+    import logging
+
+    from tkarcade.gui.kirigami_app import open_surface
+
+    root = _FakeRoot("gamesPage")  # no aboutDialog at all
+    with caplog.at_level(logging.WARNING, logger="test"):
+        assert open_surface(root, logging.getLogger("test"), "about") is False
+    assert "TKARCADE_OPEN=about failed" in caplog.text

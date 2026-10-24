@@ -244,6 +244,88 @@ def _tray_callbacks(root, log) -> dict:
     }
 
 
+#: Tab index of "Artwork/Notes" in GameSettings.qml's TabBar (General
+#: first, System before it). Keep in step when a tab is inserted.
+SETTINGS_TAB_ARTWORK = 7
+
+
+def parse_open_request(spec: str) -> tuple[str, str]:
+    """Split a `TKARCADE_OPEN` value into (surface, argument).
+
+    `settings:730` and `artwork:730` carry an AppID; `prefs`, `about`,
+    `defaults`, `add` and `category` take none. A bare `settings` or
+    `artwork` means "whatever is selected", which is what a display
+    check usually wants.
+    """
+    surface, _, arg = spec.partition(":")
+    return surface.strip().lower(), arg.strip()
+
+
+def _child(root, name: str):
+    """A QML object by `objectName`, looked up the way the tray does it."""
+    from PySide6.QtCore import QObject
+
+    return root.findChild(QObject, name)
+
+
+def _open_settings(root, appid: str) -> None:
+    page = _child(root, "gamesPage")
+    if appid:
+        page.openGameSettings(appid)
+    else:
+        # No AppID given: whatever the table has selected, like the menu.
+        page.openSettingsForSelection()
+
+
+def _open_artwork(root, appid: str) -> None:
+    _open_settings(root, appid)
+    _child(root, "settingsTabs").setProperty("currentIndex", SETTINGS_TAB_ARTWORK)
+
+
+def _open_prefs(root) -> None:
+    dlg = _child(root, "prefsDialog")
+    dlg.load()
+    dlg.open()
+
+
+def _surface_handlers(root) -> dict:
+    """One callable per `TKARCADE_OPEN` surface, mirroring the menu paths."""
+    return {
+        "settings": lambda arg: _open_settings(root, arg),
+        "artwork": lambda arg: _open_artwork(root, arg),
+        "add": lambda _arg: _child(root, "addGameDialog").open(),
+        "category": lambda _arg: _child(root, "categoryDialog").openDialog(),
+        "defaults": lambda _arg: _child(root, "gamesPage").openDefaultsSettings(),
+        "prefs": lambda _arg: _open_prefs(root),
+        "about": lambda _arg: _child(root, "aboutDialog").open(),
+    }
+
+
+def open_surface(root, log, spec: str) -> bool:
+    """Open the dialog named by a `TKARCADE_OPEN` value.
+
+    Diagnostic only (docs/plans/real-display-checks.md): it saves hunting
+    through the menus on a real display. A bad name or a failure while
+    opening logs and returns False, so the shell still comes up.
+    """
+    surface, arg = parse_open_request(spec)
+    handlers = _surface_handlers(root)
+    handler = handlers.get(surface)
+    if handler is None:
+        log.warning(
+            "TKARCADE_OPEN=%s: unknown surface (want one of %s)",
+            spec,
+            ", ".join(sorted(handlers)),
+        )
+        return False
+    try:
+        handler(arg)
+    except Exception as e:  # a broken check must never stop the launch
+        log.warning("TKARCADE_OPEN=%s failed: %s", spec, e)
+        return False
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the Kirigami application (list, add and launch local games)."""
     import logging
@@ -295,4 +377,7 @@ def main(argv: list[str] | None = None) -> int:
     model._tray_refresher = tray.apply
     model.setTrayActive(tray.apply())
     apply_window_geometry(root)
+    open_request = os.environ.get("TKARCADE_OPEN", "").strip()
+    if open_request:
+        open_surface(root, log, open_request)
     return app.exec()
