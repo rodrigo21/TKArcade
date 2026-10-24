@@ -37,7 +37,7 @@ def qgui_app():
     A QApplication, matching the shell: the Plasma platform theme supplies
     the tray icon through KStatusNotifierItem, whose constructor creates a
     QMenu, so a QGuiApplication aborts inside QSystemTrayIcon.show()
-    (measured; see TODO.md). The fixture name predates that finding.
+    (measured; see docs/QML-NOTES.md). The fixture name predates that finding.
     """
     pytest.importorskip("PySide6.QtWidgets")
     from PySide6.QtWidgets import QApplication

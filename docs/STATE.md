@@ -5,37 +5,33 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, clean and in sync with `origin/main`.
-- Landed: the real-display pass, its two fixes and the vkBasalt removal.
-  All six runbook items are `ok` (`docs/plans/real-display-checks.md`,
-  Plasma Wayland, 2026-10-24) and the document is marked passed.
-  - Settings keep labels beside fields: `WidgetsFormLayout` pins
-    `wideMode` (Kirigami dropped to one column when the dialog was
-    narrower than the form's natural width, inflated by the hidden
-    `.exe` hint row on Launch), the hint label declares
-    `Layout.preferredWidth: 0`, and `PrefsDialog.minimumWidth` fits its
-    form. QML cases cover every settings tab at the default and minimum
-    width, the hint row and the Preferences form.
-  - The shell follows `preferences.language`: `main()` installs the
-    catalog before the engine loads, covering QML and the Python tray
-    menu; `test_kirigami_app` boots `main()` out of process with `pt_BR`.
-  - vkBasalt is out of scope (a successor would be a separate project):
-    no TODO item, no docs mention, and the SteamTinkerLaunch importer
-    carries no `VKBASALT_*` variables and does not count its toggles.
-- Verified after the last code change: `scripts/check.sh` 405 passed
-  (1 QML case deselected), ruff clean; `scripts/check.sh --qml` 406
-  passed on the same tree minus that importer change (no QML or test
-  touched since). Venv refreshed.
-- Next concrete step: prune `TODO.md` (327 lines, 45 `[x]` blocks and
-  the closed widgets audit whose text is already in `CHANGELOG.md`/git,
-  down to the open list: the recurring env-preset re-audit and the two
-  deferred-research lines). Move the Qt 6.11 landmines and the tray
-  measurements into `docs/QML-NOTES.md` first, so nothing is lost.
-  Approved, not started; docs-only, may commit on `main`.
-- After that: the release pass (ten `Unreleased` groups, the `-git`
-  PKGBUILD, the `diff -r` against TKSteamLaunch, package versions), with
-  `scripts/display-check.sh` as its checklist — waiting on the
-  maintainer's version/tag decision.
+- Branch: `main`. Landed: the real-display pass, its two fixes and the
+  vkBasalt removal — runbook items all `ok`
+  (`docs/plans/real-display-checks.md`, Plasma Wayland, 2026-10-24),
+  document marked passed.
+- Landed on 2026-10-24: `TODO.md` pruned from 324 lines to the open list
+  (the recurring env-preset re-audit and the two deferred-research
+  lines: Playnite plugin metadata and online sources à la Playnite).
+  Nothing lost: the Qt 6.11 landmines (including the real,
+  `selectedIds`-as-source-of-truth selection model behind a write-only
+  TableView mirror, and the cards view's `MouseArea`), the per-test
+  `XDG_CACHE_HOME` rule, the tray measurements (native `QMenu` skips
+  invisible actions, `aboutToShow` rebuilds, the zero-QtWidgets options,
+  the `{expr}` lupdate placeholder) are now in `docs/QML-NOTES.md`, and
+  the three code comments that pointed at `TODO.md` for them point
+  there instead (`gui/tray.py`, `gui/kirigami_app.py`,
+  `tests/conftest.py`).
+- Verified after that change: `scripts/check.sh` 405 passed
+  (1 QML case deselected), ruff clean; `scripts/check.sh --changed` 28
+  passed for the touched files. Docs and comments only, no QML or tests
+  touched, so no `--qml` run was needed. Venv refreshed.
+- Next concrete step: the release pass (ten `Unreleased` groups, the
+  `-git` PKGBUILD, the `diff -r` against TKSteamLaunch, package
+  versions), with `scripts/display-check.sh` as its checklist — waiting
+  on the maintainer's version/tag decision.
 - Open decisions: release numbering and signing are the maintainer's;
-  whether the closed widgets-parity audit stays anywhere at all.
+  whether the closed widgets-parity audit stays anywhere at all (its
+  text is in `CHANGELOG.md`/git, nothing in the tree links to it).
+- Uncommitted, the maintainer's: `pkgver` bump in
+  `packaging/arch/tkarcade-git/PKGBUILD` (`r356` → `r513`).
 - Nothing blocking.

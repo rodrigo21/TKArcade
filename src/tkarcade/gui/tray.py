@@ -10,7 +10,7 @@ exports through setContextMenu() and never delivers activated(Context)
 without one, so the QML menu this replaces could never be opened from the
 tray. The icon does need the shell's QApplication though -- on Plasma the
 platform theme builds a KStatusNotifierItem, whose constructor creates a
-QMenu (see kirigami_app.main and TODO.md).
+QMenu (see kirigami_app.main and docs/QML-NOTES.md).
 
 The entries dispatch through model.trayAction(): Show / Hide, recent
 launches, Preferences..., About..., Quit, plus the close/minimize-to-tray

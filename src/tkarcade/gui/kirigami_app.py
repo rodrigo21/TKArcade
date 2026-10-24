@@ -341,9 +341,9 @@ def main(argv: list[str] | None = None) -> int:
     # supplies the tray icon through KStatusNotifierItem, whose constructor
     # creates a QMenu -- a QWidget -- so QSystemTrayIcon.show() aborts the
     # process ("Cannot create a QWidget without QApplication") under a
-    # QGuiApplication. Measured on Plasma 6/Wayland; see TODO.md. The UI
-    # stays QML: tests/test_no_widgets.py still bans every widget class
-    # from the tree but this application object.
+    # QGuiApplication. Measured on Plasma 6/Wayland; see docs/QML-NOTES.md.
+    # The UI stays QML: tests/test_no_widgets.py still bans every widget
+    # class from the tree but this application object.
     app = QApplication(sys.argv if argv is None else argv)
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")

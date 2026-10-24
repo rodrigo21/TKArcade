@@ -23,6 +23,23 @@ failure. `AGENTS.md` links here.
   (`model.gameIcon`, never `rowData(row)` which desyncs on sort);
   `model` is null transiently, so every dereference needs optional
   chaining plus fallback (`model?.gameIcon ?? ""`).
+- `selectedIds` is the only source of truth for selection. The TableView
+  is a write-only mirror: hiding it drops its selection and it clears the
+  selection again when it comes back (measured), so `onViewModeChanged`
+  re-applies `selectedIds` through `applySelectionToTable` with
+  `Qt.callLater` once the view has settled, and nothing reads the
+  selection model back. The icons → cards → list switches all pass
+  through it; the widgets had a single view, so there is no reference
+  behaviour to copy (found while giving the views keyboard navigation).
+- `Kirigami.Card.clicked()` carries no mouse event and exposes no
+  `acceptedButtons`: the cards view keeps plain selection on `clicked()`
+  and takes the context menu plus Ctrl/Shift clicks from a `MouseArea`
+  that claims only those presses (`onPressed: mouse.accepted = ...`),
+  leaving plain presses to the card and the footer's Play action. A full
+  cover swallows Play (guarded by `test_card_play_button_clickable`),
+  and anchoring that MouseArea above the footer is not an option: Qt
+  refuses anchors to a non-sibling item and `z: -1` lands under the card
+  background, which eats the press.
 - `Controls.ScrollView` manages its content x/y itself: never position
   content with `x` or anchors (silently reset, no warning) — wrap in a
   plain Item and center inside that instead. Scrolling needs the
@@ -62,6 +79,9 @@ failure. `AGENTS.md` links here.
   layout passes need wall-clock time, and a few hundred tight iterations
   can all run inside one millisecond on an idle machine while starving
   under load (a case flaked inside `makepkg`'s check).
+- `XDG_CACHE_HOME` is isolated per test (`tests/conftest.py`) so the QML
+  disk cache never leaks between cases — but never disable the disk
+  cache itself: layout breaks without it.
 - A test that runs `edit.main()` or `kirigami_app.main()` in process
   pins `QT_QUICK_CONTROLS_STYLE` in `os.environ` for the rest of the
   session (the QML driver's children then inherit the desktop style and
@@ -126,7 +146,22 @@ failure. `AGENTS.md` links here.
   opened from the tray at all. `QSystemTrayIcon` and `QMenu` in
   `gui/tray.py`, plus `QApplication` in `gui/kirigami_app.py`, are the
   only QtWidgets names the tree may import (`tests/test_no_widgets.py`
-  defines done).
+  defines done). The native menu skips invisible actions outright, so
+  conditional entries (recents separators, Global Defaults) are simply
+  left out — the blank-row collapse QQC2 needs does not apply here.
+  Recents and Global Defaults rebuild on `aboutToShow`; the host
+  positions the menu under the icon, so no `geometry()`/`QCursor.pos()`
+  plumbing to `popup()`. Zero QtWidgets would need a hand-rolled
+  StatusNotifierItem + `com.canonical.dbusmenu` (~400 lines, no new
+  dependency); PyKF6's `KStatusNotifierItem` still wants `QMenu` and a
+  `QApplication`, so it is dominated and adds an ABI-matched runtime
+  dependency. Qt documents `QSystemTrayIcon` on Linux as a
+  StatusNotifierItem client, so both land in the same place on the
+  desktop; only the hand-rolled one buys module purity. Its labels are
+  the only Python-translatable strings, in a `TrayMenu` context: system
+  `lupdate6` reads Python natively and writes `{expr}` placeholders
+  where the retired `pylupdate6` wrote `{}` — adjust by hand, the
+  extraction itself is clean.
 - Kirigami's ApplicationWindow ships a built-in Quit action bound to
   the quit sequence that calls `close()` (not quit): clear
   `quitAction.shortcut` at startup or Ctrl+Q closes-to-tray instead
