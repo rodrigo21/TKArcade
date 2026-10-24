@@ -109,6 +109,11 @@ failure. `AGENTS.md` links here.
   style puts the title inside the frame at the top-left — not the
   widgets look. Layout rule, not a toolkit one: QtWidgets stays out of
   the tree (`tests/test_no_widgets.py` defines the allowed names).
+- The reference for that layout is the retired QtWidgets shell, archived
+  at tag `widgets-2026-10-06`; the dialog metrics were measured against
+  the maintainer's r240 build, which lives outside the repo. Read the
+  archived code instead of trusting memory or a copy pasted into a note:
+  `git show widgets-2026-10-06:src/tkarcade/gui/main_window.py`.
 - Every dialog button row copies the KDE `QDialogButtonBox` layout:
   Help/Reset/action buttons lead, the accept button then the reject come
   last, and the whole cluster is right-aligned (spacer first) with the

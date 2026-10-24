@@ -25,13 +25,16 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
   (1 QML case deselected), ruff clean; `scripts/check.sh --changed` 28
   passed for the touched files. Docs and comments only, no QML or tests
   touched, so no `--qml` run was needed. Venv refreshed.
+- Closed 2026-10-24: the widgets-parity audit stays nowhere. Its
+  outcomes are in `CHANGELOG.md` and the rules it produced are in
+  `docs/QML-NOTES.md`; the archived QtWidgets shell it measured is tag
+  `widgets-2026-10-06`, which QML-NOTES now names. Do not resurrect a
+  second, drifting copy.
 - Next concrete step: the release pass (ten `Unreleased` groups, the
   `-git` PKGBUILD, the `diff -r` against TKSteamLaunch, package
   versions), with `scripts/display-check.sh` as its checklist — waiting
   on the maintainer's version/tag decision.
-- Open decisions: release numbering and signing are the maintainer's;
-  whether the closed widgets-parity audit stays anywhere at all (its
-  text is in `CHANGELOG.md`/git, nothing in the tree links to it).
+- Open decisions: release numbering and signing are the maintainer's.
 - Uncommitted, the maintainer's: `pkgver` bump in
   `packaging/arch/tkarcade-git/PKGBUILD` (`r356` → `r513`).
 - Nothing blocking.
