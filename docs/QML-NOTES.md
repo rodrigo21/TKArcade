@@ -191,7 +191,10 @@ isolation, and a case counts as passed once its `PASSED` line printed
 (a teardown segfault after it is expected).
 
 - Fast loop without QML (~17s): `pytest tests/ -q -m "not qml"`, which
-  `scripts/check.sh` runs. Full run (~90s): `pytest tests/ -q`.
+  `scripts/check.sh` runs. Full run (~90s): `pytest tests/ -q`. The
+  marker covers exactly one node, `test_qml_suite_isolated`, so a check
+  run ends with "1 deselected" — expected, not a skipped case: that node
+  is the driver that runs every QML case in subprocesses.
 - Knobs: `TKARCADE_QML_BATCH` (cases per subprocess; default 8 serial,
   4 up to four workers, 2 above) and `TKARCADE_QML_WORKERS` (default one
   per CPU, capped at 8). Parallel runs can flake timing-sensitive cases

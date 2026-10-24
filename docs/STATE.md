@@ -21,9 +21,10 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
   the three code comments that pointed at `TODO.md` for them point
   there instead (`gui/tray.py`, `gui/kirigami_app.py`,
   `tests/conftest.py`).
-- Verified after that change: `scripts/check.sh` 405 passed
-  (1 QML case deselected), ruff clean; `scripts/check.sh --changed` 28
-  passed for the touched files. Docs and comments only, no QML or tests
+- Verified after that change: `scripts/check.sh` 405 passed, ruff clean;
+  the single deselected node is `test_qml_suite_isolated`, the `qml`-marked
+  driver that runs the ~80 offscreen cases and only `--qml` includes it
+  (the check output now says so). Docs and comments only, no QML or tests
   touched, so no `--qml` run was needed. Venv refreshed.
 - Closed 2026-10-24: the widgets-parity audit stays nowhere. Its
   outcomes are in `CHANGELOG.md` and the rules it produced are in

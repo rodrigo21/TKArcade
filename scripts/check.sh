@@ -82,6 +82,9 @@ if [ "$qml" = 1 ]; then
 fi
 
 [ -n "$targets" ] || targets=" tests/"
-echo "check: pytest$targets"
+# The one deselected node is the `qml`-marked driver in
+# tests/test_kirigami_qml.py: it runs the whole offscreen QML suite in
+# subprocesses, so `--qml` is the only way to run it.
+echo "check: pytest$targets (the qml suite driver is deselected, use --qml)"
 # shellcheck disable=SC2086  # a target list, split on purpose
 exec "$python" -m pytest $targets -q -m "not qml"
