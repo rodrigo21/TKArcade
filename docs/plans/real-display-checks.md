@@ -160,7 +160,7 @@ Preparo: `scripts/display-check.sh --lang pt_BR` (the language comes from
 
 Accept: no truncated or ellipsised button text, accents and casing
 correct, English only where it is a proper noun or tool name (`wine`,
-`umu-run`, `winetricks`, `vkBasalt`, `MangoHud`, `DXVK`).
+`umu-run`, `winetricks`, `MangoHud`, `DXVK`).
 
 Fails if: a label clips, a string stayed English that should not, or a
 `%1`-style placeholder is missing from the translation.

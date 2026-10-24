@@ -277,6 +277,12 @@ Breaking config changes are called out explicitly under `Changed`.
   CVE-2026-105923 (VectorImage null dereference) and CVE-2026-15037
   (QDom XML injection). Tool and AppImage installs now resolve a
   patched Qt; the Arch package already depended on 6.12.
+- vkBasalt is out of scope, roadmap included, and any successor would
+  be a separate project. The SteamTinkerLaunch importer therefore stops
+  carrying `VKBASALT_*` variables and stops counting STL's two vkBasalt
+  toggles among the ignored settings; a profile that enabled vkBasalt in
+  STL imports without it (the layer was never installed by TKArcade, so
+  the variables did nothing here).
 
 ### Removed
 - The parked QtWidgets implementation (`src/tkarcade/widgets/` and its

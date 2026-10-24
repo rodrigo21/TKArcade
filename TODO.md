@@ -63,8 +63,6 @@ This file is the deferred list only.
   the per-game "Block Internet" option (`unshare -Urn`), with the risk
   matrix and the refusal path in `docs/plans/network-isolation.md`.
   Lighter alternative still available: `WINE_BLOCK_HOSTS` preset.
-- [ ] vkBasalt successor: vkBasalt is unmaintained; evaluate forks or
-  ReShade-on-Linux successors when mature (out for now).
 - [x] FPS cap field (MangoHud `fps_limit`, per-game setting + MANGOHUD_CONFIG).
 - [x] libstrangle wrapper option for DX12 titles without overlay
   (automatic fallback when fps_limit is set but MangoHud is off).
@@ -314,8 +312,7 @@ desktop; only option 2 buys module purity.
 - [x] Capitalization audit across the program (QML labels, dialog
   titles, menus, pt_BR catalog): Title Case for every word of labels,
   but never rewrite proper nouns or tool names that are deliberately
-  lowercase (`wine`, `umu-run`, `winetricks`, `vkBasalt`, `MangoHud`,
-  `DXVK`).
+  lowercase (`wine`, `umu-run`, `winetricks`, `MangoHud`, `DXVK`).
 
 ## After game-types (deferred)
 

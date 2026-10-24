@@ -25,7 +25,6 @@ _ENV_PREFIXES = (
     "DXVK_",
     "VKD3D_",
     "MANGOHUD",
-    "VKBASALT_",
     "SDL_",
     "RADV_",
     "MESA_",
@@ -135,7 +134,7 @@ _TOGGLES = (
 )
 
 #: STL-only settings with no TKArcade equivalent (counted for the report).
-_NO_EQUIVALENT = ("USEPROTON", "ENABLE_VKBASALT", "USEVKBASALT", "REDIRCOMPDATA", "USESLR")
+_NO_EQUIVALENT = ("USEPROTON", "REDIRCOMPDATA", "USESLR")
 
 
 def _map_switches(get, cfg: cfgmod.GameConfig, report: list[str]) -> None:
@@ -237,9 +236,7 @@ def _note_ignored(get, report: list[str]) -> None:
     """Count STL-only settings with no equivalent, as one report line."""
     ignored = sum(1 for key in _NO_EQUIVALENT if _is_set(get(key)))
     if ignored:
-        report.append(
-            f"{ignored} STL-only setting(s) have no equivalent (proton version, vkBasalt, ...)"
-        )
+        report.append(f"{ignored} STL-only setting(s) have no equivalent")
 
 
 def map_to_gameconfig(appid: str, stl: dict[str, str]) -> tuple[cfgmod.GameConfig, list[str]]:

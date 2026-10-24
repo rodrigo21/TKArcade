@@ -33,7 +33,5 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
   the package versions — waiting on the maintainer's version/tag
   decision. The runbook stays as the checklist for that release's
   real-display pass (`scripts/display-check.sh`).
-- Deferred by the maintainer (2026-10-23): the vkBasalt successor item
-  stays out of scope; do not pick it up without a new request.
 - Open decisions: release numbering and signing are the maintainer's.
 - Nothing blocking.
