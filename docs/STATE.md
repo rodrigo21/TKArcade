@@ -8,34 +8,24 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 - Branch: `main`, in sync with `origin/main`; the tree is clean apart
   from the maintainer's uncommitted `pkgver` in
   `packaging/arch/tkarcade-git/PKGBUILD`.
-- Landed: `TODO.md` pruned from 324 lines to the open list (the
-  recurring env-preset re-audit and the two deferred-research lines:
-  Playnite plugin metadata, online sources à la Playnite). The notes that
-  were still load-bearing moved to `docs/QML-NOTES.md`: the
-  `selectedIds`-as-source-of-truth selection behind a write-only
-  TableView mirror, the cards view's `MouseArea`, the per-test
-  `XDG_CACHE_HOME` rule that forbids disabling the disk cache, and the
-  tray measurements (native `QMenu` skips invisible actions,
-  `aboutToShow` rebuilds, the zero-QtWidgets options, the `{expr}`
-  lupdate placeholder). Three code comments repointed
-  (`gui/tray.py`, `gui/kirigami_app.py`, `tests/conftest.py`).
-- Landed: the widgets-parity audit stays nowhere — its outcomes are in
-  `CHANGELOG.md`, its rules in `QML-NOTES.md`, and no second copy is to
-  be added. QML-NOTES now names the archived QtWidgets shell, tag
-  `widgets-2026-10-06`, as the reference to read (the r240 build the
-  dialogs were measured against lives outside the repo).
-- Landed: "1 deselected" is explained where it is seen — the
-  `scripts/check.sh` banner says the `qml` suite driver is the excluded
-  node, QML-NOTES' driver section says the same, and the deselected node
-  is `test_qml_suite_isolated` (it runs every QML case in subprocesses
-  and only `--qml` includes it).
-- Verified after the last code change: `scripts/check.sh` 405 passed,
-  ruff clean; only docs, comments and the check banner changed since, so
-  `--qml` was not re-run (last full number: 406 with the driver). Venv
-  refreshed at `post525.dev0+4c4ab79`.
-- Next concrete step: the release pass (ten `Unreleased` groups, the
-  `-git` PKGBUILD, the `diff -r` against TKSteamLaunch, package
-  versions), with `scripts/display-check.sh` as its checklist — waiting
-  on the maintainer's version/tag decision.
+- Landed: the right-side header buttons (view, Columns,
+  hamburger/Preferences) no longer vanish in pt_BR. Above 1600px the
+  four title buttons show text, and the filter cap came from a fixed
+  380px guess; wider translated labels made the row overrun and Kirigami
+  hid the actions row. The cap now lives on the `titleDelegate` row and
+  measures the real button widths (its ids are not visible at page
+  scope). `test_toolbar_survives_translated_labels` boots the shell out
+  of process with the desktop style, pt_BR and an 11pt font at the
+  maximized 1440p/1.5 width (1700px) and checks the three items are
+  visible inside the window.
+- Verified after the last code change: `scripts/check.sh --changed`
+  (full suite + QML driver) 407 passed, ruff clean; `scripts/check.sh`
+  406 passed, 1 deselected (the QML driver banner). Offscreen shot at
+  1700px in pt_BR: `/tmp/tkarcade-toolbar-pt.png`. Venv refreshed at
+  `post527.dev0+716fe8b`, before the merge and again after it.
+- Next concrete step: the maintainer's next round of fixes, then the
+  release pass (ten `Unreleased` groups, the `-git` PKGBUILD, the
+  `diff -r` against TKSteamLaunch, package versions), with
+  `scripts/display-check.sh` as its checklist.
 - Open decisions: release numbering and signing are the maintainer's.
 - Nothing blocking.
