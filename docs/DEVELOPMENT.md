@@ -135,13 +135,16 @@ and saved data stay split in combos so translations never break config
 round-trips. CLI/launcher text stays English by design.
 
 ```bash
-bash scripts/refresh-translations.sh  # lupdate + the untranslated report
+bash scripts/refresh-translations.sh  # lupdate + the untranslated/unfinished report
 # translate leftovers, then rerun it to recompile the .qm
 ```
 Never run lupdate on a subset of files: it marks every other context
 vanished. The refresh script always passes the full QML set plus
 `gui/tray.py`, and `-no-obsolete` prunes the vanished entries.
+`lrelease` runs with `-fail-on-unfinished`, so the script stops before
+writing a `.qm` while any message still carries the `type="unfinished"`
+flag, even when it already has text.
 
 Commit both `.ts` (source) and `.qm` (runtime payload, travels in the
 wheel). `tests/test_i18n.py` fails on any untranslated `qsTr()` or
-`translate()` literal.
+`translate()` literal, and on any leftover `unfinished` flag.

@@ -11,7 +11,7 @@
     <message>
         <location filename="../src/tkarcade/gui/qml/AboutDialog.qml" line="82"/>
         <source>OK</source>
-        <translation type="unfinished">OK</translation>
+        <translation>OK</translation>
     </message>
 </context>
 <context>
@@ -49,17 +49,17 @@
     <message>
         <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="111"/>
         <source>Linux (Native)</source>
-        <translation type="unfinished">Nativo Linux</translation>
+        <translation>Nativo Linux</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="112"/>
         <source>Windows (Wine)</source>
-        <translation type="unfinished">Windows (Wine)</translation>
+        <translation>Windows (Wine)</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="113"/>
         <source>Windows (Proton via UMU)</source>
-        <translation type="unfinished">Windows (Proton via UMU)</translation>
+        <translation>Windows (Proton via UMU)</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="130"/>
@@ -188,12 +188,12 @@
     <message>
         <location filename="../src/tkarcade/gui/qml/EditorPicker.qml" line="88"/>
         <source>OK</source>
-        <translation type="unfinished">OK</translation>
+        <translation>OK</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/EditorPicker.qml" line="94"/>
         <source>Cancel</source>
-        <translation type="unfinished">Cancelar</translation>
+        <translation>Cancelar</translation>
     </message>
 </context>
 <context>
@@ -274,22 +274,22 @@
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="266"/>
         <source>Saved as: %1</source>
-        <translation type="unfinished">Salvo Como: %1</translation>
+        <translation>Salvo Como: %1</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="269"/>
         <source>Shared with: %1</source>
-        <translation type="unfinished">Compartilhado com: %1</translation>
+        <translation>Compartilhado com: %1</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="272"/>
         <source>Prefix: %1</source>
-        <translation type="unfinished">Prefixo: %1</translation>
+        <translation>Prefixo: %1</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="273"/>
         <source>Created at Launch: %1</source>
-        <translation type="unfinished">Criado na Inicialização: %1</translation>
+        <translation>Criado na Inicialização: %1</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="307"/>
@@ -742,7 +742,7 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1298"/>
         <source>Game</source>
-        <translation type="unfinished">Jogo</translation>
+        <translation>Jogo</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2063"/>
@@ -954,7 +954,7 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1815"/>
         <source>Wine Binary:</source>
-        <translation type="unfinished">Binário do Wine:</translation>
+        <translation>Binário do Wine:</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1827"/>
@@ -974,17 +974,17 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1846"/>
         <source>Prefix Name:</source>
-        <translation type="unfinished">Nome do Prefixo:</translation>
+        <translation>Nome do Prefixo:</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1853"/>
         <source>Empty = the Game ID</source>
-        <translation type="unfinished">Vazio = o ID do Jogo</translation>
+        <translation>Vazio = o ID do Jogo</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1858"/>
         <source>Choose…</source>
-        <translation type="unfinished">Escolher…</translation>
+        <translation>Escolher…</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1874"/>
@@ -1240,7 +1240,7 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1768"/>
         <source>Remove</source>
-        <translation type="unfinished">Remover</translation>
+        <translation>Remover</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2470"/>
@@ -1346,7 +1346,7 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1954"/>
         <source>Wine</source>
-        <translation type="unfinished">Wine</translation>
+        <translation>Wine</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1965"/>
@@ -1687,12 +1687,12 @@ Os Saves Dentro Dela Serão Perdidos.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2963"/>
         <source>Existing Prefixes</source>
-        <translation type="unfinished">Prefixos Existentes</translation>
+        <translation>Prefixos Existentes</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2972"/>
         <source>No Wine Prefix Found Under the Prefix Base.</source>
-        <translation type="unfinished">Nenhum Prefixo Wine Encontrado na Base de Prefixos.</translation>
+        <translation>Nenhum Prefixo Wine Encontrado na Base de Prefixos.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="3012"/>
@@ -1751,7 +1751,7 @@ Os Saves Dentro Dela Serão Perdidos.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="69"/>
         <source>Game</source>
-        <translation type="unfinished">Jogo</translation>
+        <translation>Jogo</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="74"/>
@@ -1792,7 +1792,7 @@ Os Saves Dentro Dela Serão Perdidos.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="170"/>
         <source>Clear History</source>
-        <translation type="unfinished">Limpar Histórico</translation>
+        <translation>Limpar Histórico</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="172"/>
@@ -1802,7 +1802,7 @@ Os Saves Dentro Dela Serão Perdidos.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="184"/>
         <source>Cancel</source>
-        <translation type="unfinished">Cancelar</translation>
+        <translation>Cancelar</translation>
     </message>
 </context>
 <context>
@@ -2125,7 +2125,7 @@ Os Saves Dentro Dela Serão Perdidos.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1167"/>
         <source>Global Defaults...</source>
-        <translation type="unfinished">Padrões Globais...</translation>
+        <translation>Padrões Globais...</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1171"/>
@@ -2211,7 +2211,7 @@ Os Saves Dentro Dela Serão Perdidos.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1353"/>
         <source>Could Not Open the Prefix Folder.</source>
-        <translation type="unfinished">Não Foi Possível Abrir a Pasta do Prefixo.</translation>
+        <translation>Não Foi Possível Abrir a Pasta do Prefixo.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1360"/>
@@ -2322,7 +2322,7 @@ Os Saves Dentro Dela Serão Perdidos.</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1988"/>
         <source>Reset Columns</source>
-        <translation type="unfinished">Restaurar Colunas</translation>
+        <translation>Restaurar Colunas</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1995"/>
@@ -2721,7 +2721,7 @@ Isso Sobrescreve as Configs Salvas (Perfis São Mantidos).</translation>
     <message>
         <location filename="../src/tkarcade/gui/qml/PrelaunchMenu.qml" line="230"/>
         <source>Cancel</source>
-        <translation type="unfinished">Cancelar</translation>
+        <translation>Cancelar</translation>
     </message>
 </context>
 <context>
@@ -2757,27 +2757,27 @@ Isso Sobrescreve as Configs Salvas (Perfis São Mantidos).</translation>
     <message>
         <location filename="../src/tkarcade/gui/tray.py" line="122"/>
         <source>Show / Hide</source>
-        <translation type="unfinished">Mostrar / Ocultar</translation>
+        <translation>Mostrar / Ocultar</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/tray.py" line="132"/>
         <source>Global Defaults...</source>
-        <translation type="unfinished">Padrões Globais...</translation>
+        <translation>Padrões Globais...</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/tray.py" line="135"/>
         <source>Preferences...</source>
-        <translation type="unfinished">Preferências...</translation>
+        <translation>Preferências...</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/tray.py" line="136"/>
         <source>About...</source>
-        <translation type="unfinished">Sobre...</translation>
+        <translation>Sobre...</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/tray.py" line="138"/>
         <source>Quit</source>
-        <translation type="unfinished">Sair</translation>
+        <translation>Sair</translation>
     </message>
 </context>
 <context>

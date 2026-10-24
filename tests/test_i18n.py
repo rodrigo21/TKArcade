@@ -39,21 +39,33 @@ def _py_strings(path: Path) -> set[tuple[str, str]]:
     }
 
 
+def _messages() -> list[tuple[str, ET.Element]]:
+    """(context, message) for every entry in the catalog."""
+    return [
+        (ctx.findtext("name"), msg)
+        for ctx in ET.parse(TS).getroot().findall("context")
+        for msg in ctx.findall("message")
+    ]
+
+
 def _catalog() -> dict[tuple[str, str], str]:
-    tree = ET.parse(TS)
     out = {}
-    for ctx in tree.getroot().findall("context"):
-        name = ctx.findtext("name")
-        for msg in ctx.findall("message"):
-            tr = msg.find("translation")
-            out[(name, msg.findtext("source"))] = (tr.text or "") if tr is not None else ""
+    for name, msg in _messages():
+        tr = msg.find("translation")
+        out[(name, msg.findtext("source"))] = (tr.text or "") if tr is not None else ""
     return out
 
 
 def test_ts_has_no_unfinished():
-    catalog = _catalog()
-    empty = [k for k, v in catalog.items() if not v.strip()]
+    """No empty text and no leftover lupdate flag: lrelease would carry both."""
+    empty = [key for key, text in _catalog().items() if not text.strip()]
     assert empty == []
+    unfinished = [
+        (name, msg.findtext("source"))
+        for name, msg in _messages()
+        if (tr := msg.find("translation")) is not None and tr.get("type") == "unfinished"
+    ]
+    assert unfinished == []
 
 
 def test_ts_covers_qml_literals():
