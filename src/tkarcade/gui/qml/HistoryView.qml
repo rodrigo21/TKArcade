@@ -78,45 +78,69 @@ Window {
                 spacing: Kirigami.Units.smallSpacing
                 Controls.Label {
                     id: gameHeader
+                    objectName: "historyHeaderGame"
                     Layout.fillWidth: true
                     text: qsTr("Game")
                     font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
                     color: Kirigami.Theme.textColor
                 }
                 Controls.Label {
                     id: lastHeader
+                    objectName: "historyHeaderLast"
                     Layout.preferredWidth: historyView.colLast
                     text: qsTr("Last Played")
                     font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
                     color: Kirigami.Theme.textColor
                 }
                 Controls.Label {
                     id: runsHeader
+                    objectName: "historyHeaderRuns"
                     Layout.preferredWidth: historyView.colRuns
                     text: qsTr("Sessions")
                     font.bold: true
-                    horizontalAlignment: Text.AlignRight
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
                     color: Kirigami.Theme.textColor
                 }
                 Controls.Label {
                     id: totalHeader
+                    objectName: "historyHeaderTotal"
                     Layout.preferredWidth: historyView.colTotal
                     text: qsTr("Total Time")
                     font.bold: true
-                    horizontalAlignment: Text.AlignRight
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
                     color: Kirigami.Theme.textColor
                 }
                 Controls.Label {
                     id: failsHeader
+                    objectName: "historyHeaderFails"
                     Layout.preferredWidth: historyView.colFails
                     text: qsTr("Failures")
                     font.bold: true
-                    horizontalAlignment: Text.AlignRight
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
                     color: Kirigami.Theme.textColor
                 }
-                // Spacer over the per-row Clear button.
-                Item {
+                Controls.Label {
+                    id: actionsHeader
+                    objectName: "historyHeaderActions"
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 3
+                    text: qsTr("Actions")
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                    color: Kirigami.Theme.textColor
                 }
             }
             // Cell rules, like the games table header. The labels are
@@ -193,6 +217,7 @@ Window {
                 }
                 Controls.Label {
                     Layout.preferredWidth: historyView.colLast
+                    objectName: "historyLast"
                     text: modelData.last
                     opacity: 0.7
                     elide: Text.ElideRight
@@ -205,6 +230,7 @@ Window {
                 }
                 Controls.Label {
                     Layout.preferredWidth: historyView.colTotal
+                    objectName: "historyTotal"
                     text: modelData.total ?? ""
                     horizontalAlignment: Text.AlignRight
                 }
@@ -218,6 +244,7 @@ Window {
                     objectName: "historyClear"
                     Layout.preferredWidth: Kirigami.Units.gridUnit * 3
                     text: qsTr("Clear")
+                    flat: false
                     onClicked: {
                         gameModel.clearHistory(modelData.appid)
                         historyView.rows = gameModel.historySummary()

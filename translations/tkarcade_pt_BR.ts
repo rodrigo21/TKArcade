@@ -1754,53 +1754,58 @@ Os Saves Dentro Dela Serão Perdidos.</translation>
         <translation>Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="89"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="94"/>
         <source>Last Played</source>
         <translation>Última Vez</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="95"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="105"/>
         <source>Sessions</source>
         <translation>Sessões</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="102"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="116"/>
         <source>Total Time</source>
         <translation>Tempo Total</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="109"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="127"/>
         <source>Failures</source>
         <translation>Falhas</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="169"/>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="205"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="138"/>
+        <source>Actions</source>
+        <translation>Ações</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="246"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="283"/>
         <source>Clear</source>
         <translation>Limpar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="181"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="259"/>
         <source>Clear History...</source>
         <translation>Limpar Histórico...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="190"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="268"/>
         <source>Close</source>
         <translation>Fechar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="199"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="277"/>
         <source>Clear History</source>
         <translation>Limpar Histórico</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="201"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="279"/>
         <source>Clear All Session History? This Cannot Be Undone.</source>
         <translation>Limpar Todo o Histórico de Sessões? Isto Não Pode Ser Desfeito.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="213"/>
+        <location filename="../src/tkarcade/gui/qml/HistoryView.qml" line="291"/>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>

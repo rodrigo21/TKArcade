@@ -318,8 +318,9 @@ Breaking config changes are called out explicitly under `Changed`.
   34 by default); at the old 23 the placeholders and translated labels
   were cut.
 - Session History has a real table header: button-set background, bold
-  titles, vertical rules between the columns and the closing hairline,
-  matching the games table.
+  centred titles, vertical rules between the columns and the closing
+  hairline, matching the games table. The action column is labelled
+  Actions and its per-row Clear buttons show a button frame.
 - Validate Game names the game in the title and drops the repeated
   AppID prefix from each issue; the CLI report is unchanged.
 - The header actions (view, Columns, hamburger/Preferences) no longer

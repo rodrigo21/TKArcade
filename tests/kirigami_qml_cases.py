@@ -3021,10 +3021,25 @@ def test_history_view_clears_row(qgui_app, xdg_env):
     ]
     assert len(seps) == 5
     assert all(item.isVisible() and item.height() > 0 for item in seps)
+    expected_headers = (
+        ("historyHeaderGame", "Game"),
+        ("historyHeaderLast", "Last Played"),
+        ("historyHeaderRuns", "Sessions"),
+        ("historyHeaderTotal", "Total Time"),
+        ("historyHeaderFails", "Failures"),
+        ("historyHeaderActions", "Actions"),
+    )
+    headers = {}
+    for object_name, text in expected_headers:
+        label = win.findChild(QQuickItem, object_name)
+        assert label is not None and label.isVisible()
+        assert label.property("text") == text
+        headers[object_name] = label
     import shiboken6
 
     rows_view = win.findChild(QQuickItem, "historyRows")
     names = []
+    delegate = None
     for child in rows_view.property("contentItem").childItems():
         try:
             label = child.findChild(QQuickItem, "historyName")
@@ -3035,9 +3050,26 @@ def test_history_view_clears_row(qgui_app, xdg_env):
                 text = label.property("text")
                 if isinstance(text, str):
                     names.append(text)
+                    if delegate is None:
+                        delegate = child
         except Exception:
             continue
     assert names == ["Doom"]
+    assert delegate is not None
+    for header_name, cell_name in (
+        ("historyHeaderGame", "historyName"),
+        ("historyHeaderLast", "historyLast"),
+        ("historyHeaderRuns", "historyRuns"),
+        ("historyHeaderTotal", "historyTotal"),
+        ("historyHeaderFails", "historyFails"),
+        ("historyHeaderActions", "historyClear"),
+    ):
+        cell = delegate.findChild(QQuickItem, cell_name)
+        assert cell is not None and cell.isVisible()
+        assert abs(headers[header_name].property("x") - cell.property("x")) < 0.5
+        assert abs(headers[header_name].property("width") - cell.property("width")) < 0.5
+    clear = delegate.findChild(QQuickItem, "historyClear")
+    assert clear.property("flat") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
