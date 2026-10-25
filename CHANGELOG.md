@@ -251,6 +251,12 @@ Breaking config changes are called out explicitly under `Changed`.
   versioned now, so `AI-Model:` trailers match on every machine.
 
 ### Changed
+- Tools → Clean Profiles is now **Clean Up Leftovers**: it still deletes
+  saved profiles of games that were removed, and now also their session
+  log, Proton logs and session-history lines. A new optional checkbox
+  deletes the Proton/Wine prefix too (off by default; Steam's
+  `compatdata` is never touched, and a prefix shared with a configured
+  game is kept).
 - **BREAKING**: the game type is explicit. `auto` and configs without a
   `game_type` load as "not set": the settings window blocks Save until
   Steam games pick Windows (Proton) or Linux (native), and the launcher
@@ -296,6 +302,26 @@ Breaking config changes are called out explicitly under `Changed`.
   them pile up.
 
 ### Fixed
+- Header sorting now repaints the table on the first click. The proxy
+  order was correct, but QtQuick's TableView did not re-request its rows
+  after `QSortFilterProxyModel.sort()`, so the view stayed one order
+  behind (the arrow moved, the rows did not).
+- The library columns (Last Played, Platform, Runner, Wine, Install Dir,
+  Category) render their values. The table delegate only had cells for
+  App ID and Source, so enabled columns stayed blank; the double-click
+  autofit only looked inert because those columns were already fitted.
+  Install Dir and Category show the full value in a tooltip when elided.
+- The Steam scan window sizes itself from the longest `name [appid]`
+  instead of a fixed 40 grid units, and its list can scroll horizontally
+  when the screen cap is reached; long names were clipped before.
+- Preferences opens wide enough for the form (30 grid units minimum,
+  34 by default); at the old 23 the placeholders and translated labels
+  were cut.
+- Session History has a real table header: button-set background, bold
+  titles, vertical rules between the columns and the closing hairline,
+  matching the games table.
+- Validate Game names the game in the title and drops the repeated
+  AppID prefix from each issue; the CLI report is unchanged.
 - The header actions (view, Columns, hamburger/Preferences) no longer
   disappear in pt_BR: once the window is wide enough to show the four
   title buttons with text, the search filter's width came from a fixed

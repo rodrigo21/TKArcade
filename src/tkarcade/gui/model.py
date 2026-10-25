@@ -304,6 +304,10 @@ class GameListModel(QAbstractTableModel):
         # gone. Stop them with the object they belong to, and let the
         # callbacks check the flag in case a timeout is already in flight.
         self._closing = False
+        # Prefix paths captured before a removal deletes the config: the
+        # cleanup offer needs them to show/delete the prefix.
+        self._removed_prefixes: dict[str, str] = {}
+        self._removed_names: dict[str, str] = {}
         self.destroyed.connect(self._stop_timers)
         self.refresh()
 
@@ -2185,6 +2189,21 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             return [str(e)]
 
+    @Slot(str, result="QVariantMap")
+    def validateReport(self, appid: str) -> dict:
+        """Validation report for the dialog: name + issues without the ID prefix.
+
+        validate_game() prefixes every issue with the AppID for the CLI;
+        the GUI shows the display name once in the title instead.
+        """
+        appid = str(appid)
+        issues = self.validateGame(appid)
+        prefix = f"{appid}: "
+        return {
+            "name": self._display_name(appid),
+            "issues": [i.removeprefix(prefix) for i in issues],
+        }
+
     @Slot(str, result=int)
     def clearHistory(self, appid: str) -> int:
         """Delete session history for one game; returns sessions removed."""
@@ -2218,13 +2237,162 @@ class GameListModel(QAbstractTableModel):
     def removeGames(self, appids: list) -> str:
         """Delete configs; returns '' or joined errors. Refreshes the list."""
         errors = []
+        self._removed_prefixes = {}
+        self._removed_names = {}
         for appid in [str(a) for a in appids]:
+            # Capture name and prefix while the config still exists.
+            try:
+                self._removed_names[appid] = self._display_name(appid)
+            except Exception:
+                pass
+            try:
+                prefix = self._resolved_prefix(appid)
+                if prefix is not None:
+                    self._removed_prefixes[appid] = str(prefix)
+            except Exception as e:
+                log.warning("prefix capture(%s) failed: %s", appid, e)
             try:
                 cfgmod.game_file(appid).unlink(missing_ok=True)
             except Exception as e:
                 errors.append(f"{appid}: {e}")
         self.refresh()
         return "\n".join(errors)
+
+    def _resolved_prefix(self, appid: str) -> Path | None:
+        """Prefix owned by a game, excluding Steam's compatdata (Steam's)."""
+        appid = str(appid)
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception:
+            cfg = None
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            prefs = None
+        try:
+            if cfg is not None and steammod.is_steam_id(appid):
+                custom = cfg.proton.wine_prefix.strip()
+                if not custom:
+                    return None
+                path = Path(custom).expanduser()
+            elif cfg is not None:
+                base = prefs.prefix_base if prefs is not None else ""
+                path = cfgmod.prefix_dir(
+                    appid, cfg.runtime.prefix_dir, base, cfg.runtime.prefix_name
+                )
+            else:
+                base = prefs.prefix_base if prefs is not None else ""
+                path = cfgmod.prefix_dir(appid, "", base, "")
+            resolved = path.resolve()
+        except Exception:
+            return None
+        if "compatdata" in resolved.parts:
+            return None
+        return resolved if resolved.is_dir() else None
+
+    def _live_prefixes(self) -> set[str]:
+        """Prefixes still referenced by configured games (shared = keep)."""
+        out = set()
+        for appid in cfgmod.list_appids():
+            prefix = self._resolved_prefix(appid)
+            if prefix is not None:
+                out.add(str(prefix))
+        return out
+
+    def _leftover_row(self, appid, names, stats, live_prefixes) -> dict | None:
+        """One cleanup row for an appid, or None when nothing is left."""
+        appid = str(appid)
+        try:
+            profiles = sum(1 for p in cfgmod.profiles_dir(appid).glob("*.toml") if p.is_file())
+        except Exception:
+            profiles = 0
+        session_log = xdg.game_log_file(appid).is_file()
+        proton_log = (xdg.games_log_dir() / xdg.safe_stem(appid)).is_dir()
+        game_stats = stats.get(appid)
+        history = int(game_stats.runs) if game_stats is not None else 0
+        prefix = self._removed_prefixes.get(appid, "")
+        if not prefix:
+            found = self._resolved_prefix(appid)
+            prefix = str(found) if found is not None else ""
+        if prefix and prefix in live_prefixes:
+            prefix = ""
+        if not (profiles or session_log or proton_log or history or prefix):
+            return None
+        return {
+            "appid": appid,
+            "name": names.get(appid, appid),
+            "profiles": profiles,
+            "session_log": session_log,
+            "proton_log": proton_log,
+            "history": history,
+            "prefix": prefix,
+        }
+
+    @staticmethod
+    def _leftover_names() -> dict:
+        try:
+            names = {a: n for a, n in steammod.list_games()}
+            names.update(steammod.local_names())
+        except Exception:
+            return {}
+        return names
+
+    @staticmethod
+    def _leftover_stats() -> dict:
+        try:
+            return histmod.summarize(histmod.parse_log(xdg.log_file()))
+        except Exception:
+            return {}
+
+    def _leftover_candidates(self, stats: dict) -> set:
+        candidates = {appid for appid, _count in cfgmod.orphaned_profiles()}
+        games = xdg.games_log_dir()
+        if games.is_dir():
+            for entry in games.iterdir():
+                if entry.is_file() and entry.suffix == ".log":
+                    candidates.add(entry.stem)
+                elif entry.is_dir():
+                    candidates.add(entry.name)
+        candidates.update(stats)
+        return candidates
+
+    def _leftover_rows(self, appids=None) -> list:
+        """Cleanup rows for the given appids (None = every orphan)."""
+        names = self._leftover_names()
+        names.update(self._removed_names)
+        stats = self._leftover_stats()
+        live = set(cfgmod.list_appids())
+        if appids is None:
+            candidates = self._leftover_candidates(stats) - live
+        else:
+            candidates = [str(a) for a in appids]
+        live_prefixes = self._live_prefixes()
+        rows = []
+        for appid in sorted(candidates):
+            if appid in live:
+                continue
+            row = self._leftover_row(appid, names, stats, live_prefixes)
+            if row is not None:
+                rows.append(row)
+        return rows
+
+    @Slot(result=list)
+    def orphanedLeftovers(self) -> list:
+        """Profiles, logs and history of games with no live config."""
+        try:
+            return self._leftover_rows()
+        except Exception as e:
+            log.warning("orphanedLeftovers failed: %s", e)
+            return []
+
+    @Slot(list, result=list)
+    def leftoverData(self, appids: list) -> list:
+        """Cleanup rows for just-removed appids (prefix captured before)."""
+        try:
+            return self._leftover_rows(appids)
+        except Exception as e:
+            log.warning("leftoverData(%s) failed: %s", appids, e)
+            return []
 
     @Slot(list, result=list)
     def leftoverProfiles(self, appids: list) -> list:
@@ -2249,6 +2417,65 @@ class GameListModel(QAbstractTableModel):
                 cleaned += 1
             except Exception as e:
                 log.warning("cleanProfiles(%s) failed: %s", appid, e)
+        return cleaned
+
+    @staticmethod
+    def _clean_game_leftovers(appid: str) -> bool:
+        """Delete profiles, session log, Proton logs and history lines."""
+        touched = False
+        for target in (cfgmod.profiles_dir(appid), xdg.game_log_file(appid)):
+            try:
+                if target.is_dir():
+                    shutil.rmtree(target)
+                    touched = True
+                elif target.exists():
+                    target.unlink()
+                    touched = True
+            except Exception as e:
+                log.warning("cleanLeftovers(%s) %s: %s", appid, target, e)
+        game_dir = xdg.games_log_dir() / xdg.safe_stem(appid)
+        try:
+            if game_dir.is_dir():
+                shutil.rmtree(game_dir)
+                touched = True
+        except Exception as e:
+            log.warning("cleanLeftovers(%s) logs: %s", appid, e)
+        try:
+            if histmod.clear_appid(xdg.log_file(), appid):
+                touched = True
+        except Exception as e:
+            log.warning("cleanLeftovers(%s) history: %s", appid, e)
+        return touched
+
+    def _clean_owned_prefix(self, appid: str, live_prefixes: set[str]) -> bool:
+        """Delete the removed game's prefix when no live game shares it."""
+        prefix = self._removed_prefixes.pop(appid, "")
+        if not prefix:
+            found = self._resolved_prefix(appid)
+            prefix = str(found) if found is not None else ""
+        if not prefix or prefix in live_prefixes:
+            return False
+        try:
+            shutil.rmtree(prefix)
+        except Exception as e:
+            log.warning("cleanLeftovers(%s) prefix: %s", appid, e)
+            return False
+        return True
+
+    @Slot(list, bool, result=int)
+    def cleanLeftovers(self, appids: list, delete_prefixes: bool = False) -> int:
+        """Delete profiles, per-game logs, history and (optionally) the prefix."""
+        live_prefixes = self._live_prefixes()
+        cleaned = 0
+        for appid in [str(a) for a in appids]:
+            touched = self._clean_game_leftovers(appid)
+            if delete_prefixes and self._clean_owned_prefix(appid, live_prefixes):
+                touched = True
+            if touched:
+                cleaned += 1
+        self._removed_prefixes.clear()
+        self._removed_names.clear()
+        self.refresh()
         return cleaned
 
     backgroundDone = Signal()

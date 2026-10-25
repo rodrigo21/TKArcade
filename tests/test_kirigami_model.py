@@ -339,6 +339,110 @@ def test_remove_and_profiles_roundtrip(qgui_app, xdg_env):
     assert not C.game_file("local-doom").exists()
 
 
+def test_leftovers_include_logs_history_and_prefix(qgui_app, xdg_env, tmp_path):
+    from tkarcade import config as C
+    from tkarcade import xdg
+    from tkarcade.gui.model import GameListModel
+
+    prefix = tmp_path / "pfx"
+    prefix.mkdir()
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.runtime.prefix_dir = str(prefix)
+    C.save(cfg)
+    profiles = C.profiles_dir("local-doom")
+    profiles.mkdir(parents=True)
+    (profiles / "default.toml").write_text("[general]\n")
+    logs = xdg.games_log_dir()
+    logs.mkdir(parents=True, exist_ok=True)
+    xdg.game_log_file("local-doom").write_text("log\n", encoding="utf-8")
+    (logs / "local-doom" / "proton").mkdir(parents=True)
+    xdg.log_file().parent.mkdir(parents=True, exist_ok=True)
+    xdg.log_file().write_text(
+        "2026-01-02T10:00:00 appid=local-doom exit=0 dur=60 cmd=tkarcade\n", encoding="utf-8"
+    )
+    model = GameListModel()
+    assert model.orphanedLeftovers() == []  # live config holds it
+    model.removeGames(["local-doom"])
+    rows = model.leftoverData(["local-doom"])
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["name"] == "Doom"
+    assert row["profiles"] == 1
+    assert row["session_log"] is True
+    assert row["proton_log"] is True
+    assert row["history"] == 1
+    assert row["prefix"] == str(prefix.resolve())
+    assert model.cleanLeftovers(["local-doom"], False) == 1
+    assert not profiles.exists()
+    assert not xdg.game_log_file("local-doom").exists()
+    assert not (logs / "local-doom").exists()
+    assert "local-doom" not in xdg.log_file().read_text(encoding="utf-8")
+    assert prefix.is_dir()  # unchecked option keeps the prefix
+
+
+def test_leftover_prefix_option_deletes_owned_prefix(qgui_app, xdg_env, tmp_path):
+    from tkarcade import config as C
+    from tkarcade.gui.model import GameListModel
+
+    prefix = tmp_path / "pfx"
+    prefix.mkdir()
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-quake"
+    cfg.general.name = "Quake"
+    cfg.runtime.prefix_dir = str(prefix)
+    C.save(cfg)
+    model = GameListModel()
+    model.removeGames(["local-quake"])
+    rows = model.orphanedLeftovers()  # nothing left: prefix not discoverable
+    assert rows == []
+    rows = model.leftoverData(["local-quake"])
+    assert len(rows) == 1
+    assert rows[0]["prefix"] == str(prefix.resolve())
+    assert model.cleanLeftovers(["local-quake"], True) == 1
+    assert not prefix.exists()
+
+
+def test_orphaned_leftovers_finds_unconfigured_logs(qgui_app, xdg_env):
+    from tkarcade import xdg
+    from tkarcade.gui.model import GameListModel
+
+    logs = xdg.games_log_dir()
+    logs.mkdir(parents=True)
+    xdg.game_log_file("gone-game").write_text("log\n", encoding="utf-8")
+    (logs / "gone-game" / "proton").mkdir(parents=True)
+    xdg.log_file().parent.mkdir(parents=True, exist_ok=True)
+    xdg.log_file().write_text(
+        "2026-01-02T10:00:00 appid=gone-game exit=1 dur=10 cmd=tkarcade\n", encoding="utf-8"
+    )
+    model = GameListModel()
+    rows = model.orphanedLeftovers()
+    assert [r["appid"] for r in rows] == ["gone-game"]
+    assert rows[0]["session_log"] is True
+    assert rows[0]["proton_log"] is True
+    assert rows[0]["history"] == 1
+    assert model.cleanLeftovers(["gone-game"], False) == 1
+    assert model.orphanedLeftovers() == []
+
+
+def test_validate_report_uses_the_game_name(qgui_app, xdg_env, monkeypatch):
+    from tkarcade import config as C
+    from tkarcade import launcher
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    monkeypatch.setattr(
+        launcher, "validate_game", lambda appid: [f"{appid}: custom_executable not found"]
+    )
+    report = GameListModel().validateReport("local-doom")
+    assert report["name"] == "Doom"
+    assert report["issues"] == ["custom_executable not found"]
+
+
 def test_clear_history_removes_log_lines(qgui_app, xdg_env):
     from tkarcade import xdg
     from tkarcade.gui.model import GameListModel

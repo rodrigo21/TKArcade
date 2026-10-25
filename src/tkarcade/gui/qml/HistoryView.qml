@@ -60,41 +60,119 @@ Window {
             event.accepted = true
             gameModel.pressDefault(historyView, ["historyClose"])
         }
-        RowLayout {
+        // Same scheme as the games table header: button-set background,
+        // bold titles and a hairline closing the bar.
+        Item {
             objectName: "historyHeader"
             Layout.fillWidth: true
-            Layout.leftMargin: Kirigami.Units.smallSpacing
-            Controls.Label {
-                Layout.fillWidth: true
-                text: qsTr("Game")
-                font.bold: true
+            Layout.preferredHeight: Kirigami.Units.gridUnit * 2
+            Kirigami.Theme.colorSet: Kirigami.Theme.Button
+            Kirigami.Theme.inherit: false
+            Rectangle {
+                objectName: "historyHeaderBar"
+                anchors.fill: parent
+                color: Kirigami.Theme.backgroundColor
             }
-            Controls.Label {
-                Layout.preferredWidth: historyView.colLast
-                text: qsTr("Last Played")
-                font.bold: true
+            RowLayout {
+                anchors.fill: parent
+                spacing: Kirigami.Units.smallSpacing
+                Controls.Label {
+                    id: gameHeader
+                    Layout.fillWidth: true
+                    text: qsTr("Game")
+                    font.bold: true
+                    color: Kirigami.Theme.textColor
+                }
+                Controls.Label {
+                    id: lastHeader
+                    Layout.preferredWidth: historyView.colLast
+                    text: qsTr("Last Played")
+                    font.bold: true
+                    color: Kirigami.Theme.textColor
+                }
+                Controls.Label {
+                    id: runsHeader
+                    Layout.preferredWidth: historyView.colRuns
+                    text: qsTr("Sessions")
+                    font.bold: true
+                    horizontalAlignment: Text.AlignRight
+                    color: Kirigami.Theme.textColor
+                }
+                Controls.Label {
+                    id: totalHeader
+                    Layout.preferredWidth: historyView.colTotal
+                    text: qsTr("Total Time")
+                    font.bold: true
+                    horizontalAlignment: Text.AlignRight
+                    color: Kirigami.Theme.textColor
+                }
+                Controls.Label {
+                    id: failsHeader
+                    Layout.preferredWidth: historyView.colFails
+                    text: qsTr("Failures")
+                    font.bold: true
+                    horizontalAlignment: Text.AlignRight
+                    color: Kirigami.Theme.textColor
+                }
+                // Spacer over the per-row Clear button.
+                Item {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 3
+                }
             }
-            Controls.Label {
-                Layout.preferredWidth: historyView.colRuns
-                text: qsTr("Sessions")
-                font.bold: true
-                horizontalAlignment: Text.AlignRight
-            }
-            Controls.Label {
-                Layout.preferredWidth: historyView.colTotal
-                text: qsTr("Total Time")
-                font.bold: true
-                horizontalAlignment: Text.AlignRight
-            }
-            Controls.Label {
-                Layout.preferredWidth: historyView.colFails
-                text: qsTr("Failures")
-                font.bold: true
-                horizontalAlignment: Text.AlignRight
-            }
-            // Spacer over the per-row Clear button.
+            // Cell rules, like the games table header. The labels are
+            // laid out by the RowLayout, so the rules follow their right
+            // edges instead of consuming width.
             Item {
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 3
+                anchors.fill: parent
+                Rectangle {
+                    objectName: "historyHeaderSep"
+                    x: gameHeader.x + gameHeader.width
+                    width: 1
+                    height: parent.height
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.18
+                }
+                Rectangle {
+                    objectName: "historyHeaderSep"
+                    x: lastHeader.x + lastHeader.width
+                    width: 1
+                    height: parent.height
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.18
+                }
+                Rectangle {
+                    objectName: "historyHeaderSep"
+                    x: runsHeader.x + runsHeader.width
+                    width: 1
+                    height: parent.height
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.18
+                }
+                Rectangle {
+                    objectName: "historyHeaderSep"
+                    x: totalHeader.x + totalHeader.width
+                    width: 1
+                    height: parent.height
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.18
+                }
+                Rectangle {
+                    objectName: "historyHeaderSep"
+                    x: failsHeader.x + failsHeader.width
+                    width: 1
+                    height: parent.height
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.18
+                }
+            }
+            Rectangle {
+                objectName: "historyHeaderBottomLine"
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: Kirigami.Theme.textColor
+                opacity: 0.18
             }
         }
         ListView {
@@ -106,6 +184,7 @@ Window {
             delegate: RowLayout {
                 required property var modelData
                 width: ListView.view ? ListView.view.width : 100
+                spacing: Kirigami.Units.smallSpacing
                 Controls.Label {
                     objectName: "historyName"
                     Layout.fillWidth: true
@@ -137,6 +216,7 @@ Window {
                 }
                 Controls.ToolButton {
                     objectName: "historyClear"
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 3
                     text: qsTr("Clear")
                     onClicked: {
                         gameModel.clearHistory(modelData.appid)

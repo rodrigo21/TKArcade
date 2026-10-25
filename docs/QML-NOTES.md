@@ -19,6 +19,12 @@ failure. `AGENTS.md` links here.
 - Addon table cells do not wrap for tests: assert through the
   selectionModel, header component props and measured metrics
   (contentHeight/rowCount), never through delegate objects.
+- `QSortFilterProxyModel.sort()` updates the proxy but QtQuick's
+  TableView does not re-request its rows on the resulting layout change
+  (measured: the view stayed one order behind while the proxy and the
+  sort arrow were already correct). Any code that changes the sort must
+  call `forceLayout()` on the view afterwards; the header test asserts
+  the rendered row order, not only the proxy.
 - Table delegates bind the Loader-provided `model` roles directly
   (`model.gameIcon`, never `rowData(row)` which desyncs on sort);
   `model` is null transiently, so every dereference needs optional

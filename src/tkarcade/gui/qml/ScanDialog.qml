@@ -16,11 +16,30 @@ Window {
     // the window follows the checkbox list and scrolls once the list
     // would grow past the cap.
     readonly property real scanListCap: Kirigami.Units.gridUnit * 20
+    // Width follows the widest "name [appid]" so nothing is clipped; the
+    // inner column may exceed the viewport, which gives the ScrollView a
+    // horizontal bar once the screen cap kicks in.
+    readonly property real screenCap: screen ? screen.width * 0.9
+                                             : Kirigami.Units.gridUnit * 80
+    FontMetrics {
+        id: scanMetrics
+        font: Kirigami.Theme.defaultFont
+    }
+    function labelFor(row) {
+        return row[1] + " [" + row[0] + "]"
+    }
+    function contentWidth() {
+        var widest = 0
+        for (var i = 0; i < candidates.length; i++) {
+            widest = Math.max(widest, scanMetrics.advanceWidth(labelFor(candidates[i])))
+        }
+        // Check indicator, check padding and the scroll bar.
+        return widest + Kirigami.Units.gridUnit * 3
+    }
     minimumWidth: Kirigami.Units.gridUnit * 18
     minimumHeight: Kirigami.Units.gridUnit * 10
     width: Math.min(
-        Kirigami.Units.gridUnit * 40,
-        Math.max(minimumWidth, scanList.implicitWidth + body.anchors.margins * 2))
+        screenCap, Math.max(minimumWidth, contentWidth() + body.anchors.margins * 2))
     height: Math.max(
         minimumHeight,
         scanHeader.implicitHeight + Math.min(scanListCap, scanList.implicitHeight)
@@ -80,13 +99,13 @@ Window {
             Layout.fillHeight: true
             ColumnLayout {
                 id: scanList
-                width: parent.width
+                width: Math.max(parent.width, implicitWidth)
                 spacing: Kirigami.Units.smallSpacing
                 Repeater {
                     model: scanDialog.candidates
                     Controls.CheckBox {
                         required property var modelData
-                        text: modelData[1] + " [" + modelData[0] + "]"
+                        text: scanDialog.labelFor(modelData)
                         checked: scanDialog.picked.indexOf(modelData[0]) >= 0
                         onToggled: {
                             var kept = []

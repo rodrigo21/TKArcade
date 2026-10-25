@@ -13,16 +13,13 @@ Window {
     objectName: "prefsDialog"
     title: qsTr("Preferences")
     modality: Qt.WindowModal
-    // Widgets PreferencesDialog: a plain QFormLayout (checkboxes in the
-    // field column, right-aligned labels), a right-aligned Save/Cancel
-    // box, and a window sized to the form. `resize(420, 280)` with the
-    // layout minimum landing at 420x312 at the time.
-    // FormLayout keeps its label column at any width now (WidgetsFormLayout
-    // pins wideMode), so the window minimum has to fit the form's own
-    // minimum: the widgets dialog landed at 420x312 for the same reason.
-    minimumWidth: Kirigami.Units.gridUnit * 23
+    // Widgets PreferencesDialog used a plain QFormLayout and opened at
+    // 420px, too narrow for the field placeholders and translated labels
+    // (cut content). The form keeps its label column at any width, so the
+    // window opens wide enough for the widest row and the fields.
+    minimumWidth: Kirigami.Units.gridUnit * 30
     minimumHeight: Kirigami.Units.gridUnit * 16
-    width: Kirigami.Units.gridUnit * 23
+    width: Kirigami.Units.gridUnit * 34
     height: body.implicitHeight + body.anchors.margins * 2
     visible: false
     color: Kirigami.Theme.backgroundColor

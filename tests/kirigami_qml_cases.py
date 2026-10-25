@@ -540,6 +540,112 @@ def test_header_sort_toggles_indicator_and_order(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_header_sort_repaints_rows(qgui_app, xdg_env):
+    """Each sort click repaints the view, not only the proxy order."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid, name in (("a-game", "Alpha"), ("b-game", "Bravo"), ("c-game", "Charlie")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    table = win.findChild(QQuickItem, "gameTable")
+    assert _rendered_names(table, proxy) == ["Alpha", "Bravo", "Charlie"]
+    page.setSort("gameName", True)
+    qgui_app.processEvents()
+    assert _rendered_names(table, proxy) == ["Charlie", "Bravo", "Alpha"]
+    page.setSort("gameName", False)
+    qgui_app.processEvents()
+    assert _rendered_names(table, proxy) == ["Alpha", "Bravo", "Charlie"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_library_columns_render_and_autofit(qgui_app, xdg_env):
+    """Columns 6-11 show their role data; double-click still autofits."""
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+    from tkarcade import xdg
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.general.game_type = "wine"
+    cfg.general.platform = "PC"
+    cfg.general.categories = ["Action"]
+    cfg.proton.wine_version = "wine-9.0"
+    C.save(cfg)
+    xdg.log_file().parent.mkdir(parents=True, exist_ok=True)
+    xdg.log_file().write_text(
+        "2026-01-02T10:00:00 appid=local-doom exit=0 dur=60 cmd=tkarcade\n",
+        encoding="utf-8",
+    )
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    table = win.findChild(QQuickItem, "gameTable")
+    header = win.findChild(QQuickItem, "tableHeader")
+    header_row = header.findChild(QQuickItem, "headerRow")
+    expected = {
+        6: "2026-01-02 10:00",
+        7: "PC",
+        8: "Wine",
+        9: "wine-9.0",
+        10: "/bin",
+        11: "Action",
+    }
+    flags = {
+        6: "showLastPlayed",
+        7: "showPlatform",
+        8: "showRunner",
+        9: "showWine",
+        10: "showInstallDir",
+        11: "showCategory",
+    }
+    for logical, flag in flags.items():
+        for other in flags.values():
+            proxy.setProperty(other, False)
+        proxy.setProperty(flag, True)
+        qgui_app.processEvents()
+        delegate = _table_delegate(table, proxy, 0, logical)
+        assert delegate is not None, f"no delegate for column {logical}"
+        label = delegate.findChild(QQuickItem, f"cellText{logical}")
+        assert label is not None, f"column {logical} not rendered"
+        assert label.property("text") == expected[logical]
+    # Autofit: shrink the last column by hand, then double-click its divider.
+    proxy.setProperty("showCategory", False)
+    proxy.setProperty("showInstallDir", True)
+    proxy.setColumnWidth(10, 200)
+    qgui_app.processEvents()
+    for _ in range(20):
+        qgui_app.processEvents()
+        cells = {c.objectName(): c for c in header_row.childItems() if isinstance(c, QQuickItem)}
+        cell = cells.get("headerCell10")
+        if cell is not None and cell.property("width") == 200:
+            break
+    assert cell is not None and cell.property("width") == 200
+    pos = cell.mapToScene(QPointF(cell.property("width") - 3, 5)).toPoint()
+    QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
+    qgui_app.processEvents()
+    fitted = proxy.columnWidth(10)
+    assert fitted != 200 and fitted >= 40
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def _delegate_rows(view):
     """Grid delegates only (the table uses _table_rows instead)."""
     import shiboken6
@@ -587,6 +693,42 @@ def _table_rows(table, proxy):
         except Exception:
             continue
     return rows
+
+
+def _table_delegate(table, proxy, row, logical):
+    """The rendered delegate item for one row/logical column, or None."""
+    try:
+        children = table.property("contentItem").childItems()
+    except Exception:
+        return None
+    for child in children:
+        try:
+            if child.property("row") != row:
+                continue
+            if proxy.columnLogical(child.property("column")) != logical:
+                continue
+        except Exception:
+            continue
+        return child
+    return None
+
+
+def _rendered_names(table, proxy):
+    """Game names in rendered row order (Table view, not the proxy)."""
+    from PySide6.QtQuick import QQuickItem
+
+    names = {}
+    for child in table.property("contentItem").childItems():
+        try:
+            row = child.property("row")
+            if proxy.columnLogical(child.property("column")) != 1:
+                continue
+        except Exception:
+            continue
+        label = child.findChild(QQuickItem, "gameNameCell")
+        if label is not None:
+            names[row] = label.property("text")
+    return [names[row] for row in sorted(names)]
 
 
 def _column_widths(proxy, table, page=None):
@@ -2462,11 +2604,12 @@ def test_context_menu_opens_for_row(qgui_app, xdg_env):
 
 
 def test_remove_flow_with_profiles(qgui_app, xdg_env):
-    """Remove asks, deletes configs, then offers profile cleanup."""
+    """Remove asks, deletes configs, then offers leftover cleanup."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
+    from tkarcade import xdg
 
     for appid in ("local-doom", "local-quake"):
         cfg = C.GameConfig()
@@ -2475,6 +2618,9 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     profiles = C.profiles_dir("local-doom")
     profiles.mkdir(parents=True, exist_ok=True)
     (profiles / "default.toml").write_text("[general]\n")
+    xdg.games_log_dir().mkdir(parents=True, exist_ok=True)
+    session_log = xdg.game_log_file("local-doom")
+    session_log.write_text("log\n", encoding="utf-8")
     assert C.game_file("local-doom").exists()
     win, _engine, proxy, warnings = _load_main(qgui_app)
     table = win.findChild(QQuickItem, "gameTable")
@@ -2498,10 +2644,14 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     assert proxy.rowCount() == 0
     cleanup = win.findChild(QObject, "cleanupDialog")
     assert cleanup.property("visible") is True
-    assert cleanup.property("leftovers") == ["local-doom"]
+    rows = cleanup.property("rows")
+    assert [row["appid"] for row in rows] == ["local-doom"]
+    assert rows[0]["profiles"] == 1
+    assert rows[0]["session_log"] is True
     _fire(win.findChild(QObject, "cleanupConfirm"))
     qgui_app.processEvents()
     assert not profiles.exists()
+    assert not session_log.exists()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -2812,6 +2962,44 @@ def test_scan_enter_adds_selected(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
 
 
+def test_scan_window_fits_long_game_names(qgui_app, xdg_env):
+    """The scan window widens to the longest name instead of clipping it."""
+    from PySide6.QtCore import QObject
+
+    long_name = (
+        "The Legend of the Extremely Long Game Title: Definitive Remastered "
+        "Deluxe Collector's Edition With Extra Content And A Season Pass"
+    )
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "scanDialog")
+    dialog.setProperty("candidates", [["220", long_name]])
+    dialog.open()
+    qgui_app.processEvents()
+    swin = _modal_window(qgui_app, ("Add Games",))
+    assert swin.property("width") > 600
+    checkbox = None
+    stack = [swin.contentItem()]
+    while stack:
+        item = stack.pop()
+        try:
+            if item.property("text") == f"{long_name} [220]":
+                checkbox = item
+                break
+        except Exception:
+            pass
+        try:
+            stack.extend(item.childItems())
+        except Exception:
+            pass
+    assert checkbox is not None
+    assert checkbox.property("width") >= checkbox.property("implicitWidth")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_history_view_clears_row(qgui_app, xdg_env):
     """History viewer lists aggregates; per-row Clear drops one game."""
     from PySide6.QtCore import QObject
@@ -2822,6 +3010,17 @@ def test_history_view_clears_row(qgui_app, xdg_env):
     view.setProperty("rows", [{"appid": "42", "name": "Doom", "last": "yesterday", "total": "1h"}])
     view.open()
     qgui_app.processEvents()
+    header = win.findChild(QQuickItem, "historyHeader")
+    bar = win.findChild(QQuickItem, "historyHeaderBar")
+    rule = win.findChild(QQuickItem, "historyHeaderBottomLine")
+    assert header is not None and header.property("height") > 0
+    assert bar is not None and bar.isVisible()
+    assert rule is not None and rule.isVisible()
+    seps = [
+        item for item in win.findChildren(QQuickItem) if item.objectName() == "historyHeaderSep"
+    ]
+    assert len(seps) == 5
+    assert all(item.isVisible() and item.height() > 0 for item in seps)
     import shiboken6
 
     rows_view = win.findChild(QQuickItem, "historyRows")
@@ -2872,6 +3071,7 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Preferences",))
+    assert swin.property("width") >= 540
     # The form scrolls: its wrapper advertises the form's implicit size
     # (an explicit `height:` alone leaves contentHeight at -1).
     scroller = swin.findChild(QQuickItem, "prefsScroll")
@@ -3341,6 +3541,8 @@ def test_hamburger_validates_the_selection(qgui_app, xdg_env):
     qgui_app.processEvents()
     dialog = win.findChild(QObject, "validateDialog")
     assert dialog.property("visible") is True
+    assert dialog.property("title") == "Validate Game: Bad"
+    assert not dialog.property("subtitle").startswith("local-bad:")
     assert "nonexistent" in dialog.property("subtitle") or (
         "Not Found" in dialog.property("subtitle")
     )

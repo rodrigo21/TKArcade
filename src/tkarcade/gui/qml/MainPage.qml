@@ -232,6 +232,10 @@ Kirigami.Page {
         sortRole = role
         sortDescending = descending
         gameFilter.sortBy(sortRole, sortDescending)
+        // QSortFilterProxyModel.sort() does not make TableView re-request
+        // its rows (measured: the view stays one order behind). Force the
+        // layout so the first click already shows the new order.
+        gameTable.forceLayout()
     }
 
     function toggleSort(role) {
@@ -517,13 +521,16 @@ Kirigami.Page {
     }
 
     property string validateGid: ""
+    property string validateName: ""
     property var validateIssues: []
 
     function openValidateDialog(gid) {
         validateGid = gid
-        validateIssues = gameModel.validateGame(gid)
+        var report = gameModel.validateReport(gid)
+        validateName = report.name ?? gid
+        validateIssues = report.issues ?? []
         if (validateIssues.length === 0) {
-            gamesPage.notify(qsTr("No Issues Found."))
+            gamesPage.notify(qsTr("No Issues Found for %1.").arg(validateName))
             return
         }
         validateDialog.open()
@@ -1124,18 +1131,14 @@ Kirigami.Page {
                                         }
                                     }
                                     Controls.MenuItem {
-                                        text: qsTr("Clean Profiles...")
+                                        text: qsTr("Clean Up Leftovers...")
                                         onTriggered: {
-                                            var rows = gameModel.orphanedProfiles()
+                                            var rows = gameModel.orphanedLeftovers()
                                             if (rows.length === 0) {
-                                                gamesPage.notify(qsTr("No Orphaned Profiles."))
+                                                gamesPage.notify(qsTr("No Leftovers Found."))
                                                 return
                                             }
-                                            var ids = []
-                                            for (var i = 0; i < rows.length; i++) {
-                                                ids.push(rows[i][0])
-                                            }
-                                            cleanupDialog.leftovers = ids
+                                            cleanupDialog.rows = rows
                                             cleanupDialog.open()
                                         }
                                     }
@@ -1779,6 +1782,7 @@ Kirigami.Page {
                             }
                         }
                         Controls.Label {
+                            objectName: "gameNameCell"
                             Layout.fillWidth: true
                             verticalAlignment: Text.AlignVCenter
                             text: model?.gameName ?? ""
@@ -1798,19 +1802,52 @@ Kirigami.Page {
                         }
                     }
                 }
-                // plain text columns
+                // plain text columns (App ID, Source and the library
+                // columns: Last Played, Platform, Runner, Wine, Install
+                // Dir, Category)
                 Controls.Label {
-                    visible: logical === 2 || logical === 5
+                    objectName: "cellText" + logical
+                    visible: [2, 5, 6, 7, 8, 9, 10, 11].indexOf(logical) >= 0
                     anchors.fill: parent
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: Kirigami.Units.smallSpacing
-                    text: logical === 2 ? (model?.gameId ?? "") : (model?.gameSource ?? "")
+                    text: {
+                        if (logical === 2) {
+                            return model?.gameId ?? ""
+                        }
+                        if (logical === 5) {
+                            return model?.gameSource ?? ""
+                        }
+                        if (logical === 6) {
+                            return model?.gameLastPlayed ?? ""
+                        }
+                        if (logical === 7) {
+                            return model?.gamePlatform ?? ""
+                        }
+                        if (logical === 8) {
+                            return model?.gameRunner ?? ""
+                        }
+                        if (logical === 9) {
+                            return model?.gameWine ?? ""
+                        }
+                        if (logical === 10) {
+                            return model?.gameInstallDir ?? ""
+                        }
+                        return model?.gameCategory ?? ""
+                    }
                     color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                     elide: Text.ElideRight
                     RowClickHandler {
                         page: gamesPage
                         gid: model?.gameId ?? ""
                     }
+                    HoverHandler {
+                        id: textColumnHover
+                    }
+                    // Truncated paths/tags: show the whole value.
+                    Controls.ToolTip.visible: textColumnHover.hovered
+                        && (logical === 10 || logical === 11) && text !== ""
+                    Controls.ToolTip.text: text
                 }
                 // played (with session tooltip)
                 Controls.Label {
@@ -2221,11 +2258,11 @@ Kirigami.Page {
                     if (err !== "") {
                         gamesPage.notify(err)
                     }
-                    var leftovers = gameModel.leftoverProfiles(targets)
+                    var leftovers = gameModel.leftoverData(targets)
                     gamesPage.ensureSelection()
                     removeDialog.close()
                     if (leftovers.length > 0) {
-                        cleanupDialog.leftovers = leftovers
+                        cleanupDialog.rows = leftovers
                         cleanupDialog.open()
                     }
                 }
@@ -2241,36 +2278,98 @@ Kirigami.Page {
     KirigamiDialogs.PromptDialog {
         id: cleanupDialog
         objectName: "cleanupDialog"
-        title: qsTr("Clean Up Profiles")
+        title: qsTr("Clean Up Leftovers")
         dialogType: KirigamiDialogs.PromptDialog.Warning
-        property var leftovers: []
+        property var rows: []
         property var picked: []
-        onLeftoversChanged: picked = leftovers.slice()
+        property bool deletePrefixes: false
+
+        function label(row) {
+            return row.name + " (" + row.appid + ")"
+        }
+
+        function summary(row) {
+            var parts = []
+            if (row.profiles > 0) {
+                parts.push(qsTr("%1 Profile(s)").arg(row.profiles))
+            }
+            if (row.session_log) {
+                parts.push(qsTr("Session Log"))
+            }
+            if (row.proton_log) {
+                parts.push(qsTr("Proton Log"))
+            }
+            if (row.history > 0) {
+                parts.push(qsTr("%1 Session(s)").arg(row.history))
+            }
+            if (row.prefix !== "") {
+                parts.push(qsTr("Prefix"))
+            }
+            return parts.join(" · ")
+        }
+
+        function hasPrefix() {
+            for (var i = 0; i < rows.length; i++) {
+                if ((rows[i].prefix ?? "") !== "") {
+                    return true
+                }
+            }
+            return false
+        }
+
+        onRowsChanged: {
+            var ids = []
+            for (var i = 0; i < rows.length; i++) {
+                ids.push(rows[i].appid)
+            }
+            picked = ids
+            deletePrefixes = false
+        }
         ColumnLayout {
             Controls.Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: qsTr("These Games Were Removed but Still Have Saved Profiles:")
+                text: qsTr("These Games Were Removed but Still Have Profiles or Logs:")
             }
             Repeater {
-                model: cleanupDialog.leftovers
-                Controls.CheckBox {
-                    required property string modelData
-                    text: modelData
-                    checked: cleanupDialog.picked.indexOf(modelData) >= 0
-                    onToggled: {
-                        var kept = []
-                        for (var i = 0; i < cleanupDialog.picked.length; i++) {
-                            if (cleanupDialog.picked[i] !== modelData) {
-                                kept.push(cleanupDialog.picked[i])
+                model: cleanupDialog.rows
+                ColumnLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Controls.CheckBox {
+                        objectName: "cleanupItem" + modelData.appid
+                        text: cleanupDialog.label(modelData)
+                        checked: cleanupDialog.picked.indexOf(modelData.appid) >= 0
+                        onToggled: {
+                            var kept = []
+                            for (var i = 0; i < cleanupDialog.picked.length; i++) {
+                                if (cleanupDialog.picked[i] !== modelData.appid) {
+                                    kept.push(cleanupDialog.picked[i])
+                                }
                             }
+                            if (checked) {
+                                kept.push(modelData.appid)
+                            }
+                            cleanupDialog.picked = kept
                         }
-                        if (checked) {
-                            kept.push(modelData)
-                        }
-                        cleanupDialog.picked = kept
+                    }
+                    Controls.Label {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Kirigami.Units.gridUnit * 1.5
+                        visible: text !== ""
+                        text: cleanupDialog.summary(modelData)
+                        font: Kirigami.Theme.smallFont
+                        opacity: 0.7
+                        wrapMode: Text.WordWrap
                     }
                 }
+            }
+            Controls.CheckBox {
+                objectName: "cleanupPrefixes"
+                visible: cleanupDialog.hasPrefix()
+                text: qsTr("Also Delete the Proton/Wine Prefix (Large and Cannot Be Undone)")
+                checked: cleanupDialog.deletePrefixes
+                onToggled: cleanupDialog.deletePrefixes = checked
             }
         }
         customFooterActions: [
@@ -2279,9 +2378,10 @@ Kirigami.Page {
                 text: qsTr("Clean Selected")
                 icon.name: "edit-delete"
                 onTriggered: {
-                    var n = gameModel.cleanProfiles(cleanupDialog.picked)
+                    var n = gameModel.cleanLeftovers(
+                        cleanupDialog.picked, cleanupDialog.deletePrefixes)
                     gamesPage.notify(
-                        qsTr("Cleaned Profiles for %1 Game(s).").arg(n))
+                        qsTr("Cleaned Leftovers for %1 Game(s).").arg(n))
                     cleanupDialog.close()
                 }
             },
@@ -2349,7 +2449,7 @@ Kirigami.Page {
     KirigamiDialogs.PromptDialog {
         id: validateDialog
         objectName: "validateDialog"
-        title: qsTr("Validate Game")
+        title: qsTr("Validate Game: %1").arg(gamesPage.validateName)
         dialogType: KirigamiDialogs.PromptDialog.Information
         subtitle: gamesPage.validateIssues.map(function(issue) { return "• " + issue }).join("\n")
         customFooterActions: [
