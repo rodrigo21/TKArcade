@@ -5,16 +5,6 @@ through `instructions` in `opencode.json`; refresh it with `/handoff`).
 This file is the open list only: finished work lives in `CHANGELOG.md`
 and git, and hard-won QML/toolkit rules in `docs/QML-NOTES.md`.
 
-## Recurring
-
-- Re-audit the environment presets against vendor docs on every release
-  tag (Mesa/NVIDIA semantics drift; verify `vblank_mode` /
-  `__GL_SYNC_TO_VBLANK` values). Last: 2026-10-19 — the vsync pair
-  stands against Mesa's current driconf registry (plus the xmlconfig
-  env-override test) and the 580.x NVIDIA README; both are
-  OpenGL/GLX-only, so Vulkan needs its own present mode and the presets
-  carry that in their `note`.
-
 ## Deferred research
 
 - [ ] **Game taxonomy and terminology (priority).** Separate what a game
@@ -43,3 +33,19 @@ and git, and hard-won QML/toolkit rules in `docs/QML-NOTES.md`.
 - [ ] Global Defaults content: audit which fields belong in the template.
   Per-game identity/artwork and paths that only make sense for one game
   should not be there.
+
+## Deferred release
+
+Only when the maintainer opens the subject.
+
+- [ ] Release pass: group the `Unreleased` entries, update the `-git`
+  PKGBUILD, `diff -r` against TKSteamLaunch, check package versions and
+  run `scripts/display-check.sh`. Numbering/tag and signing are the
+  maintainer's decision.
+- [ ] Re-audit the environment presets against vendor docs on every
+  release tag (Mesa/NVIDIA semantics drift; verify `vblank_mode` /
+  `__GL_SYNC_TO_VBLANK` values). Last: 2026-10-19 — the vsync pair
+  stands against Mesa's current driconf registry (plus the xmlconfig
+  env-override test) and the 580.x NVIDIA README; both are
+  OpenGL/GLX-only, so Vulkan needs its own present mode and the presets
+  carry that in their `note`.

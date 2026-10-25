@@ -27,11 +27,9 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
   check passed; the History header offset it found was fixed and the
   vertical rules re-checked by pixels. Venv refreshed after the merge at
   `0.0.0.post529.dev0+4b92f43`.
-- Next concrete step: the release pass (ten `Unreleased` groups, the
-  `-git` PKGBUILD, the `diff -r` against TKSteamLaunch, package
-  versions), with `scripts/display-check.sh` as its checklist. Release
-  numbering and signing are the maintainer's decision, so they come
-  first.
-- Open decisions: release number/tag and signing; the taxonomy terms
-  (Origin/Platform/Runner) wait for the Lutris/Faugus analysis in TODO.
+- Next concrete step: the game taxonomy and terminology research
+  (priority in TODO), then the Preferences and Global Defaults content
+  reviews.
+- Open decisions: the taxonomy terms (Origin/Platform/Runner) wait for
+  the Lutris/Faugus analysis in TODO.
 - Nothing blocking.
