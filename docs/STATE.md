@@ -5,10 +5,10 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, in sync with `origin/main` at `f08313b`. The tree is
+- Branch: `main`, in sync with `origin/main` at `9be5a22`. The tree is
   clean apart from the maintainer's uncommitted `pkgver` in
   `packaging/arch/tkarcade-git/PKGBUILD`. Venv at
-  `0.0.0.post538.dev0+f08313b`.
+  `0.0.0.post538.dev0+f08313b` (source at `f08313b`, the STATE commit does not change it).
 - Landed: `f08313b` — local AppIDs use a real slug (`config.local_slug`,
   `local_id_base`, hash fallback `local_name_hash` for names with no
   ASCII letters) and `config.migrate_local_ids()` renames the old ones
