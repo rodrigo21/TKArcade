@@ -39,26 +39,54 @@ class DisplayProvider(StrEnum):
     OFF = "off"
 
 
-class GameType(StrEnum):
+class Environment(StrEnum):
+    """How the game runs, independent of its origin and platform.
+
+    ``proton`` is Steam's own Proton; ``native`` is a Linux build (under
+    Steam's runtime for Steam games, on the host for local ones);
+    ``wine`` and ``umu`` run a Windows build without Steam.
+    """
+
     PROTON = "proton"
     NATIVE = "native"
     WINE = "wine"
     UMU = "umu"
 
 
-#: Game type values this build understands. Empty means "not set": the GUI
+#: Environment values this build understands. Empty means "not set": the GUI
 #: blocks Save and the launcher refuses to guess (exit 18).
-GAME_TYPES = frozenset(t.value for t in GameType)
+ENVIRONMENTS = frozenset(t.value for t in Environment)
 
 
-def normalize_game_type(value: object) -> str:
-    """Return a known game type, or "" (unset).
+def normalize_environment(value: object) -> str:
+    """Return a known environment, or "" (unset).
 
-    Legacy configs carry "auto" or no key at all; both load as unset
-    without rewriting the file (no migration shims before 1.0).
+    Legacy configs carry a ``environment`` key, "auto" or no key at all;
+    all of them load as unset without rewriting the file (no migration
+    shims before 1.0).
     """
     text = str(value or "").strip().lower()
-    return text if text in GAME_TYPES else ""
+    return text if text in ENVIRONMENTS else ""
+
+
+def platform_for(environment: object) -> str:
+    """Target system of an environment ("" when unset)."""
+    env = normalize_environment(environment)
+    if env == Environment.NATIVE:
+        return "Linux"
+    return "Windows" if env else ""
+
+
+def runner_label(environment: object, is_steam: bool) -> str:
+    """Library label for how the game runs ("" when unset)."""
+    env = normalize_environment(environment)
+    if env == Environment.PROTON:
+        return "Steam Proton" if is_steam else "Proton"
+    if env == Environment.NATIVE:
+        return "Steam Runtime" if is_steam else "Native"
+    if env == Environment.WINE:
+        return "Wine"
+    return "Proton (UMU)" if env == Environment.UMU else ""
 
 
 @dataclass
@@ -66,13 +94,12 @@ class GeneralConfig:
     appid: str = ""
     name: str = ""  # display name for local (non-Steam) games; Steam names come from Steam
     custom_executable: str = ""
-    game_type: str = ""  # "" (not set)|proton|native|wine|umu
+    environment: str = ""  # "" (not set)|proton|native|wine|umu
     show_menu: bool = False  # pre-launch menu (also forced by --menu flag)
     menu_timeout: int = 0  # auto-launch countdown in seconds (0 = wait forever)
     custom_prefix: str = ""  # e.g. "zink-run", innermost command wrapper
     active_profile: str = ""  # last used profile (GUI selection memory)
     categories: list[str] = field(default_factory=list)  # tags, multiple per game
-    platform: str = ""  # manual platform label (e.g. "PC", "Steam Deck")
     launch_args: str = ""  # extra args appended to the game command
     launch_cwd: str = ""  # working-directory override ("" = exe folder for local games)
 
@@ -615,13 +642,12 @@ SECTION_KEYS: dict[str, set[str]] = {
         "name",
         "config_version",
         "custom_executable",
-        "game_type",
+        "environment",
         "show_menu",
         "menu_timeout",
         "custom_prefix",
         "active_profile",
         "categories",
-        "platform",
         "launch_args",
         "launch_cwd",
     },
@@ -750,13 +776,12 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     g = _section(data, "general")
     cfg.general.name = str(g.get("name", ""))
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
-    cfg.general.game_type = normalize_game_type(g.get("game_type", ""))
+    cfg.general.environment = normalize_environment(g.get("environment", ""))
     cfg.general.show_menu = _as_bool(g.get("show_menu", False), False)
     cfg.general.menu_timeout = max(0, _as_int(g.get("menu_timeout", 0), 0))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
     cfg.general.active_profile = str(g.get("active_profile", ""))
     cfg.general.categories = [c.strip() for c in _str_list(g.get("categories", [])) if c.strip()]
-    cfg.general.platform = str(g.get("platform", ""))
     cfg.general.launch_args = str(g.get("launch_args", ""))
     cfg.general.launch_cwd = str(g.get("launch_cwd", ""))
     raw_vars = _section(data, "env").get("vars", {})

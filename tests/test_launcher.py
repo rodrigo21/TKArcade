@@ -28,7 +28,7 @@ def _env(xdg_env):
 def _save(appid, **kw):
     cfg = C.GameConfig()
     cfg.general.appid = appid
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     for section, values in kw.items():
         target = getattr(cfg, section)
         for key, value in values.items():
@@ -48,38 +48,38 @@ def test_no_appid(xdg_env):
     assert r.returncode == 10
 
 
-def test_unset_game_type_exits_18(xdg_env):
+def test_unset_environment_exits_18(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "39"
     C.save(cfg)
     r = _run(_env(xdg_env), "--appid", "39", "/bin/true")
     assert r.returncode == 18
-    assert "game type not set" in r.stderr
+    assert "environment not set" in r.stderr
 
 
 def test_local_game_cannot_borrow_proton(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-nope"
-    cfg.general.game_type = "proton"
+    cfg.general.environment = "proton"
     C.save(cfg)
     r = _run(_env(xdg_env), "--appid", "local-nope", "/bin/true")
     assert r.returncode == 18
     assert "Steam AppID" in r.stderr
 
 
-def test_validate_flags_unset_game_type(xdg_env):
+def test_validate_flags_unset_environment(xdg_env):
     from tkarcade import launcher as L
 
     cfg = C.GameConfig()
     cfg.general.appid = "38"
     C.save(cfg)
-    assert any("game type not set" in i for i in L.validate_game("38"))
+    assert any("environment not set" in i for i in L.validate_game("38"))
 
 
 def test_wine_missing_binary_exit_14(xdg_env, tmp_path):
     cfg = C.GameConfig()
     cfg.general.appid = "local-wine"
-    cfg.general.game_type = "wine"
+    cfg.general.environment = "wine"
     cfg.general.custom_executable = "/games/doom.exe"
     C.save(cfg)
     env = _env(xdg_env)
@@ -216,7 +216,7 @@ def test_validate_clean(xdg_env):
 
     cfg = C.GameConfig()
     cfg.general.appid = "31"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     assert L.cmd_validate(["31"]) == 0
 
@@ -338,7 +338,7 @@ def test_validate_dangling_profile(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "33"
     cfg.general.active_profile = "gone"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     issues = L.validate_game("33")
     assert any("gone" in i and "live config" in i for i in issues)
@@ -436,7 +436,7 @@ def test_validate_flags_missing_custom_executable(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     cfg.general.custom_executable = "/nonexistent/doom"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     assert L.validate_game("local-doom") == [
         "local-doom: custom_executable not found: /nonexistent/doom"
@@ -465,7 +465,7 @@ def test_local_dry_run_uses_custom_executable(xdg_env, tmp_path, capsys):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = str(exe)
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     assert L.main(["--appid", "local-doom", "--dry-run"]) == 0
     out = capsys.readouterr().out
@@ -700,7 +700,7 @@ def test_block_internet_wraps_the_game(monkeypatch):
 
     monkeypatch.setattr(network, "available", lambda: True)
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "77"
     cfg.network.block_internet = True
     cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
@@ -716,7 +716,7 @@ def test_block_internet_unavailable_exits_14(xdg_env, monkeypatch):
     monkeypatch.setattr(network, "available", lambda: False)
     cfg = C.GameConfig()
     cfg.general.appid = "78"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.network.block_internet = True
     rc, cmd, _env, _warnings = _final_command("78", cfg, ["/bin/true"], "")
     assert rc == 14

@@ -129,8 +129,8 @@ def game(appid: str, name: str, exe: str, **general) -> None:
 # One per runtime, plus categories/artwork so the columns and both
 # dialogs have something to show without the real library.
 game("check-native", "Check Native", "/bin/true")
-game("check-wine", "Check Wine", "check.exe", game_type="wine")
-game("check-category", "Check Category", "/bin/true", categories=["Testing"], platform="PC")
+game("check-wine", "Check Wine", "check.exe", environment="wine")
+game("check-category", "Check Category", "/bin/true", categories=["Testing"])
 cfg = C.load("check-category")
 cfg.artwork.cover = art
 cfg.artwork.banner = art

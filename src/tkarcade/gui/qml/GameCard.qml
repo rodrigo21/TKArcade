@@ -14,7 +14,7 @@ Kirigami.Card {
     required property string gameName
     required property string gameId
     required property string gamePlayed
-    required property string gameSource
+    required property string gameOrigin
     required property string gameTier
     required property string gameTierBg
     required property string gameTierFg
@@ -62,10 +62,10 @@ Kirigami.Card {
                 }
             }
             Controls.Label {
-                objectName: "cardSource"
+                objectName: "cardOrigin"
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignRight
-                text: gameCard.gameSource
+                text: gameCard.gameOrigin
                 opacity: 0.7
                 elide: Text.ElideRight
             }

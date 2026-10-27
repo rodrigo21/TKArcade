@@ -6,7 +6,7 @@ import org.kde.kirigami as Kirigami
 
 // Add game entry point (widgets AddSourceDialog parity): pick the
 // source, then run its flow — Steam picker opens settings for the
-// AppID, Local picks the game type and opens blank settings with it
+// AppID, Local picks the environment and opens blank settings with it
 // preselected. Modal window like the rest.
 Window {
     id: addGameDialog
@@ -25,7 +25,7 @@ Window {
     property var page: null
     property var steamRows: []
     // Values behind typeBox, in the same order as its labels.
-    readonly property var gameTypes: ["native", "wine", "umu"]
+    readonly property var environments: ["native", "wine", "umu"]
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
@@ -36,9 +36,9 @@ Window {
         visible = true
     }
 
-    function selectedGameType() {
+    function selectedEnvironment() {
         var index = typeBox.currentIndex
-        return (index >= 0 && index < gameTypes.length) ? gameTypes[index] : "native"
+        return (index >= 0 && index < environments.length) ? environments[index] : "native"
     }
 
     function loadSteam() {
@@ -71,7 +71,7 @@ Window {
         }
         addGameDialog.close()
         if (page !== null) {
-            page.openNewGameSettings(selectedGameType())
+            page.openNewGameSettings(selectedEnvironment())
         }
     }
 
@@ -98,19 +98,19 @@ Window {
             model: [qsTr("Steam Game"), qsTr("Local Game")]
         }
         Controls.Label {
-            text: qsTr("Game Type")
+            text: qsTr("Environment")
             visible: sourceBox.currentIndex === 1
         }
         Controls.ComboBox {
             id: typeBox
-            objectName: "addGameType"
+            objectName: "addEnvironment"
             visible: sourceBox.currentIndex === 1
             Layout.fillWidth: true
             // Same three choices as Settings, in the same order.
             model: [
-                qsTr("Linux (Native)"),
-                qsTr("Windows (Wine)"),
-                qsTr("Windows (Proton via UMU)")
+                qsTr("Native"),
+                qsTr("Wine"),
+                qsTr("Proton (UMU)")
             ]
         }
         Controls.ComboBox {

@@ -66,7 +66,7 @@ def test_main_qml_loads_with_model(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
 
     engine = QQmlApplicationEngine()
@@ -123,7 +123,7 @@ def _check_header_titles(win):
     header = win.findChild(QQuickItem, "tableHeader")
     assert header is not None
     titles = _header_texts(header)
-    assert {"Game", "App ID", "Played", "ProtonDB", "Source"} <= titles
+    assert {"Game", "App ID", "Played", "ProtonDB", "Origin"} <= titles
 
 
 def _check_header_cell_tiling(win):
@@ -582,8 +582,7 @@ def test_library_columns_render_and_autofit(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "wine"
-    cfg.general.platform = "PC"
+    cfg.general.environment = "wine"
     cfg.general.categories = ["Action"]
     cfg.proton.wine_version = "wine-9.0"
     C.save(cfg)
@@ -598,7 +597,7 @@ def test_library_columns_render_and_autofit(qgui_app, xdg_env):
     header_row = header.findChild(QQuickItem, "headerRow")
     expected = {
         6: "2026-01-02 10:00",
-        7: "PC",
+        7: "Windows",
         8: "Wine",
         9: "wine-9.0",
         10: "/bin",
@@ -784,7 +783,7 @@ def _shown_flags(proxy):
         (2, "showAppId"),
         (3, "showPlayed"),
         (4, "showTier"),
-        (5, "showSource"),
+        (5, "showOrigin"),
         (6, "showLastPlayed"),
         (7, "showPlatform"),
         (8, "showRunner"),
@@ -1606,7 +1605,7 @@ def test_game_card_binds_roles(qgui_app):
             "gameName": "Doom",
             "gameId": "local-doom",
             "gamePlayed": "38s",
-            "gameSource": "Local",
+            "gameOrigin": "Local",
             "gameTier": "Gold",
             "gameTierBg": "#FFC107",
             "gameTierFg": "#000000",
@@ -2044,7 +2043,7 @@ def test_settings_window_chrome_and_sections(qgui_app, xdg_env):
     cfg.general.appid = "local-sections"
     cfg.general.name = "Sections"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     settings = win.findChild(QObject, "gameSettings")
@@ -2077,7 +2076,7 @@ def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     cfg.general.appid = "local-env"
     cfg.general.name = "Env"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     settings = win.findChild(QObject, "gameSettings")
@@ -2170,7 +2169,7 @@ def test_settings_tab_bodies_scroll(qgui_app, xdg_env):
     cfg.general.appid = "local-scroll"
     cfg.general.name = "Scroll"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.env.vars = {"FOO": "bar"}
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
@@ -2267,7 +2266,6 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
         "settingsAppid",
         "settingsName",
         "settingsType",
-        "settingsPlatform",
         "settingsCats",
         "settingsProfiles",
     )
@@ -2291,7 +2289,7 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
     assert shown(*launch) == []
     _settings_tab(swin, TAB_LAUNCH)
     assert shown(*launch) == list(launch)
-    assert shown("settingsPlatform", "settingsCats") == []
+    assert shown("settingsType", "settingsCats") == []
     _settings_tab(swin, TAB_PERF)
     assert shown("perfFeral", "mhEnable", "rtEnable") == ["perfFeral", "mhEnable", "rtEnable"]
     _settings_tab(swin, TAB_DISPLAY)
@@ -2669,7 +2667,7 @@ def test_prompt_dialogs_confirm_and_close(qgui_app, xdg_env):
     bad.general.appid = "local-bad"
     bad.general.name = "Bad"
     bad.general.custom_executable = "/nonexistent/game"
-    bad.general.game_type = "native"
+    bad.general.environment = "native"
     C.save(bad)
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
@@ -3181,13 +3179,13 @@ def test_issues_only_filter(qgui_app, xdg_env):
     good.general.appid = "local-good"
     good.general.name = "Good"
     good.general.custom_executable = sys.executable
-    good.general.game_type = "native"
+    good.general.environment = "native"
     C.save(good)
     bad = C.GameConfig()
     bad.general.appid = "local-bad"
     bad.general.name = "Bad"
     bad.general.custom_executable = "/nonexistent/game"
-    bad.general.game_type = "native"
+    bad.general.environment = "native"
     C.save(bad)
     win, _engine, proxy, warnings = _load_main(qgui_app)
     assert proxy.rowCount() == 2
@@ -3315,7 +3313,7 @@ def test_column_layout_persists(qgui_app, xdg_env):
     assert proxy.columnLogical(0) == 0
     proxy.moveColumn(2, 1)
     assert [proxy.columnLogical(c) for c in range(12)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11]
-    proxy.setProperty("showSource", False)
+    proxy.setProperty("showOrigin", False)
     qgui_app.processEvents()
     prefs = C.load_preferences()
     assert prefs.column_order == "0,1,3,2,4,5,6,7,8,9,10,11"
@@ -3557,7 +3555,7 @@ def test_hamburger_validates_the_selection(qgui_app, xdg_env):
     bad.general.appid = "local-bad"
     bad.general.name = "Bad"
     bad.general.custom_executable = "/nonexistent/game"
-    bad.general.game_type = "native"
+    bad.general.environment = "native"
     C.save(bad)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
@@ -3707,7 +3705,7 @@ def test_header_titles_share_styled_delegate():
     text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert "colorSet: Kirigami.Theme.Button" in text
     assert text.count("headerDelegate") == 0  # no addon header leftovers
-    for title in ("Game", "App ID", "Played", "ProtonDB", "Source"):
+    for title in ("Game", "App ID", "Played", "ProtonDB", "Origin"):
         assert title in text
     # no "#" gutter title (TKS has none); the framed numbers stay
     assert 'return "#"' not in text
@@ -4270,7 +4268,7 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
     click("titleAdd", win)
     add = _modal_window(qgui_app, ("Add Game",))
     add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
-    type_box = add.findChild(QQuickItem, "addGameType")
+    type_box = add.findChild(QQuickItem, "addEnvironment")
     assert type_box is not None
     # Local games open Settings with the native type preselected.
     assert type_box.property("currentIndex") == 0
@@ -4284,7 +4282,7 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
     created = proxy.idAt(0)
     assert created.startswith("local-")
     assert C.load(created).general.name == "Doom"
-    assert C.load(created).general.game_type == "native"
+    assert C.load(created).general.environment == "native"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4292,7 +4290,7 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_add_local_game_type_preselects_settings(qgui_app, xdg_env):
+def test_add_local_environment_preselects_settings(qgui_app, xdg_env):
     """The Add dialog's Game Type combo lands preselected in Settings."""
     from PySide6.QtQuick import QQuickItem
 
@@ -4305,9 +4303,9 @@ def test_add_local_game_type_preselects_settings(qgui_app, xdg_env):
 
     click("titleAdd", win)
     add = _modal_window(qgui_app, ("Add Game",))
-    assert add.findChild(QQuickItem, "addGameType").property("visible") is False
+    assert add.findChild(QQuickItem, "addEnvironment").property("visible") is False
     add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
-    type_box = add.findChild(QQuickItem, "addGameType")
+    type_box = add.findChild(QQuickItem, "addEnvironment")
     assert type_box.property("visible") is True
     type_box.setProperty("currentIndex", 2)
     click("addConfirm", add)
@@ -4317,7 +4315,7 @@ def test_add_local_game_type_preselects_settings(qgui_app, xdg_env):
     swin.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
     click("settingsSave", swin)
     assert proxy.rowCount() == 1
-    assert C.load(proxy.idAt(0)).general.game_type == "umu"
+    assert C.load(proxy.idAt(0)).general.environment == "umu"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4357,7 +4355,7 @@ def test_settings_exe_hint_switches_to_wine(qgui_app, xdg_env, tmp_path):
     swin.findChild(QQuickItem, "settingsName").setProperty("text", "Hinted")
     click("settingsSave", swin)
     assert proxy.rowCount() == 1
-    assert C.load(proxy.idAt(0)).general.game_type == "wine"
+    assert C.load(proxy.idAt(0)).general.environment == "wine"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4377,7 +4375,7 @@ def test_settings_exe_hint_on_steam_offers_proton(qgui_app, xdg_env, tmp_path):
     cfg = C.GameConfig()
     cfg.general.appid = "98"
     cfg.general.name = "Steam Exe"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.custom_executable = str(exe)
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
@@ -4805,11 +4803,11 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     steam = C.GameConfig()
     steam.general.appid = "99"
-    steam.general.game_type = "proton"
+    steam.general.environment = "proton"
     C.save(steam)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
@@ -4947,9 +4945,9 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     # and the saved "wine" type selects the second entry.
     assert type_box.property("count") == 3
     assert type_box.property("model") == [
-        "Linux (Native)",
-        "Windows (Wine)",
-        "Windows (Proton via UMU)",
+        "Native",
+        "Wine",
+        "Proton (UMU)",
     ]
     assert type_box.property("currentIndex") == 1
     assert wine_field.property("visible") is True
@@ -4998,7 +4996,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     dlg.save()
     QTest.qWait(50)
     cfg = C.load("local-doom")
-    assert cfg.general.game_type == "wine"
+    assert cfg.general.environment == "wine"
     assert cfg.runtime.wine_binary == "/opt/wine/bin/wine"
     assert cfg.runtime.prefix_dir == str(prefix)
     assert cfg.runtime.prefix_name == "Friendly Doom"
@@ -5017,7 +5015,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     dlg.save()
     QTest.qWait(50)
     cfg = C.load("local-doom")
-    assert cfg.general.game_type == "umu"
+    assert cfg.general.environment == "umu"
     assert cfg.runtime.proton_path == str(proton_dir.resolve())
     assert cfg.runtime.prefix_dir == str(prefix)
 
@@ -5229,7 +5227,7 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     swin = _settings_window(qgui_app)
     assert proxy.rowCount() == 0
     assert swin.findChild(QQuickItem, "settingsAppid").property("text") == "99"
-    # Steam games must name the game type: no auto-detection and no guess.
+    # Steam games must name the environment: no auto-detection and no guess.
     click("settingsSave", swin)
     assert not C.game_file("99").is_file()
     swin.findChild(QQuickItem, "settingsType").setProperty("currentIndex", 0)
@@ -5362,7 +5360,7 @@ def test_settings_preview_diff_flow(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
@@ -5415,7 +5413,7 @@ def test_settings_preview_refreshes_live(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
@@ -5494,7 +5492,7 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     C.save_profile("local-doom", "fast", C.load("local-doom"))
     slow = C.load("local-doom")
@@ -5655,7 +5653,7 @@ def test_settings_tabs_formlayout_never_stack(qgui_app, xdg_env):
 
 
 def test_settings_library_fields_flow(qgui_app, xdg_env):
-    """Library fields round-trip: tags, platform, args/cwd, fps, prefix, donor."""
+    """Library fields round-trip: tags, args/cwd, fps, prefix, donor."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
@@ -5672,7 +5670,6 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     swin.findChild(QQuickItem, "settingsCats").setProperty("text", "Action, Retro")
-    swin.findChild(QQuickItem, "settingsPlatform").setProperty("text", "PC")
     swin.findChild(QQuickItem, "settingsArgs").setProperty("text", "--fullscreen")
     swin.findChild(QQuickItem, "settingsCwd").setProperty("text", "/tmp")
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_PERF)
@@ -5689,7 +5686,6 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
     back = C.load("local-doom")
     assert back.general.categories == ["Action", "Retro"]
-    assert back.general.platform == "PC"
     assert back.general.launch_args == "--fullscreen"
     assert back.general.launch_cwd == "/tmp"
     assert back.mangohud.fps_limit == 60
@@ -6051,14 +6047,14 @@ def _click_editor_button(qgui_app, window, name):
     QTest.qWait(30)
 
 
-def _save_one_game(appid, name, game_type="native"):
+def _save_one_game(appid, name, environment="native"):
     from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = appid
     cfg.general.name = name
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = game_type
+    cfg.general.environment = environment
     C.save(cfg)
 
 

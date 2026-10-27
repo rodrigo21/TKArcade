@@ -13,12 +13,12 @@ from tkarcade.backends import nightlight as nl
 from tkarcade.backends import overlay as ov
 from tkarcade.backends import prepost as pp
 from tkarcade.launcher import (
+    EnvironmentNotSetError,
     GameExecutableMissingError,
-    GameTypeNotSetError,
     PrefixNotFoundError,
     RuntimeNotFoundError,
     build_final_command,
-    game_type_problem,
+    environment_problem,
     swap_native_executable,
     swap_proton_executable,
 )
@@ -46,26 +46,26 @@ def test_swap_native_argv0():
     assert swap_native_executable([], "/g/new") == ["/g/new"]
 
 
-def test_game_type_is_never_inferred():
+def test_environment_is_never_inferred():
     cfg = C.GameConfig()
-    with pytest.raises(GameTypeNotSetError):
+    with pytest.raises(EnvironmentNotSetError):
         build_final_command(cfg, ["/bin/true"])
-    assert game_type_problem("123", "") != ""
-    assert game_type_problem("123", "proton") == ""
-    assert game_type_problem("123", "native") == ""
+    assert environment_problem("123", "") != ""
+    assert environment_problem("123", "proton") == ""
+    assert environment_problem("123", "native") == ""
     # Non-Steam games cannot borrow the Steam Proton runtime.
-    assert game_type_problem("local-x", "proton") != ""
-    assert game_type_problem("local-x", "native") == ""
+    assert environment_problem("local-x", "proton") != ""
+    assert environment_problem("local-x", "native") == ""
 
 
 def test_legacy_auto_loads_as_unset(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     path = tmp_path / "config" / "tkarcade" / "games" / "1.toml"
     path.parent.mkdir(parents=True)
-    path.write_text('[general]\nappid = "1"\ngame_type = "auto"\n')
-    assert C.load("1").general.game_type == ""
-    path.write_text('[general]\nappid = "1"\ngame_type = "bogus"\n')
-    assert C.load("1").general.game_type == ""
+    path.write_text('[general]\nappid = "1"\nenvironment = "auto"\n')
+    assert C.load("1").general.environment == ""
+    path.write_text('[general]\nappid = "1"\nenvironment = "bogus"\n')
+    assert C.load("1").general.environment == ""
 
 
 def test_gamemode_tiebreak_feral_wins(fake_bin):
@@ -276,7 +276,7 @@ def test_build_prefix_order(fake_bin):
     fake_bin("gamescope")
     fake_bin("mangohud")
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "1"
     cfg.gamemode.feral_gamemode = True
     cfg.mangohud.enable = True
@@ -289,7 +289,7 @@ def test_build_prefix_order(fake_bin):
 def test_build_prefix_missing_raises(xdg_env, monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "1"
     cfg.general.custom_prefix = "nope-bin --flag"
     with pytest.raises(PrefixNotFoundError):
@@ -350,7 +350,7 @@ def test_launch_summary_shapes():
     title, body = ntf.launch_summary(
         appid="1",
         name="Some Game",
-        game_type="proton",
+        environment="proton",
         wrappers=["GameMode", "MangoHud"],
         custom_executable="/g/dir/game.exe",
         proton_display="Proton 9.0-2",
@@ -360,13 +360,13 @@ def test_launch_summary_shapes():
         "Proton 9.0-2 · GameMode · MangoHud",
         "Exe: game.exe",
     ]
-    title, body = ntf.launch_summary(appid="2", game_type="native")
+    title, body = ntf.launch_summary(appid="2", environment="native")
     assert (title, body) == ("TKArcade — 2", "Native")
-    title, body = ntf.launch_summary(appid="3", game_type="proton")
+    title, body = ntf.launch_summary(appid="3", environment="proton")
     assert body == "Proton"
-    title, body = ntf.launch_summary(appid="4", game_type="native", runtime="soldier")
+    title, body = ntf.launch_summary(appid="4", environment="native", runtime="soldier")
     assert body == "Native · soldier"
-    title, body = ntf.launch_summary(appid="5", game_type="proton", wrappers=["A", "", "B"])
+    title, body = ntf.launch_summary(appid="5", environment="proton", wrappers=["A", "", "B"])
     assert body == "Proton · A · B"
     assert all(not line.endswith((" ", "·")) for line in body.splitlines())
 
@@ -382,7 +382,7 @@ def test_launch_summary_proton_log_warning():
 
 def test_proton_log_env(xdg_env):
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "51"
     cfg.debug.proton_log = True
     _cmd, env, _ = build_final_command(cfg, ["/bin/true"])
@@ -395,7 +395,7 @@ def test_proton_log_env(xdg_env):
 
 def test_winedebug_env(xdg_env):
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "53"
     cfg.debug.winedebug = "+err"
     _cmd, env, _ = build_final_command(cfg, ["/bin/true"])
@@ -407,7 +407,7 @@ def test_winedebug_env(xdg_env):
 
 def test_debug_section_roundtrip(xdg_env):
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "54"
     cfg.debug.proton_log = True
     cfg.debug.winedebug = "-all"
@@ -520,7 +520,7 @@ def test_mangohud_config_env(xdg_env):
     with open(os.path.join(os.environ["XDG_CONFIG_HOME"], "MangoHud", "custom.conf"), "w") as f:
         f.write("fps_limit=60\n")
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "1"
     cfg.mangohud.config_file = "custom.conf"
     _cmd, env, _ = build_final_command(cfg, ["/bin/true"])
@@ -653,7 +653,7 @@ def test_launch_options_lowercase_apps_status(monkeypatch, tmp_path, xdg_env):
 def test_inhibit_idle_prefix(fake_bin):
     fake_bin("systemd-inhibit")
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "67"
     cfg.session.inhibit_idle = True
     cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
@@ -671,7 +671,7 @@ def test_inhibit_idle_prefix(fake_bin):
 def test_inhibit_idle_missing_binary(xdg_env, monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "68"
     cfg.session.inhibit_idle = True
     cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
@@ -682,7 +682,7 @@ def test_inhibit_idle_missing_binary(xdg_env, monkeypatch, tmp_path):
 def test_rtupscale_wrap_and_xwayland(fake_bin):
     fake_bin("upscale")
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "81"
     cfg.rtupscale.enable = True
     cfg.rtupscale.args = "-m 4x24"
@@ -695,7 +695,7 @@ def test_rtupscale_wrap_and_xwayland(fake_bin):
 def test_rtupscale_conflict_warns(fake_bin):
     fake_bin("upscale")
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "82"
     cfg.rtupscale.enable = True
     cfg.env.vars = {"PROTON_ENABLE_WAYLAND": "1"}
@@ -707,7 +707,7 @@ def test_rtupscale_conflict_warns(fake_bin):
 def test_rtupscale_missing_binary(xdg_env, monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.appid = "83"
     cfg.rtupscale.enable = True
     cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
@@ -721,7 +721,7 @@ def test_active_wrappers_lists_enabled():
 
     assert active_wrappers(C.GameConfig()) == []
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.mangohud.enable = True
     cfg.ludusavi.enable = True
     assert active_wrappers(cfg) == ["MangoHud", "Ludusavi"]
@@ -897,7 +897,7 @@ def test_fps_limit_strangle_fallback(monkeypatch, tmp_path):
     from tkarcade.launcher import build_final_command
 
     cfg = C.GameConfig()
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     cfg.general.custom_executable = "/bin/true"
     cfg.mangohud.fps_limit = 60
     bindir = tmp_path / "bin"
@@ -914,24 +914,24 @@ def test_fps_limit_strangle_fallback(monkeypatch, tmp_path):
     assert any("ignoring" in w for w in warns)
 
 
-def _local_cfg(game_type, exe="/games/doom.exe"):
+def _local_cfg(environment, exe="/games/doom.exe"):
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
-    cfg.general.game_type = game_type
+    cfg.general.environment = environment
     cfg.general.custom_executable = exe
     return cfg
 
 
-def test_game_type_origin_rules():
-    assert game_type_problem("123", "proton") == ""
-    assert game_type_problem("123", "native") == ""
-    assert game_type_problem("123", "wine") != ""
-    assert game_type_problem("123", "umu") != ""
-    assert game_type_problem("local-x", "native") == ""
-    assert game_type_problem("local-x", "wine") == ""
-    assert game_type_problem("local-x", "umu") == ""
-    assert game_type_problem("local-x", "proton") != ""
+def test_environment_origin_rules():
+    assert environment_problem("123", "proton") == ""
+    assert environment_problem("123", "native") == ""
+    assert environment_problem("123", "wine") != ""
+    assert environment_problem("123", "umu") != ""
+    assert environment_problem("local-x", "native") == ""
+    assert environment_problem("local-x", "wine") == ""
+    assert environment_problem("local-x", "umu") == ""
+    assert environment_problem("local-x", "proton") != ""
 
 
 def test_wine_local_command(xdg_env, fake_bin):

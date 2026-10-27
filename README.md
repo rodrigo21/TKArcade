@@ -46,9 +46,13 @@ entry per run in `launcher.log`.
 ## Local games
 
 Games added with **Add → Local** keep their own origin. `[general]
-game_type` is `native` (Linux), `wine` or `umu`; Steam games use
-`proton` or `native`. A missing or legacy `auto` value is refused (exit
-18): pick the type in the settings dialog, there is no detection.
+environment` says how the game runs: `native` (a Linux build), `wine`
+or `umu` for local games; Steam games use `proton` (Steam's Proton) or
+`native` (Steam Runtime). The library derives `Origin` (Steam/Local)
+and `Platform` (Linux/Windows) from that, and `Runner` names the
+environment; there is no separate platform label. A missing or legacy
+`auto` value is refused (exit 18): pick the environment in the settings
+dialog, there is no detection.
 
 Local Windows games never borrow Steam's Proton. `wine` runs the game
 with the configured wine binary (or `wine` from PATH); `umu` runs
@@ -79,7 +83,7 @@ copied files; **Remove from prefix** deletes only those.
 ```toml
 [general]
 appid = "local-doom"
-game_type = "umu"
+environment = "umu"
 
 [runtime]
 proton_path = "/home/user/GE-Proton10-25"
@@ -139,7 +143,7 @@ Export/import everything with `tkarcade --export FILE` /
 11 empty game command; 12 pre-launch hook failed; 13 game executable
 not found; 14 custom prefix, wine/umu runtime or Proton install not
 found; 15 display needed but missing; 16 export/import failed;
-17 validation issues found; 18 game type not set (or invalid for the
+17 validation issues found; 18 environment not set (or invalid for the
 game's origin).
 See `tkarcade --help` and `man tkarcade` (man ships in the Arch packages).
 

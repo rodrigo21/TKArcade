@@ -102,7 +102,7 @@ Window {
             "appid": "",
             "name": "",
             "custom_executable": "",
-            "game_type": "",
+            "environment": "",
             "show_menu": false,
             "menu_timeout": 0,
             "custom_prefix": "",
@@ -123,13 +123,13 @@ Window {
         visible = true
     }
 
-    function openNew(gameType) {
+    function openNew(environment) {
         editAppid = ""
         defaultsMode = false
         fields = blankFields()
-        // The Add dialog preselects the local game type; empty leaves the
+        // The Add dialog preselects the local environment; empty leaves the
         // native default that pushToControls already applies.
-        fields.game_type = gameType || ""
+        fields.environment = environment || ""
         pushToControls()
         errorText = ""
         tabBar.currentIndex = 0
@@ -192,7 +192,7 @@ Window {
             defaultsMode ? "" : editAppid, defaultsMode ? "" : dialogProfile)
     }
 
-    // Read-only runtime row; tracks the Game type combo so switching
+    // Read-only runtime row; tracks the Environment combo so switching
     // clears it (Steam) or names the local Wine/umu runtime.
     function typeValues() {
         return (defaultsMode || (fields.is_steam || false))
@@ -332,7 +332,7 @@ Window {
         loadedName = nameField.text
         exeField.text = f.custom_executable || ""
         var types = typeValues()
-        var typeIndex = types.indexOf(f.game_type || "")
+        var typeIndex = types.indexOf(f.environment || "")
         typeBox.currentIndex = typeIndex >= 0
             ? typeIndex
             : ((f.is_steam || defaultsMode) ? -1 : 0)
@@ -340,7 +340,6 @@ Window {
         prefixField.text = f.custom_prefix || ""
         argsField.text = f.launch_args || ""
         cwdField.text = f.launch_cwd || ""
-        platformField.text = f.platform || ""
         catsField.text = (f.categories || []).join(", ")
         artIconField.text = f.art_icon || ""
         artCoverField.text = f.art_cover || ""
@@ -432,13 +431,12 @@ Window {
         return {
             "name": nameField.text,
             "custom_executable": exeField.text,
-            "game_type": typeValues()[typeBox.currentIndex] || "",
+            "environment": typeValues()[typeBox.currentIndex] || "",
             "show_menu": menuCheck.checked,
             "menu_timeout": timeoutSpin.value,
             "custom_prefix": prefixField.text,
             "launch_args": argsField.text,
             "launch_cwd": cwdField.text,
-            "platform": platformField.text,
             "categories": catsField.text,
             "art_icon": artIconField.text,
             "art_cover": artCoverField.text,
@@ -1059,7 +1057,7 @@ Window {
         // no silent guess (the launcher refuses with exit 18). The defaults
         // template may stay unset, which keeps new games unset too.
         if (!defaultsMode && (fields.is_steam || false) && typeBox.currentIndex < 0) {
-            settingsError.text = qsTr("Choose the Game Type: Windows (Proton) or Linux (Native).")
+            settingsError.text = qsTr("Choose the Environment: Proton or Native (Steam Runtime).")
             return false
         }
         if (defaultsMode) {
@@ -1331,14 +1329,14 @@ Window {
                                     // games use the Steam Proton runtime, local
                                     // games their own Wine or umu-run Proton.
                                     model: (defaultsMode || (fields.is_steam || false))
-                                        ? [qsTr("Windows (Proton)"), qsTr("Linux (Native)")]
+                                        ? [qsTr("Proton"), qsTr("Native (Steam Runtime)")]
                                         : [
-                                            qsTr("Linux (Native)"),
-                                            qsTr("Windows (Wine)"),
-                                            qsTr("Windows (Proton via UMU)")
+                                            qsTr("Native"),
+                                            qsTr("Wine"),
+                                            qsTr("Proton (UMU)")
                                         ]
                                     displayText: currentIndex >= 0 ? currentText : qsTr("Choose...")
-                                    KirigamiLayouts.FormData.label: qsTr("Game Type:")
+                                    KirigamiLayouts.FormData.label: qsTr("Environment:")
                                     onActivated: {
                                         runtimeField.text = gameSettings.runtimeText()
                                         gfxStatus = gameSettings.gfxStatusText()
@@ -1352,13 +1350,6 @@ Window {
                                     readOnly: true
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
-                                }
-                                Controls.TextField {
-                                    id: platformField
-                                    objectName: "settingsPlatform"
-                                    placeholderText: qsTr("e.g. PC")
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Platform:")
                                 }
                                 Controls.TextField {
                                     id: catsField
@@ -1512,7 +1503,7 @@ Window {
                                         Layout.preferredWidth: 0
                                         Layout.minimumWidth: 0
                                         wrapMode: Text.WordWrap
-                                        text: qsTr("This Looks Like a Windows Executable, but the Game Type Is Linux (Native).")
+                                        text: qsTr("This Looks Like a Windows Executable, but the Environment Is a Linux Build.")
                                     }
                                     Controls.Button {
                                         objectName: "settingsSwitchType"

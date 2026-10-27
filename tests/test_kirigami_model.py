@@ -14,7 +14,7 @@ def _rows(model):
         (
             model.data(model.index(i, 0), model.IdRole),
             model.data(model.index(i, 0), model.NameRole),
-            model.data(model.index(i, 0), model.SourceRole),
+            model.data(model.index(i, 0), model.OriginRole),
             model.data(model.index(i, 0), model.PlayedRole),
             model.data(model.index(i, 0), model.TierRole),
         )
@@ -30,7 +30,7 @@ def test_model_lists_steam_and_local_sorted(qgui_app, xdg_env):
     local.general.appid = "local-zebra"
     local.general.name = "Zebra"
     local.general.custom_executable = "/bin/true"
-    local.general.game_type = "native"
+    local.general.environment = "native"
     C.save(local)
     rows = _rows(_model(qgui_app))
     assert rows == [
@@ -49,7 +49,7 @@ def test_model_add_local_validation(qgui_app, xdg_env, tmp_path):
     assert first == "local-doom"
     assert model.addLocal("Doom", str(exe)) == "local-doom-2"
     saved = C.load("local-doom")
-    assert (saved.general.name, saved.general.game_type) == ("Doom", "native")
+    assert (saved.general.name, saved.general.environment) == ("Doom", "native")
     assert saved.general.custom_executable == str(exe)
 
 
@@ -100,13 +100,13 @@ def test_model_role_names_are_game_prefixed(qgui_app):
         b"gameLastPlayed",
         b"gameLastSecs",
         b"gameName",
+        b"gameOrigin",
         b"gamePlatform",
         b"gamePlayed",
         b"gamePlayedSecs",
         b"gamePlayedTip",
         b"gameRunner",
         b"gameRunning",
-        b"gameSource",
         b"gameTier",
         b"gameTierBg",
         b"gameTierFg",
@@ -568,12 +568,12 @@ def test_settings_load_save_roundtrip(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     model = GameListModel()
     fields = model.loadGame("local-doom")
     assert fields["name"] == "Doom"
-    assert fields["game_type"] == "native"
+    assert fields["environment"] == "native"
     assert fields["is_steam"] is False
     assert fields["profiles"] == []
     out = dict(fields)
@@ -595,7 +595,7 @@ def test_settings_create_and_profiles(qgui_app, xdg_env):
 
     model = GameListModel()
     created = model.saveGame(
-        "", {"name": "Doom", "custom_executable": "/bin/true", "game_type": "native"}
+        "", {"name": "Doom", "custom_executable": "/bin/true", "environment": "native"}
     )
     assert created.startswith("local-")
     assert C.load(created).general.name == "Doom"
@@ -763,14 +763,13 @@ def test_library_columns_roles(qgui_app, xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
-    cfg.general.platform = "PC"
     cfg.general.categories = ["Action"]
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     model = GameListModel()
     assert model.columnCount() == 12
     row = model.rowData(0)
-    assert row["gamePlatform"] == "PC"
+    assert row["gamePlatform"] == "Linux"
     assert row["gameCategory"] == "Action"
     assert row["gameRunner"] == "Native"
     assert row["gameLastPlayed"] == "—"
@@ -795,18 +794,18 @@ def test_settings_preview_diff(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     model = GameListModel()
     res = model.previewCommand(
-        "local-doom", {"custom_executable": "/bin/true", "game_type": "native"}
+        "local-doom", {"custom_executable": "/bin/true", "environment": "native"}
     )
     assert "/bin/true" in res["command"]
     assert isinstance(res["warnings"], list)
     assert res["wrappers"] != ""
     assert model.diffDefaults("", {}) == ""
     diff = model.diffDefaults(
-        "local-doom", {"custom_executable": "/bin/true", "game_type": "native"}
+        "local-doom", {"custom_executable": "/bin/true", "environment": "native"}
     )
     assert "custom_executable" in diff
 
@@ -979,9 +978,9 @@ def test_settings_steam_create(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 
     model = GameListModel()
-    assert model.saveGame("99", {"game_type": "proton"}) == "99"
+    assert model.saveGame("99", {"environment": "proton"}) == "99"
     assert C.game_file("99").is_file()
-    assert C.load("99").general.game_type == "proton"
+    assert C.load("99").general.environment == "proton"
 
 
 def test_icon_name_first_available(qgui_app, xdg_env, monkeypatch):
@@ -1226,7 +1225,7 @@ def test_proxy_is_twelve_column_table(qgui_app, xdg_env):
         "App ID",
         "Played",
         "ProtonDB",
-        "Source",
+        "Origin",
         "Last Played",
         "Platform",
         "Runner",
@@ -1284,7 +1283,7 @@ def test_game_issues_cache_invalidated_on_refresh(qgui_app, xdg_env):
     cfg.general.appid = "local-broken"
     cfg.general.name = "Broken"
     cfg.general.custom_executable = "/nonexistent/doom"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)  # missing executable -> validation issue
     model = GameListModel()
     assert model.gameIssues("local-broken") != []
@@ -1367,7 +1366,7 @@ def test_model_running_role_and_terminate(qgui_app, xdg_env):
     cfg.general.appid = "local-run"
     cfg.general.name = "Runner"
     cfg.general.custom_executable = "/bin/true"
-    cfg.general.game_type = "native"
+    cfg.general.environment = "native"
     C.save(cfg)
     child = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True

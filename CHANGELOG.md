@@ -744,6 +744,26 @@ Breaking config changes are called out explicitly under `Changed`.
 - AppImage release asset now carries the version
   (`TKArcade-<version>.AppImage`).
 
+### Changed
+- **BREAKING**: `[general] game_type` is now `[general] environment`,
+  with the same values (`proton`, `native`, `wine`, `umu`) and the same
+  launch behaviour. The field answers "how does it run", not "what is
+  it": origin (Steam/Local) and platform (Linux/Windows) are derived.
+  A config with the old key loads with the environment unset, so the
+  launcher refuses to launch (exit 18) until it is chosen again; the
+  old key stays in the file untouched (no migration shim).
+- **BREAKING**: the free `[general] platform` label is removed. The
+  Platform column no longer holds a typed label such as "PC"; it shows
+  the system the game is built for (`Linux` for `native`, `Windows`
+  otherwise), derived from the environment. Categories cover labels
+  like "Steam Deck".
+- Library and settings vocabulary follows Lutris: `Source` is now
+  `Origin` (Steam/Local), `Platform` is the target system and `Runner`
+  names the environment (`Steam Proton`, `Steam Runtime`, `Native`,
+  `Wine`, `Proton (UMU)`). Settings renames "Game Type" to
+  "Environment" and drops the platform hint from its choices, because
+  Windows is a platform, not an environment.
+
 ## [1.1.1] - 2026-10-05
 
 ### Fixed

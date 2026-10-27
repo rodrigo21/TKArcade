@@ -33,7 +33,7 @@ Kirigami.Dialog {
         } else if (logical === 11) {
             return "showCategory"
         }
-        return "showSource"
+        return "showOrigin"
     }
 
     function titleFor(logical) {
@@ -56,7 +56,7 @@ Kirigami.Dialog {
         } else if (logical === 11) {
             return qsTr("Category")
         }
-        return qsTr("Source")
+        return qsTr("Origin")
     }
 
     ColumnLayout {

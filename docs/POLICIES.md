@@ -22,7 +22,7 @@ Standing decisions that shape every change. `AGENTS.md` links here.
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,
   13 missing exe, 14 missing prefix/wine/umu/Proton runtime, 15 no display,
-  16 import/export, 17 validation issues, 18 game type not set).
+  16 import/export, 17 validation issues, 18 environment not set).
 
 ## Dev environment
 

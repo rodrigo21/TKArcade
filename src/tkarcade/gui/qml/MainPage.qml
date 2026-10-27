@@ -734,7 +734,7 @@ Kirigami.Page {
             return gameFilter.showTier
         }
         if (logical === 5) {
-            return gameFilter.showSource
+            return gameFilter.showOrigin
         }
         if (logical === 6) {
             return gameFilter.showLastPlayed
@@ -771,7 +771,7 @@ Kirigami.Page {
             return "gameTier"
         }
         if (logical === 5) {
-            return "gameSource"
+            return "gameOrigin"
         }
         if (logical === 6) {
             return "gameLastSecs"
@@ -826,7 +826,7 @@ Kirigami.Page {
             return qsTr("ProtonDB")
         }
         if (logical === 5) {
-            return qsTr("Source")
+            return qsTr("Origin")
         }
         if (logical === 6) {
             return qsTr("Last Played")
@@ -920,7 +920,7 @@ Kirigami.Page {
         gameFilter.showAppId = true
         gameFilter.showPlayed = true
         gameFilter.showTier = true
-        gameFilter.showSource = true
+        gameFilter.showOrigin = true
         gameFilter.showLastPlayed = true
         gameFilter.showPlatform = false
         gameFilter.showRunner = false
@@ -1270,10 +1270,10 @@ Kirigami.Page {
                 onToggled: gamesPage.setSort("gameTier", gamesPage.sortDescending)
             }
             Controls.RadioButton {
-                text: qsTr("Source")
-                checked: gamesPage.sortRole === "gameSource"
+                text: qsTr("Origin")
+                checked: gamesPage.sortRole === "gameOrigin"
                 Controls.ButtonGroup.group: sortGroup
-                onToggled: gamesPage.setSort("gameSource", gamesPage.sortDescending)
+                onToggled: gamesPage.setSort("gameOrigin", gamesPage.sortDescending)
             }
             Controls.CheckBox {
                 text: qsTr("Reverse Order")
@@ -1816,7 +1816,7 @@ Kirigami.Page {
                             return model?.gameId ?? ""
                         }
                         if (logical === 5) {
-                            return model?.gameSource ?? ""
+                            return model?.gameOrigin ?? ""
                         }
                         if (logical === 6) {
                             return model?.gameLastPlayed ?? ""
@@ -1978,10 +1978,10 @@ Kirigami.Page {
             onTriggered: gameFilter.showTier = checked
         }
         Controls.MenuItem {
-            text: qsTr("Show Source")
+            text: qsTr("Show Origin")
             checkable: true
-            checked: gameFilter.showSource
-            onTriggered: gameFilter.showSource = checked
+            checked: gameFilter.showOrigin
+            onTriggered: gameFilter.showOrigin = checked
         }
         Controls.MenuItem {
             text: qsTr("Show Last Played")
@@ -2219,10 +2219,10 @@ Kirigami.Page {
         gameSettings.openFor(appid)
     }
 
-    function openNewGameSettings(gameType) {
+    function openNewGameSettings(environment) {
         gameSettings.page = gamesPage
         gameSettings.transientParent = Controls.ApplicationWindow.window
-        gameSettings.openNew(gameType)
+        gameSettings.openNew(environment)
     }
 
     // The Global Defaults editor (same window in defaults mode), reachable

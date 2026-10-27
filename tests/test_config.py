@@ -26,7 +26,7 @@ def test_save_is_full_snapshot(xdg_env):
     cfg.general.appid = "8"
     text = C.save(cfg).read_text()
     assert 'appid = "8"' in text
-    assert "game_type" in text and "custom_prefix" in text
+    assert "environment" in text and "custom_prefix" in text
 
 
 def test_missing_file_falls_back_to_defaults(xdg_env):
@@ -56,7 +56,7 @@ def test_unknown_keys_roundtrip(xdg_env):
 
 def test_enums_match_wire_values():
     assert C.NightlightProvider.PLASMA == "plasma"
-    assert C.GameType.NATIVE == "native"
+    assert C.Environment.NATIVE == "native"
     assert str(C.NightlightProvider.OFF) == "off"
 
 
@@ -285,13 +285,12 @@ def test_preferences_invalid_values(xdg_env):
 _GAME_FIELDS = {
     "general.name": "Test Name",
     "general.custom_executable": "/tmp/opencode/exe",
-    "general.game_type": "proton",
+    "general.environment": "proton",
     "general.show_menu": True,
     "general.menu_timeout": 42,
     "general.custom_prefix": "zink-run",
     "general.active_profile": "prof2",
     "general.categories": ["Action", "Retro"],
-    "general.platform": "Steam Deck",
     "general.launch_args": "--foo --bar",
     "general.launch_cwd": "/tmp/opencode/cwd",
     "env.vars": {"A": "1", "B": "two words"},
@@ -1059,3 +1058,37 @@ def test_pre_post_timeout_clamped(xdg_env):
         '[general]\nappid = "215"\n[pre_post]\ntimeout = 99999\n', encoding="utf-8"
     )
     assert C.load("215").pre_post.timeout == 3600
+
+
+def test_environment_axes_are_derived():
+    """One stored axis: origin and platform come from the id and environment."""
+    assert C.platform_for("") == ""
+    assert C.platform_for("bogus") == ""
+    assert C.platform_for("native") == "Linux"
+    assert C.platform_for("proton") == "Windows"
+    assert C.platform_for("wine") == "Windows"
+    assert C.platform_for("umu") == "Windows"
+
+    assert C.runner_label("", True) == ""
+    assert C.runner_label("proton", True) == "Steam Proton"
+    assert C.runner_label("native", True) == "Steam Runtime"
+    assert C.runner_label("native", False) == "Native"
+    assert C.runner_label("wine", False) == "Wine"
+    assert C.runner_label("umu", False) == "Proton (UMU)"
+
+
+def test_legacy_keys_load_as_unset(xdg_env, tmp_path, monkeypatch):
+    """The renamed key and the dropped platform label are ignored, not migrated."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    path = tmp_path / "config" / "tkarcade" / "games" / "9.toml"
+    path.parent.mkdir(parents=True)
+    path.write_text('[general]\nappid = "9"\ngame_type = "native"\nplatform = "PC"\n')
+    cfg = C.load("9")
+    assert cfg.general.environment == ""
+    assert not hasattr(cfg.general, "platform")
+    C.save(cfg)
+    # Full snapshots always carry the key; the old name rides along as an
+    # unknown key (forward compat), never rewritten into the new one.
+    text = path.read_text()
+    assert 'environment = ""' in text
+    assert 'game_type = "native"' in text

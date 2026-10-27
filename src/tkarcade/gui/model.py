@@ -210,7 +210,7 @@ class GameListModel(QAbstractTableModel):
 
     IdRole = Qt.ItemDataRole.UserRole + 1
     NameRole = Qt.ItemDataRole.UserRole + 2
-    SourceRole = Qt.ItemDataRole.UserRole + 3
+    OriginRole = Qt.ItemDataRole.UserRole + 3
     PlayedRole = Qt.ItemDataRole.UserRole + 4
     TierRole = Qt.ItemDataRole.UserRole + 5
     TierBgRole = Qt.ItemDataRole.UserRole + 6
@@ -230,7 +230,7 @@ class GameListModel(QAbstractTableModel):
     ROLE_NAMES = (
         "gameId",
         "gameName",
-        "gameSource",
+        "gameOrigin",
         "gamePlayed",
         "gameTier",
         "gameTierBg",
@@ -334,7 +334,7 @@ class GameListModel(QAbstractTableModel):
         return {
             GameListModel.IdRole: b"gameId",
             GameListModel.NameRole: b"gameName",
-            GameListModel.SourceRole: b"gameSource",
+            GameListModel.OriginRole: b"gameOrigin",
             GameListModel.PlayedRole: b"gamePlayed",
             GameListModel.TierRole: b"gameTier",
             GameListModel.TierBgRole: b"gameTierBg",
@@ -376,7 +376,7 @@ class GameListModel(QAbstractTableModel):
         cols = {
             GameListModel.IdRole: 0,
             GameListModel.NameRole: 1,
-            GameListModel.SourceRole: 2,
+            GameListModel.OriginRole: 2,
             GameListModel.PlayedRole: 3,
             GameListModel.TierRole: 4,
             GameListModel.TierBgRole: 5,
@@ -400,7 +400,7 @@ class GameListModel(QAbstractTableModel):
         keys = (
             "gameId",
             "gameName",
-            "gameSource",
+            "gameOrigin",
             "gamePlayed",
             "gameTier",
             "gameTierBg",
@@ -535,10 +535,10 @@ class GameListModel(QAbstractTableModel):
             played_tip,
             last_played,
             last_secs,
-            gcfg.general.platform if gcfg is not None else "",
-            cfgmod.normalize_game_type(gcfg.general.game_type).title()
-            if gcfg is not None and cfgmod.normalize_game_type(gcfg.general.game_type)
-            else ("Not Set" if gcfg is not None else ""),
+            cfgmod.platform_for(gcfg.general.environment) if gcfg is not None else "",
+            (cfgmod.runner_label(gcfg.general.environment, is_steam) or "Not Set")
+            if gcfg is not None
+            else "",
             self._row_wine(appid, gcfg, is_steam),
             self._row_install_dir(appid, gcfg),
             ", ".join(gcfg.general.categories) if gcfg is not None else "",
@@ -601,7 +601,7 @@ class GameListModel(QAbstractTableModel):
         cfg.general.appid = appid
         cfg.general.name = name.strip()
         cfg.general.custom_executable = exe.strip()
-        cfg.general.game_type = "native"
+        cfg.general.environment = "native"
         cfgmod.save(cfg)
         self.refresh()
         return appid
@@ -682,13 +682,12 @@ class GameListModel(QAbstractTableModel):
             "load_warning": warning or "",
             "name": g.name,
             "custom_executable": g.custom_executable,
-            "game_type": cfgmod.normalize_game_type(g.game_type),
+            "environment": cfgmod.normalize_environment(g.environment),
             "show_menu": bool(g.show_menu),
             "menu_timeout": max(0, min(600, int(g.menu_timeout or 0))),
             "custom_prefix": g.custom_prefix,
             "active_profile": g.active_profile,
             "categories": list(g.categories),
-            "platform": g.platform,
             "launch_args": g.launch_args,
             "launch_cwd": g.launch_cwd,
             "art_icon": cfg.artwork.icon,
@@ -908,7 +907,7 @@ class GameListModel(QAbstractTableModel):
     def _apply_map(cfg, data: dict) -> None:
         """Write settings form fields into a config (no save, no refresh)."""
         cfg.general.custom_executable = str(data.get("custom_executable", "")).strip()
-        cfg.general.game_type = cfgmod.normalize_game_type(data.get("game_type", ""))
+        cfg.general.environment = cfgmod.normalize_environment(data.get("environment", ""))
         cfg.general.show_menu = bool(data.get("show_menu", False))
         try:
             cfg.general.menu_timeout = max(0, min(600, int(data.get("menu_timeout", 0) or 0)))
@@ -926,7 +925,6 @@ class GameListModel(QAbstractTableModel):
         if isinstance(cats, str):
             cats = [c.strip() for c in cats.split(",")]
         cfg.general.categories = [str(c).strip() for c in cats or [] if str(c).strip()]
-        cfg.general.platform = str(data.get("platform", "")).strip()
         cfg.general.launch_args = str(data.get("launch_args", "")).strip()
         cfg.general.launch_cwd = str(data.get("launch_cwd", "")).strip()
         cfg.artwork.icon = str(data.get("art_icon", "")).strip()
@@ -1793,8 +1791,8 @@ class GameListModel(QAbstractTableModel):
             if not steammod.is_steam_id(appid):
                 cfg.general.name = str(dict(values or {}).get("name", "")).strip()
             cmd, _env, warnings = launchermod.build_final_command(cfg, ["%command%"])
-        except launchermod.GameTypeNotSetError:
-            return {"command": "(Choose a Game Type to Preview)", "wrappers": "", "warnings": []}
+        except launchermod.EnvironmentNotSetError:
+            return {"command": "(Choose an Environment to Preview)", "wrappers": "", "warnings": []}
         except Exception as e:  # never break the dialog on preview
             return {"command": f"(Preview Unavailable: {e})", "wrappers": "", "warnings": []}
         try:
@@ -2953,7 +2951,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameId",
         "gamePlayed",
         "gameTier",
-        "gameSource",
+        "gameOrigin",
         "gameLastPlayed",
         "gamePlatform",
         "gameRunner",
@@ -2967,7 +2965,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameId": "App ID",
         "gamePlayed": "Played",
         "gameTier": "ProtonDB",
-        "gameSource": "Source",
+        "gameOrigin": "Origin",
         "gameLastPlayed": "Last Played",
         "gamePlatform": "Platform",
         "gameRunner": "Runner",
@@ -2981,7 +2979,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameId",
         "gamePlayed",
         "gameTier",
-        "gameSource",
+        "gameOrigin",
         "gameLastPlayed",
         "gamePlatform",
         "gameRunner",
@@ -3207,7 +3205,7 @@ class GameFilterModel(QSortFilterProxyModel):
                 2: GameListModel.IdRole,
                 3: GameListModel.PlayedRole,
                 4: GameListModel.TierRole,
-                5: GameListModel.SourceRole,
+                5: GameListModel.OriginRole,
                 6: GameListModel.LastPlayedRole,
                 7: GameListModel.PlatformRole,
                 8: GameListModel.RunnerRole,
@@ -3309,7 +3307,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "showAppId": 2,
         "showPlayed": 3,
         "showTier": 4,
-        "showSource": 5,
+        "showOrigin": 5,
         "showLastPlayed": 6,
         "showPlatform": 7,
         "showRunner": 8,
@@ -3352,11 +3350,11 @@ class GameFilterModel(QSortFilterProxyModel):
     def _set_showTier(self, value: bool) -> None:
         self._set_flag("showTier", value)
 
-    def _get_showSource(self) -> bool:
-        return self._get_flag("showSource")
+    def _get_showOrigin(self) -> bool:
+        return self._get_flag("showOrigin")
 
-    def _set_showSource(self, value: bool) -> None:
-        self._set_flag("showSource", value)
+    def _set_showOrigin(self, value: bool) -> None:
+        self._set_flag("showOrigin", value)
 
     def _get_showLastPlayed(self) -> bool:
         return self._get_flag("showLastPlayed")
@@ -3397,7 +3395,7 @@ class GameFilterModel(QSortFilterProxyModel):
     showAppId = Property(bool, _get_showAppId, _set_showAppId, notify=columnsChanged)
     showPlayed = Property(bool, _get_showPlayed, _set_showPlayed, notify=columnsChanged)
     showTier = Property(bool, _get_showTier, _set_showTier, notify=columnsChanged)
-    showSource = Property(bool, _get_showSource, _set_showSource, notify=columnsChanged)
+    showOrigin = Property(bool, _get_showOrigin, _set_showOrigin, notify=columnsChanged)
     showLastPlayed = Property(bool, _get_showLastPlayed, _set_showLastPlayed, notify=columnsChanged)
     showPlatform = Property(bool, _get_showPlatform, _set_showPlatform, notify=columnsChanged)
     showRunner = Property(bool, _get_showRunner, _set_showRunner, notify=columnsChanged)

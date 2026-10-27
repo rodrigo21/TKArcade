@@ -196,7 +196,7 @@ def test_launcher_installs_the_layer(xdg_env, fake_bin):
     C.save_preferences(prefs)
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
-    cfg.general.game_type = "wine"
+    cfg.general.environment = "wine"
     cfg.general.custom_executable = "/games/doom.exe"
     cfg.graphics.dxvk = True
     _cmd, env, warnings = build_final_command(cfg, [])
@@ -217,7 +217,7 @@ def test_launcher_respects_a_game_override(xdg_env, fake_bin):
     C.save_preferences(prefs)
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
-    cfg.general.game_type = "wine"
+    cfg.general.environment = "wine"
     cfg.general.custom_executable = "/games/doom.exe"
     cfg.graphics.dxvk = True
     cfg.env.vars = {"WINEDLLOVERRIDES": "d3d11=n"}
@@ -231,7 +231,7 @@ def test_validate_flags_missing_graphics_version(xdg_env):
 
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
-    cfg.general.game_type = "wine"
+    cfg.general.environment = "wine"
     cfg.general.custom_executable = "/bin/true"
     cfg.graphics.dxvk = True
     C.save(cfg)

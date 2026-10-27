@@ -38,7 +38,9 @@ def _wine_for(proton: object) -> str:
     return ""
 
 
-def _prepare(prefix: Path, game_type: str, wine: str, proton: object) -> tuple[str, str, list[str]]:
+def _prepare(
+    prefix: Path, environment: str, wine: str, proton: object
+) -> tuple[str, str, list[str]]:
     """Resolve (winetricks, wine, warnings) for one prefix."""
     exe = shutil.which("winetricks")
     if not exe:
@@ -52,7 +54,7 @@ def _prepare(prefix: Path, game_type: str, wine: str, proton: object) -> tuple[s
                 "launch the game once to create the prefix"
             ],
         )
-    if game_type == "umu":
+    if environment == "umu":
         wine = _wine_for(proton)
         if not wine:
             return "", "", ["winetricks skipped: the selected Proton install has no files/bin/wine"]
@@ -64,14 +66,14 @@ def _prepare(prefix: Path, game_type: str, wine: str, proton: object) -> tuple[s
 def run_local(
     appid: str,
     prefix: Path,
-    game_type: str,
+    environment: str,
     wine: str,
     proton: object,
     verbs: list[str],
 ) -> list[str]:
     """Run winetricks verbs in a local prefix. Returns warnings; never raises.
 
-    ``wine`` is the resolved Wine binary for ``game_type == "wine"``;
+    ``wine`` is the resolved Wine binary for ``environment == "wine"``;
     ``proton`` is the chosen :class:`runtimes.ProtonInstall` for umu.
     A prefix that does not exist yet is skipped: umu needs its own
     runtime to create one, and winetricks would create an incompatible
@@ -81,7 +83,7 @@ def run_local(
     if not verbs:
         return []
     prefix = Path(prefix)
-    exe, wine, warnings = _prepare(prefix, game_type, wine, proton)
+    exe, wine, warnings = _prepare(prefix, environment, wine, proton)
     if warnings:
         return warnings
 
