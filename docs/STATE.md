@@ -5,28 +5,37 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `feat/local-appid-slug` (off `main`), one commit, waiting for
-  the maintainer to test before the squash merge. Uncommitted here: only
-  the maintainer's `pkgver` in `packaging/arch/tkarcade-git/PKGBUILD`.
-- Landed on the branch: local AppIDs use a real slug (`config.local_slug`,
+- Branch: `main`, in sync with `origin/main` at `f08313b`. The tree is
+  clean apart from the maintainer's uncommitted `pkgver` in
+  `packaging/arch/tkarcade-git/PKGBUILD`. Venv at
+  `0.0.0.post538.dev0+f08313b`.
+- Landed: `f08313b` — local AppIDs use a real slug (`config.local_slug`,
   `local_id_base`, hash fallback `local_name_hash` for names with no
-  ASCII letters), plus a one-shot idempotent `config.migrate_local_ids()`
-  that runs at GUI startup and through `tkarcade --migrate-ids`. It moves
+  ASCII letters) and `config.migrate_local_ids()` renames the old ones
+  once, at GUI startup or through `tkarcade --migrate-ids`. It moves
   config, profiles, artwork, grids, per-game log, winetricks state,
-  history lines and `donor_appid` refs, pins an existing prefix through
-  `[runtime] prefix_name` instead of renaming the directory, and only
-  touches IDs that are not slug-clean (`clean_local_id`), so clone
-  targets and Steam IDs stay as they are.
-- Verified: fast suite 421 passed, 1 deselected; ruff/format clean. The
-  QML driver was not re-run for this change (no QML touched; the model
-  only gained a startup migration call).
-- Next concrete step: the maintainer tests the migration on the real
-  config, then the branch is squash-merged. After that, session 2 of the
-  TODO plan: settings reorg (merge Game+Launch tabs, unify
-  `[proton]`/`[runtime]`, option B — breaking is fine).
-- Then: session 3 — metadata fields (version/date/tag, name suffixes,
-  never in the AppID), categories redesign and dropping the Category
-  column from the library list.
+  history lines and `donor_appid` refs and pins an existing prefix via
+  `[runtime] prefix_name`; only slug-dirty IDs are touched, so Steam IDs,
+  clone targets and running games keep theirs. Steam shortcuts created
+  before the rename still pass the old AppID (TODO item).
+- Verified: fast suite 421 passed, 1 deselected; ruff/format clean; one
+  QML case (`test_columns_menu_hides_app_id`) passes. The full QML
+  driver in this environment aborts or segfaults partway through a single
+  run; one test per process gave 125 of 128 last time it was measured
+  (crashes: `test_header_sort_toggles_indicator_and_order`,
+  `test_tier_double_click_opens_protondb`,
+  `test_column_move_reorders_cells`). The maintainer tested the
+  migration on the real config before the merge.
+- Next concrete step: session 2 of the "Settings and metadata" TODO
+  block — settings reorg, option B (breaking keys are fine): merge the
+  `Game` and `Launch` tabs, unify `[proton]`/`[runtime]`
+  (`winetricks_verbs`, prefix override, tool selection), rename the
+  `Environment` tab (collides with `[general] environment`), rework
+  `Compatibility`/`System`. Old configs lose moved keys (no shims
+  pre-1.0) — CHANGELOG must say so.
+- Then: session 3 — metadata fields (version/date/tag, suffixes
+  `Name [version] (TAG)`, never in the AppID), categories redesign and
+  dropping the Category column from the library list.
 - Open decisions: none for the slug work. Still open from before: for the
   Steam Linux Runtime item, (a) refuse when the runtime is not in
   `~/.local/share/umu/` (exit 14) or let umu download it; (b) label
