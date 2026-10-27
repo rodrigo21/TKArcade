@@ -5,33 +5,30 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, in sync with `origin/main` after the game taxonomy
-  merge (`12a5ec0`, squashed from `feat/game-taxonomy`; the branch was
-  deleted locally and on the remote). The tree is clean apart from the
-  maintainer's uncommitted `pkgver` in
+- Branch: `main`, in sync with `origin/main`. The tree is clean apart
+  from the maintainer's uncommitted `pkgver` in
   `packaging/arch/tkarcade-git/PKGBUILD`.
-- Landed: the taxonomy design (`docs/plans/game-taxonomy.md`, from the
-  Lutris/Faugus analysis) and the rename it decided —
-  `[general] game_type` → `environment`, the free `[general] platform`
-  label removed, origin (Steam/Local) and platform (Linux/Windows)
-  derived through `config.platform_for()` and `config.runner_label()`.
-  Library column 5 is `Origin`, 7 `Platform`, 8 `Runner` (Steam Proton,
-  Steam Runtime, Native, Wine, Proton (UMU)); Settings says
-  "Environment" and has no Platform field. pt_BR catalog refreshed.
-- Verified: fast suite 412 passed, 1 deselected; ruff/format clean;
-  offscreen screenshot of the library and Settings with the new labels
-  and no stray "Source"/"PC". The QML driver in this environment
-  aborts or segfaults partway through a single run (three cases also
-  segfault on the pre-merge tree); one test per process gives 125 of
-  128, the three crashes being
-  `test_header_sort_toggles_indicator_and_order`,
+- Landed: the taxonomy rename (`12a5ec0`: `[general] game_type` →
+  `environment`, free `[general] platform` removed, Origin and Platform
+  derived through `config.platform_for()` / `config.runner_label()`;
+  library column 5 `Origin`, 7 `Platform`, 8 `Runner`), and docs only
+  since then: the Faugus/Steam Linux Runtime design is parked as a
+  detailed block in `TODO.md` (Deferred research), no code written.
+- Verified: no code changed since the last run (fast suite 412 passed,
+  1 deselected; ruff/format clean; offscreen screenshots of the library
+  and Settings). The QML driver in this environment aborts or segfaults
+  partway through a single run; one test per process gives 125 of 128,
+  the three crashes being `test_header_sort_toggles_indicator_and_order`,
   `test_tier_double_click_opens_protondb` and
-  `test_column_move_reorders_cells`. Venv refreshed after the merge at
+  `test_column_move_reorders_cells`. Venv at
   `0.0.0.post536.dev0+12a5ec0`.
-- Next concrete step: the Faugus item — Steam Linux Runtime
-  (soldier/scout/sniper/steamrt4 via `umu-run`) for local Linux games,
-  in its own commit; `runner_label()` already takes the origin.
+- Next concrete step: implement that TODO block — `[runtime]
+  steam_runtime` (`""|scout|soldier|sniper|steamrt4`) for Local + native,
+  launched as `[umu-run, *argv]` with `PROTONPATH=umu-<name>` and
+  `GAMEID=tkarcade-<appid>`; `runner_label()` already takes the origin.
 - Then: the Preferences and Global Defaults content reviews (TODO).
-- Open decisions: none on the taxonomy; the terms are Origin / Platform
-  / Environment (Runner).
+- Open decisions: for the SLR item, (a) refuse when the runtime is not in
+  `~/.local/share/umu/` (exit 14, keeps "nothing is downloaded") or let
+  umu download it and document that; (b) label "Steam Runtime" or "Steam
+  Runtime (sniper)". `UMU_NO_PROTON` is legacy: use `PROTONPATH` only.
 - Nothing blocking.
