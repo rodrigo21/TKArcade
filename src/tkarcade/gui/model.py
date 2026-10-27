@@ -309,7 +309,17 @@ class GameListModel(QAbstractTableModel):
         self._removed_prefixes: dict[str, str] = {}
         self._removed_names: dict[str, str] = {}
         self.destroyed.connect(self._stop_timers)
+        self._migrate_local_ids()
         self.refresh()
+
+    @staticmethod
+    def _migrate_local_ids() -> None:
+        """Rename local AppIDs left by the old slug rules (GUI startup only)."""
+        try:
+            for old, new in cfgmod.migrate_local_ids():
+                log.info("migrated AppID %s -> %s", old, new)
+        except Exception as e:
+            log.warning("AppID migration failed: %s", e)
 
     def _count_total(self) -> int:
         return len(self._rows)

@@ -63,6 +63,45 @@ and git, and hard-won QML/toolkit rules in `docs/QML-NOTES.md`.
 - [ ] Online sources à la Playnite for categories/tags (the per-game
   categories and the drawer filter shipped without them).
 
+## Settings and metadata (sessions ahead)
+
+Order: (1) local AppID slug + migration — landed; (2) settings reorg;
+(3) game metadata fields and categories.
+
+- [ ] Settings reorg (option B: break config keys where it helps).
+  - Merge the `Game` and `Launch` tabs.
+  - Unify the duplicated `[proton]`/`[runtime]` keys: one store for
+    `winetricks_verbs`, the prefix override and tool selection
+    (`wine_prefix` vs `prefix_dir`/`prefix_name`, `wine_version` vs
+    `proton_path`). Today the same feature lives in two sections chosen
+    by environment, in the config and in the window.
+  - Rename the `Environment` tab (env vars): it collides with
+    `[general] environment` (proton/native/wine/umu).
+  - Rework the remaining tabs: `Compatibility` mixes runtime choice,
+    graphics layers and debug; `System` holds network/audio/night
+    light/Ludusavi.
+  - Old configs lose the moved keys (policy: no shims pre-1.0) — call
+    it out in CHANGELOG.
+- [ ] Categories redesign: how categories work and how they are added.
+  - Drop the Category column from the library list; show the game's
+    categories in the right-hand details section instead. The column
+    currently looks broken.
+- [ ] Per-game metadata fields (all optional), rendered as name suffixes
+  in the library list and the other views, never inside the AppID:
+  - `version`: free-form for local games; shown as `Name [version]`
+    (space before the bracket). On save a trailing `[x]` in the name
+    moves into the field: `Jogo Bom [v0.3.5]` → name `Jogo Bom`,
+    version `v0.3.5` (the `v` is not required).
+  - `date`: `YYYY-MM-DD`, also accepting `YYYY-MM` and `YYYY`
+    (Playnite-style, richer than Lutris' year).
+  - `tag`: free-form state label, shown as `Name [version] (TAG)`
+    with a space before the parenthesis.
+  - Applies to Steam and local games; the list column/views layout is
+    part of the work.
+- [ ] Steam shortcuts created before an AppID migration still cache
+  `tkarcade <old-appid>` in their launch options: decide whether to
+  rewrite `shortcuts.vdf` or keep the manual warning.
+
 ## Deferred design review
 
 - [ ] Preferences content: decide what is truly global (e.g. Proton/DXVK

@@ -134,6 +134,21 @@ def test_list(xdg_env, monkeypatch, tmp_path):
     assert "Configured:" in r.stdout and "7" in r.stdout
 
 
+def test_migrate_ids_cli(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-bad-hero---episode-1"
+    cfg.general.name = "Bad Hero - Episode 1"
+    C.save(cfg)
+    env = _env(xdg_env)
+    r = _run(env, "--migrate-ids")
+    assert r.returncode == 0
+    assert "local-bad-hero---episode-1 -> local-bad-hero-episode-1" in r.stdout
+    assert "Steam shortcuts" in r.stderr
+    assert C.game_file("local-bad-hero-episode-1").is_file()
+    r = _run(env, "--migrate-ids")
+    assert r.returncode == 0 and "No local AppID needs renaming." in r.stdout
+
+
 def test_export_import_cli(xdg_env, tmp_path):
     _save("8")
     env = _env(xdg_env)

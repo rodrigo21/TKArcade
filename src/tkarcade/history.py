@@ -87,6 +87,34 @@ def clear_appid(path: Path | str, appid: str) -> int:
     return removed
 
 
+def rename_appid(path: Path | str, old: str, new: str) -> int:
+    """Rewrite one game's `appid=` token in the launcher log.
+
+    Historical lines follow the renamed game instead of becoming orphans
+    in the stats. Atomic rewrite like `clear_appid`; returns lines changed.
+    """
+    log = Path(path)
+    try:
+        text = log.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return 0
+    token = re.compile(rf"(?m)(?P<lead>(?:^|\s)appid=){re.escape(old)}(?=\s|$)")
+    updated, changed = token.subn(lambda m: f"{m.group('lead')}{new}", text)
+    if not changed:
+        return 0
+    fd, tmp = tempfile.mkstemp(
+        prefix=f".{log.name}.", suffix=".tmp", dir=log.parent if log.parent.exists() else None
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(updated)
+        os.replace(tmp, log)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+    return changed
+
+
 def summarize(sessions: list[Session]) -> dict[str, GameStats]:
     """Aggregate sessions per game (unknown durations count as 0)."""
     stats: dict[str, GameStats] = {}

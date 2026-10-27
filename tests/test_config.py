@@ -982,8 +982,167 @@ def test_new_local_id_unique_slug(xdg_env):
     cfg.general.appid = "local-doom"
     C.save(cfg)
     assert C.new_local_id("Doom") == "local-doom-2"
-    assert C.new_local_id("  ") == "local-unknown"
     assert C.new_local_id("213") == "local-213"
+
+
+def test_local_slug_collapses_separators():
+    assert C.local_slug("Bad Hero - Episode 1") == "bad-hero-episode-1"
+    assert C.local_slug("Hero's Rhapsody -_- Jianghu Dream") == "heros-rhapsody-jianghu-dream"
+    assert C.local_slug("Pokémon Café") == "pokemon-cafe"
+    assert C.local_slug("  Straße  ") == "strasse"
+    assert C.local_slug("Game v1.2") == "game-v1-2"
+    assert C.local_slug("!!!") == ""
+    assert C.local_slug("英雄伝説") == ""
+
+
+def test_local_slug_truncates_long_names():
+    slug = C.local_slug("A Very Long " + "Word " * 40 + "End")
+    assert len(slug) <= C.SLUG_MAX
+    assert not slug.endswith("-")
+
+
+def test_new_local_id_hash_fallback(xdg_env):
+    import hashlib
+
+    jp = C.new_local_id("英雄伝説")
+    digest = hashlib.sha1("英雄伝説".encode()).hexdigest()[:8]
+    assert jp == f"local-{digest}"
+    assert C.new_local_id("   ") == f"local-{hashlib.sha1(b'').hexdigest()[:8]}"
+
+
+def _seed_legacy_game():
+    """One local game carrying every file keyed by its old AppID."""
+    from tkarcade import artwork, winetricks, xdg
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-bad-hero---episode-1"
+    cfg.general.name = "Bad Hero - Episode 1"
+    C.save(cfg)
+    C.save_profile(cfg.general.appid, "Default", cfg)
+    artwork.manual_dir(cfg.general.appid).mkdir(parents=True)
+    (artwork.manual_dir(cfg.general.appid) / "cover.png").write_bytes(b"png")
+    artwork.grid_path(cfg.general.appid).parent.mkdir(parents=True, exist_ok=True)
+    artwork.grid_path(cfg.general.appid).write_bytes(b"png")
+    winetricks.state_path(cfg.general.appid).parent.mkdir(parents=True, exist_ok=True)
+    winetricks.state_path(cfg.general.appid).write_text("{}")
+    xdg.game_log_file(cfg.general.appid).parent.mkdir(parents=True, exist_ok=True)
+    xdg.game_log_file(cfg.general.appid).write_text("log")
+    prefix = C.prefix_dir(cfg.general.appid, "", C.load_preferences().prefix_base, "")
+    (prefix / "drive_c").mkdir(parents=True)
+    xdg.log_file().parent.mkdir(parents=True, exist_ok=True)
+    xdg.log_file().write_text(
+        "2026-10-01T10:00:00 appid=local-bad-hero---episode-1 exit=0 dur=5 cmd=game\n"
+    )
+    return cfg
+
+
+def test_migrate_local_ids_renames_every_store(xdg_env):
+    from tkarcade import artwork, winetricks, xdg
+
+    old = "local-bad-hero---episode-1"
+    new = "local-bad-hero-episode-1"
+    _seed_legacy_game()
+    prefix_old = C.prefix_dir(old, "", C.load_preferences().prefix_base, "")
+    donor = C.GameConfig()
+    donor.general.appid = "42"
+    donor.artwork.donor_appid = old
+    C.save(donor)
+
+    assert C.migrate_local_ids() == [(old, new)]
+    assert old not in C.list_appids() and new in C.list_appids()
+    assert C.load(new).general.appid == new
+    assert not C.game_file(old).exists()
+    assert C.profiles_dir(new).joinpath("Default.toml").is_file()
+    assert artwork.manual_dir(new).joinpath("cover.png").is_file()
+    assert artwork.grid_path(new).is_file()
+    assert winetricks.state_path(new).is_file()
+    assert xdg.game_log_file(new).is_file()
+    assert C.load("42").artwork.donor_appid == new
+    assert f"appid={new}" in xdg.log_file().read_text()
+    # The prefix directory is kept; the config points at it by name.
+    base = C.load_preferences().prefix_base
+    migrated = C.load(new)
+    assert migrated.runtime.prefix_name == old
+    assert (
+        C.prefix_dir(new, migrated.runtime.prefix_dir, base, migrated.runtime.prefix_name)
+        == prefix_old
+    )
+    assert (prefix_old / "drive_c").is_dir()
+    # Idempotent.
+    assert C.migrate_local_ids() == []
+
+
+def test_migrate_local_ids_skips_steam_and_running(xdg_env):
+    import json
+    import os
+
+    from tkarcade import running
+
+    steam = C.GameConfig()
+    steam.general.appid = "213"
+    C.save(steam)
+    busy = C.GameConfig()
+    busy.general.appid = "local-running_game"
+    busy.general.name = "Running Game"
+    C.save(busy)
+    running.record_path(busy.general.appid).parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "appid": busy.general.appid,
+        "pid": os.getpid(),
+        "start": running.process_start_time(os.getpid()),
+    }
+    running.record_path(busy.general.appid).write_text(json.dumps(record))
+
+    assert C.migrate_local_ids() == []
+    assert C.game_file("local-running_game").is_file()
+
+
+def test_migrate_local_ids_collision_gets_suffix(xdg_env):
+    first = C.GameConfig()
+    first.general.appid = "local-doom---episode"
+    first.general.name = "Doom - Episode"
+    C.save(first)
+    other = C.GameConfig()
+    other.general.appid = "local-doom-episode"
+    other.general.name = "Doom Episode"
+    C.save(other)
+
+    assert C.migrate_local_ids() == [("local-doom---episode", "local-doom-episode-2")]
+    # A game already holding the clean slug keeps it.
+    assert C.game_file("local-doom-episode").is_file()
+
+
+def test_migrate_local_ids_keeps_hand_picked_ids(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-custom_id"
+    cfg.general.name = "Something Else"
+    C.save(cfg)
+    clone = C.GameConfig()
+    clone.general.appid = "local-new"
+    clone.general.name = "Doom"
+    C.save(clone)
+
+    assert C.migrate_local_ids() == [("local-custom_id", "local-something-else")]
+    assert C.game_file("local-new").is_file()
+    assert C.load("local-new").general.name == "Doom"
+
+
+def test_rename_appid_in_history(tmp_path):
+    from tkarcade import history
+
+    log = tmp_path / "launcher.log"
+    log.write_text(
+        "2026-10-01T10:00:00 appid=8 exit=0 cmd=x\n"
+        "2026-10-01T11:00:00 appid=80 exit=0 cmd=x\n"
+        "2026-10-01T12:00:00 appid=local-x---y exit=0 cmd=x\n"
+    )
+    assert history.rename_appid(log, "local-x---y", "local-x-y") == 1
+    assert history.rename_appid(log, "8", "9") == 1  # never catches "80"
+    texts = log.read_text().splitlines()
+    assert "appid=local-x-y" in texts[2]
+    assert "appid=9 exit=0" in texts[0]
+    assert "appid=80 exit=0" in texts[1]
+    assert history.rename_appid(log, "missing", "x") == 0
 
 
 def test_import_tksteamlaunch_copies_missing_only(xdg_env, tmp_path, monkeypatch):

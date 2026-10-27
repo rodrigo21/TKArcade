@@ -251,6 +251,26 @@ Breaking config changes are called out explicitly under `Changed`.
   versioned now, so `AI-Model:` trailers match on every machine.
 
 ### Changed
+- Local AppIDs get a proper slug. Runs of non-alphanumerics collapse into
+  one dash and apostrophes are elided, so `Bad Hero - Episode 1` becomes
+  `local-bad-hero-episode-1` instead of `local-bad-hero---episode-1`, and
+  `Hero's Rhapsody -_- Jianghu Dream` becomes
+  `local-heros-rhapsody-jianghu-dream`. Accents are folded to ASCII
+  (`Pokémon Café` → `local-pokemon-cafe`); a name with no ASCII letters
+  left (Japanese, Cyrillic, Arabic) uses a short stable hash of the name
+  (`local-1f0c3a9d`) instead of a run of underscores. IDs are still
+  generated once, when the game is added, and renaming a game never
+  changes its ID.
+- **BREAKING**: existing local AppIDs are migrated automatically once, at
+  GUI startup, and on demand with `tkarcade --migrate-ids`. The game
+  config, profiles, artwork, grid images, per-game log, winetricks state
+  and session-history lines move to the new ID, and `[artwork]
+  donor_appid` references are repointed. Prefix directories are never
+  renamed (Wine's registry holds absolute paths): the config pins the old
+  directory through `[runtime] prefix_name` instead. Steam shortcuts
+  created before this change still pass the old AppID in their launch
+  options and must be fixed by hand; a running game keeps its old ID
+  until it exits.
 - Tools → Clean Profiles is now **Clean Up Leftovers**: it still deletes
   saved profiles of games that were removed, and now also their session
   log, Proton logs and session-history lines. A new optional checkbox

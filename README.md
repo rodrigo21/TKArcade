@@ -135,7 +135,9 @@ warn instead of silently resetting.
 * `$XDG_CACHE_HOME/tkarcade/` — e.g. the ProtonDB tier cache.
 
 Export/import everything with `tkarcade --export FILE` /
-`--import FILE` (or the GUI buttons).
+`--import FILE` (or the GUI buttons). `tkarcade --migrate-ids` renames
+local AppIDs written by older versions of the slug rules (the GUI does
+it on startup); the config, profiles and artwork move together.
 
 ## Exit codes
 

@@ -9,11 +9,13 @@ Games without a file fall back to the defaults template at load time.
 from __future__ import annotations
 
 import copy
+import hashlib
 import logging
 import os
 import re
 import tempfile
 import tomllib
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -1126,16 +1128,209 @@ def import_tksteamlaunch() -> tuple[list[str], list[str]]:
     return imported, skipped
 
 
+#: Longest slug kept in a local AppID: long names should not produce
+#: unreadable file names.
+SLUG_MAX = 60
+
+#: Characters NFKD leaves alone but that still need an ASCII spelling.
+_TRANSLIT = str.maketrans(
+    {
+        "ß": "ss",
+        "æ": "ae",
+        "Æ": "AE",
+        "œ": "oe",
+        "Œ": "OE",
+        "ø": "o",
+        "Ø": "O",
+        "ł": "l",
+        "Ł": "L",
+        "đ": "d",
+        "Đ": "D",
+        "ð": "d",
+        "Ð": "D",
+        "þ": "th",
+        "Þ": "Th",
+        "ı": "i",
+    }
+)
+
+#: Typographic apostrophes are elided like the ASCII one.
+_APOSTROPHES = re.compile(r"['\u2018\u2019]")
+_NON_SLUG = re.compile(r"[^a-z0-9]+")
+
+
+def local_slug(name: str) -> str:
+    """ASCII slug for a local game name ("" when nothing usable is left).
+
+    Runs of non-alphanumerics collapse into one dash, so the old
+    ``local-bad-hero---episode-1`` / ``local-hero_s-...`` shapes are gone.
+    Apostrophes are elided rather than turned into a separator.
+    """
+    text = str(name or "").translate(_TRANSLIT)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = _NON_SLUG.sub("-", _APOSTROPHES.sub("", text.lower())).strip("-")
+    if len(text) > SLUG_MAX:
+        cut = text[:SLUG_MAX]
+        head = cut.rsplit("-", 1)[0]
+        text = head if len(head) >= SLUG_MAX // 3 else cut.strip("-")
+    return text
+
+
+def local_name_hash(name: str) -> str:
+    """Stable short hash: the ID seed for names with no ASCII letters."""
+    norm = unicodedata.normalize("NFC", str(name or "")).strip().casefold()
+    return hashlib.sha1(norm.encode("utf-8")).hexdigest()[:8]
+
+
+def local_id_base(name: str) -> str:
+    """`local-<slug>` for a game name, before the uniqueness suffix."""
+    return f"local-{local_slug(name) or local_name_hash(name)}"
+
+
 def new_local_id(name: str) -> str:
     """Fresh `local-<slug>` ID for a manually added game (unique, safe)."""
-    slug = xdg.safe_stem(name.strip().lower().replace(" ", "-")) or "game"
-    base = f"local-{slug}"
+    base = local_id_base(name)
     taken = set(list_appids())
     cand, i = base, 2
     while cand in taken or game_file(cand).exists():
         cand = f"{base}-{i}"
         i += 1
     return cand
+
+
+def _move_path(src: Path, dest: Path) -> None:
+    """Rename src to dest when src exists and dest does not."""
+    try:
+        if not src.exists() or dest.exists():
+            return
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        src.rename(dest)
+    except OSError as e:
+        log.warning("migrate: cannot move %s -> %s (%s)", src, dest, e)
+
+
+def _pin_prefix(appid: str, new: str, cfg: GameConfig) -> None:
+    """Name the existing prefix explicitly so its path never changes.
+
+    Renaming a Wine prefix directory would break the absolute paths in
+    its registry, so the directory stays and the config points at it.
+    """
+    if cfg.runtime.prefix_dir.strip():
+        return
+    base = load_preferences().prefix_base
+    old_path = prefix_dir(appid, "", base, cfg.runtime.prefix_name)
+    if not (old_path / "drive_c").is_dir():
+        return  # no prefix yet: nothing to preserve
+    if prefix_dir(new, "", base, cfg.runtime.prefix_name) == old_path:
+        return  # already named explicitly
+    cfg.runtime.prefix_name = xdg.safe_stem(old_path.name)
+    if prefix_dir(new, "", base, cfg.runtime.prefix_name) != old_path:
+        cfg.runtime.prefix_name = ""
+        cfg.runtime.prefix_dir = os.fspath(old_path)
+
+
+def _move_local_storage(appid: str, new: str, cfg: GameConfig) -> None:
+    """Move every file keyed by an old local AppID to the new one."""
+    from . import artwork, winetricks
+
+    _pin_prefix(appid, new, cfg)
+    cfg.general.appid = new
+    save(cfg)
+    game_file(appid).unlink(missing_ok=True)
+    _move_path(profiles_dir(appid), profiles_dir(new))
+    _move_path(artwork.manual_dir(appid), artwork.manual_dir(new))
+    _move_path(artwork.grid_path(appid), artwork.grid_path(new))
+    _move_path(winetricks.state_path(appid), winetricks.state_path(new))
+    _move_path(xdg.game_log_file(appid), xdg.game_log_file(new))
+
+
+def _rewrite_donor_appids(mapping: dict[str, str]) -> None:
+    """Repoint `[artwork] donor_appid` entries at renamed games."""
+    for appid in list_appids():
+        try:
+            cfg = load(appid)
+        except Exception:
+            continue
+        if cfg.artwork.donor_appid.strip() in mapping:
+            cfg.artwork.donor_appid = mapping[cfg.artwork.donor_appid.strip()]
+            save(cfg)
+
+
+#: Canonical local AppID body: lowercase words joined by single dashes.
+_CLEAN_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+def clean_local_id(appid: str) -> bool:
+    """True when an ID already has the canonical slug shape.
+
+    Only IDs the older slug rules left dirty (`local-bad-hero---episode-1`,
+    `local-hero_s-...`, `local-______`) are migrated; a hand-picked ID
+    such as a clone target stays exactly as chosen.
+    """
+    return _CLEAN_ID.fullmatch(str(appid or "").removeprefix("local-")) is not None
+
+
+def _planned_id(appid: str, taken: set[str]) -> tuple[str, str, GameConfig] | None:
+    """(old, new, cfg) for a local game whose ID must change, else None."""
+    from . import running
+
+    if appid.isdigit() or clean_local_id(appid):
+        return None
+    try:
+        cfg = load(appid)
+    except Exception as e:
+        log.warning("migrate: cannot read %s (%s); skipped", appid, e)
+        return None
+    name = cfg.general.name.strip()
+    if not name:
+        return None  # nothing to build a slug from
+    record = running.read(appid)
+    if record and running.is_alive(record):
+        log.info("migrate: %s is running; AppID kept", appid)
+        return None
+    base = local_id_base(name)
+    cand, i = base, 2
+    while cand != appid and (cand in taken or game_file(cand).exists()):
+        cand = f"{base}-{i}"
+        i += 1
+    return (appid, cand, cfg) if cand != appid else None
+
+
+def migrate_local_ids() -> list[tuple[str, str]]:
+    """Rename local AppIDs written by the older slug rules.
+
+    Idempotent: a second run finds every ID already matching its name.
+    Steam AppIDs, running games and local games without a name are left
+    alone. Returned pairs are ``(old, new)``, for the caller to log.
+    """
+    from . import history
+
+    appids = list_appids()
+    taken = set(appids)
+    renamed: list[tuple[str, str]] = []
+    for plan in (_planned_id(appid, taken) for appid in appids):
+        if plan is None:
+            continue
+        appid, new, cfg = plan
+        try:
+            _move_local_storage(appid, new, cfg)
+        except Exception as e:
+            log.warning("migrate: %s -> %s failed (%s)", appid, new, e)
+            continue
+        taken.discard(appid)
+        taken.add(new)
+        renamed.append((appid, new))
+
+    if not renamed:
+        return []
+    _rewrite_donor_appids(dict(renamed))
+    for old, new in renamed:
+        try:
+            history.rename_appid(xdg.log_file(), old, new)
+        except Exception as e:
+            log.warning("migrate: history rewrite for %s failed (%s)", old, e)
+    return renamed
 
 
 def export_configs(dest: str | Path) -> Path:

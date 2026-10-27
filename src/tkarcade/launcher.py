@@ -778,6 +778,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="import configs from a tar.gz and exit",
     )
     p.add_argument(
+        "--migrate-ids",
+        dest="migrate_ids",
+        action="store_true",
+        help="rename local AppIDs created by older slug rules and exit",
+    )
+    p.add_argument(
         "--edit",
         action="store_true",
         help="open the game settings dialog (needs a display); "
@@ -817,6 +823,7 @@ def _has_cli_action(args: argparse.Namespace) -> bool:
         or args.validate
         or args.export
         or args.import_file
+        or args.migrate_ids
         or args.version
         or args.dry_run
         or args.edit
@@ -965,6 +972,23 @@ def _cmd_list() -> int:
     return 0
 
 
+def _cmd_migrate_ids() -> int:
+    """Rename local AppIDs left by the old slug rules, print the pairs."""
+    renamed = cfgmod.migrate_local_ids()
+    if not renamed:
+        print("No local AppID needs renaming.")
+        return 0
+    for old, new in renamed:
+        print(f"  {old} -> {new}")
+    print(
+        f"Renamed {len(renamed)} local AppID(s). Steam shortcuts created before\n"
+        "this change still pass the old AppID in their launch options: fix\n"
+        "those in Steam's properties dialog.",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def _cmd_export(dest: str) -> int:
     try:
         path = cfgmod.export_configs(dest)
@@ -998,6 +1022,8 @@ def _run_cli_action(args: argparse.Namespace) -> int | None:
         return _cmd_export(args.export)
     if args.import_file:
         return _cmd_import(args.import_file)
+    if args.migrate_ids:
+        return _cmd_migrate_ids()
     return None
 
 
