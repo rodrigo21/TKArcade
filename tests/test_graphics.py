@@ -237,3 +237,31 @@ def test_validate_flags_missing_graphics_version(xdg_env):
     C.save(cfg)
     issues = L.validate_game("local-doom")
     assert any("no installed version" in i for i in issues)
+
+
+def test_umu_ignores_the_graphics_layers(xdg_env, fake_bin, tmp_path):
+    """umu runs a Proton that ships DXVK/vkd3d: [graphics] is skipped."""
+    from tkarcade.launcher import build_final_command
+
+    fake_bin("umu-run")
+    proton = tmp_path / "GE-Proton9-1"
+    proton.mkdir()
+    (proton / "proton").write_text("#!/bin/sh\n")
+    dxvk = tmp_path / "dxvk"
+    _version(dxvk, "v2.6.2", "d3d11.dll")
+    prefs = C.load_preferences()
+    prefs.dxvk_dirs = str(dxvk)
+    C.save_preferences(prefs)
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.environment = "umu"
+    cfg.general.custom_executable = "/games/doom.exe"
+    cfg.runtime.tool = str(proton)
+    cfg.graphics.dxvk = True
+    cfg.graphics.vkd3d = "proton"
+    _cmd, env, warnings = build_final_command(cfg, [])
+    assert "WINEDLLOVERRIDES" not in env
+    prefix = C.prefix_dir("local-doom", "", C.load_preferences().prefix_base, "", "Doom")
+    assert not (prefix / "drive_c/windows/system32/d3d11.dll").exists()
+    assert warnings == []

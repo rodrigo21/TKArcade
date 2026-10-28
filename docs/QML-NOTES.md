@@ -71,6 +71,14 @@ failure. `AGENTS.md` links here.
   child) shrinks to the checkbox unless the maximum hint is widened:
   the component sets `Layout.maximumWidth: Number.POSITIVE_INFINITY`
   itself, hosts still ask for `Layout.fillWidth: true`.
+- A wrapped `Label` that is a bare `FormLayout` item feeds its whole
+  unwrapped line into the grid's implicit width: the form then overflows
+  the frame and pushes the right-hand buttons past the window edge at the
+  612 px minimum (measured on the Runtime tab's Prefix section, where the
+  prefix hint grew the grid to 691 px inside a 572 px frame). Put such a
+  label in a `RowLayout` with `Layout.preferredWidth: 0` and
+  `Layout.minimumWidth: 0` on the label; the row's implicit width is then
+  zero and the grid can shrink.
 - QQC2 `onToggled` fires on user interaction only (unlike QWidgets):
   react to programmatic `setProperty("checked", ...)` (tests included)
   with `onCheckedChanged` instead.

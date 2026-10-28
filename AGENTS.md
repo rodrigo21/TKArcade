@@ -70,6 +70,10 @@ after landing it (the version comes from git describe):
 uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
 ```
 
+The GUI's Play path runs the interpreter that owns it, so the venv is
+the build under test: refresh it after every change, before committing,
+or the maintainer tests a stale install.
+
 ## Commits
 
 One per area/theme: message plus a

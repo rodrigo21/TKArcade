@@ -32,10 +32,40 @@ from .. import protondb as pdbmod
 from .. import running as runningmod
 from .. import runtimes, xdg
 from .. import steam as steammod
+from .. import winetricks as wtmod
 from ..backends import network as net_backend
 from ..backends.notify import format_duration
 
 log = logging.getLogger("tkarcade.kirigami")
+
+# `tkarcade --version` of the binary Steam resolves from PATH, cached by
+# path plus mtime: the launch-options row compares it with this build.
+_PATH_VERSION_CACHE: dict[str, tuple[int, str]] = {}
+
+
+def _path_tkarcade_version() -> tuple[str, str]:
+    """(path, version) of the `tkarcade` on PATH, along with which Steam runs."""
+    import subprocess
+
+    exe = shutil.which("tkarcade")
+    if not exe:
+        return "", ""
+    try:
+        mtime = Path(exe).stat().st_mtime_ns
+    except OSError:
+        mtime = 0
+    hit = _PATH_VERSION_CACHE.get(exe)
+    if hit is not None and hit[0] == mtime:
+        return exe, hit[1]
+    version = ""
+    try:
+        proc = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=5)
+        if proc.returncode == 0:
+            version = (proc.stdout or "").strip().splitlines()[0]
+    except Exception:
+        version = ""
+    _PATH_VERSION_CACHE[exe] = (mtime, version)
+    return exe, version
 
 
 def validate_local_game(name: str, exe: str) -> str:
@@ -252,6 +282,14 @@ class GameListModel(QAbstractTableModel):
     browseFinished = Signal(str)
     displayModesFinished = Signal("QVariantList")
     coverageFinished = Signal(str, str)
+    # Parsed `winetricks list-all` rows for the verb picker (verb,
+    # description, category); [] when winetricks is missing.
+    verbCatalogReady = Signal("QVariantList")
+    # The interactive protontricks/winetricks window exited: the dialog
+    # re-reads the prefix log, which the tool may have just written to.
+    # status is "" for a clean exit, "failed" otherwise; detail is the
+    # tool's log file when it failed.
+    verbToolClosed = Signal(str, str)
     # Widgets parity: every launch path reported itself (the status line
     # said "Launched X.", the handoff failures warned — the tray recents
     # ran the same code). The model only says what happened; the QML side
@@ -907,6 +945,19 @@ class GameListModel(QAbstractTableModel):
         return appid
 
     @staticmethod
+    def _pin_prefix_name(cfg) -> None:
+        """Pin the folder name derived from the game name.
+
+        A rename must never move the prefix, so the derived name is kept
+        in ``[runtime] prefix_name`` (the dialog shows it from then on).
+        """
+        if cfg.runtime.prefix_name or steammod.is_steam_id(cfg.general.appid):
+            return
+        stem = xdg.folder_stem(cfg.general.name)
+        if stem:
+            cfg.runtime.prefix_name = stem
+
+    @staticmethod
     def _apply_map(cfg, data: dict) -> None:
         """Write settings form fields into a config (no save, no refresh)."""
         cfg.general.custom_executable = str(data.get("custom_executable", "")).strip()
@@ -919,6 +970,7 @@ class GameListModel(QAbstractTableModel):
         cfg.general.custom_prefix = str(data.get("custom_prefix", "")).strip()
         cfg.runtime.prefix = str(data.get("runtime_prefix", "")).strip()
         cfg.runtime.prefix_name = str(data.get("runtime_prefix_name", "")).strip()
+        GameListModel._pin_prefix_name(cfg)
         cfg.runtime.tool = str(data.get("runtime_tool", "")).strip()
         cfg.graphics.dxvk = bool(data.get("graphics_dxvk", False))
         cfg.graphics.vkd3d = cfgmod.normalize_graphics_vkd3d(data.get("graphics_vkd3d", ""))
@@ -1273,31 +1325,36 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, result=str)
     def ensurePrefix(self, appid: str) -> str:
-        """Create the custom prefix dir now. '' on success, else why."""
+        """Create the prefix dir now. '' on success, else why."""
         try:
-            custom = cfgmod.load(appid).runtime.prefix.strip()
+            cfg = cfgmod.load(appid)
         except Exception as e:
             return f"Could Not Read the Config: {e}"
-        if not custom:
-            return "Set a Custom Prefix Dir First (Steam Creates Its Own)."
+        if steammod.is_steam_id(appid):
+            custom = cfg.runtime.prefix.strip()
+            if not custom:
+                return "Set a Custom Prefix Dir First (Steam Creates Its Own)."
+            target = Path(custom).expanduser()
+        else:
+            target, _, _ = self._wine_env(cfg)
         try:
-            Path(custom).expanduser().mkdir(parents=True, exist_ok=True)
+            target.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            return f"Could Not Create {custom}: {e}"
+            return f"Could Not Create {target}: {e}"
         return ""
 
     @Slot(str, result=str)
     def clearCustomPrefix(self, appid: str) -> str:
-        """Delete the custom prefix dir (guarded). '' on success, else why."""
+        """Delete the game's prefix dir (guarded). '' on success, else why."""
         import shutil as _shutil
 
         try:
-            custom = cfgmod.load(appid).runtime.prefix.strip()
+            cfg = cfgmod.load(appid)
         except Exception as e:
             return f"Could Not Read the Config: {e}"
-        if not custom:
-            return "No Custom Prefix Set."
-        target = Path(custom).expanduser()
+        target, error = self._prefix_to_clear(appid, cfg)
+        if error:
+            return error
         try:
             resolved = target.resolve()
             home = Path.home().resolve()
@@ -1312,6 +1369,162 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             return f"Could Not Delete {target}: {e}"
         return f"Cleared {target}."
+
+    def _prefix_to_clear(self, appid: str, cfg) -> tuple[Path | None, str]:
+        """The dir Clear deletes: Steam's custom one, or the local prefix.
+
+        A local prefix is a subfolder of the base: only it is deleted,
+        and never one another game still points at.
+        """
+        if steammod.is_steam_id(appid):
+            custom = cfg.runtime.prefix.strip()
+            if not custom:
+                return None, "No Custom Prefix Set."
+            return Path(custom).expanduser(), ""
+        target, _, _ = self._wine_env(cfg)
+        try:
+            users = self._prefix_users(cfgmod.load_preferences()).get(os.fspath(target), [])
+        except Exception:
+            users = []
+        others = [a for a in users if a != appid]
+        if others:
+            return None, f"Shared Prefix: Still Used by {', '.join(others)}."
+        return target, ""
+
+    def _wine_env(self, cfg) -> tuple[Path, str, object]:
+        """(prefix dir, wine binary, Proton install) for a local game."""
+        prefs = cfgmod.load_preferences()
+        prefix = cfgmod.prefix_dir(
+            cfg.general.appid,
+            cfg.runtime.prefix,
+            prefs.prefix_base,
+            cfg.runtime.prefix_name,
+            cfg.general.name,
+        )
+        wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_binary)
+        proton = runtimes.find_proton(cfg.runtime.tool, prefs.proton_dirs)
+        return prefix, wine, proton
+
+    @Slot(str, str, result="QVariantMap")
+    def installedVerbs(self, appid: str, verbs: str = "") -> dict:
+        """Verbs in the prefix's winetricks.log, plus the draft's pending ones.
+
+        ``verbs`` is the dialog's field text: what it names and the log
+        does not is installed at the next launch, so the dialog shows the
+        two lists apart. A Steam game reads its compatdata container (the
+        ``pfx`` inside it); a local game reads its WINEPREFIX.
+        """
+        prefix: Path | None = None
+        try:
+            cfg = cfgmod.load(appid)
+            if steammod.is_steam_id(appid):
+                custom = cfg.runtime.prefix.strip()
+                prefix = Path(custom).expanduser() if custom else steammod.prefix_dir(appid)
+            else:
+                prefix, _, _ = self._wine_env(cfg)
+        except Exception:
+            prefix = None
+        installed = wtmod.installed_verbs(prefix) if prefix is not None else []
+        try:
+            wanted = _split_args(str(verbs or ""))
+        except Exception:
+            wanted = str(verbs or "").split()
+        return {"installed": installed, "pending": [v for v in wanted if v not in installed]}
+
+    @Slot(str, result=str)
+    def openWinetricksGui(self, appid: str) -> str:
+        """Open protontricks/winetricks interactively. '' = started, else why."""
+
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception as e:
+            return f"Could Not Read the Config: {e}"
+        env: dict[str, str] = {}
+        if steammod.is_steam_id(appid):
+            if cfg.runtime.prefix.strip():
+                return "Protontricks Cannot Target a Custom Prefix: Clear It First."
+            # protontricks needs the game installed and launched once: it
+            # targets the compatdata prefix and refuses with a message on
+            # stdout that the GUI would never show.
+            if steammod.prefix_dir(appid) is None:
+                return (
+                    "Protontricks Needs the Game Installed and Launched Once: "
+                    "No Proton Prefix Found for This AppID."
+                )
+            from .. import proton as protonmod
+
+            argv, message = protonmod.gui_command(appid)
+        else:
+            environment = cfgmod.normalize_environment(cfg.general.environment)
+            if environment not in ("wine", "umu"):
+                return "Winetricks Verbs Need a Wine or Proton Environment."
+            prefix, wine, proton = self._wine_env(cfg)
+            argv, env, message = wtmod.local_gui(prefix, environment, wine, proton)
+        if message:
+            return message
+        return self._spawn_verb_tool(appid, argv, env)
+
+    def _spawn_verb_tool(self, appid: str, argv: list[str], env: dict[str, str]) -> str:
+        """Start the tool with its output in a per-game log ('' = started)."""
+        import subprocess
+
+        # protontricks reports "app could not be found" on stdout and
+        # winetricks prints its own failures there: keep them somewhere
+        # the dialog can point at instead of discarding them.
+        log_path: Path | None = xdg.games_log_dir() / f"{xdg.safe_stem(appid)}-winetricks.log"
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("w", encoding="utf-8") as handle:
+                proc = subprocess.Popen(
+                    argv,
+                    env={**os.environ, **env},
+                    start_new_session=True,
+                    stdout=handle,
+                    stderr=subprocess.STDOUT,
+                )
+        except OSError:
+            # No writable log (read-only state dir): still open the tool.
+            try:
+                proc = subprocess.Popen(argv, env={**os.environ, **env}, start_new_session=True)
+            except OSError as e:
+                return f"Could Not Open the Tool: {e}"
+            log_path = None
+        threading.Thread(
+            target=self._wait_verb_tool,
+            args=(proc, os.fspath(log_path) if log_path is not None else ""),
+            daemon=True,
+        ).start()
+        return ""
+
+    def _wait_verb_tool(self, proc, log_path: str = "") -> None:
+        """Report the tool's exit so the dialog re-reads the log and errors."""
+        try:
+            code = proc.wait()
+        except Exception:
+            code = 0
+        try:
+            self.verbToolClosed.emit("" if code == 0 else "failed", log_path if code else "")
+        except Exception:
+            pass
+
+    @Slot()
+    def requestVerbCatalog(self) -> None:
+        """Publish `winetricks list-all`; the first call pays its ~2s."""
+        if wtmod.catalog_ready():
+            self.verbCatalogReady.emit(wtmod.list_all())
+            return
+        threading.Thread(target=self._catalog_worker, daemon=True).start()
+
+    def _catalog_worker(self) -> None:
+        try:
+            rows = wtmod.list_all()
+        except Exception as e:  # never break the dialog on a probe
+            log.warning("winetricks list-all failed: %s", e)
+            rows = []
+        try:
+            self.verbCatalogReady.emit(rows)
+        except Exception:
+            pass
 
     @Slot(str, str, result=str)
     def artworkPath(self, appid: str, kind: str) -> str:
@@ -2047,10 +2260,32 @@ class GameListModel(QAbstractTableModel):
             return None
         status, options = self._steam_launch_options(appid, check_steam)
         if status == "ok":
-            return {"key": "steam-options", "kind": "ok", "msg": "steam-ok", "args": [options]}
+            return self._steam_options_entry(options)
         if status == "missing":
             return {"key": "steam-options", "kind": "warn", "msg": "steam-missing"}
         return {"key": "steam-options", "kind": "ok", "msg": "steam-unknown"}
+
+    @staticmethod
+    def _steam_options_entry(options: str) -> dict:
+        """Launch-options row, warning when Steam would run another build.
+
+        Steam expands `tkarcade %command%` through PATH, so a system
+        package built from another branch silently launches older code:
+        name the binary and its version when it differs from this GUI.
+        """
+        from .. import __version__ as gui_version
+
+        path, version = _path_tkarcade_version()
+        if not path:
+            return {"key": "steam-options", "kind": "warn", "msg": "steam-no-binary"}
+        if version and version != gui_version:
+            return {
+                "key": "steam-options",
+                "kind": "warn",
+                "msg": "steam-stale",
+                "args": [path, version, gui_version],
+            }
+        return {"key": "steam-options", "kind": "ok", "msg": "steam-ok", "args": [options]}
 
     @Slot(str, "QVariantMap", bool, result="QVariantList")
     def dependencyStatus(self, appid: str, values, check_steam: bool = False) -> list[dict]:
@@ -2131,18 +2366,24 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, result=str)
     def prefixDir(self, appid: str) -> str:
-        """Effective Proton prefix: custom dir or Steam's compatdata ('' unknown)."""
+        """Effective prefix: Steam's compatdata (or custom), or the local WINEPREFIX."""
         try:
-            custom = cfgmod.load(appid).runtime.prefix.strip()
+            cfg = cfgmod.load(appid)
         except Exception:
-            custom = ""
-        if custom:
-            return custom
+            return ""
+        if steammod.is_steam_id(appid):
+            custom = cfg.runtime.prefix.strip()
+            if custom:
+                return custom
+            try:
+                target = steammod.prefix_dir(appid)
+            except Exception:
+                target = None
+            return str(target) if target is not None else ""
         try:
-            target = steammod.prefix_dir(appid)
+            return os.fspath(self._wine_env(cfg)[0])
         except Exception:
-            target = None
-        return str(target) if target is not None else ""
+            return ""
 
     @Slot(str, result="QVariantMap")
     def runtimeOptions(self, appid: str) -> dict:
@@ -2154,7 +2395,13 @@ class GameListModel(QAbstractTableModel):
             try:
                 cfg = cfgmod.load(appid)
                 default_prefix = os.fspath(
-                    cfgmod.prefix_dir(appid, "", prefs.prefix_base, cfg.runtime.prefix_name)
+                    cfgmod.prefix_dir(
+                        appid,
+                        "",
+                        prefs.prefix_base,
+                        cfg.runtime.prefix_name,
+                        cfg.general.name,
+                    )
                 )
             except Exception:
                 default_prefix = ""
@@ -2167,28 +2414,47 @@ class GameListModel(QAbstractTableModel):
 
     @staticmethod
     def _prefix_users(prefs: cfgmod.Preferences) -> dict[str, list[str]]:
-        """AppIDs resolved to each prefix directory (names and full overrides)."""
+        """AppIDs resolved to each prefix directory (local games only).
+
+        A Steam game's compatdata dir is Steam's own layout (a ``pfx``
+        inside), so it never joins the local base/subfolder resolution.
+        """
         usage: dict[str, list[str]] = {}
         for appid in cfgmod.list_appids():
             try:
                 cfg = cfgmod.load(appid)
             except Exception:
                 continue
-            path = cfgmod.prefix_dir(
-                appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
-            )
+            if steammod.is_steam_id(appid):
+                custom = cfg.runtime.prefix.strip()
+                if not custom:
+                    continue
+                path = Path(custom).expanduser()
+            else:
+                path = cfgmod.prefix_dir(
+                    appid,
+                    cfg.runtime.prefix,
+                    prefs.prefix_base,
+                    cfg.runtime.prefix_name,
+                    cfg.general.name,
+                )
             usage.setdefault(os.fspath(path), []).append(appid)
         return usage
 
-    @Slot(str, str, result="QVariantMap")
-    def prefixNameState(self, appid: str, name: str) -> dict:
-        """Resolved prefix for a friendly name, sanitization and sharing info."""
+    @Slot(str, str, str, str, result="QVariantMap")
+    def prefixNameState(self, appid: str, name: str, path: str = "", game_name: str = "") -> dict:
+        """Resolved prefix for the name and dir fields, plus sharing info.
+
+        The dir is the base and the prefix is always ``<base>/<stem>``:
+        the stem is the explicit name, else the game name normalised,
+        else the AppID.
+        """
         prefs = cfgmod.load_preferences()
-        target = cfgmod.prefix_dir(appid, "", prefs.prefix_base, name)
+        typed = name.strip()
+        target = cfgmod.prefix_dir(appid, path.strip(), prefs.prefix_base, name, game_name)
         others = [a for a in self._prefix_users(prefs).get(os.fspath(target), []) if a != appid]
         names = {a: n for a, n in steammod.list_games()}
         names.update(steammod.local_names())
-        typed = name.strip()
         return {
             "target": os.fspath(target),
             "sanitized": target.name,
@@ -2227,7 +2493,11 @@ class GameListModel(QAbstractTableModel):
             try:
                 cfg = cfgmod.load(appid)
                 prefix = cfgmod.prefix_dir(
-                    appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
+                    appid,
+                    cfg.runtime.prefix,
+                    prefs.prefix_base,
+                    cfg.runtime.prefix_name,
+                    cfg.general.name,
                 )
             except Exception:
                 prefix = None
@@ -2252,7 +2522,11 @@ class GameListModel(QAbstractTableModel):
             return f"Could Not Read the Config: {e}"
         prefs = cfgmod.load_preferences()
         prefix = cfgmod.prefix_dir(
-            appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
+            appid,
+            cfg.runtime.prefix,
+            prefs.prefix_base,
+            cfg.runtime.prefix_name,
+            cfg.general.name,
         )
         removed, warnings = graphicsmod.uninstall(prefix)
         log.info("graphics: removed %d file(s) from %s", removed, prefix)
@@ -2418,7 +2692,13 @@ class GameListModel(QAbstractTableModel):
                 path = Path(custom).expanduser()
             elif cfg is not None:
                 base = prefs.prefix_base if prefs is not None else ""
-                path = cfgmod.prefix_dir(appid, cfg.runtime.prefix, base, cfg.runtime.prefix_name)
+                path = cfgmod.prefix_dir(
+                    appid,
+                    cfg.runtime.prefix,
+                    base,
+                    cfg.runtime.prefix_name,
+                    cfg.general.name,
+                )
             else:
                 base = prefs.prefix_base if prefs is not None else ""
                 path = cfgmod.prefix_dir(appid, "", base, "")

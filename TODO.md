@@ -82,21 +82,20 @@ Order: (1) local AppID slug + migration — landed; (2) settings reorg;
     before Network.
   - Deferred: rename the `Environment` tab (its name still collides
     with the `[general] environment` runtime choice, now on Runtime).
-- [ ] Winetricks/Protontricks inside the Runtime tab (`Prefix` section).
-  - A button that opens the interactive tool UI: Steam games use
-    `protontricks --gui <appid>`; local games use `winetricks --gui`
-    with the resolved `WINEPREFIX`. Refuse with a clear message when
-    the binary is missing (same shape as the dependency status rows).
-  - Show the verbs already applied, read-only, from the prefix's
-    `winetricks.log` (protontricks writes through winetricks, so one
-    reader covers both). Helper next to `proton.run_winetricks` /
-    `winetricks.py`, e.g. `installed_verbs(prefix) -> list[str]`.
-  - Adding a verb should not require knowing its name: a searchable
-    picker fed by `winetricks list-all` (cached per process) that
-    appends to the existing verbs field.
-  - Files/tests: `proton.py` or `winetricks.py` (parser + cache),
-    `gui/model.py` (slots), `GameSettings.qml` (prefix section), a
-    backend unit test for the log parser and one QML case.
+- [x] Winetricks/Protontricks inside the Runtime tab (`Prefix` section).
+  - Landed: `Add…` opens a searchable `winetricks list-all` picker
+    (cached per process) that appends to the verbs field; the section
+    lists the prefix's own `winetricks.log` verbs and the field's
+    pending ones apart; `Protontricks…`/`Winetricks…` opens the
+    interactive tool (`protontricks --gui <appid>`, or `winetricks
+    --gui` with the resolved `WINEPREFIX`/`WINE`) and the list refreshes
+    when it exits. Missing binary, prefix not created yet and a Steam
+    game with a custom `[runtime] prefix` are refused with a message.
+  - Deferred: a Steam game whose `[runtime] prefix` moves the compatdata
+    dir cannot use `protontricks --gui` (it always targets Steam's own).
+    The fallback is to resolve the game's Proton (compat mapping +
+    `runtimes.find_proton`) and run `winetricks --gui` with
+    `WINEPREFIX=<custom>/pfx` and that `files/bin/wine`.
 - [ ] Ludusavi name for local games. Without `[ludusavi] name_override`
   Ludusavi resolves the game by Steam AppID, and a local game has none
   (its id is `local-*`), so `wrap` finds nothing. Default the name to
@@ -146,6 +145,18 @@ Order: (1) local AppID slug + migration — landed; (2) settings reorg;
 
 ## Deferred design review
 
+- [ ] **DXVK/vkd3d inside UMU/Proton prefixes.** umu and Steam's Proton
+  ship their own DXVK and vkd3d, so `[graphics]` is hidden and ignored
+  for them (an old install is only neutralised). Decide whether
+  overriding the runtime's versions should be possible at all, how (copy
+  into the prefix vs. the runtime's own layer dir), which selector the
+  dialog needs, and what happens when Proton updates.
+- [ ] **External runtime versions.** Like Lutris, allow several DXVK,
+  vkd3d-proton and Proton versions from arbitrary locations, not only
+  what is installed system-wide. Audit what `[ui] dxvk_dirs`,
+  `vkd3d_dirs` and `proton_dirs` already cover, what is missing (e.g.
+  per-game overrides, archives in the cache dir, Steam Linux Runtime
+  picks) and how the GUI should present it.
 - [ ] Preferences content: decide what is truly global (e.g. Proton/DXVK
   directories, prefix base, SteamGridDB key) versus per-game, and whether
   the window should be split into tabs/sections. The current form mixes

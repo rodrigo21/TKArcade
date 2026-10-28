@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -22,9 +23,121 @@ from . import xdg
 
 TIMEOUT = 1200
 
+# `list-all` costs ~2s and never changes while the binary sits there, so
+# the parsed rows are cached per process, keyed by path plus mtime.
+_CATALOG: tuple[tuple[str, int] | None, list[dict]] | None = None
+
 
 def state_path(appid: str) -> Path:
     return xdg.app_state_dir() / "winetricks" / f"{appid}.json"
+
+
+def _log_path(prefix: Path) -> Path | None:
+    """winetricks.log of a WINEPREFIX or of a Steam compatdata container."""
+    for candidate in (prefix / "winetricks.log", prefix / "pfx" / "winetricks.log"):
+        try:
+            if candidate.is_file():
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
+def installed_verbs(prefix: Path) -> list[str]:
+    """Verbs recorded in ``winetricks.log``, in install order ([] when none).
+
+    winetricks appends the whole verb list of a run on one line, so every
+    line is tokenized. Options and the internal workaround entries are
+    dropped: they are not verbs the user picked. Protontricks writes
+    through winetricks, so the same reader covers Steam and local games;
+    a compatdata directory is looked into through its ``pfx``.
+    """
+    path = _log_path(Path(prefix))
+    if path is None:
+        return []
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    verbs: list[str] = []
+    for line in text.splitlines():
+        for token in line.split():
+            if token.startswith("-") or token.startswith("w_workaround_wine_bug"):
+                continue
+            if token not in verbs:
+                verbs.append(token)
+    return verbs
+
+
+def parse_catalog(text: str) -> list[dict]:
+    """Rows of ``winetricks list-all``: verb, description and category.
+
+    Sections are ``===== apps =====`` headers; each entry is the verb
+    padded to a column and its description. Unparsable lines are skipped.
+    """
+    rows: list[dict] = []
+    category = ""
+    for line in str(text or "").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("=====") and stripped.endswith("====="):
+            category = stripped.strip("= ").strip()
+            continue
+        parts = re.split(r"\s{2,}", stripped, maxsplit=1)
+        word = parts[0].strip()
+        if not word or " " in word:
+            continue
+        rows.append(
+            {
+                "verb": word,
+                "description": parts[1].strip() if len(parts) > 1 else "",
+                "category": category,
+            }
+        )
+    return rows
+
+
+def clear_catalog_cache() -> None:
+    """Forget the parsed ``list-all`` rows (tests pick another binary)."""
+    global _CATALOG
+    _CATALOG = None
+
+
+def catalog_ready() -> bool:
+    """Whether :func:`list_all` answers without spawning winetricks."""
+    exe = shutil.which("winetricks")
+    if not exe:
+        return True
+    if _CATALOG is None:
+        return False
+    try:
+        return _CATALOG[0] == (exe, Path(exe).stat().st_mtime_ns)
+    except OSError:
+        return False
+
+
+def list_all() -> list[dict]:
+    """``winetricks list-all`` parsed and cached per process ([] without it)."""
+    global _CATALOG
+    exe = shutil.which("winetricks")
+    if not exe:
+        return []
+    try:
+        key: tuple[str, int] | None = (exe, Path(exe).stat().st_mtime_ns)
+    except OSError:
+        key = None
+    if _CATALOG is not None and _CATALOG[0] == key:
+        return _CATALOG[1]
+    try:
+        proc = subprocess.run([exe, "list-all"], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if proc.returncode != 0:
+        return []
+    rows = parse_catalog(proc.stdout)
+    _CATALOG = (key, rows)
+    return rows
 
 
 def _wine_for(proton: object) -> str:
@@ -117,3 +230,28 @@ def run_local(
     except Exception as e:
         return [f"winetricks ran, state not recorded: {e}"]
     return []
+
+
+def local_gui(
+    prefix: Path, environment: str, wine: str, proton: object
+) -> tuple[list[str], dict[str, str], str]:
+    """argv/env for ``winetricks --gui``, plus a message when it cannot run.
+
+    ``prefix`` is a real WINEPREFIX (the compatdata ``pfx`` for Steam).
+    A missing prefix, binary or wine refuses instead of opening a GUI
+    that would build an incompatible prefix: the launch path skips the
+    same cases, and umu needs its own runtime to create one.
+    """
+    exe = shutil.which("winetricks")
+    if not exe:
+        return [], {}, "Winetricks Was Not Found in PATH."
+    prefix = Path(prefix)
+    if not (prefix / "drive_c").is_dir():
+        return [], {}, f"The Prefix Does Not Exist Yet: {prefix} — Launch the Game Once."
+    if environment == "umu":
+        wine = _wine_for(proton)
+        if not wine:
+            return [], {}, "The Selected Proton Install Has No files/bin/wine."
+    elif not wine:
+        return [], {}, "No Wine Binary: Pick a Tool in the Runtime Tab."
+    return [exe, "--gui"], {"WINEPREFIX": os.fspath(prefix), "WINE": wine}, ""

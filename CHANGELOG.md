@@ -5,7 +5,55 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: a local game's WINEPREFIX is always a subfolder now.
+  `[runtime] prefix` (and the Preferences prefix base) is the **base**;
+  the prefix itself is `<base>/<folder>`, where the folder is
+  `[runtime] prefix_name`, else the game name normalised (`TK's
+  good-game_1` → `TKsGoodGame1`: apostrophes dropped, other punctuation
+  splits words, each word capitalised), else the AppID. The GUI pins the
+  derived name into `prefix_name` on save, so renaming a game never moves
+  the prefix; the `Wine Prefix` field is the base. On the next launch a
+  prefix still sitting at the base is moved into the subfolder (a target
+  with files in it blocks the launch instead of being merged). Steam's
+  compatdata dir is untouched.
+- Graphics (DXVK/vkd3d) is a Wine-only setting: `umu` and Steam's Proton
+  already ship both, so the section is hidden for them and `[graphics]`
+  is ignored (an existing install is neutralised at launch). `--validate`
+  no longer reports missing layer versions for those environments.
+
+### Fixed
+- Play on a local game no longer launches whatever `tkarcade` sits on
+  `PATH`: the child runs the interpreter that owns the GUI, so a branch
+  opened from the venv plays the branch. Before, a system package built
+  from another branch ran instead and could refuse the launch (exit 18,
+  "game type not set") while the GUI in front was new. The Steam
+  launch-options row now names the `tkarcade` Steam resolves (with its
+  version) and warns when it is another build or missing from `PATH`.
+- Prefix hint: a typed Prefix Dir is the WINEPREFIX itself and it wins
+  over the friendly name, so the hint reports that path instead of the
+  subdirectory under the prefix base it used to promise. The local field
+  is labelled `WINEPREFIX:` (tooltip with the semantics) and `Open`/
+  `Clear…` now work for local games with a dir.
+- The interactive winetricks/protontricks window keeps its output in
+  `$XDG_STATE_HOME/tkarcade/games/<appid>-winetricks.log` and a non-zero
+  exit is reported in the dialog with that path; protontricks also
+  refuses earlier when the game has no compatdata prefix (it needs the
+  game installed and launched once, which used to fail silently).
+
 ### Added
+- Winetricks UI in Settings → Runtime → Prefix: `Add…` opens a
+  searchable `winetricks list-all` picker (parsed once per process) that
+  appends verbs to the field the launcher already runs, and the section
+  lists what the prefix holds from its own `winetricks.log`, apart from
+  the verbs the field only installs at the next launch. `Protontricks…`
+  (Steam) or `Winetricks…` (local games, with the resolved `WINEPREFIX`
+  and `WINE`) opens the interactive tool in its own window and refreshes
+  the list when it exits; a missing binary, an uncreated prefix and a
+  Steam game with a custom `[runtime] prefix` (protontricks cannot
+  target it) are refused with a message instead of opening the wrong
+  prefix. The wrapped prefix hint no longer widens the form past the
+  frame: at the 612 px minimum the Prefix buttons were unreachable.
 - `TKARCADE_OPEN=<surface>` opens one GUI dialog at launch (`settings`,
   `settings:<appid>`, `artwork:<appid>`, `defaults`, `add`, `category`,
   `prefs`, `about`), and `scripts/display-check.sh` launches the shell

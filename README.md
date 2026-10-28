@@ -62,19 +62,26 @@ installs are discovered in Steam's `compatibilitytools.d` and
 TKArcade only reads what is on disk: install and update Proton with
 ProtonPlus/ProtonUp-Qt, Wine with the distro.
 
-Prefixes live in `$XDG_DATA_HOME/tkarcade/prefixes/<appid>` by default.
-Preferences moves the base, and a per-game `[runtime] prefix` wins;
-`[runtime] prefix_name` uses a readable directory name instead of the
-game id (sanitized, still under the base).
+Prefixes live in `$XDG_DATA_HOME/tkarcade/prefixes/<name>` by default.
+Preferences moves the base and a per-game `[runtime] prefix` overrides
+it, but both are only the **base**: the WINEPREFIX of a local game is
+always a subfolder of it. The subfolder is `[runtime] prefix_name` when
+set (the GUI pins it from the game name on save, so renaming the game
+never moves the prefix), else the normalised game name (`TK's
+good-game_1` → `TKsGoodGame1`), else the AppID.
 `[runtime] tool` overrides the global choice per game, and its meaning
 follows `[general] environment`: a Steam compat tool for `proton`, the
 Wine binary for `wine`, the `PROTONPATH` install for `umu`. The same
-applies to `[runtime] prefix`: Steam's compatdata dir for `proton`, the
-full `WINEPREFIX` path for local games.
+applies to `[runtime] prefix`: Steam's compatdata dir for `proton` (used
+as-is, no subfolder), the WINEPREFIX *base* for local games.
 `[runtime] winetricks_verbs` runs the host
 `winetricks` before launch against an existing prefix (`WINE` is the
 chosen Wine binary, or the selected Proton's `files/bin/wine` for umu);
-launch once first so the runtime creates the prefix.
+launch once first so the runtime creates the prefix. In the GUI,
+`Add…` searches `winetricks list-all` and appends a verb to that field,
+the Prefix section lists the verbs the prefix already has (from its
+`winetricks.log`), and `Protontricks…`/`Winetricks…` opens the
+interactive tool against the game's own prefix.
 
 `[graphics] dxvk` and `[graphics] vkd3d` copy the newest matching builds
 found in the configured DXVK/vkd3d directories into the prefix at launch
@@ -82,7 +89,10 @@ and select them through `WINEDLLOVERRIDES`. DXVK covers D3D9/10/11 and
 vkd3d-proton covers D3D12, so the two combine (`dxvk = true` plus
 `vkd3d = "proton"`); `vkd3d = "wine"` keeps Wine's builtin vkd3d, which
 has lower compatibility. A marker (`tkarcade-graphics.json`) records the
-copied files; **Remove from prefix** deletes only those.
+copied files; **Remove from prefix** deletes only those. Only a plain
+Wine prefix takes the layers: `umu` and Steam's Proton ship their own
+DXVK/vkd3d, so the section is hidden for them and `[graphics]` is
+ignored (overriding a runtime's versions is on `TODO.md`).
 
 ```toml
 [general]
@@ -111,12 +121,13 @@ icon lists recent games for quick launch through Steam.
 **Game dialog** — tabs for General (the game and its launch settings),
 Environment (variables, curated presets and the pre/post commands),
 Runtime
-(the environment selector and tool, prefix, winetricks verbs, DXVK and
-vkd3d layers, Proton debug switches), Performance (GameMode, MangoHud,
-RT upscaler), Display (Gamescope, monitor mode), System (notifications,
-idle suspend, network, night light, audio, Ludusavi saves) and
-Artwork/Notes. The footer shows the live wrapper summary and a
-launch-command preview.
+(the environment selector and tool, prefix with its installed and
+pending winetricks verbs plus the interactive protontricks/winetricks
+window, DXVK and vkd3d layers, Proton debug switches), Performance
+(GameMode, MangoHud, RT upscaler), Display (Gamescope, monitor mode),
+System (notifications, idle suspend, network, night light, audio,
+Ludusavi saves) and Artwork/Notes. The footer shows the live wrapper
+summary and a launch-command preview.
 
 **Profiles** — named snapshots per game. Selecting one changes what
 launches; saving with a profile active writes the profile (Game

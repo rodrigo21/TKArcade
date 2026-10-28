@@ -5014,6 +5014,8 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     _save_one_game("local-doom", "Doom", "wine")
     saved = C.load("local-doom")
     saved.graphics.dxvk = True
+    # The explicit name drives the prefix folder: <base>/FriendlyDoom.
+    saved.runtime.prefix_name = "Friendly Doom"
     C.save(saved)
     proton_dir = xdg_env["home"] / "GE-Proton10-1"
     proton_dir.mkdir()
@@ -5025,7 +5027,9 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     )
     # A fake DXVK version in the default Lutris location, already copied
     # into the game prefix (as a launch would have done).
-    prefix = C.prefix_dir("local-doom")
+    prefix = C.prefix_dir(
+        "local-doom", "", C.load_preferences().prefix_base, "Friendly Doom", "Doom"
+    )
     prefix.mkdir(parents=True)
     reused = prefix.parent / "Reused"
     (reused / "drive_c").mkdir(parents=True)
@@ -5077,28 +5081,46 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert "DXVK v9.9" in status.property("text")
     assert remove.property("enabled") is True
 
-    # umu swaps the Wine path for the discovered Proton installs.
+    # umu swaps the Wine path for the discovered Proton installs, and the
+    # Graphics section goes away: Proton ships DXVK and vkd3d.
     type_box.setProperty("currentIndex", 2)
     QTest.qWait(80)
     assert wine_field.property("visible") is False
     assert proton_box.property("visible") is True
     assert proton_box.property("count") == 1
+    assert gfx_dxvk.property("visible") is False
     type_box.setProperty("currentIndex", 1)
     QTest.qWait(80)
+    assert gfx_dxvk.property("visible") is True
 
     # Wine path and prefix dir round-trip through Save.
     wine_field.setProperty("text", "/opt/wine/bin/wine")
-    prefix_field.setProperty("text", str(prefix))
     gfx_dxvk.setProperty("checked", True)
     gfx_vkd3d.setProperty("currentIndex", 1)
     local_verbs.setProperty("text", "dotnet48 vcrun2022")
-    # The friendly name resolves under the prefix base and warns about
-    # the directory it will create; the picker lists complete prefixes.
+    # The name resolves to a subfolder of the base; the picker lists the
+    # complete prefixes under it.
+    from PySide6.QtCore import QMetaObject
+
     assert name_field.property("visible") is True
     name_field.setProperty("text", "Friendly Doom")
     QTest.qWait(50)
-    assert (prefix.parent / "Friendly_Doom").as_posix() in name_hint.property("text")
-    from PySide6.QtCore import QMetaObject
+    assert prefix.as_posix() in name_hint.property("text")
+    # A typed dir is the base: the name still names the subfolder.
+    custom_base = xdg_env["home"] / "bases"
+    prefix_field.setProperty("text", str(custom_base))
+    assert QMetaObject.invokeMethod(dlg, "refreshPrefixHint") is True
+    QTest.qWait(50)
+    assert (custom_base / "FriendlyDoom").as_posix() in name_hint.property("text")
+    # The prefix buttons work for a local game once it has a dir; the
+    # Create button stays Steam-only (umu builds its own prefix).
+    assert swin.findChild(QQuickItem, "winePrefixOpen").property("visible") is True
+    assert swin.findChild(QQuickItem, "winePrefixClear").property("visible") is True
+    assert swin.findChild(QQuickItem, "winePrefixCreate").property("visible") is False
+    prefix_field.setProperty("text", str(prefix.parent))
+    assert QMetaObject.invokeMethod(dlg, "refreshPrefixHint") is True
+    QTest.qWait(50)
+    assert prefix.as_posix() in name_hint.property("text")
 
     assert QMetaObject.invokeMethod(dlg, "openPrefixChoices") is True
     QTest.qWait(80)
@@ -5113,7 +5135,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     cfg = C.load("local-doom")
     assert cfg.general.environment == "wine"
     assert cfg.runtime.tool == "/opt/wine/bin/wine"
-    assert cfg.runtime.prefix == str(prefix)
+    assert cfg.runtime.prefix == str(prefix.parent)
     assert cfg.runtime.prefix_name == "Friendly Doom"
     assert cfg.graphics.dxvk is True
     assert cfg.graphics.vkd3d == "proton"
@@ -5131,7 +5153,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     cfg = C.load("local-doom")
     assert cfg.general.environment == "umu"
     assert cfg.runtime.tool == str(proton_dir.resolve())
-    assert cfg.runtime.prefix == str(prefix)
+    assert cfg.runtime.prefix == str(prefix.parent)
 
     # Opening again restores the umu choice and the installed layer;
     # scrolling to the end reaches the remove button.
@@ -5140,6 +5162,10 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     _settings_tab(swin, TAB_COMPAT)
     assert type_box.property("currentIndex") == 2
     assert proton_box.property("currentIndex") == 0
+    assert gfx_dxvk.property("visible") is False
+    # Back to Wine for the layer removal (umu hides the section).
+    type_box.setProperty("currentIndex", 1)
+    QTest.qWait(80)
     assert "DXVK v9.9" in status.property("text")
     view = swin.findChild(QQuickItem, "settingsWineScroll")
     flick = view.property("contentItem")
@@ -5165,6 +5191,108 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert remove.property("enabled") is False
     assert "Nothing Installed" in status.property("text")
 
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_winetricks_verbs_ui(qgui_app, xdg_env, fake_bin):
+    """Prefix log, verb picker and the interactive tool's env."""
+    from PySide6.QtCore import Q_ARG, QMetaObject, QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+    from tkarcade import winetricks as W
+
+    calls = xdg_env["home"] / "winetricks-calls.log"
+    fake_bin(
+        "winetricks",
+        f'#!/bin/sh\necho "$WINEPREFIX|$WINE|$@" >> "{calls}"\n'
+        'if [ "$1" = "list-all" ]; then\n'
+        "cat <<LIST\n"
+        "===== apps =====\n"
+        "corefonts   Microsoft TrueType core fonts\n"
+        "dotnet48    Microsoft .NET Framework 4.8\n"
+        "LIST\n"
+        "fi\n"
+        "exit 0\n",
+    )
+    wine = fake_bin("wine")
+    W.clear_catalog_cache()
+    _save_one_game("local-doom", "Doom", "wine")
+    prefix = C.prefix_dir("local-doom", "", C.load_preferences().prefix_base, "", "Doom")
+    (prefix / "drive_c").mkdir(parents=True)
+    (prefix / "winetricks.log").write_text("corefonts\n", encoding="utf-8")
+    cfg = C.load("local-doom")
+    cfg.runtime.prefix = str(prefix.parent)
+    cfg.runtime.tool = str(wine)
+    C.save(cfg)
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    _settings_tab(swin, TAB_COMPAT)
+    QTest.qWait(80)
+
+    verbs = swin.findChild(QQuickItem, "ptVerbs")
+    installed = swin.findChild(QQuickItem, "ptVerbsInstalled")
+    add = swin.findChild(QQuickItem, "ptVerbsAdd")
+    tool = swin.findChild(QQuickItem, "ptVerbsGui")
+    # The prefix log is shown read-only next to the field.
+    assert installed.property("visible") is True
+    assert installed.property("text") == "corefonts"
+    assert add.property("visible") is True
+    assert tool.property("text") == "Winetricks…"
+
+    # A verb named in the field but absent from the log installs at launch.
+    verbs.setProperty("text", "corefonts vcrun2022")
+    assert QMetaObject.invokeMethod(dlg, "refreshInstalledVerbs") is True
+    QTest.qWait(50)
+    assert installed.property("text") == "corefonts — Pending at Launch: vcrun2022"
+
+    # The picker filters `list-all` (worker on the first open).
+    assert QMetaObject.invokeMethod(dlg, "openVerbPicker") is True
+    rows = swin.findChild(QQuickItem, "settingsVerbRows")
+    for _ in range(200):
+        if rows.property("count") > 0:
+            break
+        QTest.qWait(25)
+    assert rows.property("count") == 2
+    swin.findChild(QQuickItem, "settingsVerbFilter").setProperty("text", "dotnet")
+    QTest.qWait(50)
+    assert rows.property("count") == 1
+    assert QMetaObject.invokeMethod(dlg, "addVerb", Q_ARG("QVariant", "dotnet48")) is True
+    QTest.qWait(50)
+    assert verbs.property("text") == "corefonts vcrun2022 dotnet48"
+    assert "Pending at Launch: vcrun2022, dotnet48" in installed.property("text")
+    # Adding the same verb again changes nothing.
+    assert QMetaObject.invokeMethod(dlg, "addVerb", Q_ARG("QVariant", "dotnet48")) is True
+    assert verbs.property("text") == "corefonts vcrun2022 dotnet48"
+    picker = swin.findChild(QObject, "settingsVerbPicker")
+    assert picker is not None
+    QMetaObject.invokeMethod(picker, "close")
+    QTest.qWait(50)
+
+    # The tool opens against the resolved prefix and wine.
+    assert QMetaObject.invokeMethod(dlg, "openVerbTool") is True
+    for _ in range(200):
+        if calls.exists() and "--gui" in calls.read_text():
+            break
+        QTest.qWait(25)
+    assert f"{prefix}|{wine}|--gui" in calls.read_text()
+
+    dlg.save()
+    QTest.qWait(50)
+    assert C.load("local-doom").runtime.winetricks_verbs == [
+        "corefonts",
+        "vcrun2022",
+        "dotnet48",
+    ]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

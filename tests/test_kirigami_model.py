@@ -77,16 +77,26 @@ def test_model_play_routes(qgui_app, xdg_env, monkeypatch, tmp_path):
 
 def test_launch_local_detached_spawns(xdg_env, monkeypatch):
     import subprocess
+    import sys
 
     from tkarcade import launcher as L
 
     calls = []
     monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: calls.append((a, k)) or None)
+    # A stale system package on PATH must never be the child: the spawn
+    # goes through the interpreter that owns this install.
     monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/tkarcade")
+    monkeypatch.setattr(sys, "executable", "/opt/venv/bin/python")
     L.launch_local_detached("local-doom")
     assert L.menu_skip_path("local-doom").exists()  # one-shot skip planted
     (args, kwargs) = calls[0]
-    assert args[0] == ["/usr/bin/tkarcade", "--appid", "local-doom"]
+    assert args[0] == [
+        "/opt/venv/bin/python",
+        "-m",
+        "tkarcade.launcher",
+        "--appid",
+        "local-doom",
+    ]
     assert kwargs.get("start_new_session") is True
 
 
@@ -346,12 +356,13 @@ def test_leftovers_include_logs_history_and_prefix(qgui_app, xdg_env, tmp_path):
     from tkarcade import xdg
     from tkarcade.gui.model import GameListModel
 
-    prefix = tmp_path / "pfx"
-    prefix.mkdir()
+    base = tmp_path / "pfx"
+    prefix = C.prefix_dir("local-doom", str(base), "", "", "Doom")
+    prefix.mkdir(parents=True)
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
-    cfg.runtime.prefix = str(prefix)
+    cfg.runtime.prefix = str(base)
     C.save(cfg)
     profiles = C.profiles_dir("local-doom")
     profiles.mkdir(parents=True)
@@ -388,12 +399,13 @@ def test_leftover_prefix_option_deletes_owned_prefix(qgui_app, xdg_env, tmp_path
     from tkarcade import config as C
     from tkarcade.gui.model import GameListModel
 
-    prefix = tmp_path / "pfx"
-    prefix.mkdir()
+    base = tmp_path / "pfx"
+    prefix = C.prefix_dir("local-quake", str(base), "", "", "Quake")
+    prefix.mkdir(parents=True)
     cfg = C.GameConfig()
     cfg.general.appid = "local-quake"
     cfg.general.name = "Quake"
-    cfg.runtime.prefix = str(prefix)
+    cfg.runtime.prefix = str(base)
     C.save(cfg)
     model = GameListModel()
     model.removeGames(["local-quake"])
@@ -752,11 +764,12 @@ def test_library_schema_slots(qgui_app, xdg_env, tmp_path):
     assert model.applyWineVersion("local-doom", "proton_9") == (
         "Version Selection Needs a Steam Game."
     )
-    assert model.prefixDir("local-doom") == ""
-    assert model.ensurePrefix("local-doom") == (
-        "Set a Custom Prefix Dir First (Steam Creates Its Own)."
-    )
-    assert model.clearCustomPrefix("local-doom") == "No Custom Prefix Set."
+    local_prefix = model.prefixDir("local-doom")
+    assert local_prefix.endswith("/prefixes/Doom")
+    assert model.ensurePrefix("local-doom") == ""
+    assert os.path.isdir(local_prefix)
+    assert model.clearCustomPrefix("local-doom") == f"Cleared {local_prefix}."
+    assert not os.path.exists(local_prefix)
 
 
 def test_library_columns_roles(qgui_app, xdg_env):
@@ -912,6 +925,14 @@ def test_settings_dependency_steam_options_cached(qgui_app, xdg_env, monkeypatch
         return "ok", "tkarcade %command%"
 
     monkeypatch.setattr(S, "launch_options_status", probe)
+    # The row compares the `tkarcade` on PATH with this build: pin the
+    # probe so the test never spawns an installed binary.
+    import tkarcade.gui.model as modelmod
+    from tkarcade import __version__ as gui_version
+
+    monkeypatch.setattr(
+        modelmod, "_path_tkarcade_version", lambda: ("/usr/bin/tkarcade", gui_version)
+    )
     model = GameListModel()
     rows = model.dependencyStatus("620", {}, check_steam=True)
     assert [row["key"] for row in rows].count("steam-options") == 1
@@ -925,6 +946,23 @@ def test_settings_dependency_steam_options_cached(qgui_app, xdg_env, monkeypatch
     assert calls == ["620"]
     model.dependencyStatus("620", {}, check_steam=True)
     assert calls == ["620", "620"]
+
+    # A stale system package is named instead of silently launching it.
+    monkeypatch.setattr(
+        modelmod, "_path_tkarcade_version", lambda: ("/usr/bin/tkarcade", "0.0.0.old")
+    )
+    entry = next(
+        row for row in model.dependencyStatus("620", {}, True) if row["key"] == "steam-options"
+    )
+    assert entry["kind"] == "warn"
+    assert entry["msg"] == "steam-stale"
+    assert entry["args"] == ["/usr/bin/tkarcade", "0.0.0.old", gui_version]
+    # Not on PATH at all: Steam would fail to expand the options.
+    monkeypatch.setattr(modelmod, "_path_tkarcade_version", lambda: ("", ""))
+    entry = next(
+        row for row in model.dependencyStatus("620", {}, True) if row["key"] == "steam-options"
+    )
+    assert entry["msg"] == "steam-no-binary"
 
 
 def test_settings_env_bulk_preset(qgui_app, xdg_env):
@@ -1100,13 +1138,84 @@ def test_prefix_name_state_and_choices(qgui_app, xdg_env, tmp_path):
     assert len(state["shared"]) == 1
 
     renamed = model.prefixNameState("local-a", "My Doom")
-    assert renamed["sanitized"] == "My_Doom"
+    assert renamed["sanitized"] == "MyDoom"
     assert renamed["renamed"] is True
     assert renamed["exists"] is False
+
+    # A typed dir is the base: the prefix is always a subfolder of it.
+    custom = tmp_path / "elsewhere" / "base"
+    state = model.prefixNameState("local-a", "Doom", str(custom))
+    assert state["target"] == str(custom / "Doom")
+    assert state["exists"] is False
+    # With no explicit name the game name derives the folder.
+    derived = model.prefixNameState("local-a", "", "", "TK's good-game_1")
+    assert derived["target"] == str(base / "TKsGoodGame1")
+    assert derived["renamed"] is False
 
     choices = model.prefixChoices("local-a")
     assert [c["name"] for c in choices] == ["Doom"]
     assert choices[0]["path"] == str(base / "Doom")
+
+
+def test_save_game_pins_the_prefix_folder(qgui_app, xdg_env, tmp_path):
+    """The name-derived folder is stored, so a rename never moves it."""
+    from tkarcade.gui.model import GameListModel
+
+    prefs = C.load_preferences()
+    prefs.prefix_base = str(tmp_path / "prefixes")
+    C.save_preferences(prefs)
+    model = GameListModel()
+    fields = model.factoryGame("")
+    fields.update(
+        {
+            "name": "TK's good-game_1",
+            "custom_executable": "/bin/true",
+            "environment": "wine",
+        }
+    )
+    appid = model.saveGame("", fields)
+    assert appid
+    cfg = C.load(appid)
+    assert cfg.runtime.prefix_name == "TKsGoodGame1"
+    pinned = C.prefix_dir(appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name)
+    assert pinned == tmp_path / "prefixes" / "TKsGoodGame1"
+
+    # Renaming the game keeps both the stored name and the path.
+    out = dict(model.loadGame(appid))
+    out["name"] = "Renamed"
+    assert model.saveGame(appid, out) == appid
+    cfg = C.load(appid)
+    assert cfg.runtime.prefix_name == "TKsGoodGame1"
+    assert (
+        C.prefix_dir(appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name)
+        == pinned
+    )
+
+
+def test_ensure_and_clear_the_local_prefix(qgui_app, xdg_env, tmp_path):
+    from tkarcade.gui.model import GameListModel
+
+    prefs = C.load_preferences()
+    prefs.prefix_base = str(tmp_path / "prefixes")
+    C.save_preferences(prefs)
+    base = tmp_path / "prefixes"
+    for appid, name in (("local-a", "Doom"), ("local-b", "Doom")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.environment = "wine"
+        cfg.runtime.prefix_name = "Doom"  # both share the same prefix
+        C.save(cfg)
+    model = GameListModel()
+    assert model.ensurePrefix("local-a") == ""
+    assert (base / "Doom").is_dir()
+    # The base itself is never the target, and a shared prefix is refused.
+    assert model.clearCustomPrefix("local-a").startswith("Shared Prefix")
+    assert (base / "Doom").is_dir()
+    (C.game_file("local-b")).unlink()
+    assert model.clearCustomPrefix("local-a") == f"Cleared {base / 'Doom'}."
+    assert not (base / "Doom").exists()
+    assert base.is_dir()
 
 
 def test_settings_defaults_roundtrip(qgui_app, xdg_env):
@@ -1510,3 +1619,127 @@ def test_clear_fetched_artwork_uses_the_source_appid(qgui_app, xdg_env):
     assert model.clearFetchedArtwork("local-doom", "480") == "done"
     assert artwork.cached_path("480", "cover") is None
     assert artwork.is_cleared("480") is True
+
+
+def test_settings_winetricks_verbs_pending(qgui_app, xdg_env, tmp_path, monkeypatch):
+    from tkarcade import steam as S
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+
+    # Local game: the WINEPREFIX holds the log directly.
+    base = tmp_path / "base"
+    prefix = C.prefix_dir("local-doom", str(base), "", "", "Doom")
+    (prefix / "drive_c").mkdir(parents=True)
+    (prefix / "winetricks.log").write_text("corefonts\n", encoding="utf-8")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.environment = "wine"
+    cfg.runtime.prefix = str(base)
+    C.save(cfg)
+    state = model.installedVerbs("local-doom", "corefonts vcrun2022")
+    assert state["installed"] == ["corefonts"]
+    assert state["pending"] == ["vcrun2022"]
+    assert model.installedVerbs("local-doom", "") == {"installed": ["corefonts"], "pending": []}
+
+    # Steam game: Steam's compatdata container, log inside its pfx.
+    container = tmp_path / "compatdata" / "620"
+    (container / "pfx").mkdir(parents=True)
+    (container / "pfx" / "winetricks.log").write_text("dotnet48\n", encoding="utf-8")
+    cfg = C.GameConfig()
+    cfg.general.appid = "620"
+    C.save(cfg)
+    monkeypatch.setattr(S, "prefix_dir", lambda appid: container)
+    assert model.installedVerbs("620", "")["installed"] == ["dotnet48"]
+    # A custom prefix wins over Steam's own compatdata dir.
+    cfg.runtime.prefix = str(container)
+    C.save(cfg)
+    monkeypatch.setattr(S, "prefix_dir", lambda appid: tmp_path / "gone")
+    assert model.installedVerbs("620", "")["installed"] == ["dotnet48"]
+
+
+def test_settings_winetricks_gui_refusals(qgui_app, xdg_env, tmp_path, monkeypatch):
+    from tkarcade import steam as S
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    cfg = C.GameConfig()
+    cfg.general.appid = "620"
+    cfg.runtime.prefix = str(tmp_path / "pfx")
+    C.save(cfg)
+    # protontricks cannot target a prefix the launcher overrides.
+    assert "Custom Prefix" in model.openWinetricksGui("620")
+    cfg.runtime.prefix = ""
+    C.save(cfg)
+    # protontricks refuses games that never ran: it needs their compatdata.
+    monkeypatch.setattr(S, "prefix_dir", lambda appid: None)
+    assert "Launched Once" in model.openWinetricksGui("620")
+    # With a compatdata prefix present the missing binary is the refusal.
+    monkeypatch.setattr(S, "prefix_dir", lambda appid: tmp_path / "compatdata" / "620")
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    assert "Protontricks Was Not Found" in model.openWinetricksGui("620")
+    # A native local game has nothing to install into.
+    local = C.GameConfig()
+    local.general.appid = "local-native"
+    local.general.environment = "native"
+    C.save(local)
+    assert "Wine or Proton" in model.openWinetricksGui("local-native")
+
+
+def test_settings_winetricks_gui_launch(qgui_app, xdg_env, fake_bin, tmp_path):
+    import time
+
+    from tkarcade.gui.model import GameListModel
+
+    calls = tmp_path / "calls.log"
+    fake_bin("winetricks", f'#!/bin/sh\necho "$WINEPREFIX|$WINE|$@" >> "{calls}"\n')
+    wine = fake_bin("wine")
+    base = tmp_path / "base"
+    prefix = C.prefix_dir("local-doom", str(base), "", "", "Doom")
+    (prefix / "drive_c").mkdir(parents=True)
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.environment = "wine"
+    cfg.runtime.prefix = str(base)
+    cfg.runtime.tool = str(wine)
+    C.save(cfg)
+    model = GameListModel()
+    assert model.openWinetricksGui("local-doom") == ""
+    deadline = time.time() + 5
+    while not calls.exists() and time.time() < deadline:
+        time.sleep(0.02)
+    assert calls.read_text().strip() == f"{prefix}|{wine}|--gui"
+
+
+def test_settings_winetricks_gui_reports_failure(qgui_app, xdg_env, fake_bin, tmp_path):
+    """A tool that dies leaves its output in a log and the exit is news."""
+    import time
+
+    from tkarcade import xdg
+    from tkarcade.gui.model import GameListModel
+
+    fake_bin("winetricks", "#!/bin/sh\necho 'no such verb' >&2\nexit 3\n")
+    wine = fake_bin("wine")
+    base = tmp_path / "base"
+    prefix = C.prefix_dir("local-doom", str(base), "", "", "Doom")
+    (prefix / "drive_c").mkdir(parents=True)
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.environment = "wine"
+    cfg.runtime.prefix = str(base)
+    cfg.runtime.tool = str(wine)
+    C.save(cfg)
+    model = GameListModel()
+    seen: list[tuple[str, str]] = []
+    model.verbToolClosed.connect(lambda status, detail: seen.append((status, detail)))
+    assert model.openWinetricksGui("local-doom") == ""
+    deadline = time.time() + 5
+    while not seen and time.time() < deadline:
+        qgui_app.processEvents()
+        time.sleep(0.02)
+    log_path = xdg.games_log_dir() / "local-doom-winetricks.log"
+    assert seen == [("failed", str(log_path))]
+    assert "no such verb" in log_path.read_text(encoding="utf-8")

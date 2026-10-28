@@ -278,7 +278,11 @@ def _runtime_paths(cfg: cfgmod.GameConfig, environment: str = "") -> dict:
         proton = runtimes.find_proton(tool, prefs.proton_dirs)
     return {
         "prefix": cfgmod.prefix_dir(
-            appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
+            appid,
+            cfg.runtime.prefix,
+            prefs.prefix_base,
+            cfg.runtime.prefix_name,
+            cfg.general.name,
         ),
         "wine": wine,
         "proton": proton,
@@ -447,15 +451,18 @@ def _build_env(
         if prefix and "STEAM_COMPAT_DATA_PATH" not in env:
             env["STEAM_COMPAT_DATA_PATH"] = prefix
     elif environment in ("wine", "umu") and runtime:
-        # WINEPREFIX: per-game override, else <prefix_base>/<appid>.
+        # WINEPREFIX: per-game base, else <prefix_base>/<stem>.
         env["WINEPREFIX"] = str(runtime["prefix"])
         proton = runtime.get("proton")
         if environment == "umu" and proton is not None:
             env["PROTONPATH"] = str(proton.path)
+        # umu runs a Proton that already ships DXVK and vkd3d: [graphics]
+        # is ignored there, and the all-off call only neutralizes a layer
+        # an earlier install copied into that prefix.
         layer_env, w = graphicsmod.launch_env(
             runtime["prefix"],
-            cfg.graphics.dxvk,
-            cfg.graphics.vkd3d,
+            cfg.graphics.dxvk if environment == "wine" else False,
+            cfg.graphics.vkd3d if environment == "wine" else "",
             runtime.get("prefs"),
         )
         warnings += w
@@ -646,7 +653,9 @@ def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
 
 def _graphics_issue(appid: str, eff: cfgmod.GameConfig) -> list[str]:
     """Enabled graphics layers without an installed version to copy."""
-    if cfgmod.normalize_environment(eff.general.environment) not in ("wine", "umu"):
+    # Only a plain Wine prefix takes the layers: umu and Proton ship their
+    # own DXVK/vkd3d, so [graphics] is ignored for those environments.
+    if cfgmod.normalize_environment(eff.general.environment) != "wine":
         return []
     kinds = graphicsmod.enabled_kinds(eff.graphics.dxvk, eff.graphics.vkd3d)
     if not kinds:
@@ -950,12 +959,17 @@ def launch_local_detached(appid: str) -> None:
 
     Shared Play path for every toolkit: logs, history and the one-shot
     menu skip apply; only the Steam client handoff is missing.
+    The child runs the interpreter that owns this install, never the
+    `tkarcade` found on PATH: a system package built from `main` would
+    otherwise launch a different build than the GUI in front of the user.
     Raises OSError when the spawn itself fails.
     """
     plant_menu_skip(appid)
-    runner = shutil.which("tkarcade") or sys.argv[0]
+    runner = [sys.executable, "-m", "tkarcade.launcher"]
+    if not runner[0]:
+        runner = [shutil.which("tkarcade") or sys.argv[0]]
     subprocess.Popen(
-        [runner, "--appid", appid],
+        [*runner, "--appid", appid],
         start_new_session=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -1180,20 +1194,54 @@ def _disarm_fresh_prefix(appid: str, cfg: cfgmod.GameConfig) -> None:
         log.warning("could not disarm fresh_prefix: %s", e)
 
 
-def _prepare_launch(appid: str, cfg: cfgmod.GameConfig) -> None:
-    """One-shot prefix wipe and winetricks, before the command is built."""
+def _legacy_prefix(appid: str, cfg: cfgmod.GameConfig, environment: str) -> tuple[bool, str]:
+    """Move a prefix that still lives at the base into its subfolder."""
+    if environment not in ("wine", "umu"):
+        return True, ""
+    prefs = cfgmod.load_preferences()
+    base = cfgmod.prefix_dir(
+        appid,
+        cfg.runtime.prefix,
+        prefs.prefix_base,
+        cfg.runtime.prefix_name,
+        cfg.general.name,
+    ).parent
+    stem = cfgmod.prefix_stem(appid, cfg.runtime.prefix_name, cfg.general.name)
+    return cfgmod.move_legacy_prefix(base, stem)
+
+
+def _prepare_launch(appid: str, cfg: cfgmod.GameConfig) -> int | None:
+    """Prefix layout migration, one-shot wipe and winetricks, pre-command.
+
+    Returns an exit code when the launch must stop (the prefix could not
+    be folded into its subfolder), else None.
+    """
+    environment = cfgmod.normalize_environment(cfg.general.environment)
+    ok, message = _legacy_prefix(appid, cfg, environment)
+    if not ok:
+        log.error("%s", message)
+        print(f"tkarcade: {message}", file=sys.stderr)
+        notify_backend.send("TKArcade: cannot launch", message, "critical")
+        write_global_log(appid, 14, [])
+        return 14
+    if message:
+        log.warning("%s", message)
+        notify_backend.send("TKArcade", message, "normal")
     # Before ludusavi wrap: wipe the broken prefix, Steam recreates it, then
     # restore brings the saves back into it. One-shot: disarm the toggle
     # afterwards so later launches (and winetricks state) stay consistent.
     if cfg.runtime.fresh_prefix:
         _disarm_fresh_prefix(appid, cfg)
-    environment = cfgmod.normalize_environment(cfg.general.environment)
     if environment == "proton":
         run = protonmod.run_winetricks(appid, cfg.runtime.winetricks_verbs)
     elif environment in ("wine", "umu") and cfg.runtime.winetricks_verbs:
         prefs = cfgmod.load_preferences()
         prefix = cfgmod.prefix_dir(
-            appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
+            appid,
+            cfg.runtime.prefix,
+            prefs.prefix_base,
+            cfg.runtime.prefix_name,
+            cfg.general.name,
         )
         wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_binary)
         proton = runtimes.find_proton(cfg.runtime.tool, prefs.proton_dirs)
@@ -1204,6 +1252,7 @@ def _prepare_launch(appid: str, cfg: cfgmod.GameConfig) -> None:
         run = []
     for w in run:
         log.warning("winetricks: %s", w)
+    return None
 
 
 def _final_command(
@@ -1457,7 +1506,9 @@ def main(argv: list[str] | None = None) -> int:
         log.info("no game command to run; launch skipped")
         return 0
 
-    _prepare_launch(appid, cfg)
+    code = _prepare_launch(appid, cfg)
+    if code is not None:
+        return code
     return _launch_pipeline(appid, cfg, game_cmd, args)
 
 

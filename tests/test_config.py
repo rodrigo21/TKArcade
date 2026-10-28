@@ -412,15 +412,25 @@ def test_prefix_dir_resolution(xdg_env, monkeypatch):
     assert C.prefix_dir("local-doom", base="/tmp/opencode/base") == Path(
         "/tmp/opencode/base/local-doom"
     )
+    # The per-game dir is the base: the prefix is always a subfolder.
     assert C.prefix_dir("local-doom", per_game="/tmp/opencode/custom") == Path(
-        "/tmp/opencode/custom"
+        "/tmp/opencode/custom/local-doom"
     )
     assert C.prefix_dir("local-doom", base="/tmp/opencode/base", name="Doom Eternal") == Path(
-        "/tmp/opencode/base/Doom_Eternal"
+        "/tmp/opencode/base/DoomEternal"
     )
-    # A full path still wins over the friendly name.
-    assert C.prefix_dir("local-doom", per_game="/tmp/opencode/custom", name="ignored") == Path(
-        "/tmp/opencode/custom"
+    # The explicit name wins over the game name, which wins over the AppID.
+    assert C.prefix_dir(
+        "local-doom", per_game="/tmp/opencode/custom", name="Friendly Doom"
+    ) == Path("/tmp/opencode/custom/FriendlyDoom")
+    assert C.prefix_dir("local-doom", game_name="TK's good-game_1") == Path(
+        "/tmp/opencode/data/tkarcade/prefixes/TKsGoodGame1"
+    )
+    assert C.prefix_dir("local-doom", name="Doom Eternal", game_name="Other") == Path(
+        "/tmp/opencode/data/tkarcade/prefixes/DoomEternal"
+    )
+    assert C.prefix_dir("local-doom", game_name="!!!") == Path(
+        "/tmp/opencode/data/tkarcade/prefixes/local-doom"
     )
     # Blank or dot-only names fall back to the safe AppID.
     assert C.prefix_dir("local-doom", name="   ") == Path(
@@ -430,6 +440,18 @@ def test_prefix_dir_resolution(xdg_env, monkeypatch):
         "/tmp/opencode/data/tkarcade/prefixes/local-doom"
     )
     assert xdgmod.default_prefix_base() == Path("/tmp/opencode/data/tkarcade/prefixes")
+
+
+def test_folder_stem_normalises_readable_names():
+    from tkarcade import xdg as xdgmod
+
+    assert xdgmod.folder_stem("TK's good-game_1") == "TKsGoodGame1"
+    assert xdgmod.folder_stem("Friendly Doom") == "FriendlyDoom"
+    assert xdgmod.folder_stem("TK3DTests") == "TK3DTests"
+    assert xdgmod.folder_stem("don\u2019t stop") == "DontStop"
+    assert xdgmod.folder_stem("  ") == ""
+    assert xdgmod.folder_stem("../") == ""
+    assert xdgmod.folder_stem("") == ""
 
 
 def test_iter_prefixes_only_complete_windows_prefixes(xdg_env, tmp_path):
@@ -467,6 +489,16 @@ def test_winetricks_missing_binary(xdg_env, monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
     assert "not found" in pm.run_winetricks("76", ["dotnet48"])[0]
     assert pm.run_winetricks("76", []) == []
+
+
+def test_winetricks_gui_command(xdg_env, fake_bin, monkeypatch, tmp_path):
+    from tkarcade import proton as pm
+
+    exe = fake_bin("protontricks")
+    assert pm.gui_command("620") == ([str(exe), "--gui", "620"], "")
+    assert "Steam AppID" in pm.gui_command("local-doom")[1]
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    assert "Protontricks Was Not Found" in pm.gui_command("620")[1]
 
 
 def test_diff_vs_defaults(xdg_env):
@@ -1031,7 +1063,9 @@ def _seed_legacy_game():
     winetricks.state_path(cfg.general.appid).write_text("{}")
     xdg.game_log_file(cfg.general.appid).parent.mkdir(parents=True, exist_ok=True)
     xdg.game_log_file(cfg.general.appid).write_text("log")
-    prefix = C.prefix_dir(cfg.general.appid, "", C.load_preferences().prefix_base, "")
+    prefix = C.prefix_dir(
+        cfg.general.appid, "", C.load_preferences().prefix_base, "", cfg.general.name
+    )
     (prefix / "drive_c").mkdir(parents=True)
     xdg.log_file().parent.mkdir(parents=True, exist_ok=True)
     xdg.log_file().write_text(
@@ -1046,7 +1080,7 @@ def test_migrate_local_ids_renames_every_store(xdg_env):
     old = "local-bad-hero---episode-1"
     new = "local-bad-hero-episode-1"
     _seed_legacy_game()
-    prefix_old = C.prefix_dir(old, "", C.load_preferences().prefix_base, "")
+    prefix_old = C.prefix_dir(old, "", C.load_preferences().prefix_base, "", "Bad Hero - Episode 1")
     donor = C.GameConfig()
     donor.general.appid = "42"
     donor.artwork.artwork_appid = old
@@ -1063,12 +1097,20 @@ def test_migrate_local_ids_renames_every_store(xdg_env):
     assert xdg.game_log_file(new).is_file()
     assert C.load("42").artwork.artwork_appid == new
     assert f"appid={new}" in xdg.log_file().read_text()
-    # The prefix directory is kept; the config points at it by name.
+    # The stem comes from the game name, so the AppID change leaves the
+    # prefix exactly where it was.
     base = C.load_preferences().prefix_base
     migrated = C.load(new)
-    assert migrated.runtime.prefix_name == old
+    assert migrated.runtime.prefix_name == ""
     assert (
-        C.prefix_dir(new, migrated.runtime.prefix, base, migrated.runtime.prefix_name) == prefix_old
+        C.prefix_dir(
+            new,
+            migrated.runtime.prefix,
+            base,
+            migrated.runtime.prefix_name,
+            migrated.general.name,
+        )
+        == prefix_old
     )
     assert (prefix_old / "drive_c").is_dir()
     # Idempotent.
@@ -1271,3 +1313,51 @@ def test_artwork_source_defaults_to_steam_and_rejects_junk(xdg_env):
     )
     xdgmod.preferences_file().write_text(text)
     assert C.load_preferences().artwork_source == "steam"
+
+
+def test_move_legacy_prefix_folds_the_base_into_the_subfolder(xdg_env, tmp_path):
+    base = tmp_path / "base"
+    (base / "drive_c").mkdir(parents=True)
+    (base / "system.reg").write_text("")
+    (base / "user.reg").write_text("")
+    (base / "stray").mkdir()
+    (base / "stray" / "file.txt").write_text("x")
+    ok, message = C.move_legacy_prefix(base, "MyGame")
+    assert ok is True
+    assert message.endswith(str(base / "MyGame"))
+    moved = base / "MyGame"
+    assert (moved / "drive_c").is_dir()
+    assert (moved / "user.reg").is_file()
+    assert (moved / "stray" / "file.txt").is_file()
+    # The base is no longer a prefix: the next launch is a no-op.
+    assert C.move_legacy_prefix(base, "MyGame") == (True, "")
+
+
+def test_move_legacy_prefix_refuses_an_occupied_target(xdg_env, tmp_path):
+    base = tmp_path / "base"
+    (base / "drive_c").mkdir(parents=True)
+    (base / "system.reg").write_text("")
+    (base / "MyGame").mkdir()
+    (base / "MyGame" / "keep.txt").write_text("x")
+    ok, message = C.move_legacy_prefix(base, "MyGame")
+    assert ok is False
+    assert "already has files" in message
+    assert (base / "drive_c").is_dir()  # nothing moved
+
+
+def test_launch_folds_a_legacy_prefix_into_the_subfolder(xdg_env, tmp_path):
+    from tkarcade import launcher as L
+
+    base = tmp_path / "Wine"
+    (base / "drive_c").mkdir(parents=True)
+    (base / "system.reg").write_text("")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-tk3dtests"
+    cfg.general.name = "TK's good-game_1"
+    cfg.general.environment = "umu"
+    cfg.runtime.prefix = str(base)
+    ok, message = L._legacy_prefix("local-tk3dtests", cfg, "umu")
+    assert ok is True
+    assert "TKsGoodGame1" in message
+    assert (base / "TKsGoodGame1" / "drive_c").is_dir()
+    assert not (base / "drive_c").exists()

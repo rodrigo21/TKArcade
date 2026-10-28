@@ -622,19 +622,71 @@ def save_defaults(cfg: GameConfig) -> Path:
     return path
 
 
-def prefix_dir(appid: str, per_game: str = "", base: str = "", name: str = "") -> Path:
-    """Prefix directory for a game.
+def prefix_stem(appid: str, name: str = "", game_name: str = "") -> str:
+    """Folder name for a game's prefix: explicit name, game name, AppID."""
+    for source in (name, game_name):
+        stem = xdg.folder_stem(source)
+        if stem:
+            return stem
+    return xdg.safe_stem(appid)
 
-    Per-game override wins; otherwise ``<base>/<safe name>`` falling back
-    to the safe AppID, where an empty base means the built-in XDG data
-    location. safe_stem keeps a crafted name from escaping the directory.
+
+def prefix_dir(
+    appid: str, per_game: str = "", base: str = "", name: str = "", game_name: str = ""
+) -> Path:
+    """WINEPREFIX of a local game: always a subfolder of its base.
+
+    ``per_game`` (else ``base``, else the built-in XDG data location) is
+    the base; the prefix itself is ``<base>/<prefix_stem>``. ``name`` is
+    the explicit ``[runtime] prefix_name`` override and wins over the
+    game name, which wins over the AppID. Stems keep a crafted name from
+    escaping the base.
     """
     if per_game.strip():
-        return Path(per_game.strip()).expanduser()
-    root = Path(base.strip()).expanduser() if base.strip() else xdg.default_prefix_base()
-    stem = xdg.safe_stem(name.strip()) if name.strip() else ""
-    # Empty and names that sanitize down to nothing ("../", "...") fall back.
-    return root / (stem if stem not in ("", "unknown") else xdg.safe_stem(appid))
+        root = Path(per_game.strip()).expanduser()
+    elif base.strip():
+        root = Path(base.strip()).expanduser()
+    else:
+        root = xdg.default_prefix_base()
+    return root / prefix_stem(appid, name, game_name)
+
+
+def move_legacy_prefix(base: Path, stem: str) -> tuple[bool, str]:
+    """Fold an old prefix (the base itself) into ``<base>/<stem>``.
+
+    ``base`` used to be the WINEPREFIX; it is now the parent of the
+    per-game subfolder. When the target is missing or empty and the base
+    still looks like a Wine prefix, every entry moves inside. Returns
+    (ok, message): ok is False only when the move must block the launch;
+    an empty message means there was nothing to do.
+    """
+    base = Path(base)
+    target = base / stem
+    try:
+        looks_like = xdg.is_wine_prefix(base)
+        occupied = target.is_dir() and any(target.iterdir())
+    except OSError as e:
+        return False, f"could not inspect {target}: {e}"
+    if not looks_like:
+        return True, ""
+    if occupied:
+        return False, f"{target} already has files; move the old prefix there by hand"
+    moved: list[Path] = []
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        for entry in base.iterdir():
+            if entry == target:
+                continue
+            entry.rename(target / entry.name)
+            moved.append(entry)
+    except OSError as e:
+        for entry in moved:  # best effort: never leave a half-broken prefix
+            try:
+                (target / entry.name).rename(entry)
+            except OSError:
+                continue
+        return False, f"could not move the old prefix into {target}: {e}"
+    return True, f"prefix moved to {target}"
 
 
 # Single source of truth for known sections/keys (load, save, extra).
@@ -1211,23 +1263,26 @@ def _move_path(src: Path, dest: Path) -> None:
 
 
 def _pin_prefix(appid: str, new: str, cfg: GameConfig) -> None:
-    """Name the existing prefix explicitly so its path never changes.
+    """Keep a game's prefix when its local AppID changes.
 
-    Renaming a Wine prefix directory would break the absolute paths in
-    its registry, so the directory stays and the config points at it.
+    The prefix path is ``<base>/<stem>`` and the stem rarely depends on
+    the AppID (the game name wins); when it does, the directory moves to
+    the new path instead of leaving the saves behind.
     """
-    if cfg.runtime.prefix.strip():
-        return
     base = load_preferences().prefix_base
-    old_path = prefix_dir(appid, "", base, cfg.runtime.prefix_name)
-    if not (old_path / "drive_c").is_dir():
-        return  # no prefix yet: nothing to preserve
-    if prefix_dir(new, "", base, cfg.runtime.prefix_name) == old_path:
-        return  # already named explicitly
-    cfg.runtime.prefix_name = xdg.safe_stem(old_path.name)
-    if prefix_dir(new, "", base, cfg.runtime.prefix_name) != old_path:
-        cfg.runtime.prefix_name = ""
-        cfg.runtime.prefix = os.fspath(old_path)
+    old_path = prefix_dir(
+        appid, cfg.runtime.prefix, base, cfg.runtime.prefix_name, cfg.general.name
+    )
+    new_path = prefix_dir(new, cfg.runtime.prefix, base, cfg.runtime.prefix_name, cfg.general.name)
+    if old_path == new_path:
+        return
+    if not (old_path / "drive_c").is_dir() or new_path.exists():
+        return  # nothing to preserve, or the target is already there
+    try:
+        new_path.parent.mkdir(parents=True, exist_ok=True)
+        old_path.rename(new_path)
+    except OSError as e:
+        log.warning("migrate: cannot move prefix %s -> %s (%s)", old_path, new_path, e)
 
 
 def _move_local_storage(appid: str, new: str, cfg: GameConfig) -> None:

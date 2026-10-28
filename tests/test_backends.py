@@ -940,7 +940,8 @@ def test_wine_local_command(xdg_env, fake_bin):
     cfg.general.launch_args = "-windowed"
     cmd, env, warnings = build_final_command(cfg, [])
     assert cmd == [str(wine), "/games/doom.exe", "-windowed"]
-    assert env["WINEPREFIX"] == str(xdg_env["data"] / "tkarcade" / "prefixes" / "local-doom")
+    # The prefix is a subfolder of the base, named after the game.
+    assert env["WINEPREFIX"] == str(xdg_env["data"] / "tkarcade" / "prefixes" / "Doom")
     assert "PROTONPATH" not in env
     assert not warnings
 
@@ -955,30 +956,32 @@ def test_umu_local_command(xdg_env, fake_bin, tmp_path):
     cmd, env, _warnings = build_final_command(cfg, [])
     assert cmd == [str(umu), "/games/doom.exe"]
     assert env["PROTONPATH"] == str(proton.resolve())
-    assert env["WINEPREFIX"] == str(xdg_env["data"] / "tkarcade" / "prefixes" / "local-doom")
+    assert env["WINEPREFIX"] == str(xdg_env["data"] / "tkarcade" / "prefixes" / "Doom")
 
 
 def test_prefix_overrides(xdg_env, fake_bin, tmp_path):
     fake_bin("wine")
     cfg = _local_cfg("wine")
+    # The per-game dir is the base: the prefix is always a subfolder.
     cfg.runtime.prefix = str(tmp_path / "custom-prefix")
     _cmd, env, _warnings = build_final_command(cfg, [])
-    assert env["WINEPREFIX"] == str(tmp_path / "custom-prefix")
+    assert env["WINEPREFIX"] == str(tmp_path / "custom-prefix" / "Doom")
     cfg.runtime.prefix = ""
     cfg.runtime.prefix_name = "Friendly Doom"
     _cmd, env, _warnings = build_final_command(cfg, [])
-    assert env["WINEPREFIX"] == str(xdg_env["data"] / "tkarcade" / "prefixes" / "Friendly_Doom")
+    assert env["WINEPREFIX"] == str(xdg_env["data"] / "tkarcade" / "prefixes" / "FriendlyDoom")
     cfg.runtime.prefix = str(tmp_path / "named-override")
     cfg.runtime.prefix_name = "ignored"
     _cmd, env, _warnings = build_final_command(cfg, [])
-    assert env["WINEPREFIX"] == str(tmp_path / "named-override")
+    assert env["WINEPREFIX"] == str(tmp_path / "named-override" / "Ignored")
     cfg.runtime.prefix = ""
     cfg.runtime.prefix_name = ""
     prefs = C.load_preferences()
     prefs.prefix_base = str(tmp_path / "bases")
     C.save_preferences(prefs)
     _cmd, env, _warnings = build_final_command(cfg, [])
-    assert env["WINEPREFIX"] == str(tmp_path / "bases" / "local-doom")
+    # The game name derives the folder; the AppID is only the fallback.
+    assert env["WINEPREFIX"] == str(tmp_path / "bases" / "Doom")
 
 
 def test_wine_binary_override(xdg_env, fake_bin):

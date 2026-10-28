@@ -235,6 +235,23 @@ def run_winetricks(appid: str, verbs: list[str]) -> list[str]:
     return []
 
 
+def gui_command(appid: str) -> tuple[list[str], str]:
+    """argv for ``protontricks --gui``, plus a message when it cannot run.
+
+    The GUI installs into the game's own compatdata prefix, which is why
+    a game with a custom ``[runtime] prefix`` cannot use it: protontricks
+    would target a prefix the launcher does not use.
+    """
+    import shutil
+
+    if not str(appid).isdigit():
+        return [], f"Protontricks Needs a Steam AppID ({appid!r})."
+    exe = shutil.which("protontricks")
+    if not exe:
+        return [], "Protontricks Was Not Found in PATH."
+    return [exe, "--gui", str(appid)], ""
+
+
 def native_runtime(game_cmd: list[str]) -> str | None:
     """Sniff the Steam Linux Runtime flavor from a native game command.
 

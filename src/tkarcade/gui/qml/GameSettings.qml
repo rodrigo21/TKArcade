@@ -67,6 +67,12 @@ Window {
     // Friendly prefix-name picker (local Windows games).
     property var prefixChoices: []
     property string prefixHint: ""
+    // Winetricks verbs: the prefix log (read-only) against the field, and
+    // the `winetricks list-all` rows behind the picker.
+    property var verbStatus: ({})
+    property var verbCatalog: []
+    property var verbFiltered: []
+    property bool verbsLoading: false
     property var gfxInfo: ({})
     property string gfxStatus: ""
     property string errorText: ""
@@ -266,13 +272,16 @@ Window {
         runtimeField.text = runtimeText()
     }
 
-    // Friendly prefix directory: sanitization, sharing and creation hints.
+    // The dir field is the base: the prefix itself is a subfolder of it
+    // named after the game (or the explicit name), so the hint reports
+    // the path the launch really uses.
     function refreshPrefixHint() {
         if (editAppid === "") {
             prefixHint = ""
             return
         }
-        var state = gameModel.prefixNameState(editAppid, localPrefixNameField.text)
+        var state = gameModel.prefixNameState(
+            editAppid, localPrefixNameField.text, rtPrefixField.text, nameField.text)
         var parts = []
         if (state.renamed === true) {
             parts.push(qsTr("Saved as: %1").arg(state.sanitized))
@@ -289,6 +298,69 @@ Window {
     function openPrefixChoices() {
         prefixChoices = gameModel.prefixChoices(editAppid)
         prefixDialog.open()
+    }
+
+    // The prefix's winetricks.log versus the verbs field: what the field
+    // names and the log does not installs at the next launch.
+    function refreshInstalledVerbs() {
+        if (editAppid === "") {
+            verbStatus = ({})
+            return
+        }
+        verbStatus = gameModel.installedVerbs(editAppid, rtVerbs.text)
+    }
+
+    function verbStatusText() {
+        var installed = verbStatus.installed || []
+        var pending = verbStatus.pending || []
+        var text = installed.length > 0
+            ? installed.join(", ")
+            : qsTr("Nothing Installed in This Prefix Yet")
+        if (pending.length > 0) {
+            text = qsTr("%1 — Pending at Launch: %2").arg(text).arg(pending.join(", "))
+        }
+        return text
+    }
+
+    function openVerbPicker() {
+        verbsLoading = true
+        gameModel.requestVerbCatalog()
+        verbFilterField.text = ""
+        filterVerbs("")
+        verbDialog.open()
+    }
+
+    function filterVerbs(text) {
+        var needle = String(text || "").trim().toLowerCase()
+        var rows = []
+        for (var i = 0; i < verbCatalog.length; i++) {
+            var row = verbCatalog[i]
+            if (needle === ""
+                || String(row.verb || "").toLowerCase().indexOf(needle) >= 0
+                || String(row.description || "").toLowerCase().indexOf(needle) >= 0
+                || String(row.category || "").toLowerCase().indexOf(needle) >= 0) {
+                rows.push(row)
+            }
+        }
+        verbFiltered = rows
+    }
+
+    // The field stays the single source of truth: the picker only appends.
+    function addVerb(verb) {
+        var current = String(rtVerbs.text || "").trim()
+        var tokens = current === "" ? [] : current.split(/\s+/)
+        if (tokens.indexOf(verb) >= 0) {
+            return
+        }
+        rtVerbs.text = current === "" ? verb : current + " " + verb
+        refreshInstalledVerbs()
+    }
+
+    function openVerbTool() {
+        var message = gameModel.openWinetricksGui(editAppid)
+        if (message !== "") {
+            settingsError.text = message
+        }
     }
 
     function refreshGfx(reset) {
@@ -403,6 +475,7 @@ Window {
         refreshAudioSinks(f.audio_sink || "")
         refreshWineTools(f.runtime_tool || "")
         rtVerbs.text = f.winetricks_verbs || ""
+        refreshInstalledVerbs()
         ptLog.checked = !!f.proton_log
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
@@ -1121,6 +1194,10 @@ Window {
             return qsTr("Ludusavi via Flatpak (%1) — May Not See Proton Prefixes").arg(args[0])
         case "steam-ok":
             return qsTr("Steam Launch Options: %1").arg(args[0])
+        case "steam-stale":
+            return qsTr("Steam Runs %1 (%2) — This GUI Is %3").arg(args[0]).arg(args[1]).arg(args[2])
+        case "steam-no-binary":
+            return qsTr("Steam Launch Options Use tkarcade, Which Is Not in PATH")
         case "steam-missing":
             return qsTr("Steam Launch Options Lack tkarcade (Add: tkarcade %command%)")
         case "steam-unknown":
@@ -1329,6 +1406,33 @@ Window {
 
     Connections {
         target: gameModel
+        // The verb list arrives from a worker on the first open (the
+        // parser pays `winetricks list-all`); later opens are cached.
+        function onVerbCatalogReady(rows) {
+            var out = []
+            for (var i = 0; i < rows.length; i++) {
+                out.push({
+                    "verb": rows[i].verb || "",
+                    "description": rows[i].description || "",
+                    "category": rows[i].category || ""
+                })
+            }
+            gameSettings.verbCatalog = out
+            gameSettings.verbsLoading = false
+            gameSettings.filterVerbs(verbFilterField.text)
+        }
+        // The interactive tool exited: it may have written to the log, and
+        // a non-zero exit leaves its output in the per-game log.
+        function onVerbToolClosed(status, detail) {
+            gameSettings.refreshInstalledVerbs()
+            if (status === "failed") {
+                settingsError.text = qsTr("The Tool Exited Unexpectedly — See %1").arg(detail)
+            }
+        }
+    }
+
+    Connections {
+        target: gameModel
         function onCoverageFinished(status, detail) {
             var messages = {
                 "covered": qsTr("Ludusavi Covers This Game.\n%1").arg(detail),
@@ -1446,6 +1550,7 @@ Window {
                                     readOnly: fields.is_steam || false
                                     placeholderText: qsTr("Game Name")
                                     Layout.fillWidth: true
+                                    onEditingFinished: gameSettings.refreshPrefixHint()
                                     KirigamiLayouts.FormData.label: qsTr("Game Name:")
                                 }
                                 Controls.TextField {
@@ -1536,6 +1641,7 @@ Window {
                                                 cwdField.text = picked
                                             } else if (gameSettings.pendingBrowse === "runtimePrefix") {
                                                 rtPrefixField.text = picked
+                                                gameSettings.refreshPrefixHint()
                                             } else if (gameSettings.pendingBrowse === "localWine") {
                                                 localWineField.text = picked
                                             } else if (gameSettings.pendingBrowse.indexOf("art:") === 0) {
@@ -1993,9 +2099,7 @@ Window {
                                         id: localPrefixNameField
                                         objectName: "settingsLocalPrefixName"
                                         Layout.fillWidth: true
-                                        placeholderText: editAppid !== ""
-                                            ? qsTr("Empty = %1").arg(editAppid)
-                                            : qsTr("Empty = the Game ID")
+                                        placeholderText: qsTr("Empty = the Game Name (Normalized)")
                                         onTextChanged: gameSettings.refreshPrefixHint()
                                     }
                                     Controls.Button {
@@ -2004,15 +2108,24 @@ Window {
                                         onClicked: gameSettings.openPrefixChoices()
                                     }
                                 }
-                                Controls.Label {
-                                    objectName: "settingsLocalPrefixHint"
+                                // The wrapped hint reports its whole line as
+                                // implicit width; inside a bare form item it
+                                // widens the grid past the frame (and the
+                                // buttons past the window), so it sits in a
+                                // row that can shrink.
+                                RowLayout {
+                                    Layout.fillWidth: true
                                     visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
                                         && gameSettings.prefixHint !== ""
-                                    Layout.fillWidth: true
-                                    Layout.leftMargin: Kirigami.Units.gridUnit * 8
-                                    wrapMode: Text.WordWrap
-                                    opacity: 0.7
-                                    text: gameSettings.prefixHint
+                                    Controls.Label {
+                                        objectName: "settingsLocalPrefixHint"
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
+                                        wrapMode: Text.WordWrap
+                                        opacity: 0.7
+                                        text: gameSettings.prefixHint
+                                    }
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2023,7 +2136,7 @@ Window {
                                     visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
                                     KirigamiLayouts.FormData.label: gameSettings.wineAvailable
                                         ? qsTr("Custom Prefix Dir:")
-                                        : qsTr("Prefix Dir:")
+                                        : qsTr("Wine Prefix:")
                                     Controls.TextField {
                                         id: rtPrefixField
                                         objectName: "winePrefix"
@@ -2031,6 +2144,11 @@ Window {
                                         placeholderText: gameSettings.wineAvailable
                                             ? qsTr("Empty = Steam Default")
                                             : qsTr("Empty = the Prefix Base in Preferences")
+                                        onEditingFinished: gameSettings.refreshPrefixHint()
+                                        Controls.ToolTip.text: gameSettings.wineAvailable
+                                            ? qsTr("Steam's Compatdata Directory (STEAM_COMPAT_DATA_PATH).")
+                                            : qsTr("Base Directory: the Prefix Itself Is a Subfolder Named After the Game.")
+                                        Controls.ToolTip.visible: hovered
                                     }
                                     Controls.Button {
                                         objectName: "winePrefixBrowse"
@@ -2053,14 +2171,18 @@ Window {
                                     }
                                     Controls.Button {
                                         objectName: "winePrefixClear"
+                                        // A local game with a dir has a
+                                        // WINEPREFIX to delete as well.
                                         visible: gameSettings.wineAvailable
+                                            || rtPrefixField.text.trim() !== ""
                                         text: qsTr("Clear…")
                                         onClicked: {
-                                            if (rtPrefixField.text.trim() === "") {
+                                            var target = gameModel.prefixDir(editAppid)
+                                            if (target === "") {
                                                 return
                                             }
-                                            confirmLabel.text = qsTr("Delete the Custom Prefix Dir Now?\n%1\nSaves Inside Are Lost.").arg(
-                                                rtPrefixField.text.trim())
+                                            confirmLabel.text = qsTr("Delete the Prefix Now?\n%1\nSaves Inside Are Lost.").arg(
+                                                target)
                                             confirmPurpose = "clearPrefix"
                                             confirmOk.text = qsTr("Delete")
                                             confirmDialog.open()
@@ -2069,6 +2191,7 @@ Window {
                                     Controls.Button {
                                         objectName: "winePrefixOpen"
                                         visible: gameSettings.wineAvailable
+                                            || rtPrefixField.text.trim() !== ""
                                         text: qsTr("Open")
                                         onClicked: {
                                             if (!gameModel.openPath(gameModel.prefixDir(editAppid))) {
@@ -2085,23 +2208,66 @@ Window {
                                     Controls.ToolTip.text: qsTr("Deletes the Compatdata Prefix So Steam Recreates It. WIPES Saves Inside the Prefix — Rely on Cloud or Ludusavi Backups!")
                                     Controls.ToolTip.visible: hovered
                                 }
-                                Controls.TextField {
-                                    id: rtVerbs
-                                    objectName: "ptVerbs"
-                                    placeholderText: qsTr("dotnet48 vcrun2022 (Space-Separated)")
+                                RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
-                                    Controls.ToolTip.text: gameSettings.wineAvailable
-                                        ? qsTr("Winetricks Verbs Installed via protontricks Before Launch.")
-                                        : qsTr("Installed with winetricks into This Prefix Before Launch; the Prefix Must Already Exist.")
-                                    Controls.ToolTip.visible: hovered
+                                    Controls.TextField {
+                                        id: rtVerbs
+                                        objectName: "ptVerbs"
+                                        placeholderText: qsTr("dotnet48 vcrun2022 (Space-Separated)")
+                                        Layout.fillWidth: true
+                                        onEditingFinished: gameSettings.refreshInstalledVerbs()
+                                        Controls.ToolTip.text: gameSettings.wineAvailable
+                                            ? qsTr("Winetricks Verbs Installed via protontricks Before Launch.")
+                                            : qsTr("Installed with winetricks into This Prefix Before Launch; the Prefix Must Already Exist.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Button {
+                                        objectName: "ptVerbsAdd"
+                                        text: qsTr("Add…")
+                                        onClicked: gameSettings.openVerbPicker()
+                                        Controls.ToolTip.text: qsTr("Search the Verb List and Append One to the Field.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    // The prefix's own winetricks.log: the
+                                    // field only acts at the next launch, so
+                                    // the two lists are shown apart.
+                                    visible: editAppid !== ""
+                                    KirigamiLayouts.FormData.label: qsTr("In the Prefix:")
+                                    Controls.Label {
+                                        objectName: "ptVerbsInstalled"
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
+                                        wrapMode: Text.WordWrap
+                                        text: gameSettings.verbStatusText()
+                                    }
+                                    Controls.Button {
+                                        objectName: "ptVerbsGui"
+                                        // protontricks targets the game's
+                                        // compatdata prefix; a custom one is
+                                        // refused by the model.
+                                        text: gameSettings.wineAvailable
+                                            ? qsTr("Protontricks…")
+                                            : qsTr("Winetricks…")
+                                        onClicked: gameSettings.openVerbTool()
+                                        Controls.ToolTip.text: gameSettings.wineAvailable
+                                            ? qsTr("Open protontricks for This Game in Its Own Window.")
+                                            : qsTr("Open winetricks Against This Prefix in Its Own Window.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
                                 }
                             }
                         }
                         SectionBox {
                             title: qsTr("Graphics")
                             Layout.fillWidth: true
-                            visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
+                            // Only a plain Wine prefix takes the layers: umu
+                            // and Proton ship their own DXVK/vkd3d.
+                            visible: !gameSettings.wineAvailable && typeBox.currentIndex === 1
                             WidgetsFormLayout {
                                 Layout.fillWidth: true
                                 RowLayout {
@@ -3164,6 +3330,64 @@ Window {
                 objectName: "settingsPrefixPickerClose"
                 text: qsTr("Close")
                 onClicked: prefixDialog.close()
+            }
+        }
+    }
+
+    // Winetricks verb picker: searchable `list-all`; a click appends to
+    // the verbs field and the dialog stays open for the next one.
+    Kirigami.Dialog {
+        id: verbDialog
+        parent: gameSettings.contentItem
+        objectName: "settingsVerbPicker"
+        title: qsTr("Add Winetricks Verb")
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            Layout.fillWidth: true
+            Controls.TextField {
+                id: verbFilterField
+                objectName: "settingsVerbFilter"
+                Layout.fillWidth: true
+                placeholderText: qsTr("Filter Verbs (Name or Description)")
+                onTextChanged: gameSettings.filterVerbs(text)
+            }
+            Controls.Label {
+                objectName: "settingsVerbPickerStatus"
+                visible: gameSettings.verbFiltered.length === 0
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: gameSettings.verbsLoading
+                    ? qsTr("Loading Verbs…")
+                    : (gameSettings.verbCatalog.length === 0
+                        ? qsTr("No Verb List: Winetricks Was Not Found in PATH.")
+                        : qsTr("No Matching Verb."))
+            }
+            ListView {
+                id: verbRows
+                objectName: "settingsVerbRows"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 14)
+                clip: true
+                model: gameSettings.verbFiltered
+                delegate: Controls.ItemDelegate {
+                    required property var modelData
+                    width: ListView.view ? ListView.view.width : 100
+                    text: (modelData.description || "") === ""
+                        ? modelData.verb
+                        : qsTr("%1 — %2").arg(modelData.verb).arg(modelData.description)
+                    onClicked: gameSettings.addVerb(modelData.verb)
+                }
+            }
+        }
+        footer: RowLayout {
+            Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
+            Controls.Button {
+                objectName: "settingsVerbPickerClose"
+                text: qsTr("Close")
+                onClicked: verbDialog.close()
             }
         }
     }

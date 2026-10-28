@@ -12,6 +12,19 @@ def safe_stem(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._") or "unknown"
 
 
+def folder_stem(name: str) -> str:
+    """Readable folder name: ``TK's good-game_1`` -> ``TKsGoodGame1``.
+
+    Apostrophes are dropped inside the word; every other non-alphanumeric
+    separates words. A word keeps its inner capitals and takes an
+    upper-case first letter, so an already-Pascal name round-trips.
+    Empty when nothing alphanumeric survives (callers fall back).
+    """
+    text = re.sub(r"['\u2019]", "", str(name or ""))
+    words = re.split(r"[^A-Za-z0-9]+", text)
+    return "".join(w[:1].upper() + w[1:] for w in words if w)
+
+
 def _env_home(name: str, default: str) -> Path:
     val = os.environ.get(name)
     if val:
