@@ -433,6 +433,61 @@ def test_table_keyboard_navigation(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_table_click_never_scrolls(qgui_app, xdg_env):
+    """A click leaves contentY alone; the keyboard reveals the row.
+
+    Centering the clicked row moved it out from under the cursor, so the
+    second click of a double-click landed on another game.
+    """
+    from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade.gui.model import GameListModel
+
+    for i in range(20):
+        _save_one_game(f"local-s{i:02d}", f"Scroll {i:02d}")
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    table = win.findChild(QQuickItem, "gameTable")
+    page = win.findChild(QObject, "gamesPage")
+    assert proxy.rowCount() == 20
+    height = table.property("height")
+    content = table.property("contentHeight")
+    assert content > height  # the case needs a scrollable list
+    assert table.property("contentY") == 0
+
+    unit = content / proxy.rowCount()
+    rows_fit = int(height // unit)
+    assert rows_fit >= 4  # there are rows below the vertical middle
+    tapped = proxy.data(proxy.index(rows_fit - 1, 0), GameListModel.IdRole)
+    for mods in (
+        Qt.KeyboardModifier.NoModifier,
+        Qt.KeyboardModifier.ControlModifier,
+        Qt.KeyboardModifier.ShiftModifier,
+    ):
+        page.tapGame(tapped, mods)
+        qgui_app.processEvents()
+        assert table.property("contentY") == 0
+
+    # The keyboard still brings Home/End into view, and by the least amount.
+    QTest.keyClick(win, Qt.Key.Key_End)
+    QTest.qWait(80)
+    assert _current_row(table) == proxy.rowCount() - 1
+    y = table.property("contentY")
+    assert y > 0
+    assert y + height >= content - unit
+    QTest.keyClick(win, Qt.Key.Key_Home)
+    QTest.qWait(80)
+    assert _current_row(table) == 0
+    assert table.property("contentY") == 0
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_icon_grid_keyboard_navigation(qgui_app, xdg_env):
     """The icons view takes the keys too: arrows, Home/End, Page keys."""
     from PySide6.QtCore import QObject, Qt

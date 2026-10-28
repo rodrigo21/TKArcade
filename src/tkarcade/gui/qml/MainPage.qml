@@ -254,9 +254,27 @@ Kirigami.Page {
         return Kirigami.Units.gridUnit * 2
     }
 
-    function scrollTableTo(row) {
-        var target = tableRowHeight() * (row + 1) - gameTable.height / 2
-        gameTable.contentY = Math.max(0, target)
+    // Qt item views scrollTo() only reveal an off-screen row, and by the
+    // least amount. Centering on every selection moved the clicked row out
+    // from under the cursor, so a double-click's second click landed on a
+    // different game. Mouse paths never scroll; the keyboard pairs this
+    // with tableSelectAndReveal().
+    function ensureTableRowVisible(row) {
+        var h = tableRowHeight()
+        var top = h * row
+        var maxY = Math.max(0, gameTable.contentHeight - gameTable.height)
+        if (top < gameTable.contentY) {
+            gameTable.contentY = Math.min(maxY, top)
+        } else if (top + h > gameTable.contentY + gameTable.height) {
+            gameTable.contentY = Math.min(maxY, top + h - gameTable.height)
+        }
+    }
+
+    // Keyboard parity with QTableView: select, then bring the row into
+    // view.
+    function tableSelectAndReveal(row) {
+        tableSingleSelect(row)
+        ensureTableRowVisible(row)
     }
 
     function tableSingleSelect(row) {
@@ -270,7 +288,6 @@ Kirigami.Page {
         gameTable.selectionModel.setCurrentIndex(
             index,
             QQmlModels.ItemSelectionModel.ClearAndSelect | selectFlags())
-        gamesPage.scrollTableTo(row)
     }
 
     function tableToggleRow(row) {
@@ -280,7 +297,6 @@ Kirigami.Page {
         var index = gameFilter.proxyIndex(row)
         gameTable.selectionModel.setCurrentIndex(
             index, QQmlModels.ItemSelectionModel.Toggle | selectFlags())
-        gamesPage.scrollTableTo(row)
     }
 
     function tableRangeSelect(row) {
@@ -303,7 +319,6 @@ Kirigami.Page {
         }
         gameTable.selectionModel.setCurrentIndex(
             gameFilter.proxyIndex(row), QQmlModels.ItemSelectionModel.NoUpdate)
-        gamesPage.scrollTableTo(row)
     }
 
     function tablePageRows() {
@@ -319,7 +334,7 @@ Kirigami.Page {
         var current = gameTable.selectionModel.currentIndex
         var row = current !== undefined && current.valid ? current.row : 0
         row = Math.max(0, Math.min(gameFilter.rowCount() - 1, row + delta))
-        tableSingleSelect(row)
+        tableSelectAndReveal(row)
     }
 
     function gridColumns() {
@@ -1911,10 +1926,10 @@ Kirigami.Page {
             Keys.onPressed: (event) => {
                 if (event.key === Qt.Key_Home) {
                     event.accepted = true
-                    gamesPage.tableSingleSelect(0)
+                    gamesPage.tableSelectAndReveal(0)
                 } else if (event.key === Qt.Key_End) {
                     event.accepted = true
-                    gamesPage.tableSingleSelect(gameFilter.rowCount() - 1)
+                    gamesPage.tableSelectAndReveal(gameFilter.rowCount() - 1)
                 } else if (event.key === Qt.Key_PageUp) {
                     event.accepted = true
                     gamesPage.moveTableSelectionPage(-1)

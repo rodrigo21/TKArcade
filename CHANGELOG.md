@@ -30,6 +30,11 @@ Breaking config changes are called out explicitly under `Changed`.
   no longer reports missing layer versions for those environments.
 
 ### Fixed
+- Clicking a row in the list no longer recenters it: every click (plain,
+  Ctrl, Shift) used to scroll the row to the middle of the viewport, so it
+  moved out from under the cursor and a double-click's second click landed
+  on another game. The mouse now never scrolls; the keyboard still brings
+  the current row into view, by the least amount (QTableView parity).
 - Play on a local game no longer launches whatever `tkarcade` sits on
   `PATH`: the child runs the interpreter that owns the GUI, so a branch
   opened from the venv plays the branch. Before, a system package built
