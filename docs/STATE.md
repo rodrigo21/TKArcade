@@ -5,10 +5,10 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, in sync with `origin/main` at `3577594` (the squash of
-  the winetricks/prefix branch). The tree is clean apart from the
-  maintainer's uncommitted `pkgver` in
-  `packaging/arch/tkarcade-git/PKGBUILD`.
+- Branch: `main`, in sync with `origin/main`; the last feature landing
+  is `3577594` (the squash of the winetricks/prefix branch), followed by
+  STATE refreshes. The tree is clean apart from the maintainer's
+  uncommitted `pkgver` in `packaging/arch/tkarcade-git/PKGBUILD`.
 - Landed `3577594` (squash of 4 feature/fix commits plus STATES):
   - Winetricks UI (Runtime → Prefix): `In the Prefix:` reads the
     prefix's `winetricks.log` against the field's draft ("… — Pending at
