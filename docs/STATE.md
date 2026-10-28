@@ -5,8 +5,8 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, in sync with `origin/main` (the Ludusavi landing plus
-  this STATE refresh). The tree is clean apart from the maintainer's
+- Branch: `main`, in sync with `origin/main` (two landings this session
+  plus this STATE refresh). The tree is clean apart from the maintainer's
   uncommitted `pkgver` in `packaging/arch/tkarcade-git/PKGBUILD`, plus
   the `.SRCINFO`/src `.tar.gz` build leftovers next to it. The venv was
   refreshed from this commit.
@@ -20,13 +20,21 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
   (`gui/model._coverage_worker`) all call it. `checkCoverage` takes the
   dialog's name as a third argument, so a rename is reflected before the
   Save, falling back to the saved name when it is empty. The `luName`
-  placeholder reads `Empty = <name>` for local games; Steam games keep
-  the old text. CHANGELOG under Unreleased, no **BREAKING** note (no
-  config key changed).
-- Verified on the merged tree: `scripts/check.sh` → 463 passed,
-  `--qml` → 464 passed, ruff check/format clean. The QML change only
-  passes an extra argument (placeholder and layout untouched), so the
-  branch's offscreen screenshot check still holds.
+  placeholder reads `Empty = <name>` for local games. CHANGELOG under
+  Unreleased, no **BREAKING** note (no config key changed).
+- Landed `fix(gui): stop recentering the list on every row click`: the
+  table centred the clicked row on every selection (plain/Ctrl/Shift), so
+  the row slid out from under the cursor and a double-click's second
+  click hit another game (visible from the rows below the viewport's
+  middle, plain from the 11th with the default height). The mouse paths
+  never scroll now; `ensureTableRowVisible()` (MainPage, next to
+  `tableSelectAndReveal`) reveals the current row by the least amount for
+  the keyboard (arrows, Page, Home/End) — the `QTableView::scrollTo`
+  rule. `test_table_click_never_scrolls` fails on the old code.
+- Verified: `scripts/check.sh` → 463 passed, `--qml` → 464 passed, ruff
+  check/format clean. No visual change in either landing (the QML only
+  gained an argument and the scroll helpers), so the earlier offscreen
+  screenshot checks still hold.
 - Next concrete step: `TODO.md` in order — the icons/cards views (the
   list is done); then the artwork leftovers: per-game provider override
   and "Artwork Cleared" in the Status row.
