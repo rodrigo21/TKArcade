@@ -5,45 +5,31 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, in sync with `origin/main`; the last feature landing
-  is `3577594` (the squash of the winetricks/prefix branch), followed by
-  STATE refreshes. The tree is clean apart from the maintainer's
-  uncommitted `pkgver` in `packaging/arch/tkarcade-git/PKGBUILD`.
-- Landed `3577594` (squash of 4 feature/fix commits plus STATES):
-  - Winetricks UI (Runtime → Prefix): `In the Prefix:` reads the
-    prefix's `winetricks.log` against the field's draft ("… — Pending at
-    Launch: …"); `Add…` searches `winetricks list-all` (parsed once per
-    process, keyed by binary path+mtime) and appends without duplicating;
-    `Protontricks…`/`Winetricks…` opens the tool (`start_new_session`),
-    its output lands in `games/<appid>-winetricks.log`, and a non-zero
-    exit is reported with that path. Refusals: missing binary, no wine,
-    prefix not created yet, Steam + custom prefix, Steam without
-    compatdata ("installed and launched once").
-  - Local prefix layout (**BREAKING**): `[runtime] prefix` and the
-    Preferences base are the base; the WINEPREFIX is always
-    `<base>/<folder>`. Folder = `prefix_name` (the GUI pins it from the
-    game name on save, so renaming never moves the prefix) → game name
-    via `xdg.folder_stem` (`TK's good-game_1` → `TKsGoodGame1`) → AppID.
-    A prefix sitting at the base is folded into the subfolder before the
-    launch; an occupied target exits 14. `Create` makes the subfolder,
-    `Clear…` deletes only it and refuses a shared one. Field label:
-    `Wine Prefix:`. Steam's compatdata dir keeps its own layout.
-  - Play on a local game runs the build the GUI runs from
-    (`sys.executable -m tkarcade.launcher`), not `tkarcade` from PATH
-    (the system package here is post533 and used to refuse with exit 18);
-    the Steam launch-options row names the PATH binary with its version
-    and warns when it differs (`steam-stale`) or is missing.
-  - Graphics (DXVK/vkd3d) is Wine-only: hidden and ignored for umu and
-    Proton (they ship both), an older install is neutralised at launch,
-    `--validate` no longer reports missing versions there.
-  - `AGENTS.md`: refresh the venv after every change, before committing.
-- Verified: `scripts/check.sh --qml` → 460 passed, ruff clean; QML cases
-  `test_settings_winetricks_verbs_ui`, `test_settings_local_runtime_flow`;
-  `.venv` at `post545.dev0+3577594` (the GUI's Play path runs this build).
-- Next concrete step: `TODO.md` in order — Ludusavi defaulting to
-  `[general] name` for local games, then the icons/cards views (the list
-  is done). Small artwork leftovers in the TODO: per-game provider
-  override and showing "Artwork Cleared" in the Status row.
+- Branch: `main`, in sync with `origin/main` (the Ludusavi landing plus
+  this STATE refresh). The tree is clean apart from the maintainer's
+  uncommitted `pkgver` in `packaging/arch/tkarcade-git/PKGBUILD`, plus
+  the `.SRCINFO`/src `.tar.gz` build leftovers next to it. The venv was
+  refreshed from this commit.
+- Landed the squash of `feature/ludusavi-local-name`: Ludusavi resolves
+  a local game by its name. `effective_name(appid, name_override,
+  game_name)` in `backends/ludusavi.py` is the single rule — the explicit
+  override wins, a numeric AppID keeps `--infer steam`, and a `local-*`
+  id falls back to `[general] name` (before, `--infer steam` could never
+  match, so nothing was restored or backed up). The wrap
+  (`launcher._apply_wrappers`), the launch preview and the coverage check
+  (`gui/model._coverage_worker`) all call it. `checkCoverage` takes the
+  dialog's name as a third argument, so a rename is reflected before the
+  Save, falling back to the saved name when it is empty. The `luName`
+  placeholder reads `Empty = <name>` for local games; Steam games keep
+  the old text. CHANGELOG under Unreleased, no **BREAKING** note (no
+  config key changed).
+- Verified on the merged tree: `scripts/check.sh` → 463 passed,
+  `--qml` → 464 passed, ruff check/format clean. The QML change only
+  passes an extra argument (placeholder and layout untouched), so the
+  branch's offscreen screenshot check still holds.
+- Next concrete step: `TODO.md` in order — the icons/cards views (the
+  list is done); then the artwork leftovers: per-game provider override
+  and "Artwork Cleared" in the Status row.
 - Open decisions: the Environment tab name collision; the Steam Linux
   Runtime item — (a) refuse when the runtime is missing from
   `~/.local/share/umu/` (exit 14) or let umu download it, (b) label
