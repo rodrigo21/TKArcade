@@ -107,21 +107,23 @@ Order: (1) local AppID slug + migration — landed; (2) settings reorg;
   `launcher.py` (wrap args), `gui/model.py` (fields/coverage),
   `backends/ludusavi.py` possibly unchanged, backend argv tests for a
   local game (name present) and a Steam game (absent).
-- [ ] Donor AppID (Artwork/Notes) only changes the row icon, and only
-  when the donor's art is already cached; it never downloads anything
-  or touches cover/banner, which reads as "nothing happens" after
-  typing an AppID. `Find…` lists `steam.list_games()` (installed Steam
-  games only) plus local names, and was reported empty with 14 games
-  listed in the main window, so diagnose before changing the behaviour:
-  1. QML case that seeds one Steam + one local game, opens Artwork,
-     clicks `artDonorFind` and counts the choice rows (fails →
-     dialog/model bug; passes → environment-specific).
-  2. In the real app, compare `gameModel.donorCandidates("")` with
-     `steammod.list_games()` / `steammod.local_names()` in the GUI
-     process (`donorCandidates` swallows exceptions and returns `[]`).
-  3. Then make the donor apply to icon, cover and banner, resolving the
-     donor's art through the same path as the game's own (local cache →
-     SteamGridDB when a key is configured), and accept any typed AppID.
+- [ ] Artwork Source AppID: landed (renamed from Donor AppID, official
+  Steam assets first without a key, SteamGridDB as the fallback or
+  first with the "Artwork Source" preference, per-shape download, cache
+  sidecar recording the provider, Status row, forced `Fetch Artwork`).
+  Left: the per-game `[artwork]` block has no way to override the
+  *provider* for one game (the preference is global); decide if a rare
+  mismatched game needs it. A cleared AppID keeps its `"cleared": true`
+  mark in `grids/<appid>.json` with no visible trace in the UI — if the
+  art stops coming back and nobody remembers the Clear, that file is the
+  answer (consider showing "Artwork Cleared" in the Status row).
+- [ ] Views beyond the list (icons and cards): the list is the current
+  focus. Give the Cover slot a consumer — the card's `Kirigami.Card`
+  banner reads `gameIcon`, which falls back to the source AppID's icon,
+  not to the cover — and review the card banner framing. `cover` is
+  written, cleared and migrated today but nothing renders it. Also: the
+  Status row's long text wraps mid-sentence at the 612 px minimum
+  ("…Use Fetch / Artwork."), next to a button with the same words.
 - [ ] Categories redesign: how categories work and how they are added.
   - Drop the Category column from the library list; show the game's
     categories in the right-hand details section instead. The column

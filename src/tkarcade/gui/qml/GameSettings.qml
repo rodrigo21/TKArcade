@@ -74,6 +74,15 @@ Window {
     property var dmodeModel: [{"text": "", "data": ""}]
     property string dmodeCurrent: ""
     property string pendingArg: ""
+    // Last Fetch Artwork outcome. It outranks the computed status until
+    // the next action, because the background refresh lands right after
+    // and would otherwise replace "Artwork Downloaded" with the disk
+    // state of the moment before the download.
+    property string artResult: ""
+    // One width for every button in the Artwork section (and the matching
+    // spacer on the rows with fewer buttons), so the fields line up in a
+    // column instead of each button taking its own text width.
+    readonly property real artButtonWidth: Kirigami.Units.gridUnit * 6
     property string pendingPreset: ""
     property string ptLogDir: ""
     property var page: null
@@ -347,7 +356,8 @@ Window {
         artIconField.text = f.art_icon || ""
         artCoverField.text = f.art_cover || ""
         artBannerField.text = f.art_banner || ""
-        artDonorField.text = f.art_donor || ""
+        artSourceField.text = f.art_source || ""
+        refreshArtStatus()
         menuCheck.checked = !!f.show_menu
         timeoutSpin.value = f.menu_timeout || 0
         notesArea.text = f.notes || ""
@@ -443,7 +453,7 @@ Window {
             "art_icon": artIconField.text,
             "art_cover": artCoverField.text,
             "art_banner": artBannerField.text,
-            "art_donor": artDonorField.text,
+            "art_source": artSourceField.text,
             "notes": notesArea.text,
             "profiles": profiles,
             "env_vars": collectEnv(),
@@ -631,6 +641,9 @@ Window {
             } else if (gate === "reset") {
                 resetDefaults()
             }
+        } else if (confirmPurpose === "clearArtwork") {
+            confirmDialog.close()
+            clearFetchedArtwork()
         } else if (confirmPurpose === "clearPrefix") {
             confirmDialog.close()
             var msg = gameModel.clearCustomPrefix(editAppid)
@@ -879,14 +892,110 @@ Window {
             } else {
                 artBannerField.text = ""
             }
+            refreshArtStatus()
         }
+    }
+
+    // Where the three images come from right now (token from the model),
+    // and which provider produced them, so a typed Artwork Source AppID
+    // stops looking like a no-op.
+    function refreshArtStatus() {
+        var draft = artSourceField.text
+        var token = editAppid === "" ? "none" : gameModel.artworkStatus(editAppid, draft)
+        var provider = editAppid === "" ? "" : gameModel.artworkProvider(editAppid, draft)
+        var name = editAppid === "" ? "" : gameModel.artworkSourceName(editAppid, draft)
+        var source = name !== ""
+            ? qsTr("AppID %1 (%2)").arg(artSourceField.text).arg(name)
+            : qsTr("AppID %1").arg(artSourceField.text)
+        var messages = {
+            "own": qsTr("Using This Game's Own Artwork."),
+            "donor": qsTr("Using Artwork From %1.").arg(source),
+            "mixed": qsTr("Some Artwork Comes From %1.").arg(source),
+            "partial": qsTr("Some Images Are Missing. Use Fetch Artwork to Download Them."),
+            "none": qsTr("No Artwork Yet. Save the Game and Use Fetch Artwork.")
+        }
+        if (artResult !== "") {
+            artStatusLabel.text = artResult
+            return
+        }
+        artStatusLabel.text = (messages[token] || "") + providerSuffix(provider)
+    }
+
+    function providerSuffix(provider) {
+        var providers = {
+            "steam": qsTr(" (Official Steam Artwork)"),
+            "sgdb": qsTr(" (SteamGridDB Artwork)")
+        }
+        return providers[provider] || ""
+    }
+
+    // Clear… confirms first: the cached art belongs to the source AppID,
+    // so other games pointing there lose it too.
+    function requestClearFetched() {
+        confirmPurpose = "clearArtwork"
+        confirmLabel.text = qsTr("Remove the Downloaded Artwork of AppID %1? Any Other Game Using That AppID Falls Back to Steam's Own Art.").arg(artSourceField.text.trim())
+        confirmOk.text = qsTr("Remove")
+        confirmDialog.open()
+    }
+
+    function clearFetchedArtwork() {
+        var err = gameModel.clearFetchedArtwork(editAppid, artSourceField.text)
+        var messages = {
+            "done": qsTr("Downloaded Artwork Removed."),
+            "no-game": qsTr("Save the Game First."),
+            "no-appid": qsTr("There Is No Downloaded Artwork to Remove.")
+        }
+        artResult = messages[err] || qsTr("There Is No Downloaded Artwork to Remove.")
+        refreshArtStatus()
+    }
+
+    function fetchArtwork() {
+        artResult = ""
+        var err = gameModel.fetchArtwork(editAppid, artSourceField.text)
+        var messages = {
+            "": qsTr("Fetching Artwork…"),
+            "no-game": qsTr("Save the Game First."),
+            "no-appid": qsTr("Enter a Steam AppID in Artwork Source AppID First.")
+        }
+        artStatusLabel.text = messages[err] || err
+    }
+
+    // Outcome of the worker thread behind Fetch Artwork.
+    function showFetchResult(status, provider) {
+        var messages = {
+            "ok": qsTr("Artwork Downloaded."),
+            "not-a-steam-app": qsTr("That Number Is Not a Steam AppID (a SteamGridDB Page ID Looks Similar)."),
+            "not-found": qsTr("SteamGridDB Has No Artwork for That AppID."),
+            "blocked": qsTr("SteamGridDB Refused the Request (403). Try Again Later."),
+            "network": qsTr("Could Not Reach the Artwork Servers."),
+            "no-art": qsTr("No Artwork Found for That AppID.")
+        }
+        var text = messages[status] || qsTr("No Artwork Found for That AppID.")
+        if (status === "ok") {
+            text += providerSuffix(provider)
+        }
+        artResult = text
+        refreshArtStatus()
     }
 
     function askChoice(purpose, items, arg) {
         pendingPrompt = purpose
         pendingArg = arg || ""
         choiceError.text = ""
-        choiceBox.model = items
+        // Every row carries its label and value, so the ComboBox can show
+        // the label (textRole) and acceptChoice can read the value. A bare
+        // list of strings used to be fine; a list of objects without a
+        // text role rendered as blank rows.
+        var rows = []
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i]
+            if (item !== null && typeof item === "object") {
+                rows.push({"text": String(item.text), "data": item.data})
+            } else {
+                rows.push({"text": String(item), "data": item})
+            }
+        }
+        choiceBox.model = rows
         choiceBox.currentIndex = 0
         choicePrompt.open()
     }
@@ -911,10 +1020,11 @@ Window {
             if (!gameModel.openPath(path) && page !== null) {
                 page.notify(qsTr("Could Not Open the Config File."))
             }
-        } else if (pendingPrompt === "artDonor") {
+        } else if (pendingPrompt === "artSource") {
             var pick = choiceBox.model[choiceBox.currentIndex]
             if (pick !== undefined && pick.data !== "") {
-                artDonorField.text = pick.data
+                artSourceField.text = pick.data
+                refreshArtStatus()
             }
             choicePrompt.close()
         }
@@ -1171,6 +1281,22 @@ Window {
         profileBox.model = (fresh.profiles || []).slice()
         profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(dialogProfile))
         lastLoaded = snapshot()
+    }
+
+    Connections {
+        target: gameModel
+        // A background fetch landed: the cache behind the rows changed
+        // under the open dialog.
+        function onRefreshed() {
+            if (editAppid !== "") {
+                refreshArtStatus()
+            }
+        }
+        function onArtworkFetched(appid, status, provider) {
+            if (appid === editAppid) {
+                showFetchResult(status, provider)
+            }
+        }
     }
 
     Connections {
@@ -2502,6 +2628,8 @@ Window {
                                     Controls.Button {
                                         objectName: "artIconPick"
                                         text: qsTr("Pick…")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
                                         onClicked: {
                                             gameSettings.pendingBrowse = "art:icon"
                                             gameModel.pickPath(qsTr("Icon Image"), qsTr("Select"))
@@ -2510,6 +2638,8 @@ Window {
                                     Controls.Button {
                                         objectName: "artIconClear"
                                         text: qsTr("Clear")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
                                         onClicked: gameSettings.clearArtwork("icon")
                                     }
                                 }
@@ -2525,6 +2655,8 @@ Window {
                                     Controls.Button {
                                         objectName: "artCoverPick"
                                         text: qsTr("Pick…")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
                                         onClicked: {
                                             gameSettings.pendingBrowse = "art:cover"
                                             gameModel.pickPath(qsTr("Cover Image"), qsTr("Select"))
@@ -2533,6 +2665,8 @@ Window {
                                     Controls.Button {
                                         objectName: "artCoverClear"
                                         text: qsTr("Clear")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
                                         onClicked: gameSettings.clearArtwork("cover")
                                     }
                                 }
@@ -2548,6 +2682,8 @@ Window {
                                     Controls.Button {
                                         objectName: "artBannerPick"
                                         text: qsTr("Pick…")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
                                         onClicked: {
                                             gameSettings.pendingBrowse = "art:banner"
                                             gameModel.pickPath(qsTr("Banner Image"), qsTr("Select"))
@@ -2556,29 +2692,83 @@ Window {
                                     Controls.Button {
                                         objectName: "artBannerClear"
                                         text: qsTr("Clear")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
                                         onClicked: gameSettings.clearArtwork("banner")
                                     }
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Donor AppID:")
+                                    KirigamiLayouts.FormData.label: qsTr("Artwork Source AppID:")
                                     Controls.TextField {
-                                        id: artDonorField
-                                        objectName: "artDonor"
-                                        placeholderText: qsTr("Steam AppID to Reuse Art From")
+                                        id: artSourceField
+                                        objectName: "artSource"
+                                        placeholderText: qsTr("Steam AppID to Take Artwork From")
                                         Layout.fillWidth: true
+                                        Controls.ToolTip.text: qsTr("Steam AppID (installed or not) Whose Artwork This Game Uses. Downloaded From SteamGridDB When a Key Is Set.")
+                                        Controls.ToolTip.visible: hovered
                                     }
                                     Controls.Button {
-                                        objectName: "artDonorFind"
+                                        objectName: "artSourceFind"
                                         text: qsTr("Find…")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
+                                        // One button, left column: the spacer keeps the
+                                        // field the same width as the rows above.
                                         onClicked: {
-                                            var rows = gameModel.donorCandidates("")
+                                            var rows = gameModel.donorCandidates(artSourceField.text)
+                                            if (rows.length === 0) {
+                                                if (page !== null) {
+                                                    page.notify(qsTr("No Games Match That AppID or Name."))
+                                                }
+                                                return
+                                            }
                                             var items = []
                                             for (var i = 0; i < rows.length; i++) {
                                                 items.push({"text": rows[i][1] + " [" + rows[i][0] + "]", "data": rows[i][0]})
                                             }
-                                            gameSettings.askChoice("artDonor", items, "")
+                                            gameSettings.askChoice("artSource", items, "")
                                         }
+                                    }
+                                    Item {
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Status:")
+                                    Controls.Label {
+                                        id: artStatusLabel
+                                        objectName: "artStatus"
+                                        Layout.fillWidth: true
+                                        // Without a 0 preferred/minimum the
+                                        // RowLayout refuses to shrink below
+                                        // implicitWidth, the wrap never
+                                        // fires and the button is pushed
+                                        // past the section edge at 612 px.
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
+                                        wrapMode: Text.WordWrap
+                                    }
+                                    Controls.Button {
+                                        objectName: "artFetch"
+                                        text: qsTr("Fetch Artwork")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
+                                        enabled: editAppid !== ""
+                                        onClicked: gameSettings.fetchArtwork()
+                                    }
+                                    Controls.Button {
+                                        objectName: "artClear"
+                                        text: qsTr("Clear…")
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
+                                        enabled: editAppid !== ""
+                                            && artSourceField.text.trim() !== ""
+                                        onClicked: gameSettings.requestClearFetched()
+                                        Controls.ToolTip.text: qsTr("Remove the Artwork Downloaded From the Artwork Source AppID")
+                                        Controls.ToolTip.visible: hovered
                                     }
                                 }
                             }
@@ -2799,7 +2989,7 @@ Window {
             ? qsTr("Gamescope Preset")
             : (pendingPrompt === "mhTemplate"
                 ? qsTr("Start From:")
-                : qsTr("Reuse Artwork From…"))
+                : qsTr("Take Artwork From…"))
         padding: Kirigami.Units.largeSpacing
         ColumnLayout {
             Controls.ComboBox {
@@ -2807,6 +2997,7 @@ Window {
                 objectName: "settingsChoiceBox"
                 Layout.fillWidth: true
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+                textRole: "text"
             }
             Controls.Label {
                 id: choiceError
@@ -2984,9 +3175,10 @@ Window {
         title: confirmPurpose === "deleteProfile" ? qsTr("Delete Profile")
             : (confirmPurpose === "resetDefaults" ? qsTr("Reset Game")
             : (confirmPurpose === "overwriteProfile" ? qsTr("Save Profile")
+            : (confirmPurpose === "clearArtwork" ? qsTr("Remove Downloaded Artwork")
             : (confirmPurpose === "clearPrefix" ? qsTr("Clear Prefix")
             : (confirmPurpose === "newerApp" ? qsTr("Newer Configuration")
-            : qsTr("Unsaved Changes")))))
+            : qsTr("Unsaved Changes"))))))
         padding: Kirigami.Units.largeSpacing
         ColumnLayout {
             Controls.Label {

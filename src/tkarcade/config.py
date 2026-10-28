@@ -247,7 +247,7 @@ class ArtworkConfig:
     icon: str = ""  # explicit per-game icon override (file path)
     cover: str = ""  # explicit per-game cover/portrait image (file path)
     banner: str = ""  # explicit per-game banner/landscape image (file path)
-    donor_appid: str = ""  # reuse another game's art (e.g. a Steam donor)
+    artwork_appid: str = ""  # Steam AppID whose art this game uses
 
 
 @dataclass
@@ -269,6 +269,7 @@ class Preferences:
     minimize_to_tray: bool = False
     close_to_tray: bool = False
     sgdb_api_key: str = ""
+    artwork_source: str = "steam"  # steam|sgdb: which provider a fetch tries first
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
     column_widths: str = ""  # fitted widths, e.g. "1=210,2=90"
@@ -669,7 +670,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "graphics": {"dxvk", "vkd3d"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
-    "artwork": {"icon", "cover", "banner", "donor_appid"},
+    "artwork": {"icon", "cover", "banner", "artwork_appid"},
 }
 
 
@@ -840,7 +841,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.artwork.icon = str(art.get("icon", ""))
     cfg.artwork.cover = str(art.get("cover", ""))
     cfg.artwork.banner = str(art.get("banner", ""))
-    cfg.artwork.donor_appid = str(art.get("donor_appid", "")).strip()
+    cfg.artwork.artwork_appid = str(art.get("artwork_appid", "")).strip()
     rt = _section(data, "rtupscale")
     cfg.rtupscale.enable = _as_bool(rt.get("enable", False), False)
     cfg.rtupscale.args = str(rt.get("args", ""))
@@ -863,6 +864,8 @@ def load_preferences() -> Preferences:
     out.minimize_to_tray = _as_bool(ui.get("minimize_to_tray", False), False)
     out.close_to_tray = _as_bool(ui.get("close_to_tray", False), False)
     out.sgdb_api_key = str(ui.get("sgdb_api_key", "") or "")
+    artwork_source = str(ui.get("artwork_source", "steam") or "steam").strip()
+    out.artwork_source = artwork_source if artwork_source in ("steam", "sgdb") else "steam"
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
     out.column_widths = _clean_width_map(str(ui.get("column_widths", "") or ""))
@@ -948,6 +951,9 @@ def save_preferences(prefs: Preferences) -> Path:
             "minimize_to_tray": bool(prefs.minimize_to_tray),
             "close_to_tray": bool(prefs.close_to_tray),
             "sgdb_api_key": prefs.sgdb_api_key,
+            "artwork_source": prefs.artwork_source
+            if prefs.artwork_source in ("steam", "sgdb")
+            else "steam",
             "column_order": _clean_int_list(prefs.column_order),
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
             "column_widths": _clean_width_map(prefs.column_widths),
@@ -1234,20 +1240,21 @@ def _move_local_storage(appid: str, new: str, cfg: GameConfig) -> None:
     game_file(appid).unlink(missing_ok=True)
     _move_path(profiles_dir(appid), profiles_dir(new))
     _move_path(artwork.manual_dir(appid), artwork.manual_dir(new))
-    _move_path(artwork.grid_path(appid), artwork.grid_path(new))
+    for kind in artwork.ART_KINDS:
+        _move_path(artwork.grid_path(appid, kind), artwork.grid_path(new, kind))
     _move_path(winetricks.state_path(appid), winetricks.state_path(new))
     _move_path(xdg.game_log_file(appid), xdg.game_log_file(new))
 
 
-def _rewrite_donor_appids(mapping: dict[str, str]) -> None:
-    """Repoint `[artwork] donor_appid` entries at renamed games."""
+def _rewrite_artwork_appids(mapping: dict[str, str]) -> None:
+    """Repoint `[artwork] artwork_appid` entries at renamed games."""
     for appid in list_appids():
         try:
             cfg = load(appid)
         except Exception:
             continue
-        if cfg.artwork.donor_appid.strip() in mapping:
-            cfg.artwork.donor_appid = mapping[cfg.artwork.donor_appid.strip()]
+        if cfg.artwork.artwork_appid.strip() in mapping:
+            cfg.artwork.artwork_appid = mapping[cfg.artwork.artwork_appid.strip()]
             save(cfg)
 
 
@@ -1318,7 +1325,7 @@ def migrate_local_ids() -> list[tuple[str, str]]:
 
     if not renamed:
         return []
-    _rewrite_donor_appids(dict(renamed))
+    _rewrite_artwork_appids(dict(renamed))
     for old, new in renamed:
         try:
             history.rename_appid(xdg.log_file(), old, new)

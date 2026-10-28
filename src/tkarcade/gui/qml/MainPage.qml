@@ -1771,7 +1771,11 @@ Kirigami.Page {
                                 anchors.fill: parent
                                 visible: (model?.gameIcon ?? "") !== ""
                                 source: visible ? "file://" + model?.gameIcon : ""
-                                fillMode: Image.PreserveAspectFit
+                                // Fill the 32x32 cell: official Steam art is
+                                // the client icon (square) or a 460x215
+                                // header, which would otherwise become a
+                                // thin band with empty bars around it.
+                                fillMode: Image.PreserveAspectCrop
                             }
                             Kirigami.Icon {
                                 anchors.centerIn: parent

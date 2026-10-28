@@ -345,7 +345,7 @@ _GAME_FIELDS = {
     "artwork.icon": "/tmp/opencode/i.png",
     "artwork.cover": "/tmp/opencode/c.png",
     "artwork.banner": "/tmp/opencode/b.png",
-    "artwork.donor_appid": "123",
+    "artwork.artwork_appid": "123",
 }
 
 _PREF_FIELDS = {
@@ -356,6 +356,7 @@ _PREF_FIELDS = {
     "minimize_to_tray": True,
     "close_to_tray": True,
     "sgdb_api_key": "secret-key",
+    "artwork_source": "sgdb",
     "column_order": "1,2,3,4,5,6,7,8,9,10,11",
     "hidden_columns": "4,5",
     "column_widths": "1=210,2=90,11=150",
@@ -1048,7 +1049,7 @@ def test_migrate_local_ids_renames_every_store(xdg_env):
     prefix_old = C.prefix_dir(old, "", C.load_preferences().prefix_base, "")
     donor = C.GameConfig()
     donor.general.appid = "42"
-    donor.artwork.donor_appid = old
+    donor.artwork.artwork_appid = old
     C.save(donor)
 
     assert C.migrate_local_ids() == [(old, new)]
@@ -1060,7 +1061,7 @@ def test_migrate_local_ids_renames_every_store(xdg_env):
     assert artwork.grid_path(new).is_file()
     assert winetricks.state_path(new).is_file()
     assert xdg.game_log_file(new).is_file()
-    assert C.load("42").artwork.donor_appid == new
+    assert C.load("42").artwork.artwork_appid == new
     assert f"appid={new}" in xdg.log_file().read_text()
     # The prefix directory is kept; the config points at it by name.
     base = C.load_preferences().prefix_base
@@ -1253,3 +1254,20 @@ def test_legacy_keys_load_as_unset(xdg_env, tmp_path, monkeypatch):
     text = path.read_text()
     assert 'environment = ""' in text
     assert 'game_type = "native"' in text
+
+
+def test_artwork_source_defaults_to_steam_and_rejects_junk(xdg_env):
+    from tkarcade import xdg as xdgmod
+
+    assert C.load_preferences().artwork_source == "steam"
+    prefs = C.load_preferences()
+    prefs.artwork_source = "sgdb"
+    C.save_preferences(prefs)
+    assert C.load_preferences().artwork_source == "sgdb"
+    text = (
+        xdgmod.preferences_file()
+        .read_text()
+        .replace('artwork_source = "sgdb"', 'artwork_source = "bogus"')
+    )
+    xdgmod.preferences_file().write_text(text)
+    assert C.load_preferences().artwork_source == "steam"

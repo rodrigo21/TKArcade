@@ -299,16 +299,26 @@ def clear_games_cache() -> None:
     _GAMES_CACHE.clear()
 
 
-def find_game_icon(appid: str, landscape: bool = False) -> Path | None:
+def _preferred_names(landscape: bool, portrait: bool) -> tuple[str, ...]:
+    """Steam cache file names to try first, by shape (empty = icon first)."""
+    if landscape:
+        return ("header.jpg", "logo.png", "library_600x900.jpg")
+    if portrait:
+        return ("library_600x900.jpg", "header.jpg", "logo.png")
+    return ()
+
+
+def find_game_icon(appid: str, landscape: bool = False, portrait: bool = False) -> Path | None:
     """Return Steam artwork for a game, to use as a list icon.
 
     Modern clients cache per-game art under
     appcache/librarycache/<appid>/ (client icon as <sha1>.jpg, logo.png,
     header.jpg, ...). Older clients used flat <appid>_icon.jpg files;
     both layouts are tried. With landscape=True, wide art wins (better
-    for headers and menu icons).
+    for headers and menu icons); with portrait=True, the 600x900 cover
+    wins instead.
     """
-    ordered = ("header.jpg", "logo.png", "library_600x900.jpg") if landscape else ()
+    ordered = _preferred_names(landscape, portrait)
     for root in steam_roots():
         cache = root / "appcache" / "librarycache"
         try:

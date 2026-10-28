@@ -251,6 +251,30 @@ Breaking config changes are called out explicitly under `Changed`.
   versioned now, so `AI-Model:` trailers match on every machine.
 
 ### Changed
+- **BREAKING**: `[artwork] donor_appid` is now
+  `[artwork] artwork_appid`, the Steam AppID whose art a game uses (it
+  does not have to be installed): a local game can borrow a Steam game's
+  images. The field is renamed "Artwork Source AppID", and the art is
+  resolved per kind (icon, cover, banner) through the manual slot, the
+  cache, Steam's own cache and the source AppID's.
+- Artwork is now fetched from Steam first: the official assets (client
+  icon, `library_600x900` capsule, `library_hero`) come from Steam's
+  public CDN and need no key. A multi-size client icon is unwrapped to
+  its 256x256 PNG, since Qt reads the 16x16 frame otherwise. SteamGridDB
+  is the community fallback and still needs a key; a new Preferences
+  setting, "Artwork Source" (`[ui] artwork_source`, `steam` by default),
+  lets a fetch try SteamGridDB first and use the official art only for
+  what the community has no entry for. `Fetch Artwork` in the
+  Artwork/Notes tab re-downloads the three kinds (so a provider change
+  takes effect) and the Status row names the provider — "Official Steam
+  Artwork" or "SteamGridDB Artwork" — while the art's copy lives in a
+  sidecar. The background fetch covers games whose source AppID is set.
+  "Find…" filters by the AppID or name already typed in the field.
+- "Clear…" (Artwork/Notes) removes the artwork downloaded for the
+  Artwork Source AppID — the cache belongs to that AppID, so every game
+  pointing there falls back together — and marks it, so the background
+  fetch stops filling it back until `Fetch Artwork` is pressed again.
+  Manual picks are untouched.
 - **BREAKING**: the per-game runtime settings live in one `[runtime]`
   section. `[runtime] prefix` replaces `[proton] wine_prefix` (Steam
   compatdata dir) and `[runtime] prefix_dir` (local `WINEPREFIX`), and

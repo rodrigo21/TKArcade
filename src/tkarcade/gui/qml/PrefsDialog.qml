@@ -166,6 +166,31 @@ Window {
                         KirigamiLayouts.FormData.label: qsTr("SteamGridDB Key:")
                     }
                     Controls.ComboBox {
+                        id: artSourceCombo
+                        objectName: "prefsArtworkSource"
+                        Layout.fillWidth: true
+                        model: [
+                            { "text": qsTr("Steam (Official)"), "data": "steam" },
+                            { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" }
+                        ]
+                        textRole: "text"
+                        valueRole: "data"
+                        onActivated: (index) => prefsDialog.setPref(
+                            "artworkSource", model[index].data)
+                        // The form is filled from a property, not by the
+                        // combo itself: a binding keeps the row in step
+                        // with the stored value (and restores itself after
+                        // the user picks another entry).
+                        Binding {
+                            target: artSourceCombo
+                            property: "currentIndex"
+                            value: (prefsDialog.values.artworkSource ?? "steam") === "sgdb" ? 1 : 0
+                        }
+                        Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB Is Community Artwork (Needs a Key). Fetch Artwork Re-Downloads With the Chosen Source.")
+                        Controls.ToolTip.visible: hovered
+                        KirigamiLayouts.FormData.label: qsTr("Artwork Source:")
+                    }
+                    Controls.ComboBox {
                         id: langCombo
                         objectName: "prefsLanguage"
                         Layout.fillWidth: true
