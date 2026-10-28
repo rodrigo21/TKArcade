@@ -14,6 +14,7 @@ import json
 import shutil
 import subprocess
 
+from ..steam import is_steam_id
 from . import is_flatpak_path, which
 
 # Fixed `sh -c` script used to recover the wrapped game's exit code
@@ -30,6 +31,21 @@ def find() -> tuple[str | None, str | None]:
     if is_flatpak_path(path) or "flatpak" in path:
         return path, "flatpak ludusavi may not see Proton prefixes; prefer standalone binary"
     return path, None
+
+
+def effective_name(appid: str, name_override: str, game_name: str) -> str:
+    """The game name `wrap` and the coverage check resolve saves by.
+
+    The explicit override wins. A Steam id lets Ludusavi infer the game;
+    a local game has none (its id is `local-*`), so its `[general]` name
+    is the default. '' tells the caller to infer by Steam id.
+    """
+    override = (name_override or "").strip()
+    if override:
+        return override
+    if is_steam_id(appid):
+        return ""
+    return (game_name or "").strip()
 
 
 def _wrap_options(name_override: str, restore: bool, backup: bool, use_gui: bool) -> list[str]:

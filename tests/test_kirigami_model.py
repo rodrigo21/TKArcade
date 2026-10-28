@@ -1264,6 +1264,52 @@ def test_settings_coverage_reports(qgui_app, xdg_env):
     assert out[0][0] in ("covered", "no-local-saves", "no-entry", "unavailable")
 
 
+def test_settings_coverage_uses_the_dialog_name(qgui_app, xdg_env, monkeypatch):
+    """A local game resolves saves by the dialog name, before any Save."""
+    import time
+
+    from tkarcade.backends import ludusavi as lumod
+    from tkarcade.gui.model import GameListModel
+
+    seen = []
+    monkeypatch.setattr(
+        lumod,
+        "check_coverage",
+        lambda appid, name="": (seen.append((appid, name)), ("no-entry", ""))[1],
+    )
+    model = GameListModel()
+
+    def run(*args):
+        out = []
+        model.coverageFinished.connect(lambda s, d: out.append((s, d)))
+        model.checkCoverage(*args)
+        deadline = time.monotonic() + 30
+        while not out and time.monotonic() < deadline:
+            qgui_app.processEvents()
+            time.sleep(0.01)
+        model.coverageFinished.disconnect()
+        assert out, f"no coverage result for {args}"
+        return out[0]
+
+    # The dialog name, the override, then Steam (its id infers the title).
+    run("local-dialog", "", "Doom")
+    run("local-dialog", "Other", "Doom")
+    run("12345", "", "Portal 2")
+    assert seen == [
+        ("local-dialog", "Doom"),
+        ("local-dialog", "Other"),
+        ("12345", ""),
+    ]
+
+    # Without a dialog name a local game falls back to the saved one.
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-saved"
+    cfg.general.name = "Quake"
+    C.save(cfg)
+    run("local-saved", "", "")
+    assert seen[-1] == ("local-saved", "Quake")
+
+
 def test_export_import_tarball_roundtrip(qgui_app, xdg_env, tmp_path):
     from tkarcade.gui.model import GameListModel
 

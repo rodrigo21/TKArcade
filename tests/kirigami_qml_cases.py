@@ -4932,6 +4932,10 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     assert swin.findChild(QQuickItem, "settingsLog").property("text") != ""
     tabs.setProperty("currentIndex", TAB_SYSTEM)
     qgui_app.processEvents()
+    # Local game: the placeholder names the --infer fallback (empty
+    # resolves saves by the game name, a local-* id never matches Steam).
+    lu_name = swin.findChild(QQuickItem, "luName")
+    assert lu_name.property("placeholderText").startswith("Empty = Doom")
     swin.findChild(QQuickItem, "luEnable").setProperty("checked", True)
     swin.findChild(QQuickItem, "luName").setProperty("text", "Doom 3")
     dlg.save()

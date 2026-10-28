@@ -6,6 +6,13 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- Ludusavi resolves a local game by its name now: without
+  `[ludusavi] name_override` the wrap and the coverage check fall back
+  to `[general] name` for non-Steam ids (`--infer steam` can never match
+  a `local-*` id, so `wrap` used to find nothing). The explicit override
+  still wins and Steam games keep the `--infer` behaviour. The coverage
+  check and the GUI placeholder use the dialog's name, so they are right
+  before the game is saved.
 - **BREAKING**: a local game's WINEPREFIX is always a subfolder now.
   `[runtime] prefix` (and the Preferences prefix base) is the **base**;
   the prefix itself is `<base>/<folder>`, where the folder is

@@ -2100,20 +2100,29 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return ""
 
-    @Slot(str, str)
-    def checkCoverage(self, appid: str, name_override: str) -> None:
-        """Ludusavi coverage check off the GUI thread (coverageFinished)."""
+    @Slot(str, str, str)
+    def checkCoverage(self, appid: str, name_override: str, game_name: str = "") -> None:
+        """Ludusavi coverage check off the GUI thread (coverageFinished).
+
+        game_name is the dialog's (possibly unsaved) name: a local game
+        resolves its saves by it, so the check must not wait for a Save.
+        """
         threading.Thread(
             target=self._coverage_worker,
-            args=(appid, name_override),
+            args=(appid, name_override, game_name),
             daemon=True,
         ).start()
 
-    def _coverage_worker(self, appid: str, name_override: str) -> None:
+    def _coverage_worker(self, appid: str, name_override: str, game_name: str = "") -> None:
         from ..backends import ludusavi as lumod
 
         try:
-            status, detail = lumod.check_coverage(appid, name_override)
+            # Without a dialog name, a local game falls back to the saved one.
+            if not game_name and not steammod.is_steam_id(appid):
+                game_name = cfgmod.load(appid).general.name
+            status, detail = lumod.check_coverage(
+                appid, lumod.effective_name(appid, name_override, game_name)
+            )
         except Exception as e:  # backends must never break the dialog
             status, detail = "unavailable", str(e)
         self.coverageFinished.emit(status, detail)

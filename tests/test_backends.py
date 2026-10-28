@@ -178,6 +178,45 @@ def test_ludusavi_wrap_sentinel(fake_bin, tmp_path):
     assert cmd[-2] == rc and cmd[-1] == "/bin/false"
 
 
+def test_ludusavi_local_game_wraps_by_name(xdg_env, fake_bin):
+    fake_bin("wine")
+    fake_bin("ludusavi")
+    cfg = _local_cfg("wine")
+    cfg.ludusavi.enable = True
+    cmd, _env, _warnings = build_final_command(cfg, [])
+    # A local game has no Steam id to infer: empty resolves saves by name.
+    assert "--name" in cmd and "Doom" in cmd
+    assert "--infer" not in cmd
+
+
+def test_ludusavi_override_beats_the_game_name(xdg_env, fake_bin):
+    fake_bin("wine")
+    fake_bin("ludusavi")
+    cfg = _local_cfg("wine")
+    cfg.ludusavi.enable = True
+    cfg.ludusavi.name_override = "Other"
+    cmd, _env, _warnings = build_final_command(cfg, [])
+    assert "--name" in cmd and "Other" in cmd
+
+
+def test_ludusavi_steam_game_keeps_infer(xdg_env, fake_bin):
+    fake_bin("ludusavi")
+    cfg = C.GameConfig()
+    cfg.general.appid = "12345"
+    cfg.general.name = "Portal 2"
+    cfg.general.environment = "native"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.ludusavi.enable = True
+    cmd, _env, _warnings = build_final_command(cfg, [])
+    assert "--infer" in cmd and "steam" in cmd
+    assert "--name" not in cmd
+    # The rule itself: override, Steam inference, local fallback, blank.
+    assert lu.effective_name("12345", "", "Portal 2") == ""
+    assert lu.effective_name("12345", "Mine", "Portal 2") == "Mine"
+    assert lu.effective_name("local-x", "  ", "Doom") == "Doom"
+    assert lu.effective_name("local-x", "  ", "") == ""
+
+
 def test_prepost_echo_and_failure():
     assert pp.run_hook("t", "/bin/echo", ["hi"], timeout=10) == 0
     assert pp.run_hook("t", "/bin/false", [], timeout=10) == 1

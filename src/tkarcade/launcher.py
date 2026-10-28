@@ -404,7 +404,9 @@ def _apply_wrappers(
     # wrap_rc_file recovers the real game exit code that wrap masks with 0.
     cmd, w = lu_backend.wrap_command(
         cmd,
-        name_override=cfg.ludusavi.name_override,
+        name_override=lu_backend.effective_name(
+            cfg.appid, cfg.ludusavi.name_override, cfg.general.name
+        ),
         enabled=cfg.ludusavi.enable,
         restore=cfg.ludusavi.restore,
         backup=cfg.ludusavi.backup,

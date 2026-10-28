@@ -2724,7 +2724,11 @@ Window {
                                     Controls.TextField {
                                         id: luName
                                         objectName: "luName"
-                                        placeholderText: qsTr("Leave Empty to Detect the Game from Steam")
+                                        // A local game has no Steam id for --infer:
+                                        // empty resolves saves by the game name.
+                                        placeholderText: !fields.is_steam && (fields.name || "") !== ""
+                                            ? qsTr("Empty = %1").arg(fields.name)
+                                            : qsTr("Leave Empty to Detect the Game from Steam")
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("Game Name Override:")
                                     }
@@ -2751,7 +2755,7 @@ Window {
                                         Controls.Button {
                                             objectName: "luCoverage"
                                             text: qsTr("Check Coverage...")
-                                            onClicked: gameModel.checkCoverage(editAppid, luName.text)
+                                            onClicked: gameModel.checkCoverage(editAppid, luName.text, fields.name || "")
                                         }
                                     }
                                 }
