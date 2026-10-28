@@ -340,10 +340,10 @@ def test_fresh_prefix_disarms_after_wipe(xdg_env, monkeypatch, tmp_path):
     pfx = tmp_path / "compatdata" / "77"
     (pfx / "pfx").mkdir(parents=True)
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
-    _save("77", proton={"fresh_prefix": True})
+    _save("77", runtime={"fresh_prefix": True})
     assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
     assert not pfx.exists()
-    assert C.load("77").proton.fresh_prefix is False
+    assert C.load("77").runtime.fresh_prefix is False
 
 
 def test_validate_dangling_profile(xdg_env):

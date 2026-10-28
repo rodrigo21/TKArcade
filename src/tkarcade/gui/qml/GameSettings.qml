@@ -231,17 +231,20 @@ Window {
         localWineField.placeholderText = wine !== ""
             ? qsTr("Empty = %1").arg(wine)
             : qsTr("Empty = wine from PATH")
-        localPrefixField.placeholderText = (opts.default_prefix || "") !== ""
-            ? qsTr("Empty = %1").arg(opts.default_prefix)
-            : qsTr("Empty = the Prefix Base in Preferences")
+        rtPrefixField.placeholderText = gameSettings.wineAvailable
+            ? qsTr("Empty = Steam Default")
+            : ((opts.default_prefix || "") !== ""
+                ? qsTr("Empty = %1").arg(opts.default_prefix)
+                : qsTr("Empty = the Prefix Base in Preferences"))
         protonChoices = opts.protons || []
         protonBox.model = protonChoices.map(function(p) { return p.name })
-        localWineField.text = fields.runtime_wine_binary || ""
-        localPrefixField.text = fields.runtime_prefix_dir || ""
+        if (!gameSettings.wineAvailable) {
+            localWineField.text = fields.runtime_tool || ""
+        }
+        rtPrefixField.text = fields.runtime_prefix || ""
         localPrefixNameField.text = fields.runtime_prefix_name || ""
         refreshPrefixHint()
-        localVerbs.text = fields.runtime_winetricks_verbs || ""
-        var chosen = fields.runtime_proton_path || ""
+        var chosen = fields.runtime_tool || ""
         var idx = -1
         for (var i = 0; i < protonChoices.length; i++) {
             if (protonChoices[i].path === chosen) {
@@ -388,9 +391,8 @@ Window {
         logField.text = editAppid !== "" ? gameModel.gameLogFile(editAppid) : ""
         ptFresh.checked = !!f.fresh_prefix
         refreshAudioSinks(f.audio_sink || "")
-        winePrefixField.text = f.wine_prefix || ""
-        refreshWineTools(f.wine_version || "")
-        ptVerbs.text = f.winetricks_verbs || ""
+        refreshWineTools(f.runtime_tool || "")
+        rtVerbs.text = f.winetricks_verbs || ""
         ptLog.checked = !!f.proton_log
         ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
@@ -476,16 +478,18 @@ Window {
             "nl_disable": nlDisable.checked,
             "nl_provider": ["auto", "plasma", "gnome", "off"][nlProv.currentIndex] || "auto",
             "fresh_prefix": ptFresh.checked,
-            "audio_sink": audioSinkData(),            "wine_prefix": winePrefixField.text,
-            "wine_version": wineToolData(),
-            "winetricks_verbs": ptVerbs.text,
+            "audio_sink": audioSinkData(),
+            "winetricks_verbs": rtVerbs.text,
             "proton_log": ptLog.checked,
             "winedebug": ["", "-all", "+err", "+warn,+err"][ptDebug.currentIndex] || "",
-            "runtime_wine_binary": localWineField.text,
-            "runtime_proton_path": protonChoicePath(),
-            "runtime_prefix_dir": localPrefixField.text,
+            // One prefix key and one tool key; the origin decides how the
+            // launcher reads them (Steam compatdata/compat tool vs full
+            // WINEPREFIX/wine binary/PROTONPATH).
+            "runtime_prefix": rtPrefixField.text,
             "runtime_prefix_name": localPrefixNameField.text,
-            "runtime_winetricks_verbs": localVerbs.text,
+            "runtime_tool": gameSettings.wineAvailable
+                ? wineToolData()
+                : (typeBox.currentIndex === 2 ? protonChoicePath() : localWineField.text),
             "graphics_dxvk": gfxDxvk.checked,
             "graphics_vkd3d": gfxVkd3dValue(),
             "active_profile": dialogProfile
@@ -1250,13 +1254,10 @@ Window {
                 text: qsTr("General")
             }
             Controls.TabButton {
-                text: qsTr("Launch")
-            }
-            Controls.TabButton {
                 text: qsTr("Environment")
             }
             Controls.TabButton {
-                text: qsTr("Compatibility")
+                text: qsTr("Runtime")
             }
             Controls.TabButton {
                 text: qsTr("Performance")
@@ -1321,36 +1322,6 @@ Window {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Game Name:")
                                 }
-                                Controls.ComboBox {
-                                    id: typeBox
-                                    objectName: "settingsType"
-                                    Layout.fillWidth: true
-                                    // The origin decides the choices: Steam
-                                    // games use the Steam Proton runtime, local
-                                    // games their own Wine or umu-run Proton.
-                                    model: (defaultsMode || (fields.is_steam || false))
-                                        ? [qsTr("Proton"), qsTr("Native (Steam Runtime)")]
-                                        : [
-                                            qsTr("Native"),
-                                            qsTr("Wine"),
-                                            qsTr("Proton (UMU)")
-                                        ]
-                                    displayText: currentIndex >= 0 ? currentText : qsTr("Choose...")
-                                    KirigamiLayouts.FormData.label: qsTr("Environment:")
-                                    onActivated: {
-                                        runtimeField.text = gameSettings.runtimeText()
-                                        gfxStatus = gameSettings.gfxStatusText()
-                                    }
-                                }
-                                Controls.TextField {
-                                    id: runtimeField
-                                    objectName: "settingsRuntime"
-                                    visible: !defaultsMode && editAppid !== ""
-                                        && typeBox.currentIndex >= 0
-                                    readOnly: true
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
-                                }
                                 Controls.TextField {
                                     id: catsField
                                     objectName: "settingsCats"
@@ -1404,25 +1375,6 @@ Window {
                                 }
                             }
                         }
-                    }
-                }
-            }
-            Controls.ScrollView {
-                clip: true
-                objectName: "settingsLaunchScroll"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                // ScrollView takes its scrollable size from the content's
-                // implicitHeight; a plain Item has none, so sizing the
-                // wrapper with `height:` leaves contentHeight at -1 and the
-                // content is squeezed into the viewport (nothing scrolls).
-                Item {
-                    width: parent.width
-                    implicitHeight: launchColumn.implicitHeight
-                    ColumnLayout {
-                        id: launchColumn
-                        width: parent.width
-                        spacing: Kirigami.Units.smallSpacing
                         SectionBox {
                             title: qsTr("Launch")
                             Layout.fillWidth: true
@@ -1430,7 +1382,12 @@ Window {
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Custom Executable:")
+                                    // Local games keep their only executable
+                                    // here; Steam games use it to launch an
+                                    // alternate one.
+                                    KirigamiLayouts.FormData.label: (fields.is_steam || false)
+                                        ? qsTr("Custom Executable (Override):")
+                                        : qsTr("Game Executable:")
                                     Controls.TextField {
                                         id: exeField
                                         objectName: "settingsExe"
@@ -1451,12 +1408,10 @@ Window {
                                             }
                                             if (gameSettings.pendingBrowse === "launchCwd") {
                                                 cwdField.text = picked
-                                            } else if (gameSettings.pendingBrowse === "winePrefix") {
-                                                winePrefixField.text = picked
+                                            } else if (gameSettings.pendingBrowse === "runtimePrefix") {
+                                                rtPrefixField.text = picked
                                             } else if (gameSettings.pendingBrowse === "localWine") {
                                                 localWineField.text = picked
-                                            } else if (gameSettings.pendingBrowse === "localPrefix") {
-                                                localPrefixField.text = picked
                                             } else if (gameSettings.pendingBrowse.indexOf("art:") === 0) {
                                                 var kind = gameSettings.pendingBrowse.slice(4)
                                                 var msg = gameModel.storeArtwork(
@@ -1585,50 +1540,6 @@ Window {
                                             }
                                         }
                                     }
-                                }
-                            }
-                        }
-                        SectionBox {
-                            title: qsTr("Pre/Post Commands")
-                            Layout.fillWidth: true
-                            WidgetsFormLayout {
-                                id: ppForm
-                                Layout.fillWidth: true
-                                Controls.TextField {
-                                    id: ppPre
-                                    objectName: "ppPre"
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Pre-Launch Command:")
-                                }
-                                Controls.TextField {
-                                    id: ppPreArgs
-                                    objectName: "ppPreArgs"
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Pre-Launch Arguments:")
-                                }
-                                Controls.TextField {
-                                    id: ppPost
-                                    objectName: "ppPost"
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Post-Exit Command:")
-                                }
-                                Controls.TextField {
-                                    id: ppPostArgs
-                                    objectName: "ppPostArgs"
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Post-Exit Arguments:")
-                                }
-                                Controls.SpinBox {
-                                    id: ppTimeout
-                                    objectName: "ppTimeout"
-                                    from: 1
-                                    to: 3600
-                                    KirigamiLayouts.FormData.label: qsTr("Timeout (Seconds):")
-                                }
-                                Controls.CheckBox {
-                                    id: ppShell
-                                    objectName: "ppShell"
-                                    text: qsTr("Run in Shell (bash -c)")
                                 }
                             }
                         }
@@ -1777,6 +1688,50 @@ Window {
                         Layout.fillWidth: true
                     }
                 }
+                SectionBox {
+                    title: qsTr("Pre/Post Commands")
+                    Layout.fillWidth: true
+                    WidgetsFormLayout {
+                        id: ppForm
+                        Layout.fillWidth: true
+                        Controls.TextField {
+                            id: ppPre
+                            objectName: "ppPre"
+                            Layout.fillWidth: true
+                            KirigamiLayouts.FormData.label: qsTr("Pre-Launch Command:")
+                        }
+                        Controls.TextField {
+                            id: ppPreArgs
+                            objectName: "ppPreArgs"
+                            Layout.fillWidth: true
+                            KirigamiLayouts.FormData.label: qsTr("Pre-Launch Arguments:")
+                        }
+                        Controls.TextField {
+                            id: ppPost
+                            objectName: "ppPost"
+                            Layout.fillWidth: true
+                            KirigamiLayouts.FormData.label: qsTr("Post-Exit Command:")
+                        }
+                        Controls.TextField {
+                            id: ppPostArgs
+                            objectName: "ppPostArgs"
+                            Layout.fillWidth: true
+                            KirigamiLayouts.FormData.label: qsTr("Post-Exit Arguments:")
+                        }
+                        Controls.SpinBox {
+                            id: ppTimeout
+                            objectName: "ppTimeout"
+                            from: 1
+                            to: 3600
+                            KirigamiLayouts.FormData.label: qsTr("Timeout (Seconds):")
+                        }
+                        Controls.CheckBox {
+                            id: ppShell
+                            objectName: "ppShell"
+                            text: qsTr("Run in Shell (bash -c)")
+                        }
+                    }
+                }
             }
             Controls.ScrollView {
                 clip: true
@@ -1795,22 +1750,43 @@ Window {
                         width: parent.width
                         spacing: Kirigami.Units.smallSpacing
                         SectionBox {
-                            title: qsTr("Windows Runtime")
+                            title: qsTr("Runtime")
                             Layout.fillWidth: true
-                            visible: !defaultsMode && !(fields.is_steam || false)
                             WidgetsFormLayout {
-                                id: localForm
-                                objectName: "localRuntimeForm"
                                 Layout.fillWidth: true
-                                Controls.Label {
-                                    objectName: "localRuntimeHint"
+                                Controls.ComboBox {
+                                    id: typeBox
+                                    objectName: "settingsType"
                                     Layout.fillWidth: true
-                                    wrapMode: Text.WordWrap
-                                    text: qsTr("Local Windows Games Run Through Wine or Proton (umu-run). Nothing Is Downloaded: Pick an Installed Tool.")
+                                    // The origin decides the choices: Steam
+                                    // games use the Steam Proton runtime, local
+                                    // games their own Wine or umu-run Proton.
+                                    model: (defaultsMode || (fields.is_steam || false))
+                                        ? [qsTr("Proton"), qsTr("Native (Steam Runtime)")]
+                                        : [
+                                            qsTr("Native"),
+                                            qsTr("Wine"),
+                                            qsTr("Proton (UMU)")
+                                        ]
+                                    displayText: currentIndex >= 0 ? currentText : qsTr("Choose...")
+                                    KirigamiLayouts.FormData.label: qsTr("Environment:")
+                                    onActivated: {
+                                        runtimeField.text = gameSettings.runtimeText()
+                                        gfxStatus = gameSettings.gfxStatusText()
+                                    }
+                                }
+                                Controls.TextField {
+                                    id: runtimeField
+                                    objectName: "settingsRuntime"
+                                    visible: !defaultsMode && editAppid !== ""
+                                        && typeBox.currentIndex >= 0
+                                    readOnly: true
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: typeBox.currentIndex === 1
+                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex === 1
                                     KirigamiLayouts.FormData.label: qsTr("Wine Binary:")
                                     Controls.TextField {
                                         id: localWineField
@@ -1829,7 +1805,7 @@ Window {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: typeBox.currentIndex === 2
+                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex === 2
                                     KirigamiLayouts.FormData.label: qsTr("Proton:")
                                     Controls.ComboBox {
                                         id: protonBox
@@ -1841,191 +1817,7 @@ Window {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: typeBox.currentIndex >= 1
-                                    KirigamiLayouts.FormData.label: qsTr("Prefix Name:")
-                                    Controls.TextField {
-                                        id: localPrefixNameField
-                                        objectName: "settingsLocalPrefixName"
-                                        Layout.fillWidth: true
-                                        placeholderText: editAppid !== ""
-                                            ? qsTr("Empty = %1").arg(editAppid)
-                                            : qsTr("Empty = the Game ID")
-                                        onTextChanged: gameSettings.refreshPrefixHint()
-                                    }
-                                    Controls.Button {
-                                        objectName: "settingsLocalPrefixNameChoose"
-                                        text: qsTr("Choose…")
-                                        onClicked: gameSettings.openPrefixChoices()
-                                    }
-                                }
-                                Controls.Label {
-                                    objectName: "settingsLocalPrefixHint"
-                                    visible: typeBox.currentIndex >= 1 && gameSettings.prefixHint !== ""
-                                    Layout.fillWidth: true
-                                    Layout.leftMargin: Kirigami.Units.gridUnit * 8
-                                    wrapMode: Text.WordWrap
-                                    opacity: 0.7
-                                    text: gameSettings.prefixHint
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    visible: typeBox.currentIndex >= 1
-                                    KirigamiLayouts.FormData.label: qsTr("Prefix Dir:")
-                                    Controls.TextField {
-                                        id: localPrefixField
-                                        objectName: "settingsLocalPrefix"
-                                        Layout.fillWidth: true
-                                    }
-                                    Controls.Button {
-                                        objectName: "settingsLocalPrefixBrowse"
-                                        text: qsTr("Browse…")
-                                        onClicked: {
-                                            gameSettings.pendingBrowse = "localPrefix"
-                                            gameModel.pickDir(qsTr("Prefix Dir"), qsTr("Select"))
-                                        }
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    visible: typeBox.currentIndex >= 1
-                                    KirigamiLayouts.FormData.label: qsTr("DXVK:")
-                                    Controls.CheckBox {
-                                        id: gfxDxvk
-                                        objectName: "settingsGraphicsDxvk"
-                                        text: qsTr("D3D9/10/11 Through DXVK")
-                                        onCheckedChanged: gfxStatus = gameSettings.gfxStatusText()
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    visible: typeBox.currentIndex >= 1
-                                    KirigamiLayouts.FormData.label: qsTr("D3D12 Layer:")
-                                    Controls.ComboBox {
-                                        id: gfxVkd3d
-                                        objectName: "settingsGraphicsVkd3d"
-                                        Layout.fillWidth: true
-                                        model: [
-                                            qsTr("Off (Wine Builtin)"),
-                                            qsTr("vkd3d-proton"),
-                                            qsTr("vkd3d (Wine Builtin, Lower Compatibility)")
-                                        ]
-                                        onActivated: gfxStatus = gameSettings.gfxStatusText()
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    visible: typeBox.currentIndex >= 1
-                                    Controls.Label {
-                                        objectName: "settingsGfxStatus"
-                                        Layout.fillWidth: true
-                                        wrapMode: Text.WordWrap
-                                        text: gameSettings.gfxStatus
-                                    }
-                                    Controls.Button {
-                                        objectName: "settingsGfxRemove"
-                                        text: qsTr("Remove from Prefix")
-                                        enabled: Object.keys(gameSettings.gfxInfo.installed || {}).length > 0
-                                        onClicked: {
-                                            var msg = gameModel.removeGraphics(editAppid)
-                                            if (msg !== "") {
-                                                settingsError.text = msg
-                                            }
-                                            gameSettings.refreshGfx(false)
-                                        }
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    visible: typeBox.currentIndex >= 1
-                                    KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
-                                    Controls.TextField {
-                                        id: localVerbs
-                                        objectName: "settingsLocalVerbs"
-                                        Layout.fillWidth: true
-                                        placeholderText: qsTr("dotnet48 vcrun2022 (Space-Separated)")
-                                        Controls.ToolTip.text: qsTr("Installed with winetricks into This Prefix Before Launch; the Prefix Must Already Exist.")
-                                        Controls.ToolTip.visible: hovered
-                                    }
-                                }
-                            }
-                        }
-                        SectionBox {
-                            title: qsTr("Wine")
-                            Layout.fillWidth: true
-                            WidgetsFormLayout {
-                                id: wineForm
-                                objectName: "wineForm"
-                                Layout.fillWidth: true
-                                enabled: gameSettings.wineAvailable
-                                Controls.CheckBox {
-                                    id: ptFresh
-                                    objectName: "ptFresh"
-                                    text: qsTr("Delete Prefix Before Launch (Fresh Start)")
-                                    Controls.ToolTip.text: qsTr("Deletes the Compatdata Prefix So Steam Recreates It. WIPES Saves Inside the Prefix — Rely on Cloud or Ludusavi Backups!")
-                                    Controls.ToolTip.visible: hovered
-                                }
-                                Controls.TextField {
-                                    id: ptVerbs
-                                    objectName: "ptVerbs"
-                                    placeholderText: qsTr("dotnet48 vcrun2022 (Space-Separated)")
-                                    Controls.ToolTip.text: qsTr("Winetricks Verbs Installed via protontricks Before Launch.")
-                                    Controls.ToolTip.visible: hovered
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Custom Prefix Dir:")
-                                    Controls.TextField {
-                                        id: winePrefixField
-                                        objectName: "winePrefix"
-                                        placeholderText: qsTr("Empty = Steam Default")
-                                        Layout.fillWidth: true
-                                    }
-                                    Controls.Button {
-                                        objectName: "winePrefixBrowse"
-                                        text: qsTr("Browse…")
-                                        onClicked: {
-                                            gameSettings.pendingBrowse = "winePrefix"
-                                            gameModel.pickDir(qsTr("Custom Prefix Dir"), qsTr("Select"))
-                                        }
-                                    }
-                                    Controls.Button {
-                                        objectName: "winePrefixCreate"
-                                        text: qsTr("Create")
-                                        onClicked: {
-                                            var msg = gameModel.ensurePrefix(editAppid)
-                                            if (msg !== "") {
-                                                settingsError.text = msg
-                                            }
-                                        }
-                                    }
-                                    Controls.Button {
-                                        objectName: "winePrefixClear"
-                                        text: qsTr("Clear…")
-                                        onClicked: {
-                                            if (winePrefixField.text.trim() === "") {
-                                                return
-                                            }
-                                            confirmLabel.text = qsTr("Delete the Custom Prefix Dir Now?\n%1\nSaves Inside Are Lost.").arg(
-                                                winePrefixField.text.trim())
-                                            confirmPurpose = "clearPrefix"
-                                            confirmOk.text = qsTr("Delete")
-                                            confirmDialog.open()
-                                        }
-                                    }
-                                    Controls.Button {
-                                        objectName: "winePrefixOpen"
-                                        text: qsTr("Open")
-                                        onClicked: {
-                                            if (!gameModel.openPath(gameModel.prefixDir(editAppid))) {
-                                                settingsError.text = qsTr("Could Not Open the Prefix Folder.")
-                                            }
-                                        }
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
+                                    visible: gameSettings.wineAvailable
                                     KirigamiLayouts.FormData.label: qsTr("Compat Tool:")
                                     Controls.ComboBox {
                                         id: wineToolBox
@@ -2046,25 +1838,206 @@ Window {
                                         }
                                     }
                                 }
-                            }
-                            // A local game has no compatdata prefix: the tab
-                            // stays reachable and says why, instead of a grey
-                            // wall (or a disabled tab button).
-                            Controls.Label {
-                                objectName: "wineSteamOnlyNote"
-                                visible: !gameSettings.wineAvailable
-                                Layout.fillWidth: true
-                                wrapMode: Text.WordWrap
-                                text: qsTr("These Are Steam Proton Settings. Local Games Use the Windows Runtime Section.")
+                                Controls.Label {
+                                    objectName: "localRuntimeHint"
+                                    // Native needs no tool: the sentence
+                                    // only makes sense for Wine/umu.
+                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 0
+                                    Layout.minimumWidth: 0
+                                    wrapMode: Text.WordWrap
+                                    text: qsTr("Local Windows Games Run Through Wine or Proton (umu-run). Nothing Is Downloaded: Pick an Installed Tool.")
+                                }
                             }
                         }
                         SectionBox {
-                            title: qsTr("Proton")
+                            title: qsTr("Prefix")
+                            Layout.fillWidth: true
+                            // Steam always has a compatdata dir; local games
+                            // only once a Wine/umu runtime is chosen.
+                            visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
+                            WidgetsFormLayout {
+                                Layout.fillWidth: true
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
+                                    KirigamiLayouts.FormData.label: qsTr("Prefix Name:")
+                                    Controls.TextField {
+                                        id: localPrefixNameField
+                                        objectName: "settingsLocalPrefixName"
+                                        Layout.fillWidth: true
+                                        placeholderText: editAppid !== ""
+                                            ? qsTr("Empty = %1").arg(editAppid)
+                                            : qsTr("Empty = the Game ID")
+                                        onTextChanged: gameSettings.refreshPrefixHint()
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsLocalPrefixNameChoose"
+                                        text: qsTr("Choose…")
+                                        onClicked: gameSettings.openPrefixChoices()
+                                    }
+                                }
+                                Controls.Label {
+                                    objectName: "settingsLocalPrefixHint"
+                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
+                                        && gameSettings.prefixHint !== ""
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: Kirigami.Units.gridUnit * 8
+                                    wrapMode: Text.WordWrap
+                                    opacity: 0.7
+                                    text: gameSettings.prefixHint
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    // One field for both origins: for Steam it
+                                    // is the compatdata dir (STEAM_COMPAT_DATA_PATH),
+                                    // for local games the full prefix dir
+                                    // (WINEPREFIX).
+                                    visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
+                                    KirigamiLayouts.FormData.label: gameSettings.wineAvailable
+                                        ? qsTr("Custom Prefix Dir:")
+                                        : qsTr("Prefix Dir:")
+                                    Controls.TextField {
+                                        id: rtPrefixField
+                                        objectName: "winePrefix"
+                                        Layout.fillWidth: true
+                                        placeholderText: gameSettings.wineAvailable
+                                            ? qsTr("Empty = Steam Default")
+                                            : qsTr("Empty = the Prefix Base in Preferences")
+                                    }
+                                    Controls.Button {
+                                        objectName: "winePrefixBrowse"
+                                        text: qsTr("Browse…")
+                                        onClicked: {
+                                            gameSettings.pendingBrowse = "runtimePrefix"
+                                            gameModel.pickDir(qsTr("Prefix Dir"), qsTr("Select"))
+                                        }
+                                    }
+                                    Controls.Button {
+                                        objectName: "winePrefixCreate"
+                                        visible: gameSettings.wineAvailable
+                                        text: qsTr("Create")
+                                        onClicked: {
+                                            var msg = gameModel.ensurePrefix(editAppid)
+                                            if (msg !== "") {
+                                                settingsError.text = msg
+                                            }
+                                        }
+                                    }
+                                    Controls.Button {
+                                        objectName: "winePrefixClear"
+                                        visible: gameSettings.wineAvailable
+                                        text: qsTr("Clear…")
+                                        onClicked: {
+                                            if (rtPrefixField.text.trim() === "") {
+                                                return
+                                            }
+                                            confirmLabel.text = qsTr("Delete the Custom Prefix Dir Now?\n%1\nSaves Inside Are Lost.").arg(
+                                                rtPrefixField.text.trim())
+                                            confirmPurpose = "clearPrefix"
+                                            confirmOk.text = qsTr("Delete")
+                                            confirmDialog.open()
+                                        }
+                                    }
+                                    Controls.Button {
+                                        objectName: "winePrefixOpen"
+                                        visible: gameSettings.wineAvailable
+                                        text: qsTr("Open")
+                                        onClicked: {
+                                            if (!gameModel.openPath(gameModel.prefixDir(editAppid))) {
+                                                settingsError.text = qsTr("Could Not Open the Prefix Folder.")
+                                            }
+                                        }
+                                    }
+                                }
+                                Controls.CheckBox {
+                                    id: ptFresh
+                                    objectName: "ptFresh"
+                                    visible: gameSettings.wineAvailable
+                                    text: qsTr("Delete Prefix Before Launch (Fresh Start)")
+                                    Controls.ToolTip.text: qsTr("Deletes the Compatdata Prefix So Steam Recreates It. WIPES Saves Inside the Prefix — Rely on Cloud or Ludusavi Backups!")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.TextField {
+                                    id: rtVerbs
+                                    objectName: "ptVerbs"
+                                    placeholderText: qsTr("dotnet48 vcrun2022 (Space-Separated)")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Winetricks Verbs:")
+                                    Controls.ToolTip.text: gameSettings.wineAvailable
+                                        ? qsTr("Winetricks Verbs Installed via protontricks Before Launch.")
+                                        : qsTr("Installed with winetricks into This Prefix Before Launch; the Prefix Must Already Exist.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                            }
+                        }
+                        SectionBox {
+                            title: qsTr("Graphics")
+                            Layout.fillWidth: true
+                            visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
+                            WidgetsFormLayout {
+                                Layout.fillWidth: true
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("DXVK:")
+                                    Controls.CheckBox {
+                                        id: gfxDxvk
+                                        objectName: "settingsGraphicsDxvk"
+                                        text: qsTr("D3D9/10/11 Through DXVK")
+                                        onCheckedChanged: gfxStatus = gameSettings.gfxStatusText()
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("D3D12 Layer:")
+                                    Controls.ComboBox {
+                                        id: gfxVkd3d
+                                        objectName: "settingsGraphicsVkd3d"
+                                        Layout.fillWidth: true
+                                        model: [
+                                            qsTr("Off (Wine Builtin)"),
+                                            qsTr("vkd3d-proton"),
+                                            qsTr("vkd3d (Wine Builtin, Lower Compatibility)")
+                                        ]
+                                        onActivated: gfxStatus = gameSettings.gfxStatusText()
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Controls.Label {
+                                        objectName: "settingsGfxStatus"
+                                        Layout.fillWidth: true
+                                        // A wrapped sentence reports its
+                                        // whole line as implicit width; left
+                                        // alone it pushes the Remove button
+                                        // past the frame edge.
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
+                                        wrapMode: Text.WordWrap
+                                        text: gameSettings.gfxStatus
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsGfxRemove"
+                                        text: qsTr("Remove from Prefix")
+                                        enabled: Object.keys(gameSettings.gfxInfo.installed || {}).length > 0
+                                        onClicked: {
+                                            var msg = gameModel.removeGraphics(editAppid)
+                                            if (msg !== "") {
+                                                settingsError.text = msg
+                                            }
+                                            gameSettings.refreshGfx(false)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        SectionBox {
+                            title: qsTr("Debug")
                             Layout.fillWidth: true
                             visible: gameSettings.wineAvailable
                             WidgetsFormLayout {
                                 Layout.fillWidth: true
-                                enabled: gameSettings.wineAvailable
                                 RowLayout {
                                     visible: editAppid !== ""
                                     Layout.fillWidth: true
@@ -2367,6 +2340,25 @@ Window {
                                 }
                             }
                             SectionBox {
+                                title: qsTr("Night Light")
+                                Layout.fillWidth: true
+                                WidgetsFormLayout {
+                                    Layout.fillWidth: true
+                                    Controls.CheckBox {
+                                        id: nlDisable
+                                        objectName: "nlDisable"
+                                        text: qsTr("Disable Night Light While the Game Is Running (Restored on Exit)")
+                                    }
+                                    Controls.ComboBox {
+                                        id: nlProv
+                                        objectName: "nlProv"
+                                        Layout.fillWidth: true
+                                        model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("Disabled")]
+                                        KirigamiLayouts.FormData.label: qsTr("Provider:")
+                                    }
+                                }
+                            }
+                            SectionBox {
                                 title: qsTr("Network")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
@@ -2386,25 +2378,6 @@ Window {
                                         wrapMode: Text.WordWrap
                                         color: Kirigami.Theme.negativeTextColor
                                         text: qsTr("Unprivileged Network Namespaces Are Unavailable Here; the Launcher Will Refuse to Start This Game.")
-                                    }
-                                }
-                            }
-                            SectionBox {
-                                title: qsTr("Night Light")
-                                Layout.fillWidth: true
-                                WidgetsFormLayout {
-                                    Layout.fillWidth: true
-                                    Controls.CheckBox {
-                                        id: nlDisable
-                                        objectName: "nlDisable"
-                                        text: qsTr("Disable Night Light While the Game Is Running (Restored on Exit)")
-                                    }
-                                    Controls.ComboBox {
-                                        id: nlProv
-                                        objectName: "nlProv"
-                                        Layout.fillWidth: true
-                                        model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("Disabled")]
-                                        KirigamiLayouts.FormData.label: qsTr("Provider:")
                                     }
                                 }
                             }

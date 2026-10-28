@@ -534,8 +534,20 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1259"/>
-        <source>Compatibility</source>
-        <translation>Compatibilidade</translation>
+        <source>Runtime</source>
+        <translation>Runtime</translation>
+    </message>
+    <message>
+        <source>Prefix</source>
+        <translation>Prefixo</translation>
+    </message>
+    <message>
+        <source>Graphics</source>
+        <translation>Gráficos</translation>
+    </message>
+    <message>
+        <source>Debug</source>
+        <translation>Depuração</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1338"/>
@@ -599,8 +611,13 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1433"/>
-        <source>Custom Executable:</source>
-        <translation>Executável Personalizado:</translation>
+        <source>Custom Executable (Override):</source>
+        <translation>Executável Personalizado (Substituição):</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1433"/>
+        <source>Game Executable:</source>
+        <translation>Executável do Jogo:</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1437"/>

@@ -951,7 +951,7 @@ def test_umu_local_command(xdg_env, fake_bin, tmp_path):
     proton.mkdir()
     (proton / "proton").write_text("#!/bin/sh\n")
     cfg = _local_cfg("umu")
-    cfg.runtime.proton_path = str(proton)
+    cfg.runtime.tool = str(proton)
     cmd, env, _warnings = build_final_command(cfg, [])
     assert cmd == [str(umu), "/games/doom.exe"]
     assert env["PROTONPATH"] == str(proton.resolve())
@@ -961,18 +961,18 @@ def test_umu_local_command(xdg_env, fake_bin, tmp_path):
 def test_prefix_overrides(xdg_env, fake_bin, tmp_path):
     fake_bin("wine")
     cfg = _local_cfg("wine")
-    cfg.runtime.prefix_dir = str(tmp_path / "custom-prefix")
+    cfg.runtime.prefix = str(tmp_path / "custom-prefix")
     _cmd, env, _warnings = build_final_command(cfg, [])
     assert env["WINEPREFIX"] == str(tmp_path / "custom-prefix")
-    cfg.runtime.prefix_dir = ""
+    cfg.runtime.prefix = ""
     cfg.runtime.prefix_name = "Friendly Doom"
     _cmd, env, _warnings = build_final_command(cfg, [])
     assert env["WINEPREFIX"] == str(xdg_env["data"] / "tkarcade" / "prefixes" / "Friendly_Doom")
-    cfg.runtime.prefix_dir = str(tmp_path / "named-override")
+    cfg.runtime.prefix = str(tmp_path / "named-override")
     cfg.runtime.prefix_name = "ignored"
     _cmd, env, _warnings = build_final_command(cfg, [])
     assert env["WINEPREFIX"] == str(tmp_path / "named-override")
-    cfg.runtime.prefix_dir = ""
+    cfg.runtime.prefix = ""
     cfg.runtime.prefix_name = ""
     prefs = C.load_preferences()
     prefs.prefix_base = str(tmp_path / "bases")
@@ -985,7 +985,7 @@ def test_wine_binary_override(xdg_env, fake_bin):
     fake_bin("wine")
     custom = fake_bin("custom-wine")
     cfg = _local_cfg("wine")
-    cfg.runtime.wine_binary = str(custom)
+    cfg.runtime.tool = str(custom)
     cmd, _env, _warnings = build_final_command(cfg, [])
     assert cmd[0] == str(custom)
 
@@ -1009,7 +1009,7 @@ def test_umu_missing_pieces_raise(fake_bin, monkeypatch, tmp_path):
     proton = tmp_path / "GE-Proton9-1"
     proton.mkdir()
     (proton / "proton").write_text("#!/bin/sh\n")
-    cfg.runtime.proton_path = str(proton)
+    cfg.runtime.tool = str(proton)
     cmd, _env, _warnings = build_final_command(cfg, [])
     assert cmd[0].endswith("umu-run")
 

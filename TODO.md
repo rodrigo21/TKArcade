@@ -69,19 +69,59 @@ Order: (1) local AppID slug + migration — landed; (2) settings reorg;
 (3) game metadata fields and categories.
 
 - [ ] Settings reorg (option B: break config keys where it helps).
-  - Merge the `Game` and `Launch` tabs.
-  - Unify the duplicated `[proton]`/`[runtime]` keys: one store for
-    `winetricks_verbs`, the prefix override and tool selection
-    (`wine_prefix` vs `prefix_dir`/`prefix_name`, `wine_version` vs
-    `proton_path`). Today the same feature lives in two sections chosen
-    by environment, in the config and in the window.
-  - Rename the `Environment` tab (env vars): it collides with
-    `[general] environment` (proton/native/wine/umu).
-  - Rework the remaining tabs: `Compatibility` mixes runtime choice,
-    graphics layers and debug; `System` holds network/audio/night
-    light/Ludusavi.
-  - Old configs lose the moved keys (policy: no shims pre-1.0) — call
-    it out in CHANGELOG.
+  Landed on the `settings-reorg` branch, awaiting the maintainer's
+  review:
+  - `Game` and `Launch` merge on General; Pre/Post moves to the
+    Environment tab (which now holds the env vars too).
+  - One `[runtime]` section: `prefix` (Steam compatdata dir or local
+    `WINEPREFIX`) and `tool` (compat tool / Wine binary / `PROTONPATH`)
+    replace the duplicated `[proton]`/`[runtime]` stores; `[proton]` is
+    gone and old keys stay as ignored extras.
+  - `Compatibility` becomes `Runtime` (environment, tool, prefix,
+    verbs, graphics layers, debug) and `System` orders Night Light
+    before Network.
+  - Deferred: rename the `Environment` tab (its name still collides
+    with the `[general] environment` runtime choice, now on Runtime).
+- [ ] Winetricks/Protontricks inside the Runtime tab (`Prefix` section).
+  - A button that opens the interactive tool UI: Steam games use
+    `protontricks --gui <appid>`; local games use `winetricks --gui`
+    with the resolved `WINEPREFIX`. Refuse with a clear message when
+    the binary is missing (same shape as the dependency status rows).
+  - Show the verbs already applied, read-only, from the prefix's
+    `winetricks.log` (protontricks writes through winetricks, so one
+    reader covers both). Helper next to `proton.run_winetricks` /
+    `winetricks.py`, e.g. `installed_verbs(prefix) -> list[str]`.
+  - Adding a verb should not require knowing its name: a searchable
+    picker fed by `winetricks list-all` (cached per process) that
+    appends to the existing verbs field.
+  - Files/tests: `proton.py` or `winetricks.py` (parser + cache),
+    `gui/model.py` (slots), `GameSettings.qml` (prefix section), a
+    backend unit test for the log parser and one QML case.
+- [ ] Ludusavi name for local games. Without `[ludusavi] name_override`
+  Ludusavi resolves the game by Steam AppID, and a local game has none
+  (its id is `local-*`), so `wrap` finds nothing. Default the name to
+  `[general] name` when the game is not a Steam id and the override is
+  empty, and keep the explicit override winning. In the GUI the field
+  placeholder should read `Empty = <game name>` for local games, and
+  the coverage check should use the same fallback. Files/tests:
+  `launcher.py` (wrap args), `gui/model.py` (fields/coverage),
+  `backends/ludusavi.py` possibly unchanged, backend argv tests for a
+  local game (name present) and a Steam game (absent).
+- [ ] Donor AppID (Artwork/Notes) only changes the row icon, and only
+  when the donor's art is already cached; it never downloads anything
+  or touches cover/banner, which reads as "nothing happens" after
+  typing an AppID. `Find…` lists `steam.list_games()` (installed Steam
+  games only) plus local names, and was reported empty with 14 games
+  listed in the main window, so diagnose before changing the behaviour:
+  1. QML case that seeds one Steam + one local game, opens Artwork,
+     clicks `artDonorFind` and counts the choice rows (fails →
+     dialog/model bug; passes → environment-specific).
+  2. In the real app, compare `gameModel.donorCandidates("")` with
+     `steammod.list_games()` / `steammod.local_names()` in the GUI
+     process (`donorCandidates` swallows exceptions and returns `[]`).
+  3. Then make the donor apply to icon, cover and banner, resolving the
+     donor's art through the same path as the game's own (local cache →
+     SteamGridDB when a key is configured), and accept any typed AppID.
 - [ ] Categories redesign: how categories work and how they are added.
   - Drop the Category column from the library list; show the game's
     categories in the right-hand details section instead. The column

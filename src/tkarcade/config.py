@@ -199,22 +199,23 @@ class RtUpscaleConfig:
 
 
 @dataclass
-class ProtonConfig:
-    fresh_prefix: bool = False
-    winetricks_verbs: list[str] = field(default_factory=list)
-    wine_prefix: str = ""  # custom compatdata dir ("" = Steam default location)
-    wine_version: str = ""  # preferred compat tool ("" = Steam default)
-
-
-@dataclass
 class RuntimeConfig:
-    """Per-game runtime path overrides (empty = use the global setting)."""
+    """Runtime choice and prefix overrides (empty = use the global setting).
 
-    wine_binary: str = ""  # wine executable path or name
-    proton_path: str = ""  # umu PROTONPATH (install dir or compatibilitytools name)
-    prefix_dir: str = ""  # full prefix dir; empty = <prefix_base>/<appid>
-    prefix_name: str = ""  # friendly dir name under prefix_base ("" = appid)
+    ``prefix`` and ``tool`` mean whatever the environment makes them mean,
+    because only one environment is active at a time:
+
+    - ``prefix``: Steam compatdata dir (``STEAM_COMPAT_DATA_PATH``) for
+      ``proton``; the full ``WINEPREFIX`` for ``wine``/``umu``.
+    - ``tool``: preferred Steam compat tool for ``proton``; the Wine
+      executable for ``wine``; the umu ``PROTONPATH`` for ``umu``.
+    """
+
+    fresh_prefix: bool = False  # Steam only: wipe the compatdata before launch
     winetricks_verbs: list[str] = field(default_factory=list)
+    prefix: str = ""  # custom prefix dir ("" = Steam default / <prefix_base>/<appid>)
+    prefix_name: str = ""  # local only: friendly dir name under prefix_base ("" = appid)
+    tool: str = ""  # runtime tool ("" = Steam default / global preference)
 
 
 #: Graphics translation layers offered for local Wine/UMU games. DXVK and
@@ -303,7 +304,6 @@ class GameConfig:
     debug: DebugConfig = field(default_factory=DebugConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
     network: NetworkConfig = field(default_factory=NetworkConfig)
-    proton: ProtonConfig = field(default_factory=ProtonConfig)
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
     graphics: GraphicsConfig = field(default_factory=GraphicsConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
@@ -340,7 +340,6 @@ def to_toml_dict(cfg: GameConfig) -> dict:
         "debug": _to_toml_value(cfg.debug),
         "session": _to_toml_value(cfg.session),
         "network": _to_toml_value(cfg.network),
-        "proton": _to_toml_value(cfg.proton),
         "runtime": _to_toml_value(cfg.runtime),
         "graphics": _to_toml_value(cfg.graphics),
         "audio": _to_toml_value(cfg.audio),
@@ -666,8 +665,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
     "network": {"block_internet"},
-    "proton": {"fresh_prefix", "winetricks_verbs", "wine_prefix", "wine_version"},
-    "runtime": {"wine_binary", "proton_path", "prefix_dir", "prefix_name", "winetricks_verbs"},
+    "runtime": {"fresh_prefix", "winetricks_verbs", "prefix", "prefix_name", "tool"},
     "graphics": {"dxvk", "vkd3d"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
@@ -828,16 +826,12 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.network.block_internet = _as_bool(
         _section(data, "network").get("block_internet", False), False
     )
-    cfg.proton.fresh_prefix = _as_bool(_section(data, "proton").get("fresh_prefix", False), False)
-    cfg.proton.winetricks_verbs = _str_list(_section(data, "proton").get("winetricks_verbs", []))
-    cfg.proton.wine_prefix = str(_section(data, "proton").get("wine_prefix", ""))
-    cfg.proton.wine_version = str(_section(data, "proton").get("wine_version", ""))
     rt = _section(data, "runtime")
-    cfg.runtime.wine_binary = str(rt.get("wine_binary", "")).strip()
-    cfg.runtime.proton_path = str(rt.get("proton_path", "")).strip()
-    cfg.runtime.prefix_dir = str(rt.get("prefix_dir", "")).strip()
-    cfg.runtime.prefix_name = str(rt.get("prefix_name", "")).strip()
+    cfg.runtime.fresh_prefix = _as_bool(rt.get("fresh_prefix", False), False)
     cfg.runtime.winetricks_verbs = _str_list(rt.get("winetricks_verbs", []))
+    cfg.runtime.prefix = str(rt.get("prefix", "")).strip()
+    cfg.runtime.prefix_name = str(rt.get("prefix_name", "")).strip()
+    cfg.runtime.tool = str(rt.get("tool", "")).strip()
     gfx = _section(data, "graphics")
     cfg.graphics.dxvk = _as_bool(gfx.get("dxvk", False), False)
     cfg.graphics.vkd3d = normalize_graphics_vkd3d(gfx.get("vkd3d", ""))
@@ -1216,7 +1210,7 @@ def _pin_prefix(appid: str, new: str, cfg: GameConfig) -> None:
     Renaming a Wine prefix directory would break the absolute paths in
     its registry, so the directory stays and the config points at it.
     """
-    if cfg.runtime.prefix_dir.strip():
+    if cfg.runtime.prefix.strip():
         return
     base = load_preferences().prefix_base
     old_path = prefix_dir(appid, "", base, cfg.runtime.prefix_name)
@@ -1227,7 +1221,7 @@ def _pin_prefix(appid: str, new: str, cfg: GameConfig) -> None:
     cfg.runtime.prefix_name = xdg.safe_stem(old_path.name)
     if prefix_dir(new, "", base, cfg.runtime.prefix_name) != old_path:
         cfg.runtime.prefix_name = ""
-        cfg.runtime.prefix_dir = os.fspath(old_path)
+        cfg.runtime.prefix = os.fspath(old_path)
 
 
 def _move_local_storage(appid: str, new: str, cfg: GameConfig) -> None:

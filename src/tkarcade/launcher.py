@@ -259,16 +259,29 @@ def swap_native_executable(game_cmd: list[str], custom: str) -> list[str]:
     return [custom, *game_cmd[1:]]
 
 
-def _runtime_paths(cfg: cfgmod.GameConfig) -> dict:
-    """Resolved Wine/UMU paths: prefix, wine binary, Proton install, prefs."""
+def _runtime_paths(cfg: cfgmod.GameConfig, environment: str = "") -> dict:
+    """Resolved Wine/UMU paths: prefix, wine binary, Proton install, prefs.
+
+    ``runtime.tool`` is one key whose meaning depends on the environment:
+    the Wine executable for ``wine``, the umu ``PROTONPATH`` for ``umu``
+    (both fall back to the preferences) and a Steam compat tool name for
+    ``proton`` (read by Steam, not here).
+    """
     prefs = cfgmod.load_preferences()
     appid = cfg.general.appid.strip()
+    tool = cfg.runtime.tool.strip()
+    wine = None
+    proton = None
+    if environment == "wine":
+        wine = runtimes.wine_binary(tool or prefs.wine_binary)
+    elif environment == "umu":
+        proton = runtimes.find_proton(tool, prefs.proton_dirs)
     return {
         "prefix": cfgmod.prefix_dir(
-            appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+            appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
         ),
-        "wine": runtimes.wine_binary(cfg.runtime.wine_binary or prefs.wine_binary),
-        "proton": runtimes.find_proton(cfg.runtime.proton_path, prefs.proton_dirs),
+        "wine": wine,
+        "proton": proton,
         "prefs": prefs,
     }
 
@@ -430,7 +443,7 @@ def _build_env(
         warnings += _force_xwayland(env)
     _debug_env(env, cfg)
     if environment == "proton":
-        prefix = cfg.proton.wine_prefix.strip()
+        prefix = cfg.runtime.prefix.strip()
         if prefix and "STEAM_COMPAT_DATA_PATH" not in env:
             env["STEAM_COMPAT_DATA_PATH"] = prefix
     elif environment in ("wine", "umu") and runtime:
@@ -473,7 +486,7 @@ def build_final_command(
     environment = cfgmod.normalize_environment(cfg.general.environment)
     if not environment:
         raise EnvironmentNotSetError("environment not set")
-    runtime = _runtime_paths(cfg) if environment in ("wine", "umu") else None
+    runtime = _runtime_paths(cfg, environment) if environment in ("wine", "umu") else None
     cmd, warnings = _game_argv(cfg, game_cmd, environment, runtime)
     cmd = _apply_custom_prefix(cmd, cfg.general.custom_prefix.strip())
     cmd, w = _apply_fps_cap(cmd, cfg)
@@ -526,7 +539,7 @@ def active_wrappers(cfg: cfgmod.GameConfig) -> list[str]:
         ("Night Light", cfg.nightlight.disable_during_game),
         ("Block Internet", cfg.network.block_internet),
         ("Idle Inhibit", cfg.session.inhibit_idle),
-        ("Fresh Prefix", cfg.proton.fresh_prefix),
+        ("Fresh Prefix", cfg.runtime.fresh_prefix),
     )
     return [label for label, enabled in rules if enabled]
 
@@ -544,10 +557,10 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
     elif environment == "native":
         runtime = protonmod.native_runtime(game_cmd)
     elif environment == "wine":
-        wine = _runtime_paths(cfg)["wine"]
+        wine = _runtime_paths(cfg, "wine")["wine"]
         runtime = os.path.basename(wine) if wine else "wine"
     elif environment == "umu":
-        install = _runtime_paths(cfg)["proton"]
+        install = _runtime_paths(cfg, "umu")["proton"]
         proton_display = f"Proton via umu ({install.name})" if install else "Proton via umu"
     icon_path = steammod.find_game_icon(appid)
     icon = str(icon_path) if icon_path else ""
@@ -621,12 +634,12 @@ def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
         return []
     prefs = cfgmod.load_preferences()
     if environment == "wine":
-        wine = runtimes.wine_binary(eff.runtime.wine_binary or prefs.wine_binary)
+        wine = runtimes.wine_binary(eff.runtime.tool or prefs.wine_binary)
         return [] if wine else [f"{appid}: wine binary not found (see Preferences)"]
     issues = []
     if not shutil.which("umu-run"):
         issues.append(f"{appid}: umu-run not found in PATH (install umu-launcher)")
-    if runtimes.find_proton(eff.runtime.proton_path, prefs.proton_dirs) is None:
+    if runtimes.find_proton(eff.runtime.tool, prefs.proton_dirs) is None:
         issues.append(f"{appid}: umu needs a Proton install (set it in the game settings)")
     return issues
 
@@ -1159,7 +1172,7 @@ def _disarm_fresh_prefix(appid: str, cfg: cfgmod.GameConfig) -> None:
         log.warning("fresh_prefix: %s", w)
     if not wiped_ok:
         return
-    cfg.proton.fresh_prefix = False
+    cfg.runtime.fresh_prefix = False
     try:
         cfgmod.save(cfg)
         log.info("fresh_prefix disarmed after wipe")
@@ -1172,18 +1185,18 @@ def _prepare_launch(appid: str, cfg: cfgmod.GameConfig) -> None:
     # Before ludusavi wrap: wipe the broken prefix, Steam recreates it, then
     # restore brings the saves back into it. One-shot: disarm the toggle
     # afterwards so later launches (and winetricks state) stay consistent.
-    if cfg.proton.fresh_prefix:
+    if cfg.runtime.fresh_prefix:
         _disarm_fresh_prefix(appid, cfg)
     environment = cfgmod.normalize_environment(cfg.general.environment)
     if environment == "proton":
-        run = protonmod.run_winetricks(appid, cfg.proton.winetricks_verbs)
+        run = protonmod.run_winetricks(appid, cfg.runtime.winetricks_verbs)
     elif environment in ("wine", "umu") and cfg.runtime.winetricks_verbs:
         prefs = cfgmod.load_preferences()
         prefix = cfgmod.prefix_dir(
-            appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+            appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
         )
-        wine = runtimes.wine_binary(cfg.runtime.wine_binary or prefs.wine_binary)
-        proton = runtimes.find_proton(cfg.runtime.proton_path, prefs.proton_dirs)
+        wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_binary)
+        proton = runtimes.find_proton(cfg.runtime.tool, prefs.proton_dirs)
         run = wtmod.run_local(
             appid, prefix, environment, wine, proton, cfg.runtime.winetricks_verbs
         )

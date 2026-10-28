@@ -88,12 +88,19 @@ def test_wrong_shaped_sections_load_fresh(xdg_env):
     assert loaded.pre_post.pre_args == []
 
 
-def test_proton_config_roundtrip(xdg_env):
+def test_runtime_config_roundtrip(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "72"
-    cfg.proton.fresh_prefix = True
+    cfg.runtime.fresh_prefix = True
+    cfg.runtime.prefix = "/tmp/opencode/prefix"
+    cfg.runtime.tool = "GE-Proton9-1"
+    cfg.runtime.winetricks_verbs = ["corefonts"]
     C.save(cfg)
-    assert C.load("72").proton.fresh_prefix is True
+    loaded = C.load("72")
+    assert loaded.runtime.fresh_prefix is True
+    assert loaded.runtime.prefix == "/tmp/opencode/prefix"
+    assert loaded.runtime.tool == "GE-Proton9-1"
+    assert loaded.runtime.winetricks_verbs == ["corefonts"]
 
 
 def test_prepare_fresh_prefix(monkeypatch, tmp_path):
@@ -325,15 +332,11 @@ _GAME_FIELDS = {
     "debug.winedebug": "+all",
     "session.inhibit_idle": True,
     "network.block_internet": True,
-    "proton.fresh_prefix": True,
-    "proton.winetricks_verbs": ["corefonts"],
-    "proton.wine_prefix": "/tmp/opencode/prefix",
-    "proton.wine_version": "GE-Proton9-1",
-    "runtime.wine_binary": "/tmp/opencode/wine/bin/wine",
-    "runtime.proton_path": "/tmp/opencode/GE-Proton9-1",
-    "runtime.prefix_dir": "/tmp/opencode/local-prefix",
-    "runtime.prefix_name": "Doom Eternal",
+    "runtime.fresh_prefix": True,
     "runtime.winetricks_verbs": ["corefonts"],
+    "runtime.prefix": "/tmp/opencode/prefix",
+    "runtime.tool": "GE-Proton9-1",
+    "runtime.prefix_name": "Doom Eternal",
     "graphics.dxvk": True,
     "graphics.vkd3d": "proton",
     "audio.sink": "alsa_output.pci-0000_00_1f.3.analog-stereo",
@@ -1064,8 +1067,7 @@ def test_migrate_local_ids_renames_every_store(xdg_env):
     migrated = C.load(new)
     assert migrated.runtime.prefix_name == old
     assert (
-        C.prefix_dir(new, migrated.runtime.prefix_dir, base, migrated.runtime.prefix_name)
-        == prefix_old
+        C.prefix_dir(new, migrated.runtime.prefix, base, migrated.runtime.prefix_name) == prefix_old
     )
     assert (prefix_old / "drive_c").is_dir()
     # Idempotent.

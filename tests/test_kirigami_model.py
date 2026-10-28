@@ -349,7 +349,7 @@ def test_leftovers_include_logs_history_and_prefix(qgui_app, xdg_env, tmp_path):
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
-    cfg.runtime.prefix_dir = str(prefix)
+    cfg.runtime.prefix = str(prefix)
     C.save(cfg)
     profiles = C.profiles_dir("local-doom")
     profiles.mkdir(parents=True)
@@ -391,7 +391,7 @@ def test_leftover_prefix_option_deletes_owned_prefix(qgui_app, xdg_env, tmp_path
     cfg = C.GameConfig()
     cfg.general.appid = "local-quake"
     cfg.general.name = "Quake"
-    cfg.runtime.prefix_dir = str(prefix)
+    cfg.runtime.prefix = str(prefix)
     C.save(cfg)
     model = GameListModel()
     model.removeGames(["local-quake"])
@@ -1037,9 +1037,10 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
 
     cfg = C.GameConfig()
     cfg.general.appid = "99"
-    cfg.proton.fresh_prefix = True
-    cfg.proton.winetricks_verbs = ["dotnet48"]
-    cfg.runtime.winetricks_verbs = ["corefonts"]
+    cfg.runtime.fresh_prefix = True
+    cfg.runtime.winetricks_verbs = ["dotnet48"]
+    cfg.runtime.tool = "GE-Proton9-1"
+    cfg.runtime.prefix = "/tmp/opencode/pfx"
     cfg.debug.proton_log = True
     cfg.debug.winedebug = "+err"
     C.save(cfg)
@@ -1047,19 +1048,20 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
     fields = model.loadGame("99")
     assert fields["fresh_prefix"] is True
     assert fields["winetricks_verbs"] == "dotnet48"
-    assert fields["runtime_winetricks_verbs"] == "corefonts"
+    assert fields["runtime_tool"] == "GE-Proton9-1"
+    assert fields["runtime_prefix"] == "/tmp/opencode/pfx"
     assert fields["proton_log"] is True
     assert fields["winedebug"] == "+err"
     assert model.protonLogDir("99").endswith("99/proton")
     out = dict(fields)
     out["winedebug"] = "bogus"
     out["winetricks_verbs"] = "vcrun2022 dotnet48"
-    out["runtime_winetricks_verbs"] = "corefonts vcrun2019"
+    out["runtime_tool"] = "wine-9.0"
     assert model.saveGame("99", out) == "99"
     reloaded = C.load("99")
     assert reloaded.debug.winedebug == ""
-    assert reloaded.proton.winetricks_verbs == ["vcrun2022", "dotnet48"]
-    assert reloaded.runtime.winetricks_verbs == ["corefonts", "vcrun2019"]
+    assert reloaded.runtime.winetricks_verbs == ["vcrun2022", "dotnet48"]
+    assert reloaded.runtime.tool == "wine-9.0"
 
 
 def test_prefix_name_state_and_choices(qgui_app, xdg_env, tmp_path):

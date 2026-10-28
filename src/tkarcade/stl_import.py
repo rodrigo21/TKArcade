@@ -184,7 +184,7 @@ def _map_hooks(get, cfg: cfgmod.GameConfig, report: list[str]) -> None:
 def _map_proton(get, cfg: cfgmod.GameConfig, report: list[str]) -> None:
     """Winetricks verbs and the Wine debug selector."""
     verbs = (get("WINETRICKSPAKS") or "").split()
-    cfg.proton.winetricks_verbs = [v for v in verbs if v.lower() not in _UNSET]
+    cfg.runtime.winetricks_verbs = [v for v in verbs if v.lower() not in _UNSET]
     winedebug = get("STLWINEDEBUG")
     if winedebug and winedebug not in _KNOWN_WINEDEBUG:
         report.append(f"STLWINEDEBUG {winedebug!r} has no equivalent selector; left Off")

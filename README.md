@@ -63,11 +63,15 @@ TKArcade only reads what is on disk: install and update Proton with
 ProtonPlus/ProtonUp-Qt, Wine with the distro.
 
 Prefixes live in `$XDG_DATA_HOME/tkarcade/prefixes/<appid>` by default.
-Preferences moves the base, and a per-game `[runtime] prefix_dir` wins;
+Preferences moves the base, and a per-game `[runtime] prefix` wins;
 `[runtime] prefix_name` uses a readable directory name instead of the
 game id (sanitized, still under the base).
-`[runtime] wine_binary` and `[runtime] proton_path` override the global
-choices per game. `[runtime] winetricks_verbs` runs the host
+`[runtime] tool` overrides the global choice per game, and its meaning
+follows `[general] environment`: a Steam compat tool for `proton`, the
+Wine binary for `wine`, the `PROTONPATH` install for `umu`. The same
+applies to `[runtime] prefix`: Steam's compatdata dir for `proton`, the
+full `WINEPREFIX` path for local games.
+`[runtime] winetricks_verbs` runs the host
 `winetricks` before launch against an existing prefix (`WINE` is the
 chosen Wine binary, or the selected Proton's `files/bin/wine` for umu);
 launch once first so the runtime creates the prefix.
@@ -86,7 +90,7 @@ appid = "local-doom"
 environment = "umu"
 
 [runtime]
-proton_path = "/home/user/GE-Proton10-25"
+tool = "/home/user/GE-Proton10-25"
 
 [graphics]
 dxvk = true
@@ -104,14 +108,15 @@ double-click the ProtonDB rating to open its page; the Played column
 totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.
 
-**Game dialog** — tabs for General, Launch (executable, prefix, extra
-args, working directory, pre-launch menu, pre/post commands),
-Environment (variables + curated presets), Compatibility (Steam Proton
-settings, or the Windows runtime for local games: Wine binary or umu
-Proton, prefix, DXVK and vkd3d layers), Performance (GameMode, MangoHud, RT
-upscaler), Display (Gamescope, monitor mode), System (notifications,
-idle suspend, night light, audio, Ludusavi saves) and Artwork/Notes. The
-footer shows the live wrapper summary and a launch-command preview.
+**Game dialog** — tabs for General (the game and its launch settings),
+Environment (variables, curated presets and the pre/post commands),
+Runtime
+(the environment selector and tool, prefix, winetricks verbs, DXVK and
+vkd3d layers, Proton debug switches), Performance (GameMode, MangoHud,
+RT upscaler), Display (Gamescope, monitor mode), System (notifications,
+idle suspend, network, night light, audio, Ludusavi saves) and
+Artwork/Notes. The footer shows the live wrapper summary and a
+launch-command preview.
 
 **Profiles** — named snapshots per game. Selecting one changes what
 launches; saving with a profile active writes the profile (Game
@@ -129,7 +134,7 @@ warn instead of silently resetting.
 * `$XDG_CONFIG_HOME/tkarcade/profiles/<appid>/<name>.toml` — profiles.
 * `$XDG_CONFIG_HOME/tkarcade/defaults.toml` — new-game template only.
 * `$XDG_DATA_HOME/tkarcade/prefixes/<appid>/` — local Windows prefixes
-  (default base; Preferences can move it, per-game `runtime.prefix_dir`
+  (default base; Preferences can move it, per-game `runtime.prefix`
   wins, `runtime.prefix_name` picks a readable directory name).
 * `$XDG_STATE_HOME/tkarcade/games/<appid>.log` and `launcher.log`.
 * `$XDG_CACHE_HOME/tkarcade/` — e.g. the ProtonDB tier cache.

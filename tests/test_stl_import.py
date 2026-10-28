@@ -64,7 +64,7 @@ def test_map_full_game():
     assert cfg.general.custom_executable == "/games/launcher.exe"
     assert cfg.pre_post.pre_command == "/s/pre.sh"
     assert cfg.pre_post.post_command == "/s/post.sh"
-    assert cfg.proton.winetricks_verbs == ["dotnet48", "vcrun2022"]
+    assert cfg.runtime.winetricks_verbs == ["dotnet48", "vcrun2022"]
     assert cfg.debug.proton_log is True
     assert cfg.debug.winedebug == "-all"
     assert cfg.env.vars == {"PROTON_FORCE_LARGE_ADDRESS_AWARE": "1"}

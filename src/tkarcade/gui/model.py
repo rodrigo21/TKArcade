@@ -582,8 +582,8 @@ class GameListModel(QAbstractTableModel):
                 return protonmod.tool_display(appid)
             except Exception:
                 return "Proton"
-        if gcfg is not None and gcfg.proton.wine_version:
-            return gcfg.proton.wine_version
+        if gcfg is not None and gcfg.runtime.tool:
+            return gcfg.runtime.tool
         return ""
 
     @staticmethod
@@ -742,18 +742,14 @@ class GameListModel(QAbstractTableModel):
             "nl_provider": cfg.nightlight.provider
             if cfg.nightlight.provider in ("auto", "plasma", "gnome", "off")
             else "auto",
-            "fresh_prefix": bool(cfg.proton.fresh_prefix),
+            "fresh_prefix": bool(cfg.runtime.fresh_prefix),
             "audio_sink": cfg.audio.sink,
-            "winetricks_verbs": " ".join(cfg.proton.winetricks_verbs),
-            "wine_prefix": cfg.proton.wine_prefix,
-            "wine_version": cfg.proton.wine_version,
+            "winetricks_verbs": " ".join(cfg.runtime.winetricks_verbs),
             "proton_log": bool(cfg.debug.proton_log),
             "winedebug": cfg.debug.winedebug,
-            "runtime_wine_binary": cfg.runtime.wine_binary,
-            "runtime_proton_path": cfg.runtime.proton_path,
-            "runtime_prefix_dir": cfg.runtime.prefix_dir,
+            "runtime_prefix": cfg.runtime.prefix,
             "runtime_prefix_name": cfg.runtime.prefix_name,
-            "runtime_winetricks_verbs": " ".join(cfg.runtime.winetricks_verbs),
+            "runtime_tool": cfg.runtime.tool,
             "graphics_dxvk": bool(cfg.graphics.dxvk),
             "graphics_vkd3d": cfgmod.normalize_graphics_vkd3d(cfg.graphics.vkd3d),
         }
@@ -924,11 +920,9 @@ class GameListModel(QAbstractTableModel):
         except (TypeError, ValueError):
             cfg.general.menu_timeout = 0
         cfg.general.custom_prefix = str(data.get("custom_prefix", "")).strip()
-        cfg.runtime.wine_binary = str(data.get("runtime_wine_binary", "")).strip()
-        cfg.runtime.proton_path = str(data.get("runtime_proton_path", "")).strip()
-        cfg.runtime.prefix_dir = str(data.get("runtime_prefix_dir", "")).strip()
+        cfg.runtime.prefix = str(data.get("runtime_prefix", "")).strip()
         cfg.runtime.prefix_name = str(data.get("runtime_prefix_name", "")).strip()
-        cfg.runtime.winetricks_verbs = _split_args(str(data.get("runtime_winetricks_verbs", "")))
+        cfg.runtime.tool = str(data.get("runtime_tool", "")).strip()
         cfg.graphics.dxvk = bool(data.get("graphics_dxvk", False))
         cfg.graphics.vkd3d = cfgmod.normalize_graphics_vkd3d(data.get("graphics_vkd3d", ""))
         cats = data.get("categories", [])
@@ -994,10 +988,8 @@ class GameListModel(QAbstractTableModel):
         cfg.nightlight.provider = (
             nl_provider if nl_provider in ("auto", "plasma", "gnome", "off") else "auto"
         )
-        cfg.proton.fresh_prefix = bool(data.get("fresh_prefix", False))
-        cfg.proton.winetricks_verbs = _split_args(str(data.get("winetricks_verbs", "")))
-        cfg.proton.wine_prefix = str(data.get("wine_prefix", "")).strip()
-        cfg.proton.wine_version = str(data.get("wine_version", "")).strip()
+        cfg.runtime.fresh_prefix = bool(data.get("fresh_prefix", False))
+        cfg.runtime.winetricks_verbs = _split_args(str(data.get("winetricks_verbs", "")))
         cfg.audio.sink = str(data.get("audio_sink", "")).strip()
         cfg.debug.proton_log = bool(data.get("proton_log", False))
         winedebug = str(data.get("winedebug", ""))
@@ -1255,7 +1247,7 @@ class GameListModel(QAbstractTableModel):
                 return f"Could Not Update {path}: {e}"
             try:
                 cfg = cfgmod.load(appid)
-                cfg.proton.wine_version = tool
+                cfg.runtime.tool = tool
                 cfgmod.save(cfg)
             except Exception as e:
                 log.warning("applyWineVersion record failed: %s", e)
@@ -1270,7 +1262,7 @@ class GameListModel(QAbstractTableModel):
     def ensurePrefix(self, appid: str) -> str:
         """Create the custom prefix dir now. '' on success, else why."""
         try:
-            custom = cfgmod.load(appid).proton.wine_prefix.strip()
+            custom = cfgmod.load(appid).runtime.prefix.strip()
         except Exception as e:
             return f"Could Not Read the Config: {e}"
         if not custom:
@@ -1287,7 +1279,7 @@ class GameListModel(QAbstractTableModel):
         import shutil as _shutil
 
         try:
-            custom = cfgmod.load(appid).proton.wine_prefix.strip()
+            custom = cfgmod.load(appid).runtime.prefix.strip()
         except Exception as e:
             return f"Could Not Read the Config: {e}"
         if not custom:
@@ -2000,7 +1992,7 @@ class GameListModel(QAbstractTableModel):
     def prefixDir(self, appid: str) -> str:
         """Effective Proton prefix: custom dir or Steam's compatdata ('' unknown)."""
         try:
-            custom = cfgmod.load(appid).proton.wine_prefix.strip()
+            custom = cfgmod.load(appid).runtime.prefix.strip()
         except Exception:
             custom = ""
         if custom:
@@ -2042,7 +2034,7 @@ class GameListModel(QAbstractTableModel):
             except Exception:
                 continue
             path = cfgmod.prefix_dir(
-                appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+                appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
             )
             usage.setdefault(os.fspath(path), []).append(appid)
         return usage
@@ -2094,7 +2086,7 @@ class GameListModel(QAbstractTableModel):
             try:
                 cfg = cfgmod.load(appid)
                 prefix = cfgmod.prefix_dir(
-                    appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+                    appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
                 )
             except Exception:
                 prefix = None
@@ -2119,7 +2111,7 @@ class GameListModel(QAbstractTableModel):
             return f"Could Not Read the Config: {e}"
         prefs = cfgmod.load_preferences()
         prefix = cfgmod.prefix_dir(
-            appid, cfg.runtime.prefix_dir, prefs.prefix_base, cfg.runtime.prefix_name
+            appid, cfg.runtime.prefix, prefs.prefix_base, cfg.runtime.prefix_name
         )
         removed, warnings = graphicsmod.uninstall(prefix)
         log.info("graphics: removed %d file(s) from %s", removed, prefix)
@@ -2279,15 +2271,13 @@ class GameListModel(QAbstractTableModel):
             prefs = None
         try:
             if cfg is not None and steammod.is_steam_id(appid):
-                custom = cfg.proton.wine_prefix.strip()
+                custom = cfg.runtime.prefix.strip()
                 if not custom:
                     return None
                 path = Path(custom).expanduser()
             elif cfg is not None:
                 base = prefs.prefix_base if prefs is not None else ""
-                path = cfgmod.prefix_dir(
-                    appid, cfg.runtime.prefix_dir, base, cfg.runtime.prefix_name
-                )
+                path = cfgmod.prefix_dir(appid, cfg.runtime.prefix, base, cfg.runtime.prefix_name)
             else:
                 base = prefs.prefix_base if prefs is not None else ""
                 path = cfgmod.prefix_dir(appid, "", base, "")

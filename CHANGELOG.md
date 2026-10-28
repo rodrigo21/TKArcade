@@ -251,6 +251,25 @@ Breaking config changes are called out explicitly under `Changed`.
   versioned now, so `AI-Model:` trailers match on every machine.
 
 ### Changed
+- **BREAKING**: the per-game runtime settings live in one `[runtime]`
+  section. `[runtime] prefix` replaces `[proton] wine_prefix` (Steam
+  compatdata dir) and `[runtime] prefix_dir` (local `WINEPREFIX`), and
+  `[runtime] tool` replaces `[proton] wine_version` (Steam compat tool),
+  `[runtime] wine_binary` and `[runtime] proton_path`: the key means
+  whatever `[general] environment` needs (compatdata dir vs full prefix;
+  compat tool vs Wine binary vs `PROTONPATH`). `[proton]` disappears and
+  `winetricks_verbs`/`fresh_prefix` move to `[runtime]`. There is no
+  migration shim (pre-1.0): old files keep the stale keys as ignored
+  unknown entries (nothing reads them) and the moved settings must be
+  re-picked in Settings.
+- The game dialog drops the Launch and Compatibility tabs: Game and
+  Launch merge on General, the pre/post commands move next to the env
+  vars on Environment, and the new Runtime tab holds the environment
+  selector, the tool, the prefix, winetricks verbs, the graphics layers
+  and the Proton debug switches. System now lists Night Light before
+  Network, and the executable row reads "Game Executable:" for local
+  games and "Custom Executable (Override):" for Steam games. The other
+  tabs keep their names.
 - Local AppIDs get a proper slug. Runs of non-alphanumerics collapse into
   one dash and apostrophes are elided, so `Bad Hero - Episode 1` becomes
   `local-bad-hero-episode-1` instead of `local-bad-hero---episode-1`, and
