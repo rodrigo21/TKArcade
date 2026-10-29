@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- The library list lost its Category column: a comma-joined tag list read
+  poorly next to the other columns. Categories stay editable on the
+  Game tab, settable in bulk from the context menu, and filterable from
+  the drawer; an old column order that still lists the slot resets to
+  the default layout.
 - Each settings tab shares one label column: the fields of every section
   frame start at the same x, sized to the tab's widest label, instead of
   each form sizing its own and shifting a few pixels between sections.

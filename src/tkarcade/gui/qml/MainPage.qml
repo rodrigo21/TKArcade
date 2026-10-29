@@ -766,9 +766,6 @@ Kirigami.Page {
         if (logical === 10) {
             return gameFilter.showInstallDir
         }
-        if (logical === 11) {
-            return gameFilter.showCategory
-        }
         return true
     }
 
@@ -802,9 +799,6 @@ Kirigami.Page {
         }
         if (logical === 10) {
             return "gameInstallDir"
-        }
-        if (logical === 11) {
-            return "gameCategory"
         }
         return ""
     }
@@ -858,10 +852,10 @@ Kirigami.Page {
         if (logical === 10) {
             return qsTr("Install Dir")
         }
-        return qsTr("Category")
+        return ""
     }
 
-    property var columnOrder: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] // JS mirror of the proxy
+    property var columnOrder: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] // JS mirror of the proxy
     // order (fresh JS array from JSON: QVariantList lays out at zero
     // width). Refreshed on start and on every columnsChanged.
     property var fittedColumnWidths: ({}) // logical -> px, same mirror rule
@@ -941,7 +935,6 @@ Kirigami.Page {
         gameFilter.showRunner = false
         gameFilter.showWine = false
         gameFilter.showInstallDir = false
-        gameFilter.showCategory = false
     }
 
     function defaultColumnWidth(logical) {
@@ -993,7 +986,7 @@ Kirigami.Page {
             return
         }
         var base = 0
-        for (var l of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+        for (var l of [2, 3, 4, 5, 6, 7, 8, 9, 10]) {
             base += baseColumnWidth(l)
         }
         var gameFit = gameFilter.columnWidth(1)
@@ -1001,7 +994,7 @@ Kirigami.Page {
         var avail = gameTable.width - 36 - gameMin
         columnShrink = (base <= 0 || avail >= base) ? 1.0 : Math.max(0.15, avail / base)
         var fixed = 36
-        for (var l2 of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+        for (var l2 of [2, 3, 4, 5, 6, 7, 8, 9, 10]) {
             // Hidden columns take no space (the 24px floor is for
             // visible narrow columns only).
             if (columnVisible(l2)) {
@@ -1823,10 +1816,10 @@ Kirigami.Page {
                 }
                 // plain text columns (App ID, Source and the library
                 // columns: Last Played, Platform, Runner, Wine, Install
-                // Dir, Category)
+                // Dir)
                 Controls.Label {
                     objectName: "cellText" + logical
-                    visible: [2, 5, 6, 7, 8, 9, 10, 11].indexOf(logical) >= 0
+                    visible: [2, 5, 6, 7, 8, 9, 10].indexOf(logical) >= 0
                     anchors.fill: parent
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: Kirigami.Units.smallSpacing
@@ -1852,7 +1845,7 @@ Kirigami.Page {
                         if (logical === 10) {
                             return model?.gameInstallDir ?? ""
                         }
-                        return model?.gameCategory ?? ""
+                        return ""
                     }
                     color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                     elide: Text.ElideRight
@@ -1865,7 +1858,7 @@ Kirigami.Page {
                     }
                     // Truncated paths/tags: show the whole value.
                     Controls.ToolTip.visible: textColumnHover.hovered
-                        && (logical === 10 || logical === 11) && text !== ""
+                        && logical === 10 && text !== ""
                     Controls.ToolTip.text: text
                 }
                 // played (with session tooltip)
@@ -2031,12 +2024,6 @@ Kirigami.Page {
             checkable: true
             checked: gameFilter.showInstallDir
             onTriggered: gameFilter.showInstallDir = checked
-        }
-        Controls.MenuItem {
-            text: qsTr("Show Category")
-            checkable: true
-            checked: gameFilter.showCategory
-            onTriggered: gameFilter.showCategory = checked
         }
         Controls.MenuSeparator {
         }

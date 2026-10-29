@@ -3458,7 +3458,6 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameRunner",
         "gameWine",
         "gameInstallDir",
-        "gameCategory",
     )
     COLUMN_TITLES = {
         "#": "#",
@@ -3472,25 +3471,10 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameRunner": "Runner",
         "gameWine": "Wine",
         "gameInstallDir": "Install Dir",
-        "gameCategory": "Category",
     }
-    _COLUMN_ROLES = (
-        None,
-        "gameName",
-        "gameId",
-        "gamePlayed",
-        "gameTier",
-        "gameOrigin",
-        "gameLastPlayed",
-        "gamePlatform",
-        "gameRunner",
-        "gameWine",
-        "gameInstallDir",
-        "gameCategory",
-    )
 
     #: Fresh/hidden-by-default library columns (Last Played shows).
-    _DEFAULT_HIDDEN = frozenset({7, 8, 9, 10, 11})
+    _DEFAULT_HIDDEN = frozenset({7, 8, 9, 10})
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -3515,12 +3499,12 @@ class GameFilterModel(QSortFilterProxyModel):
             hidden = {int(x) for x in cfgmod.load_preferences().hidden_columns.split(",")}
         except Exception:
             hidden = set()
-        if sorted(order) != [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]:
+        if sorted(order) != [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
             # Old/short orders reset (no migration shims); keep the old
             # hides, new library columns stay hidden except Last Played.
-            order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
             hidden = (hidden & {1, 2, 3, 4, 5}) | set(GameFilterModel._DEFAULT_HIDDEN)
-        return order, {h for h in hidden if h in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)}
+        return order, {h for h in hidden if h in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)}
 
     def _view_columns(self) -> list[int]:
         """Logical columns in view order (hidden stay mapped, QML widths them 0)."""
@@ -3542,7 +3526,7 @@ class GameFilterModel(QSortFilterProxyModel):
                 logical, width = int(left.strip()), int(right.strip())
             except ValueError:
                 continue
-            if 0 <= logical <= 11 and 20 <= width <= 2000:
+            if 0 <= logical <= 10 and 20 <= width <= 2000:
                 widths[logical] = width
         return widths
 
@@ -3606,7 +3590,7 @@ class GameFilterModel(QSortFilterProxyModel):
             logical, width = int(logical), int(width)
         except (TypeError, ValueError):
             return
-        if logical not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) or not 20 <= width <= 2000:
+        if logical not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) or not 20 <= width <= 2000:
             return
         if self._widths.get(logical) != width:
             self._widths[logical] = width
@@ -3663,7 +3647,7 @@ class GameFilterModel(QSortFilterProxyModel):
             logical = int(logical)
         except (TypeError, ValueError):
             return 0
-        if logical not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+        if logical not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
             return 0
         measured = self._measure_column(logical)
         if not measured:
@@ -3677,7 +3661,7 @@ class GameFilterModel(QSortFilterProxyModel):
     @Slot()
     def fitDefaults(self) -> None:
         """Fit visible content columns capped: fresh starts and resets."""
-        for logical in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+        for logical in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
             measured = self._measure_column(logical)
             if measured:
                 self._widths[logical] = min(max(40, measured), self.DEFAULT_FIT_MAX)
@@ -3712,7 +3696,6 @@ class GameFilterModel(QSortFilterProxyModel):
                 8: GameListModel.RunnerRole,
                 9: GameListModel.WineRole,
                 10: GameListModel.InstallDirRole,
-                11: GameListModel.CategoryRole,
             }
             return str(model.data(sidx, roles[logical]) or "")
         return super().data(index, role)
@@ -3745,7 +3728,7 @@ class GameFilterModel(QSortFilterProxyModel):
     @Slot()
     def resetColumns(self) -> None:
         """Default order and visibility, columns fitted capped."""
-        self._order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        self._order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self._hidden = set(self._DEFAULT_HIDDEN)
         self._widths = {}
         self._save_columns()
@@ -3814,7 +3797,6 @@ class GameFilterModel(QSortFilterProxyModel):
         "showRunner": 8,
         "showWine": 9,
         "showInstallDir": 10,
-        "showCategory": 11,
     }
 
     def _get_flag(self, name: str) -> bool:
@@ -3887,12 +3869,6 @@ class GameFilterModel(QSortFilterProxyModel):
     def _set_showInstallDir(self, value: bool) -> None:
         self._set_flag("showInstallDir", value)
 
-    def _get_showCategory(self) -> bool:
-        return self._get_flag("showCategory")
-
-    def _set_showCategory(self, value: bool) -> None:
-        self._set_flag("showCategory", value)
-
     showAppId = Property(bool, _get_showAppId, _set_showAppId, notify=columnsChanged)
     showPlayed = Property(bool, _get_showPlayed, _set_showPlayed, notify=columnsChanged)
     showTier = Property(bool, _get_showTier, _set_showTier, notify=columnsChanged)
@@ -3902,7 +3878,6 @@ class GameFilterModel(QSortFilterProxyModel):
     showRunner = Property(bool, _get_showRunner, _set_showRunner, notify=columnsChanged)
     showWine = Property(bool, _get_showWine, _set_showWine, notify=columnsChanged)
     showInstallDir = Property(bool, _get_showInstallDir, _set_showInstallDir, notify=columnsChanged)
-    showCategory = Property(bool, _get_showCategory, _set_showCategory, notify=columnsChanged)
 
     @Slot(int, result="QVariantMap")
     def rowData(self, row: int) -> dict:

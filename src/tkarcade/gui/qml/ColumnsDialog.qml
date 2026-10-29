@@ -30,8 +30,6 @@ Kirigami.Dialog {
             return "showWine"
         } else if (logical === 10) {
             return "showInstallDir"
-        } else if (logical === 11) {
-            return "showCategory"
         }
         return "showOrigin"
     }
@@ -53,8 +51,6 @@ Kirigami.Dialog {
             return qsTr("Wine")
         } else if (logical === 10) {
             return qsTr("Install Dir")
-        } else if (logical === 11) {
-            return qsTr("Category")
         }
         return qsTr("Origin")
     }
@@ -65,7 +61,7 @@ Kirigami.Dialog {
         }
         Repeater {
             // Static literal: JS array end to end, never a QVariantList.
-            model: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+            model: [2, 3, 4, 5, 6, 7, 8, 9, 10]
             delegate: RowLayout {
                 required property int modelData
                 property int logical: modelData

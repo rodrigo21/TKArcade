@@ -656,7 +656,7 @@ def test_header_sort_repaints_rows(qgui_app, xdg_env):
 
 
 def test_library_columns_render_and_autofit(qgui_app, xdg_env):
-    """Columns 6-11 show their role data; double-click still autofits."""
+    """Columns 6-10 show their role data; double-click still autofits."""
     from PySide6.QtCore import QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
@@ -687,7 +687,6 @@ def test_library_columns_render_and_autofit(qgui_app, xdg_env):
         8: "Wine",
         9: "wine-9.0",
         10: "/bin",
-        11: "Action",
     }
     flags = {
         6: "showLastPlayed",
@@ -695,7 +694,6 @@ def test_library_columns_render_and_autofit(qgui_app, xdg_env):
         8: "showRunner",
         9: "showWine",
         10: "showInstallDir",
-        11: "showCategory",
     }
     for logical, flag in flags.items():
         for other in flags.values():
@@ -708,7 +706,6 @@ def test_library_columns_render_and_autofit(qgui_app, xdg_env):
         assert label is not None, f"column {logical} not rendered"
         assert label.property("text") == expected[logical]
     # Autofit: shrink the last column by hand, then double-click its divider.
-    proxy.setProperty("showCategory", False)
     proxy.setProperty("showInstallDir", True)
     proxy.setColumnWidth(10, 200)
     qgui_app.processEvents()
@@ -834,7 +831,6 @@ def _column_widths(proxy, table, page=None):
         8: 80.0,
         9: 80.0,
         10: 80.0,
-        11: 80.0,
     }
     try:
         live = {lg: float(proxy.columnWidth(lg) or 0) for lg in defaults}
@@ -875,7 +871,6 @@ def _shown_flags(proxy):
         (8, "showRunner"),
         (9, "showWine"),
         (10, "showInstallDir"),
-        (11, "showCategory"),
     ):
         try:
             shown[logical] = bool(proxy.property(flag))
@@ -893,7 +888,7 @@ def _column_cell_x(host, page, proxy, logical):
         raw = page.property("columnOrder")
         order = list(raw.toVariant()) if hasattr(raw, "toVariant") else list(raw)
     except Exception:
-        order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     table = None
     try:
         win = host.window()
@@ -3518,7 +3513,7 @@ def test_column_move_reorders_cells(qgui_app, xdg_env):
     C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    assert page.property("columnOrder").toVariant() == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    assert page.property("columnOrder").toVariant() == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     header = win.findChild(QQuickItem, "tableHeader")
 
     def xs():
@@ -3530,7 +3525,7 @@ def test_column_move_reorders_cells(qgui_app, xdg_env):
     qgui_app.processEvents()
     app_x, played_x = xs()
     assert played_x < app_x
-    assert page.property("columnOrder").toVariant() == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11]
+    assert page.property("columnOrder").toVariant() == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3549,12 +3544,12 @@ def test_column_layout_persists(qgui_app, xdg_env):
     win, engine, proxy, warnings = _load_main(qgui_app)
     assert proxy.columnLogical(0) == 0
     proxy.moveColumn(2, 1)
-    assert [proxy.columnLogical(c) for c in range(12)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11]
+    assert [proxy.columnLogical(c) for c in range(11)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10]
     proxy.setProperty("showOrigin", False)
     qgui_app.processEvents()
     prefs = C.load_preferences()
-    assert prefs.column_order == "0,1,3,2,4,5,6,7,8,9,10,11"
-    assert prefs.hidden_columns == "5,7,8,9,10,11"
+    assert prefs.column_order == "0,1,3,2,4,5,6,7,8,9,10"
+    assert prefs.hidden_columns == "5,7,8,9,10"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3768,13 +3763,11 @@ def test_header_menu_resets_columns(qgui_app, xdg_env):
     assert reset is not None
     proxy.setProperty("showAppId", False)
     proxy.setProperty("showPlatform", True)
-    proxy.setProperty("showCategory", True)
     qgui_app.processEvents()
     _fire(reset)
     qgui_app.processEvents()
     assert proxy.property("showAppId") is True
     assert proxy.property("showPlatform") is False
-    assert proxy.property("showCategory") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3960,7 +3953,7 @@ def test_header_width_matches_table_for_unfitted_columns(qgui_app, xdg_env):
     """Header cell width equals the table's column width, fitted or not.
 
     Regression: with no fitted width the header used its own defaults
-    (90px for the 6-11 library columns) while columnWidthProvider
+    (90px for the 6-10 library columns) while columnWidthProvider
     rendered 80px, so every such title sat 10px off its column. Both
     must read the single defaultColumnWidth helper.
     """
@@ -3976,7 +3969,7 @@ def test_header_width_matches_table_for_unfitted_columns(qgui_app, xdg_env):
     C.save(cfg)
 
     prefs = C.load_preferences()
-    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11"
+    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10"
     prefs.hidden_columns = ""
     prefs.column_widths = "1=200"  # only the game column fitted
     C.save_preferences(prefs)
@@ -3988,11 +3981,10 @@ def test_header_width_matches_table_for_unfitted_columns(qgui_app, xdg_env):
     assert row is not None
     # Nothing but the game column is fitted: static defaults apply.
     assert proxy.columnWidth(6) == 0
-    assert proxy.columnWidth(11) == 0
     for _ in range(5):
         qgui_app.processEvents()
     cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
-    for logical in range(12):
+    for logical in range(11):
         cell = cells.get(f"headerCell{logical}")
         assert cell is not None, logical
         assert cell.property("width") == page.tableColumnWidth(logical), logical
@@ -6232,12 +6224,9 @@ def test_library_columns_headers(qgui_app, xdg_env):
     win, engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     assert page.columnTitle(6) == "Last Played"
-    assert page.columnTitle(11) == "Category"
     assert page.columnVisible(6) is True
-    assert page.columnVisible(11) is False
+    assert page.columnVisible(10) is False
     assert page.columnSortRole(6) == "gameLastSecs"
-    proxy.showCategory = True
-    assert page.columnVisible(11) is True
     page.headerClicked(6)
     qgui_app.processEvents()
     real = [w for w in warnings if "graphics scene" not in w]

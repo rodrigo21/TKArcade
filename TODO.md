@@ -86,10 +86,10 @@ landed; (3) game metadata fields and categories.
   written, cleared and migrated today but nothing renders it. Also: the
   Status row's long text wraps mid-sentence at the 612 px minimum
   ("…Use Fetch / Artwork."), next to a button with the same words.
-- [ ] Categories redesign: how categories work and how they are added.
-  - Drop the Category column from the library list; show the game's
-    categories in the right-hand details section instead. The column
-    currently looks broken.
+- [ ] Categories redesign, remaining half: how categories work and how
+  they are added. The broken Category column is gone from the library
+  list; showing the tags in a right-hand details section waits for that
+  section to exist.
 - [ ] Per-game metadata fields (all optional), rendered as name suffixes
   in the library list and the other views, never inside the AppID:
   - `version`: free-form for local games; shown as `Name [version]`
