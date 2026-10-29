@@ -5,7 +5,7 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, in sync with `origin/main` (`5c3bf22`, the squash of
+- Branch: `main`, in sync with `origin/main` (the squash of
   `feature/settings-decisions`, plus this STATE refresh). The tree is
   clean apart from the maintainer's uncommitted `pkgver` in
   `packaging/arch/tkarcade-git/PKGBUILD`, plus the `.SRCINFO`/src
