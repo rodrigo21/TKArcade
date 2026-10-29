@@ -4,6 +4,9 @@ Status: landed. Breaking config changes are allowed
 (policy: no shims pre-1.0), so the old keys are dropped and the
 CHANGELOG says which ones and what replaces them.
 
+Landing record: describes the state when it landed; current behaviour
+lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
+
 ## Problems
 
 1. `Game` and `Launch` tabs split per-game identity from the rest of
@@ -24,8 +27,8 @@ CHANGELOG says which ones and what replaces them.
 | Tab | Content |
 | --- | --- |
 | `Game` | Game (name/appid), Profile, Launch (exe, custom command prefix, args, working dir, pre-launch menu) |
-| `Runtime` | Environment selector (proton/native/wine/umu), tool selection, prefix, winetricks verbs, fresh prefix, DXVK/vkd3d, Proton log and WINEDEBUG |
-| `Environment` | The per-game environment variable table plus the Pre/Post commands (name kept for now; a rename is deferred) |
+| `Runtime` | Runtime selector (proton/native/wine/umu), tool selection, prefix, winetricks verbs, fresh prefix, DXVK/vkd3d, Proton log and WINEDEBUG |
+| `Commands` | The per-game environment variable table plus the Pre/Post commands (renamed from `Environment`; the old name collided with the runtime choice) |
 | `Performance` | Game Mode, MangoHud, RT Upscaler, Gamescope |
 | `Display` | Display mode |
 | `System` | Notifications, idle suspend, night light, network, audio, Ludusavi |
@@ -41,7 +44,7 @@ wrapper tools and the RT upscaler.
 | --- | --- |
 | `[proton] fresh_prefix` | `[runtime] fresh_prefix` |
 | `[proton] winetricks_verbs`, `[runtime] winetricks_verbs` | `[runtime] winetricks_verbs` |
-| `[proton] wine_prefix` (Steam: `STEAM_COMPAT_DATA_PATH`) and `[runtime] prefix_dir` (local: `WINEPREFIX`) | `[runtime] prefix` — one key, meaning depends on the environment (Steam compatdata dir vs full prefix path) |
+| `[proton] wine_prefix` (Steam: `STEAM_COMPAT_DATA_PATH`) and `[runtime] prefix_dir` (local: `WINEPREFIX`) | `[runtime] prefix` — one key, meaning depends on the runtime (Steam compatdata dir vs the local prefix **base**; the WINEPREFIX is `<base>/<folder>`, see `prefix-name.md`) |
 | `[runtime] prefix_name` | `[runtime] prefix_name` (local only) |
 | `[proton] wine_version` (Steam compat tool), `[runtime] proton_path` (umu `PROTONPATH`), `[runtime] wine_binary` | `[runtime] tool` — one key, interpreted per environment: Steam compat tool name, umu `PROTONPATH`, or the Wine binary |
 | `[graphics] dxvk`, `[graphics] vkd3d` | unchanged (move into the `Runtime` tab, not into `[runtime]`) |

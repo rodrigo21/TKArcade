@@ -2,6 +2,9 @@
 
 Status: implemented (2026-10-27); runtime axis renamed (2026-10-29).
 
+Landing record: describes the state when it landed; current behaviour
+lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
+
 Goal: stop one field from answering two different questions. What a game
 is (where it comes from, which system it is built for) and how it runs
 (which runtime executes it) are separate axes; the library and the
@@ -100,9 +103,9 @@ chosen again. `[general] environment` is listed as a known key, so a
 save drops it instead of preserving it as an unknown one. The CHANGELOG
 entry marks the rename as **BREAKING**.
 
-## Out of scope
+## Landed later
 
 Steam Linux Runtime for local Linux games (`soldier`, `scout`, `sniper`,
 `steamrt4` through `umu-run`, the Faugus `runtime` combo) landed later
-as `[runtime] steam_runtime` (see `TODO.md`); `runtime_label()` takes the
-origin, so such a game labels as `Steam Runtime (<code>)`.
+as `[runtime] steam_runtime`; `runtime_label()` takes the origin, so
+such a game labels as `Steam Runtime (<code>)`.

@@ -14,11 +14,12 @@ License: GPL-3.0-or-later.
 
 ## Work state
 
-`docs/STATE.md` is an ambient instruction (`instructions` in
-`opencode.json`), so it is already in context: branch, last landed
-change, next step. Refresh it with `/handoff` before stopping mid-task;
-designs are committed docs under `docs/plans/`, never plan-mode scratch
-files outside the repo.
+`docs/STATE.md` and `docs/README.md` are ambient instructions
+(`instructions` in `opencode.json`), so both are already in context:
+current branch, last landed change and next step; then the map of every
+document. Refresh `STATE.md` with `/handoff` before stopping mid-task;
+designs are committed docs under `docs/decisions/`, never plan-mode
+scratch files outside the repo.
 
 ## Context hygiene
 
@@ -92,12 +93,22 @@ approved. Trivial fixes and docs may commit to `main`. Integrate with
 `git push origin --delete`: a squash leaves the branch "unmerged" to git.
 Push each batch; never rewrite pushed history or tags.
 
-## Detailed references
+## Document routing
 
-Read the relevant one before the first change in that area:
+Read the triggered document **before** the first change in that area;
+`docs/README.md` (ambient) is the exhaustive index behind this table.
 
-- `docs/QML-NOTES.md` — Kirigami/QML rules and the QML test driver.
-- `docs/DEVELOPMENT.md` — environment, tags and releases, packaging,
-  AppImage.
-- `docs/POLICIES.md` — config compatibility, XDG, deps, `-git` builds,
-  Flatpak, CLI exit codes.
+| Before you touch | Read |
+| --- | --- |
+| config keys, launch order, exit codes, XDG paths | `docs/POLICIES.md`, then `README.md` ("Local games", "Config files") |
+| any `.qml`, or a QML test | `docs/QML-NOTES.md` |
+| tests, venv, packaging, tags/releases, AppImage | `docs/DEVELOPMENT.md` |
+| a design question ("why is it like this?") | `docs/decisions/` through `docs/README.md` |
+| what is still open | `TODO.md` |
+| a release display check | `docs/runbooks/real-display-checks.md` |
+| session state, handoff | `docs/STATE.md` |
+
+A change that makes a document wrong updates it in the same commit:
+`tests/test_docs.py` fails when a document is missing from the map, a
+`TODO.md` item is finished, a decision loses its landing banner or a
+link points at the retired plans directory.

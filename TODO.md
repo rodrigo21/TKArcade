@@ -3,88 +3,36 @@
 Where the work stands: `docs/STATE.md` (injected into every session
 through `instructions` in `opencode.json`; refresh it with `/handoff`).
 This file is the open list only: finished work lives in `CHANGELOG.md`
-and git, and hard-won QML/toolkit rules in `docs/QML-NOTES.md`.
+and git, standing decisions in `docs/POLICIES.md`, and hard-won
+QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
+`docs/README.md`.
 
 ## Deferred research
 
-- [x] **Game taxonomy and terminology (priority).** Landed as Origin
-  (derived: Steam/Local), Platform (derived from the runtime: Linux/
-  Windows) and Runtime (stored: `[runtime] type = proton|native|wine|
-  umu`), with the library's 8th column and the settings combo named
-  `Runtime`. Proton is Steam-exclusive; local Windows games run Wine or
-  UMU. The legacy `[general] environment`/`game_type` keys load as unset
-  (no shim, pre-1.0) and are dropped on save.
-- [x] **Faugus / Steam Linux Runtime for local Linux games.** Landed on
-  `feature/settings-decisions`.
-  - `[runtime] steam_runtime = ""|scout|soldier|sniper|steamrt4`
-    (`STEAM_RUNTIMES` / `normalize_steam_runtime()` / `steam_runtime_label()`
-    in `config.py`), only for Local + `native`; `_steam_runtime_for()`
-    ignores it elsewhere. Serialized as `runtime_steam_runtime`.
-  - Launch: `_wrap_steam_runtime` prepends `umu-run` after
-    `swap_native_executable`; `_steam_runtime_env` sets
-    `PROTONPATH=umu-<name>` and `GAMEID=tkarcade-<appid>`, with no
-    `WINEPREFIX` and no graphics layer. Missing `umu-run` is exit 14.
-  - Decisions: umu downloads a missing runtime (hint in the dialog, a
-    `(note)` line in `--validate`, never an issue — see
-    `docs/POLICIES.md`); the combo carries the full name
-    ("Steam Linux Runtime 3.0 (sniper)") while the Runner column keeps
-    `runner_label()`'s short form ("Steam Runtime (sniper)").
-  - Verified end to end here with `steamrt4`: umu reports "steamrt4 is up
-    to date" and runs `umu-steamrt4` through the passthrough shim.
-  - `runtimes.steam_runtime_dir()` knows umu's layout (`steamrt2/3/4`, and
-    `compatibilitytools/umu-scout` for scout); the dialog hint reuses it.
 - [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) for the local
-  library import of Lutris/Playnite/Faugus file formats. The import
-  itself shipped; this is the metadata enrichment on top of it.
+  library import of Lutris/Playnite/Faugus file formats. The format
+  import itself is still pending (only tarball, SteamTinkerLaunch and
+  predecessor configs import today); this is the metadata enrichment on
+  top of it.
 - [ ] Online sources à la Playnite for categories/tags (the per-game
   categories and the drawer filter shipped without them).
 
 ## Settings and metadata (sessions ahead)
 
-Order: (1) local AppID slug + migration — landed; (2) settings reorg —
-landed; (3) game metadata fields and categories.
-- [x] One label column per tab.
-  - Landed: `WidgetsFormLayout` takes a `labelWidth` and pins the label
-    column to it; each tab's `ColumnLayout` feeds the widest
-    `naturalLabelWidth` of its forms back to all of them, so the fields
-    start at one x across the section frames. Covered by
-    `test_settings_tabs_share_label_column` (one x per tab, all 7 tabs).
-    Mechanism and the rejected `twinFormLayouts` in `docs/QML-NOTES.md`.
-
-
-- [x] Winetricks/Protontricks inside the Runtime tab (`Prefix` section).
-  - Landed: `Add…` opens a searchable `winetricks list-all` picker
-    (cached per process) that appends to the verbs field; the section
-    lists the prefix's own `winetricks.log` verbs and the field's
-    pending ones apart; `Protontricks…`/`Winetricks…` opens the
-    interactive tool (`protontricks --gui <appid>`, or `winetricks
-    --gui` with the resolved `WINEPREFIX`/`WINE`) and the list refreshes
-    when it exits. Missing binary and a prefix not created yet are
-    refused with a message.
-  - Done on `feature/settings-decisions`: a Steam game whose
-    `[runtime] prefix` moves the compatdata dir uses `winetricks --gui`
-    with `WINEPREFIX=<custom>/pfx` and the game's own
-    `files/bin/wine` (explicit `[runtime] tool`, else
-    `proton.compat_tool_name()` + `runtimes.find_proton`), because
-    protontricks only targets Steam's own dir. `winetricks.local_gui`
-    treats `proton` like `umu` as a Proton-hosted environment.
-- [ ] Artwork Source AppID: landed (renamed from Donor AppID, official
-  Steam assets first without a key, SteamGridDB as the fallback or
-  first with the "Artwork Source" preference, per-shape download, cache
-  sidecar recording the provider, Status row, forced `Fetch Artwork`).
-  Left: the per-game `[artwork]` block has no way to override the
-  *provider* for one game (the preference is global); decide if a rare
-  mismatched game needs it. A cleared AppID keeps its `"cleared": true`
-  mark in `grids/<appid>.json` with no visible trace in the UI — if the
-  art stops coming back and nobody remembers the Clear, that file is the
-  answer (consider showing "Artwork Cleared" in the Status row).
-- [ ] Views beyond the list (icons and cards): the list is the current
-  focus. Give the Cover slot a consumer — the card's `Kirigami.Card`
-  banner reads `gameIcon`, which falls back to the source AppID's icon,
-  not to the cover — and review the card banner framing. `cover` is
-  written, cleared and migrated today but nothing renders it. Also: the
-  Status row's long text wraps mid-sentence at the 612 px minimum
-  ("…Use Fetch / Artwork."), next to a button with the same words.
+- [ ] Per-game artwork provider override: the per-game `[artwork]` block
+  has no way to override the *provider* for one game (the preference is
+  global); decide if a rare mismatched game needs it.
+- [ ] Show "Artwork Cleared" in the Artwork Status row: a cleared AppID
+  keeps its `"cleared": true` mark in `grids/<appid>.json` with no
+  visible trace in the UI — if the art stops coming back and nobody
+  remembers the Clear, that file is the answer.
+- [ ] Icons and cards views: both views ship; what remains is giving the
+  Cover slot a consumer — the card's `Kirigami.Card` banner reads
+  `gameIcon`, which falls back to the source AppID's icon, not to the
+  cover — and reviewing the card banner framing. `cover` is written,
+  cleared and migrated today but nothing renders it. Also: the Status
+  row's long text wraps mid-sentence at the 612 px minimum ("…Use Fetch
+  / Artwork."), next to a button with the same words.
 - [ ] Categories redesign, remaining half: how categories work and how
   they are added. The broken Category column is gone from the library
   list; showing the tags in a right-hand details section waits for that
@@ -101,12 +49,6 @@ landed; (3) game metadata fields and categories.
     with a space before the parenthesis.
   - Applies to Steam and local games; the list column/views layout is
     part of the work.
-- [x] Steam shortcuts created before an AppID migration still cache
-  `tkarcade <old-appid>` in their launch options. Decision (2026-10-28):
-  keep the manual warning, never touch `shortcuts.vdf` — it belongs to
-  Steam (`userdata/<id>/config/shortcuts.vdf`) and TKArcade writes
-  nothing outside its own XDG dirs. A stale shortcut fails loudly (exit
-  10, AppID not resolved).
 
 ## Deferred design review
 

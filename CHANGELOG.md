@@ -57,6 +57,12 @@ Breaking config changes are called out explicitly under `Changed`.
   already ship both, so the section is hidden for them and `[graphics]`
   is ignored (an existing install is neutralised at launch). `--validate`
   no longer reports missing layer versions for those environments.
+- Documentation: `README.md` and the man page describe the `[runtime]`
+  model, the prefix base with its `<base>/<folder>` rule and the Steam
+  Linux Runtime field, and the config examples run (Wine with DXVK, or a
+  native game inside a runtime). The docs tree now has one map
+  (`docs/README.md`): `decisions/` keeps the landing records and
+  `runbooks/` the procedures, with `TODO.md` holding open work only.
 
 ### Fixed
 - Clicking a row in the list no longer recenters it: every click (plain,
@@ -71,11 +77,6 @@ Breaking config changes are called out explicitly under `Changed`.
   "game type not set") while the GUI in front was new. The Steam
   launch-options row now names the `tkarcade` Steam resolves (with its
   version) and warns when it is another build or missing from `PATH`.
-- Prefix hint: a typed Prefix Dir is the WINEPREFIX itself and it wins
-  over the friendly name, so the hint reports that path instead of the
-  subdirectory under the prefix base it used to promise. The local field
-  is labelled `WINEPREFIX:` (tooltip with the semantics) and `Open`/
-  `Clear…` now work for local games with a dir.
 - The Runtime tab shows a local game's prefix as the `<base>/<folder>`
   path the launch uses: the base and the folder name sit on one row with
   `(Base)`/`(Folder)` suffixes, and each field carries its picker inline
@@ -114,7 +115,7 @@ Breaking config changes are called out explicitly under `Changed`.
   Windows build runs under Wine/umu. A runtime umu has not downloaded yet
   is a hint, not an error: the dialog names it, `--validate` prints a
   `(note)` line and umu downloads it on the first launch (the exit code
-  contract is unchanged). The list's Runner column shows the short form
+  contract is unchanged). The list's Runtime column shows the short form
   (`Steam Runtime (sniper)`).
 - Winetricks UI in Settings → Runtime → Prefix: `Add…` opens a
   searchable `winetricks list-all` picker (parsed once per process) that
@@ -132,7 +133,7 @@ Breaking config changes are called out explicitly under `Changed`.
   `settings:<appid>`, `artwork:<appid>`, `defaults`, `add`, `category`,
   `prefs`, `about`), and `scripts/display-check.sh` launches the shell
   against a throwaway profile with three seeded games. Together they are
-  the runbook in `docs/plans/real-display-checks.md` for the checks
+  the runbook in `docs/runbooks/real-display-checks.md` for the checks
   offscreen tests cannot verdict. Nothing changes without the variable.
 - Block Internet per game (Settings, "Network" section): the game runs
   in an unprivileged network namespace (`unshare -Urn`), so it has no
@@ -143,7 +144,7 @@ Breaking config changes are called out explicitly under `Changed`.
   kernel or a sandbox forbids unprivileged user namespaces, the launcher
   refuses to start the game (exit 14) instead of silently going online,
   and `--validate` reports it. Known caveats (Proton and anti-cheat
-  behaviour) are in `docs/plans/network-isolation.md`.
+  behaviour) are in `docs/decisions/network-isolation.md`.
 - Running indicator and Terminate action in the GUI: the launcher
   records the game it is playing under
   `$XDG_STATE_HOME/tkarcade/running/` and removes the record on exit, so

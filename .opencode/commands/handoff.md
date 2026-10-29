@@ -15,6 +15,8 @@ one stopped.
    and the "keep it short" character of the file intact — no history,
    no narrative, that belongs in `CHANGELOG.md` and git. Never record
    the `-git` PKGBUILD `pkgver` churn as work: it stays uncommitted.
+   If a document was added, moved or retired this session, update
+   `docs/README.md` (the ambient map) in the same pass.
 3. Commit only `docs/STATE.md` (plus any other file this command
    changed) with the message `docs: update the work state`, then push
    it if the branch is already on the remote.

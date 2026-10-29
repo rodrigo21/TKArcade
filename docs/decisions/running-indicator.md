@@ -2,6 +2,9 @@
 
 Status: implemented on `running-indicator` (2026-10-23).
 
+Landing record: describes the state when it landed; current behaviour
+lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
+
 Goal: the GUI shows which game is running and can stop it, without
 taking ownership of the process and without leaving the desktop on the
 game's resolution or audio sink.

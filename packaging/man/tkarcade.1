@@ -17,7 +17,7 @@ natively (\fBnative\fR); local games through \fBnative\fR, a Wine binary
 \fBnative\fR game may also run inside a Steam Linux Runtime
 (\fB[runtime] steam_runtime\fR) through \fBumu-run\fR, which downloads
 a missing runtime on the first launch. Local Windows
-prefixes default to \fB$XDG_DATA_HOME/tkarcade/prefixes/<appid>\fR and
+prefixes default to \fB$XDG_DATA_HOME/tkarcade/prefixes/<name>\fR and
 may install DXVK and/or vkd3d-proton into the prefix at launch.
 .PP
 Logs go to \fB$XDG_STATE_HOME/tkarcade/games/<appid>.log\fR (full)
@@ -79,9 +79,10 @@ Named per-game profiles.
 .I $XDG_CONFIG_HOME/tkarcade/defaults.toml
 New-game template only.
 .TP
-.I $XDG_DATA_HOME/tkarcade/prefixes/<appid>/
+.I $XDG_DATA_HOME/tkarcade/prefixes/<name>/
 Local Windows Wine prefix (default base; Preferences or the per-game
-\fBruntime.prefix\fR can move it). TKArcade writes
+\fBruntime.prefix\fR can move the base; the folder is
+\fBruntime.prefix_name\fR, else the game name, else the AppID). TKArcade writes
 \fBtkarcade-graphics.json\fR here when a DXVK/vkd3d layer is installed.
 .SH "SEE ALSO"
 Project home: https://github.com/rodrigo21/TKArcade

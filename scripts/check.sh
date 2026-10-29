@@ -64,6 +64,7 @@ elif [ "$changed" = 1 ]; then
                 fi
                 ;;
             pyproject.toml|packaging/*) add tests/test_packaging.py ;;
+            docs/*|*.md|opencode.json) add tests/test_docs.py ;;
         esac
     done
     # The import guard covers the whole tree and is cheap: always run it

@@ -24,7 +24,8 @@ scripts/check.sh tests/test_config.py  # the given targets only
 `--changed` maps `src/tkarcade/<name>.py` to `tests/test_<name>.py`
 (anything under `backends/` to `tests/test_backends.py`, `test_no_widgets.py`
 always when source changed, `pyproject.toml`/`packaging/` to
-`tests/test_packaging.py`). A touched file without that pair, or any
+`tests/test_packaging.py`, any `*.md`/`opencode.json` to
+`tests/test_docs.py`). A touched file without that pair, or any
 `.qml` change, widens the run to the whole suite: the gate never skips a
 change silently. Use it while working; run the fast suite whole once
 before finishing, and `--qml` only when QML or the tests themselves
@@ -55,29 +56,21 @@ offscreen screenshot check.
 The launcher (`src/tkarcade/launcher.py`, `config.py`, `backends/`,
 `proton.py`, `steam.py`, `xdg.py`, `nightlight_holder.py`,
 `winetricks.py`) must stay **stdlib-only**: it runs on every game start.
-PySide6/vdf/jeepney are for GUI/helpers only. Exit codes 10-18 are part
-of the CLI contract.
-No config migration shims pre-1.0; since 0.9.0 files carry a
-`config_version` stamp and newer files fail loudly, never silently.
+PySide6/vdf/jeepney are for GUI/helpers only. The exit-code contract,
+the no-shims policy and the `config_version` stamp are in
+`docs/POLICIES.md`.
 
 ## Commits, tags, releases
 
-One commit per area/theme, message plus
-`Co-Authored-By: OpenCode <noreply@opencode.ai>` trailer. The
-`AI-Model:` trailer comes from the versioned `.opencode-model` via the
-`scripts/git-hooks/commit-msg` hook (`core.hooksPath` is set
-repo-local). Sign commits/tags with GPG when pinentry answers, push
-each signed batch, never rewrite pushed history or tags. User-facing
-changes get a `CHANGELOG.md` entry under Unreleased, with explicit
-**BREAKING** notes. Tags are `vVER` (annotated, signed), releases
-`VER` with CHANGELOG notes. After a tag: bump the release PKGBUILD
-(`pkgver` + tarball sha), rebuild `-git`, check upscale/presets.
+Commit and branch rules live in `AGENTS.md`; this section covers tags
+and releases only.
 
-Big changes go on a short-lived branch off `main`; `main` stays intact
-until the change is approved. Land them with `git merge --squash` plus
-one commit (no merge commit when a squash is possible), then delete the
-branch locally and on the remote. Trivial fixes and docs may commit to
-`main` directly.
+Sign commits/tags with GPG when pinentry answers, push each signed
+batch, never rewrite pushed history or tags. User-facing changes get a
+`CHANGELOG.md` entry under Unreleased, with explicit **BREAKING**
+notes. Tags are `vVER` (annotated, signed), releases `VER` with
+CHANGELOG notes. After a tag: bump the release PKGBUILD
+(`pkgver` + tarball sha), rebuild `-git`, check upscale/presets.
 
 ## Packaging
 
@@ -117,7 +110,7 @@ automatically. Agent instructions live in `AGENTS.md`.
 The working state travels through `docs/STATE.md` and the git history,
 never through plan-mode scratch files: OpenCode writes those under
 `$HOME/.opencode/plan`, which is per-machine and outside the repo. A
-larger design is a normal, committed document under `docs/plans/`.
+larger design is a normal, committed document under `docs/decisions/`.
 Sessions are not versioned either (the SQLite database and its JSON
 exports are large and machine-local); to move one on purpose:
 

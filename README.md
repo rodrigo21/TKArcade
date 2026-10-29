@@ -45,14 +45,15 @@ entry per run in `launcher.log`.
 
 ## Local games
 
-Games added with **Add → Local** keep their own origin. `[general]
-environment` says how the game runs: `native` (a Linux build), `wine`
-or `umu` for local games; Steam games use `proton` (Steam's Proton) or
-`native` (Steam Runtime). The library derives `Origin` (Steam/Local)
-and `Platform` (Linux/Windows) from that, and `Runner` names the
-environment; there is no separate platform label. A missing or legacy
-`auto` value is refused (exit 18): pick the environment in the settings
-dialog, there is no detection.
+Games added with **Add → Local** keep their own origin. `[runtime] type`
+says how the game runs: `native` (a Linux build), `wine` or `umu` for
+local games; Steam games use `proton` (Steam's Proton) or `native`
+(Steam Runtime). The library derives `Origin` (Steam/Local) and
+`Platform` (Linux/Windows) from it, and the `Runtime` column shows the
+runtime label (`Native`, `Wine`, `UMU`, `Steam Proton`, `Steam Runtime`);
+there is no separate platform label. An unset or invalid pairing is
+refused (exit 18): pick the runtime in the settings dialog, there is no
+detection. The old `[general] environment` key is ignored.
 
 Local Windows games never borrow Steam's Proton. `wine` runs the game
 with the configured wine binary (or `wine` from PATH); `umu` runs
@@ -70,7 +71,7 @@ set (the GUI pins it from the game name on save, so renaming the game
 never moves the prefix), else the normalised game name (`TK's
 good-game_1` → `TKsGoodGame1`), else the AppID.
 `[runtime] tool` overrides the global choice per game, and its meaning
-follows `[general] environment`: a Steam compat tool for `proton`, the
+follows `[runtime] type`: a Steam compat tool for `proton`, the
 Wine binary for `wine`, the `PROTONPATH` install for `umu`. The same
 applies to `[runtime] prefix`: Steam's compatdata dir for `proton` (used
 as-is, no subfolder), the WINEPREFIX *base* for local games.
@@ -109,18 +110,28 @@ DXVK/vkd3d, so the section is hidden for them and `[graphics]` is
 ignored (overriding a runtime's versions is on `TODO.md`).
 
 ```toml
+# Local Windows game under Wine, with the graphics layers.
 [general]
 appid = "local-doom"
-environment = "umu"
 
 [runtime]
-tool = "/home/user/GE-Proton10-25"
-# Local native games only: run inside a Steam Linux Runtime via umu-run.
-steam_runtime = "sniper"
+type = "wine"
+tool = "/usr/bin/wine"
+prefix_name = "DoomEternal"
 
 [graphics]
 dxvk = true
 vkd3d = "proton"
+```
+
+```toml
+# Local Linux game inside a Steam Linux Runtime.
+[general]
+appid = "local-openra"
+
+[runtime]
+type = "native"
+steam_runtime = "sniper"
 ```
 
 ## GUI guide
@@ -137,7 +148,7 @@ icon lists recent games for quick launch through Steam.
 **Game dialog** — tabs for General (the game and its launch settings),
 Commands (variables, curated presets and the pre/post commands),
 Runtime
-(the environment selector and tool, the Steam Linux Runtime of a local
+(the runtime selector and tool, the Steam Linux Runtime of a local
 native game, prefix with its installed and pending winetricks verbs plus
 the interactive protontricks/winetricks window, DXVK and vkd3d layers,
 Proton debug switches), Performance
@@ -161,9 +172,10 @@ warn instead of silently resetting.
 * `$XDG_CONFIG_HOME/tkarcade/games/<appid>.toml` — per-game snapshot.
 * `$XDG_CONFIG_HOME/tkarcade/profiles/<appid>/<name>.toml` — profiles.
 * `$XDG_CONFIG_HOME/tkarcade/defaults.toml` — new-game template only.
-* `$XDG_DATA_HOME/tkarcade/prefixes/<appid>/` — local Windows prefixes
-  (default base; Preferences can move it, per-game `runtime.prefix`
-  wins, `runtime.prefix_name` picks a readable directory name).
+* `$XDG_DATA_HOME/tkarcade/prefixes/<name>/` — local Windows prefixes
+  (default base; Preferences can move it, per-game `runtime.prefix` is
+  the base, and the folder is `runtime.prefix_name`, else the
+  normalised game name, else the AppID).
 * `$XDG_STATE_HOME/tkarcade/games/<appid>.log` and `launcher.log`.
 * `$XDG_CACHE_HOME/tkarcade/` — e.g. the ProtonDB tier cache.
 

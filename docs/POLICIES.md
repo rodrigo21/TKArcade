@@ -6,6 +6,11 @@ Standing decisions that shape every change. `AGENTS.md` links here.
   as fresh built-ins.
 - XDG Base Directory for all files; per-game TOML snapshots (full files,
   never sparse); `defaults.toml` is a new-game template only.
+- Never write `shortcuts.vdf`: Steam owns
+  `userdata/<id>/config/shortcuts.vdf`, and TKArcade writes nothing
+  outside its own XDG dirs. A shortcut that still caches
+  `tkarcade <old-appid>` fails loudly (exit 10) and is left for the user
+  to fix.
 - New third-party deps need GPLv3-compatible licenses (MIT/BSD/
   Apache-2.0/PSF/LGPL). External tools via subprocess, never linked.
 - Third-party recipes under `packaging/arch/` (linux-rt-upscaler*,

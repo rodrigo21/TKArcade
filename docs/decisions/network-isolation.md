@@ -2,6 +2,9 @@
 
 Status: implemented (2026-10-23).
 
+Landing record: describes the state when it landed; current behaviour
+lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
+
 Goal: let one game run without access to the network (single-player
 titles, telemetry-heavy launchers) without a root helper, firewall rules
 or a new dependency.

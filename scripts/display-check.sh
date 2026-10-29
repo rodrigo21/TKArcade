@@ -1,6 +1,6 @@
 #!/bin/sh
 # Launch the Kirigami shell against a throwaway profile, for the manual
-# checks that offscreen cannot verdict (docs/plans/real-display-checks.md).
+# checks that offscreen cannot verdict (docs/runbooks/real-display-checks.md).
 #
 # Usage:
 #   scripts/display-check.sh                      # en, 3 seeded games
@@ -140,7 +140,7 @@ C.save(cfg)
 print(f"profile: {base}")
 PY
 
-echo "checklist: docs/plans/real-display-checks.md" >&2
+echo "checklist: docs/runbooks/real-display-checks.md" >&2
 echo "start with the tray icon (right-click), then the dialogs" >&2
 
 XDG_CONFIG_HOME="$dir/config" \

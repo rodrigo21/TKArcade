@@ -157,9 +157,10 @@ failure. `AGENTS.md` links here.
   `buddiesImplicitWidth` truncates to an int and leaves a 1 px gap. The
   field column's preferred width is the form width minus the label
   column, so QGridLayout's surplus sharing cannot grow the label column
-  past its maximum; `onWidthChanged` reapplies it on resize. The Commands
-  tab and `PrefsDialog` have a single form and keep their natural column;
-  the Environment tab builds one form per row dynamically.
+  past its maximum; `onWidthChanged` reapplies it on resize.
+  `PrefsDialog` and the Commands tab's Pre/Post form have a single form
+  and keep their natural column; the tab's environment table builds one
+  row per variable dynamically.
 
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
   transition before synthetic clicks, or clicks land mid-slide.
