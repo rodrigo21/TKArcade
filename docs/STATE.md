@@ -5,40 +5,35 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `feature/drop-category-column`, one commit off `main`
-  (c9f5473), not pushed or merged; `main` is untouched until the change
-  is approved. The maintainer's uncommitted `pkgver` in
-  `packaging/arch/tkarcade-git/PKGBUILD` is still outside the commit.
-  The venv was refreshed after the last change.
-- On the branch: the library list dropped its Category column (a
-  comma-joined tag list next to the shaped columns read poorly).
-  - `GameFilterModel` now has 11 view columns (`TABLE_COLUMNS` 0..10);
-    `_DEFAULT_HIDDEN` is `{7, 8, 9, 10}`; order/width validation and
-    the `showCategory` flag/property are gone. A stored 12-slot
-    `column_order` fails validation and resets to the default layout
-    (`_load_columns`' existing no-shim rule).
-  - `MainPage.qml`: column visibility/sort/title/docs entries, the
-    `cellText` list and tooltip and the "Show Category" header-menu
-    item removed; `ColumnsDialog.qml` lost the row and the `[2..10]`
-    model shrank. `GameListModel` keeps 12 internal source columns:
-    `CategoryRole` still feeds the drawer filter.
-  - Untouched: the Game tab's categories field, bulk "Set
-    Categories…", the drawer filter and `CategoryDialog`.
-  - `scripts/refresh-translations.sh`: 602 messages, 3 obsolete entries
-    dropped ("Category" ×2, "Show Category").
-- Verified: `scripts/check.sh --changed` widened to the whole fast suite
-  plus the QML driver (model.py/QML touched) → 471 passed, only the
-  known batch-abort re-run warnings. Offscreen shot 1600x900 with every
-  column visible: 11 headers ending in Install Dir, no trailing empty
-  slot, values aligned, no QML warnings. Details dialog opens; the
-  popup itself does not show in `grabWindow`.
-- Next: the maintainer tests the venv build and approves. Then
-  `git merge --squash feature/drop-category-column`, one commit,
-  `git branch -D` + `git push origin --delete`, and refresh the venv
-  again after the merge.
-- After that: the views beyond the list (icons and cards) — the Cover
-  slot still has no consumer; read `docs/QML-NOTES.md` first. Then the
-  artwork leftovers and the game taxonomy decision.
+- Branch: `main`, at the merge of `feature/drop-category-column` (now
+  deleted): f0e1245 (drop the Category column) and 3ea0d31 (runtime
+  rename to `[runtime] type`), plus this handoff. The maintainer's
+  uncommitted `pkgver` in `packaging/arch/tkarcade-git/PKGBUILD` is still
+  outside the commits. The venv was refreshed after the merge.
+- Landed:
+  - The library list dropped its Category column (`GameFilterModel` has
+    11 view columns, `_DEFAULT_HIDDEN = {7, 8, 9, 10}`); `CategoryRole`
+    still feeds the drawer filter, and the Game tab, bulk "Set
+    Categories…" and `CategoryDialog` are untouched.
+  - The stored runtime moved from `[general] environment` to
+    `[runtime] type` (`RuntimeType` enum, `normalize_runtime()`,
+    `runtime_label()`); the column, sort role and settings combo are
+    `Runtime` (was `Runner`), and local choices read `Native`, `Wine`,
+    `UMU`.
+  - The matrix is explicit: Proton is Steam-exclusive and Wine/UMU are
+    local-only; `runtime_label()` returns `""` for an invalid pairing and
+    `runtime_problem()` makes the launcher exit 18 naming the valid
+    choices. The settings combo only offers the origin's values.
+  - Legacy `[general] environment` is a known-but-ignored key: it loads
+    as unset and is dropped on the next save (no shim, pre-1.0);
+    `game_type`/`platform` still ride along as unknown keys.
+- Verified before the merge (content unchanged by the squash): the whole
+  fast suite plus the QML driver → 471 passed; offscreen shot with every
+  column visible (slot 8 `Runtime`, cells `Native`/`Wine`/`UMU`/`Not
+  Set`, no clipping); translations 602 messages, 0 unfinished.
+- Next: the views beyond the list (icons and cards) — the Cover slot
+  still has no consumer; read `docs/QML-NOTES.md` first. Then the artwork
+  leftovers and the categories redesign's remaining half.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post533.
 - Nothing blocking.
