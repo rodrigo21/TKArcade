@@ -57,6 +57,28 @@ Breaking config changes are called out explicitly under `Changed`.
   subdirectory under the prefix base it used to promise. The local field
   is labelled `WINEPREFIX:` (tooltip with the semantics) and `Open`/
   `Clear…` now work for local games with a dir.
+- The Runtime tab shows a local game's prefix as the `<base>/<folder>`
+  path the launch uses: the base and the folder name sit on one row with
+  `(Base)`/`(Folder)` suffixes, and each field carries its picker inline
+  (`Choose the Prefix Base…`, `Choose an Existing Prefix…`), which leaves
+  room for `Clear…`/`Open` at the minimum window width. A Steam game keeps
+  the single `Custom Prefix Dir:` field with its `Browse…`/`Create`
+  buttons. The existing-prefix list now covers the base the game itself
+  uses, not only the Preferences one. `Clear…`/`Open` follow the prefix
+  **on disk**, not the field text, so a local game under the default base
+  can reach its prefix at last (and a base whose folder is created at
+  launch shows neither, instead of failing to open); long values, which
+  the field scrolls without an ellipsis, are also in its tooltip.
+- The Runtime tab's actions share one width now (`runtimeButtonWidth`, 108
+  px; the Artwork tab already did this with `artButtonWidth`), so they
+  stack in a column: every button sat on the style's 80 px floor except
+  `Winetricks…`/`Protontricks…`, which took its label width (86) and
+  looked bigger than its neighbours. The Debug `Open` joins the column;
+  `Remove from Prefix` (Graphics) keeps its own size because its label
+  needs 121 px and would elide at 108.
+- A Steam game's prefix `Clear…`/`Open` end where the other actions do:
+  its hint is empty, and the row's label used to leave the layout, which
+  let the pair pack left under the field.
 - The interactive winetricks/protontricks window keeps its output in
   `$XDG_STATE_HOME/tkarcade/games/<appid>-winetricks.log` and a non-zero
   exit is reported in the dialog with that path; protontricks also

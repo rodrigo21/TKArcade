@@ -1156,6 +1156,15 @@ def test_prefix_name_state_and_choices(qgui_app, xdg_env, tmp_path):
     assert [c["name"] for c in choices] == ["Doom"]
     assert choices[0]["path"] == str(base / "Doom")
 
+    # A per-game base wins over the Preferences base for the picker.
+    other_base = tmp_path / "other"
+    other_prefix = other_base / "Styled"
+    (other_prefix / "drive_c").mkdir(parents=True)
+    (other_prefix / "system.reg").write_text("")
+    custom_choices = model.prefixChoices("local-a", str(other_base))
+    assert [c["name"] for c in custom_choices] == ["Styled"]
+    assert custom_choices[0]["path"] == str(other_prefix)
+
 
 def test_save_game_pins_the_prefix_folder(qgui_app, xdg_env, tmp_path):
     """The name-derived folder is stored, so a rename never moves it."""

@@ -42,24 +42,18 @@ and git, and hard-won QML/toolkit rules in `docs/QML-NOTES.md`.
 
 ## Settings and metadata (sessions ahead)
 
-Order: (1) local AppID slug + migration — landed; (2) settings reorg;
-(3) game metadata fields and categories.
+Order: (1) local AppID slug + migration — landed; (2) settings reorg —
+landed; (3) game metadata fields and categories.
+- [ ] One label column per tab: the sections stack separate
+  `WidgetsFormLayout`s, so "Provider:" (Night Light) and the other
+  labelled fields sit a few pixels off the neighbouring section's, and
+  the Runtime tab's `Prefix` fields start 8 px left of its `Runtime`
+  ones. `twinFormLayouts` was tried and reverted: it inflates the column
+  with `implicitWidth: width` and the checkbox rows (measured 133 → 210
+  px offscreen, see `docs/QML-NOTES.md`). Needs an explicit label width
+  derived per tab (widest label, applied to every form in it).
 
-- [ ] Settings reorg (option B: break config keys where it helps).
-  Landed on the `settings-reorg` branch, awaiting the maintainer's
-  review:
-  - `Game` and `Launch` merge on General; Pre/Post moves to the
-    Environment tab (which now holds the env vars too).
-  - One `[runtime]` section: `prefix` (Steam compatdata dir or local
-    `WINEPREFIX`) and `tool` (compat tool / Wine binary / `PROTONPATH`)
-    replace the duplicated `[proton]`/`[runtime]` stores; `[proton]` is
-    gone and old keys stay as ignored extras.
-  - `Compatibility` becomes `Runtime` (environment, tool, prefix,
-    verbs, graphics layers, debug) and `System` orders Night Light
-    before Network.
-  - The `Environment` tab is `Commands` now (it holds the env vars and
-    the pre/post hooks; the `[general] environment` runtime choice on
-    Runtime keeps the field labelled `Environment:`).
+
 - [x] Winetricks/Protontricks inside the Runtime tab (`Prefix` section).
   - Landed: `Add…` opens a searchable `winetricks list-all` picker
     (cached per process) that appends to the verbs field; the section
@@ -76,16 +70,6 @@ Order: (1) local AppID slug + migration — landed; (2) settings reorg;
     `proton.compat_tool_name()` + `runtimes.find_proton`), because
     protontricks only targets Steam's own dir. `winetricks.local_gui`
     treats `proton` like `umu` as a Proton-hosted environment.
-- [ ] Ludusavi name for local games. Without `[ludusavi] name_override`
-  Ludusavi resolves the game by Steam AppID, and a local game has none
-  (its id is `local-*`), so `wrap` finds nothing. Default the name to
-  `[general] name` when the game is not a Steam id and the override is
-  empty, and keep the explicit override winning. In the GUI the field
-  placeholder should read `Empty = <game name>` for local games, and
-  the coverage check should use the same fallback. Files/tests:
-  `launcher.py` (wrap args), `gui/model.py` (fields/coverage),
-  `backends/ludusavi.py` possibly unchanged, backend argv tests for a
-  local game (name present) and a Steam game (absent).
 - [ ] Artwork Source AppID: landed (renamed from Donor AppID, official
   Steam assets first without a key, SteamGridDB as the fallback or
   first with the "Artwork Source" preference, per-shape download, cache

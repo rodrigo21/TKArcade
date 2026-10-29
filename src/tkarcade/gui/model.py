@@ -2519,15 +2519,20 @@ class GameListModel(QAbstractTableModel):
             "is_prefix": xdg.is_wine_prefix(target),
         }
 
-    @Slot(str, result="QVariantList")
-    def prefixChoices(self, appid: str) -> list:
-        """Existing Wine prefixes under the base, with the games using each."""
+    @Slot(str, str, result="QVariantList")
+    def prefixChoices(self, appid: str, base: str = "") -> list:
+        """Existing Wine prefixes under the base, with the games using each.
+
+        `base` is the game's own `[runtime] prefix` when set; the
+        Preferences base is the fallback.
+        """
         prefs = cfgmod.load_preferences()
+        root = base.strip() or prefs.prefix_base
         usage = self._prefix_users(prefs)
         names = {a: n for a, n in steammod.list_games()}
         names.update(steammod.local_names())
         out = []
-        for path in xdg.iter_prefixes(prefs.prefix_base):
+        for path in xdg.iter_prefixes(root):
             users = usage.get(os.fspath(path), [])
             out.append(
                 {

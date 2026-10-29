@@ -67,6 +67,10 @@ Window {
     // Friendly prefix-name picker (local Windows games).
     property var prefixChoices: []
     property string prefixHint: ""
+    // The resolved prefix directory is on disk. Open/Clear… only make
+    // sense then, and a local game using the default base has a prefix
+    // even with an empty field.
+    property bool prefixExists: false
     // Winetricks verbs: the prefix log (read-only) against the field, and
     // the `winetricks list-all` rows behind the picker.
     property var verbStatus: ({})
@@ -89,6 +93,10 @@ Window {
     // spacer on the rows with fewer buttons), so the fields line up in a
     // column instead of each button taking its own text width.
     readonly property real artButtonWidth: Kirigami.Units.gridUnit * 6
+    // Same column for the Runtime tab's two left-hand sections (Runtime
+    // and Prefix): the style floors a button at 80 px, so without this the
+    // only one following its label is "Winetricks…"/"Protontricks…" (86).
+    readonly property real runtimeButtonWidth: Kirigami.Units.gridUnit * 6
     property string pendingPreset: ""
     property string ptLogDir: ""
     property var page: null
@@ -312,10 +320,15 @@ Window {
     function refreshPrefixHint() {
         if (editAppid === "") {
             prefixHint = ""
+            prefixExists = false
             return
         }
         var state = gameModel.prefixNameState(
             editAppid, localPrefixNameField.text, rtPrefixField.text, nameField.text)
+        // Steam's prefix is its compatdata dir, not <base>/<folder>:
+        // the field itself decides, as before.
+        prefixExists = gameSettings.wineAvailable ? rtPrefixField.text.trim() !== ""
+            : state.exists === true
         var parts = []
         if (state.renamed === true) {
             parts.push(qsTr("Saved as: %1").arg(state.sanitized))
@@ -330,7 +343,9 @@ Window {
     }
 
     function openPrefixChoices() {
-        prefixChoices = gameModel.prefixChoices(editAppid)
+        // The picker lists the folders under the base this game uses: the
+        // per-game field wins over the Preferences base.
+        prefixChoices = gameModel.prefixChoices(editAppid, rtPrefixField.text.trim())
         prefixDialog.open()
     }
 
@@ -2065,6 +2080,8 @@ Window {
                                     }
                                     Controls.Button {
                                         objectName: "settingsLocalWineBrowse"
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
                                         text: qsTr("Browse…")
                                         onClicked: {
                                             gameSettings.pendingBrowse = "localWine"
@@ -2096,6 +2113,8 @@ Window {
                                     }
                                     Controls.Button {
                                         objectName: "wineToolApply"
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
                                         text: qsTr("Apply")
                                         onClicked: {
                                             var msg = gameModel.applyWineVersion(editAppid, gameSettings.wineToolData())
@@ -2184,65 +2203,102 @@ Window {
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
-                                    KirigamiLayouts.FormData.label: qsTr("Prefix Name:")
-                                    Controls.TextField {
-                                        id: localPrefixNameField
-                                        objectName: "settingsLocalPrefixName"
-                                        Layout.fillWidth: true
-                                        placeholderText: qsTr("Empty = the Game Name (Normalized)")
-                                        onTextChanged: gameSettings.refreshPrefixHint()
-                                    }
-                                    Controls.Button {
-                                        objectName: "settingsLocalPrefixNameChoose"
-                                        text: qsTr("Choose…")
-                                        onClicked: gameSettings.openPrefixChoices()
-                                    }
-                                }
-                                // The wrapped hint reports its whole line as
-                                // implicit width; inside a bare form item it
-                                // widens the grid past the frame (and the
-                                // buttons past the window), so it sits in a
-                                // row that can shrink.
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
-                                        && gameSettings.prefixHint !== ""
-                                    Controls.Label {
-                                        objectName: "settingsLocalPrefixHint"
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 0
-                                        Layout.minimumWidth: 0
-                                        wrapMode: Text.WordWrap
-                                        opacity: 0.7
-                                        text: gameSettings.prefixHint
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    // One field for both origins: for Steam it
-                                    // is the compatdata dir (STEAM_COMPAT_DATA_PATH),
-                                    // for local games the full prefix dir
-                                    // (WINEPREFIX).
+                                    // One row for the whole prefix: Steam's
+                                    // compatdata dir (STEAM_COMPAT_DATA_PATH)
+                                    // or, for a local game, the base and the
+                                    // folder inside it. It reads as the
+                                    // <base>/<folder> path the launch uses.
                                     visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
                                     KirigamiLayouts.FormData.label: gameSettings.wineAvailable
                                         ? qsTr("Custom Prefix Dir:")
                                         : qsTr("Wine Prefix:")
-                                    Controls.TextField {
+                                    Kirigami.ActionTextField {
                                         id: rtPrefixField
                                         objectName: "winePrefix"
                                         Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: Kirigami.Units.gridUnit * 4
                                         placeholderText: gameSettings.wineAvailable
                                             ? qsTr("Empty = Steam Default")
                                             : qsTr("Empty = the Prefix Base in Preferences")
                                         onEditingFinished: gameSettings.refreshPrefixHint()
-                                        Controls.ToolTip.text: gameSettings.wineAvailable
+                                        // The pickers sit inside the fields
+                                        // they fill: two text buttons plus
+                                        // Clear/Open do not fit one row at
+                                        // the minimum window width.
+                                        rightActions: [
+                                            Kirigami.Action {
+                                                objectName: "winePrefixBaseBrowse"
+                                                // A Steam compatdata dir is picked
+                                                // by the text button below.
+                                                visible: !gameSettings.wineAvailable
+                                                text: qsTr("Choose the Prefix Base…")
+                                                icon.name: "document-open-folder"
+                                                onTriggered: {
+                                                    gameSettings.pendingBrowse = "runtimePrefix"
+                                                    gameModel.pickDir(qsTr("Prefix Base"), qsTr("Select"))
+                                                }
+                                            }
+                                        ]
+                                        // The field scrolls a value longer than
+                                        // itself from the left, with no
+                                        // ellipsis (QQC2), so the tooltip
+                                        // carries the whole text.
+                                        Controls.ToolTip.text: (gameSettings.wineAvailable
                                             ? qsTr("Steam's Compatdata Directory (STEAM_COMPAT_DATA_PATH).")
-                                            : qsTr("Base Directory: the Prefix Itself Is a Subfolder Named After the Game.")
+                                            : qsTr("Base Directory: the Prefix Itself Is a Subfolder Named After the Game."))
+                                            + (text !== "" ? "\n" + text : "")
                                         Controls.ToolTip.visible: hovered
                                     }
+                                    Controls.Label {
+                                        objectName: "prefixBaseSuffix"
+                                        visible: !gameSettings.wineAvailable
+                                        Layout.alignment: Qt.AlignVCenter
+                                        text: qsTr("(Base)")
+                                        opacity: 0.7
+                                    }
+                                    Controls.Label {
+                                        visible: !gameSettings.wineAvailable
+                                        Layout.alignment: Qt.AlignVCenter
+                                        text: "/"
+                                        opacity: 0.5
+                                    }
+                                    Kirigami.ActionTextField {
+                                        id: localPrefixNameField
+                                        objectName: "settingsLocalPrefixName"
+                                        visible: !gameSettings.wineAvailable
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+                                        placeholderText: qsTr("Empty = the Game Name (Normalized)")
+                                        onTextChanged: gameSettings.refreshPrefixHint()
+                                        rightActions: [
+                                            Kirigami.Action {
+                                                objectName: "winePrefixFolderChoose"
+                                                text: qsTr("Choose an Existing Prefix…")
+                                                icon.name: "view-list-details"
+                                                onTriggered: gameSettings.openPrefixChoices()
+                                            }
+                                        ]
+                                        Controls.ToolTip.text: qsTr("Folder Name Under the Base, Normalized from the Game Name When Empty.")
+                                            + (text !== "" ? "\n" + text : "")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Label {
+                                        objectName: "prefixFolderSuffix"
+                                        visible: !gameSettings.wineAvailable
+                                        Layout.alignment: Qt.AlignVCenter
+                                        text: qsTr("(Folder)")
+                                        opacity: 0.7
+                                    }
+                                    // Steam keeps its text buttons; for a
+                                    // local game the two pickers are the
+                                    // inline actions above.
                                     Controls.Button {
                                         objectName: "winePrefixBrowse"
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
+                                        visible: gameSettings.wineAvailable
                                         text: qsTr("Browse…")
                                         onClicked: {
                                             gameSettings.pendingBrowse = "runtimePrefix"
@@ -2251,6 +2307,8 @@ Window {
                                     }
                                     Controls.Button {
                                         objectName: "winePrefixCreate"
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
                                         visible: gameSettings.wineAvailable
                                         text: qsTr("Create")
                                         onClicked: {
@@ -2260,12 +2318,41 @@ Window {
                                             }
                                         }
                                     }
+                                }
+                                // The resolved prefix and the actions on it.
+                                // The wrapped hint reports its whole line as
+                                // implicit width; inside a bare form item it
+                                // widens the grid past the frame (and the
+                                // buttons past the window), so it sits in a
+                                // row that can shrink.
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
+                                    Controls.Label {
+                                        objectName: "settingsLocalPrefixHint"
+                                        // Kept in the layout even when empty
+                                        // (Steam has no hint): the fillWidth
+                                        // is what keeps the buttons right.
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
+                                        wrapMode: Text.WordWrap
+                                        opacity: 0.7
+                                        // Steam's prefix is the compatdata
+                                        // dir itself; the <base>/<folder>
+                                        // resolution is a local-game rule.
+                                        text: gameSettings.wineAvailable ? "" : gameSettings.prefixHint
+                                    }
                                     Controls.Button {
                                         objectName: "winePrefixClear"
-                                        // A local game with a dir has a
-                                        // WINEPREFIX to delete as well.
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
+                                        // A local game with a prefix on disk
+                                        // has a WINEPREFIX to delete, even
+                                        // when it lives under the default
+                                        // base (empty field).
                                         visible: gameSettings.wineAvailable
-                                            || rtPrefixField.text.trim() !== ""
+                                            || gameSettings.prefixExists
                                         text: qsTr("Clear…")
                                         onClicked: {
                                             var target = gameModel.prefixDir(editAppid)
@@ -2281,8 +2368,10 @@ Window {
                                     }
                                     Controls.Button {
                                         objectName: "winePrefixOpen"
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
                                         visible: gameSettings.wineAvailable
-                                            || rtPrefixField.text.trim() !== ""
+                                            || gameSettings.prefixExists
                                         text: qsTr("Open")
                                         onClicked: {
                                             if (!gameModel.openPath(gameModel.prefixDir(editAppid))) {
@@ -2315,6 +2404,8 @@ Window {
                                     }
                                     Controls.Button {
                                         objectName: "ptVerbsAdd"
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
                                         text: qsTr("Add…")
                                         onClicked: gameSettings.openVerbPicker()
                                         Controls.ToolTip.text: qsTr("Search the Verb List and Append One to the Field.")
@@ -2338,6 +2429,8 @@ Window {
                                     }
                                     Controls.Button {
                                         objectName: "ptVerbsGui"
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
                                         // protontricks targets the game's
                                         // own compatdata dir; a custom prefix
                                         // takes winetricks against its pfx.
@@ -2433,6 +2526,9 @@ Window {
                                         Layout.fillWidth: true
                                     }
                                     Controls.Button {
+                                        objectName: "ptLogOpen"
+                                        Layout.preferredWidth: gameSettings.runtimeButtonWidth
+                                        Layout.minimumWidth: gameSettings.runtimeButtonWidth
                                         text: qsTr("Open")
                                         onClicked: {
                                             if (!gameModel.openPath(ptLogDir)) {

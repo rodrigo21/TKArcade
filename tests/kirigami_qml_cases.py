@@ -54,6 +54,36 @@ def _settings_tab(swin, index):
     QTest.qWait(150)
 
 
+def _visible_button_sizes(swin, names):
+    """(widths, heights) of the visible buttons among `names`."""
+    from PySide6.QtQuick import QQuickItem
+
+    widths, heights = set(), set()
+    for name in names:
+        item = swin.findChild(QQuickItem, name)
+        if item is not None and item.property("visible"):
+            widths.add(item.width())
+            heights.add(item.height())
+    return widths, heights
+
+
+# Every action in the Runtime tab except `settingsGfxRemove`: its label
+# ("Remove from Prefix") needs 121 px, so it keeps its own size instead of
+# forcing the whole column past 108. They share `runtimeButtonWidth`, so
+# the column does not follow the labels.
+RUNTIME_ACTION_BUTTONS = (
+    "settingsLocalWineBrowse",
+    "wineToolApply",
+    "winePrefixBrowse",
+    "winePrefixCreate",
+    "winePrefixClear",
+    "winePrefixOpen",
+    "ptVerbsAdd",
+    "ptVerbsGui",
+    "ptLogOpen",
+)
+
+
 def test_main_qml_loads_with_model(qgui_app, xdg_env):
     from PySide6.QtCore import QUrl
     from PySide6.QtQml import QQmlApplicationEngine
@@ -5022,6 +5052,23 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     assert swin.findChild(QQuickItem, "wineTool").property("visible") is True
     assert swin.findChild(QQuickItem, "ptFresh").property("visible") is True
     assert swin.findChild(QQuickItem, "ptLog").property("visible") is True
+    # Steam's prefix is one compatdata dir: no base/folder split.
+    assert swin.findChild(QQuickItem, "prefixBaseSuffix").property("visible") is False
+    assert swin.findChild(QQuickItem, "prefixFolderSuffix").property("visible") is False
+    # One width and height for every action of the tab: before, only
+    # "Protontricks…"/"Winetricks…" outgrew the style's 80 px floor.
+    widths, heights = _visible_button_sizes(swin, RUNTIME_ACTION_BUTTONS)
+    assert len(widths) == 1, widths
+    assert len(heights) == 1, heights
+    # An empty hint (Steam) still holds the row open, so Clear…/Open end
+    # where the other actions do instead of packing left.
+    content = swin.contentItem()
+
+    def right(name):
+        item = swin.findChild(QQuickItem, name)
+        return item.mapToItem(content, 0, 0).x() + item.width()
+
+    assert right("winePrefixOpen") == right("ptVerbsGui")
     swin.findChild(QQuickItem, "ptFresh").setProperty("checked", True)
     swin.findChild(QQuickItem, "ptVerbs").setProperty("text", "dotnet48")
     swin.findChild(QQuickItem, "ptDebug").setProperty("currentIndex", 2)
@@ -5162,24 +5209,56 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     from PySide6.QtCore import QMetaObject
 
     assert name_field.property("visible") is True
+    # Base and folder share one row, each labelled, so the pair reads as
+    # the <base>/<folder> path the launch uses.
+    base_suffix = swin.findChild(QQuickItem, "prefixBaseSuffix")
+    folder_suffix = swin.findChild(QQuickItem, "prefixFolderSuffix")
+    assert base_suffix.property("visible") is True
+    assert folder_suffix.property("visible") is True
+    assert prefix_field.y() == name_field.y()
     name_field.setProperty("text", "Friendly Doom")
     QTest.qWait(50)
     assert prefix.as_posix() in name_hint.property("text")
+    # The buttons follow the prefix on disk, not the field text: a local
+    # game under the default base has one too.
+    clear_button = swin.findChild(QQuickItem, "winePrefixClear")
+    open_button = swin.findChild(QQuickItem, "winePrefixOpen")
+    assert prefix_field.property("text") == ""
+    assert clear_button.property("visible") is True
+    assert open_button.property("visible") is True
+    # A folder that does not exist yet hides them again.
+    name_field.setProperty("text", "Not Created Yet")
+    QTest.qWait(50)
+    assert clear_button.property("visible") is False
+    assert open_button.property("visible") is False
+    name_field.setProperty("text", "Friendly Doom")
+    QTest.qWait(50)
+    assert open_button.property("visible") is True
+    # The Wine section's picker and the two verbs actions share the width.
+    widths, heights = _visible_button_sizes(swin, RUNTIME_ACTION_BUTTONS)
+    assert len(widths) == 1, widths
+    assert len(heights) == 1, heights
     # A typed dir is the base: the name still names the subfolder.
     custom_base = xdg_env["home"] / "bases"
     prefix_field.setProperty("text", str(custom_base))
     assert QMetaObject.invokeMethod(dlg, "refreshPrefixHint") is True
     QTest.qWait(50)
     assert (custom_base / "FriendlyDoom").as_posix() in name_hint.property("text")
-    # The prefix buttons work for a local game once it has a dir; the
-    # Create button stays Steam-only (umu builds its own prefix).
-    assert swin.findChild(QQuickItem, "winePrefixOpen").property("visible") is True
-    assert swin.findChild(QQuickItem, "winePrefixClear").property("visible") is True
+    # The buttons follow the prefix on disk, not the field text: a typed
+    # base whose folder does not exist yet has nothing to open or delete
+    # (the hint says it is created at launch), and Create stays Steam-only
+    # (umu builds its own prefix).
+    assert (custom_base / "FriendlyDoom").exists() is False
+    assert swin.findChild(QQuickItem, "winePrefixOpen").property("visible") is False
+    assert swin.findChild(QQuickItem, "winePrefixClear").property("visible") is False
     assert swin.findChild(QQuickItem, "winePrefixCreate").property("visible") is False
     prefix_field.setProperty("text", str(prefix.parent))
     assert QMetaObject.invokeMethod(dlg, "refreshPrefixHint") is True
     QTest.qWait(50)
     assert prefix.as_posix() in name_hint.property("text")
+    # Back on a base that holds the prefix: open and delete are back.
+    assert swin.findChild(QQuickItem, "winePrefixOpen").property("visible") is True
+    assert swin.findChild(QQuickItem, "winePrefixClear").property("visible") is True
 
     assert QMetaObject.invokeMethod(dlg, "openPrefixChoices") is True
     QTest.qWait(80)

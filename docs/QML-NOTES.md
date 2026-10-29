@@ -141,6 +141,16 @@ failure. `AGENTS.md` links here.
   binds the implicit width to the actual one, so the field column takes
   the remaining space (a widgets QFormLayout) and `Layout.fillWidth`
   fields reach the panel edge.
+- Sections of one tab are separate forms, so each sizes its own label
+  column and the fields of a "Prefix" frame start a few pixels left of a
+  "Runtime" one. `twinFormLayouts` (Kirigami 5.53+) is **not** the fix
+  here: with `WidgetsFormLayout`'s `implicitWidth: width` and the
+  unlabeled checkbox rows in the mix, the shared column inflates instead
+  of agreeing (measured offscreen: a `Prefix` field went from 133 to
+  210 px in the Steam dialog, and `DXVK:` sat 78 px right of `Runtime:`).
+  Aligning the tabs needs an explicit label width per tab, not twins —
+  see the "One label column" item in `TODO.md`.
+
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
   transition before synthetic clicks, or clicks land mid-slide.
 - Separate modal windows outlive their test's main window by event
