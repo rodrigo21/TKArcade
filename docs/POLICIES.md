@@ -21,8 +21,11 @@ Standing decisions that shape every change. `AGENTS.md` links here.
 - Flatpak Ludusavi cannot see Proton prefixes: always warn, never
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,
-  13 missing exe, 14 missing prefix/wine/umu/Proton runtime, 15 no display,
-  16 import/export, 17 validation issues, 18 environment not set).
+  13 missing exe, 14 missing prefix/wine/umu-run/Proton runtime, 15 no
+  display, 16 import/export, 17 validation issues, 18 environment not set).
+  A Steam Linux Runtime that umu has not downloaded yet is **not** an
+  exit-14 case: umu fetches it on the first launch, so it is only a hint
+  in the dialog and a `(note)` line in `--validate`.
 
 ## Dev environment
 

@@ -6,6 +6,16 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- Settings' second tab is `Commands` now: it holds the environment
+  variables and the pre/post hooks, and its old name collided with the
+  `Environment` (how the game runs) choice on the Runtime tab. No config
+  key moved.
+- A Steam game whose `[runtime] prefix` moves the compatdata dir can use
+  the interactive Winetricks window: protontricks always targets Steam's
+  own dir, so the game's Proton (explicit `[runtime] tool`, else Steam's
+  compat mapping) provides `WINE` and the custom container's `pfx` is the
+  `WINEPREFIX`. The button reads `Winetricks…` in that case; an
+  unresolvable Proton is refused with a message instead.
 - Ludusavi resolves a local game by its name now: without
   `[ludusavi] name_override` the wrap and the coverage check fall back
   to `[general] name` for non-Steam ids (`--infer steam` can never match
@@ -54,6 +64,17 @@ Breaking config changes are called out explicitly under `Changed`.
   game installed and launched once, which used to fail silently).
 
 ### Added
+- Steam Linux Runtime for local native games: Settings → Runtime gains a
+  `Steam Runtime:` combo (`[runtime] steam_runtime = scout|soldier|
+  sniper|steamrt4`, empty = disabled, no migration needed) and the launch
+  runs the game through `umu-run` with `PROTONPATH=umu-<name>` and
+  `GAMEID=tkarcade-<appid>`, like Faugus. The field only applies to a
+  local `native` game: Steam brings its own runtime for Steam games and a
+  Windows build runs under Wine/umu. A runtime umu has not downloaded yet
+  is a hint, not an error: the dialog names it, `--validate` prints a
+  `(note)` line and umu downloads it on the first launch (the exit code
+  contract is unchanged). The list's Runner column shows the short form
+  (`Steam Runtime (sniper)`).
 - Winetricks UI in Settings → Runtime → Prefix: `Add…` opens a
   searchable `winetricks list-all` picker (parsed once per process) that
   appends verbs to the field the launcher already runs, and the section

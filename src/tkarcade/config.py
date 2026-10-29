@@ -60,6 +60,17 @@ class Environment(StrEnum):
 ENVIRONMENTS = frozenset(t.value for t in Environment)
 
 
+#: Steam Linux Runtimes a local native game can run inside, keyed by the
+#: name umu knows (``PROTONPATH=umu-<name>``) with the label the dialog
+#: shows. Steam picks the runtime for its own native games.
+STEAM_RUNTIMES = {
+    "scout": "Steam Linux Runtime 1.0 (scout)",
+    "soldier": "Steam Linux Runtime 2.0 (soldier)",
+    "sniper": "Steam Linux Runtime 3.0 (sniper)",
+    "steamrt4": "Steam Linux Runtime 4.0 (steamrt4)",
+}
+
+
 def normalize_environment(value: object) -> str:
     """Return a known environment, or "" (unset).
 
@@ -79,13 +90,31 @@ def platform_for(environment: object) -> str:
     return "Windows" if env else ""
 
 
-def runner_label(environment: object, is_steam: bool) -> str:
-    """Library label for how the game runs ("" when unset)."""
+def normalize_steam_runtime(value: object) -> str:
+    """Return a known Steam Linux Runtime name, or "" (disabled)."""
+    text = str(value or "").strip().lower()
+    return text if text in STEAM_RUNTIMES else ""
+
+
+def steam_runtime_label(value: object) -> str:
+    """Full label of a Steam Linux Runtime ("" when unset or unknown)."""
+    return STEAM_RUNTIMES.get(normalize_steam_runtime(value), "")
+
+
+def runner_label(environment: object, is_steam: bool, steam_runtime: object = "") -> str:
+    """Library label for how the game runs ("" when unset).
+
+    A Steam game gets its runtime from Steam, so the label never carries a
+    version; a local native game names the one it was configured with.
+    """
     env = normalize_environment(environment)
     if env == Environment.PROTON:
         return "Steam Proton" if is_steam else "Proton"
     if env == Environment.NATIVE:
-        return "Steam Runtime" if is_steam else "Native"
+        if is_steam:
+            return "Steam Runtime"
+        runtime = normalize_steam_runtime(steam_runtime)
+        return f"Steam Runtime ({runtime})" if runtime else "Native"
     if env == Environment.WINE:
         return "Wine"
     return "Proton (UMU)" if env == Environment.UMU else ""
@@ -209,6 +238,11 @@ class RuntimeConfig:
       ``proton``; the full ``WINEPREFIX`` for ``wine``/``umu``.
     - ``tool``: preferred Steam compat tool for ``proton``; the Wine
       executable for ``wine``; the umu ``PROTONPATH`` for ``umu``.
+
+    ``steam_runtime`` names a Steam Linux Runtime (see ``STEAM_RUNTIMES``)
+    for a local native game; umu runs it inside that runtime. It is
+    ignored for every other case: Steam picks the runtime itself and a
+    Windows build runs under Wine/umu instead.
     """
 
     fresh_prefix: bool = False  # Steam only: wipe the compatdata before launch
@@ -216,6 +250,7 @@ class RuntimeConfig:
     prefix: str = ""  # custom prefix dir ("" = Steam default / <prefix_base>/<appid>)
     prefix_name: str = ""  # local only: friendly dir name under prefix_base ("" = appid)
     tool: str = ""  # runtime tool ("" = Steam default / global preference)
+    steam_runtime: str = ""  # local native only: scout|soldier|sniper|steamrt4
 
 
 #: Graphics translation layers offered for local Wine/UMU games. DXVK and
@@ -718,7 +753,14 @@ SECTION_KEYS: dict[str, set[str]] = {
     "debug": {"proton_log", "winedebug"},
     "session": {"inhibit_idle"},
     "network": {"block_internet"},
-    "runtime": {"fresh_prefix", "winetricks_verbs", "prefix", "prefix_name", "tool"},
+    "runtime": {
+        "fresh_prefix",
+        "winetricks_verbs",
+        "prefix",
+        "prefix_name",
+        "tool",
+        "steam_runtime",
+    },
     "graphics": {"dxvk", "vkd3d"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
@@ -885,6 +927,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.runtime.prefix = str(rt.get("prefix", "")).strip()
     cfg.runtime.prefix_name = str(rt.get("prefix_name", "")).strip()
     cfg.runtime.tool = str(rt.get("tool", "")).strip()
+    cfg.runtime.steam_runtime = normalize_steam_runtime(rt.get("steam_runtime", ""))
     gfx = _section(data, "graphics")
     cfg.graphics.dxvk = _as_bool(gfx.get("dxvk", False), False)
     cfg.graphics.vkd3d = normalize_graphics_vkd3d(gfx.get("vkd3d", ""))

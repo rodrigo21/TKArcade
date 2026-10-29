@@ -81,7 +81,21 @@ launch once first so the runtime creates the prefix. In the GUI,
 `Add…` searches `winetricks list-all` and appends a verb to that field,
 the Prefix section lists the verbs the prefix already has (from its
 `winetricks.log`), and `Protontricks…`/`Winetricks…` opens the
-interactive tool against the game's own prefix.
+interactive tool against the game's own prefix. A Steam game with a
+custom `[runtime] prefix` uses `winetricks` too (protontricks only
+targets Steam's own dir): the game's Proton supplies `WINE` and the
+custom container's `pfx` is the `WINEPREFIX`.
+
+`[runtime] steam_runtime` runs a **local Linux** game inside a Steam
+Linux Runtime through `umu-run` (`scout`, `soldier`, `sniper` or
+`steamrt4`; empty = the plain host). umu builds a passthrough
+compatibility tool for native apps, so the launch only adds
+`PROTONPATH=umu-<name>` and `GAMEID=tkarcade-<appid>`: no WINEPREFIX and
+no graphics layer. The field is ignored for Steam games (Steam picks
+their runtime) and for Wine/umu games. Runtimes live in
+`$XDG_DATA_HOME/umu/` and umu downloads a missing one on the first
+launch that asks for it — the dialog says so and `--validate` prints a
+`(note)`, never an issue; only a missing `umu-run` refuses (exit 14).
 
 `[graphics] dxvk` and `[graphics] vkd3d` copy the newest matching builds
 found in the configured DXVK/vkd3d directories into the prefix at launch
@@ -101,6 +115,8 @@ environment = "umu"
 
 [runtime]
 tool = "/home/user/GE-Proton10-25"
+# Local native games only: run inside a Steam Linux Runtime via umu-run.
+steam_runtime = "sniper"
 
 [graphics]
 dxvk = true
@@ -119,11 +135,12 @@ totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.
 
 **Game dialog** — tabs for General (the game and its launch settings),
-Environment (variables, curated presets and the pre/post commands),
+Commands (variables, curated presets and the pre/post commands),
 Runtime
-(the environment selector and tool, prefix with its installed and
-pending winetricks verbs plus the interactive protontricks/winetricks
-window, DXVK and vkd3d layers, Proton debug switches), Performance
+(the environment selector and tool, the Steam Linux Runtime of a local
+native game, prefix with its installed and pending winetricks verbs plus
+the interactive protontricks/winetricks window, DXVK and vkd3d layers,
+Proton debug switches), Performance
 (GameMode, MangoHud, RT upscaler), Display (Gamescope, monitor mode),
 System (notifications, idle suspend, network, night light, audio,
 Ludusavi saves) and Artwork/Notes. The footer shows the live wrapper

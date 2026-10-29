@@ -215,6 +215,34 @@ Window {
             : ["native", "wine", "umu"]
     }
 
+    // protontricks always targets Steam's own compatdata dir: a Steam game
+    // with a custom [runtime] prefix takes winetricks instead.
+    function usesProtontricks() {
+        return gameSettings.wineAvailable && rtPrefixField.text.trim() === ""
+    }
+
+    // Steam Linux Runtime codes in the combo's order (index 0 = disabled).
+    function steamRuntimeCodes() {
+        return ["", "scout", "soldier", "sniper", "steamrt4"]
+    }
+
+    function steamRuntimeValue() {
+        return gameSettings.steamRuntimeCodes()[srBox.currentIndex] || ""
+    }
+
+    // Installed: where umu keeps it. Not installed: umu downloads it on the
+    // first launch, so this never blocks Save or Play.
+    function steamRuntimeHintText() {
+        var code = gameSettings.steamRuntimeValue()
+        if (code === "") {
+            return ""
+        }
+        var state = gameModel.steamRuntimeState(code)
+        return state.installed === true
+            ? qsTr("%1 Is Installed: %2").arg(state.label).arg(state.path)
+            : qsTr("%1 Is Not Installed: umu Downloads It On First Launch.").arg(state.label)
+    }
+
     function runtimeText() {
         if (defaultsMode || editAppid === "") {
             return ""
@@ -231,7 +259,10 @@ Window {
                 }
                 return qsTr("Proton via UMU (Choose an Install)")
             }
-            return qsTr("Native (No Runtime)")
+            var sr = gameSettings.steamRuntimeValue()
+            return sr === ""
+                ? qsTr("Native (No Runtime)")
+                : qsTr("Native · %1").arg(gameModel.steamRuntimeState(sr).label)
         }
         if (typeBox.currentIndex === 1) {
             return qsTr("Native (No Proton)")
@@ -258,6 +289,8 @@ Window {
         }
         rtPrefixField.text = fields.runtime_prefix || ""
         localPrefixNameField.text = fields.runtime_prefix_name || ""
+        var srIndex = gameSettings.steamRuntimeCodes().indexOf(fields.runtime_steam_runtime || "")
+        srBox.currentIndex = srIndex > 0 ? srIndex : 0
         refreshPrefixHint()
         var chosen = fields.runtime_tool || ""
         var idx = -1
@@ -270,6 +303,7 @@ Window {
         protonBox.currentIndex = idx
         refreshGfx(true)
         runtimeField.text = runtimeText()
+        steamRuntimeHint.text = steamRuntimeHintText()
     }
 
     // The dir field is the base: the prefix itself is a subfolder of it
@@ -573,6 +607,9 @@ Window {
             "runtime_tool": gameSettings.wineAvailable
                 ? wineToolData()
                 : (typeBox.currentIndex === 2 ? protonChoicePath() : localWineField.text),
+            "runtime_steam_runtime": gameSettings.wineAvailable
+                ? ""
+                : (typeBox.currentIndex === 0 ? gameSettings.steamRuntimeValue() : ""),
             "graphics_dxvk": gfxDxvk.checked,
             "graphics_vkd3d": gfxVkd3dValue(),
             "active_profile": dialogProfile
@@ -1484,7 +1521,7 @@ Window {
                 text: qsTr("General")
             }
             Controls.TabButton {
-                text: qsTr("Environment")
+                text: qsTr("Commands")
             }
             Controls.TabButton {
                 text: qsTr("Runtime")
@@ -2070,16 +2107,70 @@ Window {
                                         }
                                     }
                                 }
-                                Controls.Label {
-                                    objectName: "localRuntimeHint"
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    // A local Linux build can run inside a
+                                    // Steam Linux Runtime; a Steam game gets
+                                    // its runtime from Steam instead.
+                                    visible: !defaultsMode && !(fields.is_steam || false)
+                                        && typeBox.currentIndex === 0
+                                    KirigamiLayouts.FormData.label: qsTr("Steam Runtime:")
+                                    Controls.ComboBox {
+                                        id: srBox
+                                        objectName: "settingsSteamRuntime"
+                                        Layout.fillWidth: true
+                                        model: [
+                                            qsTr("Disabled"),
+                                            qsTr("Steam Linux Runtime 1.0 (scout)"),
+                                            qsTr("Steam Linux Runtime 2.0 (soldier)"),
+                                            qsTr("Steam Linux Runtime 3.0 (sniper)"),
+                                            qsTr("Steam Linux Runtime 4.0 (steamrt4)")
+                                        ]
+                                        // currentIndex, not activated: the
+                                        // row and the hint follow a restored
+                                        // value too, not only a click.
+                                        onCurrentIndexChanged: {
+                                            runtimeField.text = gameSettings.runtimeText()
+                                            steamRuntimeHint.text = gameSettings.steamRuntimeHintText()
+                                        }
+                                    }
+                                }
+                                // A wrapped hint belongs in a row that can
+                                // shrink: as a bare form item it takes the
+                                // whole form width and the tab clips it at
+                                // the minimum window width.
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: !defaultsMode && !(fields.is_steam || false)
+                                        && typeBox.currentIndex === 0 && steamRuntimeHint.text !== ""
+                                    Controls.Label {
+                                        objectName: "steamRuntimeHint"
+                                        id: steamRuntimeHint
+                                        // Only when umu does not have the
+                                        // runtime yet: it downloads it on
+                                        // first launch.
+                                        visible: text !== ""
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
+                                        wrapMode: Text.WordWrap
+                                        color: Kirigami.Theme.disabledTextColor
+                                    }
+                                }
+                                // Same shrinkable row as the hint above.
+                                RowLayout {
+                                    Layout.fillWidth: true
                                     // Native needs no tool: the sentence
                                     // only makes sense for Wine/umu.
                                     visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 0
-                                    Layout.minimumWidth: 0
-                                    wrapMode: Text.WordWrap
-                                    text: qsTr("Local Windows Games Run Through Wine or Proton (umu-run). Nothing Is Downloaded: Pick an Installed Tool.")
+                                    Controls.Label {
+                                        objectName: "localRuntimeHint"
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
+                                        wrapMode: Text.WordWrap
+                                        text: qsTr("Local Windows Games Run Through Wine or Proton (umu-run). Nothing Is Downloaded: Pick an Installed Tool.")
+                                    }
                                 }
                             }
                         }
@@ -2217,7 +2308,7 @@ Window {
                                         placeholderText: qsTr("dotnet48 vcrun2022 (Space-Separated)")
                                         Layout.fillWidth: true
                                         onEditingFinished: gameSettings.refreshInstalledVerbs()
-                                        Controls.ToolTip.text: gameSettings.wineAvailable
+                                        Controls.ToolTip.text: gameSettings.usesProtontricks()
                                             ? qsTr("Winetricks Verbs Installed via protontricks Before Launch.")
                                             : qsTr("Installed with winetricks into This Prefix Before Launch; the Prefix Must Already Exist.")
                                         Controls.ToolTip.visible: hovered
@@ -2248,13 +2339,13 @@ Window {
                                     Controls.Button {
                                         objectName: "ptVerbsGui"
                                         // protontricks targets the game's
-                                        // compatdata prefix; a custom one is
-                                        // refused by the model.
-                                        text: gameSettings.wineAvailable
+                                        // own compatdata dir; a custom prefix
+                                        // takes winetricks against its pfx.
+                                        text: gameSettings.usesProtontricks()
                                             ? qsTr("Protontricks…")
                                             : qsTr("Winetricks…")
                                         onClicked: gameSettings.openVerbTool()
-                                        Controls.ToolTip.text: gameSettings.wineAvailable
+                                        Controls.ToolTip.text: gameSettings.usesProtontricks()
                                             ? qsTr("Open protontricks for This Game in Its Own Window.")
                                             : qsTr("Open winetricks Against This Prefix in Its Own Window.")
                                         Controls.ToolTip.visible: hovered

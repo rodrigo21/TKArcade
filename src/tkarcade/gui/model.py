@@ -587,7 +587,10 @@ class GameListModel(QAbstractTableModel):
             last_played,
             last_secs,
             cfgmod.platform_for(gcfg.general.environment) if gcfg is not None else "",
-            (cfgmod.runner_label(gcfg.general.environment, is_steam) or "Not Set")
+            (
+                cfgmod.runner_label(gcfg.general.environment, is_steam, gcfg.runtime.steam_runtime)
+                or "Not Set"
+            )
             if gcfg is not None
             else "",
             self._row_wine(appid, gcfg, is_steam),
@@ -785,6 +788,7 @@ class GameListModel(QAbstractTableModel):
             "runtime_prefix": cfg.runtime.prefix,
             "runtime_prefix_name": cfg.runtime.prefix_name,
             "runtime_tool": cfg.runtime.tool,
+            "runtime_steam_runtime": cfg.runtime.steam_runtime,
             "graphics_dxvk": bool(cfg.graphics.dxvk),
             "graphics_vkd3d": cfgmod.normalize_graphics_vkd3d(cfg.graphics.vkd3d),
         }
@@ -972,6 +976,9 @@ class GameListModel(QAbstractTableModel):
         cfg.runtime.prefix_name = str(data.get("runtime_prefix_name", "")).strip()
         GameListModel._pin_prefix_name(cfg)
         cfg.runtime.tool = str(data.get("runtime_tool", "")).strip()
+        cfg.runtime.steam_runtime = cfgmod.normalize_steam_runtime(
+            data.get("runtime_steam_runtime", "")
+        )
         cfg.graphics.dxvk = bool(data.get("graphics_dxvk", False))
         cfg.graphics.vkd3d = cfgmod.normalize_graphics_vkd3d(data.get("graphics_vkd3d", ""))
         cats = data.get("categories", [])
@@ -1391,6 +1398,21 @@ class GameListModel(QAbstractTableModel):
             return None, f"Shared Prefix: Still Used by {', '.join(others)}."
         return target, ""
 
+    @staticmethod
+    def _steam_proton(cfg) -> object:
+        """The Proton install a Steam game launches with (None = unresolved).
+
+        An explicit ``[runtime] tool`` wins; otherwise Steam's own compat
+        mapping for the AppID decides, so the answer matches the launch.
+        """
+        from .. import proton as protonmod
+
+        prefs = cfgmod.load_preferences()
+        tool = cfg.runtime.tool.strip() or protonmod.compat_tool_name(cfg.general.appid) or ""
+        if not tool:
+            return None
+        return runtimes.find_proton(tool, prefs.proton_dirs)
+
     def _wine_env(self, cfg) -> tuple[Path, str, object]:
         """(prefix dir, wine binary, Proton install) for a local game."""
         prefs = cfgmod.load_preferences()
@@ -1404,6 +1426,23 @@ class GameListModel(QAbstractTableModel):
         wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_binary)
         proton = runtimes.find_proton(cfg.runtime.tool, prefs.proton_dirs)
         return prefix, wine, proton
+
+    @Slot(str, result="QVariantMap")
+    def steamRuntimeState(self, name: str) -> dict:
+        """A Steam Linux Runtime's label, dir and whether umu already has it.
+
+        A missing runtime is only a hint: umu downloads it on the first launch
+        that asks for it, so this never blocks Save or Play.
+        """
+        code = cfgmod.normalize_steam_runtime(name)
+        if not code:
+            return {"installed": False, "label": "", "path": ""}
+        path = runtimes.steam_runtime_dir(code)
+        return {
+            "installed": runtimes.steam_runtime_installed(code),
+            "label": cfgmod.steam_runtime_label(code),
+            "path": os.fspath(path) if path is not None else "",
+        }
 
     @Slot(str, str, result="QVariantMap")
     def installedVerbs(self, appid: str, verbs: str = "") -> dict:
@@ -1440,9 +1479,16 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             return f"Could Not Read the Config: {e}"
         env: dict[str, str] = {}
-        if steammod.is_steam_id(appid):
-            if cfg.runtime.prefix.strip():
-                return "Protontricks Cannot Target a Custom Prefix: Clear It First."
+        if steammod.is_steam_id(appid) and cfg.runtime.prefix.strip():
+            # protontricks only ever targets Steam's own compatdata dir, so a
+            # custom [runtime] prefix takes winetricks instead: the game's
+            # Proton supplies wine, the container's pfx is the WINEPREFIX.
+            proton = self._steam_proton(cfg)
+            if proton is None:
+                return "Could Not Resolve the Game's Proton: Pick One in the Runtime Tab."
+            container = Path(cfg.runtime.prefix.strip()).expanduser()
+            argv, env, message = wtmod.local_gui(container / "pfx", "proton", "", proton)
+        elif steammod.is_steam_id(appid):
             # protontricks needs the game installed and launched once: it
             # targets the compatdata prefix and refuses with a message on
             # stdout that the GUI would never show.

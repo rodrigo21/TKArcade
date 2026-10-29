@@ -6,6 +6,11 @@ protontricks; a local game has no AppID, so this runs the host
 chosen runtime. The recorded state includes the prefix path, so moving
 a game to another prefix reruns the verbs.
 
+A Steam game whose ``[runtime] prefix`` moves the compatdata dir cannot
+use protontricks either (it always targets Steam's own), so it takes the
+same path: the game's Proton provides ``WINE`` and the prefix is the
+custom container's ``pfx``.
+
 The launcher calls this before the command is built, so a failure only
 warns and never blocks the launch.
 """
@@ -22,6 +27,9 @@ from pathlib import Path
 from . import xdg
 
 TIMEOUT = 1200
+
+#: Environments whose prefix is Proton's: the Proton install supplies wine.
+PROTON_ENVIRONMENTS = ("umu", "proton")
 
 # `list-all` costs ~2s and never changes while the binary sits there, so
 # the parsed rows are cached per process, keyed by path plus mtime.
@@ -167,7 +175,7 @@ def _prepare(
                 "launch the game once to create the prefix"
             ],
         )
-    if environment == "umu":
+    if environment in PROTON_ENVIRONMENTS:
         wine = _wine_for(proton)
         if not wine:
             return "", "", ["winetricks skipped: the selected Proton install has no files/bin/wine"]
@@ -248,7 +256,7 @@ def local_gui(
     prefix = Path(prefix)
     if not (prefix / "drive_c").is_dir():
         return [], {}, f"The Prefix Does Not Exist Yet: {prefix} — Launch the Game Once."
-    if environment == "umu":
+    if environment in PROTON_ENVIRONMENTS:
         wine = _wine_for(proton)
         if not wine:
             return [], {}, "The Selected Proton Install Has No files/bin/wine."

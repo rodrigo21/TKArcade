@@ -1714,8 +1714,11 @@ def test_settings_winetricks_gui_refusals(qgui_app, xdg_env, tmp_path, monkeypat
     cfg.general.appid = "620"
     cfg.runtime.prefix = str(tmp_path / "pfx")
     C.save(cfg)
-    # protontricks cannot target a prefix the launcher overrides.
-    assert "Custom Prefix" in model.openWinetricksGui("620")
+    # A custom prefix takes winetricks, which needs the game's Proton.
+    from tkarcade import proton as P
+
+    monkeypatch.setattr(P, "compat_tool_name", lambda appid: None)
+    assert "Proton" in model.openWinetricksGui("620")
     cfg.runtime.prefix = ""
     C.save(cfg)
     # protontricks refuses games that never ran: it needs their compatdata.
@@ -1731,6 +1734,51 @@ def test_settings_winetricks_gui_refusals(qgui_app, xdg_env, tmp_path, monkeypat
     local.general.environment = "native"
     C.save(local)
     assert "Wine or Proton" in model.openWinetricksGui("local-native")
+
+
+def test_settings_winetricks_gui_custom_prefix(qgui_app, xdg_env, fake_bin, tmp_path, monkeypatch):
+    """A Steam game with a custom prefix runs winetricks against its pfx."""
+    import time
+
+    from tkarcade import proton as P
+    from tkarcade.gui.model import GameListModel
+
+    calls = tmp_path / "calls.log"
+    fake_bin("winetricks", f'#!/bin/sh\necho "$WINEPREFIX|$WINE|$@" >> "{calls}"\n')
+    proton = tmp_path / "GE-Proton9-1"
+    (proton / "files" / "bin").mkdir(parents=True)
+    wine = proton / "files" / "bin" / "wine"
+    wine.write_text("#!/bin/sh\n")
+    wine.chmod(0o755)
+    container = tmp_path / "custom-compatdata"
+    (container / "pfx" / "drive_c").mkdir(parents=True)
+    cfg = C.GameConfig()
+    cfg.general.appid = "620"
+    cfg.runtime.prefix = str(container)
+    cfg.runtime.tool = str(proton)  # an explicit tool wins over the mapping
+    C.save(cfg)
+    monkeypatch.setattr(P, "compat_tool_name", lambda appid: None)
+    model = GameListModel()
+    assert model.openWinetricksGui("620") == ""
+    deadline = time.time() + 5
+    while not calls.exists() and time.time() < deadline:
+        time.sleep(0.02)
+    assert calls.read_text().strip() == f"{container / 'pfx'}|{wine}|--gui"
+
+
+def test_steam_runtime_state(qgui_app, xdg_env):
+    """The dialog hint reads umu's own layout; a missing one is not an error."""
+    from pathlib import Path
+
+    model = _model(qgui_app)
+    assert model.steamRuntimeState("") == {"installed": False, "label": "", "path": ""}
+    assert model.steamRuntimeState("bogus")["label"] == ""
+    state = model.steamRuntimeState("sniper")
+    assert state["label"] == "Steam Linux Runtime 3.0 (sniper)"
+    assert state["path"].endswith("umu/steamrt3")
+    assert state["installed"] is False
+    Path(state["path"]).mkdir(parents=True)
+    assert model.steamRuntimeState("sniper")["installed"] is True
 
 
 def test_settings_winetricks_gui_launch(qgui_app, xdg_env, fake_bin, tmp_path):

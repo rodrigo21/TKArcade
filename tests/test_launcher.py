@@ -236,6 +236,31 @@ def test_validate_clean(xdg_env):
     assert L.cmd_validate(["31"]) == 0
 
 
+def test_validate_steam_runtime_is_a_note_not_an_issue(
+    xdg_env, fake_bin, monkeypatch, tmp_path, capsys
+):
+    from tkarcade import launcher as L
+
+    fake_bin("umu-run")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-srl"
+    cfg.general.name = "Srl"
+    cfg.general.environment = "native"
+    cfg.general.custom_executable = fake_bin("game")
+    cfg.runtime.steam_runtime = "sniper"
+    C.save(cfg)
+    # umu downloads a missing runtime on first launch: a note, never a 17.
+    assert L.validate_game("local-srl") == []
+    notes = L.validate_notes("local-srl")
+    assert notes and "3.0 (sniper)" in notes[0] and "first launch" in notes[0]
+    assert L.cmd_validate(["local-srl"]) == 0
+    out = capsys.readouterr().out
+    assert "(note)" in out and "all clear" in out
+    # Without umu-run the launch would exit 14, so that one is an issue.
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    assert any("umu-run" in issue for issue in L.validate_game("local-srl"))
+
+
 def test_global_log_carries_duration(xdg_env):
     from tkarcade import xdg
 

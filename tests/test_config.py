@@ -95,12 +95,18 @@ def test_runtime_config_roundtrip(xdg_env):
     cfg.runtime.prefix = "/tmp/opencode/prefix"
     cfg.runtime.tool = "GE-Proton9-1"
     cfg.runtime.winetricks_verbs = ["corefonts"]
+    cfg.runtime.steam_runtime = "sniper"
     C.save(cfg)
     loaded = C.load("72")
     assert loaded.runtime.fresh_prefix is True
     assert loaded.runtime.prefix == "/tmp/opencode/prefix"
     assert loaded.runtime.tool == "GE-Proton9-1"
     assert loaded.runtime.winetricks_verbs == ["corefonts"]
+    assert loaded.runtime.steam_runtime == "sniper"
+    # An unknown name loads as disabled instead of failing the file.
+    cfg.runtime.steam_runtime = "bogus"
+    C.save(cfg)
+    assert C.load("72").runtime.steam_runtime == ""
 
 
 def test_prepare_fresh_prefix(monkeypatch, tmp_path):
@@ -1279,6 +1285,25 @@ def test_environment_axes_are_derived():
     assert C.runner_label("native", False) == "Native"
     assert C.runner_label("wine", False) == "Wine"
     assert C.runner_label("umu", False) == "Proton (UMU)"
+
+    # A local native game names its Steam Linux Runtime; the column stays
+    # short, because the full label only fits the dialog's combo.
+    assert C.runner_label("native", False, "sniper") == "Steam Runtime (sniper)"
+    assert C.runner_label("native", False, "bogus") == "Native"
+    # Steam picks the runtime itself, so its label never carries one.
+    assert C.runner_label("native", True, "sniper") == "Steam Runtime"
+    # The field is ignored wherever it cannot apply.
+    assert C.runner_label("proton", False, "sniper") == "Proton"
+    assert C.runner_label("wine", False, "sniper") == "Wine"
+
+
+def test_steam_runtime_names():
+    assert C.normalize_steam_runtime("  SNIPER ") == "sniper"
+    assert C.normalize_steam_runtime("") == ""
+    assert C.normalize_steam_runtime("steamrt5") == ""
+    assert C.steam_runtime_label("soldier") == "Steam Linux Runtime 2.0 (soldier)"
+    assert C.steam_runtime_label("steamrt4") == "Steam Linux Runtime 4.0 (steamrt4)"
+    assert C.steam_runtime_label("bogus") == ""
 
 
 def test_legacy_keys_load_as_unset(xdg_env, tmp_path, monkeypatch):

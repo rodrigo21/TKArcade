@@ -10,7 +10,7 @@ OFFSCREEN_NOISE = ("was not placed in the graphics scene",)
 # (the slash in Artwork/Notes is fine) to avoid eliding in seven tabs.
 SETTINGS_TAB_TITLES = (
     "General",
-    "Environment",
+    "Commands",
     "Runtime",
     "Performance",
     "Display",
@@ -19,7 +19,7 @@ SETTINGS_TAB_TITLES = (
 )
 (
     TAB_GENERAL,
-    TAB_ENV,
+    TAB_COMMANDS,
     TAB_RUNTIME,
     TAB_PERF,
     TAB_DISPLAY,
@@ -34,7 +34,7 @@ TAB_COMPAT = TAB_RUNTIME
 
 SETTINGS_TAB_BODIES = {
     TAB_GENERAL: "settingsGeneralScroll",
-    TAB_ENV: "settingsEnvRowsScroll",
+    TAB_COMMANDS: "settingsEnvRowsScroll",
     TAB_RUNTIME: "settingsWineScroll",
     TAB_PERF: "settingsPerfScroll",
     TAB_DISPLAY: "settingsDisplayScroll",
@@ -1940,8 +1940,8 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
     # centered title above a framed panel (the QQC2 GroupBox painted the
     # title inside the frame at the top-left).
     assert visible_titles(TAB_GENERAL) == ["Game", "Launch", "Profile"]
-    # Env vars and the pre/post hooks share one tab.
-    assert visible_titles(TAB_ENV) == ["Environment Variables", "Pre/Post Commands"]
+    # Env vars and the pre/post hooks share the Commands tab.
+    assert visible_titles(TAB_COMMANDS) == ["Environment Variables", "Pre/Post Commands"]
     # A local game picks its Wine/umu runtime here; the prefix, the
     # graphics layers and the Steam-only debug box only appear once a
     # runtime that has a prefix is chosen.
@@ -2142,7 +2142,7 @@ def test_settings_env_tab_widgets_layout(qgui_app, xdg_env):
     QTest.qWait(120)
     qgui_app.processEvents()
     swin = _settings_window(qgui_app)
-    tabs.setProperty("currentIndex", TAB_ENV)
+    tabs.setProperty("currentIndex", TAB_COMMANDS)
     QTest.qWait(150)
     qgui_app.processEvents()
 
@@ -2349,7 +2349,7 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
     assert shown(*launch) == list(launch)
     assert shown(*hooks) == []
     assert shown(*runtime) == []
-    _settings_tab(swin, TAB_ENV)
+    _settings_tab(swin, TAB_COMMANDS)
     assert shown(*hooks) == list(hooks)
     assert shown(*launch) == []
     _settings_tab(swin, TAB_RUNTIME)
@@ -4616,7 +4616,7 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
     tabs = swin.findChild(QQuickItem, "settingsTabs")
-    tabs.setProperty("currentIndex", TAB_ENV)
+    tabs.setProperty("currentIndex", TAB_COMMANDS)
     qgui_app.processEvents()
     # A game without variables already shows one empty row (nothing is
     # saved unless it gets a key).
@@ -4625,7 +4625,7 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
     click("envAdd")
     assert dlg.envRowCount() == 2
     dlg.setEnvRow(0, "FOO", "bar")
-    # Pre/Post now lives on the same Environment tab.
+    # Pre/Post now lives on the same Commands tab.
     swin.findChild(QQuickItem, "ppPre").setProperty("text", "/bin/echo")
     swin.findChild(QQuickItem, "ppTimeout").setProperty("value", 30)
     click("settingsSave")
@@ -4657,7 +4657,7 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
 
     # Bulk edit replaces rows; preset merges missing keys.
     page.openGameSettings("local-doom")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ENV)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_COMMANDS)
     qgui_app.processEvents()
     click("envBulk")
     assert win.findChild(QObject, "envBulkDialog").property("visible") is True
@@ -5249,6 +5249,69 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert not G.marker_path(prefix).is_file()
     assert remove.property("enabled") is False
     assert "Nothing Installed" in status.property("text")
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_local_steam_runtime(qgui_app, xdg_env):
+    """A local native game picks a Steam Linux Runtime for umu to run it in."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    _save_one_game("local-doom", "Doom")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    _settings_tab(swin, TAB_RUNTIME)
+    sr_box = swin.findChild(QQuickItem, "settingsSteamRuntime")
+    hint = swin.findChild(QQuickItem, "steamRuntimeHint")
+    runtime_field = swin.findChild(QQuickItem, "settingsRuntime")
+
+    # Local native: the combo is offered, Disabled by default, and nothing
+    # is claimed about a runtime the game does not use.
+    assert sr_box.property("visible") is True
+    assert sr_box.property("currentIndex") == 0
+    assert sr_box.property("model")[0] == "Disabled"
+    assert "1.0 (scout)" in sr_box.property("model")[1]
+    assert hint.property("visible") is False
+    assert runtime_field.property("text") == "Native (No Runtime)"
+
+    # Picking one names the runtime and warns that umu has to download it
+    # on the first launch (it is not in the data dir here).
+    sr_box.setProperty("currentIndex", 3)  # sniper
+    QTest.qWait(80)
+    assert "3.0 (sniper)" in runtime_field.property("text")
+    assert hint.property("visible") is True
+    assert "Not Installed" in hint.property("text")
+    assert "First Launch" in hint.property("text")
+
+    # At the minimum window width the wrapped hint stays inside the frame:
+    # as a bare form item it took the whole form width and got clipped.
+    swin.setProperty("width", swin.property("minimumWidth"))
+    QTest.qWait(300)
+    assert hint.property("contentWidth") <= hint.property("width") + 1
+    assert hint.property("lineCount") >= 1
+
+    dlg.save()
+    QTest.qWait(50)
+    assert C.load("local-doom").runtime.steam_runtime == "sniper"
+
+    # Opening again restores it; a Steam game never shows the combo.
+    page.openGameSettings("local-doom")
+    QTest.qWait(150)
+    _settings_tab(swin, TAB_RUNTIME)
+    assert sr_box.property("currentIndex") == 3
+    # The list column keeps the short form; the dialog carries the version.
+    assert C.runner_label("native", False, "sniper") == "Steam Runtime (sniper)"
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -5935,8 +5998,8 @@ def test_settings_tabs_formlayout_never_stack(qgui_app, xdg_env):
             args_right = args.property("x") + args.property("width")
             assert args_right <= forms[0].property("width") + 1
 
-    # Every tab has at least one WidgetsFormLayout (Environment's pre/post
-    # hooks brought one to the tab that used to be table-only); a rename
+    # Every tab has at least one WidgetsFormLayout (the Commands tab's
+    # pre/post hooks brought one to the tab that used to be table-only); a rename
     # that hides a form from the search would otherwise pass silently.
     assert {title for title, count in seen.items() if not count} == set()
 

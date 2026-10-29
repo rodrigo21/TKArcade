@@ -13,7 +13,10 @@ arguments (or with \fB--gui\fR) for the settings GUI.
 .PP
 Steam games launch through their Steam Proton runtime (\fBproton\fR) or
 natively (\fBnative\fR); local games through \fBnative\fR, a Wine binary
-(\fBwine\fR) or Proton via \fBumu-run\fR (\fBumu\fR). Local Windows
+(\fBwine\fR) or Proton via \fBumu-run\fR (\fBumu\fR). A local
+\fBnative\fR game may also run inside a Steam Linux Runtime
+(\fB[runtime] steam_runtime\fR) through \fBumu-run\fR, which downloads
+a missing runtime on the first launch. Local Windows
 prefixes default to \fB$XDG_DATA_HOME/tkarcade/prefixes/<appid>\fR and
 may install DXVK and/or vkd3d-proton into the prefix at launch.
 .PP

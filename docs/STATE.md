@@ -5,47 +5,55 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `main`, in sync with `origin/main` (two landings this session
-  plus this STATE refresh). The tree is clean apart from the maintainer's
-  uncommitted `pkgver` in `packaging/arch/tkarcade-git/PKGBUILD`, plus
-  the `.SRCINFO`/src `.tar.gz` build leftovers next to it. The venv was
-  refreshed from this commit.
-- Landed the squash of `feature/ludusavi-local-name`: Ludusavi resolves
-  a local game by its name. `effective_name(appid, name_override,
-  game_name)` in `backends/ludusavi.py` is the single rule — the explicit
-  override wins, a numeric AppID keeps `--infer steam`, and a `local-*`
-  id falls back to `[general] name` (before, `--infer steam` could never
-  match, so nothing was restored or backed up). The wrap
-  (`launcher._apply_wrappers`), the launch preview and the coverage check
-  (`gui/model._coverage_worker`) all call it. `checkCoverage` takes the
-  dialog's name as a third argument, so a rename is reflected before the
-  Save, falling back to the saved name when it is empty. The `luName`
-  placeholder reads `Empty = <name>` for local games. CHANGELOG under
-  Unreleased, no **BREAKING** note (no config key changed).
-- Landed `fix(gui): stop recentering the list on every row click`: the
-  table centred the clicked row on every selection (plain/Ctrl/Shift), so
-  the row slid out from under the cursor and a double-click's second
-  click hit another game (visible from the rows below the viewport's
-  middle, plain from the 11th with the default height). The mouse paths
-  never scroll now; `ensureTableRowVisible()` (MainPage, next to
-  `tableSelectAndReveal`) reveals the current row by the least amount for
-  the keyboard (arrows, Page, Home/End) — the `QTableView::scrollTo`
-  rule. `test_table_click_never_scrolls` fails on the old code.
-- Verified: `scripts/check.sh` → 463 passed, `--qml` → 464 passed, ruff
-  check/format clean. No visual change in either landing (the QML only
-  gained an argument and the scroll helpers), so the earlier offscreen
-  screenshot checks still hold.
-- Next concrete step: `TODO.md` in order — the icons/cards views (the
-  list is done); then the artwork leftovers: per-game provider override
-  and "Artwork Cleared" in the Status row.
-- Open decisions: the Environment tab name collision; the Steam Linux
-  Runtime item — (a) refuse when the runtime is missing from
-  `~/.local/share/umu/` (exit 14) or let umu download it, (b) label
-  "Steam Runtime" or "Steam Runtime (sniper)"; Steam shortcuts created
-  before the AppID migration still pass the old AppID. Deferred: the
-  winetricks fallback for a Steam game with a custom prefix (resolve its
-  Proton and run `winetricks --gui` on `<custom>/pfx`).
-- Rebuild the `-git` package when the Steam path should follow `main`:
-  `/usr/bin/tkarcade` is still post533, and Steam expands
-  `tkarcade %command%` through PATH (the dialog now warns about it).
+- Branch: `feature/settings-decisions` off `main` (`1e5e597`), two
+  commits (the feature, then the hint-layout fix), pushed.
+  `main` (`1e5e597`) is untouched: squash this branch into it only after
+  the maintainer approves. The tree is clean apart from the maintainer's
+  uncommitted `pkgver` in `packaging/arch/tkarcade-git/` plus its
+  `.SRCINFO`/src `.tar.gz` leftovers. The venv was refreshed from the
+  last commit.
+- Landed on the branch, three decisions the maintainer took in the
+  previous session:
+  - **Steam Linux Runtime for local native games.** `[runtime]
+    steam_runtime = ""|scout|soldier|sniper|steamrt4` (`STEAM_RUNTIMES`,
+    `normalize_steam_runtime()`, `steam_runtime_label()`), applied only
+    by `launcher._steam_runtime_for()` (Local + `native`).
+    `_wrap_steam_runtime` prepends `umu-run` and `_steam_runtime_env`
+    sets `PROTONPATH=umu-<name>` + `GAMEID=tkarcade-<appid>`, with no
+    WINEPREFIX and no graphics layer. A runtime umu has not downloaded is
+    a hint in the dialog (`gameModel.steamRuntimeState`) and a `(note)`
+    line in `--validate` (`launcher.validate_notes`), never an issue —
+    `docs/POLICIES.md` records that the exit-14 contract no longer covers
+    it. The combo shows the full name, the Runner column
+    `runner_label()`'s short "Steam Runtime (sniper)". Verified end to
+    end with the local `steamrt4`.
+  - **`Environment` tab is `Commands`** (env vars + pre/post hooks); the
+    `[general] environment` field on the Runtime tab keeps its label.
+    `SETTINGS_TAB_TITLES`/`TAB_COMMANDS` in the QML driver follow.
+  - **Winetricks for a Steam game with a custom `[runtime] prefix`**
+    (protontricks cannot target it): the game's Proton (explicit
+    `[runtime] tool`, else `proton.compat_tool_name`) supplies `WINE`
+    and `<custom>/pfx` is the WINEPREFIX; `winetricks.PROTON_ENVIRONMENTS`
+    treats `proton` like `umu`. The button label follows
+    (`GameSettings.usesProtontricks`).
+- Verified: `scripts/check.sh` → 470 passed, `--qml` → 471 passed,
+  ruff check/format clean, translations refreshed (601 finished, pt_BR
+  included), man page and README updated. Offscreen screenshots at 756
+  and 612 px checked the new row: `Commands` fits the tab bar, a Steam
+  game shows no `Steam Runtime:` row, and both Runtime hints wrap inside
+  the frame after the hint-layout fix (before it they were cut at 612 px — the
+  QML case now asserts it). The only elision at 612 px is the
+  pre-existing `Artwork/No…` tab.
+- Next concrete step: merge the branch (`git merge --squash`, one commit,
+  then `git branch -D` and `git push origin --delete`) once approved;
+  then `TODO.md` in order — icons and cards views (the list is done),
+  then the artwork leftovers (per-game provider override, "Artwork
+  Cleared" in the Status row).
+- Open decision: the game taxonomy (`TODO.md`, "Game taxonomy and
+  terminology") — Origin/Platform/Runner names and what `[general]
+  environment` becomes. It was deferred again this session, and the
+  `Commands` rename only settles the tab label, not the model.
+- Rebuild the `-git` package when the Steam path should follow the
+  branch/main: `/usr/bin/tkarcade` is still post533, and Steam expands
+  `tkarcade %command%` through PATH.
 - Nothing blocking.

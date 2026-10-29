@@ -15,48 +15,25 @@ and git, and hard-won QML/toolkit rules in `docs/QML-NOTES.md`.
   (not only the column names) and pick names for the library columns and
   filters from that. This decides what the current `game_type` becomes
   and how existing configs migrate.
-- [ ] **Faugus / Steam Linux Runtime for local Linux games.** Let a local
-  Linux game (`environment = "native"`, origin Local) pick a Steam Linux
-  Runtime (scout/soldier/sniper/steamrt4) and run inside it through
-  `umu-run`, like the Faugus `runtime` combo; Steam games already get the
-  SLR from Steam. Follows from the taxonomy above.
-  - Field stays orthogonal to `environment`: `[runtime] steam_runtime =
-    ""|scout|soldier|sniper|steamrt4`, only for Local + `native` (ignored
-    otherwise), configured, no migration, not breaking. Needs
-    `normalize_steam_runtime()`, `SECTION_KEYS["runtime"]`, parse next to
-    `proton_path` and serialize in `gui/model.py`.
-  - Launch: after `swap_native_executable`, wrap `[umu-run, *argv]` at the
-    same level as `_wrap_local_runtime`, with `PROTONPATH=umu-<name>` and
-    `GAMEID=tkarcade-<appid>` (no `WINEPREFIX`, no DXVK/vkd3d); missing
-    `umu-run` raises exit 14 with an SLR-specific message; the doctor
-    checks `umu-run` and `~/.local/share/umu/<name>`; `_launch_summary`
-    reports the configured runtime (`proton.py::native_runtime` only knows
-    Steam paths).
-  - Presentation: `runner_label(environment, is_steam, steam_runtime="")`
-    returns "Steam Runtime" for Local+Native+SLR; Settings gains a "Steam
-    Runtime:" combo (`Disabled` + the four), serialized as
-    `runtime_steam_runtime`. Origin/Platform derive as today.
-  - Verified against the umu installed here (2026-10-27):
-    `PROTONPATH=umu-soldier|umu-sniper|umu-steamrt4` builds a passthrough
-    compat tool for native apps (`umu_proton.py::_get_umu_runtime_tool`,
-    layer `umu-passthrough`, entry point `exec "$@"`); `umu-scout` is not
-    a shim but a real tool downloaded from `loathingKernel/umu-scout`;
-    `GAMEID` only names the prefix dir; runtimes live in
-    `~/.local/share/umu/<steamrt2|steamrt3|steamrt4>` and a missing one is
-    downloaded by umu on first use. `UMU_NO_PROTON=1` is the legacy
-    "container only, no Proton" switch (`RUNTIMEPATH` maps to
-    `umu-soldier`/`umu-sniper`/`umu-steamrt4`, and `umu_run()` forces
-    `umu-<runtime>`), so set `PROTONPATH` only and leave it alone.
-  - Open decisions: (a) missing runtime → refuse with exit 14 (keeps
-    "nothing is downloaded") or let umu download it and document that;
-    (b) label "Steam Runtime" (version only in Settings) or "Steam Runtime
-    (sniper)".
-  - Files/tests: `config.py`, `launcher.py`, `gui/model.py`,
-    `GameSettings.qml`, README, CHANGELOG, pt_BR catalog, man page;
-    `test_config.py` (round-trip, normalizer, `runner_label`),
-    `test_backends.py` (argv/env, missing `umu-run`, doctor) and one QML
-    case. Verify with `scripts/check.sh [--changed]`, the QML driver and an
-    offscreen screenshot.
+- [x] **Faugus / Steam Linux Runtime for local Linux games.** Landed on
+  `feature/settings-decisions`.
+  - `[runtime] steam_runtime = ""|scout|soldier|sniper|steamrt4`
+    (`STEAM_RUNTIMES` / `normalize_steam_runtime()` / `steam_runtime_label()`
+    in `config.py`), only for Local + `native`; `_steam_runtime_for()`
+    ignores it elsewhere. Serialized as `runtime_steam_runtime`.
+  - Launch: `_wrap_steam_runtime` prepends `umu-run` after
+    `swap_native_executable`; `_steam_runtime_env` sets
+    `PROTONPATH=umu-<name>` and `GAMEID=tkarcade-<appid>`, with no
+    `WINEPREFIX` and no graphics layer. Missing `umu-run` is exit 14.
+  - Decisions: umu downloads a missing runtime (hint in the dialog, a
+    `(note)` line in `--validate`, never an issue — see
+    `docs/POLICIES.md`); the combo carries the full name
+    ("Steam Linux Runtime 3.0 (sniper)") while the Runner column keeps
+    `runner_label()`'s short form ("Steam Runtime (sniper)").
+  - Verified end to end here with `steamrt4`: umu reports "steamrt4 is up
+    to date" and runs `umu-steamrt4` through the passthrough shim.
+  - `runtimes.steam_runtime_dir()` knows umu's layout (`steamrt2/3/4`, and
+    `compatibilitytools/umu-scout` for scout); the dialog hint reuses it.
 - [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) for the local
   library import of Lutris/Playnite/Faugus file formats. The import
   itself shipped; this is the metadata enrichment on top of it.
@@ -80,8 +57,9 @@ Order: (1) local AppID slug + migration — landed; (2) settings reorg;
   - `Compatibility` becomes `Runtime` (environment, tool, prefix,
     verbs, graphics layers, debug) and `System` orders Night Light
     before Network.
-  - Deferred: rename the `Environment` tab (its name still collides
-    with the `[general] environment` runtime choice, now on Runtime).
+  - The `Environment` tab is `Commands` now (it holds the env vars and
+    the pre/post hooks; the `[general] environment` runtime choice on
+    Runtime keeps the field labelled `Environment:`).
 - [x] Winetricks/Protontricks inside the Runtime tab (`Prefix` section).
   - Landed: `Add…` opens a searchable `winetricks list-all` picker
     (cached per process) that appends to the verbs field; the section
@@ -89,13 +67,15 @@ Order: (1) local AppID slug + migration — landed; (2) settings reorg;
     pending ones apart; `Protontricks…`/`Winetricks…` opens the
     interactive tool (`protontricks --gui <appid>`, or `winetricks
     --gui` with the resolved `WINEPREFIX`/`WINE`) and the list refreshes
-    when it exits. Missing binary, prefix not created yet and a Steam
-    game with a custom `[runtime] prefix` are refused with a message.
-  - Deferred: a Steam game whose `[runtime] prefix` moves the compatdata
-    dir cannot use `protontricks --gui` (it always targets Steam's own).
-    The fallback is to resolve the game's Proton (compat mapping +
-    `runtimes.find_proton`) and run `winetricks --gui` with
-    `WINEPREFIX=<custom>/pfx` and that `files/bin/wine`.
+    when it exits. Missing binary and a prefix not created yet are
+    refused with a message.
+  - Done on `feature/settings-decisions`: a Steam game whose
+    `[runtime] prefix` moves the compatdata dir uses `winetricks --gui`
+    with `WINEPREFIX=<custom>/pfx` and the game's own
+    `files/bin/wine` (explicit `[runtime] tool`, else
+    `proton.compat_tool_name()` + `runtimes.find_proton`), because
+    protontricks only targets Steam's own dir. `winetricks.local_gui`
+    treats `proton` like `umu` as a Proton-hosted environment.
 - [ ] Ludusavi name for local games. Without `[ludusavi] name_override`
   Ludusavi resolves the game by Steam AppID, and a local game has none
   (its id is `local-*`), so `wrap` finds nothing. Default the name to
@@ -139,9 +119,12 @@ Order: (1) local AppID slug + migration — landed; (2) settings reorg;
     with a space before the parenthesis.
   - Applies to Steam and local games; the list column/views layout is
     part of the work.
-- [ ] Steam shortcuts created before an AppID migration still cache
-  `tkarcade <old-appid>` in their launch options: decide whether to
-  rewrite `shortcuts.vdf` or keep the manual warning.
+- [x] Steam shortcuts created before an AppID migration still cache
+  `tkarcade <old-appid>` in their launch options. Decision (2026-10-28):
+  keep the manual warning, never touch `shortcuts.vdf` — it belongs to
+  Steam (`userdata/<id>/config/shortcuts.vdf`) and TKArcade writes
+  nothing outside its own XDG dirs. A stale shortcut fails loudly (exit
+  10, AppID not resolved).
 
 ## Deferred design review
 

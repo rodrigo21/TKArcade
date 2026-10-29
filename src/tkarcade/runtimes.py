@@ -153,6 +153,31 @@ def wine_binary(override: str = "") -> str:
     return ""
 
 
+#: Steam Linux Runtime name -> directory umu keeps under <data>/umu. scout is
+#: not a runtime directory: umu ships it as a compatibility tool instead.
+_UMU_RUNTIME_DIRS = {"soldier": "steamrt2", "sniper": "steamrt3", "steamrt4": "steamrt4"}
+
+
+def umu_root() -> Path:
+    """Where umu keeps its downloads."""
+    return xdg.data_home() / "umu"
+
+
+def steam_runtime_dir(name: str) -> Path | None:
+    """Directory umu installs a Steam Linux Runtime into (None = unknown name)."""
+    text = str(name or "").strip().lower()
+    if text == "scout":
+        return umu_root() / "compatibilitytools" / "umu-scout"
+    variant = _UMU_RUNTIME_DIRS.get(text)
+    return umu_root() / variant if variant else None
+
+
+def steam_runtime_installed(name: str) -> bool:
+    """Whether umu already downloaded the runtime (it fetches it on first run)."""
+    path = steam_runtime_dir(name)
+    return bool(path and path.is_dir())
+
+
 def graphics_dirs(kind: str, extra: str = "") -> list[Path]:
     """Configured dirs plus the built-in Lutris runtime locations."""
     rt = "dxvk" if kind == "dxvk" else "vkd3d"

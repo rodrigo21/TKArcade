@@ -1039,6 +1039,47 @@ def test_wine_missing_binary_raises(monkeypatch, tmp_path):
         build_final_command(cfg, [])
 
 
+def test_native_steam_runtime_wraps_with_umu(xdg_env, fake_bin):
+    umu = fake_bin("umu-run")
+    cfg = _local_cfg("native", exe="/games/doom")
+    cfg.runtime.steam_runtime = "sniper"
+    cmd, env, _warnings = build_final_command(cfg, [])
+    # A native game keeps its argv: umu only adds the passthrough runtime.
+    assert cmd == [str(umu), "/games/doom"]
+    assert env["PROTONPATH"] == "umu-sniper"
+    assert env["GAMEID"] == "tkarcade-local-doom"
+    # Nothing runs under Wine: no prefix and no graphics layer.
+    assert "WINEPREFIX" not in env
+    assert "STEAM_COMPAT_DATA_PATH" not in env
+
+
+def test_native_steam_runtime_is_ignored_where_it_cannot_apply(xdg_env, fake_bin):
+    fake_bin("umu-run")
+    fake_bin("wine")
+    # Steam picks the runtime of its own native games.
+    steam = C.GameConfig()
+    steam.general.appid = "12345"
+    steam.general.environment = "native"
+    steam.general.custom_executable = "/bin/true"
+    steam.runtime.steam_runtime = "sniper"
+    cmd, env, _warnings = build_final_command(steam, [])
+    assert "umu-run" not in " ".join(cmd)
+    assert "PROTONPATH" not in env
+    # A Windows build runs under its Wine/umu runtime instead.
+    wine = _local_cfg("wine")
+    wine.runtime.steam_runtime = "sniper"
+    _cmd, env, _warnings = build_final_command(wine, [])
+    assert "PROTONPATH" not in env
+
+
+def test_native_steam_runtime_needs_umu(xdg_env, tmp_path, monkeypatch):
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    cfg = _local_cfg("native", exe="/games/doom")
+    cfg.runtime.steam_runtime = "steamrt4"
+    with pytest.raises(RuntimeNotFoundError):
+        build_final_command(cfg, [])
+
+
 def test_umu_missing_pieces_raise(fake_bin, monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
     cfg = _local_cfg("umu")

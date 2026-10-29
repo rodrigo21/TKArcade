@@ -317,14 +317,35 @@ def _wrap_local_runtime(cmd: list[str], environment: str, runtime: dict) -> list
     return [umu, *cmd]
 
 
+def _wrap_steam_runtime(cmd: list[str], steam_runtime: str) -> list[str]:
+    """Run a local native game inside its Steam Linux Runtime, or abort loudly.
+
+    umu builds a passthrough compatibility tool for native apps, so the game
+    keeps its own argv; the runtime itself is downloaded by umu on first use.
+    """
+    if not steam_runtime:
+        return cmd
+    umu = shutil.which("umu-run")
+    if not umu:
+        raise RuntimeNotFoundError(
+            "umu-run not found in PATH: install umu-launcher (needed for the Steam Linux Runtime)"
+        )
+    return [umu, *cmd]
+
+
 def _game_argv(
-    cfg: cfgmod.GameConfig, game_cmd: list[str], environment: str, runtime: dict | None = None
+    cfg: cfgmod.GameConfig,
+    game_cmd: list[str],
+    environment: str,
+    runtime: dict | None = None,
+    steam_runtime: str = "",
 ) -> tuple[list[str], list[str]]:
     """Game argv: custom executable swapped in, plus configured launch args."""
     warnings: list[str] = []
     custom = cfg.general.custom_executable.strip()
     if environment == "native":
         cmd = swap_native_executable(list(game_cmd), custom)
+        cmd = _wrap_steam_runtime(cmd, steam_runtime)
     elif environment == "proton":
         cmd = swap_proton_executable(list(game_cmd), custom)
         if custom and game_cmd and custom not in cmd:
@@ -436,8 +457,38 @@ def _debug_env(env: dict, cfg: cfgmod.GameConfig) -> None:
         env["WINEDEBUG"] = winedebug
 
 
+def _steam_runtime_for(cfg: cfgmod.GameConfig, environment: str) -> str:
+    """Configured Steam Linux Runtime, only where it applies (else "").
+
+    Steam brings its own runtime for Steam games, and a Windows build runs
+    under Wine/umu: the field only means something for a local native game.
+    """
+    if environment != "native":
+        return ""
+    appid = cfg.general.appid.strip()
+    if appid and steammod.is_steam_id(appid):
+        return ""
+    return cfgmod.normalize_steam_runtime(cfg.runtime.steam_runtime)
+
+
+def _steam_runtime_env(env: dict, cfg: cfgmod.GameConfig, steam_runtime: str) -> None:
+    """PROTONPATH/GAMEID for a local native game inside a Steam Linux Runtime.
+
+    umu's passthrough tool takes the runtime name from PROTONPATH and GAMEID
+    only names the dir umu keeps for the run: no WINEPREFIX, and no graphics
+    layer, because the game itself is native.
+    """
+    if not steam_runtime:
+        return
+    env["PROTONPATH"] = f"umu-{steam_runtime}"
+    env["GAMEID"] = f"tkarcade-{cfg.general.appid.strip() or 'native'}"
+
+
 def _build_env(
-    cfg: cfgmod.GameConfig, environment: str, runtime: dict | None = None
+    cfg: cfgmod.GameConfig,
+    environment: str,
+    runtime: dict | None = None,
+    steam_runtime: str = "",
 ) -> tuple[dict, list[str]]:
     """Environment for the game: config vars, wrapper bits, debug toggles."""
     warnings: list[str] = []
@@ -448,6 +499,7 @@ def _build_env(
     if cfg.rtupscale.enable:
         warnings += _force_xwayland(env)
     _debug_env(env, cfg)
+    _steam_runtime_env(env, cfg, steam_runtime)
     if environment == "proton":
         prefix = cfg.runtime.prefix.strip()
         if prefix and "STEAM_COMPAT_DATA_PATH" not in env:
@@ -496,13 +548,14 @@ def build_final_command(
     if not environment:
         raise EnvironmentNotSetError("environment not set")
     runtime = _runtime_paths(cfg, environment) if environment in ("wine", "umu") else None
-    cmd, warnings = _game_argv(cfg, game_cmd, environment, runtime)
+    steam_runtime = _steam_runtime_for(cfg, environment)
+    cmd, warnings = _game_argv(cfg, game_cmd, environment, runtime, steam_runtime)
     cmd = _apply_custom_prefix(cmd, cfg.general.custom_prefix.strip())
     cmd, w = _apply_fps_cap(cmd, cfg)
     warnings += w
     cmd, w = _apply_wrappers(cmd, cfg, wrap_rc_file)
     warnings += w
-    env, w = _build_env(cfg, environment, runtime)
+    env, w = _build_env(cfg, environment, runtime, steam_runtime)
     warnings += w
     return cmd, env, warnings
 
@@ -564,7 +617,13 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
     if environment == "proton":
         proton_display = protonmod.tool_display(appid)
     elif environment == "native":
-        runtime = protonmod.native_runtime(game_cmd)
+        # Our own runtime choice first (a local game inside umu); Steam's
+        # wrapper is only visible in the argv it builds.
+        steam_runtime = _steam_runtime_for(cfg, environment)
+        if steam_runtime:
+            runtime = cfgmod.steam_runtime_label(steam_runtime)
+        else:
+            runtime = protonmod.native_runtime(game_cmd)
     elif environment == "wine":
         wine = _runtime_paths(cfg, "wine")["wine"]
         runtime = os.path.basename(wine) if wine else "wine"
@@ -639,6 +698,12 @@ def _environment_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
 def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
     """Missing Wine/UMU pieces for local Windows games (the launch would exit 14)."""
     environment = cfgmod.normalize_environment(eff.general.environment)
+    steam_runtime = _steam_runtime_for(eff, environment)
+    if steam_runtime:
+        # A missing runtime is not an issue: umu downloads it on first use.
+        if shutil.which("umu-run"):
+            return []
+        return [f"{appid}: umu-run not found in PATH (the Steam Linux Runtime needs it)"]
     if environment not in ("wine", "umu"):
         return []
     prefs = cfgmod.load_preferences()
@@ -749,6 +814,21 @@ def validate_game(appid: str) -> list[str]:
     return issues
 
 
+def validate_notes(appid: str) -> list[str]:
+    """Informational notes for one game: never count as issues, exit 17 stays."""
+    try:
+        eff = cfgmod.load_effective(appid)
+    except Exception:
+        return []
+    steam_runtime = _steam_runtime_for(eff, cfgmod.normalize_environment(eff.general.environment))
+    if not steam_runtime or runtimes.steam_runtime_installed(steam_runtime):
+        return []
+    return [
+        f"{appid}: {cfgmod.steam_runtime_label(steam_runtime)} is not installed yet; "
+        "umu downloads it on the first launch"
+    ]
+
+
 def cmd_validate(appids: list[str]) -> int:
     """Print a validation report. Returns 0 when clean, else 17."""
     if not steammod.steam_roots():
@@ -758,6 +838,8 @@ def cmd_validate(appids: list[str]) -> int:
         for issue in validate_game(appid):
             print(issue)
             problems += 1
+        for note in validate_notes(appid):
+            print(f"{note} (note)")
     if problems:
         print(f"{problems} issue(s) found")
         return 17
