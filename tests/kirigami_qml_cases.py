@@ -2403,6 +2403,45 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_tabs_share_label_column(qgui_app, xdg_env):
+    """Every section of a tab puts its fields on one x.
+
+    Kirigami sizes each form's label column from its own labels, so
+    without the per-tab width two sections of one page start a few
+    pixels apart.
+    """
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    _save_one_game("local-columns", "Columns", environment="wine")
+    cfg = C.load("local-columns")
+    cfg.runtime.tool = "/usr/bin/wine"
+    C.save(cfg)
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-columns")
+    QTest.qWait(150)
+    swin = _settings_window(qgui_app)
+    tabs = swin.findChild(QQuickItem, "settingsTabs")
+
+    for index, title in enumerate(SETTINGS_TAB_TITLES):
+        tabs.setProperty("currentIndex", index)
+        QTest.qWait(150)
+        qgui_app.processEvents()
+        columns = _settings_field_columns(swin)
+        assert len(columns) == 1, (title, sorted(columns))
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_tier_double_click_opens_protondb(qgui_app, xdg_env):
     """Double-clicking the tier badge opens ProtonDB (never plays)."""
     from PySide6.QtCore import QPointF, Qt
@@ -4355,6 +4394,43 @@ def _settle_focus(window):
     assert _wait_for(lambda: window.property("activeFocusItem") is not None), (
         "dialog window never took focus"
     )
+
+
+def _settings_forms(window):
+    """WidgetsFormLayout instances of the settings dialog, hidden or not."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    for obj in window.findChildren(QObject):
+        if not isinstance(obj, QQuickItem):
+            continue
+        if obj.metaObject().indexOfProperty("naturalLabelWidth") >= 0:
+            yield obj
+
+
+def _settings_field_columns(window):
+    """Distinct x at which the visible forms start their labelled rows."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtQuick import QQuickItem
+
+    columns = set()
+    for form in _settings_forms(window):
+        if not form.property("visible"):
+            continue
+        for child in form.children():
+            if not isinstance(child, QQuickItem):
+                continue
+            if not child.property("visible"):
+                continue
+            if "GridLayout" in child.metaObject().className():
+                continue
+            if child.property("width") <= 1:
+                continue
+            x = round(child.mapToItem(form, QPointF(0, 0)).x(), 1)
+            # A row without a label spans the whole frame.
+            if x > 0:
+                columns.add(x)
+    return columns
 
 
 def _hit_reaches(host, target, pos):

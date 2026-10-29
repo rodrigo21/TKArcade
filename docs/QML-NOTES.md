@@ -141,15 +141,25 @@ failure. `AGENTS.md` links here.
   binds the implicit width to the actual one, so the field column takes
   the remaining space (a widgets QFormLayout) and `Layout.fillWidth`
   fields reach the panel edge.
-- Sections of one tab are separate forms, so each sizes its own label
-  column and the fields of a "Prefix" frame start a few pixels left of a
-  "Runtime" one. `twinFormLayouts` (Kirigami 5.53+) is **not** the fix
-  here: with `WidgetsFormLayout`'s `implicitWidth: width` and the
-  unlabeled checkbox rows in the mix, the shared column inflates instead
-  of agreeing (measured offscreen: a `Prefix` field went from 133 to
-  210 px in the Steam dialog, and `DXVK:` sat 78 px right of `Runtime:`).
-  Aligning the tabs needs an explicit label width per tab, not twins —
-  see the "One label column" item in `TODO.md`.
+- One label column per tab. Sections are separate forms, so each would
+  size its own label column and the fields of a "Prefix" frame start a
+  few pixels left of a "Runtime" one. `twinFormLayouts` (Kirigami 5.53+)
+  is **not** the fix: with `WidgetsFormLayout`'s `implicitWidth: width`
+  and the unlabeled checkbox rows in the mix, the shared column inflates
+  instead of agreeing (measured offscreen: a `Prefix` field went from
+  133 to 210 px in the Steam dialog, and `DXVK:` sat 78 px right of
+  `Runtime:`). Instead each tab's `ColumnLayout` declares
+  `labelWidth: Math.max(<form>.naturalLabelWidth, ...)` and every form in
+  it binds that value: `WidgetsFormLayout` pins Kirigami's internal grid
+  (leading spacer min/pref/max, buddies' maximum width) — there is no
+  public API for the column. `naturalLabelWidth` recomputes Kirigami's
+  own width with `Math.ceil` per visible non-section buddy because
+  `buddiesImplicitWidth` truncates to an int and leaves a 1 px gap. The
+  field column's preferred width is the form width minus the label
+  column, so QGridLayout's surplus sharing cannot grow the label column
+  past its maximum; `onWidthChanged` reapplies it on resize. The Commands
+  tab and `PrefsDialog` have a single form and keep their natural column;
+  the Environment tab builds one form per row dynamically.
 
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
   transition before synthetic clicks, or clicks land mid-slide.

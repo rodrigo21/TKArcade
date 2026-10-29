@@ -1573,12 +1573,18 @@ Window {
                     implicitHeight: generalColumn.implicitHeight
                     ColumnLayout {
                         id: generalColumn
+                        // One label column for the tab, so the fields of every
+                        // section start at the same x.
+                        property real labelWidth: Math.max(generalForm.naturalLabelWidth,
+                                                           profileForm.naturalLabelWidth,
+                                                           launchForm.naturalLabelWidth)
                         width: parent.width
                         spacing: Kirigami.Units.smallSpacing
                         SectionBox {
                             title: qsTr("Game")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
+                                labelWidth: generalColumn.labelWidth
                                 id: generalForm
                                 objectName: "settingsGeneralForm"
                                 // Fill the panel like the widgets form layout:
@@ -1619,6 +1625,8 @@ Window {
                             Layout.fillWidth: true
                             visible: editAppid !== ""
                             WidgetsFormLayout {
+                                id: profileForm
+                                labelWidth: generalColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -1662,6 +1670,8 @@ Window {
                             title: qsTr("Launch")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
+                                id: launchForm
+                                labelWidth: generalColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2033,10 +2043,18 @@ Window {
                         id: compatColumn
                         width: parent.width
                         spacing: Kirigami.Units.smallSpacing
+                        // One label column for the tab, so the fields of
+                        // every section start at the same x.
+                        property real labelWidth: Math.max(runtimeForm.naturalLabelWidth,
+                                                           prefixForm.naturalLabelWidth,
+                                                           graphicsForm.naturalLabelWidth,
+                                                           debugForm.naturalLabelWidth)
                         SectionBox {
                             title: qsTr("Runtime")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
+                                id: runtimeForm
+                                labelWidth: compatColumn.labelWidth
                                 Layout.fillWidth: true
                                 Controls.ComboBox {
                                     id: typeBox
@@ -2200,6 +2218,8 @@ Window {
                             // only once a Wine/umu runtime is chosen.
                             visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
                             WidgetsFormLayout {
+                                id: prefixForm
+                                labelWidth: compatColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2453,6 +2473,8 @@ Window {
                             // and Proton ship their own DXVK/vkd3d.
                             visible: !gameSettings.wineAvailable && typeBox.currentIndex === 1
                             WidgetsFormLayout {
+                                id: graphicsForm
+                                labelWidth: compatColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2513,6 +2535,8 @@ Window {
                             Layout.fillWidth: true
                             visible: gameSettings.wineAvailable
                             WidgetsFormLayout {
+                                id: debugForm
+                                labelWidth: compatColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     visible: editAppid !== ""
@@ -2564,12 +2588,19 @@ Window {
                         implicitHeight: perfForm.implicitHeight
                         ColumnLayout {
                             id: perfForm
+                            // One label column for the tab, so the fields of every
+                            // section start at the same x.
+                            property real labelWidth: Math.max(gameModeForm.naturalLabelWidth,
+                                                               mangoForm.naturalLabelWidth,
+                                                               upscalerForm.naturalLabelWidth)
                             width: parent.width
                             spacing: Kirigami.Units.smallSpacing
                             SectionBox {
                                 title: qsTr("Game Mode")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: gameModeForm
+                                    labelWidth: perfForm.labelWidth
                                     Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: perfFeral
@@ -2601,6 +2632,8 @@ Window {
                                 title: qsTr("MangoHud")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: mangoForm
+                                    labelWidth: perfForm.labelWidth
                                     Controls.CheckBox {
                                         id: mhEnable
                                         objectName: "mhEnable"
@@ -2642,6 +2675,8 @@ Window {
                                 title: qsTr("RT Upscaler")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: upscalerForm
+                                    labelWidth: perfForm.labelWidth
                                     Controls.CheckBox {
                                         id: rtEnable
                                         objectName: "rtEnable"
@@ -2675,12 +2710,18 @@ Window {
                         implicitHeight: dispForm.implicitHeight
                         ColumnLayout {
                             id: dispForm
+                            // One label column for the tab, so the fields of every
+                            // section start at the same x.
+                            property real labelWidth: Math.max(displayModeForm.naturalLabelWidth,
+                                                               gamescopeForm.naturalLabelWidth)
                             width: parent.width
                             spacing: Kirigami.Units.smallSpacing
                             SectionBox {
                                 title: qsTr("Display Mode")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: displayModeForm
+                                    labelWidth: dispForm.labelWidth
                                     Controls.TextField {
                                         id: dispOut
                                         objectName: "dispOut"
@@ -2749,6 +2790,8 @@ Window {
                                 title: qsTr("Gamescope")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: gamescopeForm
+                                    labelWidth: dispForm.labelWidth
                                     Controls.CheckBox {
                                         id: gsEnable
                                         objectName: "gsEnable"
@@ -2788,12 +2831,22 @@ Window {
                         implicitHeight: sysForm.implicitHeight
                         ColumnLayout {
                             id: sysForm
+                            // One label column for the tab, so the fields of every
+                            // section start at the same x.
+                            property real labelWidth: Math.max(notifyForm.naturalLabelWidth,
+                                                               suspendForm.naturalLabelWidth,
+                                                               nightLightForm.naturalLabelWidth,
+                                                               networkForm.naturalLabelWidth,
+                                                               audioForm.naturalLabelWidth,
+                                                               luForm.naturalLabelWidth)
                             width: parent.width
                             spacing: Kirigami.Units.smallSpacing
                             SectionBox {
                                 title: qsTr("Notifications")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: notifyForm
+                                    labelWidth: sysForm.labelWidth
                                     Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: ntLaunch
@@ -2808,6 +2861,8 @@ Window {
                                 title: qsTr("Idle Suspend")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: suspendForm
+                                    labelWidth: sysForm.labelWidth
                                     Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: seInhibit
@@ -2822,6 +2877,8 @@ Window {
                                 title: qsTr("Night Light")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: nightLightForm
+                                    labelWidth: sysForm.labelWidth
                                     Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: nlDisable
@@ -2841,6 +2898,8 @@ Window {
                                 title: qsTr("Network")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: networkForm
+                                    labelWidth: sysForm.labelWidth
                                     Layout.fillWidth: true
                                     Controls.CheckBox {
                                         id: blockInternet
@@ -2864,6 +2923,8 @@ Window {
                                 title: qsTr("Audio")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    id: audioForm
+                                    labelWidth: sysForm.labelWidth
                                     Layout.fillWidth: true
                                     RowLayout {
                                         Layout.fillWidth: true
@@ -2886,6 +2947,7 @@ Window {
                                 title: qsTr("Saves (Ludusavi)")
                                 Layout.fillWidth: true
                                 WidgetsFormLayout {
+                                    labelWidth: sysForm.labelWidth
                                     id: luForm
                                     objectName: "luForm"
                                     Layout.fillWidth: true
@@ -2965,12 +3027,17 @@ Window {
                     implicitHeight: artColumn.implicitHeight
                     ColumnLayout {
                         id: artColumn
+                        // One label column for the tab, so the fields of every
+                        // section start at the same x.
+                        property real labelWidth: Math.max(artForm.naturalLabelWidth,
+                                                           notesForm.naturalLabelWidth)
                         width: parent.width
                         spacing: Kirigami.Units.smallSpacing
                         SectionBox {
                             title: qsTr("Artwork")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
+                                labelWidth: artColumn.labelWidth
                                 id: artForm
                                 Layout.fillWidth: true
                                 RowLayout {
@@ -3134,6 +3201,8 @@ Window {
                             title: qsTr("Notes")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
+                                id: notesForm
+                                labelWidth: artColumn.labelWidth
                                 Layout.fillWidth: true
                                 Controls.TextArea {
                                     id: notesArea

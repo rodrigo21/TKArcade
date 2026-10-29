@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- Each settings tab shares one label column: the fields of every section
+  frame start at the same x, sized to the tab's widest label, instead of
+  each form sizing its own and shifting a few pixels between sections.
 - Settings' second tab is `Commands` now: it holds the environment
   variables and the pre/post hooks, and its old name collided with the
   `Environment` (how the game runs) choice on the Runtime tab. No config

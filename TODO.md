@@ -44,14 +44,13 @@ and git, and hard-won QML/toolkit rules in `docs/QML-NOTES.md`.
 
 Order: (1) local AppID slug + migration — landed; (2) settings reorg —
 landed; (3) game metadata fields and categories.
-- [ ] One label column per tab: the sections stack separate
-  `WidgetsFormLayout`s, so "Provider:" (Night Light) and the other
-  labelled fields sit a few pixels off the neighbouring section's, and
-  the Runtime tab's `Prefix` fields start 8 px left of its `Runtime`
-  ones. `twinFormLayouts` was tried and reverted: it inflates the column
-  with `implicitWidth: width` and the checkbox rows (measured 133 → 210
-  px offscreen, see `docs/QML-NOTES.md`). Needs an explicit label width
-  derived per tab (widest label, applied to every form in it).
+- [x] One label column per tab.
+  - Landed: `WidgetsFormLayout` takes a `labelWidth` and pins the label
+    column to it; each tab's `ColumnLayout` feeds the widest
+    `naturalLabelWidth` of its forms back to all of them, so the fields
+    start at one x across the section frames. Covered by
+    `test_settings_tabs_share_label_column` (one x per tab, all 7 tabs).
+    Mechanism and the rejected `twinFormLayouts` in `docs/QML-NOTES.md`.
 
 
 - [x] Winetricks/Protontricks inside the Runtime tab (`Prefix` section).
