@@ -6,6 +6,17 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- **BREAKING**: the runtime choice moved from `[general] environment` to
+  `[runtime] type`, next to the other launch settings; the values are
+  unchanged (`proton`, `native`, `wine`, `umu`). An old config loads with
+  the runtime unset: the library shows `Not Set` and the launcher exits
+  18 until it is chosen again in the game settings. The old key is
+  dropped on the next save (no migration shim, pre-1.0). The library
+  column and the settings combo are named `Runtime` (was `Runner`), and
+  the local Windows choices read `Native`, `Wine`, `UMU`. The matrix is
+  explicit now: Proton is Steam-exclusive and Wine/UMU are local-only,
+  so an invalid pairing shows no label and the launcher refuses it with
+  a message naming the valid choices.
 - The library list lost its Category column: a comma-joined tag list read
   poorly next to the other columns. Categories stay editable on the
   Game tab, settable in bulk from the context menu, and filterable from

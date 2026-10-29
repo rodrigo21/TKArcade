@@ -24,21 +24,21 @@ Window {
 
     property var page: null
     property var steamRows: []
-    // Values behind typeBox, in the same order as its labels.
-    readonly property var environments: ["native", "wine", "umu"]
+    // Values behind runtimeTypeBox, in the same order as its labels.
+    readonly property var runtimes: ["native", "wine", "umu"]
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
         gameModel.watchDialogKeys(addGameDialog)
         sourceBox.currentIndex = 0
-        typeBox.currentIndex = 0
+        runtimeTypeBox.currentIndex = 0
         loadSteam()
         visible = true
     }
 
-    function selectedEnvironment() {
-        var index = typeBox.currentIndex
-        return (index >= 0 && index < environments.length) ? environments[index] : "native"
+    function selectedRuntime() {
+        var index = runtimeTypeBox.currentIndex
+        return (index >= 0 && index < runtimes.length) ? runtimes[index] : "native"
     }
 
     function loadSteam() {
@@ -71,7 +71,7 @@ Window {
         }
         addGameDialog.close()
         if (page !== null) {
-            page.openNewGameSettings(selectedEnvironment())
+            page.openNewGameSettings(selectedRuntime())
         }
     }
 
@@ -98,19 +98,19 @@ Window {
             model: [qsTr("Steam Game"), qsTr("Local Game")]
         }
         Controls.Label {
-            text: qsTr("Environment")
+            text: qsTr("Runtime")
             visible: sourceBox.currentIndex === 1
         }
         Controls.ComboBox {
-            id: typeBox
-            objectName: "addEnvironment"
+            id: runtimeTypeBox
+            objectName: "addRuntime"
             visible: sourceBox.currentIndex === 1
             Layout.fillWidth: true
             // Same three choices as Settings, in the same order.
             model: [
                 qsTr("Native"),
                 qsTr("Wine"),
-                qsTr("Proton (UMU)")
+                qsTr("UMU")
             ]
         }
         Controls.ComboBox {

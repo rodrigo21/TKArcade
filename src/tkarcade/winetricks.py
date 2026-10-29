@@ -29,7 +29,7 @@ from . import xdg
 TIMEOUT = 1200
 
 #: Environments whose prefix is Proton's: the Proton install supplies wine.
-PROTON_ENVIRONMENTS = ("umu", "proton")
+PROTON_RUNTIMES = ("umu", "proton")
 
 # `list-all` costs ~2s and never changes while the binary sits there, so
 # the parsed rows are cached per process, keyed by path plus mtime.
@@ -175,7 +175,7 @@ def _prepare(
                 "launch the game once to create the prefix"
             ],
         )
-    if environment in PROTON_ENVIRONMENTS:
+    if environment in PROTON_RUNTIMES:
         wine = _wine_for(proton)
         if not wine:
             return "", "", ["winetricks skipped: the selected Proton install has no files/bin/wine"]
@@ -256,7 +256,7 @@ def local_gui(
     prefix = Path(prefix)
     if not (prefix / "drive_c").is_dir():
         return [], {}, f"The Prefix Does Not Exist Yet: {prefix} — Launch the Game Once."
-    if environment in PROTON_ENVIRONMENTS:
+    if environment in PROTON_RUNTIMES:
         wine = _wine_for(proton)
         if not wine:
             return [], {}, "The Selected Proton Install Has No files/bin/wine."

@@ -28,7 +28,7 @@ def _env(xdg_env):
 def _save(appid, **kw):
     cfg = C.GameConfig()
     cfg.general.appid = appid
-    cfg.general.environment = "native"
+    cfg.runtime.type = "native"
     for section, values in kw.items():
         target = getattr(cfg, section)
         for key, value in values.items():
@@ -54,13 +54,13 @@ def test_unset_environment_exits_18(xdg_env):
     C.save(cfg)
     r = _run(_env(xdg_env), "--appid", "39", "/bin/true")
     assert r.returncode == 18
-    assert "environment not set" in r.stderr
+    assert "runtime not set" in r.stderr
 
 
 def test_local_game_cannot_borrow_proton(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-nope"
-    cfg.general.environment = "proton"
+    cfg.runtime.type = "proton"
     C.save(cfg)
     r = _run(_env(xdg_env), "--appid", "local-nope", "/bin/true")
     assert r.returncode == 18
@@ -73,13 +73,13 @@ def test_validate_flags_unset_environment(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "38"
     C.save(cfg)
-    assert any("environment not set" in i for i in L.validate_game("38"))
+    assert any("runtime not set" in i for i in L.validate_game("38"))
 
 
 def test_wine_missing_binary_exit_14(xdg_env, tmp_path):
     cfg = C.GameConfig()
     cfg.general.appid = "local-wine"
-    cfg.general.environment = "wine"
+    cfg.runtime.type = "wine"
     cfg.general.custom_executable = "/games/doom.exe"
     C.save(cfg)
     env = _env(xdg_env)
@@ -231,7 +231,7 @@ def test_validate_clean(xdg_env):
 
     cfg = C.GameConfig()
     cfg.general.appid = "31"
-    cfg.general.environment = "native"
+    cfg.runtime.type = "native"
     C.save(cfg)
     assert L.cmd_validate(["31"]) == 0
 
@@ -245,7 +245,7 @@ def test_validate_steam_runtime_is_a_note_not_an_issue(
     cfg = C.GameConfig()
     cfg.general.appid = "local-srl"
     cfg.general.name = "Srl"
-    cfg.general.environment = "native"
+    cfg.runtime.type = "native"
     cfg.general.custom_executable = fake_bin("game")
     cfg.runtime.steam_runtime = "sniper"
     C.save(cfg)
@@ -378,7 +378,7 @@ def test_validate_dangling_profile(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "33"
     cfg.general.active_profile = "gone"
-    cfg.general.environment = "native"
+    cfg.runtime.type = "native"
     C.save(cfg)
     issues = L.validate_game("33")
     assert any("gone" in i and "live config" in i for i in issues)
@@ -476,7 +476,7 @@ def test_validate_flags_missing_custom_executable(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
     cfg.general.custom_executable = "/nonexistent/doom"
-    cfg.general.environment = "native"
+    cfg.runtime.type = "native"
     C.save(cfg)
     assert L.validate_game("local-doom") == [
         "local-doom: custom_executable not found: /nonexistent/doom"
@@ -505,7 +505,7 @@ def test_local_dry_run_uses_custom_executable(xdg_env, tmp_path, capsys):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = str(exe)
-    cfg.general.environment = "native"
+    cfg.runtime.type = "native"
     C.save(cfg)
     assert L.main(["--appid", "local-doom", "--dry-run"]) == 0
     out = capsys.readouterr().out
@@ -740,7 +740,7 @@ def test_block_internet_wraps_the_game(monkeypatch):
 
     monkeypatch.setattr(network, "available", lambda: True)
     cfg = C.GameConfig()
-    cfg.general.environment = "native"
+    cfg.runtime.type = "native"
     cfg.general.appid = "77"
     cfg.network.block_internet = True
     cmd, _env, warnings = build_final_command(cfg, ["/bin/true"])
@@ -756,7 +756,7 @@ def test_block_internet_unavailable_exits_14(xdg_env, monkeypatch):
     monkeypatch.setattr(network, "available", lambda: False)
     cfg = C.GameConfig()
     cfg.general.appid = "78"
-    cfg.general.environment = "native"
+    cfg.runtime.type = "native"
     cfg.network.block_internet = True
     rc, cmd, _env, _warnings = _final_command("78", cfg, ["/bin/true"], "")
     assert rc == 14

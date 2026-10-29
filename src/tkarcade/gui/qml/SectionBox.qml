@@ -26,7 +26,7 @@ ColumnLayout {
     property real padding: Kirigami.Units.largeSpacing
     // Content-driven height by default (a form or a list of fields). Set
     // this when the content has to stretch to the page instead — an
-    // inner ScrollView (the Environment table) fills the leftover space.
+    // inner ScrollView (the winetricks table) fills the leftover space.
     property bool fillHeight: false
 
     // A collapsed box (frame hidden) has the title checkbox as its only

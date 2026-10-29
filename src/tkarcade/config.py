@@ -41,12 +41,14 @@ class DisplayProvider(StrEnum):
     OFF = "off"
 
 
-class Environment(StrEnum):
+class RuntimeType(StrEnum):
     """How the game runs, independent of its origin and platform.
 
-    ``proton`` is Steam's own Proton; ``native`` is a Linux build (under
-    Steam's runtime for Steam games, on the host for local ones);
-    ``wine`` and ``umu`` run a Windows build without Steam.
+    ``proton`` is Steam's own Proton integration, so it only exists for
+    Steam games; ``native`` is a Linux build (under Steam's runtime for
+    Steam games, on the host or inside a Steam Linux Runtime for local
+    ones); ``wine`` is the host Wine and ``umu`` is umu-run executing a
+    Proton build it manages. The last two only exist for local games.
     """
 
     PROTON = "proton"
@@ -55,9 +57,9 @@ class Environment(StrEnum):
     UMU = "umu"
 
 
-#: Environment values this build understands. Empty means "not set": the GUI
+#: Runtime types this build understands. Empty means "not set": the GUI
 #: blocks Save and the launcher refuses to guess (exit 18).
-ENVIRONMENTS = frozenset(t.value for t in Environment)
+RUNTIME_TYPES = frozenset(t.value for t in RuntimeType)
 
 
 #: Steam Linux Runtimes a local native game can run inside, keyed by the
@@ -71,23 +73,23 @@ STEAM_RUNTIMES = {
 }
 
 
-def normalize_environment(value: object) -> str:
-    """Return a known environment, or "" (unset).
+def normalize_runtime(value: object) -> str:
+    """Return a known runtime type, or "" (unset).
 
-    Legacy configs carry a ``environment`` key, "auto" or no key at all;
-    all of them load as unset without rewriting the file (no migration
-    shims before 1.0).
+    Legacy configs carry the runtime in ``[general] environment`` (older
+    still: ``game_type``, or "auto"); all of them load as unset and the
+    key is dropped on the next save (no migration shims before 1.0).
     """
     text = str(value or "").strip().lower()
-    return text if text in ENVIRONMENTS else ""
+    return text if text in RUNTIME_TYPES else ""
 
 
-def platform_for(environment: object) -> str:
-    """Target system of an environment ("" when unset)."""
-    env = normalize_environment(environment)
-    if env == Environment.NATIVE:
+def platform_for(runtime: object) -> str:
+    """Target system of a runtime ("" when unset)."""
+    kind = normalize_runtime(runtime)
+    if kind == RuntimeType.NATIVE:
         return "Linux"
-    return "Windows" if env else ""
+    return "Windows" if kind else ""
 
 
 def normalize_steam_runtime(value: object) -> str:
@@ -101,23 +103,27 @@ def steam_runtime_label(value: object) -> str:
     return STEAM_RUNTIMES.get(normalize_steam_runtime(value), "")
 
 
-def runner_label(environment: object, is_steam: bool, steam_runtime: object = "") -> str:
-    """Library label for how the game runs ("" when unset).
+def runtime_label(runtime: object, is_steam: bool, steam_runtime: object = "") -> str:
+    """Library label for how the game runs ("" when unset or invalid).
 
     A Steam game gets its runtime from Steam, so the label never carries a
     version; a local native game names the one it was configured with.
+    Steam's Proton is Steam-exclusive and only Steam games run it, so an
+    invalid pairing labels nothing (the launcher refuses it at launch).
     """
-    env = normalize_environment(environment)
-    if env == Environment.PROTON:
-        return "Steam Proton" if is_steam else "Proton"
-    if env == Environment.NATIVE:
+    kind = normalize_runtime(runtime)
+    if kind == RuntimeType.PROTON:
+        return "Steam Proton" if is_steam else ""
+    if kind == RuntimeType.NATIVE:
         if is_steam:
             return "Steam Runtime"
-        runtime = normalize_steam_runtime(steam_runtime)
-        return f"Steam Runtime ({runtime})" if runtime else "Native"
-    if env == Environment.WINE:
-        return "Wine"
-    return "Proton (UMU)" if env == Environment.UMU else ""
+        name = normalize_steam_runtime(steam_runtime)
+        return f"Steam Runtime ({name})" if name else "Native"
+    if kind == RuntimeType.WINE:
+        return "" if is_steam else "Wine"
+    if kind == RuntimeType.UMU:
+        return "" if is_steam else "UMU"
+    return ""
 
 
 @dataclass
@@ -125,7 +131,6 @@ class GeneralConfig:
     appid: str = ""
     name: str = ""  # display name for local (non-Steam) games; Steam names come from Steam
     custom_executable: str = ""
-    environment: str = ""  # "" (not set)|proton|native|wine|umu
     show_menu: bool = False  # pre-launch menu (also forced by --menu flag)
     menu_timeout: int = 0  # auto-launch countdown in seconds (0 = wait forever)
     custom_prefix: str = ""  # e.g. "zink-run", innermost command wrapper
@@ -231,8 +236,9 @@ class RtUpscaleConfig:
 class RuntimeConfig:
     """Runtime choice and prefix overrides (empty = use the global setting).
 
-    ``prefix`` and ``tool`` mean whatever the environment makes them mean,
-    because only one environment is active at a time:
+    ``type`` is the one stored axis of how the game runs (see
+    ``RuntimeType``); ``prefix`` and ``tool`` mean whatever it makes them
+    mean, because only one runtime is active at a time:
 
     - ``prefix``: Steam compatdata dir (``STEAM_COMPAT_DATA_PATH``) for
       ``proton``; the full ``WINEPREFIX`` for ``wine``/``umu``.
@@ -245,6 +251,7 @@ class RuntimeConfig:
     Windows build runs under Wine/umu instead.
     """
 
+    type: str = ""  # "" (not set)|proton|native|wine|umu
     fresh_prefix: bool = False  # Steam only: wipe the compatdata before launch
     winetricks_verbs: list[str] = field(default_factory=list)
     prefix: str = ""  # custom prefix dir ("" = Steam default / <prefix_base>/<appid>)
@@ -731,7 +738,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "name",
         "config_version",
         "custom_executable",
-        "environment",
+        "environment",  # legacy (pre-1.0): ignored on load, dropped on save
         "show_menu",
         "menu_timeout",
         "custom_prefix",
@@ -754,6 +761,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "session": {"inhibit_idle"},
     "network": {"block_internet"},
     "runtime": {
+        "type",
         "fresh_prefix",
         "winetricks_verbs",
         "prefix",
@@ -871,7 +879,6 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     g = _section(data, "general")
     cfg.general.name = str(g.get("name", ""))
     cfg.general.custom_executable = str(g.get("custom_executable", ""))
-    cfg.general.environment = normalize_environment(g.get("environment", ""))
     cfg.general.show_menu = _as_bool(g.get("show_menu", False), False)
     cfg.general.menu_timeout = max(0, _as_int(g.get("menu_timeout", 0), 0))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
@@ -922,6 +929,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
         _section(data, "network").get("block_internet", False), False
     )
     rt = _section(data, "runtime")
+    cfg.runtime.type = normalize_runtime(rt.get("type", ""))
     cfg.runtime.fresh_prefix = _as_bool(rt.get("fresh_prefix", False), False)
     cfg.runtime.winetricks_verbs = _str_list(rt.get("winetricks_verbs", []))
     cfg.runtime.prefix = str(rt.get("prefix", "")).strip()

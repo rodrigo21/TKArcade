@@ -26,7 +26,7 @@ def test_save_is_full_snapshot(xdg_env):
     cfg.general.appid = "8"
     text = C.save(cfg).read_text()
     assert 'appid = "8"' in text
-    assert "environment" in text and "custom_prefix" in text
+    assert 'type = ""' in text and "custom_prefix" in text
 
 
 def test_missing_file_falls_back_to_defaults(xdg_env):
@@ -56,7 +56,7 @@ def test_unknown_keys_roundtrip(xdg_env):
 
 def test_enums_match_wire_values():
     assert C.NightlightProvider.PLASMA == "plasma"
-    assert C.Environment.NATIVE == "native"
+    assert C.RuntimeType.NATIVE == "native"
     assert str(C.NightlightProvider.OFF) == "off"
 
 
@@ -298,7 +298,7 @@ def test_preferences_invalid_values(xdg_env):
 _GAME_FIELDS = {
     "general.name": "Test Name",
     "general.custom_executable": "/tmp/opencode/exe",
-    "general.environment": "proton",
+    "runtime.type": "proton",
     "general.show_menu": True,
     "general.menu_timeout": 42,
     "general.custom_prefix": "zink-run",
@@ -1270,8 +1270,8 @@ def test_pre_post_timeout_clamped(xdg_env):
     assert C.load("215").pre_post.timeout == 3600
 
 
-def test_environment_axes_are_derived():
-    """One stored axis: origin and platform come from the id and environment."""
+def test_runtime_axes_are_derived():
+    """One stored axis: origin and platform come from the id and runtime."""
     assert C.platform_for("") == ""
     assert C.platform_for("bogus") == ""
     assert C.platform_for("native") == "Linux"
@@ -1279,22 +1279,24 @@ def test_environment_axes_are_derived():
     assert C.platform_for("wine") == "Windows"
     assert C.platform_for("umu") == "Windows"
 
-    assert C.runner_label("", True) == ""
-    assert C.runner_label("proton", True) == "Steam Proton"
-    assert C.runner_label("native", True) == "Steam Runtime"
-    assert C.runner_label("native", False) == "Native"
-    assert C.runner_label("wine", False) == "Wine"
-    assert C.runner_label("umu", False) == "Proton (UMU)"
+    assert C.runtime_label("", True) == ""
+    assert C.runtime_label("proton", True) == "Steam Proton"
+    assert C.runtime_label("native", True) == "Steam Runtime"
+    assert C.runtime_label("native", False) == "Native"
+    assert C.runtime_label("wine", False) == "Wine"
+    assert C.runtime_label("umu", False) == "UMU"
 
     # A local native game names its Steam Linux Runtime; the column stays
     # short, because the full label only fits the dialog's combo.
-    assert C.runner_label("native", False, "sniper") == "Steam Runtime (sniper)"
-    assert C.runner_label("native", False, "bogus") == "Native"
+    assert C.runtime_label("native", False, "sniper") == "Steam Runtime (sniper)"
+    assert C.runtime_label("native", False, "bogus") == "Native"
     # Steam picks the runtime itself, so its label never carries one.
-    assert C.runner_label("native", True, "sniper") == "Steam Runtime"
-    # The field is ignored wherever it cannot apply.
-    assert C.runner_label("proton", False, "sniper") == "Proton"
-    assert C.runner_label("wine", False, "sniper") == "Wine"
+    assert C.runtime_label("native", True, "sniper") == "Steam Runtime"
+    # Proton is Steam-exclusive and Wine/UMU are local-only, so an invalid
+    # pairing labels nothing (the launcher refuses it at launch).
+    assert C.runtime_label("proton", False, "sniper") == ""
+    assert C.runtime_label("wine", True, "sniper") == ""
+    assert C.runtime_label("umu", True, "sniper") == ""
 
 
 def test_steam_runtime_names():
@@ -1307,19 +1309,23 @@ def test_steam_runtime_names():
 
 
 def test_legacy_keys_load_as_unset(xdg_env, tmp_path, monkeypatch):
-    """The renamed key and the dropped platform label are ignored, not migrated."""
+    """The dropped runtime key and platform label are ignored, not migrated."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     path = tmp_path / "config" / "tkarcade" / "games" / "9.toml"
     path.parent.mkdir(parents=True)
-    path.write_text('[general]\nappid = "9"\ngame_type = "native"\nplatform = "PC"\n')
+    path.write_text(
+        '[general]\nappid = "9"\nenvironment = "proton"\ngame_type = "native"\nplatform = "PC"\n'
+    )
     cfg = C.load("9")
-    assert cfg.general.environment == ""
+    assert cfg.runtime.type == ""
     assert not hasattr(cfg.general, "platform")
     C.save(cfg)
-    # Full snapshots always carry the key; the old name rides along as an
-    # unknown key (forward compat), never rewritten into the new one.
+    # Full snapshots always carry the new key; the dropped runtime key is
+    # known-but-ignored, while the older unknown keys ride along (forward
+    # compat), never rewritten into the new one.
     text = path.read_text()
-    assert 'environment = ""' in text
+    assert 'type = ""' in text
+    assert "environment" not in text
     assert 'game_type = "native"' in text
 
 
@@ -1379,7 +1385,7 @@ def test_launch_folds_a_legacy_prefix_into_the_subfolder(xdg_env, tmp_path):
     cfg = C.GameConfig()
     cfg.general.appid = "local-tk3dtests"
     cfg.general.name = "TK's good-game_1"
-    cfg.general.environment = "umu"
+    cfg.runtime.type = "umu"
     cfg.runtime.prefix = str(base)
     ok, message = L._legacy_prefix("local-tk3dtests", cfg, "umu")
     assert ok is True

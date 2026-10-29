@@ -251,7 +251,7 @@ class GameListModel(QAbstractTableModel):
     LastPlayedRole = Qt.ItemDataRole.UserRole + 11
     LastSecsRole = Qt.ItemDataRole.UserRole + 12
     PlatformRole = Qt.ItemDataRole.UserRole + 13
-    RunnerRole = Qt.ItemDataRole.UserRole + 14
+    RuntimeRole = Qt.ItemDataRole.UserRole + 14
     WineRole = Qt.ItemDataRole.UserRole + 15
     InstallDirRole = Qt.ItemDataRole.UserRole + 16
     CategoryRole = Qt.ItemDataRole.UserRole + 17
@@ -271,7 +271,7 @@ class GameListModel(QAbstractTableModel):
         "gameLastPlayed",
         "gameLastSecs",
         "gamePlatform",
-        "gameRunner",
+        "gameRuntime",
         "gameWine",
         "gameInstallDir",
         "gameCategory",
@@ -396,7 +396,7 @@ class GameListModel(QAbstractTableModel):
             GameListModel.LastPlayedRole: b"gameLastPlayed",
             GameListModel.LastSecsRole: b"gameLastSecs",
             GameListModel.PlatformRole: b"gamePlatform",
-            GameListModel.RunnerRole: b"gameRunner",
+            GameListModel.RuntimeRole: b"gameRuntime",
             GameListModel.WineRole: b"gameWine",
             GameListModel.InstallDirRole: b"gameInstallDir",
             GameListModel.CategoryRole: b"gameCategory",
@@ -438,7 +438,7 @@ class GameListModel(QAbstractTableModel):
             GameListModel.LastPlayedRole: 10,
             GameListModel.LastSecsRole: 11,
             GameListModel.PlatformRole: 12,
-            GameListModel.RunnerRole: 13,
+            GameListModel.RuntimeRole: 13,
             GameListModel.WineRole: 14,
             GameListModel.InstallDirRole: 15,
             GameListModel.CategoryRole: 16,
@@ -462,7 +462,7 @@ class GameListModel(QAbstractTableModel):
             "gameLastPlayed",
             "gameLastSecs",
             "gamePlatform",
-            "gameRunner",
+            "gameRuntime",
             "gameWine",
             "gameInstallDir",
             "gameCategory",
@@ -586,9 +586,9 @@ class GameListModel(QAbstractTableModel):
             played_tip,
             last_played,
             last_secs,
-            cfgmod.platform_for(gcfg.general.environment) if gcfg is not None else "",
+            cfgmod.platform_for(gcfg.runtime.type) if gcfg is not None else "",
             (
-                cfgmod.runner_label(gcfg.general.environment, is_steam, gcfg.runtime.steam_runtime)
+                cfgmod.runtime_label(gcfg.runtime.type, is_steam, gcfg.runtime.steam_runtime)
                 or "Not Set"
             )
             if gcfg is not None
@@ -649,7 +649,7 @@ class GameListModel(QAbstractTableModel):
         cfg.general.appid = appid
         cfg.general.name = name.strip()
         cfg.general.custom_executable = exe.strip()
-        cfg.general.environment = "native"
+        cfg.runtime.type = "native"
         cfgmod.save(cfg)
         self.refresh()
         return appid
@@ -730,7 +730,7 @@ class GameListModel(QAbstractTableModel):
             "load_warning": warning or "",
             "name": g.name,
             "custom_executable": g.custom_executable,
-            "environment": cfgmod.normalize_environment(g.environment),
+            "runtime_type": cfgmod.normalize_runtime(cfg.runtime.type),
             "show_menu": bool(g.show_menu),
             "menu_timeout": max(0, min(600, int(g.menu_timeout or 0))),
             "custom_prefix": g.custom_prefix,
@@ -965,7 +965,7 @@ class GameListModel(QAbstractTableModel):
     def _apply_map(cfg, data: dict) -> None:
         """Write settings form fields into a config (no save, no refresh)."""
         cfg.general.custom_executable = str(data.get("custom_executable", "")).strip()
-        cfg.general.environment = cfgmod.normalize_environment(data.get("environment", ""))
+        cfg.runtime.type = cfgmod.normalize_runtime(data.get("runtime_type", ""))
         cfg.general.show_menu = bool(data.get("show_menu", False))
         try:
             cfg.general.menu_timeout = max(0, min(600, int(data.get("menu_timeout", 0) or 0)))
@@ -1501,9 +1501,9 @@ class GameListModel(QAbstractTableModel):
 
             argv, message = protonmod.gui_command(appid)
         else:
-            environment = cfgmod.normalize_environment(cfg.general.environment)
+            environment = cfgmod.normalize_runtime(cfg.runtime.type)
             if environment not in ("wine", "umu"):
-                return "Winetricks Verbs Need a Wine or Proton Environment."
+                return "Winetricks Verbs Need a Wine or Proton Runtime."
             prefix, wine, proton = self._wine_env(cfg)
             argv, env, message = wtmod.local_gui(prefix, environment, wine, proton)
         if message:
@@ -2202,8 +2202,8 @@ class GameListModel(QAbstractTableModel):
             if not steammod.is_steam_id(appid):
                 cfg.general.name = str(dict(values or {}).get("name", "")).strip()
             cmd, _env, warnings = launchermod.build_final_command(cfg, ["%command%"])
-        except launchermod.EnvironmentNotSetError:
-            return {"command": "(Choose an Environment to Preview)", "wrappers": "", "warnings": []}
+        except launchermod.RuntimeNotSetError:
+            return {"command": "(Choose a Runtime to Preview)", "wrappers": "", "warnings": []}
         except Exception as e:  # never break the dialog on preview
             return {"command": f"(Preview Unavailable: {e})", "wrappers": "", "warnings": []}
         try:
@@ -3455,7 +3455,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameOrigin",
         "gameLastPlayed",
         "gamePlatform",
-        "gameRunner",
+        "gameRuntime",
         "gameWine",
         "gameInstallDir",
     )
@@ -3468,7 +3468,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameOrigin": "Origin",
         "gameLastPlayed": "Last Played",
         "gamePlatform": "Platform",
-        "gameRunner": "Runner",
+        "gameRuntime": "Runtime",
         "gameWine": "Wine",
         "gameInstallDir": "Install Dir",
     }
@@ -3693,7 +3693,7 @@ class GameFilterModel(QSortFilterProxyModel):
                 5: GameListModel.OriginRole,
                 6: GameListModel.LastPlayedRole,
                 7: GameListModel.PlatformRole,
-                8: GameListModel.RunnerRole,
+                8: GameListModel.RuntimeRole,
                 9: GameListModel.WineRole,
                 10: GameListModel.InstallDirRole,
             }
@@ -3794,7 +3794,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "showOrigin": 5,
         "showLastPlayed": 6,
         "showPlatform": 7,
-        "showRunner": 8,
+        "showRuntime": 8,
         "showWine": 9,
         "showInstallDir": 10,
     }
@@ -3851,11 +3851,11 @@ class GameFilterModel(QSortFilterProxyModel):
     def _set_showPlatform(self, value: bool) -> None:
         self._set_flag("showPlatform", value)
 
-    def _get_showRunner(self) -> bool:
-        return self._get_flag("showRunner")
+    def _get_showRuntime(self) -> bool:
+        return self._get_flag("showRuntime")
 
-    def _set_showRunner(self, value: bool) -> None:
-        self._set_flag("showRunner", value)
+    def _set_showRuntime(self, value: bool) -> None:
+        self._set_flag("showRuntime", value)
 
     def _get_showWine(self) -> bool:
         return self._get_flag("showWine")
@@ -3875,7 +3875,7 @@ class GameFilterModel(QSortFilterProxyModel):
     showOrigin = Property(bool, _get_showOrigin, _set_showOrigin, notify=columnsChanged)
     showLastPlayed = Property(bool, _get_showLastPlayed, _set_showLastPlayed, notify=columnsChanged)
     showPlatform = Property(bool, _get_showPlatform, _set_showPlatform, notify=columnsChanged)
-    showRunner = Property(bool, _get_showRunner, _set_showRunner, notify=columnsChanged)
+    showRuntime = Property(bool, _get_showRuntime, _set_showRuntime, notify=columnsChanged)
     showWine = Property(bool, _get_showWine, _set_showWine, notify=columnsChanged)
     showInstallDir = Property(bool, _get_showInstallDir, _set_showInstallDir, notify=columnsChanged)
 

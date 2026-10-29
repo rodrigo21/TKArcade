@@ -48,7 +48,7 @@ def launch_summary(
     *,
     appid: str,
     name: str = "",
-    environment: str = "proton",
+    runtime_type: str = "proton",
     wrappers: list[str] | None = None,
     custom_executable: str = "",
     proton_display: str = "Proton",
@@ -61,9 +61,9 @@ def launch_summary(
     ever stands alone; blank parts are dropped (no trailing separators).
     """
     title = f"TKArcade — {name.strip() or appid}"
-    if environment == "native":
+    if runtime_type == "native":
         head = f"Native · {runtime}" if runtime else "Native"
-    elif environment == "wine":
+    elif runtime_type == "wine":
         head = f"Wine · {runtime}" if runtime else "Wine"
     else:
         head = (proton_display or "").strip() or "Proton"

@@ -43,8 +43,13 @@
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="101"/>
-        <source>Environment</source>
-        <translation>Ambiente</translation>
+        <source>Runtime</source>
+        <translation>Runtime</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="113"/>
+        <source>UMU</source>
+        <translation>UMU</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="111"/>
@@ -55,11 +60,6 @@
         <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="112"/>
         <source>Wine</source>
         <translation>Wine</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="113"/>
-        <source>Proton (UMU)</source>
-        <translation>Proton (UMU)</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="130"/>
@@ -124,8 +124,8 @@
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/ColumnsDialog.qml" line="49"/>
-        <source>Runner</source>
-        <translation>Executor</translation>
+        <source>Runtime</source>
+        <translation>Runtime</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/ColumnsDialog.qml" line="51"/>
@@ -243,16 +243,6 @@
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="261"/>
         <source>Wine from PATH</source>
         <translation>Wine do PATH</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="266"/>
-        <source>Proton via UMU: %1</source>
-        <translation>Proton via UMU: %1</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="268"/>
-        <source>Proton via UMU (Choose an Install)</source>
-        <translation>Proton via UMU (Escolha uma Instalação)</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="272"/>
@@ -984,11 +974,6 @@ Os Saves Dentro Dele São Perdidos.</translation>
         <translation>%1 Salvar Agora Fará o Downgrade e Pode Perder Configurações. Continuar?</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1303"/>
-        <source>Choose the Environment: Proton or Native (Steam Runtime).</source>
-        <translation>Escolha o Ambiente: Proton ou Nativo (Steam Runtime).</translation>
-    </message>
-    <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2067"/>
         <source>Native (Steam Runtime)</source>
         <translation>Nativo (Steam Runtime)</translation>
@@ -997,21 +982,6 @@ Os Saves Dentro Dele São Perdidos.</translation>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2069"/>
         <source>Native</source>
         <translation>Nativo</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2071"/>
-        <source>Proton (UMU)</source>
-        <translation>Proton (UMU)</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2074"/>
-        <source>Environment:</source>
-        <translation>Ambiente:</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1755"/>
-        <source>This Looks Like a Windows Executable, but the Environment Is a Linux Build.</source>
-        <translation>Isto Parece um Executável Windows, mas o Ambiente É um Build Linux.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2001"/>
@@ -1470,6 +1440,16 @@ Os Saves Dentro Dele São Perdidos.</translation>
         <translation>Ferramenta de Compatibilidade:</translation>
     </message>
     <message>
+        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="266"/>
+        <source>UMU: %1</source>
+        <translation>UMU: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="268"/>
+        <source>UMU (Choose a Proton Install)</source>
+        <translation>UMU (Escolha uma Instalação do Proton)</translation>
+    </message>
+    <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1037"/>
         <source>Using Artwork From %1.</source>
         <translation>AppID %1 (%2)</translation>
@@ -1536,6 +1516,11 @@ Os Saves Dentro Dele São Perdidos.</translation>
         <translation>As Opções de Inicialização da Steam Usam tkarcade, Que Não Está no PATH</translation>
     </message>
     <message>
+        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1303"/>
+        <source>Choose the Runtime: Proton or Native (Steam Runtime).</source>
+        <translation>Escolha o Runtime: Proton ou Nativo (Steam Runtime).</translation>
+    </message>
+    <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1481"/>
         <source>The Tool Exited Unexpectedly — See %1</source>
         <translation>A Ferramenta Terminou Inesperadamente — Veja %1</translation>
@@ -1544,6 +1529,21 @@ Os Saves Dentro Dele São Perdidos.</translation>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1539"/>
         <source>Commands</source>
         <translation>Comandos</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1755"/>
+        <source>This Looks Like a Windows Executable, but the Runtime Is a Linux Build.</source>
+        <translation>Isso Parece um Executável do Windows, mas o Runtime É uma Build do Linux.</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2071"/>
+        <source>UMU</source>
+        <translation>UMU</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2074"/>
+        <source>Runtime:</source>
+        <translation>Runtime:</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="2136"/>
@@ -2280,11 +2280,6 @@ Os Saves Dentro Dele São Perdidos.</translation>
         <translation>Plataforma</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="847"/>
-        <source>Runner</source>
-        <translation>Executor</translation>
-    </message>
-    <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="850"/>
         <source>Wine</source>
         <translation>Wine</translation>
@@ -2564,11 +2559,6 @@ Os Saves Dentro Dele São Perdidos.</translation>
         <translation>Mostrar Plataforma</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2011"/>
-        <source>Show Runner</source>
-        <translation>Mostrar Executor</translation>
-    </message>
-    <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2017"/>
         <source>Show Wine</source>
         <translation>Mostrar Wine</translation>
@@ -2708,9 +2698,19 @@ Os Saves Dentro Dele São Perdidos.</translation>
         <translation>Origem</translation>
     </message>
     <message>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="847"/>
+        <source>Runtime</source>
+        <translation>Runtime</translation>
+    </message>
+    <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1993"/>
         <source>Show Origin</source>
         <translation>Mostrar Origem</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2011"/>
+        <source>Show Runtime</source>
+        <translation>Mostrar Runtime</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2395"/>

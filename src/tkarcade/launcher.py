@@ -43,7 +43,7 @@ from .backends import overlay as ov_backend
 from .backends import prepost as pp_backend
 from .backends import rtupscale as rtu_backend
 from .backends import split_args
-from .config import Environment
+from .config import RuntimeType
 
 log = logging.getLogger("tkarcade")
 
@@ -52,8 +52,8 @@ class PrefixNotFoundError(ValueError):
     """Raised when custom_prefix names a binary missing from PATH."""
 
 
-class EnvironmentNotSetError(ValueError):
-    """Raised when a launch has no explicit (and valid) environment."""
+class RuntimeNotSetError(ValueError):
+    """Raised when a launch has no explicit (and valid) runtime type."""
 
 
 class RuntimeNotFoundError(ValueError):
@@ -64,25 +64,21 @@ class GameExecutableMissingError(ValueError):
     """Raised when a Wine/UMU game has no executable configured."""
 
 
-def environment_problem(appid: str, environment: str) -> str:
-    """Explain why this environment cannot launch the game ("" = fine).
+def runtime_problem(appid: str, runtime: str) -> str:
+    """Explain why this runtime type cannot launch the game ("" = fine).
 
     The origin decides the allowed values: Steam games are proton|native,
     non-Steam (local) games are native|wine|umu. A non-Steam game never
     borrows the Steam Proton runtime; it runs through umu-run instead.
     """
-    if not environment:
-        return "environment not set: choose one in the game settings"
+    if not runtime:
+        return "runtime not set: choose one in the game settings"
     steam = steammod.is_steam_id(appid)
     allowed = ("proton", "native") if steam else ("native", "wine", "umu")
-    if environment not in allowed:
+    if runtime not in allowed:
         if steam:
-            return (
-                f"environment {environment!r} is for local games; Steam games run proton or native"
-            )
-        return (
-            f"environment {environment!r} needs a Steam AppID; local games run native, wine or umu"
-        )
+            return f"runtime {runtime!r} is for local games; Steam games run proton or native"
+        return f"runtime {runtime!r} needs a Steam AppID; local games run native, wine or umu"
     return ""
 
 
@@ -541,12 +537,12 @@ def build_final_command(
 ) -> tuple[list[str], dict, list[str]]:
     """Assemble the launch argv and extra environment for one game.
 
-    Raises EnvironmentNotSetError when the config has no explicit type: there
+    Raises RuntimeNotSetError when the config has no explicit type: there
     is no auto-detection to fall back to (pre-1.0, configs are recreated).
     """
-    environment = cfgmod.normalize_environment(cfg.general.environment)
+    environment = cfgmod.normalize_runtime(cfg.runtime.type)
     if not environment:
-        raise EnvironmentNotSetError("environment not set")
+        raise RuntimeNotSetError("runtime not set")
     runtime = _runtime_paths(cfg, environment) if environment in ("wine", "umu") else None
     steam_runtime = _steam_runtime_for(cfg, environment)
     cmd, warnings = _game_argv(cfg, game_cmd, environment, runtime, steam_runtime)
@@ -608,7 +604,7 @@ def active_wrappers(cfg: cfgmod.GameConfig) -> list[str]:
 
 def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[str, str]:
     """Send the transient game-start summary. Returns (name, icon) for reuse."""
-    environment = cfgmod.normalize_environment(cfg.general.environment) or str(Environment.PROTON)
+    environment = cfgmod.normalize_runtime(cfg.runtime.type) or str(RuntimeType.PROTON)
     wrappers = active_wrappers(cfg)
     names = {a: n for a, n in steammod.list_games()}
     names.update(steammod.local_names())
@@ -636,7 +632,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
     title, body = notify_backend.launch_summary(
         appid=appid,
         name=names.get(appid, ""),
-        environment=environment,
+        runtime_type=environment,
         wrappers=wrappers,
         custom_executable=cfg.general.custom_executable,
         proton_display=proton_display,
@@ -691,13 +687,13 @@ def _missing_exe(appid: str, label: str, command: str) -> str | None:
 
 def _environment_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
     """Unset or origin-invalid environment (the launcher would exit 18)."""
-    problem = environment_problem(appid, cfgmod.normalize_environment(eff.general.environment))
+    problem = runtime_problem(appid, cfgmod.normalize_runtime(eff.runtime.type))
     return [f"{appid}: {problem}"] if problem else []
 
 
 def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
     """Missing Wine/UMU pieces for local Windows games (the launch would exit 14)."""
-    environment = cfgmod.normalize_environment(eff.general.environment)
+    environment = cfgmod.normalize_runtime(eff.runtime.type)
     steam_runtime = _steam_runtime_for(eff, environment)
     if steam_runtime:
         # A missing runtime is not an issue: umu downloads it on first use.
@@ -722,7 +718,7 @@ def _graphics_issue(appid: str, eff: cfgmod.GameConfig) -> list[str]:
     """Enabled graphics layers without an installed version to copy."""
     # Only a plain Wine prefix takes the layers: umu and Proton ship their
     # own DXVK/vkd3d, so [graphics] is ignored for those environments.
-    if cfgmod.normalize_environment(eff.general.environment) != "wine":
+    if cfgmod.normalize_runtime(eff.runtime.type) != "wine":
         return []
     kinds = graphicsmod.enabled_kinds(eff.graphics.dxvk, eff.graphics.vkd3d)
     if not kinds:
@@ -820,7 +816,7 @@ def validate_notes(appid: str) -> list[str]:
         eff = cfgmod.load_effective(appid)
     except Exception:
         return []
-    steam_runtime = _steam_runtime_for(eff, cfgmod.normalize_environment(eff.general.environment))
+    steam_runtime = _steam_runtime_for(eff, cfgmod.normalize_runtime(eff.runtime.type))
     if not steam_runtime or runtimes.steam_runtime_installed(steam_runtime):
         return []
     return [
@@ -1300,7 +1296,7 @@ def _prepare_launch(appid: str, cfg: cfgmod.GameConfig) -> int | None:
     Returns an exit code when the launch must stop (the prefix could not
     be folded into its subfolder), else None.
     """
-    environment = cfgmod.normalize_environment(cfg.general.environment)
+    environment = cfgmod.normalize_runtime(cfg.runtime.type)
     ok, message = _legacy_prefix(appid, cfg, environment)
     if not ok:
         log.error("%s", message)
@@ -1343,7 +1339,7 @@ def _final_command(
     appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str], rc_file: str
 ) -> tuple[int, list[str], dict, list[str]]:
     """Build the launch argv/env. A non-zero code means "return it as-is"."""
-    problem = environment_problem(appid, cfgmod.normalize_environment(cfg.general.environment))
+    problem = runtime_problem(appid, cfgmod.normalize_runtime(cfg.runtime.type))
     if problem:
         log.error("%s", problem)
         print(f"tkarcade: {problem}", file=sys.stderr)

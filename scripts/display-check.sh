@@ -116,11 +116,12 @@ def cover() -> str:
 art = cover()
 
 
-def game(appid: str, name: str, exe: str, **general) -> None:
+def game(appid: str, name: str, exe: str, runtime: str = "", **general) -> None:
     cfg = C.GameConfig()
     cfg.general.appid = appid
     cfg.general.name = name
     cfg.general.custom_executable = exe
+    cfg.runtime.type = runtime
     for key, value in general.items():
         setattr(cfg.general, key, value)
     C.save(cfg)
@@ -128,9 +129,9 @@ def game(appid: str, name: str, exe: str, **general) -> None:
 
 # One per runtime, plus categories/artwork so the columns and both
 # dialogs have something to show without the real library.
-game("check-native", "Check Native", "/bin/true")
-game("check-wine", "Check Wine", "check.exe", environment="wine")
-game("check-category", "Check Category", "/bin/true", categories=["Testing"])
+game("check-native", "Check Native", "/bin/true", runtime="native")
+game("check-wine", "Check Wine", "check.exe", runtime="wine")
+game("check-category", "Check Category", "/bin/true", runtime="native", categories=["Testing"])
 cfg = C.load("check-category")
 cfg.artwork.cover = art
 cfg.artwork.banner = art

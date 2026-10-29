@@ -758,7 +758,7 @@ Kirigami.Page {
             return gameFilter.showPlatform
         }
         if (logical === 8) {
-            return gameFilter.showRunner
+            return gameFilter.showRuntime
         }
         if (logical === 9) {
             return gameFilter.showWine
@@ -792,7 +792,7 @@ Kirigami.Page {
             return "gamePlatform"
         }
         if (logical === 8) {
-            return "gameRunner"
+            return "gameRuntime"
         }
         if (logical === 9) {
             return "gameWine"
@@ -844,7 +844,7 @@ Kirigami.Page {
             return qsTr("Platform")
         }
         if (logical === 8) {
-            return qsTr("Runner")
+            return qsTr("Runtime")
         }
         if (logical === 9) {
             return qsTr("Wine")
@@ -932,7 +932,7 @@ Kirigami.Page {
         gameFilter.showOrigin = true
         gameFilter.showLastPlayed = true
         gameFilter.showPlatform = false
-        gameFilter.showRunner = false
+        gameFilter.showRuntime = false
         gameFilter.showWine = false
         gameFilter.showInstallDir = false
     }
@@ -1815,7 +1815,7 @@ Kirigami.Page {
                     }
                 }
                 // plain text columns (App ID, Source and the library
-                // columns: Last Played, Platform, Runner, Wine, Install
+                // columns: Last Played, Platform, Runtime, Wine, Install
                 // Dir)
                 Controls.Label {
                     objectName: "cellText" + logical
@@ -1837,7 +1837,7 @@ Kirigami.Page {
                             return model?.gamePlatform ?? ""
                         }
                         if (logical === 8) {
-                            return model?.gameRunner ?? ""
+                            return model?.gameRuntime ?? ""
                         }
                         if (logical === 9) {
                             return model?.gameWine ?? ""
@@ -2008,10 +2008,10 @@ Kirigami.Page {
             onTriggered: gameFilter.showPlatform = checked
         }
         Controls.MenuItem {
-            text: qsTr("Show Runner")
+            text: qsTr("Show Runtime")
             checkable: true
-            checked: gameFilter.showRunner
-            onTriggered: gameFilter.showRunner = checked
+            checked: gameFilter.showRuntime
+            onTriggered: gameFilter.showRuntime = checked
         }
         Controls.MenuItem {
             text: qsTr("Show Wine")
@@ -2225,10 +2225,10 @@ Kirigami.Page {
         gameSettings.openFor(appid)
     }
 
-    function openNewGameSettings(environment) {
+    function openNewGameSettings(runtimeType) {
         gameSettings.page = gamesPage
         gameSettings.transientParent = Controls.ApplicationWindow.window
-        gameSettings.openNew(environment)
+        gameSettings.openNew(runtimeType)
     }
 
     // The Global Defaults editor (same window in defaults mode), reachable

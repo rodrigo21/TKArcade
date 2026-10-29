@@ -7,14 +7,13 @@ and git, and hard-won QML/toolkit rules in `docs/QML-NOTES.md`.
 
 ## Deferred research
 
-- [ ] **Game taxonomy and terminology (priority).** Separate what a game
-  is (Origin: Steam/Local; Platform: Linux/Windows; Type) from how it
-  runs (Runner/Environment: Steam Runtime, Proton via Steam, Proton via
-  UMU, plain Wine). Windows is one platform, not a Proton/Wine game type.
-  Review how Lutris actually models and presents Source/Runner/Platform
-  (not only the column names) and pick names for the library columns and
-  filters from that. This decides what the current `game_type` becomes
-  and how existing configs migrate.
+- [x] **Game taxonomy and terminology (priority).** Landed as Origin
+  (derived: Steam/Local), Platform (derived from the runtime: Linux/
+  Windows) and Runtime (stored: `[runtime] type = proton|native|wine|
+  umu`), with the library's 8th column and the settings combo named
+  `Runtime`. Proton is Steam-exclusive; local Windows games run Wine or
+  UMU. The legacy `[general] environment`/`game_type` keys load as unset
+  (no shim, pre-1.0) and are dropped on save.
 - [x] **Faugus / Steam Linux Runtime for local Linux games.** Landed on
   `feature/settings-decisions`.
   - `[runtime] steam_runtime = ""|scout|soldier|sniper|steamrt4`

@@ -25,7 +25,7 @@ Kirigami.Dialog {
         } else if (logical === 7) {
             return "showPlatform"
         } else if (logical === 8) {
-            return "showRunner"
+            return "showRuntime"
         } else if (logical === 9) {
             return "showWine"
         } else if (logical === 10) {
@@ -46,7 +46,7 @@ Kirigami.Dialog {
         } else if (logical === 7) {
             return qsTr("Platform")
         } else if (logical === 8) {
-            return qsTr("Runner")
+            return qsTr("Runtime")
         } else if (logical === 9) {
             return qsTr("Wine")
         } else if (logical === 10) {

@@ -125,7 +125,7 @@ Window {
             "appid": "",
             "name": "",
             "custom_executable": "",
-            "environment": "",
+            "runtime_type": "",
             "show_menu": false,
             "menu_timeout": 0,
             "custom_prefix": "",
@@ -146,13 +146,13 @@ Window {
         visible = true
     }
 
-    function openNew(environment) {
+    function openNew(runtimeType) {
         editAppid = ""
         defaultsMode = false
         fields = blankFields()
-        // The Add dialog preselects the local environment; empty leaves the
+        // The Add dialog preselects the local runtime; empty leaves the
         // native default that pushToControls already applies.
-        fields.environment = environment || ""
+        fields.runtime_type = runtimeType || ""
         pushToControls()
         errorText = ""
         tabBar.currentIndex = 0
@@ -215,9 +215,9 @@ Window {
             defaultsMode ? "" : editAppid, defaultsMode ? "" : dialogProfile)
     }
 
-    // Read-only runtime row; tracks the Environment combo so switching
+    // Read-only runtime row; tracks the Runtime combo so switching
     // clears it (Steam) or names the local Wine/umu runtime.
-    function typeValues() {
+    function runtimeValues() {
         return (defaultsMode || (fields.is_steam || false))
             ? ["proton", "native"]
             : ["native", "wine", "umu"]
@@ -256,23 +256,23 @@ Window {
             return ""
         }
         if (!(fields.is_steam || false)) {
-            if (typeBox.currentIndex === 1) {
+            if (runtimeTypeBox.currentIndex === 1) {
                 var wine = localWineField.text.trim()
                 return wine !== "" ? wine : qsTr("Wine from PATH")
             }
-            if (typeBox.currentIndex === 2) {
+            if (runtimeTypeBox.currentIndex === 2) {
                 var i = protonBox.currentIndex
                 if (i >= 0 && i < protonChoices.length) {
-                    return qsTr("Proton via UMU: %1").arg(protonChoices[i].name)
+                    return qsTr("UMU: %1").arg(protonChoices[i].name)
                 }
-                return qsTr("Proton via UMU (Choose an Install)")
+                return qsTr("UMU (Choose a Proton Install)")
             }
             var sr = gameSettings.steamRuntimeValue()
             return sr === ""
                 ? qsTr("Native (No Runtime)")
                 : qsTr("Native · %1").arg(gameModel.steamRuntimeState(sr).label)
         }
-        if (typeBox.currentIndex === 1) {
+        if (runtimeTypeBox.currentIndex === 1) {
             return qsTr("Native (No Proton)")
         }
         return gameModel.detectedRuntime(editAppid)
@@ -464,9 +464,9 @@ Window {
             : (f.name || "")
         loadedName = nameField.text
         exeField.text = f.custom_executable || ""
-        var types = typeValues()
-        var typeIndex = types.indexOf(f.environment || "")
-        typeBox.currentIndex = typeIndex >= 0
+        var types = runtimeValues()
+        var typeIndex = types.indexOf(f.runtime_type || "")
+        runtimeTypeBox.currentIndex = typeIndex >= 0
             ? typeIndex
             : ((f.is_steam || defaultsMode) ? -1 : 0)
         runtimeField.text = runtimeText()
@@ -565,7 +565,7 @@ Window {
         return {
             "name": nameField.text,
             "custom_executable": exeField.text,
-            "environment": typeValues()[typeBox.currentIndex] || "",
+            "runtime_type": runtimeValues()[runtimeTypeBox.currentIndex] || "",
             "show_menu": menuCheck.checked,
             "menu_timeout": timeoutSpin.value,
             "custom_prefix": prefixField.text,
@@ -621,10 +621,10 @@ Window {
             "runtime_prefix_name": localPrefixNameField.text,
             "runtime_tool": gameSettings.wineAvailable
                 ? wineToolData()
-                : (typeBox.currentIndex === 2 ? protonChoicePath() : localWineField.text),
+                : (runtimeTypeBox.currentIndex === 2 ? protonChoicePath() : localWineField.text),
             "runtime_steam_runtime": gameSettings.wineAvailable
                 ? ""
-                : (typeBox.currentIndex === 0 ? gameSettings.steamRuntimeValue() : ""),
+                : (runtimeTypeBox.currentIndex === 0 ? gameSettings.steamRuntimeValue() : ""),
             "graphics_dxvk": gfxDxvk.checked,
             "graphics_vkd3d": gfxVkd3dValue(),
             "active_profile": dialogProfile
@@ -1299,8 +1299,8 @@ Window {
         // Steam games must name the type explicitly: no auto-detection and
         // no silent guess (the launcher refuses with exit 18). The defaults
         // template may stay unset, which keeps new games unset too.
-        if (!defaultsMode && (fields.is_steam || false) && typeBox.currentIndex < 0) {
-            settingsError.text = qsTr("Choose the Environment: Proton or Native (Steam Runtime).")
+        if (!defaultsMode && (fields.is_steam || false) && runtimeTypeBox.currentIndex < 0) {
+            settingsError.text = qsTr("Choose the Runtime: Proton or Native (Steam Runtime).")
             return false
         }
         if (defaultsMode) {
@@ -1738,8 +1738,8 @@ Window {
                                     objectName: "settingsExeHint"
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: ""
-                                    visible: !defaultsMode && typeBox.currentIndex >= 0
-                                        && typeValues()[typeBox.currentIndex] === "native"
+                                    visible: !defaultsMode && runtimeTypeBox.currentIndex >= 0
+                                        && runtimeValues()[runtimeTypeBox.currentIndex] === "native"
                                         && /\.(exe|bat|msi)$/i.test(exeField.text.trim())
                                     Controls.Label {
                                         Layout.fillWidth: true
@@ -1752,7 +1752,7 @@ Window {
                                         Layout.preferredWidth: 0
                                         Layout.minimumWidth: 0
                                         wrapMode: Text.WordWrap
-                                        text: qsTr("This Looks Like a Windows Executable, but the Environment Is a Linux Build.")
+                                        text: qsTr("This Looks Like a Windows Executable, but the Runtime Is a Linux Build.")
                                     }
                                     Controls.Button {
                                         objectName: "settingsSwitchType"
@@ -1760,11 +1760,11 @@ Window {
                                             ? qsTr("Switch to Proton")
                                             : qsTr("Switch to Wine")
                                         onClicked: {
-                                            var types = typeValues()
+                                            var types = runtimeValues()
                                             var index = types.indexOf(
                                                 (fields.is_steam || false) ? "proton" : "wine")
                                             if (index >= 0) {
-                                                typeBox.currentIndex = index
+                                                runtimeTypeBox.currentIndex = index
                                                 runtimeField.text = gameSettings.runtimeText()
                                                 gfxStatus = gameSettings.gfxStatusText()
                                             }
@@ -2057,8 +2057,8 @@ Window {
                                 labelWidth: compatColumn.labelWidth
                                 Layout.fillWidth: true
                                 Controls.ComboBox {
-                                    id: typeBox
-                                    objectName: "settingsType"
+                                    id: runtimeTypeBox
+                                    objectName: "settingsRuntimeType"
                                     Layout.fillWidth: true
                                     // The origin decides the choices: Steam
                                     // games use the Steam Proton runtime, local
@@ -2068,10 +2068,10 @@ Window {
                                         : [
                                             qsTr("Native"),
                                             qsTr("Wine"),
-                                            qsTr("Proton (UMU)")
+                                            qsTr("UMU")
                                         ]
                                     displayText: currentIndex >= 0 ? currentText : qsTr("Choose...")
-                                    KirigamiLayouts.FormData.label: qsTr("Environment:")
+                                    KirigamiLayouts.FormData.label: qsTr("Runtime:")
                                     onActivated: {
                                         runtimeField.text = gameSettings.runtimeText()
                                         gfxStatus = gameSettings.gfxStatusText()
@@ -2081,14 +2081,14 @@ Window {
                                     id: runtimeField
                                     objectName: "settingsRuntime"
                                     visible: !defaultsMode && editAppid !== ""
-                                        && typeBox.currentIndex >= 0
+                                        && runtimeTypeBox.currentIndex >= 0
                                     readOnly: true
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex === 1
+                                    visible: !gameSettings.wineAvailable && runtimeTypeBox.currentIndex === 1
                                     KirigamiLayouts.FormData.label: qsTr("Wine Binary:")
                                     Controls.TextField {
                                         id: localWineField
@@ -2109,7 +2109,7 @@ Window {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex === 2
+                                    visible: !gameSettings.wineAvailable && runtimeTypeBox.currentIndex === 2
                                     KirigamiLayouts.FormData.label: qsTr("Proton:")
                                     Controls.ComboBox {
                                         id: protonBox
@@ -2150,7 +2150,7 @@ Window {
                                     // Steam Linux Runtime; a Steam game gets
                                     // its runtime from Steam instead.
                                     visible: !defaultsMode && !(fields.is_steam || false)
-                                        && typeBox.currentIndex === 0
+                                        && runtimeTypeBox.currentIndex === 0
                                     KirigamiLayouts.FormData.label: qsTr("Steam Runtime:")
                                     Controls.ComboBox {
                                         id: srBox
@@ -2179,7 +2179,7 @@ Window {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     visible: !defaultsMode && !(fields.is_steam || false)
-                                        && typeBox.currentIndex === 0 && steamRuntimeHint.text !== ""
+                                        && runtimeTypeBox.currentIndex === 0 && steamRuntimeHint.text !== ""
                                     Controls.Label {
                                         objectName: "steamRuntimeHint"
                                         id: steamRuntimeHint
@@ -2199,7 +2199,7 @@ Window {
                                     Layout.fillWidth: true
                                     // Native needs no tool: the sentence
                                     // only makes sense for Wine/umu.
-                                    visible: !gameSettings.wineAvailable && typeBox.currentIndex >= 1
+                                    visible: !gameSettings.wineAvailable && runtimeTypeBox.currentIndex >= 1
                                     Controls.Label {
                                         objectName: "localRuntimeHint"
                                         Layout.fillWidth: true
@@ -2216,7 +2216,7 @@ Window {
                             Layout.fillWidth: true
                             // Steam always has a compatdata dir; local games
                             // only once a Wine/umu runtime is chosen.
-                            visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
+                            visible: gameSettings.wineAvailable || runtimeTypeBox.currentIndex >= 1
                             WidgetsFormLayout {
                                 id: prefixForm
                                 labelWidth: compatColumn.labelWidth
@@ -2228,7 +2228,7 @@ Window {
                                     // or, for a local game, the base and the
                                     // folder inside it. It reads as the
                                     // <base>/<folder> path the launch uses.
-                                    visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
+                                    visible: gameSettings.wineAvailable || runtimeTypeBox.currentIndex >= 1
                                     KirigamiLayouts.FormData.label: gameSettings.wineAvailable
                                         ? qsTr("Custom Prefix Dir:")
                                         : qsTr("Wine Prefix:")
@@ -2347,7 +2347,7 @@ Window {
                                 // row that can shrink.
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: gameSettings.wineAvailable || typeBox.currentIndex >= 1
+                                    visible: gameSettings.wineAvailable || runtimeTypeBox.currentIndex >= 1
                                     Controls.Label {
                                         objectName: "settingsLocalPrefixHint"
                                         // Kept in the layout even when empty
@@ -2471,7 +2471,7 @@ Window {
                             Layout.fillWidth: true
                             // Only a plain Wine prefix takes the layers: umu
                             // and Proton ship their own DXVK/vkd3d.
-                            visible: !gameSettings.wineAvailable && typeBox.currentIndex === 1
+                            visible: !gameSettings.wineAvailable && runtimeTypeBox.currentIndex === 1
                             WidgetsFormLayout {
                                 id: graphicsForm
                                 labelWidth: compatColumn.labelWidth
