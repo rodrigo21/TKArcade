@@ -9,6 +9,7 @@ Games without a file fall back to the defaults template at load time.
 from __future__ import annotations
 
 import copy
+import datetime
 import hashlib
 import logging
 import os
@@ -138,6 +139,15 @@ class GeneralConfig:
     categories: list[str] = field(default_factory=list)  # tags, multiple per game
     launch_args: str = ""  # extra args appended to the game command
     launch_cwd: str = ""  # working-directory override ("" = exe folder for local games)
+
+
+@dataclass
+class MetadataConfig:
+    """Optional per-game identity extras, shown as name suffixes."""
+
+    version: str = ""  # free-form, shown as "Name [version]"
+    date: str = ""  # YYYY-MM-DD, YYYY-MM or YYYY ("" = unset)
+    tag: str = ""  # free-form state label, shown as "Name (TAG)"
 
 
 @dataclass
@@ -334,6 +344,7 @@ class Preferences:
 @dataclass
 class GameConfig:
     general: GeneralConfig = field(default_factory=GeneralConfig)
+    metadata: MetadataConfig = field(default_factory=MetadataConfig)
     env: EnvConfig = field(default_factory=EnvConfig)
     pre_post: PrePostConfig = field(default_factory=PrePostConfig)
     gamemode: GamemodeConfig = field(default_factory=GamemodeConfig)
@@ -361,6 +372,55 @@ class GameConfig:
         return self.general.appid
 
 
+_TRAILING_VERSION = re.compile(r"^(?P<name>.+?)\s*\[(?P<version>[^\[\]]+)\]\s*$")
+_METADATA_DATE = re.compile(r"^(?P<y>\d{4})(?:-(?P<m>\d{2})(?:-(?P<d>\d{2}))?)?$")
+
+
+def split_name_version(name: str) -> tuple[str, str]:
+    """Split a trailing ``[version]`` off a game name (save-time rule).
+
+    ``Jogo Bom [v0.3.5]`` becomes ``("Jogo Bom", "v0.3.5")``; a name that
+    is nothing but a bracket stays untouched.
+    """
+    text = name.strip()
+    match = _TRAILING_VERSION.match(text)
+    if match is None:
+        return text, ""
+    return match["name"].strip(), match["version"].strip()
+
+
+def game_display_name(name: str, cfg: GameConfig | None) -> str:
+    """Name with the optional ``[version]`` and ``(TAG)`` suffixes.
+
+    Rendered, never stored: the config keeps the plain name.
+    """
+    label = name.strip()
+    if cfg is None:
+        return label
+    if cfg.metadata.version:
+        label = f"{label} [{cfg.metadata.version}]"
+    if cfg.metadata.tag:
+        label = f"{label} ({cfg.metadata.tag})"
+    return label
+
+
+def metadata_date_valid(value: str) -> bool:
+    """Accept ``YYYY``, ``YYYY-MM`` and ``YYYY-MM-DD`` (empty is fine)."""
+    text = value.strip()
+    if not text:
+        return True
+    match = _METADATA_DATE.match(text)
+    if match is None:
+        return False
+    month = int(match["m"] or 1)
+    day = int(match["d"] or 1)
+    try:
+        datetime.date(int(match["y"]), month, day)
+    except ValueError:
+        return False
+    return True
+
+
 def _to_toml_value(obj) -> dict:
     d = asdict(obj)
     d.pop("extra", None)
@@ -370,6 +430,7 @@ def _to_toml_value(obj) -> dict:
 def to_toml_dict(cfg: GameConfig) -> dict:
     data = {
         "general": {"config_version": CONFIG_VERSION, **_to_toml_value(cfg.general)},
+        "metadata": _to_toml_value(cfg.metadata),
         "env": {"vars": dict(cfg.env.vars)},
         "pre_post": _to_toml_value(cfg.pre_post),
         "gamemode": _to_toml_value(cfg.gamemode),
@@ -747,6 +808,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "launch_args",
         "launch_cwd",
     },
+    "metadata": {"version", "date", "tag"},
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
     "gamemode": {"feral_gamemode", "cachyos_game_performance"},
@@ -886,6 +948,10 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.general.categories = [c.strip() for c in _str_list(g.get("categories", [])) if c.strip()]
     cfg.general.launch_args = str(g.get("launch_args", ""))
     cfg.general.launch_cwd = str(g.get("launch_cwd", ""))
+    md = _section(data, "metadata")
+    cfg.metadata.version = str(md.get("version", "")).strip()
+    cfg.metadata.date = str(md.get("date", "")).strip()
+    cfg.metadata.tag = str(md.get("tag", "")).strip()
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}

@@ -573,9 +573,10 @@ class GameListModel(QAbstractTableModel):
         tier = str(((data or {}).get("tier", "")) or "").lower()
         bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
         icon = self._row_icon(appid, gcfg)
+        label = cfgmod.game_display_name(names.get(appid, appid), gcfg)
         return (
             appid,
-            names.get(appid, appid),
+            label,
             "Steam" if is_steam else "Local",
             played,
             tier.title(),
@@ -729,6 +730,9 @@ class GameListModel(QAbstractTableModel):
             "appid": g.appid,
             "load_warning": warning or "",
             "name": g.name,
+            "version": cfg.metadata.version,
+            "date": cfg.metadata.date,
+            "tag": cfg.metadata.tag,
             "custom_executable": g.custom_executable,
             "runtime_type": cfgmod.normalize_runtime(cfg.runtime.type),
             "show_menu": bool(g.show_menu),
@@ -857,10 +861,22 @@ class GameListModel(QAbstractTableModel):
             log.warning("needsNewerApp(%s, %s) failed: %s", appid, profile, e)
             return False
 
+    @Slot(str, result=bool)
+    def metadataDateValid(self, value: str) -> bool:
+        """Release-date shape accepted by the metadata field."""
+        return cfgmod.metadata_date_valid(str(value or ""))
+
     @Slot(str, "QVariantMap", result=str)
     def saveGame(self, appid: str, values) -> str:
         """Persist the General-section fields. Returns the id, or ''."""
         data = dict(values or {})
+        # A trailing [version] typed into the name moves into its own
+        # field; Steam names are Steam's and never rewritten.
+        if not appid or not steammod.is_steam_id(appid):
+            name, version = cfgmod.split_name_version(str(data.get("name", "")))
+            data["name"] = name
+            if version and not str(data.get("version", "")).strip():
+                data["version"] = version
         if not appid:
             cfg = self._new_local_game(data)
             if cfg is None:
@@ -987,6 +1003,9 @@ class GameListModel(QAbstractTableModel):
         cfg.general.categories = [str(c).strip() for c in cats or [] if str(c).strip()]
         cfg.general.launch_args = str(data.get("launch_args", "")).strip()
         cfg.general.launch_cwd = str(data.get("launch_cwd", "")).strip()
+        cfg.metadata.version = str(data.get("version", "")).strip()
+        cfg.metadata.date = str(data.get("date", "")).strip()
+        cfg.metadata.tag = str(data.get("tag", "")).strip()
         cfg.artwork.icon = str(data.get("art_icon", "")).strip()
         cfg.artwork.cover = str(data.get("art_cover", "")).strip()
         cfg.artwork.banner = str(data.get("art_banner", "")).strip()

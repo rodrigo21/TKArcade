@@ -604,6 +604,29 @@ def test_settings_load_save_roundtrip(qgui_app, xdg_env):
     assert model.saveGame("", {"name": "", "custom_executable": "/bin/true"}) == ""
 
 
+def test_metadata_suffix_and_name_split(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    model = GameListModel()
+    out = dict(model.loadGame("local-doom"))
+    out["name"] = "Doom [v1.2]"
+    out["tag"] = "Beta"
+    assert model.saveGame("local-doom", out) == "local-doom"
+    saved = C.load("local-doom")
+    assert saved.general.name == "Doom"
+    assert saved.metadata.version == "v1.2"
+    assert saved.metadata.tag == "Beta"
+    proxy = GameFilterModel()
+    proxy.setSourceModel(model)
+    assert proxy.rowData(0)["gameName"] == "Doom [v1.2] (Beta)"
+    assert model.metadataDateValid("2026-10") is True
+    assert model.metadataDateValid("2026-13") is False
+
+
 def test_settings_create_and_profiles(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

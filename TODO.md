@@ -37,18 +37,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   they are added. The broken Category column is gone from the library
   list; showing the tags in a right-hand details section waits for that
   section to exist.
-- [ ] Per-game metadata fields (all optional), rendered as name suffixes
-  in the library list and the other views, never inside the AppID:
-  - `version`: free-form for local games; shown as `Name [version]`
-    (space before the bracket). On save a trailing `[x]` in the name
-    moves into the field: `Jogo Bom [v0.3.5]` → name `Jogo Bom`,
-    version `v0.3.5` (the `v` is not required).
-  - `date`: `YYYY-MM-DD`, also accepting `YYYY-MM` and `YYYY`
-    (Playnite-style, richer than Lutris' year).
-  - `tag`: free-form state label, shown as `Name [version] (TAG)`
-    with a space before the parenthesis.
-  - Applies to Steam and local games; the list column/views layout is
-    part of the work.
 
 ## Deferred design review
 

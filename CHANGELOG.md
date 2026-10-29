@@ -63,6 +63,12 @@ Breaking config changes are called out explicitly under `Changed`.
   native game inside a runtime). The docs tree now has one map
   (`docs/README.md`): `decisions/` keeps the landing records and
   `runbooks/` the procedures, with `TODO.md` holding open work only.
+- Per-game metadata: optional `[metadata] version`, `date` and `tag`
+  sit next to Categories on the Game tab and show up as name suffixes
+  in every view — `Name [version] (TAG)` — while the saved name stays
+  plain. A trailing `[x]` typed into the name moves into `version` on
+  save; `date` accepts `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and is
+  validated before saving.
 
 ### Fixed
 - Clicking a row in the list no longer recenters it: every click (plain,

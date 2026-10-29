@@ -145,7 +145,8 @@ double-click the ProtonDB rating to open its page; the Played column
 totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.
 
-**Game dialog** — tabs for General (the game and its launch settings),
+**Game dialog** — tabs for General (the game, optional `version`/`date`/
+`tag` metadata shown as name suffixes, categories and launch settings),
 Commands (variables, curated presets and the pre/post commands),
 Runtime
 (the runtime selector and tool, the Steam Linux Runtime of a local

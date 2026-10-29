@@ -474,6 +474,9 @@ Window {
         argsField.text = f.launch_args || ""
         cwdField.text = f.launch_cwd || ""
         catsField.text = (f.categories || []).join(", ")
+        versionField.text = f.version || ""
+        dateField.text = f.date || ""
+        tagField.text = f.tag || ""
         artIconField.text = f.art_icon || ""
         artCoverField.text = f.art_cover || ""
         artBannerField.text = f.art_banner || ""
@@ -572,6 +575,9 @@ Window {
             "launch_args": argsField.text,
             "launch_cwd": cwdField.text,
             "categories": catsField.text,
+            "version": versionField.text,
+            "date": dateField.text,
+            "tag": tagField.text,
             "art_icon": artIconField.text,
             "art_cover": artCoverField.text,
             "art_banner": artBannerField.text,
@@ -1303,6 +1309,10 @@ Window {
             settingsError.text = qsTr("Choose the Runtime: Proton or Native (Steam Runtime).")
             return false
         }
+        if (!gameModel.metadataDateValid(dateField.text)) {
+            settingsError.text = qsTr("Release Date Must Be YYYY-MM-DD, YYYY-MM or YYYY.")
+            return false
+        }
         if (defaultsMode) {
             if (!gameModel.saveDefaults(collect())) {
                 settingsError.text = qsTr("Could Not Save the Defaults.")
@@ -1617,6 +1627,33 @@ Window {
                                     placeholderText: qsTr("Action, Retro (Comma-Separated)")
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Categories:")
+                                }
+                                // Optional identity extras, rendered as
+                                // name suffixes in the library; the saved
+                                // name never carries them.
+                                Controls.TextField {
+                                    id: versionField
+                                    objectName: "settingsVersion"
+                                    visible: !defaultsMode
+                                    placeholderText: qsTr("Shown as Name [Version]")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Version:")
+                                }
+                                Controls.TextField {
+                                    id: dateField
+                                    objectName: "settingsDate"
+                                    visible: !defaultsMode
+                                    placeholderText: qsTr("YYYY-MM-DD, YYYY-MM or YYYY")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Release Date:")
+                                }
+                                Controls.TextField {
+                                    id: tagField
+                                    objectName: "settingsTag"
+                                    visible: !defaultsMode
+                                    placeholderText: qsTr("Shown as Name (TAG)")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("State Tag:")
                                 }
                             }
                         }

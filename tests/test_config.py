@@ -306,6 +306,9 @@ _GAME_FIELDS = {
     "general.categories": ["Action", "Retro"],
     "general.launch_args": "--foo --bar",
     "general.launch_cwd": "/tmp/opencode/cwd",
+    "metadata.version": "v0.3.5",
+    "metadata.date": "2026-10-29",
+    "metadata.tag": "Beta",
     "env.vars": {"A": "1", "B": "two words"},
     "pre_post.pre_command": "prescript",
     "pre_post.pre_args": ["a", "b"],
@@ -1392,3 +1395,30 @@ def test_launch_folds_a_legacy_prefix_into_the_subfolder(xdg_env, tmp_path):
     assert "TKsGoodGame1" in message
     assert (base / "TKsGoodGame1" / "drive_c").is_dir()
     assert not (base / "drive_c").exists()
+
+
+def test_name_version_split():
+    assert C.split_name_version("Jogo Bom [v0.3.5]") == ("Jogo Bom", "v0.3.5")
+    assert C.split_name_version("Jogo Bom  [0.3] ") == ("Jogo Bom", "0.3")
+    assert C.split_name_version("Jogo Bom") == ("Jogo Bom", "")
+    assert C.split_name_version("[v1]") == ("[v1]", "")
+    assert C.split_name_version("Jogo [Bom] [v1]") == ("Jogo [Bom]", "v1")
+
+
+def test_display_name_suffixes():
+    cfg = C.GameConfig()
+    assert C.game_display_name("Doom", cfg) == "Doom"
+    cfg.metadata.version = "v1"
+    assert C.game_display_name("Doom", cfg) == "Doom [v1]"
+    cfg.metadata.tag = "Beta"
+    assert C.game_display_name("Doom", cfg) == "Doom [v1] (Beta)"
+    cfg.metadata.version = ""
+    assert C.game_display_name("Doom", cfg) == "Doom (Beta)"
+    assert C.game_display_name("Doom", None) == "Doom"
+
+
+def test_metadata_date_shapes():
+    for text in ("", "2026", "2026-10", "2024-02-29", "2026-02-28"):
+        assert C.metadata_date_valid(text), text
+    for text in ("26", "2026-13", "2026-00", "2026-02-29", "2026-1", "2026-01-1", "soon"):
+        assert not C.metadata_date_valid(text), text
