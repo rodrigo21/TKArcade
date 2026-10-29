@@ -5,12 +5,12 @@ Ambient instruction: `opencode.json` lists this file under
 short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
-- Branch: `feature/settings-label-column`, one commit off `main`, not
-  merged or pushed — the maintainer asked for a branch to test. The
-  maintainer's uncommitted `pkgver` in
-  `packaging/arch/tkarcade-git/PKGBUILD` was left out of the commit on
-  purpose. The venv was refreshed with the branch installed.
-- Landed on the branch: one label column per tab (the first item under
+- Branch: `main`, in sync with `origin/main` (the squash of
+  `feature/settings-label-column`; the branch was deleted locally). The
+  tree is clean apart from the maintainer's uncommitted `pkgver` in
+  `packaging/arch/tkarcade-git/PKGBUILD`, left out of the landing on
+  purpose. The venv was refreshed after the merge.
+- Landed, one squash — one label column per tab (the first item under
   "Settings and metadata" in `TODO.md`).
   - `WidgetsFormLayout` takes a `labelWidth` and pins Kirigami's internal
     grid to it: the leading spacer's min/pref/max and the buddies'
@@ -35,10 +35,9 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
   Commands 161, Runtime 133, Performance 176, Display 146, System 155,
   Artwork/Notes 158 — no elided labels, no overflow at 612 px, 0 QML
   warnings.
-- Next concrete step: land the branch (`git merge --squash` into `main`)
-  once the maintainer approves the screenshots, then the icons/cards
-  views (the list is done), then the artwork leftovers (per-game provider
-  override, "Artwork Cleared" in the Status row).
+- Next concrete step: `TODO.md` in order — the icons/cards views (the
+  list is done), then the artwork leftovers (per-game provider override,
+  "Artwork Cleared" in the Status row).
 - Open decision: the game taxonomy (`TODO.md`, "Game taxonomy and
   terminology") — Origin/Platform/Runner names and what `[general]
   environment` becomes. It was deferred again; the `Commands` rename
