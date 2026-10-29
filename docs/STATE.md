@@ -6,10 +6,11 @@ short and factual — history lives in `CHANGELOG.md` and git, deferred
 work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
 
 - Branch: `main`, in sync with `origin/main` (the squash of
-  `feature/settings-label-column`; the branch was deleted locally). The
-  tree is clean apart from the maintainer's uncommitted `pkgver` in
-  `packaging/arch/tkarcade-git/PKGBUILD`, left out of the landing on
-  purpose. The venv was refreshed after the merge.
+  `feature/settings-label-column` was approved and pushed; the branch was
+  deleted locally). The tree is clean apart from the maintainer's
+  uncommitted `pkgver` in `packaging/arch/tkarcade-git/PKGBUILD`, left
+  out of the landing on purpose. The venv was refreshed at the end of the
+  session.
 - Landed, one squash — one label column per tab (the first item under
   "Settings and metadata" in `TODO.md`).
   - `WidgetsFormLayout` takes a `labelWidth` and pins Kirigami's internal
@@ -35,8 +36,17 @@ work in `TODO.md`. Refresh it with `/handoff` before stopping mid-task.
   Commands 161, Runtime 133, Performance 176, Display 146, System 155,
   Artwork/Notes 158 — no elided labels, no overflow at 612 px, 0 QML
   warnings.
-- Next concrete step: `TODO.md` in order — the icons/cards views (the
-  list is done), then the artwork leftovers (per-game provider override,
+- Next concrete step: the views beyond the list (`TODO.md`, "Views beyond
+  the list (icons and cards)"). The library is list-only today; `cover`
+  is written, cleared and migrated but nothing renders it. The card's
+  `Kirigami.Card` banner reads `gameIcon` (falls back to the source
+  AppID's icon), not the cover, so giving the Cover slot a consumer and
+  reviewing the banner framing is the core of the task. Also there: the
+  Status row's long text wraps mid-sentence at the 612 px minimum
+  ("…Use Fetch / Artwork.") next to a button with the same words. Read
+  `docs/QML-NOTES.md` before the first QML change; the driver runs with
+  `scripts/check.sh --qml`.
+- After that: the artwork leftovers (per-game provider override,
   "Artwork Cleared" in the Status row).
 - Open decision: the game taxonomy (`TODO.md`, "Game taxonomy and
   terminology") — Origin/Platform/Runner names and what `[general]
