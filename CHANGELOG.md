@@ -11,6 +11,16 @@ Breaking config changes are called out explicitly under `Changed`.
   button and a box that hugs its content. A long value (a prefix path,
   an unsaved-edits note) gets a wrapping block of its own instead of
   widening the box to its natural width.
+- The library's confirmations (remove games, leftover cleanup, shader
+  cache, clone overwrite, reset) are separate dialog windows of the same
+  shape now, instead of popups inside the main window; the leftover
+  cleanup keeps its checklist as the dialog body.
+- Every remaining dialog is a separate window too: the library's
+  validate report, clone and set-categories inputs, the category filter,
+  Configure Columns, and the settings prompts (profile name, presets,
+  bulk environment, prefix and verb pickers, Diff vs Defaults). No
+  `Kirigami.Dialog` popup is left in the shell, so none can land behind
+  a modal window.
 - **BREAKING**: the runtime choice moved from `[general] environment` to
   `[runtime] type`, next to the other launch settings; the values are
   unchanged (`proton`, `native`, `wine`, `umu`). An old config loads with

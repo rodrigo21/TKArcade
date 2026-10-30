@@ -4,7 +4,6 @@ import QtQml.Models as QQmlModels
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
-import org.kde.kirigami.dialogs as KirigamiDialogs
 import org.kde.kirigami.layouts as KL
 
 // Games page: search + view split-button on top, the selected view
@@ -480,12 +479,19 @@ Kirigami.Page {
         gamesPage.openGameSettings(selectedIds[0])
     }
 
+    // Every shell dialog is a separate modal window on the main one
+    // (ConfirmDialog.qml, DialogWindow.qml).
+    function openDialog(dialog) {
+        dialog.open(Controls.ApplicationWindow.window)
+    }
+
+
     function openRemoveDialog() {
         if (selectedIds.length === 0) {
             gamesPage.notify(qsTr("Select Games First."))
             return
         }
-        removeDialog.open()
+        gamesPage.openDialog(removeDialog)
     }
 
     property string cloneSrc: ""
@@ -501,7 +507,7 @@ Kirigami.Page {
             fresh.push(rows[i][1] + " [" + rows[i][0] + "]")
         }
         cloneRows = fresh
-        cloneDialog.open()
+        gamesPage.openDialog(cloneDialog)
     }
 
     function openResetDialog() {
@@ -510,7 +516,7 @@ Kirigami.Page {
             return
         }
         resetRows = selectedIds.slice()
-        resetDialog.open()
+        gamesPage.openDialog(resetDialog)
     }
 
     function acceptBulkCats() {
@@ -526,7 +532,7 @@ Kirigami.Page {
         var msg = gameModel.cloneGameTo(cloneSrc, dest, false)
         if (msg === "OVERWRITE") {
             cloneDest = dest
-            overwriteDialog.open()
+            gamesPage.openDialog(overwriteDialog)
             return
         }
         if (msg !== "") {
@@ -548,7 +554,7 @@ Kirigami.Page {
             gamesPage.notify(qsTr("No Issues Found for %1.").arg(validateName))
             return
         }
-        validateDialog.open()
+        validateDialog.open(Controls.ApplicationWindow.window)
     }
 
     property string menuGid: ""
@@ -873,6 +879,12 @@ Kirigami.Page {
         fittedColumnWidthsRev += 1
     }
 
+    // A QVariantList straight from the model lays out at zero width in a
+    // Repeater: callers get a fresh JS array (docs/QML-NOTES.md).
+    function freshRows(rows) {
+        return JSON.parse(JSON.stringify(rows))
+    }
+
     function headerCellX(logical) {
         // Cumulative offset in view order (hidden columns take no
         // space). Reads live widths every run; callers pin a rev
@@ -1069,7 +1081,7 @@ Kirigami.Page {
                     objectName: "columnsButton"
                     icon.name: gameModel.iconName(["view-column", "view-split-left-right", "configure"])
                     display: Controls.AbstractButton.IconOnly
-                    onClicked: columnsDialog.open()
+                    onClicked: gamesPage.openDialog(columnsDialog)
                 }
                 Controls.ToolButton {
                     objectName: "hamburgerButton"
@@ -1141,13 +1153,14 @@ Kirigami.Page {
                                     Controls.MenuItem {
                                         text: qsTr("Clean Up Leftovers...")
                                         onTriggered: {
-                                            var rows = gameModel.orphanedLeftovers()
+                                            var rows = gamesPage.freshRows(
+                                                gameModel.orphanedLeftovers())
                                             if (rows.length === 0) {
                                                 gamesPage.notify(qsTr("No Leftovers Found."))
                                                 return
                                             }
                                             cleanupDialog.rows = rows
-                                            cleanupDialog.open()
+                                            gamesPage.openDialog(cleanupDialog)
                                         }
                                     }
                                     Controls.MenuItem {
@@ -1375,7 +1388,7 @@ Kirigami.Page {
             visible: gamesPage.selectedIds.length <= 1
             enabled: gamesPage.menuShader !== ""
             text: qsTr("Clear Shader Cache")
-            onTriggered: shaderDialog.open()
+            onTriggered: gamesPage.openDialog(shaderDialog)
         }
         Controls.MenuItem {
             visible: gamesPage.menuIsSteam && gamesPage.selectedIds.length <= 1
@@ -1390,7 +1403,7 @@ Kirigami.Page {
         Controls.MenuItem {
             visible: gamesPage.selectedIds.length <= 1
             text: qsTr("Clear History")
-            onTriggered: historyDialog.open()
+            onTriggered: gamesPage.openDialog(historyDialog)
         }
         Controls.MenuItem {
             visible: gamesPage.selectedIds.length <= 1
@@ -1418,7 +1431,7 @@ Kirigami.Page {
                     return
                 }
                 bulkCatsField.text = ""
-                bulkCatsDialog.open()
+                gamesPage.openDialog(bulkCatsDialog)
             }
         }
     }
@@ -2029,7 +2042,7 @@ Kirigami.Page {
         }
         Controls.MenuItem {
             text: qsTr("Configure Columns…")
-            onTriggered: columnsDialog.open()
+            onTriggered: gamesPage.openDialog(columnsDialog)
         }
         Controls.MenuItem {
             // Widgets header menu closed with Reset Columns.
@@ -2243,49 +2256,39 @@ Kirigami.Page {
         return gameSettings.visible
     }
 
-    KirigamiDialogs.PromptDialog {
+    ConfirmDialog {
         id: removeDialog
         objectName: "removeDialog"
         title: qsTr("Remove Games")
-        dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: gamesPage.selectedIds.length === 1
+        question: gamesPage.selectedIds.length === 1
             ? qsTr("Remove the Configuration for %1?").arg(
                 gameModel.gameNames(gamesPage.selectedIds)[0])
             : qsTr("Remove the Configurations for %1 Games?").arg(
                 gamesPage.selectedIds.length)
-        customFooterActions: [
-            Kirigami.Action {
-                objectName: "removeConfirm"
-                text: qsTr("Remove")
-                icon.name: "edit-delete"
-                onTriggered: {
-                    var targets = gamesPage.selectedIds.slice()
-                    var err = gameModel.removeGames(targets)
-                    if (err !== "") {
-                        gamesPage.notify(err)
-                    }
-                    var leftovers = gameModel.leftoverData(targets)
-                    gamesPage.ensureSelection()
-                    removeDialog.close()
-                    if (leftovers.length > 0) {
-                        cleanupDialog.rows = leftovers
-                        cleanupDialog.open()
-                    }
-                }
-            },
-            Kirigami.Action {
-                text: qsTr("Cancel")
-                icon.name: "dialog-cancel"
-                onTriggered: removeDialog.close()
+        acceptText: qsTr("Remove")
+        onAccepted: {
+            var targets = gamesPage.selectedIds.slice()
+            var err = gameModel.removeGames(targets)
+            if (err !== "") {
+                gamesPage.notify(err)
             }
-        ]
+            var leftovers = gamesPage.freshRows(gameModel.leftoverData(targets))
+            gamesPage.ensureSelection()
+            removeDialog.close()
+            if (leftovers.length > 0) {
+                cleanupDialog.rows = leftovers
+                gamesPage.openDialog(cleanupDialog)
+            }
+        }
     }
 
-    KirigamiDialogs.PromptDialog {
+    ConfirmDialog {
         id: cleanupDialog
         objectName: "cleanupDialog"
         title: qsTr("Clean Up Leftovers")
-        dialogType: KirigamiDialogs.PromptDialog.Warning
+        question: qsTr("These Games Were Removed but Still Have Profiles or Logs:")
+        acceptText: qsTr("Clean Selected")
+        rejectText: qsTr("Keep All")
         property var rows: []
         property var picked: []
         property bool deletePrefixes: false
@@ -2332,18 +2335,16 @@ Kirigami.Page {
             deletePrefixes = false
         }
         ColumnLayout {
-            Controls.Label {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: qsTr("These Games Were Removed but Still Have Profiles or Logs:")
-            }
+            objectName: "cleanupList"
+            Layout.fillWidth: true
             Repeater {
                 model: cleanupDialog.rows
-                ColumnLayout {
+                delegate: ColumnLayout {
                     required property var modelData
                     Layout.fillWidth: true
                     Controls.CheckBox {
                         objectName: "cleanupItem" + modelData.appid
+                        Layout.fillWidth: true
                         text: cleanupDialog.label(modelData)
                         checked: cleanupDialog.picked.indexOf(modelData.appid) >= 0
                         onToggled: {
@@ -2372,225 +2373,136 @@ Kirigami.Page {
             }
             Controls.CheckBox {
                 objectName: "cleanupPrefixes"
+                Layout.fillWidth: true
                 visible: cleanupDialog.hasPrefix()
                 text: qsTr("Also Delete the Proton/Wine Prefix (Large and Cannot Be Undone)")
                 checked: cleanupDialog.deletePrefixes
                 onToggled: cleanupDialog.deletePrefixes = checked
             }
         }
-        customFooterActions: [
-            Kirigami.Action {
-                objectName: "cleanupConfirm"
-                text: qsTr("Clean Selected")
-                icon.name: "edit-delete"
-                onTriggered: {
-                    var n = gameModel.cleanLeftovers(
-                        cleanupDialog.picked, cleanupDialog.deletePrefixes)
-                    gamesPage.notify(
-                        qsTr("Cleaned Leftovers for %1 Game(s).").arg(n))
-                    cleanupDialog.close()
-                }
-            },
-            Kirigami.Action {
-                text: qsTr("Keep All")
-                icon.name: "dialog-cancel"
-                onTriggered: cleanupDialog.close()
-            }
-        ]
+        onAccepted: {
+            var n = gameModel.cleanLeftovers(
+                cleanupDialog.picked, cleanupDialog.deletePrefixes)
+            gamesPage.notify(
+                qsTr("Cleaned Leftovers for %1 Game(s).").arg(n))
+            cleanupDialog.close()
+        }
     }
 
-    KirigamiDialogs.PromptDialog {
+    ConfirmDialog {
         id: shaderDialog
         objectName: "shaderDialog"
         title: qsTr("Clear Shader Cache")
-        dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Delete %1 of Shader Cache for %2? Steam Rebuilds It on Demand.").arg(
+        question: qsTr("Delete %1 of Shader Cache for %2? Steam Rebuilds It on Demand.").arg(
             gamesPage.menuShaderSize).arg(gamesPage.menuGid)
-        customFooterActions: [
-            Kirigami.Action {
-                objectName: "shaderConfirm"
-                text: qsTr("Delete")
-                icon.name: "edit-delete"
-                onTriggered: {
-                    gamesPage.notify(
-                        gameModel.clearShaderCache(gamesPage.menuGid))
-                    shaderDialog.close()
-                }
-            },
-            Kirigami.Action {
-                text: qsTr("Cancel")
-                icon.name: "dialog-cancel"
-                onTriggered: shaderDialog.close()
-            }
-        ]
+        acceptText: qsTr("Delete")
+        onAccepted: {
+            gamesPage.notify(gameModel.clearShaderCache(gamesPage.menuGid))
+            shaderDialog.close()
+        }
     }
 
-    KirigamiDialogs.PromptDialog {
+    ConfirmDialog {
         id: historyDialog
         objectName: "historyDialog"
         title: qsTr("Clear History")
-        dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Clear Session History for %1? This Cannot Be Undone.").arg(
+        question: qsTr("Clear Session History for %1? This Cannot Be Undone.").arg(
             gamesPage.menuGid)
-        customFooterActions: [
-            Kirigami.Action {
-                objectName: "historyConfirm"
-                text: qsTr("Clear")
-                icon.name: "edit-delete"
-                onTriggered: {
-                    var n = gameModel.clearHistory(gamesPage.menuGid)
-                    gamesPage.notify(
-                        qsTr("Cleared %1 Session(s).").arg(n))
-                    historyDialog.close()
-                }
-            },
-            Kirigami.Action {
-                text: qsTr("Cancel")
-                icon.name: "dialog-cancel"
-                onTriggered: historyDialog.close()
-            }
-        ]
+        acceptText: qsTr("Clear")
+        onAccepted: {
+            var n = gameModel.clearHistory(gamesPage.menuGid)
+            gamesPage.notify(qsTr("Cleared %1 Session(s).").arg(n))
+            historyDialog.close()
+        }
     }
 
-    KirigamiDialogs.PromptDialog {
+    DialogWindow {
         id: validateDialog
         objectName: "validateDialog"
         title: qsTr("Validate Game: %1").arg(gamesPage.validateName)
-        dialogType: KirigamiDialogs.PromptDialog.Information
-        subtitle: gamesPage.validateIssues.map(function(issue) { return "• " + issue }).join("\n")
-        customFooterActions: [
-            Kirigami.Action {
-                text: qsTr("Close")
-                icon.name: "dialog-close"
-                onTriggered: validateDialog.close()
-            }
-        ]
+        acceptVisible: false
+        rejectText: qsTr("Close")
+        Controls.Label {
+            objectName: "validateIssues"
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: gamesPage.validateIssues.map(function(issue) {
+                return "• " + issue
+            }).join("\n")
+        }
     }
 
-    KirigamiDialogs.PromptDialog {
+    DialogWindow {
         id: cloneDialog
         objectName: "cloneDialog"
         title: qsTr("Clone Settings")
-        dialogType: KirigamiDialogs.PromptDialog.Information
-        ColumnLayout {
-            Controls.Label {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: qsTr("Clone into Game:")
-            }
-            Controls.ComboBox {
-                id: cloneBox
-                objectName: "cloneBox"
-                editable: true
-                Layout.fillWidth: true
-                model: gamesPage.cloneRows
-            }
+        acceptText: qsTr("Clone")
+        onAccepted: gamesPage.acceptClone()
+        Controls.Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: qsTr("Clone into Game:")
         }
-        customFooterActions: [
-            Kirigami.Action {
-                objectName: "cloneConfirm"
-                text: qsTr("Clone")
-                icon.name: "document-edit"
-                onTriggered: gamesPage.acceptClone()
-            },
-            Kirigami.Action {
-                text: qsTr("Cancel")
-                icon.name: "dialog-cancel"
-                onTriggered: cloneDialog.close()
-            }
-        ]
+        Controls.ComboBox {
+            id: cloneBox
+            objectName: "cloneBox"
+            editable: true
+            Layout.fillWidth: true
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+            model: gamesPage.cloneRows
+        }
     }
 
-    KirigamiDialogs.PromptDialog {
+    ConfirmDialog {
         id: overwriteDialog
         objectName: "overwriteDialog"
         title: qsTr("Clone Settings")
-        dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Overwrite the Saved Settings for %1?").arg(gamesPage.cloneDest)
-        customFooterActions: [
-            Kirigami.Action {
-                objectName: "overwriteConfirm"
-                text: qsTr("Overwrite")
-                icon.name: "edit-delete"
-                onTriggered: {
-                    var msg = gameModel.cloneGameTo(gamesPage.cloneSrc, gamesPage.cloneDest, true)
-                    if (msg !== "") {
-                        gamesPage.notify(msg)
-                    }
-                    overwriteDialog.close()
-                    cloneDialog.close()
-                }
-            },
-            Kirigami.Action {
-                text: qsTr("Cancel")
-                icon.name: "dialog-cancel"
-                onTriggered: overwriteDialog.close()
+        question: qsTr("Overwrite the Saved Settings for %1?").arg(gamesPage.cloneDest)
+        acceptText: qsTr("Overwrite")
+        onAccepted: {
+            var msg = gameModel.cloneGameTo(gamesPage.cloneSrc, gamesPage.cloneDest, true)
+            if (msg !== "") {
+                gamesPage.notify(msg)
             }
-        ]
+            overwriteDialog.close()
+            cloneDialog.close()
+        }
     }
 
-    Kirigami.Dialog {
+    DialogWindow {
         id: bulkCatsDialog
         objectName: "bulkCatsDialog"
         title: qsTr("Set Categories")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.Label {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: qsTr("Comma-Separated Tags (Empty Clears). Applies to %1 Game(s).").arg(
-                    gamesPage.selectedIds.length)
-            }
-            Controls.TextField {
-                id: bulkCatsField
-                objectName: "bulkCatsField"
-                placeholderText: qsTr("Action, Retro")
-                Layout.fillWidth: true
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-                onAccepted: gamesPage.acceptBulkCats()
-            }
-        }
-        footer: RowLayout {
+        acceptText: qsTr("OK")
+        onAccepted: gamesPage.acceptBulkCats()
+        Controls.Label {
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                objectName: "bulkCatsOk"
-                text: qsTr("OK")
-                highlighted: true
-                onClicked: gamesPage.acceptBulkCats()
-            }
-            Controls.Button {
-                text: qsTr("Cancel")
-                onClicked: bulkCatsDialog.close()
-            }
+            wrapMode: Text.WordWrap
+            text: qsTr("Comma-Separated Tags (Empty Clears). Applies to %1 Game(s).").arg(
+                gamesPage.selectedIds.length)
+        }
+        Controls.TextField {
+            id: bulkCatsField
+            objectName: "bulkCatsField"
+            placeholderText: qsTr("Action, Retro")
+            Layout.fillWidth: true
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+            onAccepted: gamesPage.acceptBulkCats()
         }
     }
 
-    KirigamiDialogs.PromptDialog {
+    ConfirmDialog {
         id: resetDialog
         objectName: "resetDialog"
         title: qsTr("Reset to Global Defaults")
-        dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Reset %1 Game(s) to the Global Defaults Template Now?\nThis Overwrites Their Saved Configs (Profiles Are Kept).").arg(
+        question: qsTr("Reset %1 Game(s) to the Global Defaults Template Now?").arg(
             gamesPage.resetRows.length)
-        customFooterActions: [
-            Kirigami.Action {
-                objectName: "resetConfirm"
-                text: qsTr("Reset")
-                icon.name: "edit-delete"
-                onTriggered: {
-                    gamesPage.notify(gameModel.resetGames(gamesPage.resetRows))
-                    resetDialog.close()
-                }
-            },
-            Kirigami.Action {
-                text: qsTr("Cancel")
-                icon.name: "dialog-cancel"
-                onTriggered: resetDialog.close()
-            }
-        ]
+        detail: qsTr("This Overwrites Their Saved Configs (Profiles Are Kept).")
+        acceptText: qsTr("Reset")
+        onAccepted: {
+            gamesPage.notify(gameModel.resetGames(gamesPage.resetRows))
+            resetDialog.close()
+        }
     }
 
     ScanDialog {

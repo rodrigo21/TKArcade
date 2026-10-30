@@ -7,36 +7,39 @@ history lives in `CHANGELOG.md` and git, deferred work in `TODO.md`,
 document roles in `docs/README.md`. Refresh it with `/handoff` before
 stopping mid-task.
 
-- Branch: `main`, pushed and clean apart from the maintainer's
-  `pkgver` churn in `packaging/arch/tkarcade-git/PKGBUILD` (never
-  committed). `.qoder/` is git-ignored.
-- Landed: the settings confirmations moved from `Kirigami.Dialog`
-  popups to separate modal `Window`s (`ConfirmDialog.qml`, QMessageBox
-  shape: left icon, right-aligned default button, height follows the
-  content, a long detail in its own wrapping block). Tests reach it
-  through `topLevelWindows()` (`_confirm_window`), never the settings
-  item tree; the icon choice is a boolean so both theme fallbacks stay
-  literal for the hicolor guard. The branch went in with
-  `git merge --squash` (one commit) and was deleted; `TODO.md` records
-  the five library confirmations (`removeDialog`, `cleanupDialog`,
-  `shaderDialog`, `overwriteDialog`, `resetDialog` in `MainPage.qml`)
-  that still use `Kirigami.PromptDialog`.
-- Before it: per-game metadata — `[metadata] version`/`date`/`tag` with
-  `split_name_version()`, `game_display_name()` and
-  `metadata_date_valid()` in `config.py`; the library shows the
-  `Name [version] (TAG)` suffix in every view (the saved name stays
-  plain); a trailing `[x]` typed in the name moves into `version` on
-  save; the Game tab gained the three fields and refuses a malformed
-  release date.
-- Verified: post-merge suite with the QML driver on `main` (481
-  passed), and an offscreen screenshot check of the three dialog
-  variants before the merge (it found one defect: the declared
-  `minimumHeight` outweighed the content, so it was dropped). Venv
-  refreshed after the merge.
-- Next: the open `TODO.md` items — the five `MainPage` confirmations
-  (promote `ConfirmDialog.qml` out of `GameSettings.qml`), the artwork
-  leftovers (cover consumer, per-game provider override, "Artwork
-  Cleared") and the categories details section.
+- Branch: `confirm-dialogs-library`, two commits off `main`, not pushed
+  or merged (awaiting approval). `main` is clean apart from the
+  maintainer's `pkgver` churn in `packaging/arch/tkarcade-git/PKGBUILD`
+  (never committed). `.qoder/` is git-ignored.
+- First commit: the five library confirmations (`removeDialog`,
+  `cleanupDialog`, `shaderDialog`, `overwriteDialog`, `resetDialog` in
+  `MainPage.qml`) moved from `Kirigami.PromptDialog` popups to
+  `ConfirmDialog.qml` windows. The component gained
+  `default property alias extraContent` (the leftover checklist body)
+  and `rejectText` ("Keep All"); objectNames lost the `settings` prefix
+  (`confirmOk`, `confirmDetail`, ...) and `_confirm_window(qgui_app,
+  name)` looks a dialog up by its own name. The tests read the cleanup
+  checklist through `childItems()` (`_visual_item`), since Repeater
+  delegates stay out of the QObject tree.
+- Second commit: every remaining dialog is a separate modal `Window`
+  too. `DialogWindow.qml` (input/report shape: body, OK + Cancel/Close,
+  Enter on the accept button) now carries validate/clone/set-categories
+  in `MainPage.qml`, all eight settings prompts (opened with
+  `.open(gameSettings)`), and the `CategoryDialog`/`ColumnsDialog`
+  roots; both history confirmations use `ConfirmDialog.qml`. No
+  `Kirigami.Dialog` is left in the shell. The env bulk `TextArea` wraps
+  anywhere (screenshot check: long `KEY=value` lines clipped).
+- Verified: 480 fast tests, 481 with the QML driver (known unrelated
+  batch-abort retries), and offscreen screenshots under
+  `org.kde.desktop` of all 13 dialogs (titles, wrapping, button rows).
+  Venv refreshed after the commits.
+- Before it (on `main`): the settings confirmations became separate
+  modal `Window`s (`ConfirmDialog.qml`, QMessageBox shape), and the
+  per-game `[metadata]` fields with the `Name [version] (TAG)` suffix.
+- Next: merge `confirm-dialogs-library` with `git merge --squash` once
+  approved, then the open `TODO.md` items — the artwork leftovers
+  (cover consumer, per-game provider override, "Artwork Cleared") and
+  the categories details section.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post533.
 - Nothing blocking.

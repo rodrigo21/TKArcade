@@ -2611,7 +2611,7 @@ def test_select_all_and_empty_click_clears(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_artwork_source_prompt_stays_in_settings(qgui_app, xdg_env, monkeypatch):
+def test_artwork_source_prompt_window(qgui_app, xdg_env, monkeypatch):
     """Artwork Find… opens its prompt inside the settings window.
 
     The prompt is a Kirigami.Dialog (Popup): with no explicit parent in a
@@ -2645,23 +2645,13 @@ def test_artwork_source_prompt_stays_in_settings(qgui_app, xdg_env, monkeypatch)
     qgui_app.processEvents()
 
     _click(swin, "artSourceFind")
-    prompt = swin.findChild(QObject, "settingsChoicePrompt")
-    assert prompt is not None
-    assert prompt.property("visible") is True, (
-        f"parent={prompt.property('parent')} "
-        f"tab={swin.findChild(QQuickItem, 'settingsTabs').property('currentIndex')} "
-        f"warnings={[w for w in warnings if 'graphics scene' not in w]}"
-    )
-    assert "Gamescope" not in prompt.property("title")
-    parent = prompt.property("parent")
-    assert parent is not None, "choice prompt has no QML parent (stray window)"
-    # A parentless Kirigami.Dialog became its own top-level window: it sat
-    # behind this modal one, unusable. It must not be a top-level at all.
-    from PySide6.QtGui import QGuiApplication
-
-    titles = [w.title() for w in QGuiApplication.topLevelWindows()]
-    assert not [t for t in titles if t and t == prompt.property("title")], titles
-    combo = swin.findChild(QQuickItem, "settingsChoiceBox")
+    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
+    assert prompt.isVisible() is True
+    assert "Gamescope" not in prompt.title()
+    # The prompt is its own modal window on the settings one: it follows
+    # the settings window and stays clickable above the modal owner.
+    assert prompt.transientParent().objectName() == "gameSettings"
+    combo = prompt.findChild(QQuickItem, "settingsChoiceBox")
     assert combo.property("count") == 3, combo.property("count")
     # A ComboBox needs a text role: bare {text, data} objects render as
     # blank rows, which is what "the list was empty" looked like.
@@ -2677,7 +2667,7 @@ def test_artwork_source_prompt_stays_in_settings(qgui_app, xdg_env, monkeypatch)
     assert combo.property("count") == 1, combo.property("count")
     assert combo.property("currentText") == "Spacewar [480]", combo.property("currentText")
 
-    _click(swin, "settingsChoiceOk")
+    _click(prompt, "dialogOk")
     picked = swin.findChild(QQuickItem, "artSource").property("text")
     assert picked == "480", picked
 
@@ -2746,7 +2736,7 @@ def test_artwork_source_prompt_stays_in_settings(qgui_app, xdg_env, monkeypatch)
     )
     _click(swin, "artClear")
     confirm = _confirm_window(qgui_app)
-    _click(confirm, "settingsConfirmOk")
+    _click(confirm, "confirmOk")
     assert cleared == [("local-doom", "480")], cleared
     assert "Removed" in status.property("text"), status.property("text")
 
@@ -2854,21 +2844,28 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     assert remove is not None
     _fire(remove)
     qgui_app.processEvents()
-    dialog = win.findChild(QObject, "removeDialog")
-    assert dialog.property("visible") is True
-    _fire(win.findChild(QObject, "removeConfirm"))
-    qgui_app.processEvents()
+    confirm = _confirm_window(qgui_app, "removeDialog")
+    assert confirm.property("question") == "Remove the Configurations for 2 Games?"
+    _click(confirm, "confirmOk")
     assert not C.game_file("local-doom").exists()
     assert not C.game_file("local-quake").exists()
     assert proxy.rowCount() == 0
-    cleanup = win.findChild(QObject, "cleanupDialog")
-    assert cleanup.property("visible") is True
+    cleanup = _confirm_window(qgui_app, "cleanupDialog")
     rows = cleanup.property("rows")
+    if hasattr(rows, "toVariant"):
+        rows = rows.toVariant()
     assert [row["appid"] for row in rows] == ["local-doom"]
     assert rows[0]["profiles"] == 1
     assert rows[0]["session_log"] is True
-    _fire(win.findChild(QObject, "cleanupConfirm"))
-    qgui_app.processEvents()
+    checklist = cleanup.findChild(QQuickItem, "cleanupList")
+    assert checklist is not None
+    assert _wait_for(lambda: _visual_item(checklist, "cleanupItemlocal-doom") is not None), (
+        "cleanup checklist never built its delegates"
+    )
+    item = _visual_item(checklist, "cleanupItemlocal-doom")
+    assert item.property("checked") is True
+    assert item.width() > 0
+    _click(cleanup, "confirmOk")
     assert not profiles.exists()
     assert not session_log.exists()
     real = [w for w in warnings if "graphics scene" not in w]
@@ -2878,8 +2875,8 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_prompt_dialogs_confirm_and_close(qgui_app, xdg_env):
-    """PromptDialog confirms run their model calls and close."""
+def test_library_dialogs_confirm_and_close(qgui_app, xdg_env):
+    """The shader confirmation window and the remaining prompts close."""
     from PySide6.QtCore import QObject
 
     from tkarcade import config as C
@@ -2896,21 +2893,22 @@ def test_prompt_dialogs_confirm_and_close(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.setProperty("menuGid", "local-doom")
-    for name, confirm in (("shaderDialog", "shaderConfirm"), ("historyDialog", "historyConfirm")):
-        dlg = win.findChild(QObject, name)
-        dlg.open()
-        qgui_app.processEvents()
-        assert dlg.property("visible") is True
-        _fire(win.findChild(QObject, confirm))
-        qgui_app.processEvents()
-        assert dlg.property("opened") is False
+    shader = win.findChild(QObject, "shaderDialog")
+    shader.open(win)
+    qgui_app.processEvents()
+    confirm = _confirm_window(qgui_app, "shaderDialog")
+    _click(confirm, "confirmOk")
+    assert _wait_for(lambda: shader.property("visible") is False), "shader confirm stayed open"
+    history = win.findChild(QObject, "historyDialog")
+    history.open(win)
+    qgui_app.processEvents()
+    confirm = _confirm_window(qgui_app, "historyDialog")
+    _click(confirm, "confirmOk")
+    assert _wait_for(lambda: history.property("visible") is False), "history confirm stayed open"
     page.openValidateDialog("local-bad")
-    qgui_app.processEvents()
-    validate = win.findChild(QObject, "validateDialog")
-    assert validate.property("visible") is True
-    validate.close()
-    qgui_app.processEvents()
-    assert validate.property("opened") is False
+    validate = _confirm_window(qgui_app, "validateDialog")
+    _click(validate, "dialogCancel")
+    assert _wait_for(lambda: validate.isVisible() is False), "validate report stayed open"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3288,6 +3286,11 @@ def test_history_view_clears_row(qgui_app, xdg_env):
         assert abs(headers[header_name].property("width") - cell.property("width")) < 0.5
     clear = delegate.findChild(QQuickItem, "historyClear")
     assert clear.property("flat") is False
+    hist = _modal_window(qgui_app, ("Session History",))
+    _click(hist, "historyClearAll")
+    confirm = _confirm_window(qgui_app, "historyClearAllDialog")
+    _click(confirm, "confirmOk")
+    assert _wait_for(lambda: confirm.isVisible() is False), "clear-all confirm stayed open"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3775,6 +3778,7 @@ def test_header_menu_resets_columns(qgui_app, xdg_env):
 def test_hamburger_validates_the_selection(qgui_app, xdg_env):
     """Widgets Tools menu parity: Validate Game validates the selection."""
     from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
 
@@ -3795,15 +3799,14 @@ def test_hamburger_validates_the_selection(qgui_app, xdg_env):
     page.select("local-bad")
     qgui_app.processEvents()
     _fire(validate)
-    qgui_app.processEvents()
-    dialog = win.findChild(QObject, "validateDialog")
-    assert dialog.property("visible") is True
-    assert dialog.property("title") == "Validate Game: Bad"
-    assert not dialog.property("subtitle").startswith("local-bad:")
-    assert "nonexistent" in dialog.property("subtitle") or (
-        "Not Found" in dialog.property("subtitle")
-    )
-    dialog.close()
+    dialog = _confirm_window(qgui_app, "validateDialog")
+    assert dialog.title() == "Validate Game: Bad"
+    issues = dialog.findChild(QQuickItem, "validateIssues")
+    assert issues is not None
+    report = issues.property("text")
+    assert not report.startswith("local-bad:")
+    assert "nonexistent" in report or "Not Found" in report
+    _click(dialog, "dialogCancel")
     qgui_app.processEvents()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -4356,27 +4359,54 @@ def _settings_window(qgui_app):
     raise AssertionError(f"settings window never showed (have {titles})")
 
 
-def _confirm_window(qgui_app):
-    """The visible confirmation top-level window (objectName settingsConfirm).
+def _confirm_window(qgui_app, name="settingsConfirm"):
+    """The visible confirmation top-level window with `name`.
 
-    Confirmations are separate modal windows now (ConfirmDialog.qml), not
-    popups inside the settings one: visibility and clicks go through the
-    top-level, never through the settings window's item tree. Hold the
-    returned window in a variable -- the PySide wrapper from
-    topLevelWindows() owns it, so letting the temporary go invalidates the
-    window and every item under it.
+    Settings and library confirmations share ConfirmDialog.qml and are
+    separate modal windows, not popups inside the window that opened them:
+    visibility and clicks go through the top-level, never through the
+    owner's item tree. Hold the returned window in a variable -- the PySide
+    wrapper from topLevelWindows() owns it, so letting the temporary go
+    invalidates the window and every item under it.
     """
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtTest import QTest
 
     for _ in range(25):
         for w in QGuiApplication.topLevelWindows():
-            if w.isVisible() and w.objectName() == "settingsConfirm":
+            if w.isVisible() and w.objectName() == name:
                 QTest.qWait(120)
                 return w
         QTest.qWait(20)
     titles = [w.title() for w in QGuiApplication.topLevelWindows()]
-    raise AssertionError(f"confirm window never showed (have {titles})")
+    raise AssertionError(f"{name} never showed (have {titles})")
+
+
+def _visual_item(root, name):
+    """The item named `name` under `root`, walking childItems().
+
+    Repeater delegates never take part in the QObject tree
+    (docs/QML-NOTES.md): findChild() misses them even after they settled.
+    Walk only a known subtree: a whole window also carries dead popup
+    wrappers, where touching objectName() aborts the interpreter.
+    """
+    found = []
+
+    def walk(item, depth=0):
+        try:
+            if item.objectName() == name:
+                found.append(item)
+                return
+            if depth >= 3:
+                return
+            kids = item.childItems()
+        except Exception:
+            return
+        for kid in kids:
+            walk(kid, depth + 1)
+
+    walk(root)
+    return found[0] if found else None
 
 
 def _opened_popups(parent):
@@ -4778,14 +4808,15 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_COMMANDS)
     qgui_app.processEvents()
     click("envBulk")
-    assert win.findChild(QObject, "envBulkDialog").property("visible") is True
-    swin.findChild(QQuickItem, "envBulkArea").setProperty("text", "A=1\n# skip\nB=2")
+    bulk = _confirm_window(qgui_app, "envBulkDialog")
+    bulk.findChild(QQuickItem, "envBulkArea").setProperty("text", "A=1\n# skip\nB=2")
     dlg.acceptBulk()
     assert dlg.envRowCount() == 2
     click("envPreset")
-    assert win.findChild(QObject, "envPresetDialog").property("visible") is True
+    preset = _confirm_window(qgui_app, "envPresetDialog")
     dlg.acceptEnvPreset()
     qgui_app.processEvents()
+    assert preset.isVisible() is False
     if win.findChild(QObject, "envMismatchDialog").property("visible") is True:
         dlg.applyEnvPresetByName(dlg.property("pendingPreset"))
         qgui_app.processEvents()
@@ -4837,21 +4868,21 @@ def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     swin.findChild(QQuickItem, "dispProv").setProperty("currentIndex", 4)
     swin.findChild(QQuickItem, "gsEnable").setProperty("checked", True)
     click("gsPreset", swin)
-    prompt = swin.findChild(QObject, "settingsChoicePrompt")
-    assert prompt.property("visible") is True
-    swin.findChild(QQuickItem, "settingsChoiceBox").setProperty("currentIndex", 0)
+    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
+    assert prompt.isVisible() is True
+    prompt.findChild(QQuickItem, "settingsChoiceBox").setProperty("currentIndex", 0)
     dlg.acceptChoice()
-    assert prompt.property("opened") is False
+    assert prompt.isVisible() is False
     assert swin.findChild(QQuickItem, "gsArgs").property("text") != ""
     # MangoHud lives in Performance now: its New Configuration... flow
     # runs from that tab, then the display assertions continue.
     _settings_tab(swin, TAB_PERF)
     click("mhNew", swin)
-    name_prompt = swin.findChild(QObject, "settingsNamePrompt")
-    assert name_prompt.property("visible") is True
-    swin.findChild(QQuickItem, "settingsPromptField").setProperty("text", "testmh")
+    name_prompt = _confirm_window(qgui_app, "settingsNamePrompt")
+    assert name_prompt.isVisible() is True
+    name_prompt.findChild(QQuickItem, "settingsPromptField").setProperty("text", "testmh")
     dlg.acceptProfileName()
-    assert prompt.property("visible") is True
+    assert prompt.isVisible() is True
     dlg.acceptChoice()
     assert dlg.mhConfigData() == "testmh.conf"
     _settings_tab(swin, TAB_DISPLAY)
@@ -5349,23 +5380,21 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert swin.findChild(QQuickItem, "winePrefixClear").property("visible") is True
 
     assert QMetaObject.invokeMethod(dlg, "openPrefixChoices") is True
-    QTest.qWait(80)
-    rows = swin.findChild(QQuickItem, "settingsPrefixPickerRows")
+    picker = _confirm_window(qgui_app, "settingsPrefixPicker")
+    rows = picker.findChild(QQuickItem, "settingsPrefixPickerRows")
     assert rows.property("count") == 1
-    picker = swin.findChild(QObject, "settingsPrefixPicker")
-    assert picker is not None
     QMetaObject.invokeMethod(picker, "close")
     QTest.qWait(50)
     # Clear… confirms in its own window, the path in a block of its own so a
     # long prefix wraps instead of widening the box (QMessageBox shape).
     _click(swin, "winePrefixClear")
     confirm = _confirm_window(qgui_app)
-    detail = confirm.findChild(QQuickItem, "settingsConfirmDetail")
-    warning = confirm.findChild(QQuickItem, "settingsConfirmWarning")
+    detail = confirm.findChild(QQuickItem, "confirmDetail")
+    warning = confirm.findChild(QQuickItem, "confirmWarning")
     assert detail.property("text") == prefix.as_posix()
     assert detail.property("visible") is True
     assert warning.property("visible") is True
-    _click(confirm, "settingsConfirmCancel")
+    _click(confirm, "confirmCancel")
     assert _wait_for(lambda: confirm.isVisible() is False), "Cancel left the confirm open"
     dlg.save()
     QTest.qWait(50)
@@ -5557,13 +5586,14 @@ def test_settings_winetricks_verbs_ui(qgui_app, xdg_env, fake_bin):
 
     # The picker filters `list-all` (worker on the first open).
     assert QMetaObject.invokeMethod(dlg, "openVerbPicker") is True
-    rows = swin.findChild(QQuickItem, "settingsVerbRows")
+    picker = _confirm_window(qgui_app, "settingsVerbPicker")
+    rows = picker.findChild(QQuickItem, "settingsVerbRows")
     for _ in range(200):
         if rows.property("count") > 0:
             break
         QTest.qWait(25)
     assert rows.property("count") == 2
-    swin.findChild(QQuickItem, "settingsVerbFilter").setProperty("text", "dotnet")
+    picker.findChild(QQuickItem, "settingsVerbFilter").setProperty("text", "dotnet")
     QTest.qWait(50)
     assert rows.property("count") == 1
     assert QMetaObject.invokeMethod(dlg, "addVerb", Q_ARG("QVariant", "dotnet48")) is True
@@ -5573,8 +5603,6 @@ def test_settings_winetricks_verbs_ui(qgui_app, xdg_env, fake_bin):
     # Adding the same verb again changes nothing.
     assert QMetaObject.invokeMethod(dlg, "addVerb", Q_ARG("QVariant", "dotnet48")) is True
     assert verbs.property("text") == "corefonts vcrun2022 dotnet48"
-    picker = swin.findChild(QObject, "settingsVerbPicker")
-    assert picker is not None
     QMetaObject.invokeMethod(picker, "close")
     QTest.qWait(50)
 
@@ -5734,7 +5762,7 @@ def test_settings_profile_switch_save(qgui_app, xdg_env):
     qgui_app.processEvents()
     assert dlg.property("confirmPurpose") == "discardSwitch"
     confirm = _confirm_window(qgui_app)
-    save = confirm.findChild(QQuickItem, "settingsConfirmSave")
+    save = confirm.findChild(QQuickItem, "confirmSave")
     assert save is not None and save.property("visible") is True
     dlg.acceptConfirmSave()
     qgui_app.processEvents()
@@ -5827,28 +5855,26 @@ def test_clone_reset_menu_flows(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.select("local-doom")
     page.openCloneDialog("local-doom")
-    assert win.findChild(QObject, "cloneDialog").property("visible") is True
+    clone = _confirm_window(qgui_app, "cloneDialog")
     assert page.property("cloneRows").toVariant() == ["local-quake [local-quake]"]
-    box = win.findChild(QQuickItem, "cloneBox")
+    box = clone.findChild(QQuickItem, "cloneBox")
     box.setProperty("editText", "local-new")
-    _fire(win.findChild(QObject, "cloneConfirm"))
+    _click(clone, "dialogOk")
     qgui_app.processEvents()
     assert C.game_file("local-new").is_file()
     assert (C.profiles_dir("local-new") / "fast.toml").is_file()
     page.openCloneDialog("local-doom")
-    box.setProperty("editText", "local-quake")
-    _fire(win.findChild(QObject, "cloneConfirm"))
-    qgui_app.processEvents()
-    assert win.findChild(QObject, "overwriteDialog").property("visible") is True
-    _fire(win.findChild(QObject, "overwriteConfirm"))
-    qgui_app.processEvents()
+    clone = _confirm_window(qgui_app, "cloneDialog")
+    clone.findChild(QQuickItem, "cloneBox").setProperty("editText", "local-quake")
+    _click(clone, "dialogOk")
+    overwrite = _confirm_window(qgui_app, "overwriteDialog")
+    _click(overwrite, "confirmOk")
     assert C.load("local-quake").general.name == "local-doom"
     page.select("local-doom")
     page.toggleSelect("local-quake")
     page.openResetDialog()
-    assert win.findChild(QObject, "resetDialog").property("visible") is True
-    _fire(win.findChild(QObject, "resetConfirm"))
-    qgui_app.processEvents()
+    reset = _confirm_window(qgui_app, "resetDialog")
+    _click(reset, "confirmOk")
     assert C.load("local-doom").general.name == ""
     assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
     real = [w for w in warnings if "graphics scene" not in w]
@@ -5931,8 +5957,8 @@ def test_settings_preview_diff_flow(qgui_app, xdg_env):
     assert C.load_preferences().show_preview is False
     _click(swin, "diffButton")
     qgui_app.processEvents()
-    assert win.findChild(QObject, "diffDialog").property("visible") is True
-    assert "custom_executable" in win.findChild(QQuickItem, "diffText").property("text")
+    diff = _confirm_window(qgui_app, "diffDialog")
+    assert "custom_executable" in diff.findChild(QQuickItem, "diffText").property("text")
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

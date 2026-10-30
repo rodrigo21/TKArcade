@@ -1,17 +1,17 @@
 import QtQuick
-import QtQuick.Layouts
 import QtQuick.Controls as Controls
-import org.kde.kirigami as Kirigami
 
 // Category filter: single-select radio list (All + every tag in use).
 // Opened from the drawer; the choice lands on gameFilter.categoryKey.
-Kirigami.Dialog {
+DialogWindow {
     id: categoryDialog
     objectName: "categoryDialog"
     title: qsTr("Filter by Category")
-    padding: Kirigami.Units.largeSpacing
+    acceptVisible: false
+    rejectText: qsTr("Close")
 
     property var catModel: []
+    property var parentWindow: null
 
     function openDialog() {
         var fresh = [""]
@@ -20,40 +20,27 @@ Kirigami.Dialog {
             fresh.push(cats[i])
         }
         catModel = fresh
-        categoryDialog.open()
+        categoryDialog.open(parentWindow)
     }
 
-    ColumnLayout {
-        Controls.ButtonGroup {
-            id: catGroup
-        }
-        Repeater {
-            model: categoryDialog.catModel
-            delegate: Controls.RadioButton {
-                required property string modelData
-                property string cat: modelData
-                objectName: "catRadio_" + (cat === "" ? "all" : cat)
-                text: cat === "" ? qsTr("All Categories") : cat
-                checked: gameFilter.categoryKey === cat
-                Controls.ButtonGroup.group: catGroup
-                onToggled: {
-                    if (checked) {
-                        gameFilter.categoryKey = cat
-                        categoryDialog.close()
-                    }
+    Controls.ButtonGroup {
+        id: catGroup
+    }
+    Repeater {
+        model: categoryDialog.catModel
+        delegate: Controls.RadioButton {
+            required property string modelData
+            property string cat: modelData
+            objectName: "catRadio_" + (cat === "" ? "all" : cat)
+            text: cat === "" ? qsTr("All Categories") : cat
+            checked: gameFilter.categoryKey === cat
+            Controls.ButtonGroup.group: catGroup
+            onToggled: {
+                if (checked) {
+                    gameFilter.categoryKey = cat
+                    categoryDialog.close()
                 }
             }
-        }
-    }
-    footer: RowLayout {
-        Layout.fillWidth: true
-        Item {
-            Layout.fillWidth: true
-        }
-        Controls.Button {
-            objectName: "categoryClose"
-            text: qsTr("Close")
-            onClicked: categoryDialog.close()
         }
     }
 }

@@ -106,10 +106,9 @@ Window {
     // Widgets _is_dark_theme: the status marks pick their palette from it.
     readonly property bool statusDark: Kirigami.Theme.backgroundColor.hslLightness < 0.5
 
-    // Enter with one of the prompts below focused: the popup owns the key
-    // chain while it is open, and the body handler (further down) is not in
-    // it. The window-level Enter route lives in the Python key filter
-    // (gui/model.py), which reaches the open prompt's accept button.
+    // Enter in the settings body hits Save (the window-level route lives in
+    // the Python key filter, gui/model.py). Each prompt is a separate window
+    // (DialogWindow.qml) and handles Enter on its own accept button.
 
     // Widgets GameDialog::focusInEvent: another writer (the CLI, a second
     // editor) may have added or removed profiles while this window sat in
@@ -346,7 +345,7 @@ Window {
         // The picker lists the folders under the base this game uses: the
         // per-game field wins over the Preferences base.
         prefixChoices = gameModel.prefixChoices(editAppid, rtPrefixField.text.trim())
-        prefixDialog.open()
+        prefixDialog.open(gameSettings)
     }
 
     // The prefix's winetricks.log versus the verbs field: what the field
@@ -376,7 +375,7 @@ Window {
         gameModel.requestVerbCatalog()
         verbFilterField.text = ""
         filterVerbs("")
-        verbDialog.open()
+        verbDialog.open(gameSettings)
     }
 
     function filterVerbs(text) {
@@ -883,13 +882,13 @@ Window {
 
     function openBulk() {
         bulkArea.text = envToText()
-        bulkDialog.open()
+        bulkDialog.open(gameSettings)
     }
 
     function openPreset() {
         presetBox.model = gameModel.envPresetLabels()
         presetBox.currentIndex = 0
-        presetDialog.open()
+        presetDialog.open(gameSettings)
     }
 
     function acceptEnvPreset() {
@@ -902,7 +901,7 @@ Window {
         if (mismatch !== "") {
             pendingPreset = name
             mismatchLabel.text = qsTr("Preset '%1' Is for %2.\nApply Anyway?").arg(name).arg(mismatch)
-            mismatchDialog.open()
+            mismatchDialog.open(gameSettings)
             return
         }
         applyEnvPresetByName(name)
@@ -1132,7 +1131,7 @@ Window {
         }
         choiceBox.model = rows
         choiceBox.currentIndex = 0
-        choicePrompt.open()
+        choicePrompt.open(gameSettings)
     }
 
     function acceptChoice() {
@@ -1359,7 +1358,7 @@ Window {
         pendingName = ""
         promptField.text = ""
         promptError.text = ""
-        namePrompt.open()
+        namePrompt.open(gameSettings)
     }
 
     function acceptProfileName() {
@@ -1536,8 +1535,9 @@ Window {
             }
         }
         focus: true
-        // Enter hits the default button like the widgets QDialog (an open
-        // popup's accept first, else ours); a focused TextArea keeps Return.
+        // Enter hits the default button like the widgets QDialog (each
+        // prompt window handles its own Enter); a focused TextArea keeps
+        // Return.
         Keys.onReturnPressed: (event) => {
             event.accepted = true
             gameModel.pressDefault(gameSettings, ["settingsSaveLaunch", "settingsSave"])
@@ -3360,7 +3360,7 @@ Window {
                 onClicked: {
                     var diff = gameModel.diffDefaults(editAppid, gameSettings.collect())
                     diffText.text = diff !== "" ? diff : qsTr("(No Differences)")
-                    diffDialog.open()
+                    diffDialog.open(gameSettings)
                 }
             }
             Controls.Button {
@@ -3407,290 +3407,174 @@ Window {
         }
     }
 
-    // The prompts are Popups. Kirigami parents them to
+    // The prompts are separate modal windows on the settings one
+    // (DialogWindow.qml): a Kirigami.Dialog popup would be parented to
     // applicationWindow().overlay, which only exists inside a
-    // Kirigami.ApplicationWindow; this file is a plain modal Window, so
-    // without an explicit parent each prompt became a stray native window
-    // behind the settings window (unusable while the window is modal).
-    Kirigami.Dialog {
+    // Kirigami.ApplicationWindow, so as a plain Window child it became a
+    // stray native window behind the modal settings window.
+    DialogWindow {
         id: namePrompt
-        parent: gameSettings.contentItem
         objectName: "settingsNamePrompt"
         title: pendingPrompt === "mhName" ? qsTr("New MangoHud Configuration") : (pendingPrompt === "clone" ? qsTr("Clone Profile") : qsTr("Save Profile"))
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.TextField {
-                id: promptField
-                objectName: "settingsPromptField"
-                placeholderText: qsTr("Profile Name")
-                Layout.fillWidth: true
-                onAccepted: gameSettings.acceptProfileName()
-            }
-            Controls.Label {
-                id: promptError
-                visible: text !== ""
-                color: Kirigami.Theme.negativeTextColor
-            }
-        }
-        footer: RowLayout {
+        onAccepted: gameSettings.acceptProfileName()
+        Controls.TextField {
+            id: promptField
+            objectName: "settingsPromptField"
+            placeholderText: qsTr("Profile Name")
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                objectName: "settingsPromptOk"
-                text: qsTr("OK")
-                highlighted: true
-                onClicked: gameSettings.acceptProfileName()
-            }
-            Controls.Button {
-                text: qsTr("Cancel")
-                onClicked: namePrompt.close()
-            }
+            onAccepted: gameSettings.acceptProfileName()
+        }
+        Controls.Label {
+            id: promptError
+            visible: text !== ""
+            color: Kirigami.Theme.negativeTextColor
         }
     }
 
-    Kirigami.Dialog {
+    DialogWindow {
         id: choicePrompt
-        parent: gameSettings.contentItem
         objectName: "settingsChoicePrompt"
         title: pendingPrompt === "gsPreset"
             ? qsTr("Gamescope Preset")
             : (pendingPrompt === "mhTemplate"
                 ? qsTr("Start From:")
                 : qsTr("Take Artwork From…"))
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.ComboBox {
-                id: choiceBox
-                objectName: "settingsChoiceBox"
-                Layout.fillWidth: true
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-                textRole: "text"
-            }
-            Controls.Label {
-                id: choiceError
-                visible: text !== ""
-                color: Kirigami.Theme.negativeTextColor
-            }
-        }
-        footer: RowLayout {
+        onAccepted: gameSettings.acceptChoice()
+        Controls.ComboBox {
+            id: choiceBox
+            objectName: "settingsChoiceBox"
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                objectName: "settingsChoiceOk"
-                text: qsTr("OK")
-                highlighted: true
-                onClicked: gameSettings.acceptChoice()
-            }
-            Controls.Button {
-                text: qsTr("Cancel")
-                onClicked: choicePrompt.close()
-            }
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+            textRole: "text"
+        }
+        Controls.Label {
+            id: choiceError
+            visible: text !== ""
+            color: Kirigami.Theme.negativeTextColor
         }
     }
 
-    Kirigami.Dialog {
+    DialogWindow {
         id: bulkDialog
-        parent: gameSettings.contentItem
         objectName: "envBulkDialog"
         title: qsTr("Bulk Edit Environment")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.TextArea {
-                id: bulkArea
-                objectName: "envBulkArea"
-                placeholderText: qsTr("KEY=value Lines (# Comments and Blanks Skipped)")
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 28
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 12
-            }
-        }
-        footer: RowLayout {
+        width: Kirigami.Units.gridUnit * 32
+        onAccepted: gameSettings.acceptBulk()
+        Controls.TextArea {
+            id: bulkArea
+            objectName: "envBulkArea"
+            placeholderText: qsTr("KEY=value Lines (# Comments and Blanks Skipped)")
+            // WrapAnywhere, not WordWrap: a WINEDLLOVERRIDES-style value
+            // has no spaces to break at and would clip at the right edge.
+            wrapMode: TextEdit.WrapAnywhere
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                objectName: "bulkConfirm"
-                text: qsTr("OK")
-                highlighted: true
-                onClicked: gameSettings.acceptBulk()
-            }
-            Controls.Button {
-                text: qsTr("Cancel")
-                onClicked: bulkDialog.close()
-            }
+            Layout.preferredHeight: Kirigami.Units.gridUnit * 12
         }
     }
 
-    Kirigami.Dialog {
+    DialogWindow {
         id: presetDialog
-        parent: gameSettings.contentItem
         objectName: "envPresetDialog"
         title: qsTr("Add Env Preset")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.ComboBox {
-                id: presetBox
-                objectName: "envPresetBox"
-                Layout.fillWidth: true
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-            }
-        }
-        footer: RowLayout {
+        onAccepted: gameSettings.acceptEnvPreset()
+        Controls.ComboBox {
+            id: presetBox
+            objectName: "envPresetBox"
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                objectName: "presetConfirm"
-                text: qsTr("OK")
-                highlighted: true
-                onClicked: gameSettings.acceptEnvPreset()
-            }
-            Controls.Button {
-                text: qsTr("Cancel")
-                onClicked: presetDialog.close()
-            }
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
         }
     }
 
-    Kirigami.Dialog {
+    DialogWindow {
         id: mismatchDialog
-        parent: gameSettings.contentItem
         objectName: "envMismatchDialog"
         title: qsTr("Add Env Preset")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.Label {
-                id: mismatchLabel
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-            }
-        }
-        footer: RowLayout {
+        acceptText: qsTr("Apply Anyway")
+        onAccepted: gameSettings.applyEnvPresetByName(gameSettings.pendingPreset)
+        Controls.Label {
+            id: mismatchLabel
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                objectName: "mismatchConfirm"
-                text: qsTr("Apply Anyway")
-                highlighted: true
-                onClicked: gameSettings.applyEnvPresetByName(gameSettings.pendingPreset)
-            }
-            Controls.Button {
-                text: qsTr("Cancel")
-                onClicked: mismatchDialog.close()
-            }
+            wrapMode: Text.WordWrap
         }
     }
 
-    Kirigami.Dialog {
+    DialogWindow {
         id: prefixDialog
-        parent: gameSettings.contentItem
         objectName: "settingsPrefixPicker"
         title: qsTr("Existing Prefixes")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
+        width: Kirigami.Units.gridUnit * 26
+        acceptVisible: false
+        rejectText: qsTr("Close")
+        Controls.Label {
+            objectName: "settingsPrefixPickerEmpty"
+            visible: prefixChoiceRows.count === 0
             Layout.fillWidth: true
-            Controls.Label {
-                objectName: "settingsPrefixPickerEmpty"
-                visible: prefixChoiceRows.count === 0
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: qsTr("No Wine Prefix Found Under the Prefix Base.")
-            }
-            ListView {
-                id: prefixChoiceRows
-                objectName: "settingsPrefixPickerRows"
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 14)
-                clip: true
-                model: gameSettings.prefixChoices
-                delegate: Controls.ItemDelegate {
-                    required property var modelData
-                    width: ListView.view ? ListView.view.width : 100
-                    text: (modelData.games || []).length > 0
-                        ? qsTr("%1 — %2").arg(modelData.name).arg(modelData.games.join(", "))
-                        : modelData.name
-                    onClicked: {
-                        localPrefixNameField.text = modelData.name
-                        gameSettings.refreshPrefixHint()
-                        prefixDialog.close()
-                    }
-                }
-            }
+            wrapMode: Text.WordWrap
+            text: qsTr("No Wine Prefix Found Under the Prefix Base.")
         }
-        footer: RowLayout {
+        ListView {
+            id: prefixChoiceRows
+            objectName: "settingsPrefixPickerRows"
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                objectName: "settingsPrefixPickerClose"
-                text: qsTr("Close")
-                onClicked: prefixDialog.close()
+            Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 14)
+            clip: true
+            model: gameSettings.prefixChoices
+            delegate: Controls.ItemDelegate {
+                required property var modelData
+                width: ListView.view ? ListView.view.width : 100
+                text: (modelData.games || []).length > 0
+                    ? qsTr("%1 — %2").arg(modelData.name).arg(modelData.games.join(", "))
+                    : modelData.name
+                onClicked: {
+                    localPrefixNameField.text = modelData.name
+                    gameSettings.refreshPrefixHint()
+                    prefixDialog.close()
+                }
             }
         }
     }
 
     // Winetricks verb picker: searchable `list-all`; a click appends to
     // the verbs field and the dialog stays open for the next one.
-    Kirigami.Dialog {
+    DialogWindow {
         id: verbDialog
-        parent: gameSettings.contentItem
         objectName: "settingsVerbPicker"
         title: qsTr("Add Winetricks Verb")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
+        width: Kirigami.Units.gridUnit * 26
+        acceptVisible: false
+        rejectText: qsTr("Close")
+        Controls.TextField {
+            id: verbFilterField
+            objectName: "settingsVerbFilter"
             Layout.fillWidth: true
-            Controls.TextField {
-                id: verbFilterField
-                objectName: "settingsVerbFilter"
-                Layout.fillWidth: true
-                placeholderText: qsTr("Filter Verbs (Name or Description)")
-                onTextChanged: gameSettings.filterVerbs(text)
-            }
-            Controls.Label {
-                objectName: "settingsVerbPickerStatus"
-                visible: gameSettings.verbFiltered.length === 0
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: gameSettings.verbsLoading
-                    ? qsTr("Loading Verbs…")
-                    : (gameSettings.verbCatalog.length === 0
-                        ? qsTr("No Verb List: Winetricks Was Not Found in PATH.")
-                        : qsTr("No Matching Verb."))
-            }
-            ListView {
-                id: verbRows
-                objectName: "settingsVerbRows"
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 14)
-                clip: true
-                model: gameSettings.verbFiltered
-                delegate: Controls.ItemDelegate {
-                    required property var modelData
-                    width: ListView.view ? ListView.view.width : 100
-                    text: (modelData.description || "") === ""
-                        ? modelData.verb
-                        : qsTr("%1 — %2").arg(modelData.verb).arg(modelData.description)
-                    onClicked: gameSettings.addVerb(modelData.verb)
-                }
-            }
+            placeholderText: qsTr("Filter Verbs (Name or Description)")
+            onTextChanged: gameSettings.filterVerbs(text)
         }
-        footer: RowLayout {
+        Controls.Label {
+            objectName: "settingsVerbPickerStatus"
+            visible: gameSettings.verbFiltered.length === 0
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                objectName: "settingsVerbPickerClose"
-                text: qsTr("Close")
-                onClicked: verbDialog.close()
+            wrapMode: Text.WordWrap
+            text: gameSettings.verbsLoading
+                ? qsTr("Loading Verbs…")
+                : (gameSettings.verbCatalog.length === 0
+                    ? qsTr("No Verb List: Winetricks Was Not Found in PATH.")
+                    : qsTr("No Matching Verb."))
+        }
+        ListView {
+            id: verbRows
+            objectName: "settingsVerbRows"
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 14)
+            clip: true
+            model: gameSettings.verbFiltered
+            delegate: Controls.ItemDelegate {
+                required property var modelData
+                width: ListView.view ? ListView.view.width : 100
+                text: (modelData.description || "") === ""
+                    ? modelData.verb
+                    : qsTr("%1 — %2").arg(modelData.verb).arg(modelData.description)
+                onClicked: gameSettings.addVerb(modelData.verb)
             }
         }
     }
@@ -3715,36 +3599,26 @@ Window {
     // the box width.
     ConfirmDialog {
         id: confirmDialog
+        objectName: "settingsConfirm"
         onAccepted: gameSettings.acceptConfirm()
         onSaved: gameSettings.acceptConfirmSave()
     }
 
-    Kirigami.Dialog {
+    DialogWindow {
         id: diffDialog
-        parent: gameSettings.contentItem
         objectName: "diffDialog"
         title: qsTr("Differences from Global Defaults")
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.TextArea {
-                id: diffText
-                objectName: "diffText"
-                readOnly: true
-                font.family: "monospace"
-                wrapMode: Text.WordWrap
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 32
-                Layout.preferredHeight: Kirigami.Units.gridUnit * 14
-            }
-        }
-        footer: RowLayout {
+        width: Kirigami.Units.gridUnit * 34
+        acceptVisible: false
+        rejectText: qsTr("Close")
+        Controls.TextArea {
+            id: diffText
+            objectName: "diffText"
+            readOnly: true
+            font.family: "monospace"
+            wrapMode: Text.WordWrap
             Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                text: qsTr("Close")
-                onClicked: diffDialog.close()
-            }
+            Layout.preferredHeight: Kirigami.Units.gridUnit * 14
         }
     }
 }

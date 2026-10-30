@@ -112,15 +112,27 @@ failure. `AGENTS.md` links here.
   `tests/kirigami_qml_cases.py` polls the window hit test (walking
   `childAt` down the tree, it only reports one level) until the control
   is the visible target, then clicks — use it in settings/dialog cases.
-- The settings confirmations are `Window`s of their own (`ConfirmDialog.qml`),
-  not `Kirigami.Dialog` popups: Qt closes the window on Escape through
-  `watchDialogKeys` and on a click outside (a modal window ignores the
-  parent), and `visible` is immediate, so the fade dance above does not
-  apply. Tests reach the dialog with `_confirm_window()` (a lookup in
+- Every shell dialog is a `Window` of its own: `ConfirmDialog.qml` for
+  confirmations, `DialogWindow.qml` for inputs and reports (a body, an
+  accept button and a Close/Cancel), never a `Kirigami.Dialog` popup.
+  Qt closes the window on Escape through `watchDialogKeys` and on a click
+  outside (a modal window ignores the parent), and `visible` is
+  immediate, so the fade dance above does not apply. A confirmation that
+  needs a body of its own (the leftover checklist) passes it as
+  `extraContent`; a dialog body declares its children directly
+  (`DialogWindow`'s default property targets the body column). Tests
+  reach a dialog with `_confirm_window(qgui_app, name)` (a lookup in
   `topLevelWindows()`, like `_settings_window`), never through the
-  settings window's item tree. Hold that window in a variable: PySide's
+  owner's item tree: a dialog declared inside another window's QML is
+  still a QObject child of it (so `findChild` finds the window and even
+  its items), but only the top-level lookup tells a mapped dialog from a
+  dead popup wrapper. Hold that window in a variable: PySide's
   `topLevelWindows()` wrapper owns it, and letting the temporary drop
   invalidates the window and every item under it.
+- A `CheckBox` in a dialog body needs `Layout.fillWidth: true` to wrap
+  its label: the desktop style wraps the content item, but an
+  unconstrained control keeps its one-line text width and overruns the
+  window (the leftover prefix row, caught by the screenshot check).
 - `StackLayout` children do not auto-fill: every tab needs explicit
   `Layout.fillWidth/Height`, else it collapses to implicit size.
 - Settings and dialogs mirror the widgets QDialog layout in pure QML

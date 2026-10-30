@@ -3,7 +3,6 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import QtQuick.Window
 import org.kde.kirigami as Kirigami
-import org.kde.kirigami.dialogs as KirigamiDialogs
 
 // Session history: a separate modal window like the widgets QDialog
 // (resizable, transient on the main window). `open()` keeps the old
@@ -258,7 +257,7 @@ Window {
                 objectName: "historyClearAll"
                 text: qsTr("Clear History...")
                 icon.name: "edit-delete"
-                onClicked: clearAllDialog.open()
+                onClicked: clearAllDialog.open(historyView)
             }
             Item {
                 Layout.fillWidth: true
@@ -271,27 +270,15 @@ Window {
         }
     }
 
-    KirigamiDialogs.PromptDialog {
+    ConfirmDialog {
         id: clearAllDialog
         objectName: "historyClearAllDialog"
         title: qsTr("Clear History")
-        dialogType: KirigamiDialogs.PromptDialog.Warning
-        subtitle: qsTr("Clear All Session History? This Cannot Be Undone.")
-        customFooterActions: [
-            Kirigami.Action {
-                objectName: "historyClearAllConfirm"
-                text: qsTr("Clear")
-                icon.name: "edit-delete"
-                onTriggered: {
-                    historyView.clearAll()
-                    clearAllDialog.close()
-                }
-            },
-            Kirigami.Action {
-                text: qsTr("Cancel")
-                icon.name: "dialog-cancel"
-                onTriggered: clearAllDialog.close()
-            }
-        ]
+        question: qsTr("Clear All Session History? This Cannot Be Undone.")
+        acceptText: qsTr("Clear")
+        onAccepted: {
+            historyView.clearAll()
+            clearAllDialog.close()
+        }
     }
 }

@@ -203,5 +203,6 @@ Kirigami.ApplicationWindow {
 
     CategoryDialog {
         id: categoryDialog
+        parentWindow: root
     }
 }
