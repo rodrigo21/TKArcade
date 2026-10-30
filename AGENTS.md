@@ -17,8 +17,12 @@ License: GPL-3.0-or-later.
 Never create, edit, delete, stage, commit or push without the
 maintainer's explicit approval. Investigate read-only, then present a
 plan (files, exact edits, verification, risks) and wait for approval.
-If the scope changes mid-task, stop and ask again. Prefer Qoder's plan
-mode for this workflow.
+An approved plan covers the branch work, including its commit; landing
+is a second gate: after the branch commit and the venv refresh, stop
+and wait for the maintainer's approval before squash-merging into
+`main`, pushing or running `/handoff` (`docs/GIT.md`). If the scope
+changes mid-task, stop and ask again. Prefer Qoder's plan mode for this
+workflow.
 
 ## Plan mode is the default
 

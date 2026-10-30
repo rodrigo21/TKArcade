@@ -53,6 +53,11 @@ session has the rules in context.
 
 ## 3. Land and push
 
+Landing is its own approval gate: the approved plan covers the branch
+work and its commit, not the merge. With the branch committed and the
+venv refreshed, hand the changes to the maintainer and wait for their
+explicit approval before starting the steps below.
+
 1. `git switch main`.
 2. `git merge --squash <branch>` and commit the result as one commit.
 3. `git branch -D <branch>`; if the branch exists on the remote,
