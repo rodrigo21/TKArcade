@@ -60,17 +60,14 @@ PySide6/vdf/jeepney are for GUI/helpers only. The exit-code contract,
 the no-shims policy and the `config_version` stamp are in
 `docs/POLICIES.md`.
 
-## Commits, tags, releases
+## Tags and releases
 
-Commit and branch rules live in `AGENTS.md`; this section covers tags
-and releases only.
+Branch, commit, merge and push rules live in `docs/GIT.md`; this
+section covers tags and releases only.
 
-Sign commits/tags with GPG when pinentry answers, push each signed
-batch, never rewrite pushed history or tags. User-facing changes get a
-`CHANGELOG.md` entry under Unreleased, with explicit **BREAKING**
-notes. Tags are `vVER` (annotated, signed), releases `VER` with
-CHANGELOG notes. After a tag: bump the release PKGBUILD
-(`pkgver` + tarball sha), rebuild `-git`, check upscale/presets.
+Tags are `vVER` (annotated, signed), releases `VER` with CHANGELOG
+notes. After a tag: bump the release PKGBUILD (`pkgver` + tarball sha),
+rebuild `-git`, check upscale/presets.
 
 ## Packaging
 

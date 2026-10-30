@@ -14,12 +14,13 @@ License: GPL-3.0-or-later.
 
 ## Work state
 
-`docs/STATE.md` and `docs/README.md` are ambient instructions
-(`instructions` in `opencode.json`), so both are already in context:
-current branch, last landed change and next step; then the map of every
-document. Refresh `STATE.md` with `/handoff` before stopping mid-task;
-designs are committed docs under `docs/decisions/`, never plan-mode
-scratch files outside the repo.
+`docs/STATE.md`, `docs/README.md` and `docs/GIT.md` are ambient
+instructions (`instructions` in `opencode.json`), so all three are
+already in context: current branch, last landed change and next step;
+the map of every document; and the branch/commit/push rules. Refresh
+`STATE.md` with `/handoff` before stopping mid-task; designs are
+committed docs under `docs/decisions/`, never plan-mode scratch files
+outside the repo.
 
 ## Context hygiene
 
@@ -27,9 +28,10 @@ Every request re-sends the whole session, so cost grows with the number
 of turns, not with the size of the project. Budget: **~25 tool calls per
 commit**; measure at the end with `opencode stats --project .`.
 
-- One commit per session: `/handoff` and start a new one after each
-  push. A session that carries several features is the main way one
-  reaches the context limit.
+- One theme per session (normally one commit): `/handoff` and start a
+  new one after each landing/push; the session-closing handoff commit
+  is the exception (`docs/GIT.md`). A session that carries several
+  features is the main way one reaches the context limit.
 - Batch independent calls in one turn. Never re-run a check that already
   passed without a code change since.
 - Never dump a whole file, binary or large diff: `grep`, `sed -n`,
@@ -75,23 +77,23 @@ The GUI's Play path runs the interpreter that owns it, so the venv is
 the build under test: refresh it after every change, before committing,
 or the maintainer tests a stale install.
 
-## Commits
+## Git
 
-One per area/theme: message plus a
-`Co-Authored-By: OpenCode <noreply@opencode.ai>` trailer. `AI-Model:`
-comes from `.opencode-model` via `scripts/git-hooks/commit-msg`. Keep
-`opencode.json` and `.opencode-model` in sync with the models in use
-(only the agent field takes a `#variant`). User-facing changes get a
-`CHANGELOG.md` entry under Unreleased, with explicit **BREAKING** notes.
+`docs/GIT.md` (ambient) is the single source for branch, commit, merge
+and push rules. Non-negotiables:
 
-## Branches
-
-Multi-file features, GUI/QML work and risky refactors land on a
-short-lived branch off `main`; `main` stays untouched until the change is
-approved. Trivial fixes and docs may commit to `main`. Integrate with
-`git merge --squash` and one commit, then `git branch -D` and
-`git push origin --delete`: a squash leaves the branch "unmerged" to git.
-Push each batch; never rewrite pushed history or tags.
+- One theme per session. Multi-file features, GUI/QML work and risky
+  refactors land on a short-lived branch off `main`; `main` stays
+  untouched until approval. Trivial fixes and docs may commit to `main`.
+- Squash-merge the branch into one commit, delete it locally and
+  remotely, push each batch, and never rewrite pushed history or tags.
+- Stage explicit paths: the maintainer's `pkgver` churn in
+  `packaging/arch/tkarcade-git/PKGBUILD` stays out of commits, so never
+  `git add -A` or `git add .`.
+- Commits carry `Co-Authored-By` + `AI-Model` through the local hook;
+  keep `opencode.json` and `.opencode-model` in sync. User-facing
+  changes get a `CHANGELOG.md` entry under Unreleased, with explicit
+  **BREAKING** notes.
 
 ## Document routing
 
@@ -100,6 +102,7 @@ Read the triggered document **before** the first change in that area;
 
 | Before you touch | Read |
 | --- | --- |
+| a branch, commit, merge or push | `docs/GIT.md` |
 | config keys, launch order, exit codes, XDG paths | `docs/POLICIES.md`, then `README.md` ("Local games", "Config files") |
 | any `.qml`, or a QML test | `docs/QML-NOTES.md` |
 | tests, venv, packaging, tags/releases, AppImage | `docs/DEVELOPMENT.md` |

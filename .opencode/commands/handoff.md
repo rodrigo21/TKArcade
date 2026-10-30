@@ -7,7 +7,8 @@ one stopped.
 
 1. `git log --oneline -5`, `git status --short` and, when code changed
    since the last recorded state, the verification commands from
-   `AGENTS.md`. Do not re-run the full suite if nothing changed.
+   `AGENTS.md`. Do not re-run the full suite if nothing changed. Git
+   rules are in `docs/GIT.md`.
 2. Rewrite the bullets in `docs/STATE.md`: current branch and whether it
    is clean (no commit hash — it changes on every commit), what landed,
    what was verified (with the numbers), the next concrete step, open

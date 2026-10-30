@@ -18,11 +18,12 @@ Standing decisions that shape every change. `AGENTS.md` links here.
   drift with `diff -r` against it before tagging, copy the winner
   in a commit of its own.
 - Rebuild `-git` locally to verify each batch; its `pkgver` churn
-  stays dirty in the tree and out of commits (never `add -A` it).
-  At release time commit the current `-git` PKGBUILD with everything
-  else. On a feature branch the `-git` source pins that branch; at
-  release time check every package for new versions, update every
-  PKGBUILD and build them all.
+  stays dirty in the tree and out of commits (never `add -A` it; the
+  git mechanics are in `docs/GIT.md`). At release time commit the
+  current `-git` PKGBUILD with everything else. On a feature branch the
+  `-git` source pins that branch; point the pin back at `main` before
+  deleting the branch. At release time check every package for new
+  versions, update every PKGBUILD and build them all.
 - Flatpak Ludusavi cannot see Proton prefixes: always warn, never
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,
@@ -31,8 +32,3 @@ Standing decisions that shape every change. `AGENTS.md` links here.
   A Steam Linux Runtime that umu has not downloaded yet is **not** an
   exit-14 case: umu fetches it on the first launch, so it is only a hint
   in the dialog and a `(note)` line in `--validate`.
-
-## Dev environment
-
-- The `-git` PKGBUILD pins the branch it is built from: point the pin
-  back at `main` before deleting a feature branch.

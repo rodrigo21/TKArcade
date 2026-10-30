@@ -9,6 +9,7 @@ What each document is for and where the source of truth lives.
 | Current config keys and launch behaviour | `README.md` ("Local games", "Config files") and `src/tkarcade/config.py` |
 | Standing project decisions | `POLICIES.md` |
 | Open work | `TODO.md` |
+| Branch, commit, merge and push rules | `GIT.md` |
 | Current session state (ambient) | `STATE.md` |
 | QML/Kirigami rules learned the hard way | `QML-NOTES.md` |
 | Dev environment, tests, packaging, releases | `DEVELOPMENT.md` |
@@ -19,10 +20,10 @@ What each document is for and where the source of truth lives.
 
 - `TODO.md` is the open list only. Finished work goes to `CHANGELOG.md`
   and git; standing decisions go to `POLICIES.md`.
-- `STATE.md` and this map are the only ambient documents (injected
+- `STATE.md`, `GIT.md` and this map are the ambient documents (injected
   through `opencode.json`), so an agent always knows where each answer
-  lives without searching: keep both short and refresh `STATE.md` with
-  `/handoff`.
+  lives and which git rules apply without searching: keep them short
+  and refresh `STATE.md` with `/handoff`.
 - `AGENTS.md` routes by trigger ("before touching X, read Y"); this map
   is the exhaustive index behind it.
 - `decisions/` are frozen landing records: they describe the state at

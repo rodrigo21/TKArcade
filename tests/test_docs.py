@@ -82,3 +82,4 @@ def test_ambient_instructions_include_state_and_map():
     instructions = config["instructions"]
     assert "docs/STATE.md" in instructions
     assert "docs/README.md" in instructions
+    assert "docs/GIT.md" in instructions
