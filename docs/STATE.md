@@ -7,36 +7,30 @@ history lives in `CHANGELOG.md` and git, deferred work in `TODO.md`,
 document roles in `docs/README.md`. Refresh it with `/handoff` before
 stopping mid-task.
 
-- Branch: `artwork-leftovers`, not committed. Two themes sit on it:
-  the "Artwork Cleared" status (model token, QML message, pt_BR, test) is
-  staged; the cards banner cover role, its no-crop rule in
-  `docs/QML-NOTES.md` and the shortened Status strings are unstaged on
-  top. The maintainer's `pkgver` churn in
-  `packaging/arch/tkarcade-git/PKGBUILD` stays unstaged and untouched;
-  `.qoder/` is git-ignored.
-- Landed: every dialog in the shell is a separate modal `Window` now.
-  The library confirmations (remove, leftover cleanup, shader cache,
-  clone overwrite, reset) and the two history confirmations use
-  `ConfirmDialog.qml` (`default property alias extraContent` for the
-  leftover checklist, `rejectText` "Keep All", objectNames without the
-  `settings` prefix). Inputs and reports use the new `DialogWindow.qml`
-  (body, OK plus Cancel/Close, Enter on the accept button):
-  validate/clone/set-categories in `MainPage.qml`, the category filter,
-  Configure Columns and the eight settings prompts, opened with
-  `.open(gameSettings)`. No `Kirigami.Dialog` is left in the shell. The
-  env bulk `TextArea` wraps anywhere (long `KEY=value` lines clipped
-  before). Tests reach dialogs via `_confirm_window(qgui_app, name)`;
-  the cleanup checklist through `childItems()` (`_visual_item`), since
-  Repeater delegates stay out of the QObject tree.
-- Verified: 482 tests with the QML driver (known unrelated batch-abort
-  retries), offscreen cards with portrait cover/icon/no art and the
-  Artwork Status at the 612 px minimum. Venv refreshed on the branch.
-- Before it: the settings confirmations became separate modal `Window`s
-  (`ConfirmDialog.qml`, QMessageBox shape), and the per-game
-  `[metadata]` fields with the `Name [version] (TAG)` suffix.
-- Next: commit the staged status theme and the unstaged cards/strings
-  theme separately, then the remaining `TODO.md` artwork item (per-game
-  provider override) and the categories details section.
+- Branch: `main`, at the `artwork-leftovers` squash merge (`ded8174`),
+  pushed to `origin`. The branch was deleted; the working tree carries
+  only the maintainer's `pkgver` churn in
+  `packaging/arch/tkarcade-git/PKGBUILD` (never committed); `.qoder/`
+  is git-ignored.
+- Landed: the Artwork Status row says "Artwork Cleared" while the source
+  AppID keeps its cleared mark, instead of showing art that never
+  arrived. The cards banner consumes the per-game cover (icon fallback)
+  and fits the art to its own aspect instead of cropping a portrait
+  cover; `docs/QML-NOTES.md` keeps the rule. The Status messages lost
+  the repeated "Use Fetch Artwork" wording that wrapped at the 612 px
+  settings minimum.
+- Before it: every dialog in the shell is a separate modal `Window`
+  (`ConfirmDialog.qml` for confirmations, `DialogWindow.qml` for inputs
+  and reports; no `Kirigami.Dialog` left), the per-game `[metadata]`
+  fields, and every view's keyboard navigation.
+- Verified: 482 tests with the QML driver before landing (known
+  unrelated batch-abort retries), 481 fast tests on `main` after, and
+  offscreen cards with portrait cover/icon/no art plus the Artwork
+  Status at the 612 px minimum. Venv refreshed after the merge.
+- Next: the remaining `TODO.md` artwork item (per-game provider
+  override), then the categories redesign; later the deferred DXVK,
+  external-runtime and preferences/Global Defaults design reviews, and
+  the release pass.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post533.
 - Nothing blocking.
