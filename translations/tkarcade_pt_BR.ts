@@ -225,17 +225,17 @@
 <context>
     <name>GameCard</name>
     <message>
-        <location filename="../src/tkarcade/gui/qml/GameCard.qml" line="46"/>
+        <location filename="../src/tkarcade/gui/qml/GameCard.qml" line="49"/>
         <source>Running</source>
         <translation>Em Execução</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/GameCard.qml" line="79"/>
+        <location filename="../src/tkarcade/gui/qml/GameCard.qml" line="82"/>
         <source>Play</source>
         <translation>Jogar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/GameCard.qml" line="86"/>
+        <location filename="../src/tkarcade/gui/qml/GameCard.qml" line="89"/>
         <source>Terminate</source>
         <translation>Encerrar</translation>
     </message>
@@ -695,8 +695,8 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1616"/>
-        <source>Steam App ID:</source>
-        <translation>App ID do Steam:</translation>
+        <source>App ID:</source>
+        <translation>App ID:</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1625"/>

@@ -46,6 +46,10 @@ failure. `AGENTS.md` links here.
   and anchoring that MouseArea above the footer is not an option: Qt
   refuses anchors to a non-sibling item and `z: -1` lands under the card
   background, which eats the press.
+- A `Controls.ToolTip` attached to a control shows an empty bubble when
+  `visible` is bound to `hovered` while `text` may be empty (the title
+  buttons outside compact mode, Played cells without sessions). Bind
+  `visible` to `hovered` and to the condition that produces the text.
 - `Kirigami.BannerImage` derives its height from the image aspect, and
   `CardsLayout` stretches every card in a row to the tallest. Keep that
   aspect and set `banner.fillMode: Image.PreserveAspectFit`: a forced

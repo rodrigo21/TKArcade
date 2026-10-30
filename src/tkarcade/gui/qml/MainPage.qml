@@ -49,7 +49,7 @@ Kirigami.Page {
             icon.name: actionPlay.icon.name
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
-            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.visible: hovered && gamesPage.compactToolbar
             onClicked: gamesPage.playSelected()
         }
         Controls.ToolButton {
@@ -59,7 +59,7 @@ Kirigami.Page {
             icon.name: actionAdd.icon.name
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
-            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.visible: hovered && gamesPage.compactToolbar
             onClicked: addGameDialog.open()
         }
         Controls.ToolButton {
@@ -69,7 +69,7 @@ Kirigami.Page {
             icon.name: actionEdit.icon.name
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
-            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.visible: hovered && gamesPage.compactToolbar
             onClicked: gamesPage.openSettingsForSelection()
         }
         Controls.ToolButton {
@@ -79,7 +79,7 @@ Kirigami.Page {
             icon.name: actionRemove.icon.name
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
-            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.visible: hovered && gamesPage.compactToolbar
             onClicked: gamesPage.openRemoveDialog()
         }
         Item {
@@ -1890,7 +1890,7 @@ Kirigami.Page {
                     HoverHandler {
                         id: playedHover
                     }
-                    Controls.ToolTip.visible: playedHover.hovered
+                    Controls.ToolTip.visible: playedHover.hovered && (model?.gamePlayedTip ?? "") !== ""
                     Controls.ToolTip.text: model?.gamePlayedTip ?? ""
                 }
                 // ProtonDB tier badge

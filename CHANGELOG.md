@@ -78,6 +78,8 @@ Breaking config changes are called out explicitly under `Changed`.
   native game inside a runtime). The docs tree now has one map
   (`docs/README.md`): `decisions/` keeps the landing records and
   `runbooks/` the procedures, with `TODO.md` holding open work only.
+- The read-only identifier on the General tab reads `App ID` instead of
+  `Steam App ID`, since local games carry one too.
 - Per-game metadata: optional `[metadata] version`, `date` and `tag`
   sit next to Categories on the Game tab and show up as name suffixes
   in every view — `Name [version] (TAG)` — while the saved name stays
@@ -86,6 +88,9 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Hovering a title action button while its label is visible no longer
+  pops an empty tooltip; a Played cell without sessions no longer shows
+  one either.
 - Clicking a row in the list no longer recenters it: every click (plain,
   Ctrl, Shift) used to scroll the row to the middle of the viewport, so it
   moved out from under the cursor and a double-click's second click landed

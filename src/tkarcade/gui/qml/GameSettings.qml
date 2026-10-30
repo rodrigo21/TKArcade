@@ -1613,7 +1613,7 @@ Window {
                                     visible: editAppid !== ""
                                     readOnly: true
                                     Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Steam App ID:")
+                                    KirigamiLayouts.FormData.label: qsTr("App ID:")
                                 }
                                 Controls.TextField {
                                     id: nameField
