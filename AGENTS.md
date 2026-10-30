@@ -22,8 +22,13 @@ mode for this workflow.
 
 ## Plan mode is the default
 
-Start every session in plan mode. Entering it is always allowed; only
-leaving it to execute requires approval.
+Start every session in plan mode. The maintainer toggles it with
+`/plan`, which needs no confirmation in either direction; if the
+session is not in plan mode, ask for `/plan` instead of calling
+`EnterPlanMode` (it always prompts). Never suggest `/plan` as a way
+to start executing: leaving plan mode to execute requires the
+maintainer's approval through `ExitPlanMode`, whose dialog approves
+the plan itself.
 
 Stay in plan mode until the maintainer approves a plan: investigate
 read-only, ask when needed and present files, exact edits,
