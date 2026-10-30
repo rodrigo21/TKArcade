@@ -11,17 +11,18 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver` and an untracked `.SRCINFO`, never committed); `.qoder/` is
   git-ignored.
-- Landed: the profile controls (active selector plus Save As/Clone/
+- Landed: `AGENTS.md` and `docs/GIT.md` gate the landing on a second
+  approval — an approved plan covers the branch work and its commit;
+  with the venv refreshed, the maintainer approves the changes before
+  squash-merge, push or `/handoff`.
+- Before it: the profile controls (active selector plus Save As/Clone/
   Delete behind an overflow menu) moved from the General tab to a bar
   above the settings tabs, visible on every page.
-- Before it: `AGENTS.md` corrects how plan mode is entered — the
-  maintainer toggles it with `/plan` (no confirmation either way), the
-  agent asks for `/plan` instead of calling `EnterPlanMode`, and
-  `ExitPlanMode` remains the approval gate before execution.
-- Verified: `scripts/check.sh --changed` 482 passed (full QML driver)
-  after the header-bar change, plus offscreen screenshots on General
-  and Runtime at default and minimum width and the menu entries; the
-  plan-mode rule edit before it ran 10. Venv refreshed after the merge.
+- Verified: docs contract 6 passed after the approval-gate edit; the
+  header-bar landing before it ran `scripts/check.sh --changed` 482
+  passed (full QML driver) plus offscreen screenshots on General and
+  Runtime at default and minimum width. Venv refreshed after each
+  landing.
 - Next: the categories redesign (the per-game artwork provider override
   was rejected, see `docs/decisions/artwork-provider.md`); later the
   deferred DXVK, external-runtime and preferences/Global Defaults design
