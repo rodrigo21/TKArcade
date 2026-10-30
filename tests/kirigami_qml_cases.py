@@ -1975,7 +1975,7 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
     # Every desktop-integration group draws the widgets QGroupBox look:
     # centered title above a framed panel (the QQC2 GroupBox painted the
     # title inside the frame at the top-left).
-    assert visible_titles(TAB_GENERAL) == ["Game", "Launch", "Profile"]
+    assert visible_titles(TAB_GENERAL) == ["Game", "Launch"]
     # Env vars and the pre/post hooks share the Commands tab.
     assert visible_titles(TAB_COMMANDS) == ["Environment Variables", "Pre/Post Commands"]
     # A local game picks its Wine/umu runtime here; the prefix, the
@@ -2360,7 +2360,6 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
         "settingsAppid",
         "settingsName",
         "settingsCats",
-        "settingsProfiles",
     )
     launch = (
         "settingsExe",
@@ -2388,6 +2387,9 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
     _settings_tab(swin, TAB_COMMANDS)
     assert shown(*hooks) == list(hooks)
     assert shown(*launch) == []
+    # Profiles are a whole-config preset, not a General field: the bar
+    # above the tabs stays visible on every page.
+    assert shown("settingsProfiles") == ["settingsProfiles"]
     _settings_tab(swin, TAB_RUNTIME)
     assert shown(*runtime) == list(runtime)
     assert shown(*general) == []
@@ -6103,7 +6105,16 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     assert name.property("text") == "Doom"
     box = swin.findChild(QQuickItem, "settingsProfiles")
     box.setProperty("currentIndex", 1)
-    _click(swin, "settingsProfileDelete")
+    _click(swin, "settingsProfileMenuButton")
+    menu = swin.findChild(QObject, "settingsProfileMenu")
+    for _ in range(20):
+        qgui_app.processEvents()
+        if menu.property("visible"):
+            break
+    assert menu.property("visible") is True
+    entry = menu.findChild(QObject, "settingsProfileDelete")
+    assert entry is not None
+    _fire(entry)
     qgui_app.processEvents()
     confirm = _confirm_window(qgui_app)
     assert confirm.property("visible") is True

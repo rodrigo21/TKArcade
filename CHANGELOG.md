@@ -44,6 +44,10 @@ Breaking config changes are called out explicitly under `Changed`.
   variables and the pre/post hooks, and its old name collided with the
   `Environment` (how the game runs) choice on the Runtime tab. No config
   key moved.
+- The profile controls (the active selector plus Save As/Clone/Delete,
+  now behind an overflow menu) sit in a bar above the settings tabs, so
+  they are reachable from every tab instead of living on General; the
+  actions keep their dialogs and semantics.
 - A Steam game whose `[runtime] prefix` moves the compatdata dir can use
   the interactive Winetricks window: protontricks always targets Steam's
   own dir, so the game's Proton (explicit `[runtime] tool`, else Steam's

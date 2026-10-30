@@ -1543,6 +1543,58 @@ Window {
             event.accepted = true
             gameModel.pressDefault(gameSettings, ["settingsSaveLaunch", "settingsSave"])
         }
+        // Profile is a preset of the whole config, not of one tab: its
+        // controls sit above the TabBar and stay reachable everywhere.
+        RowLayout {
+            objectName: "settingsProfileBar"
+            Layout.fillWidth: true
+            visible: editAppid !== ""
+            Controls.Label {
+                text: qsTr("Profile")
+            }
+            Controls.ComboBox {
+                id: profileBox
+                objectName: "settingsProfiles"
+                Layout.fillWidth: true
+                textRole: "display"
+                onActivated: (index) => gameSettings.requestProfileSwitch(index)
+            }
+            Controls.ToolButton {
+                objectName: "settingsProfileMenuButton"
+                icon.name: gameModel.iconName(["overflow-menu", "application-menu"])
+                // Same release-dismiss race as the hamburger menu.
+                onClicked: Qt.callLater(profileMenu.popup)
+                Controls.Menu {
+                    id: profileMenu
+                    objectName: "settingsProfileMenu"
+                    Controls.MenuItem {
+                        objectName: "settingsProfileSave"
+                        text: qsTr("Save As…")
+                        onTriggered: gameSettings.askProfileName("saveAs")
+                    }
+                    Controls.MenuItem {
+                        objectName: "settingsProfileClone"
+                        text: qsTr("Clone…")
+                        onTriggered: gameSettings.askProfileName("clone")
+                    }
+                    Controls.MenuItem {
+                        objectName: "settingsProfileDelete"
+                        text: qsTr("Delete")
+                        onTriggered: {
+                            var profiles = profileBox.model || []
+                            var name = profiles[profileBox.currentIndex] || ""
+                            if (name === "") {
+                                return
+                            }
+                            setupConfirm("deleteProfile", qsTr("Delete Profile"),
+                                qsTr("Delete Profile '%1'? This Cannot Be Undone.").arg(name),
+                                qsTr("Delete"))
+                            confirmDialog.open(gameSettings)
+                        }
+                    }
+                }
+            }
+        }
         Controls.TabBar {
             id: tabBar
             objectName: "settingsTabs"
@@ -1592,7 +1644,6 @@ Window {
                         // One label column for the tab, so the fields of every
                         // section start at the same x.
                         property real labelWidth: Math.max(generalForm.naturalLabelWidth,
-                                                           profileForm.naturalLabelWidth,
                                                            launchForm.naturalLabelWidth)
                         width: parent.width
                         spacing: Kirigami.Units.smallSpacing
@@ -1660,52 +1711,6 @@ Window {
                                     placeholderText: qsTr("Shown as Name (TAG)")
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("State Tag:")
-                                }
-                            }
-                        }
-                        SectionBox {
-                            title: qsTr("Profile")
-                            Layout.fillWidth: true
-                            visible: editAppid !== ""
-                            WidgetsFormLayout {
-                                id: profileForm
-                                labelWidth: generalColumn.labelWidth
-                                Layout.fillWidth: true
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Active:")
-                                    Controls.ComboBox {
-                                        id: profileBox
-                                        objectName: "settingsProfiles"
-                                        Layout.fillWidth: true
-                                        textRole: "display"
-                                        onActivated: (index) => gameSettings.requestProfileSwitch(index)
-                                    }
-                                    Controls.Button {
-                                        objectName: "settingsProfileSave"
-                                        text: qsTr("Save As…")
-                                        onClicked: gameSettings.askProfileName("saveAs")
-                                    }
-                                    Controls.Button {
-                                        objectName: "settingsProfileClone"
-                                        text: qsTr("Clone…")
-                                        onClicked: gameSettings.askProfileName("clone")
-                                    }
-                                    Controls.Button {
-                                        objectName: "settingsProfileDelete"
-                                        text: qsTr("Delete")
-                                        onClicked: {
-                                            var profiles = profileBox.model || []
-                                            var name = profiles[profileBox.currentIndex] || ""
-                                            if (name === "") {
-                                                return
-                                            }
-                                            setupConfirm("deleteProfile", qsTr("Delete Profile"),
-                                                qsTr("Delete Profile '%1'? This Cannot Be Undone.").arg(name),
-                                                qsTr("Delete"))
-                                            confirmDialog.open(gameSettings)
-                                        }
-                                    }
                                 }
                             }
                         }
