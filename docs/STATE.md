@@ -11,18 +11,17 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver` and an untracked `.SRCINFO`, never committed); `.qoder/` is
   git-ignored.
-- Landed: `AGENTS.md` and `docs/GIT.md` gate the landing on a second
-  approval — an approved plan covers the branch work and its commit;
-  with the venv refreshed, the maintainer approves the changes before
-  squash-merge, push or `/handoff`.
-- Before it: the profile controls (active selector plus Save As/Clone/
-  Delete behind an overflow menu) moved from the General tab to a bar
-  above the settings tabs, visible on every page.
-- Verified: docs contract 6 passed after the approval-gate edit; the
-  header-bar landing before it ran `scripts/check.sh --changed` 482
-  passed (full QML driver) plus offscreen screenshots on General and
-  Runtime at default and minimum width. Venv refreshed after each
-  landing.
+- Landed: the Profile selector shows the profile names again — its
+  combo declared a `display` text role over a plain string list, which
+  blanked the field and the popup rows; the model now carries
+  `{text, data}` rows with `textRole: "text"`. The tooltip sweep found
+  no other empty bubble in the shell.
+- Before it: the landing gate (`AGENTS.md` + `docs/GIT.md`), then the
+  profile controls moved above the settings tabs.
+- Verified: `scripts/check.sh --changed` 482 passed (full QML driver)
+  plus the three profile cases in isolation; offscreen screenshots show
+  the active name on General and Runtime. Venv refreshed after the
+  merge.
 - Next: the categories redesign (the per-game artwork provider override
   was rejected, see `docs/decisions/artwork-provider.md`); later the
   deferred DXVK, external-runtime and preferences/Global Defaults design
