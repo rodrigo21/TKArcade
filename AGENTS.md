@@ -20,6 +20,15 @@ plan (files, exact edits, verification, risks) and wait for approval.
 If the scope changes mid-task, stop and ask again. Prefer Qoder's plan
 mode for this workflow.
 
+## Plan mode is the default
+
+Stay in plan mode until the maintainer approves a plan: investigate
+read-only, ask when needed and present files, exact edits,
+verification and risks. Leave it only for the approved scope; a
+scope change stops execution and goes back to planning. After the
+batch is committed, pushed and handed off, re-enter plan mode for
+the next theme.
+
 ## Work state
 
 `docs/STATE.md`, `docs/README.md` and `docs/GIT.md` are ambient

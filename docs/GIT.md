@@ -58,7 +58,8 @@ session has the rules in context.
    history or tags, and never force-push.
 
 After the push, run `/handoff` (refresh and commit `docs/STATE.md`),
-then start a new session for the next theme.
+then re-enter plan mode for the next theme (`AGENTS.md`); start a new
+session when the context budget calls for it.
 
 ## 4. Tags and releases
 
@@ -73,5 +74,5 @@ runs the display checks; see `DEVELOPMENT.md` and `POLICIES.md`.
   landed, verification numbers, the next concrete step and blockers.
   No commit hash (it changes on every commit) and no history.
 - PKGBUILD `pkgver` churn is never recorded as work.
-- The handoff commit (`docs: update the work state`) closes the session;
-  push it when the branch is already on the remote.
+- The handoff commit (`docs: update the work state`) closes the landing
+  batch; push it when the branch is already on the remote.
