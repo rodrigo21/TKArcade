@@ -10,7 +10,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, clean. The working tree carries only the maintainer's
   `pkgver` churn in `packaging/arch/tkarcade-git/PKGBUILD` (never
   committed); `.qoder/` is git-ignored.
-- Landed: git rules now live in `docs/GIT.md` (ambient), with
+- Landed: `AGENTS.md` now requires the maintainer's explicit approval
+  before any file change, stage, commit or push (investigate read-only,
+  present a plan, wait). Git rules live in `docs/GIT.md` (ambient), with
   `AGENTS.md`, `DEVELOPMENT.md`, `POLICIES.md`, the document map and
   the handoff command pointing there; `STATE.md` no longer records
   commit hashes. The Artwork Status row says "Artwork Cleared" while
