@@ -29,7 +29,7 @@ stopping mid-task.
 - Verified: 480 fast tests, 481 with the QML driver (known unrelated
   batch-abort retries), and offscreen screenshots under
   `org.kde.desktop` of all 13 dialogs (titles, wrapping, button rows).
-  Venv refreshed after the merge (`0.0.0.post571.dev0+74034c5`).
+  Venv refreshed after the merge and the handoff.
 - Before it: the settings confirmations became separate modal `Window`s
   (`ConfirmDialog.qml`, QMessageBox shape), and the per-game
   `[metadata]` fields with the `Name [version] (TAG)` suffix.
