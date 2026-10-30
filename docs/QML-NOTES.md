@@ -50,6 +50,10 @@ failure. `AGENTS.md` links here.
   `visible` is bound to `hovered` while `text` may be empty (the title
   buttons outside compact mode, Played cells without sessions). Bind
   `visible` to `hovered` and to the condition that produces the text.
+- A ComboBox `textRole` must match the model shape: a plain string list
+  keeps the default empty role, while `{text, data}` rows use
+  `textRole: "text"`. A role the model lacks blanks both the closed
+  field and the popup rows (the Profile selector, measured offscreen).
 - `Kirigami.BannerImage` derives its height from the image aspect, and
   `CardsLayout` stretches every card in a row to the tallest. Keep that
   aspect and set `banner.fillMode: Image.PreserveAspectFit`: a forced

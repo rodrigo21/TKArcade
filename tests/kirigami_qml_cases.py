@@ -3850,7 +3850,7 @@ def test_settings_profiles_refresh_on_focus(qgui_app, xdg_env):
     def profiles():
         model = combo.property("model")
         model = model.toVariant() if hasattr(model, "toVariant") else model
-        return list(model or [])
+        return [row["text"] if isinstance(row, dict) else row for row in (model or [])]
 
     assert profiles() == []
 
@@ -3861,6 +3861,7 @@ def test_settings_profiles_refresh_on_focus(qgui_app, xdg_env):
     QTest.qWait(120)
     swin.requestActivate()
     assert _wait_for(lambda: profiles() == ["fast"], limit=300), "profiles not re-read"
+    assert combo.property("displayText") == "fast"
 
     # An active profile that vanished on disk is cleared (widgets did).
     swin.switchProfile("fast")

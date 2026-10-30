@@ -485,7 +485,7 @@ Window {
         timeoutSpin.value = f.menu_timeout || 0
         notesArea.text = f.notes || ""
         dialogProfile = f.active_profile || ""
-        profileBox.model = (f.profiles || []).slice()
+        profileBox.model = profileRows(f.profiles || [])
         profileBox.currentIndex = Math.max(0, (f.profiles || []).indexOf(dialogProfile))
         settingsError.text = ""
         ppPre.text = f.pre_command || ""
@@ -646,9 +646,24 @@ Window {
         return !defaultsMode && snapshot() !== lastLoaded
     }
 
+    function profileRows(names) {
+        var rows = []
+        for (var i = 0; i < names.length; i++) {
+            rows.push({"text": String(names[i]), "data": names[i]})
+        }
+        return rows
+    }
+
+    function profileNames() {
+        return (profileBox.model || []).map(function(row) { return row.text })
+    }
+
+    function profileIndex(name) {
+        return profileNames().indexOf(name)
+    }
+
     function requestProfileSwitch(index) {
-        var profiles = profileBox.model || []
-        var name = profiles[index] || ""
+        var name = profileBox.textAt(index) || ""
         if (name === dialogProfile) {
             return
         }
@@ -661,7 +676,7 @@ Window {
             confirmDialog.detail = qsTr("(The Saved Profile Is Kept.)")
             confirmDialog.saveVisible = true
             confirmDialog.open(gameSettings)
-            profileBox.currentIndex = Math.max(0, profiles.indexOf(dialogProfile))
+            profileBox.currentIndex = Math.max(0, profileIndex(dialogProfile))
             return
         }
         switchProfile(name)
@@ -679,13 +694,13 @@ Window {
         var content = gameModel.profileContent(editAppid, name)
         if (Object.keys(content).length === 0) {
             settingsError.text = qsTr("Profile '%1' Could Not Be Read.").arg(name)
-            profileBox.currentIndex = Math.max(0, (profileBox.model || []).indexOf(dialogProfile))
+            profileBox.currentIndex = Math.max(0, profileIndex(dialogProfile))
             return
         }
         fields = content
         pushToControls()
         dialogProfile = name
-        profileBox.currentIndex = Math.max(0, (profileBox.model || []).indexOf(name))
+        profileBox.currentIndex = Math.max(0, profileIndex(name))
         gameModel.markActiveProfile(editAppid, name)
         lastLoaded = snapshot()
         refreshNewerFlag()
@@ -696,7 +711,7 @@ Window {
         fields = fresh
         dialogProfile = name
         gameModel.markActiveProfile(editAppid, name)
-        profileBox.model = (fresh.profiles || []).slice()
+        profileBox.model = profileRows(fresh.profiles || [])
         profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(name))
         lastLoaded = snapshot()
         refreshNewerFlag()
@@ -709,14 +724,14 @@ Window {
             return
         }
         var names = (gameModel.loadGame(editAppid).profiles || []).slice()
-        var current = (profileBox.model || []).slice()
+        var current = profileNames()
         if (names.join("\n") === current.join("\n")) {
             return
         }
         if (dialogProfile !== "" && names.indexOf(dialogProfile) < 0) {
             dialogProfile = ""
         }
-        profileBox.model = names
+        profileBox.model = profileRows(names)
         profileBox.currentIndex = Math.max(0, names.indexOf(dialogProfile))
     }
 
@@ -735,15 +750,14 @@ Window {
             pendingName = ""
         } else if (confirmPurpose === "deleteProfile") {
             confirmDialog.close()
-            var profiles = profileBox.model || []
-            var name = profiles[profileBox.currentIndex] || ""
+            var name = profileBox.textAt(profileBox.currentIndex) || ""
             if (name !== "" && gameModel.deleteGameProfile(editAppid, name)) {
                 if (name === dialogProfile) {
                     reload()
                 } else {
                     var fresh = gameModel.loadGame(editAppid)
                     fields = fresh
-                    profileBox.model = (fresh.profiles || []).slice()
+                    profileBox.model = profileRows(fresh.profiles || [])
                     profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(dialogProfile))
                     lastLoaded = snapshot()
                 }
@@ -1399,8 +1413,7 @@ Window {
             afterProfileSaved(name)
             return
         } else if (pendingPrompt === "clone") {
-            var profiles = profileBox.model || []
-            var src = profiles[profileBox.currentIndex] || ""
+            var src = profileBox.textAt(profileBox.currentIndex) || ""
             if (src === "") {
                 promptError.text = qsTr("Select a Profile First.")
                 return
@@ -1422,7 +1435,7 @@ Window {
         namePrompt.close()
         var fresh = gameModel.loadGame(editAppid)
         fields = fresh
-        profileBox.model = (fresh.profiles || []).slice()
+        profileBox.model = profileRows(fresh.profiles || [])
         profileBox.currentIndex = Math.max(0, (fresh.profiles || []).indexOf(dialogProfile))
         lastLoaded = snapshot()
     }
@@ -1556,7 +1569,7 @@ Window {
                 id: profileBox
                 objectName: "settingsProfiles"
                 Layout.fillWidth: true
-                textRole: "display"
+                textRole: "text"
                 onActivated: (index) => gameSettings.requestProfileSwitch(index)
             }
             Controls.ToolButton {
@@ -1581,8 +1594,7 @@ Window {
                         objectName: "settingsProfileDelete"
                         text: qsTr("Delete")
                         onTriggered: {
-                            var profiles = profileBox.model || []
-                            var name = profiles[profileBox.currentIndex] || ""
+                            var name = profileBox.textAt(profileBox.currentIndex) || ""
                             if (name === "") {
                                 return
                             }

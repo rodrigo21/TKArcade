@@ -92,6 +92,10 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The Profile selector shows the profile names again: its combo asked
+  for a `display` text role that the plain name list does not have, so
+  the field and the dropdown came up blank. Every other tooltip in the
+  shell was checked; they already hide when their text would be empty.
 - Hovering a title action button while its label is visible no longer
   pops an empty tooltip; a Played cell without sessions no longer shows
   one either.
