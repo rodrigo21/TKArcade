@@ -10,19 +10,18 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, clean. The working tree carries only the maintainer's
   `pkgver` churn in `packaging/arch/tkarcade-git/PKGBUILD` (never
   committed); `.qoder/` is git-ignored.
-- Landed: `AGENTS.md` makes plan mode the default and states entering
-  it needs no approval while leaving to execute does: stay there until
-  the plan is approved, execute only that scope, and re-enter after
-  commit, push and handoff. `docs/GIT.md` points there and treats the
-  handoff commit as the close of the landing batch; `STATE.md` stays a
-  state file, not policy.
-- Before it: the `App ID` label and empty-tooltip fixes, the approval
-  rule, the git-rules reorg into `docs/GIT.md`, and the artwork
-  leftovers (cleared status, card covers, banner aspect).
+- Landed: `AGENTS.md` makes the implicit rules explicit — plan mode
+  starts every session, one theme per batch with `/handoff` then plan
+  mode, tests in temporary XDG/HOME, declare checks not run, translation
+  and POLICIES routing, README/man updates for CLI changes, diff review
+  and no discarded work or committed secrets. `docs/GIT.md` carries the
+  detail.
+- Before it: plan mode as the default workflow and the `App ID` label
+  and empty-tooltip fixes.
 - Verified: docs contract 6 passed and `scripts/check.sh --changed`
-  10 passed after the workflow docs edit; the previous GUI landing had
-  482 QML tests, the offscreen `App ID:` label and a clean translation
-  refresh. Venv refreshed after the merge.
+  10 passed after the rules edit; the GUI landing before it had 482 QML
+  tests, the offscreen `App ID:` label and a clean translation refresh.
+  Venv refreshed after the merge.
 - Next: the categories redesign (the per-game artwork provider override
   was rejected, see `docs/decisions/artwork-provider.md`); later the
   deferred DXVK, external-runtime and preferences/Global Defaults design
