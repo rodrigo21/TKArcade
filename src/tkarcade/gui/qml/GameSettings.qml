@@ -1045,8 +1045,9 @@ Window {
             "own": qsTr("Using This Game's Own Artwork."),
             "donor": qsTr("Using Artwork From %1.").arg(source),
             "mixed": qsTr("Some Artwork Comes From %1.").arg(source),
-            "partial": qsTr("Some Images Are Missing. Use Fetch Artwork to Download Them."),
-            "none": qsTr("No Artwork Yet. Save the Game and Use Fetch Artwork.")
+            "partial": qsTr("Some Images Are Missing."),
+            "none": qsTr("No Artwork Yet. Save the Game First."),
+            "cleared": qsTr("Artwork Cleared. Fetch Restores It.")
         }
         if (artResult !== "") {
             artStatusLabel.text = artResult

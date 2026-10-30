@@ -22,17 +22,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 - [ ] Per-game artwork provider override: the per-game `[artwork]` block
   has no way to override the *provider* for one game (the preference is
   global); decide if a rare mismatched game needs it.
-- [ ] Show "Artwork Cleared" in the Artwork Status row: a cleared AppID
-  keeps its `"cleared": true` mark in `grids/<appid>.json` with no
-  visible trace in the UI — if the art stops coming back and nobody
-  remembers the Clear, that file is the answer.
-- [ ] Icons and cards views: both views ship; what remains is giving the
-  Cover slot a consumer — the card's `Kirigami.Card` banner reads
-  `gameIcon`, which falls back to the source AppID's icon, not to the
-  cover — and reviewing the card banner framing. `cover` is written,
-  cleared and migrated today but nothing renders it. Also: the Status
-  row's long text wraps mid-sentence at the 612 px minimum ("…Use Fetch
-  / Artwork."), next to a button with the same words.
 - [ ] Categories redesign, remaining half: how categories work and how
   they are added. The broken Category column is gone from the library
   list; showing the tags in a right-hand details section waits for that

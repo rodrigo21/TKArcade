@@ -106,6 +106,7 @@ def test_model_role_names_are_game_prefixed(qgui_app):
     roles = GameListModel().roleNames()
     assert sorted(roles.values()) == [
         b"gameCategory",
+        b"gameCover",
         b"gameIcon",
         b"gameId",
         b"gameInstallDir",
@@ -1630,6 +1631,30 @@ def test_row_icon_uses_the_artwork_source_appid(qgui_app, xdg_env):
     assert model.artworkStatus("local-missing") == "none"
 
 
+def test_row_cover_uses_the_artwork_source_appid(qgui_app, xdg_env):
+    """A local game's card cover is the source AppID's portrait art."""
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    local.artwork.artwork_appid = "480"
+    C.save(local)
+    donor_cover = artwork.grid_path("480", "cover")
+    donor_cover.parent.mkdir(parents=True, exist_ok=True)
+    donor_cover.write_bytes(b"C")
+    model = _model(qgui_app)
+    row = next(
+        i
+        for i in range(model.rowCount())
+        if model.data(model.index(i, 0), model.IdRole) == "local-doom"
+    )
+    assert model.data(model.index(row, 0), model.CoverRole) == str(donor_cover)
+    assert model.rowData(row)["gameCover"] == str(donor_cover)
+
+
 def test_fetch_artwork_needs_a_source_appid_not_a_key(qgui_app, xdg_env, monkeypatch):
     """Official Steam art needs no key: only the source AppID is required."""
     from tkarcade import artwork
@@ -1692,6 +1717,9 @@ def test_clear_fetched_artwork_uses_the_source_appid(qgui_app, xdg_env):
     assert model.clearFetchedArtwork("local-doom", "480") == "done"
     assert artwork.cached_path("480", "cover") is None
     assert artwork.is_cleared("480") is True
+    # The mark reaches the status row instead of looking like art that
+    # simply never arrived.
+    assert model.artworkStatus("local-doom", "480") == "cleared"
 
 
 def test_settings_winetricks_verbs_pending(qgui_app, xdg_env, tmp_path, monkeypatch):

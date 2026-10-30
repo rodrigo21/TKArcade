@@ -256,6 +256,7 @@ class GameListModel(QAbstractTableModel):
     InstallDirRole = Qt.ItemDataRole.UserRole + 16
     CategoryRole = Qt.ItemDataRole.UserRole + 17
     RunningRole = Qt.ItemDataRole.UserRole + 18
+    CoverRole = Qt.ItemDataRole.UserRole + 19
 
     ROLE_NAMES = (
         "gameId",
@@ -276,6 +277,7 @@ class GameListModel(QAbstractTableModel):
         "gameInstallDir",
         "gameCategory",
         "gameRunning",
+        "gameCover",
     )
 
     refreshed = Signal()
@@ -401,6 +403,7 @@ class GameListModel(QAbstractTableModel):
             GameListModel.InstallDirRole: b"gameInstallDir",
             GameListModel.CategoryRole: b"gameCategory",
             GameListModel.RunningRole: b"gameRunning",
+            GameListModel.CoverRole: b"gameCover",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -442,6 +445,7 @@ class GameListModel(QAbstractTableModel):
             GameListModel.WineRole: 14,
             GameListModel.InstallDirRole: 15,
             GameListModel.CategoryRole: 16,
+            GameListModel.CoverRole: 17,
         }
         return row[cols[role]] if role in cols else None
 
@@ -466,6 +470,7 @@ class GameListModel(QAbstractTableModel):
             "gameWine",
             "gameInstallDir",
             "gameCategory",
+            "gameCover",
         )
         if not 0 <= row < len(self._rows):
             return {}
@@ -573,6 +578,7 @@ class GameListModel(QAbstractTableModel):
         tier = str(((data or {}).get("tier", "")) or "").lower()
         bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
         icon = self._row_icon(appid, gcfg)
+        cover = self._row_cover(appid, gcfg)
         label = cfgmod.game_display_name(names.get(appid, appid), gcfg)
         return (
             appid,
@@ -597,7 +603,20 @@ class GameListModel(QAbstractTableModel):
             self._row_wine(appid, gcfg, is_steam),
             self._row_install_dir(appid, gcfg),
             ", ".join(gcfg.general.categories) if gcfg is not None else "",
+            str(cover) if cover else "",
         )
+
+    @staticmethod
+    def _row_cover(appid: str, gcfg) -> Path | None:
+        """Card cover: the Artwork Source AppID's portrait art when set."""
+        donor = ""
+        if gcfg is not None:
+            donor = gcfg.artwork.artwork_appid.strip()
+        try:
+            return artmod.resolve(appid, "cover", donor)[0]
+        except Exception as e:
+            log.warning("artwork resolve(%s, cover) failed: %s", appid, e)
+            return None
 
     @staticmethod
     def _row_icon(appid: str, gcfg) -> Path | None:
@@ -1644,9 +1663,13 @@ class GameListModel(QAbstractTableModel):
         """Where a game's three images come from: a token for the dialog.
 
         "own" (all from the game), "donor" (all from the Artwork Source
-        AppID), "mixed" (both), "partial" (some missing) or "none".
+        AppID), "mixed" (both), "partial" (some missing), "none", or
+        "cleared" (the source AppID's downloaded art was removed on
+        purpose and the mark still stands).
         """
         donor = self._art_source(appid, source)
+        if artmod.is_cleared(donor or str(appid)):
+            return "cleared"
         own = borrowed = missing = 0
         for kind in artmod.ART_KINDS:
             try:

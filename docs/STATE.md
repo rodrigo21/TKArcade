@@ -7,11 +7,13 @@ history lives in `CHANGELOG.md` and git, deferred work in `TODO.md`,
 document roles in `docs/README.md`. Refresh it with `/handoff` before
 stopping mid-task.
 
-- Branch: `main`, at the dialog-window merge (`74034c5`), pushed to
-  `origin`. The `confirm-dialogs-library` branch was squash-merged and
-  deleted. The working tree carries only the maintainer's `pkgver` churn
-  in `packaging/arch/tkarcade-git/PKGBUILD` (never committed); `.qoder/`
-  is git-ignored.
+- Branch: `artwork-leftovers`, not committed. Two themes sit on it:
+  the "Artwork Cleared" status (model token, QML message, pt_BR, test) is
+  staged; the cards banner cover role, its no-crop rule in
+  `docs/QML-NOTES.md` and the shortened Status strings are unstaged on
+  top. The maintainer's `pkgver` churn in
+  `packaging/arch/tkarcade-git/PKGBUILD` stays unstaged and untouched;
+  `.qoder/` is git-ignored.
 - Landed: every dialog in the shell is a separate modal `Window` now.
   The library confirmations (remove, leftover cleanup, shader cache,
   clone overwrite, reset) and the two history confirmations use
@@ -26,16 +28,15 @@ stopping mid-task.
   before). Tests reach dialogs via `_confirm_window(qgui_app, name)`;
   the cleanup checklist through `childItems()` (`_visual_item`), since
   Repeater delegates stay out of the QObject tree.
-- Verified: 480 fast tests, 481 with the QML driver (known unrelated
-  batch-abort retries), and offscreen screenshots under
-  `org.kde.desktop` of all 13 dialogs (titles, wrapping, button rows).
-  Venv refreshed after the merge and the handoff.
+- Verified: 482 tests with the QML driver (known unrelated batch-abort
+  retries), offscreen cards with portrait cover/icon/no art and the
+  Artwork Status at the 612 px minimum. Venv refreshed on the branch.
 - Before it: the settings confirmations became separate modal `Window`s
   (`ConfirmDialog.qml`, QMessageBox shape), and the per-game
   `[metadata]` fields with the `Name [version] (TAG)` suffix.
-- Next: the open `TODO.md` items — the artwork leftovers (cover
-  consumer, per-game provider override, "Artwork Cleared") and the
-  categories details section.
+- Next: commit the staged status theme and the unstaged cards/strings
+  theme separately, then the remaining `TODO.md` artwork item (per-game
+  provider override) and the categories details section.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post533.
 - Nothing blocking.

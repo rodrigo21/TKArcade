@@ -19,6 +19,7 @@ Kirigami.Card {
     required property string gameTierBg
     required property string gameTierFg
     required property string gameIcon
+    required property string gameCover
     required property bool gameRunning
     property bool selected: false
 
@@ -31,7 +32,11 @@ Kirigami.Card {
     Layout.maximumWidth: Kirigami.Units.gridUnit * 18
 
     banner {
-        source: gameIcon !== "" ? "file://" + gameIcon : ""
+        source: gameCover !== "" ? "file://" + gameCover
+            : (gameIcon !== "" ? "file://" + gameIcon : "")
+        // The banner keeps the art's own aspect and never crops it;
+        // CardsLayout still gives every card in a row one height.
+        fillMode: Image.PreserveAspectFit
         title: gameName
         titleIcon: gameModel.iconName(["input-gamepad", "applications-games"])
         titleAlignment: Qt.AlignBottom | Qt.AlignLeft

@@ -1385,6 +1385,7 @@ def test_cards_show_games_and_play(qgui_app, xdg_env):
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
+    from tkarcade import artwork
     from tkarcade import config as C
 
     for appid, name in (("local-doom", "Doom"), ("local-quake", "Quake")):
@@ -1392,6 +1393,13 @@ def test_cards_show_games_and_play(qgui_app, xdg_env):
         cfg.general.appid = appid
         cfg.general.name = name
         C.save(cfg)
+    from PySide6.QtGui import QImage
+
+    cover = artwork.grid_path("local-doom", "cover")
+    cover.parent.mkdir(parents=True, exist_ok=True)
+    image = QImage(1, 1, QImage.Format_RGB32)
+    image.fill(0)
+    assert image.save(str(cover))
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     layout = win.findChild(QQuickItem, "cardLayout")
@@ -1401,6 +1409,8 @@ def test_cards_show_games_and_play(qgui_app, xdg_env):
     cards = _delegate_rows(layout)
     assert len(cards) == 2
     assert sorted(c.property("gameName") for c in cards) == ["Doom", "Quake"]
+    doom = next(c for c in cards if c.property("gameId") == "local-doom")
+    assert doom.property("gameCover") == str(cover)
     first = min(cards, key=lambda c: c.y())
     assert first.property("gameId") == "local-doom"
     action = first.findChild(QObject, "cardPlay")
@@ -1691,6 +1701,7 @@ def test_game_card_binds_roles(qgui_app):
             "gameTierBg": "#FFC107",
             "gameTierFg": "#000000",
             "gameIcon": "",
+            "gameCover": "",
             "gameRunning": False,
         },
     )

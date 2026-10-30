@@ -46,6 +46,13 @@ failure. `AGENTS.md` links here.
   and anchoring that MouseArea above the footer is not an option: Qt
   refuses anchors to a non-sibling item and `z: -1` lands under the card
   background, which eats the press.
+- `Kirigami.BannerImage` derives its height from the image aspect, and
+  `CardsLayout` stretches every card in a row to the tallest. Keep that
+  aspect and set `banner.fillMode: Image.PreserveAspectFit`: a forced
+  landscape frame with the default `PreserveAspectCrop` cut ~70% of a
+  portrait cover (and most of a square icon). A card without art just
+  carries blank surface from the row stretch; do not force a frame
+  height to hide it.
 - `Controls.ScrollView` manages its content x/y itself: never position
   content with `x` or anchors (silently reset, no warning) — wrap in a
   plain Item and center inside that instead. Scrolling needs the

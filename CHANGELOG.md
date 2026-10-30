@@ -418,7 +418,16 @@ Breaking config changes are called out explicitly under `Changed`.
   Artwork Source AppID — the cache belongs to that AppID, so every game
   pointing there falls back together — and marks it, so the background
   fetch stops filling it back until `Fetch Artwork` is pressed again.
-  Manual picks are untouched.
+  Manual picks are untouched. The Status row now says "Artwork Cleared"
+  while that mark stands, instead of showing the game as one whose
+  artwork simply never arrived; `Fetch Artwork` still restores it.
+- The cards view's banner uses the per-game cover now and falls back to
+  the icon, so the `cover` slot has a consumer at last. The banner keeps
+  the art's own aspect and fits it whole instead of cropping a portrait
+  cover into a landscape frame; `CardsLayout` still stretches every card
+  in the row to the tallest one. The Artwork Status messages lost the
+  repeated "Use Fetch Artwork" wording, which used to wrap mid-sentence
+  next to that button at the 612 px settings minimum.
 - **BREAKING**: the per-game runtime settings live in one `[runtime]`
   section. `[runtime] prefix` replaces `[proton] wine_prefix` (Steam
   compatdata dir) and `[runtime] prefix_dir` (local `WINEPREFIX`), and
