@@ -19,9 +19,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Settings and metadata (sessions ahead)
 
-- [ ] Per-game artwork provider override: the per-game `[artwork]` block
-  has no way to override the *provider* for one game (the preference is
-  global); decide if a rare mismatched game needs it.
 - [ ] Categories redesign, remaining half: how categories work and how
   they are added. The broken Category column is gone from the library
   list; showing the tags in a right-hand details section waits for that

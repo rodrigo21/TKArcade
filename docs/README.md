@@ -48,3 +48,5 @@ What each document is for and where the source of truth lives.
   failure policy.
 - `decisions/running-indicator.md` — running records, signal forwarding
   and Terminate.
+- `decisions/artwork-provider.md` — why the artwork provider stays
+  global instead of gaining a per-game override.

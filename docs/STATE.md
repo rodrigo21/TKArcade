@@ -7,9 +7,10 @@ history lives in `CHANGELOG.md` and git, deferred work in `TODO.md`,
 document roles in `docs/README.md`. Refresh it with `/handoff` before
 stopping mid-task.
 
-- Branch: `main`, at the `artwork-leftovers` squash merge (`ded8174`),
-  pushed to `origin`. The branch was deleted; the working tree carries
-  only the maintainer's `pkgver` churn in
+- Branch: `main`, at the `artwork-leftovers` squash merge (`ded8174`)
+  plus one local docs commit (the artwork-provider decision, not pushed
+  yet). The branch was deleted; the working tree carries only the
+  maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD` (never committed); `.qoder/`
   is git-ignored.
 - Landed: the Artwork Status row says "Artwork Cleared" while the source
@@ -24,13 +25,14 @@ stopping mid-task.
   and reports; no `Kirigami.Dialog` left), the per-game `[metadata]`
   fields, and every view's keyboard navigation.
 - Verified: 482 tests with the QML driver before landing (known
-  unrelated batch-abort retries), 481 fast tests on `main` after, and
-  offscreen cards with portrait cover/icon/no art plus the Artwork
-  Status at the 612 px minimum. Venv refreshed after the merge.
-- Next: the remaining `TODO.md` artwork item (per-game provider
-  override), then the categories redesign; later the deferred DXVK,
-  external-runtime and preferences/Global Defaults design reviews, and
-  the release pass.
+  unrelated batch-abort retries), 481 fast tests on `main` after, docs
+  contract 6 passed after the decision record, and offscreen cards with
+  portrait cover/icon/no art plus the Artwork Status at the 612 px
+  minimum. Venv refreshed after the merge.
+- Next: the categories redesign (the per-game artwork provider override
+  was rejected, see `docs/decisions/artwork-provider.md`); later the
+  deferred DXVK, external-runtime and preferences/Global Defaults design
+  reviews, and the release pass.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post533.
 - Nothing blocking.
