@@ -12,6 +12,14 @@ License: GPL-3.0-or-later.
 - Rename the session to the task in progress whenever the work moves to
   a new area.
 
+## Changes require approval
+
+Never create, edit, delete, stage, commit or push without the
+maintainer's explicit approval. Investigate read-only, then present a
+plan (files, exact edits, verification, risks) and wait for approval.
+If the scope changes mid-task, stop and ask again. Prefer Qoder's plan
+mode for this workflow.
+
 ## Work state
 
 `docs/STATE.md`, `docs/README.md` and `docs/GIT.md` are ambient
