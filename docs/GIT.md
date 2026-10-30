@@ -12,6 +12,9 @@ session has the rules in context.
 
 - Read `git status --short` and the recent log before touching git:
   know the branch and every dirty file.
+- Never discard uncommitted work (`git reset --hard`,
+  `git checkout --`, `git clean -f`); investigate unexpected state or
+  ask first.
 - The maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD` stays dirty and out of
   commits. Never use `git add -A` or `git add .`: stage explicit paths.
@@ -19,13 +22,18 @@ session has the rules in context.
   short-lived branch off `main` (`git switch -c <theme> main`);
   `main` stays untouched until the change is approved. Trivial fixes
   and docs-only changes may commit on `main`.
-- One theme per session. If the work moves to another area, stop,
-  hand off and start a new session.
+- One theme per batch. If the work moves to another area, stop, hand
+  it off and return to plan mode; start a new session when the context
+  budget calls for it (`AGENTS.md`).
 
 ## 2. Commit
 
 - One commit per area/theme. A feature branch may carry several working
   commits; `main` receives exactly one squash commit when it lands.
+- Review `git diff` and `git diff --cached` before committing; the
+  index must contain only the intended explicit paths.
+- Never commit secrets or machine-local data: `.env`, API keys
+  (SteamGridDB), user XDG/Steam paths.
 - Refresh the venv before committing (version comes from
   `git describe`):
   `uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .`

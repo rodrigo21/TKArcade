@@ -22,8 +22,8 @@ mode for this workflow.
 
 ## Plan mode is the default
 
-Entering plan mode is always allowed; only leaving it to execute
-requires approval.
+Start every session in plan mode. Entering it is always allowed; only
+leaving it to execute requires approval.
 
 Stay in plan mode until the maintainer approves a plan: investigate
 read-only, ask when needed and present files, exact edits,
@@ -38,7 +38,8 @@ the next theme.
 instructions (`instructions` in `opencode.json`), so all three are
 already in context: current branch, last landed change and next step;
 the map of every document; and the branch/commit/push rules. Refresh
-`STATE.md` with `/handoff` before stopping mid-task; designs are
+`STATE.md` with `/handoff` before stopping mid-task and after each
+landing (`docs/GIT.md`); designs are
 committed docs under `docs/decisions/`, never plan-mode scratch files
 outside the repo.
 
@@ -48,10 +49,10 @@ Every request re-sends the whole session, so cost grows with the number
 of turns, not with the size of the project. Budget: **~25 tool calls per
 commit**; measure at the end with `opencode stats --project .`.
 
-- One theme per session (normally one commit): `/handoff` and start a
-  new one after each landing/push; the session-closing handoff commit
-  is the exception (`docs/GIT.md`). A session that carries several
-  features is the main way one reaches the context limit.
+- One theme per batch (normally one commit): `/handoff` after each
+  landing/push, then return to plan mode; start a new session when the
+  context budget calls for it (`docs/GIT.md`). A session that carries
+  several features is the main way one reaches the context limit.
 - Batch independent calls in one turn. Never re-run a check that already
   passed without a code change since.
 - Never dump a whole file, binary or large diff: `grep`, `sed -n`,
@@ -85,6 +86,11 @@ and without `pytest-qt`; never monkeypatch Qt globals at fixture scope
 (patch inside the test body). GUI changes need an offscreen screenshot
 check.
 
+Tests and GUI smoke checks run with temporary XDG/HOME dirs (the
+`xdg_env` fixture for pytest), never the maintainer's real config,
+prefix or Steam library. Report any check that could not run or does
+not cover the change; never claim it passed.
+
 Refresh the local venv after the last change on the branch and again
 after the merge, so the maintainer can test the new build before and
 after landing it (the version comes from git describe):
@@ -102,7 +108,7 @@ or the maintainer tests a stale install.
 `docs/GIT.md` (ambient) is the single source for branch, commit, merge
 and push rules. Non-negotiables:
 
-- One theme per session. Multi-file features, GUI/QML work and risky
+- One theme per batch. Multi-file features, GUI/QML work and risky
   refactors land on a short-lived branch off `main`; `main` stays
   untouched until approval. Trivial fixes and docs may commit to `main`.
 - Squash-merge the branch into one commit, delete it locally and
@@ -110,6 +116,8 @@ and push rules. Non-negotiables:
 - Stage explicit paths: the maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD` stays out of commits, so never
   `git add -A` or `git add .`.
+- Review the full diff before each commit; never discard uncommitted
+  work or commit secrets/machine-local data (`docs/GIT.md`).
 - Commits carry `Co-Authored-By` + `AI-Model` through the local hook;
   keep `opencode.json` and `.opencode-model` in sync. User-facing
   changes get a `CHANGELOG.md` entry under Unreleased, with explicit
@@ -125,11 +133,16 @@ Read the triggered document **before** the first change in that area;
 | a branch, commit, merge or push | `docs/GIT.md` |
 | config keys, launch order, exit codes, XDG paths | `docs/POLICIES.md`, then `README.md` ("Local games", "Config files") |
 | any `.qml`, or a QML test | `docs/QML-NOTES.md` |
+| GUI strings or translations (`.ts`/`.qm`) | `docs/DEVELOPMENT.md` |
 | tests, venv, packaging, tags/releases, AppImage | `docs/DEVELOPMENT.md` |
+| new dependencies, Steam-owned files, save/backup integration, packaging recipes | `docs/POLICIES.md` |
 | a design question ("why is it like this?") | `docs/decisions/` through `docs/README.md` |
 | what is still open | `TODO.md` |
 | a release display check | `docs/runbooks/real-display-checks.md` |
 | session state, handoff | `docs/STATE.md` |
+
+User-facing CLI flags, config keys and exit codes also update
+`README.md` and `packaging/man/tkarcade.1` in the same commit.
 
 A change that makes a document wrong updates it in the same commit:
 `tests/test_docs.py` fails when a document is missing from the map, a
