@@ -10,11 +10,12 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, clean. The working tree carries only the maintainer's
   `pkgver` churn in `packaging/arch/tkarcade-git/PKGBUILD` (never
   committed); `.qoder/` is git-ignored.
-- Landed: `AGENTS.md` makes plan mode the default: stay there until the
-  plan is approved, execute only the approved scope, and re-enter it
-  after commit, push and handoff. `docs/GIT.md` points there and treats
-  the handoff commit as the close of the landing batch; `STATE.md`
-  stays a state file, not policy.
+- Landed: `AGENTS.md` makes plan mode the default and states entering
+  it needs no approval while leaving to execute does: stay there until
+  the plan is approved, execute only that scope, and re-enter after
+  commit, push and handoff. `docs/GIT.md` points there and treats the
+  handoff commit as the close of the landing batch; `STATE.md` stays a
+  state file, not policy.
 - Before it: the `App ID` label and empty-tooltip fixes, the approval
   rule, the git-rules reorg into `docs/GIT.md`, and the artwork
   leftovers (cleared status, card covers, banner aspect).
