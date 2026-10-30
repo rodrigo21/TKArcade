@@ -22,6 +22,9 @@ mode for this workflow.
 
 ## Plan mode is the default
 
+Entering plan mode is always allowed; only leaving it to execute
+requires approval.
+
 Stay in plan mode until the maintainer approves a plan: investigate
 read-only, ask when needed and present files, exact edits,
 verification and risks. Leave it only for the approved scope; a
