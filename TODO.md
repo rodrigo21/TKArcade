@@ -37,6 +37,13 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   they are added. The broken Category column is gone from the library
   list; showing the tags in a right-hand details section waits for that
   section to exist.
+- [ ] Migrate the library's remaining confirmations to the settings
+  pattern: `removeDialog`, `cleanupDialog`, `shaderDialog`,
+  `overwriteDialog` and `resetDialog` in `MainPage.qml` are still
+  `Kirigami.PromptDialog` popups, while the settings ones are separate
+  modal windows (`ConfirmDialog.qml`). Reusing it means promoting the
+  component out of `GameSettings.qml`; the tests' `_confirm_window()`
+  already works on any visible top-level.
 
 ## Deferred design review
 
