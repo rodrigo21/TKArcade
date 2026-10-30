@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- The settings confirmations are separate dialog windows now, the same
+  widgets `QMessageBox` shape as About: an icon, a right-aligned default
+  button and a box that hugs its content. A long value (a prefix path,
+  an unsaved-edits note) gets a wrapping block of its own instead of
+  widening the box to its natural width.
 - **BREAKING**: the runtime choice moved from `[general] environment` to
   `[runtime] type`, next to the other launch settings; the values are
   unchanged (`proton`, `native`, `wine`, `umu`). An old config loads with

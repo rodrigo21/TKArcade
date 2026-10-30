@@ -112,6 +112,15 @@ failure. `AGENTS.md` links here.
   `tests/kirigami_qml_cases.py` polls the window hit test (walking
   `childAt` down the tree, it only reports one level) until the control
   is the visible target, then clicks — use it in settings/dialog cases.
+- The settings confirmations are `Window`s of their own (`ConfirmDialog.qml`),
+  not `Kirigami.Dialog` popups: Qt closes the window on Escape through
+  `watchDialogKeys` and on a click outside (a modal window ignores the
+  parent), and `visible` is immediate, so the fade dance above does not
+  apply. Tests reach the dialog with `_confirm_window()` (a lookup in
+  `topLevelWindows()`, like `_settings_window`), never through the
+  settings window's item tree. Hold that window in a variable: PySide's
+  `topLevelWindows()` wrapper owns it, and letting the temporary drop
+  invalidates the window and every item under it.
 - `StackLayout` children do not auto-fill: every tab needs explicit
   `Layout.fillWidth/Height`, else it collapses to implicit size.
 - Settings and dialogs mirror the widgets QDialog layout in pure QML

@@ -655,10 +655,13 @@ Window {
         }
         if (isDirty()) {
             pendingProfile = name
-            confirmLabel.text = qsTr("You Have Unsaved Changes. Save Them Before Switching to Profile '%1'?\n(The Saved Profile Is Kept.)").arg(name)
-            confirmPurpose = "discardSwitch"
-            confirmOk.text = qsTr("Discard")
-            confirmDialog.open()
+            setupConfirm("discardSwitch", qsTr("Unsaved Changes"),
+                qsTr("You Have Unsaved Changes. Save Them Before Switching to Profile '%1'?").arg(name),
+                qsTr("Discard"))
+            confirmDialog.softIcon = true
+            confirmDialog.detail = qsTr("(The Saved Profile Is Kept.)")
+            confirmDialog.saveVisible = true
+            confirmDialog.open(gameSettings)
             profileBox.currentIndex = Math.max(0, profiles.indexOf(dialogProfile))
             return
         }
@@ -803,11 +806,11 @@ Window {
     // (widgets _confirm_newer_overwrite); acceptConfirm retries via
     // pendingGate.
     function askNewerOverwrite() {
-        confirmLabel.text = qsTr("%1 Saving Now Will Downgrade It and May Lose Settings. Continue?")
-            .arg(qsTr("This Configuration Was Written by a Newer TKArcade."))
-        confirmPurpose = "newerApp"
-        confirmOk.text = qsTr("OK")
-        confirmDialog.open()
+        setupConfirm("newerApp", qsTr("Newer Configuration"),
+            qsTr("%1 Saving Now Will Downgrade It and May Lose Settings. Continue?")
+                .arg(qsTr("This Configuration Was Written by a Newer TKArcade.")),
+            qsTr("OK"))
+        confirmDialog.open(gameSettings)
     }
 
     // Per game: apply the Global Defaults *template* (widgets _on_reset),
@@ -826,10 +829,11 @@ Window {
             ? qsTr("Unsaved Changes to Profile '%1' Will Be Discarded (the Saved Profile Is Kept).").arg(dialogProfile)
             : (isDirty() ? qsTr("Unsaved Changes Will Be Discarded.")
                 : qsTr("This Overwrites the Saved Game Config."))
-        confirmLabel.text = qsTr("Reset This Game to the Global Defaults Template Now?\n%1").arg(detail)
-        confirmPurpose = "resetDefaults"
-        confirmOk.text = qsTr("Reset")
-        confirmDialog.open()
+        setupConfirm("resetDefaults", qsTr("Reset Game"),
+            qsTr("Reset This Game to the Global Defaults Template Now?"),
+            qsTr("Reset"))
+        confirmDialog.detail = detail
+        confirmDialog.open(gameSettings)
     }
 
     // Defaults editor: built-in factory values, in memory only -- Cancel
@@ -1063,10 +1067,10 @@ Window {
     // Clear… confirms first: the cached art belongs to the source AppID,
     // so other games pointing there lose it too.
     function requestClearFetched() {
-        confirmPurpose = "clearArtwork"
-        confirmLabel.text = qsTr("Remove the Downloaded Artwork of AppID %1? Any Other Game Using That AppID Falls Back to Steam's Own Art.").arg(artSourceField.text.trim())
-        confirmOk.text = qsTr("Remove")
-        confirmDialog.open()
+        setupConfirm("clearArtwork", qsTr("Remove Downloaded Artwork"),
+            qsTr("Remove the Downloaded Artwork of AppID %1? Any Other Game Using That AppID Falls Back to Steam's Own Art.").arg(artSourceField.text.trim()),
+            qsTr("Remove"))
+        confirmDialog.open(gameSettings)
     }
 
     function clearFetchedArtwork() {
@@ -1379,10 +1383,11 @@ Window {
         if (pendingPrompt === "saveAs") {
             if (gameModel.profileExists(editAppid, name) && pendingName !== name) {
                 pendingName = name
-                confirmLabel.text = qsTr("Overwrite Profile '%1'?").arg(name)
-                confirmPurpose = "overwriteProfile"
-                confirmOk.text = qsTr("Overwrite")
-                confirmDialog.open()
+                setupConfirm("overwriteProfile", qsTr("Save Profile"),
+                    qsTr("Overwrite Profile '%1'?").arg(name),
+                    qsTr("Overwrite"))
+                confirmDialog.softIcon = true
+                confirmDialog.open(gameSettings)
                 return
             }
             pendingName = ""
@@ -1694,10 +1699,10 @@ Window {
                                             if (name === "") {
                                                 return
                                             }
-                                            confirmLabel.text = qsTr("Delete Profile '%1'? This Cannot Be Undone.").arg(name)
-                                            confirmPurpose = "deleteProfile"
-                                            confirmOk.text = qsTr("Delete")
-                                            confirmDialog.open()
+                                            setupConfirm("deleteProfile", qsTr("Delete Profile"),
+                                                qsTr("Delete Profile '%1'? This Cannot Be Undone.").arg(name),
+                                                qsTr("Delete"))
+                                            confirmDialog.open(gameSettings)
                                         }
                                     }
                                 }
@@ -2416,11 +2421,12 @@ Window {
                                             if (target === "") {
                                                 return
                                             }
-                                            confirmLabel.text = qsTr("Delete the Prefix Now?\n%1\nSaves Inside Are Lost.").arg(
-                                                target)
-                                            confirmPurpose = "clearPrefix"
-                                            confirmOk.text = qsTr("Delete")
-                                            confirmDialog.open()
+                                            setupConfirm("clearPrefix", qsTr("Clear Prefix"),
+                                                qsTr("Delete the Prefix Now?"),
+                                                qsTr("Delete"))
+                                            confirmDialog.detail = target
+                                            confirmDialog.warning = qsTr("Saves Inside Are Lost.")
+                                            confirmDialog.open(gameSettings)
                                         }
                                     }
                                     Controls.Button {
@@ -3689,48 +3695,28 @@ Window {
         }
     }
 
-    Kirigami.Dialog {
+    // One confirmation at a time: the purpose selects the action in
+    // acceptConfirm/acceptConfirmSave, everything else is presentation.
+    // Activating the window buttons runs the accept functions, which close
+    // the dialog themselves (a failed action keeps the settings window up).
+    function setupConfirm(purpose, title, question, acceptText) {
+        confirmDialog.title = title
+        confirmDialog.question = question
+        confirmDialog.detail = ""
+        confirmDialog.warning = ""
+        confirmDialog.softIcon = false
+        confirmDialog.acceptText = acceptText
+        confirmDialog.saveVisible = false
+        confirmPurpose = purpose
+    }
+
+    // A separate modal window on the settings one, the widgets QMessageBox
+    // shape: a long detail gets its own wrapping block instead of dictating
+    // the box width.
+    ConfirmDialog {
         id: confirmDialog
-        parent: gameSettings.contentItem
-        objectName: "settingsConfirm"
-        title: confirmPurpose === "deleteProfile" ? qsTr("Delete Profile")
-            : (confirmPurpose === "resetDefaults" ? qsTr("Reset Game")
-            : (confirmPurpose === "overwriteProfile" ? qsTr("Save Profile")
-            : (confirmPurpose === "clearArtwork" ? qsTr("Remove Downloaded Artwork")
-            : (confirmPurpose === "clearPrefix" ? qsTr("Clear Prefix")
-            : (confirmPurpose === "newerApp" ? qsTr("Newer Configuration")
-            : qsTr("Unsaved Changes"))))))
-        padding: Kirigami.Units.largeSpacing
-        ColumnLayout {
-            Controls.Label {
-                id: confirmLabel
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-            }
-        }
-        footer: RowLayout {
-            Layout.fillWidth: true
-            Item {
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                id: confirmOk
-                objectName: "settingsConfirmOk"
-                text: qsTr("OK")
-                highlighted: true
-                onClicked: gameSettings.acceptConfirm()
-            }
-            Controls.Button {
-                objectName: "settingsConfirmSave"
-                visible: confirmPurpose === "discardSwitch"
-                text: qsTr("Save")
-                onClicked: gameSettings.acceptConfirmSave()
-            }
-            Controls.Button {
-                text: qsTr("Cancel")
-                onClicked: confirmDialog.close()
-            }
-        }
+        onAccepted: gameSettings.acceptConfirm()
+        onSaved: gameSettings.acceptConfirmSave()
     }
 
     Kirigami.Dialog {

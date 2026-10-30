@@ -2745,9 +2745,8 @@ def test_artwork_source_prompt_stays_in_settings(qgui_app, xdg_env, monkeypatch)
         cleared.append((appid, source)) or "done"
     )
     _click(swin, "artClear")
-    confirm = swin.findChild(QObject, "settingsConfirm")
-    assert confirm is not None and confirm.property("visible") is True
-    _click(swin, "settingsConfirmOk")
+    confirm = _confirm_window(qgui_app)
+    _click(confirm, "settingsConfirmOk")
     assert cleared == [("local-doom", "480")], cleared
     assert "Removed" in status.property("text"), status.property("text")
 
@@ -2986,17 +2985,15 @@ def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env, monkeypatch):
     page.openGameSettings("99")
     swin = _settings_window(qgui_app)
     dialog = win.findChild(QObject, "gameSettings")
-    confirm = win.findChild(QObject, "settingsConfirm")
-    # A confirmation popup goes first: the window keeps the edits.
+    # The confirmation is a modal window of its own now: Escape there
+    # dismisses it and the settings window keeps the edits.
     dialog.resetDefaults()
-    assert _wait_for(lambda: confirm.property("opened") is True), "confirm did not open"
-    QTest.keyClick(swin, Qt.Key.Key_Escape)
-    assert _wait_for(lambda: confirm.property("opened") is False), "Escape left the confirm open"
+    confirm = _confirm_window(qgui_app)
+    _settle_focus(confirm)
+    QTest.keyClick(confirm, Qt.Key.Key_Escape)
+    assert _wait_for(lambda: confirm.isVisible() is False), "Escape left the confirm open"
     assert dialog.property("visible") is True
     # A combo popup (a QQC2 Menu in the desktop style) comes first too.
-    # `_click` polls the window hit test: the dim overlay of the confirm
-    # just closed sits above everything for a moment and would swallow a
-    # raw click (the popups now render inside this window).
     _settings_tab(swin, TAB_RUNTIME)
     _click(swin, "settingsRuntimeType")
     assert _wait_for(lambda: _opened_popups(dialog) != []), "combo popup did not open"
@@ -3069,11 +3066,11 @@ def test_enter_accepts_the_open_confirm(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     _settle_focus(swin)
     dialog = win.findChild(QObject, "gameSettings")
-    confirm = win.findChild(QObject, "settingsConfirm")
     dialog.resetDefaults()
-    assert _wait_for(lambda: confirm.property("opened") is True), "confirm did not open"
-    QTest.keyClick(swin, Qt.Key.Key_Return)
-    assert _wait_for(lambda: confirm.property("opened") is False), "Enter missed the confirm"
+    confirm = _confirm_window(qgui_app)
+    _settle_focus(confirm)
+    QTest.keyClick(confirm, Qt.Key.Key_Return)
+    assert _wait_for(lambda: confirm.isVisible() is False), "Enter missed the confirm"
     assert dialog.property("visible") is True  # still the settings window
     assert C.load("local-doom").general.name == "From Template"
     real = [w for w in warnings if "graphics scene" not in w]
@@ -4359,6 +4356,29 @@ def _settings_window(qgui_app):
     raise AssertionError(f"settings window never showed (have {titles})")
 
 
+def _confirm_window(qgui_app):
+    """The visible confirmation top-level window (objectName settingsConfirm).
+
+    Confirmations are separate modal windows now (ConfirmDialog.qml), not
+    popups inside the settings one: visibility and clicks go through the
+    top-level, never through the settings window's item tree. Hold the
+    returned window in a variable -- the PySide wrapper from
+    topLevelWindows() owns it, so letting the temporary go invalidates the
+    window and every item under it.
+    """
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtTest import QTest
+
+    for _ in range(25):
+        for w in QGuiApplication.topLevelWindows():
+            if w.isVisible() and w.objectName() == "settingsConfirm":
+                QTest.qWait(120)
+                return w
+        QTest.qWait(20)
+    titles = [w.title() for w in QGuiApplication.topLevelWindows()]
+    raise AssertionError(f"confirm window never showed (have {titles})")
+
+
 def _opened_popups(parent):
     """Class names of the opened popups under `parent` (anything with `opened`)."""
     from PySide6.QtCore import QObject
@@ -5336,6 +5356,17 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert picker is not None
     QMetaObject.invokeMethod(picker, "close")
     QTest.qWait(50)
+    # Clear… confirms in its own window, the path in a block of its own so a
+    # long prefix wraps instead of widening the box (QMessageBox shape).
+    _click(swin, "winePrefixClear")
+    confirm = _confirm_window(qgui_app)
+    detail = confirm.findChild(QQuickItem, "settingsConfirmDetail")
+    warning = confirm.findChild(QQuickItem, "settingsConfirmWarning")
+    assert detail.property("text") == prefix.as_posix()
+    assert detail.property("visible") is True
+    assert warning.property("visible") is True
+    _click(confirm, "settingsConfirmCancel")
+    assert _wait_for(lambda: confirm.isVisible() is False), "Cancel left the confirm open"
     dlg.save()
     QTest.qWait(50)
     cfg = C.load("local-doom")
@@ -5602,7 +5633,8 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     name.setProperty("text", "Changed")
     _click(swin, "settingsReset")
     qgui_app.processEvents()
-    assert win.findChild(QObject, "settingsConfirm").property("visible") is True
+    confirm = _confirm_window(qgui_app)
+    assert confirm.property("visible") is True
     dlg.acceptConfirm()
     qgui_app.processEvents()
     assert name.property("text") == "From Template"
@@ -5662,7 +5694,7 @@ def test_settings_newer_version_gate(qgui_app, xdg_env):
     name.setProperty("text", "Downgraded")
     dlg.save()
     qgui_app.processEvents()
-    confirm = win.findChild(QObject, "settingsConfirm")
+    confirm = _confirm_window(qgui_app)
     assert confirm.property("visible") is True
     assert dlg.property("confirmPurpose") == "newerApp"
     assert dlg.property("visible") is True  # gate keeps the window open
@@ -5701,10 +5733,9 @@ def test_settings_profile_switch_save(qgui_app, xdg_env):
     dlg.requestProfileSwitch(0)
     qgui_app.processEvents()
     assert dlg.property("confirmPurpose") == "discardSwitch"
-    save = swin.findChild(QQuickItem, "settingsConfirmSave")
+    confirm = _confirm_window(qgui_app)
+    save = confirm.findChild(QQuickItem, "settingsConfirmSave")
     assert save is not None and save.property("visible") is True
-    # Kirigami.Dialog overlays never finish their enter fade offscreen, so
-    # synthetic clicks do not reach the footer: drive the accept directly.
     dlg.acceptConfirmSave()
     qgui_app.processEvents()
     # Save kept the edit on the live file, then the switch happened.
@@ -6023,8 +6054,7 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     name.setProperty("text", "Unsaved")
     dlg.requestProfileSwitch(1)
     qgui_app.processEvents()
-    confirm = win.findChild(QObject, "settingsConfirm")
-    assert confirm.property("visible") is True
+    confirm = _confirm_window(qgui_app)
     assert dlg.property("confirmPurpose") == "discardSwitch"
     dlg.acceptConfirm()
     qgui_app.processEvents()
@@ -6032,14 +6062,13 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     assert dlg.property("dialogProfile") == "slow"
     dlg.requestProfileSwitch(0)
     qgui_app.processEvents()
-    assert confirm.property("opened") is False
+    assert confirm.property("visible") is False
     assert name.property("text") == "Doom"
     box = swin.findChild(QQuickItem, "settingsProfiles")
     box.setProperty("currentIndex", 1)
-    # _click polls the hit test: the confirm just closed leaves its dim
-    # overlay above the window for a moment and would swallow a raw click.
     _click(swin, "settingsProfileDelete")
     qgui_app.processEvents()
+    confirm = _confirm_window(qgui_app)
     assert confirm.property("visible") is True
     dlg.acceptConfirm()
     qgui_app.processEvents()
