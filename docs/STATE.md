@@ -11,21 +11,25 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver` and an untracked `.SRCINFO`, never committed); `.qoder/` is
   git-ignored.
-- Landed: the Profile selector shows the profile names again — its
-  combo declared a `display` text role over a plain string list, which
-  blanked the field and the popup rows; the model now carries
-  `{text, data}` rows with `textRole: "text"`. The tooltip sweep found
-  no other empty bubble in the shell.
-- Before it: the landing gate (`AGENTS.md` + `docs/GIT.md`), then the
-  profile controls moved above the settings tabs.
-- Verified: `scripts/check.sh --changed` 482 passed (full QML driver)
-  plus the three profile cases in isolation; offscreen screenshots show
-  the active name on General and Runtime. Venv refreshed after the
-  merge.
-- Next: the categories redesign (the per-game artwork provider override
-  was rejected, see `docs/decisions/artwork-provider.md`); later the
-  deferred DXVK, external-runtime and preferences/Global Defaults design
-  reviews, and the release pass.
+- Landed: the categories redesign, squashed into one commit. Categories
+  work like Lutris's: a Categories section in the library sidebar
+  (Origins sources above with icons, `Edit Categories` framed by
+  separator lines) replaces the `CategoryDialog` filter; assignment is
+  the checkable Set Categories list with tri-state and a new-tag field;
+  categories live in `categories.toml` with an icon and a manager/editor;
+  tags normalize case-insensitively; `TKARCADE_OPEN=category` expands
+  the sidebar. Resized dialogs now grow their capped lists and text
+  areas.
+- Before it: the profile selector `display` text-role fix, and the
+  landing gate itself.
+- Verified: `scripts/check.sh --qml` 485 passed (one benign isolated
+  rerun), the category/settings cases in isolation, and offscreen
+  screenshots (sidebar expanded at default and minimum width, manager,
+  editor, picker, resized dialogs; zero engine warnings). Venv refreshed
+  after the merge.
+- Next: re-enter plan mode for the next theme. `TODO.md` holds the
+  deferred DXVK, external-runtime, Preferences and Global Defaults design
+  reviews and the release pass (only when the maintainer opens it).
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post533.
 - Nothing blocking.
