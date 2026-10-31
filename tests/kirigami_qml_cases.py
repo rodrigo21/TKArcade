@@ -2360,6 +2360,7 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
         "settingsAppid",
         "settingsName",
         "settingsCats",
+        "settingsCatsAdd",
     )
     launch = (
         "settingsExe",
@@ -6243,8 +6244,8 @@ def test_settings_tabs_formlayout_never_stack(qgui_app, xdg_env):
 
 
 def test_settings_library_fields_flow(qgui_app, xdg_env):
-    """Library fields round-trip: tags, args/cwd, fps, prefix, art source."""
-    from PySide6.QtCore import QObject
+    """Library fields round-trip: categories, args/cwd, fps, prefix, art source."""
+    from PySide6.QtCore import QMetaObject, QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
@@ -6259,6 +6260,16 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
+    # The Add button opens the shared picker; OK writes into the field.
+    assert QMetaObject.invokeMethod(dlg, "openCatsPicker") is True
+    qgui_app.processEvents()
+    picker = win.findChild(QObject, "settingsCatsPicker")
+    assert picker.property("visible") is True
+    assert picker.property("catRows").toVariant() == []
+    picker.setProperty("newCategories", "Retro")
+    assert QMetaObject.invokeMethod(picker, "accepted") is True
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "settingsCats").property("text") == "Retro"
     swin.findChild(QQuickItem, "settingsCats").setProperty("text", "Action, Retro")
     swin.findChild(QQuickItem, "settingsArgs").setProperty("text", "--fullscreen")
     swin.findChild(QQuickItem, "settingsCwd").setProperty("text", "/tmp")
@@ -6314,10 +6325,40 @@ def test_library_columns_headers(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def _visual_items(root):
+    """Every QQuickItem under root; Repeater delegates have no QObject parent."""
+    yield root
+    for child in root.childItems():
+        yield from _visual_items(child)
+
+
+def _flush_deletes():
+    """Run QML destroy() calls now: the rebuilt drawer hides stale actions."""
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def _click_item(item):
+    """Real mouse click: QQC2 onToggled only fires for user input."""
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+
+    QTest.qWait(120)
+    win = item.window()
+    center = item.mapToScene(item.boundingRect().center())
+    QTest.mouseClick(
+        win,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+        QPoint(int(center.x()), int(center.y())),
+    )
+
+
 def test_library_category_filter_bulk(qgui_app, xdg_env):
-    """Drawer category filter narrows; bulk set writes tags."""
-    from PySide6.QtCore import QObject
-    from PySide6.QtQuick import QQuickItem
+    """Sidebar Categories section filters; the checkable dialog writes categories."""
+    from PySide6.QtCore import QMetaObject, QObject
+    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -6330,23 +6371,182 @@ def test_library_category_filter_bulk(qgui_app, xdg_env):
     win, engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     assert proxy.rowCount() == 2
-    dlg = win.findChild(QObject, "categoryDialog")
-    assert dlg is not None
-    dlg.openDialog()
-    qgui_app.processEvents()
-    assert win.findChild(QObject, "categoryDialog").property("visible") is True
-    win.findChild(QObject, "categoryDialog").close()
+    origins = win.findChild(QObject, "drawerOrigins")
+    assert origins.property("text") == "Origins"
+    assert {
+        name: win.findChild(QObject, name).property("text")
+        for name in ("drawerSourceAll", "drawerSourceSteam", "drawerSourceLocal")
+    } == {
+        "drawerSourceAll": "All Games (2)",
+        "drawerSourceSteam": "Steam (0)",
+        "drawerSourceLocal": "Local (2)",
+    }
+    section = win.findChild(QObject, "drawerCategories")
+    assert section is not None
+    assert section.property("visible") is False
     page.select("local-doom")
-    win.findChild(QQuickItem, "bulkCatsField").setProperty("text", "Action")
-    page.acceptBulkCats()
+    page.openBulkCats()
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "bulkCatsDialog")
+    assert dlg.property("visible") is True
+    assert dlg.property("catRows").toVariant() == []
+    dlg.setProperty("newCategories", "Action")
+    assert QMetaObject.invokeMethod(dlg, "accepted") is True
     qgui_app.processEvents()
     assert C.load("local-doom").general.categories == ["Action"]
-    proxy.setProperty("categoryKey", "Action")
+    win.findChild(QObject, "sourceDrawer").setProperty("collapsed", False)
+    # createObject products are JS-owned and the children list does not
+    # root them: let the engine's GC run, then prove the drawer still has
+    # live delegates (stale nulls blank the rows and warn).
+    QTest.qWait(1600)
+    all_action = win.findChild(QObject, "categoryAllAction")
+    cat_action = win.findChild(QObject, "categoryAction_Action")
+    assert all_action.property("text") == "All Categories (2)"
+    assert cat_action.property("text") == "Action (1)"
+    assert section.property("visible") is True
+    assert win.findChild(QObject, "drawerSeparator").property("visible") is True
+    manage = win.findChild(QObject, "categoryManageAction")
+    assert manage.property("text") == "Edit Categories"
+    for name in ("categoryRuleTop", "categoryRuleBottom"):
+        rule = win.findChild(QObject, name)
+        assert rule.property("separator") is True
+        assert rule.property("visible") is True
+    built = win.property("categoryActions")
+    assert [
+        built.property(str(i)).toQObject().property("objectName")
+        for i in range(built.property("length").toInt())
+    ] == [
+        "categoryRuleTop",
+        "categoryManageAction",
+        "categoryRuleBottom",
+        "categoryAllAction",
+        "categoryAction_Action",
+    ]
+    assert QMetaObject.invokeMethod(cat_action, "trigger") is True
+    qgui_app.processEvents()
+    assert proxy.property("categoryKey") == "Action"
+    assert proxy.rowCount() == 1
+    assert QMetaObject.invokeMethod(cat_action, "trigger") is True
+    qgui_app.processEvents()
+    assert proxy.property("categoryKey") == ""
+    assert proxy.rowCount() == 2
+    proxy.setProperty("categoryKey", "action")
     assert proxy.rowCount() == 1
     proxy.setProperty("categoryKey", "Missing")
     assert proxy.rowCount() == 0
     proxy.setProperty("categoryKey", "")
     assert proxy.rowCount() == 2
+    # Mixed selection: the category in use shows partially checked (state 1).
+    page.select("local-doom")
+    page.toggleSelect("local-quake")
+    page.openBulkCats()
+    qgui_app.processEvents()
+    assert dlg.property("catRows").toVariant() == [{"name": "Action", "state": 1}]
+    # Unchecking must reach catRows (modelData is a copy of the row).
+    box = next(
+        item
+        for item in _visual_items(dlg.property("contentItem"))
+        if item.objectName() == "categoryPick_Action"
+    )
+    _click_item(box)
+    qgui_app.processEvents()
+    assert dlg.property("catRows").toVariant() == [{"name": "Action", "state": 2}]
+    _click_item(box)
+    qgui_app.processEvents()
+    assert dlg.property("catRows").toVariant() == [{"name": "Action", "state": 0}]
+    assert QMetaObject.invokeMethod(dlg, "accepted") is True
+    qgui_app.processEvents()
+    # Removed from both games, but the category stays on record with (0).
+    assert C.load("local-doom").general.categories == []
+    assert C.load("local-quake").general.categories == []
+    assert [c.name for c in C.load_categories()] == ["Action"]
+    _flush_deletes()
+    assert win.findChild(QObject, "categoryAction_Action").property("text") == ("Action (0)")
+    assert section.property("visible") is True
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_library_category_editor(qgui_app, xdg_env):
+    """Sidebar manager/editor: apply a category to games and delete it."""
+    from PySide6.QtCore import Q_ARG, QMetaObject, QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid, name, cats in (
+        ("local-doom", "Doom", ["Action"]),
+        ("local-quake", "Quake", ["Retro"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = "/bin/true"
+        cfg.general.categories = cats
+        C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    manager = win.findChild(QObject, "categoryManager")
+    editor = win.findChild(QObject, "categoryEditor")
+    manage = win.findChild(QObject, "categoryManageAction")
+    assert QMetaObject.invokeMethod(manage, "trigger") is True
+    qgui_app.processEvents()
+    assert manager.property("visible") is True
+    assert manager.property("rows").toVariant() == [
+        {"name": "Action", "icon": "folder", "count": 1},
+        {"name": "Retro", "icon": "folder", "count": 1},
+    ]
+    # The capped list grows with the window instead of leaving the extra
+    # height to the footer (bodyFillHeight on DialogWindow).
+    listing = manager.findChild(QQuickItem, "categoryManagerList")
+    assert listing is not None
+    short = listing.property("height")
+    manager.setProperty("height", 720)
+    qgui_app.processEvents()
+    assert listing.property("height") > short
+    assert QMetaObject.invokeMethod(manager, "editRequested", Q_ARG(str, "Retro")) is True
+    qgui_app.processEvents()
+    assert editor.property("visible") is True
+    assert editor.property("rows") == [
+        {"appid": "local-doom", "name": "Doom", "state": 0},
+        {"appid": "local-quake", "name": "Quake", "state": 2},
+    ]
+    box = next(
+        item
+        for item in _visual_items(editor.property("contentItem"))
+        if item.objectName() == "categoryGame_local-doom"
+    )
+    _click_item(box)
+    qgui_app.processEvents()
+    editor.setProperty("iconName", "applications-games")
+    editor.setProperty("iconDirty", True)
+    assert QMetaObject.invokeMethod(editor, "accepted") is True
+    qgui_app.processEvents()
+    assert C.load("local-doom").general.categories == ["Action", "Retro"]
+    assert [(c.name, c.icon) for c in C.load_categories()] == [
+        ("Action", "folder"),
+        ("Retro", "applications-games"),
+    ]
+    assert manager.property("rows").toVariant() == [
+        {"name": "Action", "icon": "folder", "count": 1},
+        {"name": "Retro", "icon": "applications-games", "count": 2},
+    ]
+    # Delete through the confirmation the editor's Delete button opens.
+    assert QMetaObject.invokeMethod(manager, "editRequested", Q_ARG(str, "Retro")) is True
+    qgui_app.processEvents()
+    confirm = win.findChild(QObject, "categoryDeleteConfirm")
+    assert QMetaObject.invokeMethod(confirm, "accepted") is True
+    qgui_app.processEvents()
+    assert C.load("local-doom").general.categories == ["Action"]
+    assert C.load("local-quake").general.categories == []
+    assert [c.name for c in C.load_categories()] == ["Action"]
+    _flush_deletes()
+    assert win.findChild(QObject, "categoryAction_Retro") is None
+    assert manager.property("rows").toVariant() == [
+        {"name": "Action", "icon": "folder", "count": 1}
+    ]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

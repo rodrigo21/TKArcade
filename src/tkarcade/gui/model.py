@@ -495,6 +495,10 @@ class GameListModel(QAbstractTableModel):
         rows = [self._row(appid, names, stats) for appid in cfgmod.list_appids()]
         rows.sort(key=lambda r: r[1].lower())
         self._running = self._load_running()
+        try:
+            self._sync_category_store()
+        except Exception as e:
+            log.warning("category store not synced: %s", e)
         self.beginResetModel()
         self._rows = rows
         self.endResetModel()
@@ -1019,7 +1023,7 @@ class GameListModel(QAbstractTableModel):
         cats = data.get("categories", [])
         if isinstance(cats, str):
             cats = [c.strip() for c in cats.split(",")]
-        cfg.general.categories = [str(c).strip() for c in cats or [] if str(c).strip()]
+        cfg.general.categories = cfgmod.normalize_categories(cats)
         cfg.general.launch_args = str(data.get("launch_args", "")).strip()
         cfg.general.launch_cwd = str(data.get("launch_cwd", "")).strip()
         cfg.metadata.version = str(data.get("version", "")).strip()
@@ -1219,17 +1223,44 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(result=list)
     def allCategories(self) -> list:
-        """Every category tag in use, sorted case-insensitively."""
-        found: set[str] = set()
+        """Every category on record (store plus game tags), sorted."""
+        found = [cat.name for cat in cfgmod.load_categories()]
         try:
             for appid in cfgmod.list_appids():
                 try:
-                    found.update(cfgmod.load(appid).general.categories)
+                    found.extend(cfgmod.load(appid).general.categories)
                 except Exception:
                     continue
         except Exception:
-            return []
-        return sorted(found, key=str.lower)
+            pass
+        return sorted(cfgmod.normalize_categories(found), key=str.lower)
+
+    @Slot(result="QVariantMap")
+    def categoryIcons(self) -> dict:
+        """Sidebar icon for each category on record (theme icon names)."""
+        icons = {cat.name.lower(): cat.icon for cat in cfgmod.load_categories()}
+        return {name: icons.get(name.lower(), "folder") for name in self.allCategories()}
+
+    def _register_categories(self, names) -> None:
+        """Keep the given names in the store so they outlive their tags."""
+        wanted = cfgmod.normalize_categories(names)
+        if not wanted:
+            return
+        entries = cfgmod.load_categories()
+        known = {cat.name.lower() for cat in entries}
+        added = [cfgmod.Category(name) for name in wanted if name.lower() not in known]
+        if added:
+            cfgmod.save_categories(entries + added)
+
+    def _sync_category_store(self) -> None:
+        """Persist every tag seen on disk, so zero-game categories stay."""
+        found: list[str] = []
+        for appid in cfgmod.list_appids():
+            try:
+                found.extend(cfgmod.load(appid).general.categories)
+            except Exception:
+                continue
+        self._register_categories(found)
 
     @Slot(list, str, result=str)
     def setCategories(self, appids, text: str) -> str:
@@ -1237,7 +1268,7 @@ class GameListModel(QAbstractTableModel):
         ids = [str(a) for a in appids or []]
         if not ids:
             return "Select Games First."
-        cats = [c.strip() for c in str(text or "").split(",") if c.strip()]
+        cats = cfgmod.normalize_categories(str(text or "").split(","))
         count = 0
         for appid in ids:
             try:
@@ -1247,8 +1278,122 @@ class GameListModel(QAbstractTableModel):
                 count += 1
             except Exception as e:
                 log.warning("setCategories(%s) failed: %s", appid, e)
+        self._register_categories(cats)
         self.refresh()
         return f"Set {len(cats)} Categor(ies) on {count} Game(s)."
+
+    @Slot(list, result="QVariantMap")
+    def categoryPresence(self, appids) -> dict:
+        """How many of `appids` carry each category in use, by label."""
+        ids = [str(a) for a in appids or []]
+        canonical = {name.lower(): name for name in self.allCategories()}
+        counts: dict[str, int] = {name: 0 for name in canonical.values()}
+        for appid in ids:
+            try:
+                cats = cfgmod.load(appid).general.categories
+            except Exception:
+                continue
+            seen: set[str] = set()
+            for cat in cats:
+                key = cat.lower()
+                label = canonical.get(key)
+                if label and key not in seen:
+                    seen.add(key)
+                    counts[label] += 1
+        return counts
+
+    @Slot(result="QVariantMap")
+    def categoryCounts(self) -> dict:
+        """How many games carry each category in use, by label."""
+        return self.categoryPresence(cfgmod.list_appids())
+
+    @Slot(str, result="QVariantList")
+    def categoryGameRows(self, name: str) -> list:
+        """Every game and whether it carries `name` (category editor rows)."""
+        key = str(name or "").strip().lower()
+        ids = cfgmod.list_appids()
+        labels = self.gameNames(ids)
+        rows: list[dict] = []
+        for appid, label in zip(ids, labels, strict=False):
+            try:
+                cats = cfgmod.load(appid).general.categories
+            except Exception:
+                cats = []
+            has = key in [str(cat).strip().lower() for cat in cats]
+            rows.append({"appid": appid, "name": label, "state": 2 if has else 0})
+        rows.sort(key=lambda row: str(row["name"]).lower())
+        return rows
+
+    @Slot(str, list, result=str)
+    def setCategoryGames(self, name: str, appids) -> str:
+        """Apply `name` to the checked games and strip it from the rest."""
+        names = cfgmod.normalize_categories([name])
+        if not names:
+            return "Pick a Category First."
+        label, key = names[0], names[0].lower()
+        checked = {str(appid) for appid in appids or []}
+        changed = 0
+        for appid in cfgmod.list_appids():
+            try:
+                cfg = cfgmod.load(appid)
+                cats = list(cfg.general.categories)
+                has = key in [str(cat).strip().lower() for cat in cats]
+                want = appid in checked
+                if want == has:
+                    continue
+                if want:
+                    cats.append(label)
+                else:
+                    cats = [cat for cat in cats if str(cat).strip().lower() != key]
+                cfg.general.categories = cfgmod.normalize_categories(cats)
+                cfgmod.save(cfg)
+                changed += 1
+            except Exception as e:
+                log.warning("setCategoryGames(%s) failed: %s", appid, e)
+        self._register_categories([label])
+        self.refresh()
+        return f"Updated {changed} Game(s)."
+
+    @Slot(str, str)
+    def setCategoryIcon(self, name: str, icon: str) -> None:
+        """Set the sidebar icon of a category (creates it when missing)."""
+        names = cfgmod.normalize_categories([name])
+        if not names:
+            return
+        label, key = names[0], names[0].lower()
+        value = str(icon or "").strip() or "folder"
+        entries = cfgmod.load_categories()
+        for entry in entries:
+            if entry.name.lower() == key:
+                entry.icon = value
+                break
+        else:
+            entries.append(cfgmod.Category(label, value))
+        cfgmod.save_categories(entries)
+        self.refresh()
+
+    @Slot(str, result=str)
+    def deleteCategory(self, name: str) -> str:
+        """Delete a category: drop it from the store and every game."""
+        names = cfgmod.normalize_categories([name])
+        if not names:
+            return "Pick a Category First."
+        label, key = names[0], names[0].lower()
+        entries = cfgmod.load_categories()
+        stored = next((cat.name for cat in entries if cat.name.lower() == key), label)
+        cfgmod.save_categories([cat for cat in entries if cat.name.lower() != key])
+        for appid in cfgmod.list_appids():
+            try:
+                cfg = cfgmod.load(appid)
+                cats = list(cfg.general.categories)
+                kept = [cat for cat in cats if str(cat).strip().lower() != key]
+                if len(kept) != len(cats):
+                    cfg.general.categories = cfgmod.normalize_categories(kept)
+                    cfgmod.save(cfg)
+            except Exception as e:
+                log.warning("deleteCategory(%s) failed: %s", appid, e)
+        self.refresh()
+        return f"Deleted {stored}."
 
     @Slot(str, str, str, result=str)
     def storeArtwork(self, appid: str, kind: str, src: str) -> str:
@@ -4024,4 +4169,4 @@ class GameFilterModel(QSortFilterProxyModel):
         if not self._category:
             return True
         cats = str(model.data(index, GameListModel.CategoryRole) or "")
-        return self._category in [c.strip() for c in cats.split(",")]
+        return self._category.lower() in [c.strip().lower() for c in cats.split(",")]

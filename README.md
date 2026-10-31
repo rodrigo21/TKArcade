@@ -136,13 +136,17 @@ steam_runtime = "sniper"
 
 ## GUI guide
 
-**Main window** — filter by name/App ID (or issues only); drag column
-headers to reorder, right-click them to show/hide columns; right-click
-a row for Edit/Copy/Open/Validate/Clone/Remove (multi-select works for
-Remove and Reset, multi shows only multi-game actions); Scan Library
-batch-adds unconfigured Steam games; Clear Shader Cache per game;
-double-click the ProtonDB rating to open its page; the Played column
-totals session history (clearable in Session History); the tray
+**Main window** — filter by name/App ID (or issues only), by source
+(All Games/Steam/Local under the Origins section) or by a category in
+the Categories section below it, which lists each category with its
+icon and game count and keeps it at `(0)` until deleted in its editor
+(games, icon, delete); drag
+column headers to reorder, right-click them to show/hide columns;
+right-click a row for Edit/Copy/Open/Validate/Clone/Remove (multi-select
+works for Remove and Reset, multi shows only multi-game actions); Scan
+Library batch-adds unconfigured Steam games; Clear Shader Cache per
+game; double-click the ProtonDB rating to open its page; the Played
+column totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.
 
 **Game dialog** — tabs for General (the game, optional `version`/`date`/

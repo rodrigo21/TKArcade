@@ -316,7 +316,7 @@ def test_open_surface_opens_the_named_dialog():
 
     log = logging.getLogger("test")
     root = _FakeRoot(
-        "gamesPage", "settingsTabs", "addGameDialog", "categoryDialog", "prefsDialog", "aboutDialog"
+        "gamesPage", "settingsTabs", "addGameDialog", "sourceDrawer", "prefsDialog", "aboutDialog"
     )
 
     assert open_surface(root, log, "settings:730") is True
@@ -332,7 +332,7 @@ def test_open_surface_opens_the_named_dialog():
     assert root.calls("addGameDialog") == [("open", ())]
 
     assert open_surface(root, log, "category") is True
-    assert root.calls("categoryDialog") == [("openDialog", ())]
+    assert root.calls("sourceDrawer") == [("setProperty", ("collapsed", False))]
 
     assert open_surface(root, log, "defaults") is True
     assert root.calls("gamesPage")[-1] == ("openDefaultsSettings", ())

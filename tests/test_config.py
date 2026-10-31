@@ -21,6 +21,32 @@ def test_save_load_roundtrip(xdg_env):
     assert back.ludusavi.enable is True
 
 
+def test_categories_normalised(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-tags"
+    cfg.general.categories = [" Action ", "action", "", "Retro"]
+    C.save(cfg)
+    assert C.load("local-tags").general.categories == ["Action", "Retro"]
+
+
+def test_categories_store_roundtrip(xdg_env):
+    assert C.load_categories() == []
+    C.save_categories(
+        [
+            C.Category(" Retro "),
+            C.Category("Action", "applications-games"),
+            C.Category("action"),
+        ]
+    )
+    assert [(c.name, c.icon) for c in C.load_categories()] == [
+        ("Action", "applications-games"),
+        ("Retro", "folder"),
+    ]
+    assert C.categories_file().is_file()
+    C.save_categories([])
+    assert C.load_categories() == []
+
+
 def test_save_is_full_snapshot(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "8"

@@ -51,3 +51,6 @@ What each document is for and where the source of truth lives.
   and Terminate.
 - `decisions/artwork-provider.md` — why the artwork provider stays
   global instead of gaining a per-game override.
+- `decisions/categories.md` — the persistent category store, the sidebar
+  Categories section with icons and counts, the per-category editor, the
+  checkable assignment dialog and category normalization.

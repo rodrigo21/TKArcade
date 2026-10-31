@@ -96,6 +96,11 @@ Breaking config changes are called out explicitly under `Changed`.
   for a `display` text role that the plain name list does not have, so
   the field and the dropdown came up blank. Every other tooltip in the
   shell was checked; they already hide when their text would be empty.
+- Resizing a dialog now hands the extra height to its capped list or
+  text area instead of leaving it empty above the buttons: the Edit
+  Categories manager, the category editor and picker, the prefixes and
+  winetricks verb pickers, the bulk environment editor and the
+  differences report all grow with the window.
 - Hovering a title action button while its label is visible no longer
   pops an empty tooltip; a Played cell without sessions no longer shows
   one either.
@@ -138,8 +143,33 @@ Breaking config changes are called out explicitly under `Changed`.
   exit is reported in the dialog with that path; protontricks also
   refuses earlier when the game has no compatdata prefix (it needs the
   game installed and launched once, which used to fail silently).
+- Unchecking a category in the Set Categories or GameSettings picker now
+  removes it from the game: the checkbox rows are copies, so the toggle
+  never reached the dialog's list and Accept rewrote the old set. The
+  delegate writes through its row index, and the QML test clicks the
+  checkbox instead of setting `checked`.
 
 ### Added
+- Categories work like Lutris's: the Library sidebar lists every
+  category with its icon and game count under a Categories section,
+  below a separator and the iconed Origins section (All Games/Steam/
+  Local, each with its own icon: grid, Steam logo, computer); `All
+  Categories` carries the library count, and clicking a
+  category filters the game list (clicking it again, or All Categories,
+  clears the filter). Categories persist in `categories.toml`, so one
+  stays listed with `(0)` after its last game loses it. Origins uses
+  the game-library folder icon and Categories a tag icon, and an
+  `Edit Categories` action (gear and label, framed by separator lines)
+  at the top of the section
+  opens a manager whose per-category editor
+  checks the games that carry it, changes its icon (folder by default,
+  through KDE's icon picker, like Dolphin) and deletes it from the store
+  and every game. The Set Categories dialog and the General tab's Add button
+  share the checkable CategoryPicker, with a partially checked state for
+  mixed selections and a field for new categories; categories are
+  trimmed and deduplicated case-insensitively, and the filter matches
+  any spelling. The separate category filter dialog is gone, and
+  `TKARCADE_OPEN=category` expands the sidebar instead.
 - Steam Linux Runtime for local native games: Settings → Runtime gains a
   `Steam Runtime:` combo (`[runtime] steam_runtime = scout|soldier|
   sniper|steamrt4`, empty = disabled, no migration needed) and the launch

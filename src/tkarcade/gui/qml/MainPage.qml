@@ -519,9 +519,26 @@ Kirigami.Page {
         gamesPage.openDialog(resetDialog)
     }
 
-    function acceptBulkCats() {
-        gamesPage.notify(gameModel.setCategories(selectedIds, bulkCatsField.text))
-        bulkCatsDialog.close()
+    function openBulkCats() {
+        if (selectedIds.length === 0) {
+            gamesPage.notify(qsTr("Select Games First."))
+            return
+        }
+        var cats = gameModel.allCategories()
+        var counts = gameModel.categoryPresence(selectedIds)
+        var rows = []
+        for (var i = 0; i < cats.length; i++) {
+            var count = counts[cats[i]] || 0
+            rows.push({
+                "name": cats[i],
+                "state": count === selectedIds.length ? 2 : (count > 0 ? 1 : 0)
+            })
+        }
+        bulkCatsDialog.hint = qsTr("Check the Categories to Apply. New Ones Go in the Field Below. Applies to %1 Game(s).").arg(
+            selectedIds.length)
+        bulkCatsDialog.catRows = rows
+        bulkCatsDialog.newCategories = ""
+        gamesPage.openDialog(bulkCatsDialog)
     }
 
     function acceptClone() {
@@ -1425,14 +1442,7 @@ Kirigami.Page {
         }
         Controls.MenuItem {
             text: qsTr("Set Categories…")
-            onTriggered: {
-                if (gamesPage.selectedIds.length === 0) {
-                    gamesPage.notify(qsTr("Select Games First."))
-                    return
-                }
-                bulkCatsField.text = ""
-                gamesPage.openDialog(bulkCatsDialog)
-            }
+            onTriggered: gamesPage.openBulkCats()
         }
     }
 
@@ -2469,25 +2479,12 @@ Kirigami.Page {
         }
     }
 
-    DialogWindow {
+    CategoryPicker {
         id: bulkCatsDialog
         objectName: "bulkCatsDialog"
         title: qsTr("Set Categories")
-        acceptText: qsTr("OK")
-        onAccepted: gamesPage.acceptBulkCats()
-        Controls.Label {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: qsTr("Comma-Separated Tags (Empty Clears). Applies to %1 Game(s).").arg(
-                gamesPage.selectedIds.length)
-        }
-        Controls.TextField {
-            id: bulkCatsField
-            objectName: "bulkCatsField"
-            placeholderText: qsTr("Action, Retro")
-            Layout.fillWidth: true
-            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-            onAccepted: gamesPage.acceptBulkCats()
+        onPicked: function(names) {
+            gamesPage.notify(gameModel.setCategories(gamesPage.selectedIds, names.join(",")))
         }
     }
 

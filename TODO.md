@@ -17,13 +17,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 - [ ] Online sources à la Playnite for categories/tags (the per-game
   categories and the drawer filter shipped without them).
 
-## Settings and metadata (sessions ahead)
-
-- [ ] Categories redesign, remaining half: how categories work and how
-  they are added. The broken Category column is gone from the library
-  list; showing the tags in a right-hand details section waits for that
-  section to exist.
-
 ## Deferred design review
 
 - [ ] **DXVK/vkd3d inside UMU/Proton prefixes.** umu and Steam's Proton

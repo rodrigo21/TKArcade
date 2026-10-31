@@ -411,6 +411,46 @@ Window {
         }
     }
 
+    // Rows are the categories in use plus the names already typed in the
+    // field, checked when the field carries them (case-insensitive, like
+    // the library filter).
+    function openCatsPicker() {
+        var typed = String(catsField.text || "").split(",")
+        var keys = []
+        var names = []
+        var checked = []
+        for (var i = 0; i < typed.length; i++) {
+            var name = typed[i].trim()
+            if (name === "") {
+                continue
+            }
+            var key = name.toLowerCase()
+            if (keys.indexOf(key) >= 0) {
+                continue
+            }
+            keys.push(key)
+            names.push(name)
+            checked.push(key)
+        }
+        var cats = gameModel.allCategories()
+        for (var j = 0; j < cats.length; j++) {
+            if (keys.indexOf(cats[j].toLowerCase()) >= 0) {
+                continue
+            }
+            names.push(cats[j])
+        }
+        var rows = []
+        for (var k = 0; k < names.length; k++) {
+            rows.push({
+                "name": names[k],
+                "state": checked.indexOf(names[k].toLowerCase()) >= 0 ? 2 : 0
+            })
+        }
+        catsPicker.catRows = rows
+        catsPicker.newCategories = ""
+        catsPicker.open(gameSettings)
+    }
+
     function refreshGfx(reset) {
         gfxInfo = gameModel.graphicsState(editAppid)
         if (reset === true) {
@@ -1690,13 +1730,6 @@ Window {
                                     onEditingFinished: gameSettings.refreshPrefixHint()
                                     KirigamiLayouts.FormData.label: qsTr("Game Name:")
                                 }
-                                Controls.TextField {
-                                    id: catsField
-                                    objectName: "settingsCats"
-                                    placeholderText: qsTr("Action, Retro (Comma-Separated)")
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Categories:")
-                                }
                                 // Optional identity extras, rendered as
                                 // name suffixes in the library; the saved
                                 // name never carries them.
@@ -1723,6 +1756,23 @@ Window {
                                     placeholderText: qsTr("Shown as Name (TAG)")
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("State Tag:")
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Categories:")
+                                    Controls.TextField {
+                                        id: catsField
+                                        objectName: "settingsCats"
+                                        placeholderText: qsTr("Action, Retro (Comma-Separated)")
+                                        Layout.fillWidth: true
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsCatsAdd"
+                                        icon.name: gameModel.iconName(["list-add-symbolic", "list-add"])
+                                        Controls.ToolTip.text: qsTr("Add Categories")
+                                        Controls.ToolTip.visible: hovered
+                                        onClicked: gameSettings.openCatsPicker()
+                                    }
                                 }
                             }
                         }
@@ -3477,6 +3527,7 @@ Window {
         objectName: "envBulkDialog"
         title: qsTr("Bulk Edit Environment")
         width: Kirigami.Units.gridUnit * 32
+        bodyFillHeight: true
         onAccepted: gameSettings.acceptBulk()
         Controls.TextArea {
             id: bulkArea
@@ -3486,6 +3537,7 @@ Window {
             // has no spaces to break at and would clip at the right edge.
             wrapMode: TextEdit.WrapAnywhere
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 12
         }
     }
@@ -3521,6 +3573,7 @@ Window {
         objectName: "settingsPrefixPicker"
         title: qsTr("Existing Prefixes")
         width: Kirigami.Units.gridUnit * 26
+        bodyFillHeight: true
         acceptVisible: false
         rejectText: qsTr("Close")
         Controls.Label {
@@ -3534,6 +3587,7 @@ Window {
             id: prefixChoiceRows
             objectName: "settingsPrefixPickerRows"
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 14)
             clip: true
             model: gameSettings.prefixChoices
@@ -3559,6 +3613,7 @@ Window {
         objectName: "settingsVerbPicker"
         title: qsTr("Add Winetricks Verb")
         width: Kirigami.Units.gridUnit * 26
+        bodyFillHeight: true
         acceptVisible: false
         rejectText: qsTr("Close")
         Controls.TextField {
@@ -3583,6 +3638,7 @@ Window {
             id: verbRows
             objectName: "settingsVerbRows"
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 14)
             clip: true
             model: gameSettings.verbFiltered
@@ -3622,11 +3678,23 @@ Window {
         onSaved: gameSettings.acceptConfirmSave()
     }
 
+    // Same checkable list as the library's Set Categories: OK writes the
+    // picked names back into the field, which still carries them on save.
+    CategoryPicker {
+        id: catsPicker
+        objectName: "settingsCatsPicker"
+        title: qsTr("Add Categories")
+        onPicked: function(names) {
+            catsField.text = names.join(", ")
+        }
+    }
+
     DialogWindow {
         id: diffDialog
         objectName: "diffDialog"
         title: qsTr("Differences from Global Defaults")
         width: Kirigami.Units.gridUnit * 34
+        bodyFillHeight: true
         acceptVisible: false
         rejectText: qsTr("Close")
         Controls.TextArea {
@@ -3636,6 +3704,7 @@ Window {
             font.family: "monospace"
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 14
         }
     }

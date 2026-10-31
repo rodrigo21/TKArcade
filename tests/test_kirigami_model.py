@@ -777,6 +777,17 @@ def test_library_schema_slots(qgui_app, xdg_env, tmp_path):
     )
     assert C.load("local-doom").general.categories == ["Action", "Retro"]
     assert model.allCategories() == ["Action", "Retro"]
+    assert model.categoryPresence(["local-doom"]) == {"Action": 1, "Retro": 1}
+    assert model.categoryPresence([]) == {"Action": 0, "Retro": 0}
+    assert model.categoryCounts() == {"Action": 1, "Retro": 1}
+    assert model.setCategories(["local-doom"], "Action, action , ACTION") == (
+        "Set 1 Categor(ies) on 1 Game(s)."
+    )
+    assert C.load("local-doom").general.categories == ["Action"]
+    # Categories outlive their tags: Retro stays on record without games.
+    assert model.allCategories() == ["Action", "Retro"]
+    assert model.categoryCounts() == {"Action": 1, "Retro": 0}
+    assert model.categoryIcons() == {"Action": "folder", "Retro": "folder"}
     art = tmp_path / "icon.png"
     art.write_bytes(b"\x89PNG\r\n\x1a\n")
     assert model.storeArtwork("local-doom", "icon", os.fspath(art)) == ""
@@ -794,6 +805,48 @@ def test_library_schema_slots(qgui_app, xdg_env, tmp_path):
     assert os.path.isdir(local_prefix)
     assert model.clearCustomPrefix("local-doom") == f"Cleared {local_prefix}."
     assert not os.path.exists(local_prefix)
+
+
+def test_category_editor_slots(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    for appid, name, cats in (
+        ("local-doom", "Doom", ["Action"]),
+        ("local-quake", "Quake", ["Retro"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = "/bin/true"
+        cfg.general.categories = cats
+        C.save(cfg)
+    model = GameListModel()
+    # The refresh sync keeps tags found on disk on record.
+    assert [(c.name, c.icon) for c in C.load_categories()] == [
+        ("Action", "folder"),
+        ("Retro", "folder"),
+    ]
+    assert model.categoryGameRows("Action") == [
+        {"appid": "local-doom", "name": "Doom", "state": 2},
+        {"appid": "local-quake", "name": "Quake", "state": 0},
+    ]
+    assert model.setCategoryGames("Action", ["local-doom", "local-quake"]) == ("Updated 1 Game(s).")
+    assert C.load("local-quake").general.categories == ["Retro", "Action"]
+    assert model.setCategoryGames("Action", []) == "Updated 2 Game(s)."
+    assert C.load("local-doom").general.categories == []
+    assert C.load("local-quake").general.categories == ["Retro"]
+    assert model.allCategories() == ["Action", "Retro"]
+    assert model.categoryCounts() == {"Action": 0, "Retro": 1}
+    model.setCategoryIcon("Action", "applications-games")
+    assert model.categoryIcons() == {
+        "Action": "applications-games",
+        "Retro": "folder",
+    }
+    assert model.deleteCategory("retro") == "Deleted Retro."
+    assert C.load("local-quake").general.categories == []
+    assert C.load_categories()[0].name == "Action"
+    assert model.allCategories() == ["Action"]
+    assert model.deleteCategory("") == "Pick a Category First."
 
 
 def test_library_columns_roles(qgui_app, xdg_env):

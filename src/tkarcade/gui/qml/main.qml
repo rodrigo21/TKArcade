@@ -58,11 +58,107 @@ Kirigami.ApplicationWindow {
         if (pageStack.globalToolBar) {
             pageStack.globalToolBar.toolbarActionAlignment = Qt.AlignRight
         }
+        root.rebuildCategories()
         // Kirigami ships its own Quit action (StandardKey.Quit) that
         // calls close() instead of quitting: with a tray up the close
         // is caught and hidden, so Ctrl+Q never quits. Clear it; our
         // Shortcut below owns the sequence.
         root.quitAction.shortcut = ""
+    }
+
+    // Objects from Component.createObject are JavaScript-owned: the
+    // children list holds raw pointers and does not root them, so the
+    // current batch must stay referenced from JS or the engine collects
+    // it (the list entries turn null). The previous batch is destroyed
+    // explicitly when replaced.
+    property var categoryActions: []
+    // Categories outlive their game tags (zero counts stay listed), so the
+    // section shows while the store has entries, not while a tag is used.
+    property bool hasCategories: false
+
+    // The sidebar Categories section: the drawer paints the header plus
+    // these children inline (popup when collapsed), so the list is rebuilt
+    // from the categories on record instead of declaring actions up front.
+    // Plain string model data from user categories never reaches
+    // Qt.createQmlObject.
+    Component {
+        id: categoryAllComponent
+        Kirigami.Action {
+            objectName: "categoryAllAction"
+            text: qsTr("All Categories (%1)").arg(gameModel.totalCount)
+            icon.name: gameModel.iconName(["folder-documents", "folder"])
+            checked: gameFilter.categoryKey === ""
+            onTriggered: gameFilter.categoryKey = ""
+        }
+    }
+    Component {
+        id: categoryEntryComponent
+        Kirigami.Action {
+            objectName: "categoryAction_" + category
+            property string category
+            property string iconSource
+            icon.name: iconSource
+            checked: gameFilter.categoryKey === category
+            onTriggered: gameFilter.categoryKey =
+                gameFilter.categoryKey === category ? "" : category
+        }
+    }
+    Component {
+        id: categoryManageComponent
+        Kirigami.Action {
+            objectName: "categoryManageAction"
+            text: qsTr("Edit Categories")
+            icon.name: gameModel.iconName(["applications-system", "applications-system-symbolic"])
+            onTriggered: categoryManager.open(root)
+        }
+    }
+    // Lines framing the manage row, so it reads apart from the entries
+    // without giving up its place at the top.
+    Component {
+        id: categoryRuleComponent
+        Kirigami.Action {
+            separator: true
+        }
+    }
+
+    function rebuildCategories() {
+        var cats = gameModel.allCategories()
+        root.hasCategories = cats.length > 0
+        if (gameFilter.categoryKey !== "" && cats.indexOf(gameFilter.categoryKey) < 0) {
+            gameFilter.categoryKey = ""
+        }
+        var counts = gameModel.categoryCounts()
+        var icons = gameModel.categoryIcons()
+        var made = [
+            categoryRuleComponent.createObject(categoriesSection, {
+                "objectName": "categoryRuleTop"
+            }),
+            categoryManageComponent.createObject(categoriesSection),
+            categoryRuleComponent.createObject(categoriesSection, {
+                "objectName": "categoryRuleBottom"
+            }),
+            categoryAllComponent.createObject(categoriesSection)
+        ]
+        for (var i = 0; i < cats.length; i++) {
+            made.push(categoryEntryComponent.createObject(categoriesSection, {
+                "text": qsTr("%1 (%2)").arg(cats[i]).arg(counts[cats[i]] || 0),
+                "category": cats[i],
+                "iconSource": icons[cats[i]] || "folder"
+            }))
+        }
+        var old = categoryActions
+        categoryActions = made
+        categoriesSection.children = made
+        for (var j = 0; j < old.length; j++) {
+            old[j].destroy()
+        }
+    }
+
+    Connections {
+        target: gameModel
+        function onRefreshed() {
+            root.rebuildCategories()
+        }
     }
 
     globalDrawer: Kirigami.GlobalDrawer {
@@ -138,25 +234,46 @@ Kirigami.ApplicationWindow {
         }
         actions: [
             Kirigami.Action {
-                text: qsTr("All Games (%1)").arg(gameModel.totalCount)
-                checked: gameFilter.sourceKey === "all"
-                onTriggered: gameFilter.sourceKey = "all"
+                id: originsSection
+                objectName: "drawerOrigins"
+                text: qsTr("Origins")
+                icon.name: gameModel.iconName(["folder-games", "applications-games", "input-gamepad"])
+                expandible: true
+                Kirigami.Action {
+                    objectName: "drawerSourceAll"
+                    text: qsTr("All Games (%1)").arg(gameModel.totalCount)
+                    icon.name: gameModel.iconName(["view-grid", "view-list-details"])
+                    checked: gameFilter.sourceKey === "all"
+                    onTriggered: gameFilter.sourceKey = "all"
+                }
+                Kirigami.Action {
+                    objectName: "drawerSourceSteam"
+                    text: qsTr("Steam (%1)").arg(gameModel.steamCount)
+                    icon.name: gameModel.iconName(["steam", "applications-games"])
+                    checked: gameFilter.sourceKey === "steam"
+                    onTriggered: gameFilter.sourceKey = "steam"
+                }
+                Kirigami.Action {
+                    objectName: "drawerSourceLocal"
+                    text: qsTr("Local (%1)").arg(gameModel.localCount)
+                    icon.name: gameModel.iconName(["computer", "utilities-terminal"])
+                    checked: gameFilter.sourceKey === "local"
+                    onTriggered: gameFilter.sourceKey = "local"
+                }
             },
             Kirigami.Action {
-                text: qsTr("Steam (%1)").arg(gameModel.steamCount)
-                checked: gameFilter.sourceKey === "steam"
-                onTriggered: gameFilter.sourceKey = "steam"
+                // A separating line between the two filter sections.
+                objectName: "drawerSeparator"
+                separator: true
+                visible: root.hasCategories
             },
             Kirigami.Action {
-                text: qsTr("Local (%1)").arg(gameModel.localCount)
-                checked: gameFilter.sourceKey === "local"
-                onTriggered: gameFilter.sourceKey = "local"
-            },
-            Kirigami.Action {
-                objectName: "drawerCategory"
-                text: gameFilter.categoryKey === "" ? qsTr("Category: All") : qsTr("Category: %1").arg(
-                    gameFilter.categoryKey)
-                onTriggered: categoryDialog.openDialog()
+                id: categoriesSection
+                objectName: "drawerCategories"
+                text: qsTr("Categories")
+                icon.name: gameModel.iconName(["tag-symbolic", "tag", "view-grid"])
+                expandible: true
+                visible: root.hasCategories
             }
         ]
         // Escape hatch: the hamburger menu (with the drawer switch)
@@ -197,12 +314,24 @@ Kirigami.ApplicationWindow {
         }
     }
 
-    pageStack.initialPage: MainPage {
-        appDrawer: sourceDrawer
+    // Per-category management: the manager lists every category on record,
+    // the editor holds one category's icon, games and delete.
+    CategoryManagerDialog {
+        id: categoryManager
+        objectName: "categoryManager"
+        onEditRequested: function(name) {
+            categoryEditor.categoryName = name
+            categoryEditor.reload()
+            categoryEditor.open(categoryManager)
+        }
     }
 
-    CategoryDialog {
-        id: categoryDialog
-        parentWindow: root
+    CategoryEditorDialog {
+        id: categoryEditor
+        objectName: "categoryEditor"
+    }
+
+    pageStack.initialPage: MainPage {
+        appDrawer: sourceDrawer
     }
 }

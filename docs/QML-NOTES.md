@@ -54,6 +54,51 @@ failure. `AGENTS.md` links here.
   keeps the default empty role, while `{text, data}` rows use
   `textRole: "text"`. A role the model lacks blanks both the closed
   field and the popup rows (the Profile selector, measured offscreen).
+- A drawer section is `Kirigami.Action { expandible: true }` carrying
+  `children`: the GlobalDrawer paints the header plus the children
+  inline when expanded and a popup when collapsed. Rebuild dynamic
+  children by assigning a fresh JS array of `Component.createObject`
+  actions to `children` (the list notify updates the drawer's
+  Repeaters and any `visible: children.length > N` binding). The
+  `children` list holds raw pointers and does not root the created
+  objects: `createObject` products are JavaScript-owned, so keep the
+  batch in a `property var` and `destroy()` the previous one after the
+  reassignment — otherwise the engine's GC nulls the list entries at
+  the next cycle and the drawer's rows go blank with "Cannot read
+  property 'icon' of null" warnings. Give each created action an
+  `objectName`: `QQmlListProperty` has no PySide converter, so tests
+  reach the children by name, never through the `children` property.
+  The section header has no trailing action slot (the expanded header
+  is an internal `ListSectionHeader`): the closest is a child action
+  rendered at the left margin, labeled or label-less with `text: ""`
+  and a `tooltip`; keep it first so a long child list cannot bury it.
+  The delegate applies one action font to every row (1.3x only for
+  expandible headers), so a per-action smaller font is not available;
+  do not try to inject a button into the header, the drawer rebuilds
+  the delegate.
+- `CategoryPicker.qml` is that checkable list, shared by the library's
+  Set Categories action and the GameSettings Add button: callers set
+  `catRows` (`{name, state}`) and `newCategories`, then `open()`, and
+  connect `onPicked(names)`; OK joins checked plus typed names and
+  closes. Tests drive it through those properties, never the checkboxes
+  (`onToggled` is user-only); two instances live in the window tree, so
+  find the dialog first (`bulkCatsDialog`, `settingsCatsPicker`) and
+  read its properties. Delegates write `catRows[index].state`, never
+  `modelData.state`: the Repeater hands out copies, so the latter left
+  the owner array untouched and unchecking never removed the category.
+  Cover the toggle with a real `QTest.mouseClick`, not `setProperty`.
+- `destroy()` is deferred to the next event-loop pass: after a drawer
+  rebuild flush it (`QCoreApplication.sendPostedEvents(None,
+  QEvent.Type.DeferredDelete)`) before asserting, or `findChild`
+  returns the old action and the destroyed objectNames survive a cycle.
+- A separator row in a drawer is a plain `Kirigami.Action { separator:
+  true }`; give it an objectName if a test reads it. The GlobalDrawer
+  delegate hides icon and label and paints `Primitives.Separator`.
+- `IconDialog` comes from `org.kde.iconthemes` (no Python binding): its
+  `iconName` is a read-only output, connect `onIconNameChanged` (it
+  also fires with "" when the dialog closes — ignore that) and never
+  assign it. Reading the dialog from Python has no converter, so tests
+  assert the chosen icon on the model/config instead.
 - `Kirigami.BannerImage` derives its height from the image aspect, and
   `CardsLayout` stretches every card in a row to the tallest. Keep that
   aspect and set `banner.fillMode: Image.PreserveAspectFit`: a forced
@@ -77,6 +122,16 @@ failure. `AGENTS.md` links here.
   means the ScrollView syncs its content size a layout pass **after**
   the window is mapped: tests wait (`QTest.qWait`) before asserting
   `contentHeight`.
+- `DialogWindow`'s body column does not fill the window by default
+  (`height` hugs the content), so a capped list or text area would stay
+  put when the user resizes the window and leave the extra height empty
+  above the buttons. A dialog whose body holds one opts in with
+  `bodyFillHeight: true` on the window plus `Layout.fillHeight: true`
+  on the scrollable control (`Layout.minimumHeight: 0` too on a
+  `ScrollView`): the initial height still hugs the content and only the
+  resize hands the extra height to the control. A regression case resizes
+  the Edit Categories manager and asserts its list grew
+  (`test_library_category_editor`).
 - Dialog bodies use `Kirigami.Units.smallSpacing * 3` (12px) as the
   layout margin, matching the widgets `QDialog`/`QMessageBox` (10px
   under Breeze, 11px offscreen). Do not "fix" it back to `largeSpacing`

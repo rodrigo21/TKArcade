@@ -920,6 +920,66 @@ def _str_list(value: object) -> list[str]:
     return [str(x) for x in value] if isinstance(value, (list, tuple)) else []
 
 
+def normalize_categories(values: object) -> list[str]:
+    """Trim, drop empties and dedupe category tags case-insensitively."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values if isinstance(values, (list, tuple)) else []:
+        tag = str(value).strip()
+        key = tag.lower()
+        if tag and key not in seen:
+            seen.add(key)
+            out.append(tag)
+    return out
+
+
+@dataclass
+class Category:
+    """A category entity: free-form name plus the sidebar icon."""
+
+    name: str
+    icon: str = "folder"
+
+
+def categories_file() -> Path:
+    return xdg.app_config_dir() / "categories.toml"
+
+
+def load_categories() -> list[Category]:
+    """Categories created so far (they outlive their game tags)."""
+    data = _read_toml(categories_file())
+    table = data.get("categories", {}) if isinstance(data, dict) else {}
+    if not isinstance(table, dict):
+        return []
+    out: list[Category] = []
+    seen: set[str] = set()
+    for raw_name, raw_icon in table.items():
+        name = str(raw_name).strip()
+        key = name.lower()
+        if not name or key in seen:
+            continue
+        seen.add(key)
+        icon = str(raw_icon or "").strip()
+        out.append(Category(name, icon or "folder"))
+    return out
+
+
+def save_categories(entries: list[Category]) -> Path:
+    """Write the category store (sorted, deduped case-insensitively)."""
+    table: dict[str, str] = {}
+    seen: set[str] = set()
+    for entry in sorted(entries, key=lambda c: c.name.strip().lower()):
+        name = str(entry.name).strip()
+        key = name.lower()
+        if not name or key in seen:
+            continue
+        seen.add(key)
+        table[name] = str(entry.icon or "").strip() or "folder"
+    path = categories_file()
+    _write_atomic(path, _render_toml({"categories": table}))
+    return path
+
+
 class ConfigVersionError(Exception):
     """Config file needs a newer TKArcade than this one."""
 
@@ -945,7 +1005,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.general.menu_timeout = max(0, _as_int(g.get("menu_timeout", 0), 0))
     cfg.general.custom_prefix = str(g.get("custom_prefix", ""))
     cfg.general.active_profile = str(g.get("active_profile", ""))
-    cfg.general.categories = [c.strip() for c in _str_list(g.get("categories", [])) if c.strip()]
+    cfg.general.categories = normalize_categories(_str_list(g.get("categories", [])))
     cfg.general.launch_args = str(g.get("launch_args", ""))
     cfg.general.launch_cwd = str(g.get("launch_cwd", ""))
     md = _section(data, "metadata")

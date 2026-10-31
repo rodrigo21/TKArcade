@@ -294,7 +294,7 @@ def _surface_handlers(root) -> dict:
         "settings": lambda arg: _open_settings(root, arg),
         "artwork": lambda arg: _open_artwork(root, arg),
         "add": lambda _arg: _child(root, "addGameDialog").open(),
-        "category": lambda _arg: _child(root, "categoryDialog").openDialog(),
+        "category": lambda _arg: _child(root, "sourceDrawer").setProperty("collapsed", False),
         "defaults": lambda _arg: _child(root, "gamesPage").openDefaultsSettings(),
         "prefs": lambda _arg: _open_prefs(root),
         "about": lambda _arg: _child(root, "aboutDialog").open(),

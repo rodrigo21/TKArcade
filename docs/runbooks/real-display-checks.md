@@ -33,7 +33,7 @@ through the menus:
 | `artwork:<appid>` | the same window on the Artwork/Notes tab |
 | `defaults` | the Global Defaults editor |
 | `add` | the Add Game dialog |
-| `category` | the category filter |
+| `category` | the Categories section in the sidebar (expands it) |
 | `prefs` | Preferences |
 | `about` | About |
 
@@ -94,6 +94,10 @@ Preparo: `TKARCADE_OPEN=settings:check-native`.
    window instead of growing it past the screen.
 5. Footer preview starts collapsed; expanding it does not push the tabs
    out of reach.
+6. Dialogs open hugging their content; resizing one hands the extra
+   height to its list or text area (prefixes and winetricks verb
+   pickers, bulk environment editor, differences report) instead of
+   leaving it empty above the buttons.
 
 Accept: one line per row, aligned columns, window height follows the
 current tab.
@@ -127,26 +131,46 @@ order resets after a restart.
 Where: `qml/MainPage.qml` (header, `MouseArea` drag), `qml/ColumnsDialog.qml`,
 `gui/model.py` (column order/width slots).
 
-## 4. Category and Artwork dialogs
+## 4. Category and Artwork views
 
 Preparo: `TKARCADE_OPEN=category`, then `TKARCADE_OPEN=artwork:check-category`.
 
-1. Category: the radio list shows All and `Testing`; picking one closes
-   the dialog and filters the table.
-2. Artwork: the seeded cover and banner render as images (not a broken
+1. Category: the expanded sidebar shows an Origins section (All Games,
+   Steam, Local, each with its icon), a separator, and below it a
+   Categories section with the `Edit Categories` action (gear and
+   label) first, framed by separator lines, then `All Categories (3)`
+   and `Testing (1)` with its folder icon; clicking `Testing`
+   highlights it and filters the table, clicking it again clears it.
+2. The gear opens the manager (one row per stored category, icon
+   and count); its Edit opens the editor with `check-category` checked,
+   the icon button opens KDE's icon picker, and Delete asks first and
+   removes the category from the game and the sidebar. Unchecking the
+   game and accepting instead leaves `Testing (0)` listed, and
+   re-adding it restores the count.
+3. Artwork: the seeded cover and banner render as images (not a broken
    icon placeholder), with their Clear buttons and "Reuse Artwork From…".
-3. The dialog is sized to the window, not a fixed rectangle; a long
-   category list scrolls.
+4. The Set Categories dialog is sized to the window, not a fixed
+   rectangle; a long category list scrolls, and making the window taller
+   grows the list (likewise the manager and editor windows) instead of
+   leaving blank space above the buttons.
+5. The Add button beside Categories on the General tab opens the same
+   checkable list and writes the picked names into the field.
 
 Accept: images render at the right aspect, the filter applies, no
-placeholder for the seeded art.
+placeholder for the seeded art, and the chosen icon reaches its
+sidebar row.
 
-Fails if: thumbnails stay empty (path resolution), or the dialog opens
-at the wrong size on a scaled display.
+Fails if: thumbnails stay empty (path resolution), the section hides
+while the store lists `Testing`, the icon picker leaves the row without
+an icon, or the dialog opens at the wrong size on a scaled display.
 
-Where: `qml/CategoryDialog.qml`, `qml/GameSettings.qml` (artwork tab;
-`SETTINGS_TAB_ARTWORK` in `gui/kirigami_app.py` must match the TabBar
-index — currently 7).
+Where: `qml/main.qml` (Origins and Categories drawer sections, separator
+and manager/editor wiring), `qml/MainPage.qml` (Set Categories action),
+`qml/CategoryPicker.qml` (shared checkable list),
+`qml/CategoryManagerDialog.qml` and `qml/CategoryEditorDialog.qml`
+(category list, game checklist, icon and delete), `qml/GameSettings.qml`
+(categories field and Add button, artwork tab; `SETTINGS_TAB_ARTWORK` in
+`gui/kirigami_app.py` must match the TabBar index — currently 7).
 
 ## 5. pt_BR catalog in situ
 

@@ -23,6 +23,10 @@ Window {
     property bool acceptVisible: true
     property string rejectText: qsTr("Cancel")
     property bool rejectVisible: true
+    // Opt-in: a body holding a capped list may use the extra height when
+    // the user resizes the window; the initial height still hugs the
+    // content.
+    property bool bodyFillHeight: false
     default property alias content: extraColumn.data
 
     signal accepted()
@@ -55,6 +59,7 @@ Window {
         ColumnLayout {
             id: extraColumn
             Layout.fillWidth: true
+            Layout.fillHeight: dialogWindow.bodyFillHeight
         }
         RowLayout {
             Layout.fillWidth: true
