@@ -11,28 +11,27 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver`, `optdepends` indentation and a lenient `check()`, plus an
   untracked `.SRCINFO`, never committed); `.qoder/` is git-ignored.
-- Landed: unconfigured Steam games now offer to be configured on
-  launch. `tkarcade %command%` with no `[runtime] type` shows a
-  first-run prompt (imported STL configs included); Configure opens the
-  settings on the Runtime tab with `proton`/`native` inferred from the
-  command preselected, and Save starts the game with the new config.
-  Not now, or closing the prompt or settings, plays with the inference
-  and saves nothing, so the prompt returns next launch. An unavailable
-  or crashed editor falls back to the inference; local games keep exit
-  18. `clean_gui_env` strips Steam overlay/library entries from
-  `LD_PRELOAD` and a crashed child is reported as `crashed`.
-- Verified: `scripts/check.sh --changed` 496 passed, full suite 496
-  passed, `scripts/check.sh --qml` 497 passed (the batch aborts one QML
-  case under load and the driver re-runs it isolated). Offscreen
-  screenshots checked the prompt and the Runtime tab with proton and
-  native preselected. Venv refreshed after the merge
-  (`0.0.0.post600.dev0+6dc1449`). The maintainer has not yet repeated
-  the real Steam launch to see the prompt.
-- Next: plan mode for prefix safety. `prepare_fresh_prefix` wipes
-  `STEAM_COMPAT_DATA_PATH`/the prefix, so a fresh-prefix option can
-  destroy an existing one; audit it before the origin model (numeric
-  Steam shortcuts vs `local-*` configs) and the remaining Steam-only
-  audit findings.
+- Landed: fresh-prefix safety. `[runtime] fresh_prefix` now wipes only
+  this game's own `compatdata/<appid>` prefix: the configured
+  `[runtime] prefix` when set, else `STEAM_COMPAT_DATA_PATH`, with the
+  folder basename required to equal the AppID and `compatdata` in the
+  path; symlinks and mismatched folders are refused and the toggle stays
+  armed. The wipe runs only for the `proton` runtime (other runtimes log
+  a warning and keep the flag), and a successful disarm writes
+  `fresh_prefix=false` to the active profile when present instead of
+  saving the profile snapshot over the live config.
+- Verified: targeted fresh-prefix tests 10 passed; `scripts/check.sh
+  --changed` and the full fast suite 503 passed. No QML changed, so
+  `--qml` and the screenshot check did not apply. Venv refreshed after
+  the merge (`0.0.0.post602.dev0+da5d0ee`). No real Steam wipe was run
+  (destructive); the tests cover target selection and refusals.
+- Next: plan mode for the origin model. Origin is currently "the AppID
+  is numeric" (`steammod.is_steam_id`), which also drives the runtime
+  matrix, exit 18 and prefix rules; audit every Steam-only assumption
+  behind that test (numeric Steam shortcut IDs vs `local-*` configs)
+  before changing it. After it: the remaining Steam-only audit findings,
+  then the origin × runtime action matrix recorded in `TODO.md`
+  (context menu actions per combination).
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
