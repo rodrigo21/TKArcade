@@ -92,8 +92,10 @@ task and whenever QML or the tests changed; a single case runs with
 `pytest "tests/kirigami_qml_cases.py::<name>" -o python_files="*.py"`,
 plus `--tb=long` when a fixture hides the frame. The suite must pass with
 and without `pytest-qt`; never monkeypatch Qt globals at fixture scope
-(patch inside the test body). GUI changes need an offscreen screenshot
-check.
+(patch inside the test body). A change that renders something new or
+differs visually (layout, label, visibility, style) needs an offscreen
+screenshot check; logic behind unchanged QML (model, clipboard plumbing)
+is covered by tests instead.
 
 Tests and GUI smoke checks run with temporary XDG/HOME dirs (the
 `xdg_env` fixture for pytest), never the maintainer's real config,
