@@ -42,7 +42,7 @@ DialogWindow {
 
     function titleFor(logical) {
         if (logical === 2) {
-            return qsTr("App ID")
+            return qsTr("Game ID")
         } else if (logical === 3) {
             return qsTr("Played")
         } else if (logical === 4) {

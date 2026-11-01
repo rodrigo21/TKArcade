@@ -1743,7 +1743,7 @@ Window {
                                     visible: editAppid !== ""
                                     readOnly: true
                                     Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("App ID:")
+                                    KirigamiLayouts.FormData.label: qsTr("Game ID:")
                                 }
                                 Controls.TextField {
                                     id: nameField

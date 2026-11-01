@@ -1567,7 +1567,7 @@ def test_proxy_is_eleven_column_table(qgui_app, xdg_env):
     assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(11)] == [
         "#",
         "Game",
-        "App ID",
+        "Game ID",
         "Played",
         "ProtonDB",
         "Origin",

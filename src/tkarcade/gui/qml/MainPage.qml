@@ -854,7 +854,7 @@ Kirigami.Page {
             return qsTr("Game")
         }
         if (logical === 2) {
-            return qsTr("App ID")
+            return qsTr("Game ID")
         }
         if (logical === 3) {
             return qsTr("Played")
@@ -1295,7 +1295,7 @@ Kirigami.Page {
                 onToggled: gamesPage.setSort("gameName", gamesPage.sortDescending)
             }
             Controls.RadioButton {
-                text: qsTr("App ID")
+                text: qsTr("Game ID")
                 checked: gamesPage.sortRole === "gameId"
                 Controls.ButtonGroup.group: sortGroup
                 onToggled: gamesPage.setSort("gameId", gamesPage.sortDescending)
@@ -2017,7 +2017,7 @@ Kirigami.Page {
         id: headerMenu
         objectName: "headerMenu"
         Controls.MenuItem {
-            text: qsTr("Show App ID")
+            text: qsTr("Show Game ID")
             checkable: true
             checked: gameFilter.showAppId
             onTriggered: gameFilter.showAppId = checked

@@ -142,7 +142,7 @@ steam_runtime = "sniper"
 
 ## GUI guide
 
-**Main window** — filter by name/App ID (or issues only), by source
+**Main window** — filter by name/ID (or issues only), by source
 (All Games/Steam/Local under the Origins section) or by a category in
 the Categories section below it, which lists each category with its
 icon and game count and keeps it at `(0)` until deleted in its editor

@@ -161,8 +161,8 @@
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/ColumnsDialog.qml" line="45"/>
-        <source>App ID</source>
-        <translation>App ID</translation>
+        <source>Game ID</source>
+        <translation>ID do Jogo</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/ColumnsDialog.qml" line="47"/>
@@ -792,11 +792,6 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="3179"/>
         <source>Artwork</source>
         <translation>Arte</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1746"/>
-        <source>App ID:</source>
-        <translation>App ID:</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1755"/>
@@ -1660,6 +1655,11 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Comandos</translation>
     </message>
     <message>
+        <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1746"/>
+        <source>Game ID:</source>
+        <translation>ID do Jogo:</translation>
+    </message>
+    <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1767"/>
         <source>Shown as Name [Version]</source>
         <translation>Exibido Como Nome [Versão]</translation>
@@ -2425,12 +2425,6 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="857"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1298"/>
-        <source>App ID</source>
-        <translation>App ID</translation>
-    </message>
-    <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="860"/>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1304"/>
         <source>Played</source>
@@ -2644,6 +2638,11 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Abrir Página no ProtonDB</translation>
     </message>
     <message>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2020"/>
+        <source>Show Game ID</source>
+        <translation>Mostrar ID do Jogo</translation>
+    </message>
+    <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2517"/>
         <source>Reset %1 Game(s) to the Global Defaults Template Now?</source>
         <translation>Redefinir %1 Jogo(s) para o Modelo Padrões Globais Agora?</translation>
@@ -2663,6 +2662,12 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="571"/>
         <source>No Issues Found for %1.</source>
         <translation>Nenhum Problema Encontrado para %1.</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="857"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1298"/>
+        <source>Game ID</source>
+        <translation>ID do Jogo</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1176"/>
@@ -2720,11 +2725,6 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1466"/>
         <source>Set Categories…</source>
         <translation>Definir Categorias…</translation>
-    </message>
-    <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2020"/>
-        <source>Show App ID</source>
-        <translation>Mostrar App ID</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2026"/>
@@ -3095,8 +3095,8 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="214"/>
-        <source>Local Games Use &lt;base&gt;/&lt;AppID&gt; Unless the Game Overrides the Path.</source>
-        <translation>Jogos Locais Usam &lt;base&gt;/&lt;AppID&gt;, a Menos que o Jogo Sobrescreva o Caminho.</translation>
+        <source>Local Games Use &lt;base&gt;/&lt;Game ID&gt; Unless the Game Overrides the Path.</source>
+        <translation>Jogos Locais Usam &lt;base&gt;/&lt;ID do Jogo&gt;, a Menos que o Jogo Sobrescreva o Caminho.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="220"/>

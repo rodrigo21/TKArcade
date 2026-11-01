@@ -211,7 +211,7 @@ Window {
                             }
                         }
                         KirigamiLayouts.FormData.label: qsTr("Prefix Base:")
-                        Controls.ToolTip.text: qsTr("Local Games Use <base>/<AppID> Unless the Game Overrides the Path.")
+                        Controls.ToolTip.text: qsTr("Local Games Use <base>/<Game ID> Unless the Game Overrides the Path.")
                         Controls.ToolTip.visible: hovered
                     }
                     Controls.TextField {

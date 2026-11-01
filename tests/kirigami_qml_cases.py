@@ -154,7 +154,7 @@ def _check_header_titles(win):
     header = win.findChild(QQuickItem, "tableHeader")
     assert header is not None
     titles = _header_texts(header)
-    assert {"Game", "App ID", "Played", "ProtonDB", "Origin"} <= titles
+    assert {"Game", "Game ID", "Played", "ProtonDB", "Origin"} <= titles
 
 
 def _check_header_cell_tiling(win):
@@ -4027,7 +4027,7 @@ def test_header_titles_share_styled_delegate():
     text = (pathlib.Path(kapp.__file__).parent / "qml" / "MainPage.qml").read_text()
     assert "colorSet: Kirigami.Theme.Button" in text
     assert text.count("headerDelegate") == 0  # no addon header leftovers
-    for title in ("Game", "App ID", "Played", "ProtonDB", "Origin"):
+    for title in ("Game", "Game ID", "Played", "ProtonDB", "Origin"):
         assert title in text
     # no "#" gutter title (TKS has none); the framed numbers stay
     assert 'return "#"' not in text
@@ -4122,7 +4122,7 @@ def test_header_divider_double_click_autofits_column(qgui_app, xdg_env):
     QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
     fitted = proxy.columnWidth(2)
-    assert fitted != 90 and fitted >= 40  # measured, not the default
+    assert fitted != 200 and fitted >= 40  # changed from the start width
     found = None
     for _ in range(30):
         qgui_app.processEvents()

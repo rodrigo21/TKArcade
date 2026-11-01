@@ -3704,7 +3704,7 @@ class GameFilterModel(QSortFilterProxyModel):
     COLUMN_TITLES = {
         "#": "#",
         "gameName": "Game",
-        "gameId": "App ID",
+        "gameId": "Game ID",
         "gamePlayed": "Played",
         "gameTier": "ProtonDB",
         "gameOrigin": "Origin",
