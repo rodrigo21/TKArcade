@@ -2826,6 +2826,72 @@ def test_context_menu_opens_for_row(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_context_menu_actions_follow_origin(qgui_app, xdg_env, tmp_path):
+    """Menu actions and labels come from the model's origin/runtime table."""
+    import os
+
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    steam_cfg = C.GameConfig()
+    steam_cfg.general.appid = "steam-77"
+    steam_cfg.general.name = "Steam Game"
+    steam_cfg.runtime.type = "proton"
+    C.save(steam_cfg)
+
+    exe = tmp_path / "games" / "doom" / "doom"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    local_cfg = C.GameConfig()
+    local_cfg.general.appid = "local-doom"
+    local_cfg.general.name = "Doom"
+    local_cfg.general.custom_executable = os.fspath(exe)
+    local_cfg.runtime.type = "native"
+    C.save(local_cfg)
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+
+    def item(name):
+        found = win.findChild(QObject, name)
+        assert found is not None, name
+        return found
+
+    page.openGameMenu("steam-77")
+    qgui_app.processEvents()
+    assert page.property("menuIsSteam") is True
+    assert page.property("menuPrefixApplicable") is True
+    assert item("menuCopyLaunch").property("visible") is True
+    assert item("menuCopyCommand").property("visible") is False
+    assert item("menuProtonDB").property("visible") is True
+    assert item("menuInstall").property("enabled") is False
+    assert item("menuPrefix").property("visible") is True
+    assert item("menuPrefix").property("enabled") is False
+    assert item("menuPrefix").property("text") == "Open Prefix Folder"
+    assert item("menuShader").property("visible") is True
+    assert item("menuShader").property("enabled") is False
+
+    page.openGameMenu("local-doom")
+    qgui_app.processEvents()
+    assert page.property("menuIsSteam") is False
+    assert page.property("menuInstall") == os.fspath(exe.parent)
+    assert page.property("menuPrefixApplicable") is False
+    assert item("menuCopyLaunch").property("visible") is False
+    assert item("menuCopyCommand").property("visible") is True
+    assert item("menuProtonDB").property("visible") is False
+    assert item("menuInstall").property("visible") is True
+    assert item("menuInstall").property("enabled") is True
+    assert item("menuPrefix").property("visible") is False
+    assert item("menuShader").property("visible") is False
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_remove_flow_with_profiles(qgui_app, xdg_env):
     """Remove asks, deletes configs, then offers leftover cleanup."""
     from PySide6.QtCore import QObject

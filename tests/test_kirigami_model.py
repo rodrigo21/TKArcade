@@ -1304,6 +1304,104 @@ def test_ensure_and_clear_the_local_prefix(qgui_app, xdg_env, tmp_path):
     assert base.is_dir()
 
 
+def test_context_actions_follow_origin_and_runtime(qgui_app, xdg_env, tmp_path, monkeypatch):
+    import os
+
+    from tkarcade import steam as S
+    from tkarcade.gui.model import GameListModel
+
+    steam_install = tmp_path / "steam" / "common" / "Game"
+    steam_install.mkdir(parents=True)
+    compat = tmp_path / "steam" / "compatdata" / "77"
+    shader = tmp_path / "steam" / "shadercache" / "77"
+    shader.mkdir(parents=True)
+    (shader / "cache.bin").write_bytes(b"\0" * 2048)
+    monkeypatch.setattr(S, "install_dir", lambda appid: steam_install)
+    monkeypatch.setattr(S, "prefix_dir", lambda appid: compat)
+    monkeypatch.setattr(S, "shader_dir", lambda appid: shader)
+
+    for appid, runtime in (("steam-77", "proton"), ("steam-78", "native")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = runtime
+        cfg.runtime.type = runtime
+        C.save(cfg)
+
+    prefs = C.load_preferences()
+    prefs.prefix_base = os.fspath(tmp_path / "prefixes")
+    C.save_preferences(prefs)
+
+    exe = tmp_path / "games" / "doom" / "doom"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = os.fspath(exe)
+    local.runtime.type = "native"
+    C.save(local)
+
+    wine = C.GameConfig()
+    wine.general.appid = "local-wine"
+    wine.general.name = "Wine Game"
+    wine.runtime.type = "wine"
+    wine.runtime.prefix_name = "WineGame"
+    C.save(wine)
+
+    umu = C.GameConfig()
+    umu.general.appid = "local-umu"
+    umu.general.name = "Umu Game"
+    umu.runtime.type = "umu"
+    umu.runtime.prefix_name = "UmuGame"
+    C.save(umu)
+    (tmp_path / "prefixes" / "UmuGame").mkdir(parents=True)
+
+    model = GameListModel()
+
+    proton = model.contextActions("steam-77")
+    assert proton["is_steam"] is True
+    assert proton["install"] == os.fspath(steam_install)
+    assert proton["prefix"] == ""  # compatdata not created yet
+    assert proton["prefix_applicable"] is True
+    assert proton["shader"] == os.fspath(shader)
+    assert proton["shader_size"] == "2.0 KB"
+
+    native_steam = model.contextActions("steam-78")
+    assert native_steam["install"] == os.fspath(steam_install)
+    assert native_steam["prefix"] == ""
+    assert native_steam["prefix_applicable"] is False
+    assert native_steam["shader"] == os.fspath(shader)
+
+    compat.mkdir(parents=True)
+    assert model.contextActions("steam-77")["prefix"] == os.fspath(compat)
+
+    native = model.contextActions("local-doom")
+    assert native["is_steam"] is False
+    assert native["install"] == os.fspath(exe.parent)
+    assert native["prefix"] == ""
+    assert native["prefix_applicable"] is False
+    assert native["shader"] == ""
+    assert native["shader_size"] == ""
+
+    override = tmp_path / "cwd"
+    override.mkdir()
+    local.general.launch_cwd = os.fspath(override)
+    C.save(local)
+    assert model.contextActions("local-doom")["install"] == os.fspath(override)
+
+    wine_actions = model.contextActions("local-wine")
+    assert wine_actions["prefix"] == ""  # WINEPREFIX not created yet
+    assert wine_actions["prefix_applicable"] is True
+    wine_prefix = tmp_path / "prefixes" / "WineGame"
+    wine_prefix.mkdir(parents=True)
+    assert model.contextActions("local-wine")["prefix"] == os.fspath(wine_prefix)
+
+    umu_actions = model.contextActions("local-umu")
+    assert umu_actions["prefix"] == os.fspath(tmp_path / "prefixes" / "UmuGame")
+    assert umu_actions["prefix_applicable"] is True
+    assert umu_actions["install"] == ""  # no executable configured
+
+
 def test_settings_defaults_roundtrip(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

@@ -577,6 +577,7 @@ Kirigami.Page {
     property string menuGid: ""
     property string menuInstall: ""
     property string menuPrefix: ""
+    property bool menuPrefixApplicable: false
     property string menuShader: ""
     property string menuShaderSize: ""
     property bool menuIsSteam: false
@@ -586,11 +587,13 @@ Kirigami.Page {
             select(gid)
         }
         menuGid = gid
-        menuIsSteam = /^\d+$/.test(gid)
-        menuInstall = gameModel.installDir(gid)
-        menuPrefix = gameModel.prefixDir(gid)
-        menuShader = gameModel.shaderDir(gid)
-        menuShaderSize = gameModel.shaderSize(gid)
+        var actions = gameModel.contextActions(gid)
+        menuIsSteam = actions.is_steam
+        menuInstall = actions.install
+        menuPrefix = actions.prefix
+        menuPrefixApplicable = actions.prefix_applicable
+        menuShader = actions.shader
+        menuShaderSize = actions.shader_size
         gameMenu.popup()
     }
 
@@ -1359,6 +1362,7 @@ Kirigami.Page {
             onTriggered: gamesPage.notify(gameModel.copyText("tkarcade %command%"))
         }
         Controls.MenuItem {
+            objectName: "menuCopyCommand"
             visible: !gamesPage.menuIsSteam && gamesPage.selectedIds.length <= 1
             text: qsTr("Copy Launch Command")
             onTriggered: gamesPage.notify(
@@ -1382,6 +1386,7 @@ Kirigami.Page {
             visible: gamesPage.selectedIds.length <= 1
         }
         Controls.MenuItem {
+            objectName: "menuInstall"
             visible: gamesPage.selectedIds.length <= 1
             enabled: gamesPage.menuInstall !== ""
             text: qsTr("Open Install Folder")
@@ -1392,9 +1397,11 @@ Kirigami.Page {
             }
         }
         Controls.MenuItem {
-            visible: gamesPage.selectedIds.length <= 1
+            objectName: "menuPrefix"
+            visible: gamesPage.menuPrefixApplicable
+                && gamesPage.selectedIds.length <= 1
             enabled: gamesPage.menuPrefix !== ""
-            text: qsTr("Open Proton Prefix")
+            text: qsTr("Open Prefix Folder")
             onTriggered: {
                 if (!gameModel.openPath(gamesPage.menuPrefix)) {
                     gamesPage.notify(qsTr("Could Not Open the Prefix Folder."))
@@ -1402,12 +1409,15 @@ Kirigami.Page {
             }
         }
         Controls.MenuItem {
-            visible: gamesPage.selectedIds.length <= 1
+            objectName: "menuShader"
+            visible: gamesPage.menuIsSteam
+                && gamesPage.selectedIds.length <= 1
             enabled: gamesPage.menuShader !== ""
             text: qsTr("Clear Shader Cache")
             onTriggered: gamesPage.openDialog(shaderDialog)
         }
         Controls.MenuItem {
+            objectName: "menuProtonDB"
             visible: gamesPage.menuIsSteam && gamesPage.selectedIds.length <= 1
             text: qsTr("Open ProtonDB Page")
             onTriggered: gameModel.openProtonDB(gamesPage.menuGid)

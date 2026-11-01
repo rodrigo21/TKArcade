@@ -56,3 +56,5 @@ What each document is for and where the source of truth lives.
   checkable assignment dialog and category normalization.
 - `decisions/origin-prefixed-ids.md` — `<origin>-<body>` game IDs, the
   derived Steam AppID and the one-time rename migration.
+- `decisions/origin-runtime-actions.md` — the origin/runtime context
+  menu matrix and the single model table behind it.

@@ -2611,12 +2611,17 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, result=str)
     def installDir(self, appid: str) -> str:
-        """Install folder path, or '' when unknown."""
+        """Install folder: the Steam library dir or the local launch cwd."""
+        if steammod.is_steam_id(appid):
+            try:
+                target = steammod.install_dir(appid)
+            except Exception:
+                target = None
+            return str(target) if target is not None else ""
         try:
-            target = steammod.install_dir(appid)
+            return launchermod.local_run_cwd(appid, cfgmod.load(appid)) or ""
         except Exception:
-            target = None
-        return str(target) if target is not None else ""
+            return ""
 
     @Slot(str, result=str)
     def prefixDir(self, appid: str) -> str:
@@ -2638,6 +2643,34 @@ class GameListModel(QAbstractTableModel):
             return os.fspath(self._wine_env(cfg)[0])
         except Exception:
             return ""
+
+    @Slot(str, result="QVariantMap")
+    def contextActions(self, appid: str) -> dict:
+        """Menu actions that fit this game's origin and runtime."""
+        is_steam = steammod.is_steam_id(appid)
+        try:
+            runtime = cfgmod.normalize_runtime(cfgmod.load(appid).runtime.type)
+        except Exception:
+            runtime = ""
+        prefix = ""
+        try:
+            candidate = os.path.expanduser(self.prefixDir(appid))
+        except Exception:
+            candidate = ""
+        if candidate and os.path.isdir(candidate):
+            prefix = candidate
+        if is_steam:
+            prefix_applicable = runtime == "proton" or bool(prefix)
+        else:
+            prefix_applicable = runtime in ("wine", "umu")
+        return {
+            "is_steam": is_steam,
+            "install": self.installDir(appid),
+            "prefix": prefix,
+            "prefix_applicable": prefix_applicable,
+            "shader": self.shaderDir(appid) if is_steam else "",
+            "shader_size": self.shaderSize(appid) if is_steam else "",
+        }
 
     @Slot(str, result="QVariantMap")
     def runtimeOptions(self, appid: str) -> dict:

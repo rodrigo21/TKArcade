@@ -13,6 +13,12 @@ Breaking config changes are called out explicitly under `Changed`.
   run (or with `tkarcade --migrate-ids`); numeric `--appid` values and
   old AppIDs in launch options keep working. Scripts that read
   `games/<appid>.toml` by number must use `steam-<appid>`.
+- Context-menu actions follow the game's origin and configured runtime
+  now: local games gain Open Install Folder (the executable's folder, or
+  `launch_cwd`), local native games no longer offer a prefix, Wine/UMU
+  prefixes read Open Prefix Folder, and Clear Shader Cache, Open
+  ProtonDB and the prefix entry stay Steam/proton-aware. The rules live
+  in `GameListModel.contextActions()` instead of QML checks.
 - The settings confirmations are separate dialog windows now, the same
   widgets `QMessageBox` shape as About: an icon, a right-aligned default
   button and a box that hugs its content. A long value (a prefix path,
@@ -99,6 +105,9 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Steam context-menu items work again with origin-prefixed IDs: the
+  digit-only test left in `MainPage.qml` hid Copy Launch Options and
+  Open ProtonDB, and wrongly showed Copy Launch Command.
 - The fresh-prefix toggle (`[runtime] fresh_prefix`) only wipes this
   game's own `compatdata/<appid>` prefix now: it uses the configured
   `[runtime] prefix` when set, else `STEAM_COMPAT_DATA_PATH`, and

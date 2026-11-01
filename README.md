@@ -149,7 +149,10 @@ icon and game count and keeps it at `(0)` until deleted in its editor
 (games, icon, delete); drag
 column headers to reorder, right-click them to show/hide columns;
 right-click a row for Edit/Copy/Open/Validate/Clone/Remove (multi-select
-works for Remove and Reset, multi shows only multi-game actions); Scan
+works for Remove and Reset, multi shows only multi-game actions). The
+Open actions follow the game's origin and runtime: local games open
+their executable's folder (or `launch_cwd`), only Wine/UMU games offer a
+prefix, and Steam adds ProtonDB and its shader cache. Scan
 Library batch-adds unconfigured Steam games; Clear Shader Cache per
 game; double-click the ProtonDB rating to open its page; the Played
 column totals session history (clearable in Session History); the tray

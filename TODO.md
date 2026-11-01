@@ -19,15 +19,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred design review
 
-- [ ] **Origin/runtime-aware actions.** The context menu offers actions
-  that do not fit every game: local games get "Open Prefix Folder" even
-  when a native game has no prefix, Steam opens an empty folder, and
-  local games lack "Open Install Folder" though it applies to them. Map
-  every origin × runtime combination (Steam proton/native; local
-  native/wine/umu, with or without a Steam Linux Runtime) to the actions
-  and labels it supports, then drive the menu from one table instead of
-  scattered `is_steam` checks. Analysis after prefix safety, the origin
-  model and the remaining Steam-only audit findings.
 - [ ] **DXVK/vkd3d inside UMU/Proton prefixes.** umu and Steam's Proton
   ship their own DXVK and vkd3d, so `[graphics]` is hidden and ignored
   for them (an old install is only neutralised). Decide whether

@@ -109,3 +109,7 @@ Steam Linux Runtime for local Linux games (`soldier`, `scout`, `sniper`,
 `steamrt4` through `umu-run`, the Faugus `runtime` combo) landed later
 as `[runtime] steam_runtime`; `runtime_label()` takes the origin, so
 such a game labels as `Steam Runtime (<code>)`.
+
+The context-menu actions each origin/runtime pair supports landed later
+as the `GameListModel.contextActions()` table; see
+`decisions/origin-runtime-actions.md`.
