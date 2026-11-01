@@ -11,29 +11,28 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver`, `optdepends` indentation and a lenient `check()`, plus an
   untracked `.SRCINFO`, never committed); `.qoder/` is git-ignored.
-- Landed: origin-prefixed game IDs. Steam games are `steam-<appid>` and
-  local games `local-<slug>`; `[general] appid` stays the only identity
-  key and the numeric Steam AppID is derived (`steam.steam_appid()`).
-  Input boundaries canonicalize (`--appid`, Steam env vars, a numeric
-  `STEAM_COMPAT_DATA_PATH` basename), creation points emit canonical
-  IDs, and `config.migrate_ids()` renames legacy bare Steam AppIDs and
-  old local IDs together with profiles, winetricks state, logs, history
-  and local artwork (idempotent, skips running games, refuses an
-  existing target). Steam services, compatdata, shaders and protontricks
-  receive the derived numeric AppID; the artwork cache keeps its numeric
-  keys. **BREAKING** in `CHANGELOG.md`: numeric `--appid` values and old
-  launch options keep working, but scripts reading `games/<number>.toml`
-  must use `steam-<appid>`.
-- Verified: full fast suite 510 passed; `scripts/check.sh --qml` 511
-  passed; venv refreshed after the merge
-  (`0.0.0.post604.dev0+89d7424`). No real configuration was migrated
-  (tests cover the rename); no manual display check, since the change
-  has no visual surface.
-- Next: the remaining Steam-only audit findings, then the origin ×
-  runtime action matrix recorded in `TODO.md` (context menu actions per
-  combination). Before testing the new build on the real machine, run
-  `tkarcade --export`: the first launch renames the live configs,
-  profiles and logs.
+- Landed: origin/runtime-aware context menu. `GameListModel.contextActions()`
+  is the single table (Steam proton/native, local native/wine/umu) that
+  the QML menu binds to; the stale `/^\d+$/` Steam test is gone, so
+  Steam games have Copy Launch Options, Open ProtonDB and shader cache
+  again with canonical IDs. Local games gained Open Install Folder (the
+  executable's folder, `launch_cwd` wins, reusing `launcher.local_run_cwd`).
+  The prefix entry is Steam-proton-or-existing / local wine-UMU only, is
+  hidden for native games, and reads Open Prefix Folder; an applicable
+  but not yet created prefix stays visible and disabled. Decision record:
+  `docs/decisions/origin-runtime-actions.md`.
+- Verified: full suite with the QML driver, 512 passed
+  (`scripts/check.sh --changed` widened to it). Offscreen visual check of
+  both popups: items and labels correct (Qt 6.12 QQC2 keeps space for
+  hidden menu items, a pre-existing menu quirk). venv refreshed after the
+  merge (`0.0.0.post606.dev0+9ee3e5e`). No real-display or real Steam
+  library test.
+- Next: plan the two menu/settings follow-ups deferred by this batch: a
+  separate Copy Steam AppID (numeric) action plus renaming Copy App ID
+  (which copies the canonical ID), and opening/clearing the local
+  Wine/UMU prefix from the settings dialog (today those buttons are
+  Steam-custom-prefix only). Then the DXVK/vkd3d design item in
+  `TODO.md`.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
