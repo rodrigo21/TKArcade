@@ -13,6 +13,13 @@ Breaking config changes are called out explicitly under `Changed`.
   run (or with `tkarcade --migrate-ids`); numeric `--appid` values and
   old AppIDs in launch options keep working. Scripts that read
   `games/<appid>.toml` by number must use `steam-<appid>`.
+- The library's **Copy App ID** entry is **Copy Game ID** now, since it
+  copies the canonical origin-prefixed ID (`steam-77`), and a new **Copy
+  Steam AppID** entry copies the numeric AppID for Steam games only.
+- Local Wine/UMU games can create their prefix from the settings Runtime
+  tab: **Create** shows until the prefix exists and asks for
+  confirmation before making the directory; Open never creates one.
+  Steam's Create asks for confirmation too.
 - Context-menu actions follow the game's origin and configured runtime
   now: local games gain Open Install Folder (the executable's folder, or
   `launch_cwd`), local native games no longer offer a prefix, Wine/UMU

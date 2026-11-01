@@ -49,6 +49,9 @@ Window {
     // Wine/Proton only mean something for a Steam id (or the defaults
     // template): a local game has no compatdata prefix to edit.
     readonly property bool wineAvailable: defaultsMode || ((fields.is_steam || false) && editAppid !== "")
+    // Local prefix applicability mirrors contextActions(): native has none.
+    readonly property bool localWindowsRuntime: !wineAvailable
+        && runtimeTypeBox.currentIndex >= 1
 
     // Outcome of a closing action, for that standalone editor only:
     // "saved" | "launch" | "cancelled". The shell ignores it (no listener).
@@ -71,6 +74,9 @@ Window {
     // Friendly prefix-name picker (local Windows games).
     property var prefixChoices: []
     property string prefixHint: ""
+    // The prefix path the dialog shows; Create acts on this one, not on
+    // the saved config (the field may hold unsaved edits).
+    property string prefixTarget: ""
     // The resolved prefix directory is on disk. Open/Clear… only make
     // sense then, and a local game using the default base has a prefix
     // even with an empty field.
@@ -323,11 +329,14 @@ Window {
     function refreshPrefixHint() {
         if (editAppid === "") {
             prefixHint = ""
+            prefixTarget = ""
             prefixExists = false
             return
         }
         var state = gameModel.prefixNameState(
             editAppid, localPrefixNameField.text, rtPrefixField.text, nameField.text)
+        prefixTarget = gameSettings.wineAvailable
+            ? rtPrefixField.text.trim() : state.target
         // Steam's prefix is its compatdata dir, not <base>/<folder>:
         // the field itself decides, as before.
         prefixExists = gameSettings.wineAvailable ? rtPrefixField.text.trim() !== ""
@@ -846,6 +855,14 @@ Window {
             var msg = gameModel.clearCustomPrefix(editAppid)
             if (msg !== "" && msg.indexOf("Cleared") !== 0) {
                 settingsError.text = msg
+            }
+        } else if (confirmPurpose === "createPrefix") {
+            confirmDialog.close()
+            var createdMsg = gameModel.ensurePrefix(editAppid, gameSettings.prefixTarget)
+            if (createdMsg !== "") {
+                settingsError.text = createdMsg
+            } else {
+                refreshPrefixHint()
             }
         }
         confirmPurpose = ""
@@ -2450,12 +2467,16 @@ Window {
                                         Layout.preferredWidth: gameSettings.runtimeButtonWidth
                                         Layout.minimumWidth: gameSettings.runtimeButtonWidth
                                         visible: gameSettings.wineAvailable
+                                            || (gameSettings.localWindowsRuntime
+                                                && !gameSettings.prefixExists)
                                         text: qsTr("Create")
                                         onClicked: {
-                                            var msg = gameModel.ensurePrefix(editAppid)
-                                            if (msg !== "") {
-                                                settingsError.text = msg
-                                            }
+                                            setupConfirm("createPrefix",
+                                                qsTr("Create Prefix"),
+                                                qsTr("Create the Prefix Now?"),
+                                                qsTr("Create"))
+                                            confirmDialog.detail = gameSettings.prefixTarget
+                                            confirmDialog.open(gameSettings)
                                         }
                                     }
                                 }

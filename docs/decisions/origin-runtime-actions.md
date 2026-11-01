@@ -14,9 +14,9 @@ and showed the local ones.
 ## Decision
 
 `GameListModel.contextActions(appid)` is the single table. It returns
-`is_steam`, `install`, `prefix`, `prefix_applicable`, `shader` and
-`shader_size`; `MainPage.qml` binds its menu items to those values and
-keeps no origin test of its own.
+`is_steam`, `steam_appid`, `install`, `prefix`, `prefix_applicable`,
+`shader` and `shader_size`; `MainPage.qml` binds its menu items to those
+values and keeps no origin test of its own.
 
 | Game | Copy | ProtonDB | Install Folder | Prefix Folder | Shader Cache |
 | --- | --- | --- | --- | --- | --- |
@@ -28,6 +28,33 @@ keeps no origin test of its own.
 
 Play, Edit, Validate, Clear History, Clone, Remove, Reset and Categories
 stay for every game; Terminate stays running-only.
+
+## Copy actions
+
+Two copy entries, because the two values serve different purposes:
+
+| Entry | Copies | Visible |
+| --- | --- | --- |
+| Copy Game ID | the canonical ID (`steam-77`, `local-doom`) | every game, single selection |
+| Copy Steam AppID | the numeric AppID (`77`) | Steam games only, single selection |
+
+The numeric value comes from `steammod.steam_appid()` through the same
+table, so QML does not parse the canonical ID to derive it.
+
+## Settings prefix
+
+The Runtime tab's prefix section follows the same origin/runtime rules
+as the menu but reads the dialog's unsaved state, not the saved config:
+
+- **Create** shows for Steam games (as before) and for local Wine/UMU
+  games whose prefix does not exist yet; never for local native.
+- Create always goes through the confirm dialog first (title, question,
+  accept button, resolved path as detail). Only accepting calls
+  `ensurePrefix()`, which creates exactly the target the dialog shows —
+  still only the directory; the runtime builds the WINEPREFIX content at
+  the first launch.
+- **Open** and the menu's Open Prefix Folder never create anything;
+  they only open an existing path. Clear keeps its own confirmation.
 
 ## Install folder
 

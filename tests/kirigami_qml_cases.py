@@ -2862,8 +2862,13 @@ def test_context_menu_actions_follow_origin(qgui_app, xdg_env, tmp_path):
     qgui_app.processEvents()
     assert page.property("menuIsSteam") is True
     assert page.property("menuPrefixApplicable") is True
+    assert page.property("menuSteamAppId") == "77"
     assert item("menuCopyLaunch").property("visible") is True
     assert item("menuCopyCommand").property("visible") is False
+    assert item("menuCopyId").property("visible") is True
+    assert item("menuCopyId").property("text") == "Copy Game ID"
+    assert item("menuCopySteamAppId").property("visible") is True
+    assert item("menuCopySteamAppId").property("text") == "Copy Steam AppID"
     assert item("menuProtonDB").property("visible") is True
     assert item("menuInstall").property("enabled") is False
     assert item("menuPrefix").property("visible") is True
@@ -2879,6 +2884,8 @@ def test_context_menu_actions_follow_origin(qgui_app, xdg_env, tmp_path):
     assert page.property("menuPrefixApplicable") is False
     assert item("menuCopyLaunch").property("visible") is False
     assert item("menuCopyCommand").property("visible") is True
+    assert item("menuCopyId").property("visible") is True
+    assert item("menuCopySteamAppId").property("visible") is False
     assert item("menuProtonDB").property("visible") is False
     assert item("menuInstall").property("visible") is True
     assert item("menuInstall").property("enabled") is True
@@ -5430,11 +5437,27 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert prefix_field.property("text") == ""
     assert clear_button.property("visible") is True
     assert open_button.property("visible") is True
-    # A folder that does not exist yet hides them again.
+    # A folder that does not exist yet hides Open/Clear and offers Create;
+    # only the confirmed accept writes it to disk.
+    create_button = swin.findChild(QQuickItem, "winePrefixCreate")
     name_field.setProperty("text", "Not Created Yet")
     QTest.qWait(50)
+    not_yet = prefix.parent / "NotCreatedYet"
     assert clear_button.property("visible") is False
     assert open_button.property("visible") is False
+    assert create_button.property("visible") is True
+    assert not_yet.exists() is False
+    _click(swin, "winePrefixCreate")
+    qgui_app.processEvents()
+    confirm = _confirm_window(qgui_app)
+    assert confirm.property("visible") is True
+    assert not_yet.exists() is False
+    dlg.acceptConfirm()
+    qgui_app.processEvents()
+    assert not_yet.is_dir()
+    assert create_button.property("visible") is False
+    assert open_button.property("visible") is True
+    assert clear_button.property("visible") is True
     name_field.setProperty("text", "Friendly Doom")
     QTest.qWait(50)
     assert open_button.property("visible") is True
@@ -5449,13 +5472,12 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     QTest.qWait(50)
     assert (custom_base / "FriendlyDoom").as_posix() in name_hint.property("text")
     # The buttons follow the prefix on disk, not the field text: a typed
-    # base whose folder does not exist yet has nothing to open or delete
-    # (the hint says it is created at launch), and Create stays Steam-only
-    # (umu builds its own prefix).
+    # base whose folder does not exist yet offers Create but nothing to
+    # open or delete (the hint says it is created at launch).
     assert (custom_base / "FriendlyDoom").exists() is False
     assert swin.findChild(QQuickItem, "winePrefixOpen").property("visible") is False
     assert swin.findChild(QQuickItem, "winePrefixClear").property("visible") is False
-    assert swin.findChild(QQuickItem, "winePrefixCreate").property("visible") is False
+    assert swin.findChild(QQuickItem, "winePrefixCreate").property("visible") is True
     prefix_field.setProperty("text", str(prefix.parent))
     assert QMetaObject.invokeMethod(dlg, "refreshPrefixHint") is True
     QTest.qWait(50)

@@ -1360,6 +1360,7 @@ def test_context_actions_follow_origin_and_runtime(qgui_app, xdg_env, tmp_path, 
 
     proton = model.contextActions("steam-77")
     assert proton["is_steam"] is True
+    assert proton["steam_appid"] == "77"
     assert proton["install"] == os.fspath(steam_install)
     assert proton["prefix"] == ""  # compatdata not created yet
     assert proton["prefix_applicable"] is True
@@ -1377,6 +1378,7 @@ def test_context_actions_follow_origin_and_runtime(qgui_app, xdg_env, tmp_path, 
 
     native = model.contextActions("local-doom")
     assert native["is_steam"] is False
+    assert native["steam_appid"] == ""
     assert native["install"] == os.fspath(exe.parent)
     assert native["prefix"] == ""
     assert native["prefix_applicable"] is False

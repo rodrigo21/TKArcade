@@ -575,6 +575,7 @@ Kirigami.Page {
     }
 
     property string menuGid: ""
+    property string menuSteamAppId: ""
     property string menuInstall: ""
     property string menuPrefix: ""
     property bool menuPrefixApplicable: false
@@ -589,6 +590,7 @@ Kirigami.Page {
         menuGid = gid
         var actions = gameModel.contextActions(gid)
         menuIsSteam = actions.is_steam
+        menuSteamAppId = actions.steam_appid
         menuInstall = actions.install
         menuPrefix = actions.prefix
         menuPrefixApplicable = actions.prefix_applicable
@@ -1369,10 +1371,20 @@ Kirigami.Page {
                 gameModel.copyText("tkarcade --appid " + gamesPage.menuGid))
         }
         Controls.MenuItem {
+            objectName: "menuCopyId"
             visible: gamesPage.selectedIds.length <= 1
-            text: qsTr("Copy App ID")
+            text: qsTr("Copy Game ID")
             onTriggered: gamesPage.notify(
                 gameModel.copyText(gamesPage.menuGid))
+        }
+        Controls.MenuItem {
+            objectName: "menuCopySteamAppId"
+            visible: gamesPage.menuIsSteam
+                && gamesPage.menuSteamAppId !== ""
+                && gamesPage.selectedIds.length <= 1
+            text: qsTr("Copy Steam AppID")
+            onTriggered: gamesPage.notify(
+                gameModel.copyText(gamesPage.menuSteamAppId))
         }
         Controls.MenuItem {
             visible: gamesPage.selectedIds.length <= 1

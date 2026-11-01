@@ -1515,9 +1515,16 @@ class GameListModel(QAbstractTableModel):
             return ""
         return "No Steam config.vdf Found."
 
-    @Slot(str, result=str)
-    def ensurePrefix(self, appid: str) -> str:
-        """Create the prefix dir now. '' on success, else why."""
+    @Slot(str, str, result=str)
+    def ensurePrefix(self, appid: str, target: str = "") -> str:
+        """Create a prefix dir: the dialog's target, else the saved one."""
+        if target.strip():
+            chosen = Path(target.strip()).expanduser()
+            try:
+                chosen.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                return f"Could Not Create {chosen}: {e}"
+            return ""
         try:
             cfg = cfgmod.load(appid)
         except Exception as e:
@@ -1526,13 +1533,13 @@ class GameListModel(QAbstractTableModel):
             custom = cfg.runtime.prefix.strip()
             if not custom:
                 return "Set a Custom Prefix Dir First (Steam Creates Its Own)."
-            target = Path(custom).expanduser()
+            target_path = Path(custom).expanduser()
         else:
-            target, _, _ = self._wine_env(cfg)
+            target_path, _, _ = self._wine_env(cfg)
         try:
-            target.mkdir(parents=True, exist_ok=True)
+            target_path.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            return f"Could Not Create {target}: {e}"
+            return f"Could Not Create {target_path}: {e}"
         return ""
 
     @Slot(str, result=str)
@@ -2665,6 +2672,7 @@ class GameListModel(QAbstractTableModel):
             prefix_applicable = runtime in ("wine", "umu")
         return {
             "is_steam": is_steam,
+            "steam_appid": steammod.steam_appid(appid) if is_steam else "",
             "install": self.installDir(appid),
             "prefix": prefix,
             "prefix_applicable": prefix_applicable,
