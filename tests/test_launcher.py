@@ -374,6 +374,49 @@ def test_validate_clean(xdg_env):
     assert L.cmd_validate(["31"]) == 0
 
 
+def test_validate_flags_uninstalled_steam_game(xdg_env):
+    from tkarcade import launcher as L
+
+    steamapps = xdg_env["home"] / ".local/share/Steam/steamapps"
+    game_dir = steamapps / "common" / "Doom"
+    game_dir.mkdir(parents=True)
+    (steamapps / "appmanifest_40.acf").write_text(
+        '"AppState"\n{\n\t"appid"\t\t"40"\n\t"installdir"\t\t"Doom"\n}\n',
+        encoding="utf-8",
+    )
+    _save("steam-40")
+    assert L.missing_install("steam-40") is False
+    assert L.validate_game("steam-40") == []
+    game_dir.rmdir()
+    assert L.missing_install("steam-40") is True
+    issues = L.validate_game("steam-40")
+    assert any("not installed in Steam" in i for i in issues)
+    assert L.cmd_validate(["steam-40"]) == 17
+
+
+def test_missing_install_needs_a_steam_root(xdg_env):
+    from tkarcade import launcher as L
+
+    _save("steam-41")
+    # No Steam root: the install state is unknown, never a false issue.
+    assert L.missing_install("steam-41") is False
+    assert L.validate_game("steam-41") == []
+
+
+def test_missing_install_flags_local_executable(xdg_env):
+    from tkarcade import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-gone"
+    cfg.general.custom_executable = "/nonexistent/game"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    assert L.missing_install("local-gone") is True
+    cfg.general.custom_executable = sys.executable
+    C.save(cfg)
+    assert L.missing_install("local-gone") is False
+
+
 def test_validate_steam_runtime_is_a_note_not_an_issue(
     xdg_env, fake_bin, monkeypatch, tmp_path, capsys
 ):

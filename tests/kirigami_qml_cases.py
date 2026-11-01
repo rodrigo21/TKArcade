@@ -3511,20 +3511,28 @@ def test_issues_only_filter(qgui_app, xdg_env):
     bad.general.custom_executable = "/nonexistent/game"
     bad.runtime.type = "native"
     C.save(bad)
+    # A Steam root exists, but this game is not in it: uninstalled.
+    (xdg_env["home"] / ".local/share/Steam/steamapps").mkdir(parents=True)
+    gone = C.GameConfig()
+    gone.general.appid = "steam-99"
+    gone.runtime.type = "native"
+    C.save(gone)
     win, _engine, proxy, warnings = _load_main(qgui_app)
-    assert proxy.rowCount() == 2
+    assert proxy.rowCount() == 3
     page = win.findChild(QObject, "gamesPage")
     assert page is not None
     proxy.setProperty("issuesOnly", True)
     qgui_app.processEvents()
-    assert proxy.rowCount() == 1
-    assert proxy.data(proxy.index(0, 0)) in ("Bad", "local-bad") or True
+    assert proxy.rowCount() == 2
     from tkarcade.gui.model import GameListModel
 
-    assert proxy.data(proxy.index(0, 0), GameListModel.IdRole) == "local-bad"
+    shown = {
+        proxy.data(proxy.index(row, 0), GameListModel.IdRole) for row in range(proxy.rowCount())
+    }
+    assert shown == {"local-bad", "steam-99"}
     proxy.setProperty("issuesOnly", False)
     qgui_app.processEvents()
-    assert proxy.rowCount() == 2
+    assert proxy.rowCount() == 3
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3853,6 +3861,60 @@ def test_hamburger_global_defaults_entry(qgui_app, xdg_env):
     assert real == []
     win.close()
     _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_hamburger_removes_uninstalled_games(qgui_app, xdg_env):
+    """The hamburger cleanup deletes configs whose install is gone."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    steamapps = xdg_env["home"] / ".local/share/Steam/steamapps"
+    (steamapps / "common" / "Doom").mkdir(parents=True)
+    (steamapps / "appmanifest_40.acf").write_text(
+        '"AppState"\n{\n\t"appid"\t\t"40"\n\t"installdir"\t\t"Doom"\n}\n',
+        encoding="utf-8",
+    )
+    for appid, exe in (
+        ("steam-40", ""),
+        ("steam-41", ""),
+        ("local-good", "/bin/true"),
+        ("local-gone", "/nonexistent/game"),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.custom_executable = exe
+        cfg.runtime.type = "native"
+        C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    menu = win.findChild(QObject, "hamburgerMenu")
+    entry = menu.findChild(QObject, "menuRemoveUninstalled")
+    assert entry.property("text") == "Remove Uninstalled Games..."
+    _fire(entry)
+    dlg = _confirm_window(qgui_app, "removeMissingDialog")
+    assert dlg.title() == "Remove Uninstalled Games"
+    question = dlg.findChild(QQuickItem, "confirmQuestion")
+    assert "2 Uninstalled Games" in question.property("text")
+    detail = dlg.findChild(QQuickItem, "confirmDetail")
+    assert "local-gone" in detail.property("text")
+    assert "steam-41" in detail.property("text")
+    _click(dlg, "confirmOk")
+    qgui_app.processEvents()
+    assert not C.game_file("local-gone").exists()
+    assert not C.game_file("steam-41").exists()
+    assert C.game_file("steam-40").exists()
+    assert C.game_file("local-good").exists()
+    # Nothing left to remove: the next run reports instead of opening.
+    _fire(entry)
+    qgui_app.processEvents()
+    assert "No Uninstalled Games Found." in page.property("notice")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
     qgui_app.processEvents()
 
 

@@ -12,6 +12,10 @@ Breaking config changes are called out explicitly under `Changed`.
   choices, and a missing selection is reported by the dialog and
   `--validate` instead of silently using another version. Runtime
   archives are still not downloaded or unpacked.
+- A hamburger action removes the configurations of games whose install
+  is gone: Steam games without an appmanifest or install folder and
+  local games whose executable no longer exists. It lists them in a
+  confirmation first and offers the usual leftover cleanup afterwards.
 
 ### Changed
 - The local Runtime list reads Native, UMU, Wine in both the Add Game
@@ -158,6 +162,9 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The issues-only filter, Validate Game and `--validate` report a Steam
+  game no longer installed in Steam (appmanifest or install folder
+  missing) instead of treating the stale config as healthy.
 - Switching a local game from UMU to Wine no longer copies the umu
   Proton path into the Wine binary field and saves it as `[runtime] tool`;
   the read-only Detected Runtime row is hidden for Wine, since the Wine

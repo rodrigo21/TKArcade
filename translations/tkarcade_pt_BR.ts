@@ -2378,24 +2378,24 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Filtrar por Nome ou ID…</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1260"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1289"/>
         <source>Icons</source>
         <translation>Ícones</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1267"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1296"/>
         <source>Cards</source>
         <translation>Cartões</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1253"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1282"/>
         <source>List</source>
         <translation>Lista</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="468"/>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="476"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1152"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1168"/>
         <source>Select a Game First.</source>
         <translation>Selecione um Jogo Primeiro.</translation>
     </message>
@@ -2453,13 +2453,13 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="860"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1304"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1333"/>
         <source>Played</source>
         <translation>Jogado</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="863"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1310"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1339"/>
         <source>ProtonDB</source>
         <translation>ProtonDB</translation>
     </message>
@@ -2484,204 +2484,225 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Pasta de Instalação</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1047"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1341"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1063"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1370"/>
         <source>Play</source>
         <translation>Jogar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1054"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1070"/>
         <source>Add Game</source>
         <translation>Adicionar Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1061"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1077"/>
         <source>Edit...</source>
         <translation>Editar...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1068"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2300"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1084"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2329"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2347"/>
         <source>Remove</source>
         <translation>Remover</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1117"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1133"/>
         <source>Scan Steam Library...</source>
         <translation>Escanear Biblioteca Steam...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1122"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1138"/>
         <source>Every Steam Game Is Already Configured.</source>
         <translation>Todo Jogo Steam Já Está Configurado.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1130"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1146"/>
         <source>History...</source>
         <translation>Histórico...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1138"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1154"/>
         <source>With Issues Only</source>
         <translation>Só com Problemas</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1159"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1175"/>
         <source>Open Ludusavi...</source>
         <translation>Abrir Ludusavi...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1168"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1184"/>
         <source>Open Logs Folder</source>
         <translation>Abrir Pasta de Logs</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1171"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1187"/>
         <source>Could Not Open the Logs Folder.</source>
         <translation>Não Foi Possível Abrir a Pasta de Logs.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1190"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1206"/>
+        <source>Remove Uninstalled Games...</source>
+        <translation>Remover Jogos Desinstalados...</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1210"/>
+        <source>No Uninstalled Games Found.</source>
+        <translation>Nenhum Jogo Desinstalado Encontrado.</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1219"/>
         <source>Export...</source>
         <translation>Exportar...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1193"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1222"/>
         <source>Export Configurations</source>
         <translation>Exportar Configurações</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1193"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1222"/>
         <source>Save</source>
         <translation>Salvar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1198"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2102"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1227"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2131"/>
         <source>Import...</source>
         <translation>Importar...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1204"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1233"/>
         <source>Reload</source>
         <translation>Recarregar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1211"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1240"/>
         <source>Preferences...</source>
         <translation>Preferências...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1219"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1248"/>
         <source>Global Defaults...</source>
         <translation>Padrões Globais...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1223"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1252"/>
         <source>About...</source>
         <translation>Sobre...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1229"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1258"/>
         <source>Quit</source>
         <translation>Sair</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1249"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1278"/>
         <source>View</source>
         <translation>Exibir</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1274"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1303"/>
         <source>Zoom</source>
         <translation>Zoom</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1288"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1317"/>
         <source>Sort By</source>
         <translation>Ordenar por</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1292"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1321"/>
         <source>Name</source>
         <translation>Nome</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1322"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1351"/>
         <source>Reverse Order</source>
         <translation>Ordem Inversa</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1349"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1378"/>
         <source>Terminate</source>
         <translation>Encerrar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1354"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1383"/>
         <source>Edit Settings</source>
         <translation>Editar Configurações</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1363"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2106"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1392"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2135"/>
         <source>Copy Launch Options</source>
         <translation>Copiar Opções de Lançamento</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1369"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1398"/>
         <source>Copy Launch Command</source>
         <translation>Copiar Comando de Lançamento</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1391"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1420"/>
         <source>Copy Game Name</source>
         <translation>Copiar Nome do Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1404"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1433"/>
         <source>Open Install Folder</source>
         <translation>Abrir Pasta de Instalação</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1407"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1436"/>
         <source>Could Not Open the Install Folder.</source>
         <translation>Não Foi Possível Abrir a Pasta de Instalação.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1419"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1448"/>
         <source>Could Not Open the Prefix Folder.</source>
         <translation>Não Foi Possível Abrir a Pasta do Prefixo.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1428"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2427"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1457"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2464"/>
         <source>Clear Shader Cache</source>
         <translation>Limpar Cache de Shaders</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1434"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1951"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1463"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1980"/>
         <source>Open ProtonDB Page</source>
         <translation>Abrir Página no ProtonDB</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2020"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2049"/>
         <source>Show Game ID</source>
         <translation>Mostrar ID do Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2517"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2339"/>
+        <source>Remove Uninstalled Games</source>
+        <translation>Remover Jogos Desinstalados</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2344"/>
+        <source>Remove the Configurations for %1 Uninstalled Games?</source>
+        <translation>Remover as Configurações de %1 Jogos Desinstalados?</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2554"/>
         <source>Reset %1 Game(s) to the Global Defaults Template Now?</source>
         <translation>Redefinir %1 Jogo(s) para o Modelo Padrões Globais Agora?</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2519"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2556"/>
         <source>This Overwrites Their Saved Configs (Profiles Are Kept).</source>
         <translation>Isso Sobrescreve as Configs Salvas (Perfis São Mantidos).</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1149"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1439"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1165"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1468"/>
         <source>Validate Game</source>
         <translation>Validar Jogo</translation>
     </message>
@@ -2692,212 +2713,213 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="857"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1298"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1327"/>
         <source>Game ID</source>
         <translation>ID do Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1176"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1192"/>
         <source>Clean Up Leftovers...</source>
         <translation>Limpar Sobras...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1181"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1197"/>
         <source>No Leftovers Found.</source>
         <translation>Nenhuma Sobra Encontrada.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1376"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1405"/>
         <source>Copy Game ID</source>
         <translation>Copiar ID do Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1385"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1414"/>
         <source>Copy Steam AppID</source>
         <translation>Copiar AppID da Steam</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1416"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1445"/>
         <source>Open Prefix Folder</source>
         <translation>Abrir Pasta do Prefixo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1444"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2440"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1473"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2477"/>
         <source>Clear History</source>
         <translation>Limpar Histórico</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1449"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1478"/>
         <source>Clone Settings To...</source>
         <translation>Clonar Configurações para...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1457"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1486"/>
         <source>Remove Game</source>
         <translation>Remover Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1458"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1487"/>
         <source>Remove %1 Games</source>
         <translation>Remover %1 Jogos</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1462"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2516"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1491"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2553"/>
         <source>Reset to Global Defaults</source>
         <translation>Restaurar Padrões Globais</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1466"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1495"/>
         <source>Set Categories…</source>
         <translation>Definir Categorias…</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2026"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2055"/>
         <source>Show Played</source>
         <translation>Mostrar Tempo Jogado</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2032"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2061"/>
         <source>Show ProtonDB</source>
         <translation>Mostrar ProtonDB</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2044"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2073"/>
         <source>Show Last Played</source>
         <translation>Mostrar Jogado por Último</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2050"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2079"/>
         <source>Show Platform</source>
         <translation>Mostrar Plataforma</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2062"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2091"/>
         <source>Show Wine</source>
         <translation>Mostrar Wine</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2068"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2097"/>
         <source>Show Install Dir</source>
         <translation>Mostrar Pasta de Instalação</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2076"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2105"/>
         <source>Configure Columns…</source>
         <translation>Configurar Colunas…</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2082"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2111"/>
         <source>Reset Columns</source>
         <translation>Restaurar Colunas</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2089"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2118"/>
         <source>No Games Configured Yet</source>
         <translation>Nenhum Jogo Configurado Ainda</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2090"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2119"/>
         <source>1. Add a Steam Game · 2. Edit Its Settings · 3. Set Its Steam Launch Options to tkarcade %command%</source>
         <translation>1. Adicione um Jogo Steam · 2. Edite as Configurações · 3. Defina as Opções de Inicialização do Steam Como tkarcade %command%</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2097"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2126"/>
         <source>Add Game...</source>
         <translation>Adicionar Jogo...</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2179"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2212"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2208"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2241"/>
         <source>No Games Yet</source>
         <translation>Nenhum Jogo Ainda</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2180"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2213"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2209"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2242"/>
         <source>Add a Native Linux Game to Get Started.</source>
         <translation>Adicione um Jogo Nativo de Linux para Começar.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2233"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2262"/>
         <source>%1 Configured · %2 Steam Games Detected</source>
         <translation>%1 Configurados · %2 Jogos Steam Detectados</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2240"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2269"/>
         <source> · %1 Shown</source>
         <translation> · %1 Exibidos</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2294"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2323"/>
         <source>Remove Games</source>
         <translation>Remover Jogos</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2296"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2325"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2342"/>
         <source>Remove the Configuration for %1?</source>
         <translation>Remover a Configuração de %1?</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2298"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2327"/>
         <source>Remove the Configurations for %1 Games?</source>
         <translation>Remover as Configurações de %1 Jogos?</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2320"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2357"/>
         <source>Clean Up Leftovers</source>
         <translation>Limpar Sobras</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2335"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2372"/>
         <source>%1 Profile(s)</source>
         <translation>%1 Perfil(es)</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2338"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2375"/>
         <source>Session Log</source>
         <translation>Log da Sessão</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2341"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2378"/>
         <source>Proton Log</source>
         <translation>Log do Proton</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2344"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2381"/>
         <source>%1 Session(s)</source>
         <translation>%1 Sessão(ões)</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2347"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2384"/>
         <source>Prefix</source>
         <translation>Prefixo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2321"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2358"/>
         <source>These Games Were Removed but Still Have Profiles or Logs:</source>
         <translation>Estes Jogos Foram Removidos, Mas Ainda Têm Perfis ou Logs:</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2410"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2447"/>
         <source>Also Delete the Proton/Wine Prefix (Large and Cannot Be Undone)</source>
         <translation>Apagar Também o Prefixo Proton/Wine (Grande e Não Pode Ser Desfeito)</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2419"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2456"/>
         <source>Cleaned Leftovers for %1 Game(s).</source>
         <translation>Sobras Limpas para %1 Jogo(s).</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2322"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2359"/>
         <source>Clean Selected</source>
         <translation>Limpar Selecionados</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="866"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1316"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="1345"/>
         <source>Origin</source>
         <translation>Origem</translation>
     </message>
@@ -2907,88 +2929,88 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Runtime</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2038"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2067"/>
         <source>Show Origin</source>
         <translation>Mostrar Origem</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2056"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2085"/>
         <source>Show Runtime</source>
         <translation>Mostrar Runtime</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2323"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2360"/>
         <source>Keep All</source>
         <translation>Manter Todos</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2428"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2465"/>
         <source>Delete %1 of Shader Cache for %2? Steam Rebuilds It on Demand.</source>
         <translation>Excluir %1 do Cache de Shaders de %2? O Steam Reconstrói sob Demanda.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2430"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2467"/>
         <source>Delete</source>
         <translation>Apagar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2441"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2478"/>
         <source>Clear Session History for %1? This Cannot Be Undone.</source>
         <translation>Limpar o Histórico de Sessões de %1? Isso Não Pode Ser Desfeito.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2443"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2480"/>
         <source>Clear</source>
         <translation>Limpar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2446"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2483"/>
         <source>Cleared %1 Session(s).</source>
         <translation>%1 Sessão(ões) Limpas.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2454"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2491"/>
         <source>Validate Game: %1</source>
         <translation>Validar Jogo: %1</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2456"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2493"/>
         <source>Close</source>
         <translation>Fechar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2470"/>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2491"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2507"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2528"/>
         <source>Clone Settings</source>
         <translation>Clonar Configurações</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2476"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2513"/>
         <source>Clone into Game:</source>
         <translation>Clonar para o Jogo:</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2471"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2508"/>
         <source>Clone</source>
         <translation>Clonar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2492"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2529"/>
         <source>Overwrite the Saved Settings for %1?</source>
         <translation>Sobrescrever as Configurações Salvas de %1?</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2493"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2530"/>
         <source>Overwrite</source>
         <translation>Sobrescrever</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2507"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2544"/>
         <source>Set Categories</source>
         <translation>Definir Categorias</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2520"/>
+        <location filename="../src/tkarcade/gui/qml/MainPage.qml" line="2557"/>
         <source>Reset</source>
         <translation>Redefinir</translation>
     </message>

@@ -778,6 +778,26 @@ def _exe_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
     return issues
 
 
+def missing_install(appid: str) -> bool:
+    """True when the game's files are gone: Steam entry/folder or local binary."""
+    if steammod.is_steam_id(appid):
+        # Without a Steam root the install state cannot be checked.
+        return bool(steammod.steam_roots()) and steammod.install_dir(appid) is None
+    try:
+        eff = cfgmod.load_effective(appid)
+    except Exception:
+        return False
+    custom = eff.general.custom_executable.strip()
+    return bool(custom) and not shutil.which(custom) and not Path(custom).is_file()
+
+
+def _install_issue(appid: str) -> str | None:
+    """Steam game no longer present in a library (uninstalled or moved)."""
+    if not steammod.is_steam_id(appid) or not missing_install(appid):
+        return None
+    return f"{appid}: game is not installed in Steam (appmanifest or install folder missing)"
+
+
 def _display_issue(appid: str, eff: cfgmod.GameConfig) -> str | None:
     """Invalid display mode string, or None when it is absent/parsable."""
     mode = eff.display.mode.strip()
@@ -825,6 +845,9 @@ def validate_game(appid: str) -> list[str]:
     cfg = cfgmod.load(appid)
     eff = cfgmod.load_effective(appid)  # what would actually launch
     issues = _profile_issues(appid, cfg)
+    install_issue = _install_issue(appid)
+    if install_issue:
+        issues.append(install_issue)
     issues += _environment_issues(appid, eff)
     issues += _runtime_issues(appid, eff)
     issues += _graphics_issue(appid, eff)

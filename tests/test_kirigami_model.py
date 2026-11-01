@@ -352,6 +352,30 @@ def test_remove_and_profiles_roundtrip(qgui_app, xdg_env):
     assert not C.game_file("local-doom").exists()
 
 
+def test_uninstalled_games_lists_missing_installs(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    steamapps = xdg_env["home"] / ".local/share/Steam/steamapps"
+    (steamapps / "common" / "Doom").mkdir(parents=True)
+    (steamapps / "appmanifest_40.acf").write_text(
+        '"AppState"\n{\n\t"appid"\t\t"40"\n\t"installdir"\t\t"Doom"\n}\n',
+        encoding="utf-8",
+    )
+    for appid, exe in (
+        ("steam-40", ""),
+        ("steam-41", ""),
+        ("local-good", "/bin/true"),
+        ("local-gone", "/nonexistent/game"),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.custom_executable = exe
+        cfg.runtime.type = "native"
+        C.save(cfg)
+    missing = GameListModel().uninstalledGames()
+    assert sorted(missing) == ["local-gone", "steam-41"]
+
+
 def test_leftovers_include_logs_history_and_prefix(qgui_app, xdg_env, tmp_path):
     from tkarcade import config as C
     from tkarcade import xdg

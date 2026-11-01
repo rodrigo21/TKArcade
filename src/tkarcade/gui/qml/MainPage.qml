@@ -907,6 +907,22 @@ Kirigami.Page {
         return JSON.parse(JSON.stringify(rows))
     }
 
+    // Shared by Remove Game and Remove Uninstalled Games: delete the
+    // configs, then offer the leftover cleanup for what they left behind.
+    function removeTargets(targets) {
+        var ids = targets.slice()
+        var err = gameModel.removeGames(ids)
+        if (err !== "") {
+            gamesPage.notify(err)
+        }
+        var leftovers = gamesPage.freshRows(gameModel.leftoverData(ids))
+        gamesPage.ensureSelection()
+        if (leftovers.length > 0) {
+            cleanupDialog.rows = leftovers
+            gamesPage.openDialog(cleanupDialog)
+        }
+    }
+
     function headerCellX(logical) {
         // Cumulative offset in view order (hidden columns take no
         // space). Reads live widths every run; callers pin a rev
@@ -1183,6 +1199,19 @@ Kirigami.Page {
                                             }
                                             cleanupDialog.rows = rows
                                             gamesPage.openDialog(cleanupDialog)
+                                        }
+                                    }
+                                    Controls.MenuItem {
+                                        objectName: "menuRemoveUninstalled"
+                                        text: qsTr("Remove Uninstalled Games...")
+                                        onTriggered: {
+                                            var ids = gameModel.uninstalledGames()
+                                            if (ids.length === 0) {
+                                                gamesPage.notify(qsTr("No Uninstalled Games Found."))
+                                                return
+                                            }
+                                            removeMissingDialog.targets = ids
+                                            gamesPage.openDialog(removeMissingDialog)
                                         }
                                     }
                                     Controls.MenuItem {
@@ -2299,18 +2328,26 @@ Kirigami.Page {
                 gamesPage.selectedIds.length)
         acceptText: qsTr("Remove")
         onAccepted: {
-            var targets = gamesPage.selectedIds.slice()
-            var err = gameModel.removeGames(targets)
-            if (err !== "") {
-                gamesPage.notify(err)
-            }
-            var leftovers = gamesPage.freshRows(gameModel.leftoverData(targets))
-            gamesPage.ensureSelection()
             removeDialog.close()
-            if (leftovers.length > 0) {
-                cleanupDialog.rows = leftovers
-                gamesPage.openDialog(cleanupDialog)
-            }
+            gamesPage.removeTargets(gamesPage.selectedIds)
+        }
+    }
+
+    ConfirmDialog {
+        id: removeMissingDialog
+        objectName: "removeMissingDialog"
+        title: qsTr("Remove Uninstalled Games")
+        property var targets: []
+        question: targets.length === 1
+            ? qsTr("Remove the Configuration for %1?").arg(
+                gameModel.gameNames(targets)[0])
+            : qsTr("Remove the Configurations for %1 Uninstalled Games?").arg(
+                targets.length)
+        detail: targets.length > 1 ? gameModel.gameNames(targets).join("\n") : ""
+        acceptText: qsTr("Remove")
+        onAccepted: {
+            removeMissingDialog.close()
+            gamesPage.removeTargets(targets)
         }
     }
 

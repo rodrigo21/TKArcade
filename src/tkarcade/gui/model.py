@@ -2948,6 +2948,20 @@ class GameListModel(QAbstractTableModel):
         names.update(steammod.local_names())
         return [names.get(str(a), str(a)) for a in appids]
 
+    @Slot(result=list)
+    def uninstalledGames(self) -> list:
+        """Configured games whose install is gone (hamburger cleanup)."""
+        from ..launcher import missing_install
+
+        ids = []
+        for appid in cfgmod.list_appids():
+            try:
+                if missing_install(appid):
+                    ids.append(appid)
+            except Exception:
+                continue
+        return ids
+
     @Slot(list, result=str)
     def removeGames(self, appids: list) -> str:
         """Delete configs; returns '' or joined errors. Refreshes the list."""
