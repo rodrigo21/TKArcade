@@ -15,8 +15,10 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   tags each check as error (launch blocked or config unapplied) or
   warning (launch degraded), while `validate_game()`/`--validate` keep
   the flat strings; the table's name cell shows the worst level as a
-  red error or orange warning icon whose tooltip lists the issues.
-  `TODO.md` keeps the badge for the card/icon views. Before it: missing
+  red error or orange warning icon whose tooltip lists the issues, one
+  per line with an `Error:`/`Warning:` label and the keys verbatim (the
+  Title Case rule is in `docs/DEVELOPMENT.md`). `TODO.md` keeps the
+  badge for the card/icon views. Before it: missing
   installs (`missing_install()` catches a Steam game without an
   appmanifest/install folder — only when a Steam root exists — or a
   local executable that vanished; the issues filter, Validate Game and
