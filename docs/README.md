@@ -58,3 +58,5 @@ What each document is for and where the source of truth lives.
   derived Steam AppID and the one-time rename migration.
 - `decisions/origin-runtime-actions.md` — the origin/runtime context
   menu matrix and the single model table behind it.
+- `decisions/graphics-layers.md` — why `[graphics]` stays a plain-Wine
+  feature and the runtime build is the version selector.

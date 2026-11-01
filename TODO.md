@@ -19,12 +19,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred design review
 
-- [ ] **DXVK/vkd3d inside UMU/Proton prefixes.** umu and Steam's Proton
-  ship their own DXVK and vkd3d, so `[graphics]` is hidden and ignored
-  for them (an old install is only neutralised). Decide whether
-  overriding the runtime's versions should be possible at all, how (copy
-  into the prefix vs. the runtime's own layer dir), which selector the
-  dialog needs, and what happens when Proton updates.
 - [ ] **External runtime versions.** Like Lutris, allow several DXVK,
   vkd3d-proton and Proton versions from arbitrary locations, not only
   what is installed system-wide. Audit what `[ui] dxvk_dirs`,

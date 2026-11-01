@@ -112,8 +112,11 @@ vkd3d-proton covers D3D12, so the two combine (`dxvk = true` plus
 has lower compatibility. A marker (`tkarcade-graphics.json`) records the
 copied files; **Remove from prefix** deletes only those. Only a plain
 Wine prefix takes the layers: `umu` and Steam's Proton ship their own
-DXVK/vkd3d, so the section is hidden for them and `[graphics]` is
-ignored (overriding a runtime's versions is on `TODO.md`).
+DXVK/vkd3d, which own the DLL search path, so the section is hidden for
+them and `[graphics]` is ignored by design
+(`docs/decisions/graphics-layers.md`). To change those versions, pick a
+different Proton build — the per-game compat tool in Steam, or another
+runtime for a local umu game.
 
 ```toml
 # Local Windows game under Wine, with the graphics layers.
