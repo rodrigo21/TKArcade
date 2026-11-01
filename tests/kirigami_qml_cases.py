@@ -285,7 +285,7 @@ def test_list_row_double_click_plays(qgui_app, xdg_env, monkeypatch):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 
     cfg = C.GameConfig()
-    cfg.general.appid = "77"
+    cfg.general.appid = "steam-77"
     C.save(cfg)
     engine = QQmlApplicationEngine()
     warnings = []
@@ -313,7 +313,7 @@ def test_list_row_double_click_plays(qgui_app, xdg_env, monkeypatch):
     assert len(rows) == 1
     QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, rows[0][1])
     qgui_app.processEvents()
-    assert played == ["77"]
+    assert played == ["steam-77"]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -330,7 +330,7 @@ def test_middle_click_opens_settings(qgui_app, xdg_env):
     from tkarcade import config as C
 
     cfg = C.GameConfig()
-    cfg.general.appid = "77"
+    cfg.general.appid = "steam-77"
     cfg.general.name = "Middle Test"
     C.save(cfg)
     win, engine, proxy, warnings = _load_main(qgui_app)
@@ -347,7 +347,7 @@ def test_middle_click_opens_settings(qgui_app, xdg_env):
     QTest.qWait(100)
     qgui_app.processEvents()
     assert page.settingsOpen() is True
-    assert settings.property("editAppid") == "77"
+    assert settings.property("editAppid") == "steam-77"
 
     settings.close()
     QTest.qWait(50)
@@ -1623,7 +1623,7 @@ def test_icon_double_click_plays(qgui_app, xdg_env, monkeypatch):
     from tkarcade import config as C
 
     cfg = C.GameConfig()
-    cfg.general.appid = "77"
+    cfg.general.appid = "steam-77"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
@@ -1638,7 +1638,7 @@ def test_icon_double_click_plays(qgui_app, xdg_env, monkeypatch):
     pos = cells[0].mapToScene(QPointF(cells[0].property("width") / 2, 10)).toPoint()
     QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
-    assert played == ["77"]
+    assert played == ["steam-77"]
 
     # Middle-click opens the settings (widgets eventFilter parity).
     settings = win.findChild(QObject, "gameSettings")
@@ -2460,7 +2460,7 @@ def test_tier_double_click_opens_protondb(qgui_app, xdg_env):
     from tkarcade import config as C
 
     cfg = C.GameConfig()
-    cfg.general.appid = "42"
+    cfg.general.appid = "steam-42"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
@@ -2479,7 +2479,7 @@ def test_tier_double_click_opens_protondb(qgui_app, xdg_env):
     pos = QPointF(tier_win_x, row_y).toPoint()
     QTest.mouseDClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, pos)
     qgui_app.processEvents()
-    assert opened == ["42"]
+    assert opened == ["steam-42"]
     assert played == []
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -2990,11 +2990,11 @@ def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env, monkeypatch):
 
     import tkarcade.steam as steammod
 
-    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3")])
-    _save_one_game("99", "Doom 3", "proton")
+    monkeypatch.setattr(steammod, "list_games", lambda: [("steam-99", "Doom 3")])
+    _save_one_game("steam-99", "Doom 3", "proton")
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    page.openGameSettings("99")
+    page.openGameSettings("steam-99")
     swin = _settings_window(qgui_app)
     dialog = win.findChild(QObject, "gameSettings")
     # The confirmation is a modal window of its own now: Escape there
@@ -3144,20 +3144,22 @@ def test_scan_flow_adds_steam_game(qgui_app, xdg_env, monkeypatch):
     import tkarcade.steam as steammod
     from tkarcade import config as C
 
-    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3"), ("100", "Quake 4")])
+    monkeypatch.setattr(
+        steammod, "list_games", lambda: [("steam-99", "Doom 3"), ("steam-100", "Quake 4")]
+    )
     win, engine, proxy, warnings = _load_main(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
-    assert model.scanCandidates() == [["99", "Doom 3"], ["100", "Quake 4"]]
+    assert model.scanCandidates() == [["steam-99", "Doom 3"], ["steam-100", "Quake 4"]]
     dialog = win.findChild(QObject, "scanDialog")
-    dialog.setProperty("candidates", [["99", "Doom 3"], ["100", "Quake 4"]])
+    dialog.setProperty("candidates", [["steam-99", "Doom 3"], ["steam-100", "Quake 4"]])
     qgui_app.processEvents()
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Add Games",))
     _click(swin, "scanConfirm")
     qgui_app.processEvents()
-    assert C.game_file("99").exists()
-    assert C.game_file("100").exists()
+    assert C.game_file("steam-99").exists()
+    assert C.game_file("steam-100").exists()
     assert proxy.rowCount() == 2
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -3174,16 +3176,18 @@ def test_scan_enter_adds_selected(qgui_app, xdg_env, monkeypatch):
     import tkarcade.steam as steammod
     from tkarcade import config as C
 
-    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3"), ("100", "Quake 4")])
+    monkeypatch.setattr(
+        steammod, "list_games", lambda: [("steam-99", "Doom 3"), ("steam-100", "Quake 4")]
+    )
     win, engine, proxy, warnings = _load_main(qgui_app)
     dialog = win.findChild(QObject, "scanDialog")
-    dialog.setProperty("candidates", [["99", "Doom 3"], ["100", "Quake 4"]])
+    dialog.setProperty("candidates", [["steam-99", "Doom 3"], ["steam-100", "Quake 4"]])
     dialog.open()
     swin = _modal_window(qgui_app, ("Add Games",))
     _settle_focus(swin)
     QTest.keyClick(swin, Qt.Key.Key_Return)
-    assert _wait_for(lambda: C.game_file("100").exists()), "Enter added nothing"
-    assert C.game_file("99").exists()
+    assert _wait_for(lambda: C.game_file("steam-100").exists()), "Enter added nothing"
+    assert C.game_file("steam-99").exists()
     assert proxy.rowCount() == 2
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -4704,13 +4708,13 @@ def test_settings_exe_hint_on_steam_offers_proton(qgui_app, xdg_env, tmp_path):
     exe = tmp_path / "steam.exe"
     exe.write_text("")
     cfg = C.GameConfig()
-    cfg.general.appid = "98"
+    cfg.general.appid = "steam-98"
     cfg.general.name = "Steam Exe"
     cfg.runtime.type = "native"
     cfg.general.custom_executable = str(exe)
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
-    win.findChild(QObject, "gamesPage").openGameSettings("98")
+    win.findChild(QObject, "gamesPage").openGameSettings("steam-98")
     swin = _settings_window(qgui_app)
     _settings_tab(swin, TAB_LAUNCH)
     hint = swin.findChild(QQuickItem, "settingsExeHint")
@@ -4938,9 +4942,9 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
     import tkarcade.steam as steammod
     from tkarcade import config as C
 
-    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3")])
+    monkeypatch.setattr(steammod, "list_games", lambda: [("steam-99", "Doom 3")])
     cfg = C.GameConfig()
-    cfg.general.appid = "99"
+    cfg.general.appid = "steam-99"
     C.save(cfg)
     stl_id = Path(os.environ["XDG_CONFIG_HOME"]) / "steamtinkerlaunch" / "gamecfgs" / "id"
     stl_id.mkdir(parents=True)
@@ -4964,7 +4968,7 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
         _click(swin, name)
 
     click("importStlConfirm")
-    assert C.profile_file("99", "steamtinkerlaunch").is_file()
+    assert C.profile_file("steam-99", "steamtinkerlaunch").is_file()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4979,20 +4983,20 @@ def test_import_tarball_flow(qgui_app, xdg_env, tmp_path):
     from tkarcade import config as C
 
     cfg = C.GameConfig()
-    cfg.general.appid = "99"
+    cfg.general.appid = "steam-99"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     tarball = tmp_path / "backup.tar.gz"
     assert "Exported to" in model.exportTarball(str(tarball))
-    C.game_file("99").unlink()
+    C.game_file("steam-99").unlink()
     dlg = win.findChild(QObject, "importDialog")
     dlg.setProperty("tarballPath", str(tarball))
     dlg.setProperty("visible", True)
     swin = _modal_window(qgui_app, ("Import Configurations",))
     _click(swin, "importTarballConfirm")
     qgui_app.processEvents()
-    assert C.game_file("99").is_file()
+    assert C.game_file("steam-99").is_file()
     page = win.findChild(QObject, "gamesPage")
     assert page.property("notice").startswith("Imported")
     real = [w for w in warnings if "graphics scene" not in w]
@@ -5010,20 +5014,20 @@ def test_import_enter_imports_the_current_page(qgui_app, xdg_env, tmp_path):
     from tkarcade import config as C
 
     cfg = C.GameConfig()
-    cfg.general.appid = "99"
+    cfg.general.appid = "steam-99"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     tarball = tmp_path / "backup.tar.gz"
     assert "Exported to" in model.exportTarball(str(tarball))
-    C.game_file("99").unlink()
+    C.game_file("steam-99").unlink()
     dlg = win.findChild(QObject, "importDialog")
     dlg.open()
     swin = _modal_window(qgui_app, ("Import Configurations",))
     _settle_focus(swin)
     dlg.setProperty("tarballPath", str(tarball))
     QTest.keyClick(swin, Qt.Key.Key_Return)
-    assert _wait_for(lambda: C.game_file("99").is_file()), "Enter did not import"
+    assert _wait_for(lambda: C.game_file("steam-99").is_file()), "Enter did not import"
     page = win.findChild(QObject, "gamesPage")
     assert page.property("notice").startswith("Imported")
     real = [w for w in warnings if "graphics scene" not in w]
@@ -5137,7 +5141,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     cfg.runtime.type = "native"
     C.save(cfg)
     steam = C.GameConfig()
-    steam.general.appid = "99"
+    steam.general.appid = "steam-99"
     steam.runtime.type = "proton"
     C.save(steam)
     win, engine, _proxy, warnings = _load_main(qgui_app)
@@ -5179,7 +5183,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
 
     # The Runtime tab edits a Steam game's compat tool and prefix; the
     # Steam-only rows (fresh prefix, Proton log) show for Steam games.
-    page.openGameSettings("99")
+    page.openGameSettings("steam-99")
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_RUNTIME)
     qgui_app.processEvents()
@@ -5208,7 +5212,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     swin.findChild(QQuickItem, "ptDebug").setProperty("currentIndex", 2)
     dlg.save()
     qgui_app.processEvents()
-    reloaded = C.load("99")
+    reloaded = C.load("steam-99")
     assert reloaded.runtime.fresh_prefix is True
     assert reloaded.runtime.winetricks_verbs == ["dotnet48"]
     assert reloaded.debug.winedebug == "+err"
@@ -5799,7 +5803,7 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     import tkarcade.steam as steammod
     from tkarcade import config as C
 
-    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3")])
+    monkeypatch.setattr(steammod, "list_games", lambda: [("steam-99", "Doom 3")])
     win, engine, proxy, warnings = _load_main(qgui_app)
 
     def click(name, host):
@@ -5811,13 +5815,13 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     click("addConfirm", add)
     swin = _settings_window(qgui_app)
     assert proxy.rowCount() == 0
-    assert swin.findChild(QQuickItem, "settingsAppid").property("text") == "99"
+    assert swin.findChild(QQuickItem, "settingsAppid").property("text") == "steam-99"
     # Steam games must name the runtime: no auto-detection and no guess.
     click("settingsSave", swin)
-    assert not C.game_file("99").is_file()
+    assert not C.game_file("steam-99").is_file()
     swin.findChild(QQuickItem, "settingsRuntimeType").setProperty("currentIndex", 0)
     click("settingsSave", swin)
-    assert C.game_file("99").is_file()
+    assert C.game_file("steam-99").is_file()
     click("titleAdd", win)
     add2 = _modal_window(qgui_app, ("Add Game",))
     add2.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
@@ -6619,7 +6623,7 @@ def test_row_hover_tracks_mouse(qgui_app, xdg_env):
     from tkarcade import config as C
 
     cfg = C.GameConfig()
-    cfg.general.appid = "77"
+    cfg.general.appid = "steam-77"
     C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")

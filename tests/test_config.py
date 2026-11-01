@@ -1149,7 +1149,7 @@ def _seed_legacy_game():
     return cfg
 
 
-def test_migrate_local_ids_renames_every_store(xdg_env):
+def test_migrate_ids_renames_every_store(xdg_env):
     from tkarcade import artwork, winetricks, xdg
 
     old = "local-bad-hero---episode-1"
@@ -1161,7 +1161,9 @@ def test_migrate_local_ids_renames_every_store(xdg_env):
     donor.artwork.artwork_appid = old
     C.save(donor)
 
-    assert C.migrate_local_ids() == [(old, new)]
+    renamed = dict(C.migrate_ids())
+    assert renamed[old] == new
+    assert renamed["42"] == "steam-42"
     assert old not in C.list_appids() and new in C.list_appids()
     assert C.load(new).general.appid == new
     assert not C.game_file(old).exists()
@@ -1170,7 +1172,7 @@ def test_migrate_local_ids_renames_every_store(xdg_env):
     assert artwork.grid_path(new).is_file()
     assert winetricks.state_path(new).is_file()
     assert xdg.game_log_file(new).is_file()
-    assert C.load("42").artwork.artwork_appid == new
+    assert C.load("steam-42").artwork.artwork_appid == new
     assert f"appid={new}" in xdg.log_file().read_text()
     # The stem comes from the game name, so the AppID change leaves the
     # prefix exactly where it was.
@@ -1189,10 +1191,76 @@ def test_migrate_local_ids_renames_every_store(xdg_env):
     )
     assert (prefix_old / "drive_c").is_dir()
     # Idempotent.
-    assert C.migrate_local_ids() == []
+    assert C.migrate_ids() == []
 
 
-def test_migrate_local_ids_skips_steam_and_running(xdg_env):
+def _seed_legacy_steam_game():
+    """One Steam game carrying every file keyed by its bare AppID."""
+    from tkarcade import artwork, winetricks, xdg
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "570"
+    cfg.general.name = "Dota"
+    C.save(cfg)
+    C.save_profile("570", "Default", cfg)
+    artwork.manual_dir("570").mkdir(parents=True)
+    (artwork.manual_dir("570") / "cover.png").write_bytes(b"png")
+    artwork.grid_path("570").parent.mkdir(parents=True, exist_ok=True)
+    artwork.grid_path("570").write_bytes(b"png")
+    winetricks.state_path("570").parent.mkdir(parents=True, exist_ok=True)
+    winetricks.state_path("570").write_text("{}")
+    xdg.game_log_file("570").parent.mkdir(parents=True, exist_ok=True)
+    xdg.game_log_file("570").write_text("log")
+    xdg.log_file().parent.mkdir(parents=True, exist_ok=True)
+    xdg.log_file().write_text("2026-10-01T10:00:00 appid=570 exit=0 cmd=game\n")
+    return cfg
+
+
+def test_migrate_ids_renames_steam_stores(xdg_env):
+    from tkarcade import artwork, winetricks, xdg
+
+    _seed_legacy_steam_game()
+    assert C.migrate_ids() == [("570", "steam-570")]
+    assert C.load("steam-570").general.appid == "steam-570"
+    assert not C.game_file("570").exists()
+    assert C.profiles_dir("steam-570").joinpath("Default.toml").is_file()
+    assert C.load_profile("steam-570", "Default").general.appid == "steam-570"
+    # Steam art is keyed by the numeric AppID: the rename leaves it in place.
+    assert artwork.manual_dir("steam-570").joinpath("cover.png").is_file()
+    assert artwork.grid_path("steam-570").is_file()
+    assert winetricks.state_path("steam-570").is_file()
+    assert not winetricks.state_path("570").exists()
+    assert xdg.game_log_file("steam-570").is_file()
+    assert "appid=steam-570" in xdg.log_file().read_text()
+    assert C.migrate_ids() == []
+
+
+def test_migrate_ids_converts_bare_local(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "glxgears"
+    cfg.general.name = "GlxGears"
+    C.save(cfg)
+
+    assert C.migrate_ids() == [("glxgears", "local-glxgears")]
+    assert C.load("local-glxgears").general.name == "GlxGears"
+
+
+def test_migrate_ids_steam_target_exists(xdg_env):
+    old = C.GameConfig()
+    old.general.appid = "570"
+    old.general.name = "Old"
+    C.save(old)
+    new = C.GameConfig()
+    new.general.appid = "steam-570"
+    new.general.name = "New"
+    C.save(new)
+
+    assert C.migrate_ids() == []
+    assert C.load("steam-570").general.name == "New"
+    assert C.load("570").general.name == "Old"
+
+
+def test_migrate_ids_skips_running(xdg_env):
     import json
     import os
 
@@ -1201,23 +1269,29 @@ def test_migrate_local_ids_skips_steam_and_running(xdg_env):
     steam = C.GameConfig()
     steam.general.appid = "213"
     C.save(steam)
+    busy_steam = C.GameConfig()
+    busy_steam.general.appid = "214"
+    C.save(busy_steam)
     busy = C.GameConfig()
     busy.general.appid = "local-running_game"
     busy.general.name = "Running Game"
     C.save(busy)
-    running.record_path(busy.general.appid).parent.mkdir(parents=True, exist_ok=True)
-    record = {
-        "appid": busy.general.appid,
-        "pid": os.getpid(),
-        "start": running.process_start_time(os.getpid()),
-    }
-    running.record_path(busy.general.appid).write_text(json.dumps(record))
+    for appid in ("214", "local-running_game"):
+        running.record_path(appid).parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "appid": appid,
+            "pid": os.getpid(),
+            "start": running.process_start_time(os.getpid()),
+        }
+        running.record_path(appid).write_text(json.dumps(record))
 
-    assert C.migrate_local_ids() == []
+    assert C.migrate_ids() == [("213", "steam-213")]
+    assert C.game_file("steam-213").is_file()
+    assert C.game_file("214").is_file()
     assert C.game_file("local-running_game").is_file()
 
 
-def test_migrate_local_ids_collision_gets_suffix(xdg_env):
+def test_migrate_ids_collision_gets_suffix(xdg_env):
     first = C.GameConfig()
     first.general.appid = "local-doom---episode"
     first.general.name = "Doom - Episode"
@@ -1227,12 +1301,12 @@ def test_migrate_local_ids_collision_gets_suffix(xdg_env):
     other.general.name = "Doom Episode"
     C.save(other)
 
-    assert C.migrate_local_ids() == [("local-doom---episode", "local-doom-episode-2")]
+    assert C.migrate_ids() == [("local-doom---episode", "local-doom-episode-2")]
     # A game already holding the clean slug keeps it.
     assert C.game_file("local-doom-episode").is_file()
 
 
-def test_migrate_local_ids_keeps_hand_picked_ids(xdg_env):
+def test_migrate_ids_keeps_hand_picked_ids(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-custom_id"
     cfg.general.name = "Something Else"
@@ -1242,7 +1316,7 @@ def test_migrate_local_ids_keeps_hand_picked_ids(xdg_env):
     clone.general.name = "Doom"
     C.save(clone)
 
-    assert C.migrate_local_ids() == [("local-custom_id", "local-something-else")]
+    assert C.migrate_ids() == [("local-custom_id", "local-something-else")]
     assert C.game_file("local-new").is_file()
     assert C.load("local-new").general.name == "Doom"
 

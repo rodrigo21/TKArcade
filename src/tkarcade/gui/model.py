@@ -352,14 +352,14 @@ class GameListModel(QAbstractTableModel):
         self._removed_prefixes: dict[str, str] = {}
         self._removed_names: dict[str, str] = {}
         self.destroyed.connect(self._stop_timers)
-        self._migrate_local_ids()
+        self._migrate_ids()
         self.refresh()
 
     @staticmethod
-    def _migrate_local_ids() -> None:
-        """Rename local AppIDs left by the old slug rules (GUI startup only)."""
+    def _migrate_ids() -> None:
+        """Rename legacy IDs to the canonical origin-prefixed form (GUI startup only)."""
         try:
-            for old, new in cfgmod.migrate_local_ids():
+            for old, new in cfgmod.migrate_ids():
                 log.info("migrated AppID %s -> %s", old, new)
         except Exception as e:
             log.warning("AppID migration failed: %s", e)
@@ -1431,7 +1431,8 @@ class GameListModel(QAbstractTableModel):
         """[[appid, name]] games matching a donor search, by name."""
         q = str(query or "").strip().lower()
         try:
-            names = {a: n for a, n in steammod.list_games()}
+            # `artwork_appid` is a plain numeric Steam donor, never a game ID.
+            names = {steammod.steam_appid(a) or a: n for a, n in steammod.list_games()}
             names.update(steammod.local_names())
             rows = [[a, n] for a, n in names.items() if not q or q in n.lower() or q in a]
         except Exception as e:
@@ -1472,7 +1473,8 @@ class GameListModel(QAbstractTableModel):
     @Slot(str, str, result=str)
     def applyWineVersion(self, appid: str, tool: str) -> str:
         """Point Steam's compat mapping at a tool. '' on success, else why."""
-        if not steammod.is_steam_id(appid) or not appid.isdigit():
+        numeric = steammod.steam_appid(appid)
+        if not numeric:
             return "Version Selection Needs a Steam Game."
         tool = str(tool or "").strip()
         if not tool:
@@ -1492,7 +1494,7 @@ class GameListModel(QAbstractTableModel):
                     data = vdf.load(handle)
                 node = data["InstallConfigStore"]["Software"]["Valve"]["Steam"]
                 mapping = node.setdefault("CompatToolMapping", {})
-                mapping[str(appid)] = {"name": tool}
+                mapping[numeric] = {"name": tool}
                 backup = path.with_suffix(".vdf.tkarcade-bak")
                 backup.write_bytes(path.read_bytes())
                 with open(path, "w", encoding="utf-8") as handle:
@@ -1801,7 +1803,7 @@ class GameListModel(QAbstractTableModel):
     def artworkSourceName(self, appid: str, source: str = "") -> str:
         """Steam name of the Artwork Source AppID ('' unless fetched)."""
         donor = self._art_source(appid, source)
-        return self._art_names.get(donor or str(appid), "")
+        return self._art_names.get(donor or steammod.steam_appid(str(appid)) or str(appid), "")
 
     @Slot(str, str, result=str)
     def artworkStatus(self, appid: str, source: str = "") -> str:
@@ -1845,7 +1847,7 @@ class GameListModel(QAbstractTableModel):
         """
         if not appid:
             return "no-game"
-        target = self._art_source(appid, source)
+        target = self._art_source(appid, source) or steammod.steam_appid(appid)
         if not str(target).isdigit():
             return "no-appid"
         try:
@@ -1874,7 +1876,7 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             api_key, provider = "", "steam"
         donor = self._art_source(appid, source)
-        target = donor if donor.isdigit() else str(appid)
+        target = donor if donor.isdigit() else steammod.steam_appid(str(appid))
         if not target.isdigit():
             return "no-appid"
 
@@ -1906,6 +1908,7 @@ class GameListModel(QAbstractTableModel):
         cand = (m.group(1) if m else (dest or "")).strip()
         if not cand or xdg.safe_stem(cand) != cand:
             return f"Invalid game ID: {dest}"
+        cand = steammod.canonical_new_id(cand)
         if cand == src:
             return "Source and Target Are the Same."
         if cfgmod.game_file(cand).is_file() and not force:
@@ -2194,8 +2197,13 @@ class GameListModel(QAbstractTableModel):
 
         imported, skipped, reports = [], [], {}
         for appid in appids or []:
-            raw = stimod.parse_stl_conf(
-                stimod.stl_config_dir() / "gamecfgs" / "id" / f"{appid}.conf"
+            numeric = steammod.steam_appid(str(appid))
+            raw = (
+                stimod.parse_stl_conf(
+                    stimod.stl_config_dir() / "gamecfgs" / "id" / f"{numeric}.conf"
+                )
+                if numeric
+                else {}
             )
             if not raw:
                 skipped.append(appid)
@@ -2573,12 +2581,16 @@ class GameListModel(QAbstractTableModel):
     def openProtonDB(self, appid: str) -> bool:
         """Open the ProtonDB page for a Steam game in the browser."""
         try:
-            if not steammod.is_steam_id(appid) or not appid.isdigit():
+            if not steammod.steam_appid(appid):
                 return False
             from PySide6.QtCore import QUrl
             from PySide6.QtGui import QDesktopServices
 
-            return bool(QDesktopServices.openUrl(QUrl(pdbmod.GAME_URL.format(appid=appid))))
+            return bool(
+                QDesktopServices.openUrl(
+                    QUrl(pdbmod.GAME_URL.format(appid=steammod.steam_appid(appid)))
+                )
+            )
         except Exception as e:  # never crash the list on a browser failure
             log.warning("openProtonDB(%s) failed: %s", appid, e)
             return False
@@ -3171,7 +3183,7 @@ class GameListModel(QAbstractTableModel):
         for appid in cfgmod.list_appids():
             donor = self._art_source(str(appid))
             if steammod.is_steam_id(str(appid)):
-                self._fetch_one(appid, api_key, provider, str(appid))
+                self._fetch_one(appid, api_key, provider, steammod.steam_appid(str(appid)))
             elif donor.isdigit():
                 # A local game borrowing a Steam AppID's art: the source is
                 # downloaded on its own (a plain Steam appid, never a
@@ -3197,10 +3209,11 @@ class GameListModel(QAbstractTableModel):
 
     def _fetch_donor(self, target: str, api_key: str, provider: str) -> None:
         """Download whatever art kinds are missing for one Steam AppID."""
-        if not str(target).isdigit():
+        numeric = steammod.steam_appid(target)
+        if not numeric:
             return
         try:
-            artmod.fetch_best(str(target), provider, api_key)
+            artmod.fetch_best(numeric, provider, api_key)
         except Exception as e:
             log.warning("artwork fetch(%s) failed: %s", target, e)
 
@@ -3590,7 +3603,8 @@ class GameListModel(QAbstractTableModel):
         kind = "steam" if steammod.is_steam_id(appid) else "local"
         try:
             if kind == "steam":
-                if not appid.isdigit():
+                numeric = steammod.steam_appid(appid)
+                if not numeric:
                     log.warning("play refused: not a Steam App ID: %s", appid)
                     self.launchReported.emit(False, kind, self._display_name(appid), "")
                     return False
@@ -3598,7 +3612,7 @@ class GameListModel(QAbstractTableModel):
                 from PySide6.QtGui import QDesktopServices
 
                 launchermod.plant_menu_skip(appid)
-                ok = bool(QDesktopServices.openUrl(QUrl(f"steam://rungameid/{appid}")))
+                ok = bool(QDesktopServices.openUrl(QUrl(f"steam://rungameid/{numeric}")))
                 if not ok:
                     launchermod.consume_menu_skip(appid)
                     self.launchReported.emit(False, kind, self._display_name(appid), "")

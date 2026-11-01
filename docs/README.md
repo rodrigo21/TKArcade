@@ -54,3 +54,5 @@ What each document is for and where the source of truth lives.
 - `decisions/categories.md` — the persistent category store, the sidebar
   Categories section with icons and counts, the per-category editor, the
   checkable assignment dialog and category normalization.
+- `decisions/origin-prefixed-ids.md` — `<origin>-<body>` game IDs, the
+  derived Steam AppID and the one-time rename migration.

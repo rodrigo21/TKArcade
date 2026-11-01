@@ -36,7 +36,7 @@ def test_model_lists_steam_and_local_sorted(qgui_app, xdg_env):
     C.save(local)
     rows = _rows(_model(qgui_app))
     assert rows == [
-        ("213", "213", "Steam", "—", ""),
+        ("steam-213", "steam-213", "Steam", "—", ""),
         ("local-zebra", "Zebra", "Local", "—", ""),
     ]
 
@@ -236,18 +236,18 @@ def test_filter_model_source_and_text(qgui_app, xdg_env):
             proxy.data(proxy.index(i, 0), GameListModel.IdRole) for i in range(proxy.rowCount())
         )
 
-    assert shown() == ["213", "local-doom", "local-quake"]
+    assert shown() == ["local-doom", "local-quake", "steam-213"]
     proxy.sourceKey = "local"
     assert shown() == ["local-doom", "local-quake"]
     proxy.sourceKey = "steam"
-    assert shown() == ["213"]
+    assert shown() == ["steam-213"]
     proxy.sourceKey = "all"
     proxy.textQuery = "doom"
     assert shown() == ["local-doom"]
     proxy.textQuery = "LOCAL-"
     assert shown() == ["local-doom", "local-quake"]
     proxy.textQuery = ""
-    assert shown() == ["213", "local-doom", "local-quake"]
+    assert shown() == ["local-doom", "local-quake", "steam-213"]
 
 
 def test_open_protondb_rejects_local(qgui_app, xdg_env):
@@ -1080,6 +1080,10 @@ def test_clone_reset_games(qgui_app, xdg_env):
     assert model.cloneGameTo("local-doom", "local-new", False) == "Cloned local-doom to local-new."
     assert C.game_file("local-new").is_file()
     assert (C.profiles_dir("local-new") / "fast.toml").is_file()
+    assert model.cloneGameTo("local-doom", "570", False) == "Cloned local-doom to steam-570."
+    assert C.game_file("steam-570").is_file()
+    assert model.cloneGameTo("local-doom", "Doom2", False) == "Cloned local-doom to local-doom2."
+    assert C.game_file("local-doom2").is_file()
     assert model.cloneGameTo("local-doom", "local-quake", True).startswith("Cloned")
     assert model.resetGames([]) == "Select Games First."
     assert model.resetGames(["local-doom"]) == "Reset 1 Game(s) to the Global Defaults Template."
@@ -1149,7 +1153,7 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 
     cfg = C.GameConfig()
-    cfg.general.appid = "99"
+    cfg.general.appid = "steam-99"
     cfg.runtime.fresh_prefix = True
     cfg.runtime.winetricks_verbs = ["dotnet48"]
     cfg.runtime.tool = "GE-Proton9-1"
@@ -1158,20 +1162,20 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
     cfg.debug.winedebug = "+err"
     C.save(cfg)
     model = GameListModel()
-    fields = model.loadGame("99")
+    fields = model.loadGame("steam-99")
     assert fields["fresh_prefix"] is True
     assert fields["winetricks_verbs"] == "dotnet48"
     assert fields["runtime_tool"] == "GE-Proton9-1"
     assert fields["runtime_prefix"] == "/tmp/opencode/pfx"
     assert fields["proton_log"] is True
     assert fields["winedebug"] == "+err"
-    assert model.protonLogDir("99").endswith("99/proton")
+    assert model.protonLogDir("steam-99").endswith("steam-99/proton")
     out = dict(fields)
     out["winedebug"] = "bogus"
     out["winetricks_verbs"] = "vcrun2022 dotnet48"
     out["runtime_tool"] = "wine-9.0"
-    assert model.saveGame("99", out) == "99"
-    reloaded = C.load("99")
+    assert model.saveGame("steam-99", out) == "steam-99"
+    reloaded = C.load("steam-99")
     assert reloaded.debug.winedebug == ""
     assert reloaded.runtime.winetricks_verbs == ["vcrun2022", "dotnet48"]
     assert reloaded.runtime.tool == "wine-9.0"
@@ -1396,7 +1400,7 @@ def test_export_import_tarball_roundtrip(qgui_app, xdg_env, tmp_path):
     from tkarcade.gui.model import GameListModel
 
     cfg = C.GameConfig()
-    cfg.general.appid = "99"
+    cfg.general.appid = "steam-99"
     C.save(cfg)
     model = GameListModel()
     dest = tmp_path / "out.tar.gz"
@@ -1404,9 +1408,9 @@ def test_export_import_tarball_roundtrip(qgui_app, xdg_env, tmp_path):
     assert dest.is_file()
     assert model.exportTarball("") == ""
     assert model.exportTarball(str(tmp_path / "missing" / "x.tar.gz")).startswith("Export Failed")
-    C.game_file("99").unlink()
+    C.game_file("steam-99").unlink()
     assert model.importTarball(str(dest)) == "Imported 1 Game(s)"
-    assert C.game_file("99").is_file()
+    assert C.game_file("steam-99").is_file()
     assert model.importTarball("") == ""
     assert model.importTarball(str(tmp_path / "nope.tar.gz")).startswith("Import Failed")
 
@@ -1418,18 +1422,18 @@ def test_stl_import_flow(qgui_app, xdg_env, monkeypatch):
     import tkarcade.steam as steammod
     from tkarcade.gui.model import GameListModel
 
-    monkeypatch.setattr(steammod, "list_games", lambda: [("99", "Doom 3")])
+    monkeypatch.setattr(steammod, "list_games", lambda: [("steam-99", "Doom 3")])
     cfg = C.GameConfig()
-    cfg.general.appid = "99"
+    cfg.general.appid = "steam-99"
     C.save(cfg)
     stl_id = Path(os.environ["XDG_CONFIG_HOME"]) / "steamtinkerlaunch" / "gamecfgs" / "id"
     stl_id.mkdir(parents=True)
     (stl_id / "99.conf").write_text('USE_GAMEMODE="1"\n')
     model = GameListModel()
-    assert model.stlCandidates() == [["99", "Doom 3"]]
-    assert "steamtinkerlaunch' Profile" in model.importStl(["99"])
-    assert C.profile_file("99", "steamtinkerlaunch").is_file()
-    assert "Skipped" in model.importStl(["100"])
+    assert model.stlCandidates() == [["steam-99", "Doom 3"]]
+    assert "steamtinkerlaunch' Profile" in model.importStl(["steam-99"])
+    assert C.profile_file("steam-99", "steamtinkerlaunch").is_file()
+    assert "Skipped" in model.importStl(["steam-100"])
     assert model.importStl([]) == "Nothing Selected."
 
 
@@ -1474,14 +1478,15 @@ def test_proxy_is_eleven_column_table(qgui_app, xdg_env):
         "Install Dir",
     ]
     assert proxy.data(proxy.index(0, 0)) == "1"
-    assert proxy.data(proxy.index(0, 1)) == "213"
-    assert proxy.data(proxy.index(1, 2)) == "local-doom"
-    assert proxy.data(proxy.index(1, 5)) == "Local"
+    # Sorted by name: the local game ("Doom") comes before "steam-213".
+    assert proxy.data(proxy.index(0, 1)) == "Doom"
+    assert proxy.data(proxy.index(1, 2)) == "steam-213"
+    assert proxy.data(proxy.index(1, 5)) == "Steam"
     assert proxy.data(proxy.index(9, 0)) is None
     # custom roles stay row-based: delegates keep working per column
     from tkarcade.gui.model import GameListModel
 
-    assert proxy.data(proxy.index(1, 4), GameListModel.IdRole) == "local-doom"
+    assert proxy.data(proxy.index(1, 4), GameListModel.IdRole) == "steam-213"
 
 
 def test_proxy_move_hide_reset_columns(qgui_app, xdg_env):
@@ -1861,13 +1866,13 @@ def test_settings_winetricks_gui_custom_prefix(qgui_app, xdg_env, fake_bin, tmp_
     container = tmp_path / "custom-compatdata"
     (container / "pfx" / "drive_c").mkdir(parents=True)
     cfg = C.GameConfig()
-    cfg.general.appid = "620"
+    cfg.general.appid = "steam-620"
     cfg.runtime.prefix = str(container)
     cfg.runtime.tool = str(proton)  # an explicit tool wins over the mapping
     C.save(cfg)
     monkeypatch.setattr(P, "compat_tool_name", lambda appid: None)
     model = GameListModel()
-    assert model.openWinetricksGui("620") == ""
+    assert model.openWinetricksGui("steam-620") == ""
     deadline = time.time() + 5
     while not calls.exists() and time.time() < deadline:
         time.sleep(0.02)

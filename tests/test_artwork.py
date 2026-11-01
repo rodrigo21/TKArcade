@@ -33,6 +33,25 @@ def _stub(monkeypatch, routes):
     monkeypatch.setattr("urllib.request.urlopen", fake_open)
 
 
+def test_steam_canonical_id_uses_numeric_cache_and_api(monkeypatch, xdg_env):
+    seen = []
+
+    def fake_open(url_or_request, timeout=15):
+        url = url_or_request.full_url if hasattr(url_or_request, "full_url") else url_or_request
+        seen.append(url)
+        body = {"response": {"apps": [{"appid": 480, "name": "Canon", "icon": ""}]}}
+        return _Resp(json.dumps(body).encode())
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_open)
+    assert art.steam_app("steam-480")["name"] == "Canon"
+    assert "appids[0]=480" in seen[0]
+    assert art.steam_app("local-doom") is None
+    # The cache belongs to the numeric AppID, so both ID forms share it.
+    assert art.grid_path("steam-480") == art.grid_path("480")
+    assert art.manual_dir("steam-480") == art.manual_dir("480")
+    assert art.grid_path("steam-480") != art.grid_path("local-doom")
+
+
 def test_resolve_prefers_grid(xdg_env, tmp_path):
     from tkarcade import steam as S
 

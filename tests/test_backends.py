@@ -258,12 +258,14 @@ def test_nightlight_detect_matrix(monkeypatch, tmp_path):
 
 
 def test_resolve_appid(monkeypatch):
-    assert S.resolve_appid("42") == "42"
+    assert S.resolve_appid("42") == "steam-42"
+    assert S.resolve_appid("steam-42") == "steam-42"
+    assert S.resolve_appid("local-doom") == "local-doom"
     monkeypatch.setenv("STEAMAPPID", "99")
-    assert S.resolve_appid("") == "99"
+    assert S.resolve_appid("") == "steam-99"
     monkeypatch.delenv("STEAMAPPID")
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", "/x/123")
-    assert S.resolve_appid("") == "123"
+    assert S.resolve_appid("") == "steam-123"
 
 
 def test_list_games_fake_root(monkeypatch, tmp_path, xdg_env):
@@ -272,7 +274,7 @@ def test_list_games_fake_root(monkeypatch, tmp_path, xdg_env):
     (root / "appmanifest_10.acf").write_text('"AppState"\n{\n"appid" "10"\n"name" "B Game"\n}\n')
     (root / "appmanifest_9.acf").write_text('"AppState"\n{\n"appid" "9"\n"name" "A Game"\n}\n')
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
-    assert S.list_games() == [("9", "A Game"), ("10", "B Game")]
+    assert S.list_games() == [("steam-9", "A Game"), ("steam-10", "B Game")]
 
 
 def test_games_cache_refresh(monkeypatch, tmp_path, xdg_env):
@@ -280,11 +282,11 @@ def test_games_cache_refresh(monkeypatch, tmp_path, xdg_env):
     root.mkdir()
     (root / "appmanifest_10.acf").write_text('"AppState"\n{\n"appid" "10"\n}\n')
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
-    assert [a for a, _ in S.list_games()] == ["10"]
+    assert [a for a, _ in S.list_games()] == ["steam-10"]
     (root / "appmanifest_11.acf").write_text('"AppState"\n{\n"appid" "11"\n}\n')
-    assert [a for a, _ in S.list_games()] == ["10"]  # stale until cleared
+    assert [a for a, _ in S.list_games()] == ["steam-10"]  # stale until cleared
     S.clear_games_cache()
-    assert [a for a, _ in S.list_games()] == ["10", "11"]
+    assert [a for a, _ in S.list_games()] == ["steam-10", "steam-11"]
 
 
 def test_loads_kv1_without_vdf(monkeypatch):
@@ -306,8 +308,10 @@ def test_find_game_icon_layouts(monkeypatch, tmp_path, xdg_env):
     (legacy / "12_icon.jpg").write_bytes(b"z")
     monkeypatch.setenv("STEAM_ROOT", str(root))
     assert S.find_game_icon("11") == hashed
+    assert S.find_game_icon("steam-11") == hashed
     assert S.find_game_icon("12") == legacy / "12_icon.jpg"
     assert S.find_game_icon("13") is None
+    assert S.find_game_icon("local-doom") is None
 
 
 def test_build_prefix_order(fake_bin):
@@ -653,11 +657,11 @@ def test_list_games_cached_per_process(monkeypatch, tmp_path):
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
     monkeypatch.setenv("HOME", str(tmp_path))
     first = S.list_games()
-    assert first == [("1", "Solo")]
+    assert first == [("steam-1", "Solo")]
     (root / "appmanifest_2.acf").write_text('"AppState"\n{\n"appid" "2"\n"name" "Duo"\n}\n')
     assert S.list_games() is first  # cached: no rescan
     S._GAMES_CACHE.clear()
-    assert S.list_games() == [("2", "Duo"), ("1", "Solo")]
+    assert S.list_games() == [("steam-2", "Duo"), ("steam-1", "Solo")]
 
 
 def test_launch_options_real_world_shape(monkeypatch, tmp_path, xdg_env):
@@ -672,8 +676,10 @@ def test_launch_options_real_world_shape(monkeypatch, tmp_path, xdg_env):
         '}\n"64"\n{\n"LastPlayed" "2"\n}\n}\n}\n}\n}\n}\n'
     )
     assert _launch_options_from_text(body, "63") == "/opt/tkarcade --menu %command%"
+    assert _launch_options_from_text(body, "steam-63") == "/opt/tkarcade --menu %command%"
     assert _launch_options_from_text(body, "64") is None
     assert _launch_options_from_text(body, "65") is None
+    assert _launch_options_from_text(body, "local-doom") is None
 
 
 def test_launch_options_lowercase_apps_status(monkeypatch, tmp_path, xdg_env):
@@ -687,6 +693,7 @@ def test_launch_options_lowercase_apps_status(monkeypatch, tmp_path, xdg_env):
     )
     monkeypatch.setenv("STEAM_ROOT", str(root))
     assert S.launch_options_status("66")[0] == "ok"
+    assert S.launch_options_status("steam-66")[0] == "ok"
 
 
 def test_inhibit_idle_prefix(fake_bin):
@@ -825,8 +832,8 @@ def test_unconfigured_games(monkeypatch, tmp_path, xdg_env):
     (root / "appmanifest_10.acf").write_text('"AppState"\n{\n"appid" "10"\n"name" "B Game"\n}\n')
     (root / "appmanifest_9.acf").write_text('"AppState"\n{\n"appid" "9"\n"name" "A Game"\n}\n')
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
-    assert S.unconfigured_games({"9"}) == [("10", "B Game")]
-    assert S.unconfigured_games({"9", "10"}) == []
+    assert S.unconfigured_games({"steam-9"}) == [("steam-10", "B Game")]
+    assert S.unconfigured_games({"steam-9", "steam-10"}) == []
 
 
 def test_shader_dir_and_size(monkeypatch, tmp_path, xdg_env):

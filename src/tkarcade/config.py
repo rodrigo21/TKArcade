@@ -1464,11 +1464,20 @@ def _pin_prefix(appid: str, new: str, cfg: GameConfig) -> None:
         log.warning("migrate: cannot move prefix %s -> %s (%s)", old_path, new_path, e)
 
 
-def _move_local_storage(appid: str, new: str, cfg: GameConfig) -> None:
-    """Move every file keyed by an old local AppID to the new one."""
+def _move_storage(appid: str, new: str, cfg: GameConfig) -> None:
+    """Move every file keyed by an old game ID to the new one."""
     from . import artwork, winetricks
 
-    _pin_prefix(appid, new, cfg)
+    if not appid.isdigit():
+        # Steam's prefix is Steam's own compatdata dir, not `prefix_base`.
+        _pin_prefix(appid, new, cfg)
+    for profile in profiles_dir(appid).glob("*.toml") if profiles_dir(appid).is_dir() else ():
+        try:
+            prof = load_profile(appid, profile.stem)
+            prof.general.appid = new
+            save_profile(appid, profile.stem, prof)
+        except Exception as e:
+            log.warning("migrate: profile %s not rewritten (%s)", profile, e)
     cfg.general.appid = new
     save(cfg)
     game_file(appid).unlink(missing_ok=True)
@@ -1510,7 +1519,9 @@ def _planned_id(appid: str, taken: set[str]) -> tuple[str, str, GameConfig] | No
     """(old, new, cfg) for a local game whose ID must change, else None."""
     from . import running
 
-    if appid.isdigit() or clean_local_id(appid):
+    if appid.isdigit() or appid.startswith("steam-"):
+        return None
+    if appid.startswith("local-") and clean_local_id(appid):
         return None
     try:
         cfg = load(appid)
@@ -1532,24 +1543,49 @@ def _planned_id(appid: str, taken: set[str]) -> tuple[str, str, GameConfig] | No
     return (appid, cand, cfg) if cand != appid else None
 
 
-def migrate_local_ids() -> list[tuple[str, str]]:
-    """Rename local AppIDs written by the older slug rules.
+def _planned_steam_id(appid: str, taken: set[str]) -> tuple[str, str, GameConfig] | None:
+    """(old, new, cfg) for a legacy bare Steam AppID, else None."""
+    from . import running
 
-    Idempotent: a second run finds every ID already matching its name.
-    Steam AppIDs, running games and local games without a name are left
-    alone. Returned pairs are ``(old, new)``, for the caller to log.
+    if not appid.isdigit():
+        return None
+    new = f"steam-{appid}"
+    if new in taken or game_file(new).exists():
+        log.warning("migrate: %s -> %s target exists; skipped", appid, new)
+        return None
+    try:
+        cfg = load(appid)
+    except Exception as e:
+        log.warning("migrate: cannot read %s (%s); skipped", appid, e)
+        return None
+    record = running.read(appid)
+    if record and running.is_alive(record):
+        log.info("migrate: %s is running; AppID kept", appid)
+        return None
+    return appid, new, cfg
+
+
+def migrate_ids() -> list[tuple[str, str]]:
+    """Rename legacy IDs to the canonical `<origin>-<body>` form.
+
+    Steam AppIDs become `steam-<appid>`; bare local IDs and IDs left by
+    the older slug rules become `local-<slug>`. Idempotent: a second run
+    finds every ID already canonical. Running games, games without a
+    name (local) and games whose target ID is taken are left alone.
+    Returned pairs are ``(old, new)``, for the caller to log.
     """
     from . import history
 
     appids = list_appids()
     taken = set(appids)
     renamed: list[tuple[str, str]] = []
-    for plan in (_planned_id(appid, taken) for appid in appids):
+    for appid in appids:
+        plan = _planned_steam_id(appid, taken) if appid.isdigit() else _planned_id(appid, taken)
         if plan is None:
             continue
         appid, new, cfg = plan
         try:
-            _move_local_storage(appid, new, cfg)
+            _move_storage(appid, new, cfg)
         except Exception as e:
             log.warning("migrate: %s -> %s failed (%s)", appid, new, e)
             continue
@@ -1559,7 +1595,11 @@ def migrate_local_ids() -> list[tuple[str, str]]:
 
     if not renamed:
         return []
-    _rewrite_artwork_appids(dict(renamed))
+    # `artwork_appid` is a numeric Steam donor, never a game ID: only
+    # local renames may repoint it.
+    local_renamed = {old: new for old, new in renamed if not old.isdigit()}
+    if local_renamed:
+        _rewrite_artwork_appids(local_renamed)
     for old, new in renamed:
         try:
             history.rename_appid(xdg.log_file(), old, new)

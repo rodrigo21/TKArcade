@@ -6,6 +6,13 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- **BREAKING**: game IDs are origin-prefixed now: `steam-<appid>` for
+  Steam games and `local-<slug>` for local ones, so a future store with
+  numeric IDs cannot collide with Steam AppIDs. Configs, profiles,
+  winetricks state, logs, history and local artwork are renamed on first
+  run (or with `tkarcade --migrate-ids`); numeric `--appid` values and
+  old AppIDs in launch options keep working. Scripts that read
+  `games/<appid>.toml` by number must use `steam-<appid>`.
 - The settings confirmations are separate dialog windows now, the same
   widgets `QMessageBox` shape as About: an icon, a right-aligned default
   button and a box that hugs its content. A long value (a prefix path,

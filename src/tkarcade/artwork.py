@@ -84,6 +84,11 @@ CLEARED_KEY = "cleared"
 # Cache paths
 
 
+def _art_key(appid: str) -> str:
+    """Steam art is keyed by AppID; local art by the game ID."""
+    return steammod.steam_appid(appid) or str(appid)
+
+
 def grid_path(appid: str, kind: str = "cover") -> Path:
     """Canonical cache path for one kind (always the .png name).
 
@@ -91,9 +96,10 @@ def grid_path(appid: str, kind: str = "cover") -> Path:
     existing caches and the rename migration still apply to it.
     """
     base = xdg.app_cache_dir() / "grids"
+    key = _art_key(appid)
     if kind not in ("icon", "banner"):
-        return base / f"{appid}.png"
-    return base / f"{appid}-{kind}.png"
+        return base / f"{key}.png"
+    return base / f"{key}-{kind}.png"
 
 
 def cached_path(appid: str, kind: str) -> Path | None:
@@ -111,7 +117,7 @@ def cached_path(appid: str, kind: str) -> Path | None:
 
 def manifest_path(appid: str) -> Path:
     """Sidecar recording which provider produced each cached kind."""
-    return xdg.app_cache_dir() / "grids" / f"{appid}.json"
+    return xdg.app_cache_dir() / "grids" / f"{_art_key(appid)}.json"
 
 
 def read_manifest(appid: str) -> dict:
@@ -182,7 +188,7 @@ def clear_fetched(appid: str) -> int:
     Steam AppID's art shares it with every other game pointing there.
     Manual slots live in their own directory and are never touched.
     """
-    gid = str(appid)
+    gid = _art_key(appid)
     removed = 0
     for kind in ART_KINDS:
         stem = grid_path(gid, kind).with_suffix("")
@@ -213,7 +219,7 @@ def provider_for(appid: str, kind: str) -> str:
 
 
 def manual_dir(appid: str) -> Path:
-    return xdg.app_cache_dir() / "artwork" / xdg.safe_stem(str(appid))
+    return xdg.app_cache_dir() / "artwork" / xdg.safe_stem(_art_key(appid))
 
 
 def manual_path(appid: str, kind: str) -> Path | None:
@@ -396,9 +402,10 @@ def steam_app(appid: str) -> dict | None:
     for numbers that are not apps, which is the usual mistake of pasting a
     SteamGridDB game id instead of a Steam AppID.
     """
-    if not str(appid).isdigit():
+    gid = steammod.steam_appid(appid)
+    if not gid:
         return None
-    body, _error = _get(APP_INFO_URL.format(appid=appid), timeout=15)
+    body, _error = _get(APP_INFO_URL.format(appid=gid), timeout=15)
     if body is None:
         return None
     try:
@@ -411,7 +418,7 @@ def steam_app(appid: str) -> dict | None:
     if not name:
         return None
     return {
-        "appid": str(apps[0].get("appid", appid)),
+        "appid": str(apps[0].get("appid", gid)),
         "name": html.unescape(name),
         "icon": str(apps[0].get("icon") or ""),
     }
@@ -514,7 +521,7 @@ def fetch_official(
     `info` is an already-resolved `steam_app()` record; it is looked up
     when omitted. With force, cached kinds are refreshed too.
     """
-    gid = str(appid)
+    gid = _art_key(appid)
     if not gid.isdigit():
         return {}
     if not force and is_cleared(gid):
@@ -583,7 +590,7 @@ def fetch_sgdb(
     force: bool = False,
 ) -> tuple[dict[str, Path], str]:
     """Download community art from SteamGridDB. (paths, error token)."""
-    gid = str(appid)
+    gid = _art_key(appid)
     if not (api_key or "").strip() or not gid.isdigit():
         return {}, "no-key"
     if not force and is_cleared(gid):
@@ -626,7 +633,7 @@ def fetch_best(
     Steam app}. The first provider fills what it can; the second one only
     covers the kinds still missing. Official Steam art never needs a key.
     """
-    gid = str(appid)
+    gid = _art_key(appid)
     result = {"art": {}, "provider": "", "error": "", "name": "", "valid": False}
     if not gid.isdigit():
         result["error"] = "no-appid"

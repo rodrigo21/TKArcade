@@ -48,7 +48,7 @@ TKArcade stores one axis and derives the others, like Lutris derives
 
 | Axis | Source | Values |
 |---|---|---|
-| Origin | derived from the AppID | `Steam`, `Local` |
+| Origin | derived from the ID prefix (`steam-…`, `local-…`) | `Steam`, `Local` |
 | Platform | derived from the runtime | `Linux`, `Windows` |
 | Runtime | stored | `proton`, `native`, `wine`, `umu` |
 | Categories | stored | free tags |

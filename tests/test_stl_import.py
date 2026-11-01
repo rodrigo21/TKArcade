@@ -33,7 +33,7 @@ def test_list_stl_appids(tmp_path, monkeypatch):
     (d / "60.conf").write_text("A=1\n")
     (d / "notes.txt").write_text("x\n")
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    assert sti.list_stl_appids() == ["60"]
+    assert sti.list_stl_appids() == ["steam-60"]
     assert sti.stl_config_dir() == tmp_path / "steamtinkerlaunch"
 
 
@@ -56,8 +56,8 @@ def test_map_full_game():
         "USEPROTON": "GE-Proton9-1",
         "SOMETHING_ELSE": "0",
     }
-    cfg, report = sti.map_to_gameconfig("60", stl)
-    assert cfg.general.appid == "60"
+    cfg, report = sti.map_to_gameconfig("steam-60", stl)
+    assert cfg.general.appid == "steam-60"
     assert cfg.gamemode.feral_gamemode is True
     assert cfg.gamescope.enable and cfg.gamescope.args == "-f -e"
     assert cfg.mangohud.enable is True
@@ -68,7 +68,7 @@ def test_map_full_game():
     assert cfg.debug.proton_log is True
     assert cfg.debug.winedebug == "-all"
     assert cfg.env.vars == {"PROTON_FORCE_LARGE_ADDRESS_AWARE": "1"}
-    assert cfg.notes.text.startswith("Imported from SteamTinkerLaunch")
+    assert cfg.notes.text == "Imported from SteamTinkerLaunch config for AppID 60."
     text = " ".join(report)
     assert "STL paths" in text and "STL-only" in text
 

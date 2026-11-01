@@ -14,8 +14,11 @@ from . import steam as steammod
 
 def compat_tool_name(appid: str) -> str | None:
     """Return the compat tool name for a game (e.g. 'proton_9'), if mapped."""
+    numeric = steammod.steam_appid(appid)
+    if not numeric:
+        return None
     for root in steammod.steam_roots():
-        name = _tool_mapping(root / "config" / "config.vdf").get(str(appid), "")
+        name = _tool_mapping(root / "config" / "config.vdf").get(numeric, "")
         if name:
             return name
     return None
@@ -182,7 +185,8 @@ def prepare_fresh_prefix(appid: str, prefix: str = "") -> tuple[bool, list[str]]
     if not compat:
         return False, ["fresh_prefix set but STEAM_COMPAT_DATA_PATH is missing; skipped"]
     target = Path(compat)
-    if not steammod.is_steam_id(appid) or target.name != appid or "compatdata" not in target.parts:
+    numeric = steammod.steam_appid(appid)
+    if not numeric or target.name != numeric or "compatdata" not in target.parts:
         return False, [
             f"fresh_prefix refused: {compat} is not this game's compatdata/<appid> prefix; skipped"
         ]
@@ -207,7 +211,8 @@ def run_winetricks(appid: str, verbs: list[str]) -> list[str]:
     verbs = [v for v in (verbs or []) if str(v).strip()]
     if not verbs:
         return []
-    if not str(appid).isdigit():
+    numeric = steammod.steam_appid(appid)
+    if not numeric:
         return [f"winetricks skipped: non-Steam AppID {appid!r}"]
     exe = shutil.which("protontricks")
     if not exe:
@@ -223,7 +228,7 @@ def run_winetricks(appid: str, verbs: list[str]) -> list[str]:
         pass
     try:
         proc = subprocess.run(
-            [exe, str(appid), "-q", *verbs],
+            [exe, numeric, "-q", *verbs],
             capture_output=True,
             text=True,
             timeout=1200,
@@ -250,12 +255,13 @@ def gui_command(appid: str) -> tuple[list[str], str]:
     """
     import shutil
 
-    if not str(appid).isdigit():
+    numeric = steammod.steam_appid(appid)
+    if not numeric:
         return [], f"Protontricks Needs a Steam AppID ({appid!r})."
     exe = shutil.which("protontricks")
     if not exe:
         return [], "Protontricks Was Not Found in PATH."
-    return [exe, "--gui", str(appid)], ""
+    return [exe, "--gui", numeric], ""
 
 
 def native_runtime(game_cmd: list[str]) -> str | None:

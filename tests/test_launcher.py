@@ -40,7 +40,7 @@ def test_dry_run(xdg_env):
     _save("1")
     r = _run(_env(xdg_env), "--appid", "1", "--dry-run", "--", "/bin/echo", "hi")
     assert r.returncode == 0
-    assert "AppID: 1" in r.stdout and "/bin/echo hi" in r.stdout
+    assert "AppID: steam-1" in r.stdout and "/bin/echo hi" in r.stdout
 
 
 def test_no_appid(xdg_env):
@@ -220,10 +220,10 @@ def test_wine_missing_binary_exit_14(xdg_env, tmp_path):
 
 
 def test_run_and_pre_hook_abort(xdg_env):
-    _save("2", pre_post={"pre_command": "/bin/echo", "pre_args": ["ok"]})
-    assert _run(_env(xdg_env), "--appid", "2", "/bin/echo", "hi").returncode == 0
-    _save("2", pre_post={"pre_command": "/bin/false"})
-    assert _run(_env(xdg_env), "--appid", "2", "/bin/echo", "hi").returncode == 12
+    _save("steam-2", pre_post={"pre_command": "/bin/echo", "pre_args": ["ok"]})
+    assert _run(_env(xdg_env), "--appid", "steam-2", "/bin/echo", "hi").returncode == 0
+    _save("steam-2", pre_post={"pre_command": "/bin/false"})
+    assert _run(_env(xdg_env), "--appid", "steam-2", "/bin/echo", "hi").returncode == 12
 
 
 def test_missing_prefix_exit_14(xdg_env):
@@ -270,13 +270,17 @@ def test_migrate_ids_cli(xdg_env):
     cfg.general.name = "Bad Hero - Episode 1"
     C.save(cfg)
     env = _env(xdg_env)
+    steam = C.GameConfig()
+    steam.general.appid = "570"
+    C.save(steam)
     r = _run(env, "--migrate-ids")
     assert r.returncode == 0
     assert "local-bad-hero---episode-1 -> local-bad-hero-episode-1" in r.stdout
-    assert "Steam shortcuts" in r.stderr
+    assert "570 -> steam-570" in r.stdout
+    assert "Numeric Steam AppIDs in old launch" in r.stderr
     assert C.game_file("local-bad-hero-episode-1").is_file()
     r = _run(env, "--migrate-ids")
-    assert r.returncode == 0 and "No local AppID needs renaming." in r.stdout
+    assert r.returncode == 0 and "No AppID needs renaming." in r.stdout
 
 
 def test_export_import_cli(xdg_env, tmp_path):
@@ -310,14 +314,14 @@ def test_launch_notification_toggle(xdg_env, fake_bin, monkeypatch, tmp_path):
     log = tmp_path / "notify.log"
     fake_bin("notify-send", f'#!/bin/sh\necho "$@" >> "{log}"\n')
     monkeypatch.setenv("DISPLAY", ":0")
-    _save("9", notifications={"notify_on_launch": True})
+    _save("steam-9", notifications={"notify_on_launch": True})
     env = _env(xdg_env)  # inherits fake PATH + DISPLAY
     env.pop("TKARCADE_NO_NOTIFY", None)  # opt out of suite silence
-    assert _run(env, "--appid", "9", "/bin/true").returncode == 0
+    assert _run(env, "--appid", "steam-9", "/bin/true").returncode == 0
     assert "TKArcade" in log.read_text()
     log.unlink()
-    _save("9", notifications={"notify_on_launch": False})
-    assert _run(env, "--appid", "9", "/bin/true").returncode == 0
+    _save("steam-9", notifications={"notify_on_launch": False})
+    assert _run(env, "--appid", "steam-9", "/bin/true").returncode == 0
     assert not log.exists()
 
 
@@ -325,12 +329,12 @@ def test_session_end_notification(xdg_env, fake_bin, monkeypatch, tmp_path):
     log = tmp_path / "notify.log"
     fake_bin("notify-send", f'#!/bin/sh\necho "$@" >> "{log}"\n')
     monkeypatch.setenv("DISPLAY", ":0")
-    _save("10", notifications={"notify_on_launch": True})
+    _save("steam-10", notifications={"notify_on_launch": True})
     env = _env(xdg_env)
     env.pop("TKARCADE_NO_NOTIFY", None)  # opt out of suite silence
-    assert _run(env, "--appid", "10", "/bin/sleep", "0").returncode == 0
+    assert _run(env, "--appid", "steam-10", "/bin/sleep", "0").returncode == 0
     out = log.read_text()
-    assert "Finished 10" in out and "Played" in out
+    assert "Finished steam-10" in out and "Played" in out
 
 
 def test_validate_reports_issues(xdg_env, monkeypatch, tmp_path):
@@ -398,7 +402,7 @@ def test_global_log_carries_duration(xdg_env):
     env = _env(xdg_env)
     assert _run(env, "--appid", "11", "/bin/true").returncode == 0
     line = (xdg.app_state_dir() / "launcher.log").read_text()
-    assert "appid=11" in line and " dur=" in line
+    assert "appid=steam-11" in line and " dur=" in line
 
 
 def test_peel_display_appid():
@@ -422,7 +426,7 @@ def test_menu_without_display_launches_directly(xdg_env, monkeypatch):
     assert r.returncode == 0
     r = _run(_env(xdg_env), "--appid", "6", "--", "/bin/echo", "hi")
     assert r.returncode == 0
-    log = xdg_env["state"] / "tkarcade" / "games" / "6.log"
+    log = xdg_env["state"] / "tkarcade" / "games" / "steam-6.log"
     assert "launching directly" in log.read_text()
 
 
@@ -437,7 +441,7 @@ def test_empty_command_skipped(xdg_env):
     _save("8", mangohud={"enable": True})
     r = _run(_env(xdg_env), "--appid", "8")
     assert r.returncode == 0
-    log = xdg_env["state"] / "tkarcade" / "games" / "8.log"
+    log = xdg_env["state"] / "tkarcade" / "games" / "steam-8.log"
     assert "no game command to run" in log.read_text()
 
 
@@ -447,7 +451,7 @@ def test_menu_flag_shows_editor_once_without_display(xdg_env, monkeypatch):
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     r = _run(_env(xdg_env), "--appid", "9", "--menu", "--", "/bin/echo", "hi")
     assert r.returncode == 0
-    log = xdg_env["state"] / "tkarcade" / "games" / "9.log"
+    log = xdg_env["state"] / "tkarcade" / "games" / "steam-9.log"
     assert log.read_text().count("launching directly") == 1
 
 
@@ -458,7 +462,7 @@ def test_menu_positional_appid_resolves_like_edit(xdg_env, monkeypatch):
     r = _run(_env(xdg_env), "--menu", "21")
     assert r.returncode == 0, r.stderr
     assert "cannot resolve AppID" not in r.stderr
-    log = xdg_env["state"] / "tkarcade" / "games" / "21.log"
+    log = xdg_env["state"] / "tkarcade" / "games" / "steam-21.log"
     assert "no game command to run" in log.read_text()
 
 
@@ -506,10 +510,10 @@ def test_fresh_prefix_disarms_after_wipe(xdg_env, monkeypatch, tmp_path):
     pfx = tmp_path / "compatdata" / "77"
     (pfx / "pfx").mkdir(parents=True)
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
-    _save("77", runtime={"type": "proton", "fresh_prefix": True})
-    assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
+    _save("steam-77", runtime={"type": "proton", "fresh_prefix": True})
+    assert _run(_env(xdg_env), "--appid", "steam-77", "/bin/echo", "hi").returncode == 0
     assert not pfx.exists()
-    assert C.load("77").runtime.fresh_prefix is False
+    assert C.load("steam-77").runtime.fresh_prefix is False
 
 
 def test_fresh_prefix_is_proton_only(xdg_env, monkeypatch, tmp_path):
@@ -526,10 +530,10 @@ def test_fresh_prefix_refuses_another_games_prefix(xdg_env, monkeypatch, tmp_pat
     other = tmp_path / "compatdata" / "88"
     (other / "pfx").mkdir(parents=True)
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(other))
-    _save("77", runtime={"type": "proton", "fresh_prefix": True})
-    assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
+    _save("steam-77", runtime={"type": "proton", "fresh_prefix": True})
+    assert _run(_env(xdg_env), "--appid", "steam-77", "/bin/echo", "hi").returncode == 0
     assert (other / "pfx").exists()
-    assert C.load("77").runtime.fresh_prefix is True
+    assert C.load("steam-77").runtime.fresh_prefix is True
 
 
 def test_fresh_prefix_wipes_the_configured_prefix(xdg_env, monkeypatch, tmp_path):
@@ -538,37 +542,37 @@ def test_fresh_prefix_wipes_the_configured_prefix(xdg_env, monkeypatch, tmp_path
     configured = tmp_path / "custom" / "compatdata" / "77"
     (configured / "pfx").mkdir(parents=True)
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(env_prefix))
-    _save("77", runtime={"type": "proton", "fresh_prefix": True, "prefix": str(configured)})
-    assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
+    _save("steam-77", runtime={"type": "proton", "fresh_prefix": True, "prefix": str(configured)})
+    assert _run(_env(xdg_env), "--appid", "steam-77", "/bin/echo", "hi").returncode == 0
     assert not configured.exists()
     assert (env_prefix / "pfx").exists()
-    assert C.load("77").runtime.fresh_prefix is False
+    assert C.load("steam-77").runtime.fresh_prefix is False
 
 
 def test_fresh_prefix_disarm_keeps_the_live_config(xdg_env, monkeypatch, tmp_path):
     pfx = tmp_path / "compatdata" / "77"
     (pfx / "pfx").mkdir(parents=True)
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
-    _save("77", runtime={"type": "proton"})
-    live = C.load("77")
+    _save("steam-77", runtime={"type": "proton"})
+    live = C.load("steam-77")
     live.general.name = "Live"
     live.ludusavi.name_override = "Live"
     C.save(live)
-    prof = C.load("77")
+    prof = C.load("steam-77")
     prof.general.name = "Profile"
     prof.ludusavi.name_override = "Profile"
     prof.runtime.fresh_prefix = True
-    C.save_profile("77", "alt", prof)
-    live = C.load("77")
+    C.save_profile("steam-77", "alt", prof)
+    live = C.load("steam-77")
     live.general.active_profile = "alt"
     C.save(live)
-    assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
+    assert _run(_env(xdg_env), "--appid", "steam-77", "/bin/echo", "hi").returncode == 0
     assert not pfx.exists()
-    reloaded = C.load("77")
+    reloaded = C.load("steam-77")
     assert reloaded.general.name == "Live"
     assert reloaded.general.active_profile == "alt"
     assert reloaded.ludusavi.name_override == "Live"
-    profile = C.load_profile("77", "alt")
+    profile = C.load_profile("steam-77", "alt")
     assert profile.general.name == "Profile"
     assert profile.runtime.fresh_prefix is False
 
@@ -743,7 +747,7 @@ def test_dry_run_loads_config_once(xdg_env, monkeypatch):
 
     monkeypatch.setattr(L.cfgmod, "load_effective", counting)
     assert L.main(["--appid", "31", "--dry-run", "--", "/bin/true"]) == 0
-    assert calls == ["31"]
+    assert calls == ["steam-31"]
 
 
 def test_nonexecutable_exit_13(xdg_env, tmp_path):

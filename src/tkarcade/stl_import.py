@@ -13,6 +13,7 @@ import shlex
 from pathlib import Path
 
 from . import config as cfgmod
+from . import steam as steammod
 
 PROFILE_NAME = "steamtinkerlaunch"
 
@@ -72,13 +73,13 @@ def stl_config_dir() -> Path:
 
 
 def list_stl_appids() -> list[str]:
-    """AppIDs with an STL per-game config file (numeric names only)."""
+    """Game IDs with an STL per-game config file (Steam IDs, canonical)."""
     d = stl_config_dir() / "gamecfgs" / "id"
     try:
         names = [p.stem for p in d.iterdir() if p.is_file()]
     except Exception:
         return []
-    return sorted({n for n in names if n.isdigit()})
+    return sorted({f"steam-{n}" for n in names if n.isdigit()})
 
 
 def parse_stl_conf(path: str | Path) -> dict[str, str]:
@@ -256,5 +257,7 @@ def map_to_gameconfig(appid: str, stl: dict[str, str]) -> tuple[cfgmod.GameConfi
     _audit_hook_paths(cfg, report)
     _note_ignored(get, report)
 
-    cfg.notes.text = f"Imported from SteamTinkerLaunch config for AppID {appid}."
+    cfg.notes.text = (
+        f"Imported from SteamTinkerLaunch config for AppID {steammod.steam_appid(appid) or appid}."
+    )
     return cfg, report

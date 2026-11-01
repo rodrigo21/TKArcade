@@ -14,7 +14,7 @@ import json
 import shutil
 import subprocess
 
-from ..steam import is_steam_id
+from ..steam import is_steam_id, steam_appid
 from . import is_flatpak_path, which
 
 # Fixed `sh -c` script used to recover the wrapped game's exit code
@@ -120,7 +120,7 @@ def _find_manifest_title(path: str, appid: str, name_override: str) -> tuple[str
     if (name_override or "").strip():
         find_cmd = [path, "find", "--api", "--", name_override.strip()]
     else:
-        find_cmd = [path, "find", "--api", "--steam-id", str(appid)]
+        find_cmd = [path, "find", "--api", "--steam-id", steam_appid(appid)]
     try:
         found = subprocess.run(find_cmd, capture_output=True, text=True, timeout=120)
     except (OSError, subprocess.TimeoutExpired) as e:

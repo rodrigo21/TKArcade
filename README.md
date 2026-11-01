@@ -190,10 +190,14 @@ warn instead of silently resetting.
 * `$XDG_STATE_HOME/tkarcade/games/<appid>.log` and `launcher.log`.
 * `$XDG_CACHE_HOME/tkarcade/` — e.g. the ProtonDB tier cache.
 
-Export/import everything with `tkarcade --export FILE` /
-`--import FILE` (or the GUI buttons). `tkarcade --migrate-ids` renames
-local AppIDs written by older versions of the slug rules (the GUI does
-it on startup); the config, profiles and artwork move together.
+Game IDs are origin-prefixed: Steam games use `steam-<appid>` and local
+games `local-<slug>`, so a future store with numeric IDs cannot collide
+with Steam AppIDs. Export/import everything with
+`tkarcade --export FILE` / `--import FILE` (or the GUI buttons).
+`tkarcade --migrate-ids` renames IDs written by older versions (bare
+Steam AppIDs and the old local slug rules; the GUI and the launcher do
+it on startup); the config, profiles, winetricks state, logs, history
+and local artwork move together.
 
 ## Exit codes
 

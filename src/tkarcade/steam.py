@@ -7,21 +7,60 @@ import re
 from pathlib import Path
 
 _ICON_HASH_RE = re.compile(r"^[0-9a-f]{40}\.jpg$")
+_STEAM_PREFIX = "steam-"
+
+
+def origin(appid: str) -> str:
+    """Game origin from the ID prefix: ``steam`` or ``local``.
+
+    Bare digits are the legacy Steam form; new IDs are always
+    ``steam-<appid>`` or ``local-<slug>``.
+    """
+    return "steam" if str(appid or "").strip().removeprefix(_STEAM_PREFIX).isdigit() else "local"
+
+
+def steam_appid(appid: str) -> str:
+    """Numeric Steam AppID behind a game ID ('' when not a Steam game)."""
+    value = str(appid or "").strip()
+    return value.removeprefix(_STEAM_PREFIX) if origin(value) == "steam" else ""
+
+
+def is_steam_id(appid: str) -> bool:
+    """True for Steam-origin IDs (canonical or legacy bare digits)."""
+    return origin(appid) == "steam"
+
+
+def canonical_id(appid: str) -> str:
+    """Canonicalize an input ID: bare digits become ``steam-<n>``."""
+    value = str(appid or "").strip()
+    return f"{_STEAM_PREFIX}{value}" if value.isdigit() else value
+
+
+def canonical_new_id(raw: str) -> str:
+    """Canonical ID for a new target: a bare name is a local game."""
+    from . import config as cfgmod
+
+    value = str(raw or "").strip()
+    if value.isdigit() or value.startswith(_STEAM_PREFIX):
+        return canonical_id(value)
+    if value.startswith("local-"):
+        return value
+    return f"local-{cfgmod.local_slug(value) or cfgmod.local_name_hash(value)}"
 
 
 def resolve_appid(explicit: str = "") -> str:
     if explicit:
-        return explicit.strip()
+        return canonical_id(explicit)
     for key in ("STEAMAPPID", "SteamAppId", "STEAM_APP_ID"):
         v = os.environ.get(key, "").strip()
         if v:
-            return v
+            return canonical_id(v)
     # STEAM_COMPAT_DATA_PATH ends with <appid>
     compat = os.environ.get("STEAM_COMPAT_DATA_PATH", "").strip()
     if compat:
         cand = Path(compat).name
         if cand.isdigit():
-            return cand
+            return canonical_id(cand)
     return ""
 
 
@@ -154,11 +193,6 @@ def _parse_acf_installdir(path: Path) -> str:
     return m.group(1) if m else ""
 
 
-def is_steam_id(appid: str) -> bool:
-    """True for numeric Steam AppIDs; local game IDs are anything else."""
-    return str(appid or "").strip().isdigit()
-
-
 def local_names() -> dict[str, str]:
     """Display names of configured local (non-Steam) games (id -> name)."""
     from . import config as cfgmod
@@ -176,8 +210,8 @@ def local_names() -> dict[str, str]:
 
 
 def _safe_appid(appid: str) -> str:
-    """Steam AppIDs are digits; anything else cannot name a manifest."""
-    return str(appid) if is_steam_id(appid) else ""
+    """Numeric AppID for Steam-owned files; '' for a non-Steam game."""
+    return steam_appid(appid)
 
 
 def install_dir(appid: str) -> Path | None:
@@ -270,7 +304,7 @@ def _roots_key() -> tuple[str, str]:
 
 
 def list_games() -> list[tuple[str, str]]:
-    """Return sorted [(appid, name)]. Cached per process (keyed by env)."""
+    """Return sorted [(game_id, name)] for installed Steam apps."""
     key = _roots_key()
     hit = _GAMES_CACHE.get(key)
     if hit is not None:
@@ -285,8 +319,8 @@ def list_games() -> list[tuple[str, str]]:
                     stem = acf.stem.replace("appmanifest_", "")
                     if stem.isdigit():
                         appid = stem
-                if appid and appid not in games:
-                    games[appid] = name or appid
+                if appid:
+                    games.setdefault(canonical_id(appid), name or appid)
         except Exception:
             continue
     result = sorted(games.items(), key=lambda kv: kv[1].lower())
@@ -319,10 +353,13 @@ def find_game_icon(appid: str, landscape: bool = False, portrait: bool = False) 
     wins instead.
     """
     ordered = _preferred_names(landscape, portrait)
+    numeric = steam_appid(appid)
+    if not numeric:
+        return None
     for root in steam_roots():
         cache = root / "appcache" / "librarycache"
         try:
-            d = cache / str(appid)
+            d = cache / numeric
             if d.is_dir():
                 hashed = sorted(
                     p for p in d.iterdir() if p.is_file() and _ICON_HASH_RE.match(p.name)
@@ -336,7 +373,7 @@ def find_game_icon(appid: str, landscape: bool = False, portrait: bool = False) 
                     cand = d / name
                     if cand.is_file():
                         return cand
-            for suffix in (f"{appid}_icon.jpg", f"{appid}_logo.png"):
+            for suffix in (f"{numeric}_icon.jpg", f"{numeric}_logo.png"):
                 cand = cache / suffix
                 if cand.is_file():
                     return cand
@@ -376,12 +413,15 @@ def launch_options_status(appid: str) -> tuple[str, str]:
 
 
 def _launch_options_from_text(text: str, appid: str) -> str | None:
+    appid = steam_appid(appid)
+    if not appid:
+        return None
     data = loads_kv1(text)
     if data is not None:
         try:
             steam = data["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]
             apps = steam.get("Apps", steam.get("apps", {}))
-            entry = apps.get(str(appid), {})
+            entry = apps.get(appid, {})
             if isinstance(entry, dict) and "LaunchOptions" in entry:
                 return str(entry["LaunchOptions"])
             return None
@@ -396,7 +436,7 @@ def _launch_options_from_text(text: str, appid: str) -> str | None:
     # One nesting level tolerated (e.g. a "cloud" {...} block sits
     # between the AppID and its LaunchOptions in real files).
     match = re.search(
-        r'"' + re.escape(str(appid)) + r'"\s*\{(?:[^{}]|\{[^{}]*\})*?"LaunchOptions"\s+"([^"]*)"',
+        r'"' + re.escape(appid) + r'"\s*\{(?:[^{}]|\{[^{}]*\})*?"LaunchOptions"\s+"([^"]*)"',
         region,
         re.DOTALL,
     )

@@ -8,6 +8,7 @@ import time
 import urllib.request
 from typing import TYPE_CHECKING
 
+from . import steam as steammod
 from . import xdg
 
 if TYPE_CHECKING:
@@ -52,10 +53,11 @@ def cached(appid: str) -> tuple[dict | None, bool]:
 
 def fetch(appid: str, timeout: int = 15) -> dict | None:
     """Fetch the tier summary from ProtonDB. None on any failure."""
-    if not str(appid).isdigit():
+    numeric = steammod.steam_appid(appid)
+    if not numeric:
         return None
     try:
-        with urllib.request.urlopen(ENDPOINT.format(appid=appid), timeout=timeout) as response:
+        with urllib.request.urlopen(ENDPOINT.format(appid=numeric), timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
     except Exception as e:
         log.debug("protondb fetch failed for %s: %s", appid, e)

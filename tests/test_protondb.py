@@ -38,6 +38,22 @@ def test_fetch_and_cache_roundtrip(monkeypatch, tmp_path, xdg_env):
     assert cached == {"tier": "gold", "total": 10} and fresh is True
 
 
+def test_canonical_id_caches_under_game_id_fetches_numeric(monkeypatch, xdg_env):
+    seen = []
+
+    def fake_open(url, timeout=15):
+        seen.append(url)
+        return _Resp({"tier": "gold"})
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_open)
+    assert pdb.refresh("steam-70") == {"tier": "gold"}
+    assert seen == [pdb.ENDPOINT.format(appid="70")]
+    assert pdb.cache_path("steam-70").is_file()
+    assert pdb.cache_path("steam-70") != pdb.cache_path("70")
+    assert pdb.cached("steam-70")[0] == {"tier": "gold"}
+    assert pdb.fetch("local-doom") is None
+
+
 def test_stale_cache_returned_but_flagged(monkeypatch, xdg_env):
     import json as jsonlib
 

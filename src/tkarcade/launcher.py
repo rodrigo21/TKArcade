@@ -1122,8 +1122,21 @@ def _cmd_version() -> int:
     return 0
 
 
+def _migrate_ids() -> list[tuple[str, str]]:
+    """Rename legacy IDs to the canonical origin-prefixed form."""
+    try:
+        renamed = cfgmod.migrate_ids()
+    except Exception as e:
+        log.warning("AppID migration failed: %s", e)
+        return []
+    for old, new in renamed:
+        log.info("migrated AppID %s -> %s", old, new)
+    return renamed
+
+
 def _cmd_list() -> int:
     """Print configured games, then detected-but-unconfigured ones."""
+    _migrate_ids()
     names = dict(steammod.list_games())
     names.update(steammod.local_names())
     configured = cfgmod.list_appids()
@@ -1139,23 +1152,24 @@ def _cmd_list() -> int:
 
 
 def _cmd_migrate_ids() -> int:
-    """Rename local AppIDs left by the old slug rules, print the pairs."""
-    renamed = cfgmod.migrate_local_ids()
+    """Rename legacy IDs to the canonical origin-prefixed form, print pairs."""
+    renamed = _migrate_ids()
     if not renamed:
-        print("No local AppID needs renaming.")
+        print("No AppID needs renaming.")
         return 0
     for old, new in renamed:
         print(f"  {old} -> {new}")
     print(
-        f"Renamed {len(renamed)} local AppID(s). Steam shortcuts created before\n"
-        "this change still pass the old AppID in their launch options: fix\n"
-        "those in Steam's properties dialog.",
+        f"Renamed {len(renamed)} AppID(s). Numeric Steam AppIDs in old launch\n"
+        "options keep working; fix a local AppID there in Steam's properties\n"
+        "dialog if the shortcut passes one.",
         file=sys.stderr,
     )
     return 0
 
 
 def _cmd_export(dest: str) -> int:
+    _migrate_ids()
     try:
         path = cfgmod.export_configs(dest)
     except (OSError, ValueError) as e:
@@ -1171,6 +1185,8 @@ def _cmd_import(src: str) -> int:
     except (OSError, ValueError) as e:
         print(f"tkarcade: import failed: {e}", file=sys.stderr)
         return 16
+    renamed = dict(_migrate_ids())
+    imported = [renamed.get(appid, appid) for appid in imported]
     print(f"Imported {len(imported)} game(s): {', '.join(imported)}")
     return 0
 
@@ -1182,8 +1198,9 @@ def _run_cli_action(args: argparse.Namespace) -> int | None:
     if args.list:
         return _cmd_list()
     if args.validate:
-        appids = [args.appid] if args.appid else cfgmod.list_appids()
-        return cmd_validate(appids)
+        renamed = dict(_migrate_ids())
+        appids = [steammod.resolve_appid(args.appid)] if args.appid else cfgmod.list_appids()
+        return cmd_validate([renamed.get(appid, appid) for appid in appids])
     if args.export:
         return _cmd_export(args.export)
     if args.import_file:
@@ -1246,6 +1263,7 @@ def _load_target(
         log.error("cannot resolve AppID (use --appid or STEAMAPPID env). game_cmd=%r", game_cmd)
         print("tkarcade: cannot resolve AppID", file=sys.stderr)
         return 10, "", None
+    appid = dict(_migrate_ids()).get(appid, appid)
     setup_logging(appid, args.verbose)
     cfg = cfgmod.load_effective(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
