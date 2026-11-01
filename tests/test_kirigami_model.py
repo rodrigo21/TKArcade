@@ -94,7 +94,7 @@ def test_launch_local_detached_spawns(xdg_env, monkeypatch):
         "/opt/venv/bin/python",
         "-m",
         "tkarcade.launcher",
-        "--appid",
+        "--game-id",
         "local-doom",
     ]
     assert kwargs.get("start_new_session") is True

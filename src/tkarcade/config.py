@@ -430,8 +430,10 @@ def _to_toml_value(obj) -> dict:
 
 
 def to_toml_dict(cfg: GameConfig) -> dict:
+    general = _to_toml_value(cfg.general)
+    general["gameid"] = general.pop("appid", "")
     data = {
-        "general": {"config_version": CONFIG_VERSION, **_to_toml_value(cfg.general)},
+        "general": {"config_version": CONFIG_VERSION, **general},
         "metadata": _to_toml_value(cfg.metadata),
         "env": {"vars": dict(cfg.env.vars)},
         "pre_post": _to_toml_value(cfg.pre_post),
@@ -574,7 +576,7 @@ def save_profile(appid: str, name: str, cfg: GameConfig) -> Path:
     """Save cfg as a named profile snapshot (selection memory stripped)."""
     path = profile_file(appid, name)
     data = to_toml_dict(cfg)
-    data.setdefault("general", {})["appid"] = appid
+    data.setdefault("general", {})["gameid"] = appid
     data["general"]["active_profile"] = ""
     _write_atomic(path, _render_toml(data))
     return path
@@ -722,7 +724,7 @@ def save_defaults(cfg: GameConfig) -> Path:
     """Save the global defaults file (complete values, no appid)."""
     path = xdg.defaults_file()
     data = to_toml_dict(cfg)
-    data.get("general", {}).pop("appid", None)
+    data.get("general", {}).pop("gameid", None)
     _write_atomic(path, _render_toml(data))
     return path
 
@@ -797,11 +799,12 @@ def move_legacy_prefix(base: Path, stem: str) -> tuple[bool, str]:
 # Single source of truth for known sections/keys (load, save, extra).
 SECTION_KEYS: dict[str, set[str]] = {
     "general": {
-        "appid",
+        "gameid",
         "name",
         "config_version",
         "custom_executable",
         "environment",  # legacy (pre-1.0): ignored on load, dropped on save
+        "appid",  # legacy (pre-1.0): identity lives in the filename, dropped on save
         "show_menu",
         "menu_timeout",
         "custom_prefix",
@@ -1281,7 +1284,7 @@ def save(cfg: GameConfig) -> Path:
     """Save a game's complete config snapshot."""
     path = game_file(cfg.general.appid or "unknown")
     data = to_toml_dict(cfg)
-    data.setdefault("general", {})["appid"] = cfg.general.appid
+    data.setdefault("general", {})["gameid"] = cfg.general.appid
     _write_atomic(path, _render_toml(data))
     return path
 
@@ -1295,7 +1298,7 @@ def diff_vs_defaults(cfg: GameConfig) -> str:
     for section in (base, full):
         general = section.get("general", {})
         # Identity and selection memory, not settings: never diff noise.
-        general.pop("appid", None)
+        general.pop("gameid", None)
         general.pop("name", None)
         general.pop("active_profile", None)
     return "\n".join(

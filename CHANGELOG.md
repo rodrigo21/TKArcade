@@ -13,6 +13,11 @@ Breaking config changes are called out explicitly under `Changed`.
   run (or with `tkarcade --migrate-ids`); numeric `--appid` values and
   old AppIDs in launch options keep working. Scripts that read
   `games/<appid>.toml` by number must use `steam-<appid>`.
+- **BREAKING**: the per-game TOML identity key is `[general] gameid`
+  now (was `appid`) and the wrapper flag is `--game-id` (was `--appid`,
+  still accepted until the 1.0 cleanup). Old files load unchanged — the
+  ID always came from the filename — and are rewritten with the new key
+  on the next save; copied launch commands use `--game-id`.
 - The canonical ID reads **Game ID** throughout the GUI now — library
   column title in Columns and the header menu, the sort menu, the export
   header and the Game tab label — matching Copy Game ID; the numeric

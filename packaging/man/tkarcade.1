@@ -26,7 +26,7 @@ Local Windows prefixes default to
 \fB$XDG_DATA_HOME/tkarcade/prefixes/<name>\fR and may install DXVK
 and/or vkd3d-proton into the prefix at launch.
 .PP
-Logs go to \fB$XDG_STATE_HOME/tkarcade/games/<appid>.log\fR (full)
+Logs go to \fB$XDG_STATE_HOME/tkarcade/games/<gameid>.log\fR (full)
 plus a one-line entry per run in \fBlauncher.log\fR.
 .SH OPTIONS
 .TP
@@ -36,8 +36,9 @@ Open the settings GUI and exit (needs a display).
 .BR --cli
 Never open the GUI, even without a command (for scripts).
 .TP
-.BR --appid " AppID"
-Steam AppID, e.g. 570 or steam-570 (else STEAMAPPID env).
+.BR --game-id " Game ID"
+Game ID, e.g. steam-570 or local-doom (else STEAMAPPID env).
+The old \fB--appid\fR spelling still works until the 1.0 cleanup.
 .TP
 .BR --dry-run
 Print final command, do not run.
@@ -76,10 +77,10 @@ export/import failed. 17 validation issues found. 18 runtime not set
 (local games) or invalid for the game's origin.
 .SH FILES
 .TP
-.I $XDG_CONFIG_HOME/tkarcade/games/<appid>.toml
+.I $XDG_CONFIG_HOME/tkarcade/games/<gameid>.toml
 Per-game config snapshot (carries a \fBconfig_version\fR stamp).
 .TP
-.I $XDG_CONFIG_HOME/tkarcade/profiles/<appid>/<name>.toml
+.I $XDG_CONFIG_HOME/tkarcade/profiles/<gameid>/<name>.toml
 Named per-game profiles.
 .TP
 .I $XDG_CONFIG_HOME/tkarcade/defaults.toml

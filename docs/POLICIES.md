@@ -4,7 +4,7 @@ Standing decisions that shape every change. `AGENTS.md` links here.
 
 - No config migration/compat shims (pre-1.0): incompatible configs load
   as fresh built-ins.
-- One identity key: `[general] appid` holds the canonical
+- One identity key: `[general] gameid` holds the canonical
   `<origin>-<body>` ID (`steam-570`, `local-doom`); external store IDs
   (the Steam AppID) are derived with `steam.steam_appid()`, never stored
   twice. Legacy bare digits are read as Steam and renamed by

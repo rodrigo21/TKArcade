@@ -38,9 +38,13 @@ def _save(appid, **kw):
 
 def test_dry_run(xdg_env):
     _save("1")
+    r = _run(_env(xdg_env), "--game-id", "steam-1", "--dry-run", "--", "/bin/echo", "hi")
+    assert r.returncode == 0
+    assert "Game ID: steam-1" in r.stdout and "/bin/echo hi" in r.stdout
+    # --appid stays as the alias until the 1.0 cleanup.
     r = _run(_env(xdg_env), "--appid", "1", "--dry-run", "--", "/bin/echo", "hi")
     assert r.returncode == 0
-    assert "AppID: steam-1" in r.stdout and "/bin/echo hi" in r.stdout
+    assert "Game ID: steam-1" in r.stdout
 
 
 def test_no_appid(xdg_env):
@@ -280,7 +284,7 @@ def test_migrate_ids_cli(xdg_env):
     assert "Numeric Steam AppIDs in old launch" in r.stderr
     assert C.game_file("local-bad-hero-episode-1").is_file()
     r = _run(env, "--migrate-ids")
-    assert r.returncode == 0 and "No AppID needs renaming." in r.stdout
+    assert r.returncode == 0 and "No Game ID needs renaming." in r.stdout
 
 
 def test_export_import_cli(xdg_env, tmp_path):
@@ -461,7 +465,7 @@ def test_menu_positional_appid_resolves_like_edit(xdg_env, monkeypatch):
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
     r = _run(_env(xdg_env), "--menu", "21")
     assert r.returncode == 0, r.stderr
-    assert "cannot resolve AppID" not in r.stderr
+    assert "cannot resolve Game ID" not in r.stderr
     log = xdg_env["state"] / "tkarcade" / "games" / "steam-21.log"
     assert "no game command to run" in log.read_text()
 
@@ -496,13 +500,13 @@ def test_clean_gui_env():
 def test_help_documents_exit_codes(xdg_env):
     r = _run(_env(xdg_env), "--help")
     assert r.returncode == 0
-    assert "exit codes" in r.stdout and "  10  AppID not resolved" in r.stdout
+    assert "exit codes" in r.stdout and "  10  Game ID not resolved" in r.stdout
 
 
 def test_help_exit_codes_format(xdg_env):
     r = _run(_env(xdg_env), "--help")
     assert r.returncode == 0
-    assert "\n  10  AppID not resolved\n" in r.stdout
+    assert "\n  10  Game ID not resolved\n" in r.stdout
     assert "\n  17  validation issues found\n" in r.stdout
 
 
@@ -715,7 +719,7 @@ def test_local_dry_run_uses_custom_executable(xdg_env, tmp_path, capsys):
     C.save(cfg)
     assert L.main(["--appid", "local-doom", "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "AppID: local-doom" in out
+    assert "Game ID: local-doom" in out
     assert str(exe) in out
 
 

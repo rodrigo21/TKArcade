@@ -1368,7 +1368,7 @@ Kirigami.Page {
             visible: !gamesPage.menuIsSteam && gamesPage.selectedIds.length <= 1
             text: qsTr("Copy Launch Command")
             onTriggered: gamesPage.notify(
-                gameModel.copyText("tkarcade --appid " + gamesPage.menuGid))
+                gameModel.copyText("tkarcade --game-id " + gamesPage.menuGid))
         }
         Controls.MenuItem {
             objectName: "menuCopyId"

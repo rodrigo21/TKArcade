@@ -40,7 +40,7 @@ tkarcade --menu %command%     # pre-launch menu (Launch / Settings / Cancel)
 ```
 
 The AppID resolves automatically from the Steam environment. Logs go to
-`$XDG_STATE_HOME/tkarcade/games/<appid>.log` (full) plus a one-line
+`$XDG_STATE_HOME/tkarcade/games/<gameid>.log` (full) plus a one-line
 entry per run in `launcher.log`.
 
 ## Local games
@@ -97,7 +97,7 @@ custom container's `pfx` is the `WINEPREFIX`.
 Linux Runtime through `umu-run` (`scout`, `soldier`, `sniper` or
 `steamrt4`; empty = the plain host). umu builds a passthrough
 compatibility tool for native apps, so the launch only adds
-`PROTONPATH=umu-<name>` and `GAMEID=tkarcade-<appid>`: no WINEPREFIX and
+`PROTONPATH=umu-<name>` and `GAMEID=tkarcade-<gameid>`: no WINEPREFIX and
 no graphics layer. The field is ignored for Steam games (Steam picks
 their runtime) and for Wine/umu games. Runtimes live in
 `$XDG_DATA_HOME/umu/` and umu downloads a missing one on the first
@@ -118,7 +118,7 @@ ignored (overriding a runtime's versions is on `TODO.md`).
 ```toml
 # Local Windows game under Wine, with the graphics layers.
 [general]
-appid = "local-doom"
+gameid = "local-doom"
 
 [runtime]
 type = "wine"
@@ -133,7 +133,7 @@ vkd3d = "proton"
 ```toml
 # Local Linux game inside a Steam Linux Runtime.
 [general]
-appid = "local-openra"
+gameid = "local-openra"
 
 [runtime]
 type = "native"
@@ -187,14 +187,14 @@ warn instead of silently resetting.
 
 ## Config files (XDG)
 
-* `$XDG_CONFIG_HOME/tkarcade/games/<appid>.toml` — per-game snapshot.
-* `$XDG_CONFIG_HOME/tkarcade/profiles/<appid>/<name>.toml` — profiles.
+* `$XDG_CONFIG_HOME/tkarcade/games/<gameid>.toml` — per-game snapshot.
+* `$XDG_CONFIG_HOME/tkarcade/profiles/<gameid>/<name>.toml` — profiles.
 * `$XDG_CONFIG_HOME/tkarcade/defaults.toml` — new-game template only.
 * `$XDG_DATA_HOME/tkarcade/prefixes/<name>/` — local Windows prefixes
   (default base; Preferences can move it, per-game `runtime.prefix` is
   the base, and the folder is `runtime.prefix_name`, else the
-  normalised game name, else the AppID).
-* `$XDG_STATE_HOME/tkarcade/games/<appid>.log` and `launcher.log`.
+  normalised game name, else the Game ID).
+* `$XDG_STATE_HOME/tkarcade/games/<gameid>.log` and `launcher.log`.
 * `$XDG_CACHE_HOME/tkarcade/` — e.g. the ProtonDB tier cache.
 
 Game IDs are origin-prefixed: Steam games use `steam-<appid>` and local

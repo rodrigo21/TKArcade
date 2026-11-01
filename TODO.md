@@ -19,11 +19,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred design review
 
-- [ ] **Game ID terminology in config and CLI.** Pass 2 of the ID
-  naming: rename the `[general] appid` key to `gameid` and `--appid` to
-  `--game-id`, reading the old key/flag as an alias. Breaking for configs
-  and scripts, so it lands alone and updates README, the man page and
-  the migration notes.
 - [ ] **DXVK/vkd3d inside UMU/Proton prefixes.** umu and Steam's Proton
   ship their own DXVK and vkd3d, so `[graphics]` is hidden and ignored
   for them (an old install is only neutralised). Decide whether

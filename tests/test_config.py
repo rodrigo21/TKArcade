@@ -51,7 +51,7 @@ def test_save_is_full_snapshot(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "8"
     text = C.save(cfg).read_text()
-    assert 'appid = "8"' in text
+    assert 'gameid = "8"' in text
     assert 'type = ""' in text and "custom_prefix" in text
 
 
@@ -1386,7 +1386,7 @@ def test_clone_game_rewrites_appid(xdg_env):
     assert dest.general.active_profile == "p1"  # selection survives (profiles cloned too)
     assert C.load_profile("212", "p1").general.appid == "212"
     with C.game_file("212").open("rb") as f:
-        assert tomllib.load(f)["general"]["appid"] == "212"
+        assert tomllib.load(f)["general"]["gameid"] == "212"
 
 
 def test_prefs_cleaners_drop_nondecimal_digits(xdg_env):
@@ -1463,11 +1463,13 @@ def test_legacy_keys_load_as_unset(xdg_env, tmp_path, monkeypatch):
     assert cfg.runtime.type == ""
     assert not hasattr(cfg.general, "platform")
     C.save(cfg)
-    # Full snapshots always carry the new key; the dropped runtime key is
+    # Full snapshots carry gameid now; the renamed and dropped keys are
     # known-but-ignored, while the older unknown keys ride along (forward
     # compat), never rewritten into the new one.
     text = path.read_text()
     assert 'type = ""' in text
+    assert 'gameid = "9"' in text
+    assert "\nappid = " not in text  # the key, not artwork_appid
     assert "environment" not in text
     assert 'game_type = "native"' in text
 

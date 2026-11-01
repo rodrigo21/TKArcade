@@ -873,7 +873,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         epilog="exit codes:\n"
         "  0   ok: game ran (its own code), or menu/editor exited\n"
         "      without launching\n"
-        "  10  AppID not resolved\n"
+        "  10  Game ID not resolved\n"
         "  11  empty game command\n"
         "  12  pre-launch hook failed\n"
         "  13  game executable not found\n"
@@ -883,7 +883,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "  17  validation issues found\n"
         "  18  runtime not set (local games) or invalid for this game",
     )
-    p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
+    p.add_argument(
+        "--game-id",
+        "--appid",
+        dest="appid",
+        default="",
+        help="Game ID, e.g. steam-570 or local-doom (else STEAMAPPID env)",
+    )
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")
     p.add_argument("--list", action="store_true", help="list configured/detected games and exit")
     p.add_argument(
@@ -905,20 +911,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--migrate-ids",
         dest="migrate_ids",
         action="store_true",
-        help="rename local AppIDs created by older slug rules and exit",
+        help="rename local game IDs created by older slug rules and exit",
     )
     p.add_argument(
         "--edit",
         action="store_true",
         help="open the game settings dialog (needs a display); "
-        "takes an optional positional AppID, otherwise shows a game picker",
+        "takes an optional positional Game ID, otherwise shows a game picker",
     )
     p.add_argument(
         "--menu",
         action="store_true",
         help="show the pre-launch menu before starting the game "
         "(needs a display; launches directly without one); "
-        "takes an optional positional AppID like --edit",
+        "takes an optional positional Game ID like --edit",
     )
     p.add_argument("--verbose", action="store_true", help="debug logging to the per-game log")
     p.add_argument("--version", action="store_true", help="print the version and exit")
@@ -1094,7 +1100,7 @@ def run_editor_menu(
 
 
 def launch_local_detached(appid: str) -> None:
-    """Spawn `tkarcade --appid ...` detached for a local game.
+    """Spawn `tkarcade --game-id ...` detached for a local game.
 
     Shared Play path for every toolkit: logs, history and the one-shot
     menu skip apply; only the Steam client handoff is missing.
@@ -1108,7 +1114,7 @@ def launch_local_detached(appid: str) -> None:
     if not runner[0]:
         runner = [shutil.which("tkarcade") or sys.argv[0]]
     subprocess.Popen(
-        [*runner, "--appid", appid],
+        [*runner, "--game-id", appid],
         start_new_session=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -1155,13 +1161,13 @@ def _cmd_migrate_ids() -> int:
     """Rename legacy IDs to the canonical origin-prefixed form, print pairs."""
     renamed = _migrate_ids()
     if not renamed:
-        print("No AppID needs renaming.")
+        print("No Game ID needs renaming.")
         return 0
     for old, new in renamed:
         print(f"  {old} -> {new}")
     print(
-        f"Renamed {len(renamed)} AppID(s). Numeric Steam AppIDs in old launch\n"
-        "options keep working; fix a local AppID there in Steam's properties\n"
+        f"Renamed {len(renamed)} game ID(s). Numeric Steam AppIDs in old launch\n"
+        "options keep working; fix a local Game ID there in Steam's properties\n"
         "dialog if the shortcut passes one.",
         file=sys.stderr,
     )
@@ -1260,8 +1266,8 @@ def _load_target(
     appid = steammod.resolve_appid(args.appid)
     if not appid and not args.edit:
         setup_logging("", args.verbose)
-        log.error("cannot resolve AppID (use --appid or STEAMAPPID env). game_cmd=%r", game_cmd)
-        print("tkarcade: cannot resolve AppID", file=sys.stderr)
+        log.error("cannot resolve Game ID (use --game-id or STEAMAPPID env). game_cmd=%r", game_cmd)
+        print("tkarcade: cannot resolve Game ID", file=sys.stderr)
         return 10, "", None
     appid = dict(_migrate_ids()).get(appid, appid)
     setup_logging(appid, args.verbose)
@@ -1299,8 +1305,8 @@ def _explicit_editor(
     # "launch", or "saved" from the pre-launch menu: (re)load the config and
     # continue into the pipeline.
     if not appid:
-        log.error("cannot resolve AppID (use --appid or STEAMAPPID env)")
-        print("tkarcade: cannot resolve AppID", file=sys.stderr)
+        log.error("cannot resolve Game ID (use --game-id or STEAMAPPID env)")
+        print("tkarcade: cannot resolve Game ID", file=sys.stderr)
         return 10, appid, cfg
     setup_logging(appid, args.verbose)
     return None, appid, cfgmod.load_effective(appid)
@@ -1682,7 +1688,7 @@ def _launch_pipeline(
     for w in warnings:
         log.warning("%s", w)
     if args.dry_run:
-        print(f"AppID: {appid}")
+        print(f"Game ID: {appid}")
         print(f"Final: {shlex.join(final_cmd) if final_cmd else '(empty)'}")
         if extra_env:
             print(f"Env: {extra_env}")
