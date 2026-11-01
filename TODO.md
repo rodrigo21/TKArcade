@@ -48,6 +48,15 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 Only when the maintainer opens the subject.
 
+- [ ] **1.0: drop every compatibility shim.** 1.0 should read only the
+  current format; the compatibility promise starts after it. Remove
+  `--migrate-ids` and the automatic rename plus numeric lookups for bare
+  AppIDs (configs, profiles, logs, history, artwork), old numeric AppIDs
+  in launch options, the `[general] appid` and `--appid` aliases once
+  pass 2 lands, the legacy `environment` key that load ignores and save
+  drops, and `move_legacy_prefix`. Keep the `config_version` newer-file
+  warning and the third-party importers (they read other tools, not old
+  TKArcade builds).
 - [ ] Release pass: group the `Unreleased` entries, update the `-git`
   PKGBUILD, `diff -r` against TKSteamLaunch, check package versions and
   run `scripts/display-check.sh`. Numbering/tag and signing are the
