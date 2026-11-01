@@ -51,9 +51,15 @@ local games; Steam games use `proton` (Steam's Proton) or `native`
 (Steam Runtime). The library derives `Origin` (Steam/Local) and
 `Platform` (Linux/Windows) from it, and the `Runtime` column shows the
 runtime label (`Native`, `Wine`, `UMU`, `Steam Proton`, `Steam Runtime`);
-there is no separate platform label. An unset or invalid pairing is
-refused (exit 18): pick the runtime in the settings dialog, there is no
-detection. The old `[general] environment` key is ignored.
+there is no separate platform label. A Steam game with no configured
+runtime prompts on launch to configure it: the settings open on the
+Runtime tab with the type inferred from `%command%` preselected
+(`proton` with Proton's `waitforexitandrun` or a `proton` binary,
+`native` otherwise). Not now launches with that inferred type and saves
+nothing, so the prompt returns next launch; the inference is also the
+fallback when the settings cannot start. An unset or invalid pairing is
+still refused for local games (exit 18): pick the runtime in the
+settings dialog. The old `[general] environment` key is ignored.
 
 Local Windows games never borrow Steam's Proton. `wine` runs the game
 with the configured wine binary (or `wine` from PATH); `umu` runs
@@ -195,8 +201,8 @@ it on startup); the config, profiles and artwork move together.
 11 empty game command; 12 pre-launch hook failed; 13 game executable
 not found; 14 custom prefix, wine/umu runtime or Proton install not
 found; 15 display needed but missing; 16 export/import failed;
-17 validation issues found; 18 environment not set (or invalid for the
-game's origin).
+17 validation issues found; 18 runtime not set (local games) or invalid
+for the game's origin.
 See `tkarcade --help` and `man tkarcade` (man ships in the Arch packages).
 
 ## Troubleshooting

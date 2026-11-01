@@ -50,11 +50,141 @@ def test_no_appid(xdg_env):
 
 def test_unset_environment_exits_18(xdg_env):
     cfg = C.GameConfig()
-    cfg.general.appid = "39"
+    cfg.general.appid = "local-unset"
     C.save(cfg)
-    r = _run(_env(xdg_env), "--appid", "39", "/bin/true")
+    r = _run(_env(xdg_env), "--appid", "local-unset", "/bin/true")
     assert r.returncode == 18
     assert "runtime not set" in r.stderr
+
+
+def test_infer_runtime_from_command():
+    from tkarcade.launcher import effective_runtime, infer_runtime
+
+    proton = [
+        "/home/u/.steam/steamapps/common/Proton - Experimental/proton",
+        "waitforexitandrun",
+        "/game.exe",
+    ]
+    assert infer_runtime("39", proton) == "proton"
+    assert infer_runtime("39", ["/usr/bin/proton", "run", "/game.exe"]) == "proton"
+    slr = [
+        "/x/SteamLinuxRuntime_sniper/_v2-entry-point",
+        "--verb=waitforexitandrun",
+        "--",
+        "/game",
+    ]
+    assert infer_runtime("39", slr) == "native"
+    assert infer_runtime("39", ["/usr/bin/game"]) == "native"
+    assert infer_runtime("local-x", proton) == ""
+    assert infer_runtime("39", []) == ""
+    cfg = C.GameConfig()
+    assert effective_runtime("39", cfg, proton) == "proton"
+    cfg.runtime.type = "native"
+    assert effective_runtime("39", cfg, proton) == "native"
+
+
+def test_unconfigured_steam_game_infers_proton(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "39"
+    C.save(cfg)
+    proton = "/home/u/.steam/steamapps/common/Proton - Experimental/proton"
+    r = _run(
+        _env(xdg_env), "--appid", "39", "--dry-run", "--", proton, "waitforexitandrun", "/game.exe"
+    )
+    assert r.returncode == 0
+    assert "Proton - Experimental/proton" in r.stdout
+    assert "waitforexitandrun /game.exe" in r.stdout
+
+
+def test_unconfigured_steam_game_infers_native(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "39"
+    C.save(cfg)
+    r = _run(_env(xdg_env), "--appid", "39", "--dry-run", "--", "/bin/echo", "hi")
+    assert r.returncode == 0
+    assert "Final: /bin/echo hi" in r.stdout
+
+
+PROTON_CMD = ["/x/proton", "waitforexitandrun", "/game.exe"]
+
+
+def test_first_run_prompts_for_unconfigured_steam(xdg_env, monkeypatch):
+    from argparse import Namespace
+
+    from tkarcade import launcher as L
+
+    seen = {}
+
+    def fake_menu(appid, **kwargs):
+        seen.update(appid=appid, **kwargs)
+        return "launch", appid
+
+    monkeypatch.setattr(L, "run_editor_menu", fake_menu)
+    args = Namespace(dry_run=False, edit=False, menu=False)
+    rc, appid, _cfg = L._maybe_run_menus(args, "39", C.GameConfig(), PROTON_CMD)
+    assert (rc, appid) == (None, "39")
+    assert seen == {"appid": "39", "first_run": True, "runtime": "proton"}
+
+
+def test_first_run_saved_config_is_reloaded(xdg_env, monkeypatch):
+    from argparse import Namespace
+
+    from tkarcade import launcher as L
+
+    def fake_menu(appid, **kwargs):
+        saved = C.GameConfig()
+        saved.general.appid = appid
+        saved.runtime.type = "proton"
+        C.save(saved)
+        return "saved", appid
+
+    monkeypatch.setattr(L, "run_editor_menu", fake_menu)
+    args = Namespace(dry_run=False, edit=False, menu=False)
+    rc, appid, cfg = L._maybe_run_menus(args, "39", C.GameConfig(), PROTON_CMD)
+    assert rc is None
+    assert appid == "39"
+    assert cfg.runtime.type == "proton"
+
+
+def test_first_run_not_now_saves_nothing(xdg_env, monkeypatch):
+    from argparse import Namespace
+
+    from tkarcade import launcher as L
+
+    monkeypatch.setattr(L, "run_editor_menu", lambda appid, **kw: ("launch", appid))
+    args = Namespace(dry_run=False, edit=False, menu=False)
+    rc, appid, _cfg = L._maybe_run_menus(args, "39", C.GameConfig(), ["/usr/bin/game"])
+    assert (rc, appid) == (None, "39")
+    assert not C.game_file("39").exists()
+
+
+def test_first_run_failure_launches_directly(monkeypatch):
+    from argparse import Namespace
+
+    from tkarcade import launcher as L
+
+    args = Namespace(dry_run=False, edit=False, menu=False)
+    for outcome in ("crashed", "unavailable", "cancelled"):
+        monkeypatch.setattr(
+            L, "run_editor_menu", lambda appid, _outcome=outcome, **kw: (_outcome, appid)
+        )
+        rc, appid, _cfg = L._maybe_run_menus(args, "39", C.GameConfig(), PROTON_CMD)
+        assert (rc, appid) == (None, "39"), outcome
+
+
+def test_first_run_skip_conditions():
+    from argparse import Namespace
+
+    from tkarcade import launcher as L
+
+    args = Namespace(dry_run=False, edit=False, menu=False)
+    assert not L._needs_first_run(args, "local-x", C.GameConfig(), PROTON_CMD)
+    configured = C.GameConfig()
+    configured.runtime.type = "native"
+    assert not L._needs_first_run(args, "39", configured, PROTON_CMD)
+    dry = Namespace(dry_run=True, edit=False, menu=False)
+    assert not L._needs_first_run(dry, "39", C.GameConfig(), PROTON_CMD)
+    assert not L._needs_first_run(args, "39", C.GameConfig(), [])
 
 
 def test_local_game_cannot_borrow_proton(xdg_env):

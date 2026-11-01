@@ -59,7 +59,8 @@ class RuntimeType(StrEnum):
 
 
 #: Runtime types this build understands. Empty means "not set": the GUI
-#: blocks Save and the launcher refuses to guess (exit 18).
+#: blocks Save; the launcher infers it from the Steam %command% and only
+#: refuses to guess for local games (exit 18).
 RUNTIME_TYPES = frozenset(t.value for t in RuntimeType)
 
 

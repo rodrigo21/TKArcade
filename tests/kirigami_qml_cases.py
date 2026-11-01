@@ -6763,7 +6763,9 @@ def test_toolbar_and_window_chrome(qgui_app, xdg_env):
 # --- standalone editor / pre-launch menu (gui/edit.py drives both) --------
 
 
-def _load_editor(qgui_app, mode="edit", appid="", name="", can_launch=True, pick=False, timeout=0):
+def _load_editor(
+    qgui_app, mode="edit", appid="", name="", can_launch=True, pick=False, timeout=0, runtime=""
+):
     """Editor.qml in-process: (root, engine, model, decided, warnings).
 
     The editor creates its UI windows with createObject(null) -- a window
@@ -6799,6 +6801,7 @@ def _load_editor(qgui_app, mode="edit", appid="", name="", can_launch=True, pick
         ("canLaunch", can_launch),
         ("pick", pick),
         ("timeout", timeout),
+        ("runtime", runtime),
     ):
         root.setProperty(key, value)
     root.start()
@@ -7064,6 +7067,49 @@ def test_editor_picker_enter_picks(qgui_app, xdg_env):
     assert decided == []  # the pick opened the editor, it did not decide
     assert swin.findChild(QQuickItem, "settingsName").property("text") == "Doom"
     _editor_finish(qgui_app, engine, [picker, swin])
+
+
+def test_editor_first_run_not_now_launches(qgui_app, xdg_env):
+    """Not now (or the window close) launches with the inferred runtime."""
+    from PySide6.QtQuick import QQuickItem
+
+    _root, engine, _model, decided, _warnings = _load_editor(
+        qgui_app, mode="firstrun", appid="39", name="Doom", runtime="proton"
+    )
+    prompt = _editor_window(qgui_app, "Doom")
+    assert prompt.findChild(QQuickItem, "confirmQuestion").property("text") == (
+        "This game has no runtime configured yet."
+    )
+    assert "Proton" in prompt.findChild(QQuickItem, "confirmDetail").property("text")
+    assert prompt.findChild(QQuickItem, "confirmOk").property("text") == "Configure"
+    assert prompt.findChild(QQuickItem, "confirmCancel").property("text") == "Not now"
+    _click_editor_button(qgui_app, prompt, "confirmCancel")
+    assert decided == [("launch", "39")]
+    _editor_finish(qgui_app, engine, [prompt])
+
+
+def test_editor_first_run_configure_opens_runtime_tab(qgui_app, xdg_env):
+    """Configure opens Settings on Runtime, inferred type preselected.
+
+    Closing Settings without saving still launches: the prompt must
+    never block the game.
+    """
+    from PySide6.QtQuick import QQuickItem
+
+    for runtime, index in (("proton", 0), ("native", 1)):
+        _root, engine, _model, decided, _warnings = _load_editor(
+            qgui_app, mode="firstrun", appid="39", name="Doom", runtime=runtime
+        )
+        prompt = _editor_window(qgui_app, "Doom")
+        _click_editor_button(qgui_app, prompt, "confirmOk")
+        assert decided == []  # the settings window now owns the outcome
+        swin = _editor_window(qgui_app, "Game Settings")
+        assert swin.findChild(QQuickItem, "settingsTabs").property("currentIndex") == TAB_RUNTIME
+        type_box = swin.findChild(QQuickItem, "settingsRuntimeType")
+        assert type_box.property("currentIndex") == index
+        _click_editor_button(qgui_app, swin, "settingsCancel")
+        assert decided == [("launch", "39")]
+        _editor_finish(qgui_app, engine, [swin, prompt])
 
 
 def test_prelaunch_menu_opens_settings_and_launches(qgui_app, xdg_env):

@@ -92,6 +92,15 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- A Steam game with no configured runtime (including STL imports) no
+  longer dies with exit 18 when launched through `tkarcade %command%`:
+  the launcher offers to configure it. Configure opens the settings on
+  the Runtime tab with the inferred `proton` or `native` preselected,
+  and the game starts after Save. Not now (or closing the prompt or the
+  settings) launches with the inferred runtime and saves nothing, so
+  the prompt returns on the next launch. If the editor cannot start,
+  the inferred runtime is used silently. A local game still needs an
+  explicit runtime.
 - Launching a Steam game with `tkarcade %command%` no longer loses the
   game to a dead pre-launch menu: Steam injects `gameoverlayrenderer.so`
   through `LD_PRELOAD`, which broke Qt Quick's OpenGL context and

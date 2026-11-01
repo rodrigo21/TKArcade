@@ -37,6 +37,10 @@ Window {
     // launch_mode/can_launch and offered Launch and Save & Launch.
     property bool launchMode: false
     property bool canLaunch: true
+    // First-run prompt (gui/edit.py --first-run): open on this tab with the
+    // runtime inferred from the launch command already selected.
+    property int initialTab: 0
+    property string preselectRuntime: ""
     // Bottom blocks, persisted in the preferences like the widgets
     // preview flag (toggled from their centered title checkboxes). They
     // start collapsed: reference material, not editing space.
@@ -140,7 +144,7 @@ Window {
         defaultsMode = false
         reload()
         errorText = ""
-        tabBar.currentIndex = 0
+        tabBar.currentIndex = initialTab
         gameModel.watchDialogKeys(gameSettings)
         visible = true
     }
@@ -508,6 +512,12 @@ Window {
         runtimeTypeBox.currentIndex = typeIndex >= 0
             ? typeIndex
             : ((f.is_steam || defaultsMode) ? -1 : 0)
+        if (runtimeTypeBox.currentIndex < 0 && preselectRuntime !== "") {
+            var preselected = types.indexOf(preselectRuntime)
+            if (preselected >= 0) {
+                runtimeTypeBox.currentIndex = preselected
+            }
+        }
         runtimeField.text = runtimeText()
         prefixField.text = f.custom_prefix || ""
         argsField.text = f.launch_args || ""

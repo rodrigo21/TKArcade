@@ -82,6 +82,27 @@ def runtime_problem(appid: str, runtime: str) -> str:
     return ""
 
 
+def infer_runtime(appid: str, game_cmd: list[str]) -> str:
+    """Guess proton|native from a Steam %command% ("" when it cannot).
+
+    Only numeric Steam AppIDs are inferred; local games need an explicit
+    type. The standalone waitforexitandrun token is Proton's verb: the
+    Steam Linux Runtime's --verb=waitforexitandrun must stay native.
+    """
+    if not steammod.is_steam_id(appid) or not game_cmd:
+        return ""
+    for token in game_cmd:
+        low = token.lower()
+        if low == "waitforexitandrun" or os.path.basename(low) == "proton":
+            return str(RuntimeType.PROTON)
+    return str(RuntimeType.NATIVE)
+
+
+def effective_runtime(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> str:
+    """Explicit [runtime] type, else the %command% inference ("" = unknown)."""
+    return cfgmod.normalize_runtime(cfg.runtime.type) or infer_runtime(appid, game_cmd)
+
+
 _GUI_ENV_KEYS = (
     "QT_QPA_PLATFORM",
     "QT_QPA_PLATFORMTHEME",
@@ -534,13 +555,14 @@ def build_final_command(
     cfg: cfgmod.GameConfig,
     game_cmd: list[str],
     wrap_rc_file: str = "",
+    runtime_type: str = "",
 ) -> tuple[list[str], dict, list[str]]:
     """Assemble the launch argv and extra environment for one game.
 
-    Raises RuntimeNotSetError when the config has no explicit type: there
-    is no auto-detection to fall back to (pre-1.0, configs are recreated).
+    `runtime_type` overrides the config type (the launcher passes the
+    inferred Steam runtime); raises RuntimeNotSetError when both are empty.
     """
-    environment = cfgmod.normalize_runtime(cfg.runtime.type)
+    environment = runtime_type or cfgmod.normalize_runtime(cfg.runtime.type)
     if not environment:
         raise RuntimeNotSetError("runtime not set")
     runtime = _runtime_paths(cfg, environment) if environment in ("wine", "umu") else None
@@ -604,7 +626,7 @@ def active_wrappers(cfg: cfgmod.GameConfig) -> list[str]:
 
 def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tuple[str, str]:
     """Send the transient game-start summary. Returns (name, icon) for reuse."""
-    environment = cfgmod.normalize_runtime(cfg.runtime.type) or str(RuntimeType.PROTON)
+    environment = effective_runtime(appid, cfg, game_cmd) or str(RuntimeType.PROTON)
     wrappers = active_wrappers(cfg)
     names = {a: n for a, n in steammod.list_games()}
     names.update(steammod.local_names())
@@ -686,7 +708,7 @@ def _missing_exe(appid: str, label: str, command: str) -> str | None:
 
 
 def _environment_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
-    """Unset or origin-invalid environment (the launcher would exit 18)."""
+    """Unset or origin-invalid environment (no command here to infer from)."""
     problem = runtime_problem(appid, cfgmod.normalize_runtime(eff.runtime.type))
     return [f"{appid}: {problem}"] if problem else []
 
@@ -859,7 +881,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "  15  display needed but missing\n"
         "  16  export/import failed\n"
         "  17  validation issues found\n"
-        "  18  environment not set (or invalid for this game)",
+        "  18  runtime not set (local games) or invalid for this game",
     )
     p.add_argument("--appid", default="", help="Steam AppID (else STEAMAPPID env)")
     p.add_argument("--dry-run", action="store_true", help="print final command, do not run")
@@ -992,8 +1014,14 @@ def clean_gui_env(env: dict[str, str]) -> dict[str, str]:
     return env
 
 
-def _editor_cmd(appid: str, for_menu: bool, can_launch: bool) -> list[str]:
-    """Command line for the child settings editor (or pre-launch menu)."""
+def _editor_cmd(
+    appid: str,
+    for_menu: bool,
+    can_launch: bool,
+    first_run: bool = False,
+    runtime: str = "",
+) -> list[str]:
+    """Command line for the child settings editor (menu or first run)."""
     cmd = [sys.executable, "-m", "tkarcade.gui.edit"]
     if (appid or "").strip():
         cmd += ["--appid", appid.strip()]
@@ -1002,6 +1030,10 @@ def _editor_cmd(appid: str, for_menu: bool, can_launch: bool) -> list[str]:
     cmd += ["--can-launch" if can_launch else "--no-can-launch"]
     if for_menu:
         cmd.append("--menu")
+    if first_run:
+        cmd.append("--first-run")
+        if runtime:
+            cmd += ["--runtime", runtime]
     return cmd
 
 
@@ -1020,19 +1052,26 @@ def _parse_editor_output(stdout: str, appid: str) -> tuple[str, str] | None:
     return outcome, picked
 
 
-def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True) -> tuple[str, str]:
-    """Open the settings editor (or the pre-launch menu) in a child process.
+def run_editor_menu(
+    appid: str,
+    for_menu: bool = False,
+    can_launch: bool = True,
+    first_run: bool = False,
+    runtime: str = "",
+) -> tuple[str, str]:
+    """Open the settings editor (menu or first-run prompt) in a child.
 
     Returns (outcome, appid). Outcomes: 'launch', 'saved', 'cancelled',
     'crashed' or 'unavailable' (no PySide6/display, or the child could
     not be spawned). A crash is not a user decision; callers decide
-    whether it blocks the launch. The child is `python -m
+    whether it blocks the launch. `first_run` shows the not-configured
+    prompt with `runtime` preselected. The child is `python -m
     tkarcade.gui.edit`, which prints the single JSON line read here (see
     that module for the protocol); it runs with a sanitized environment
     (clean_gui_env) because Steam's LD_LIBRARY_PATH and LD_PRELOAD break
     Qt theme loading and Quick's OpenGL context creation.
     """
-    cmd = _editor_cmd(appid, for_menu, can_launch)
+    cmd = _editor_cmd(appid, for_menu, can_launch, first_run, runtime)
     try:
         proc = subprocess.run(
             cmd, env=clean_gui_env(dict(os.environ)), capture_output=True, text=True
@@ -1272,16 +1311,45 @@ def _config_menu(
     return None, appid, cfgmod.load_effective(appid)
 
 
+def _needs_first_run(
+    args: argparse.Namespace, appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]
+) -> bool:
+    """Unconfigured Steam game with a command: offer to configure it."""
+    return bool(
+        not args.dry_run
+        and game_cmd
+        and steammod.is_steam_id(appid)
+        and not cfgmod.normalize_runtime(cfg.runtime.type)
+    )
+
+
+def _first_run(
+    appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]
+) -> tuple[int | None, str, cfgmod.GameConfig]:
+    """Offer to configure an unconfigured Steam game; never blocks the launch."""
+    runtime = infer_runtime(appid, game_cmd)
+    outcome, picked = run_editor_menu(appid, first_run=True, runtime=runtime)
+    if outcome in ("crashed", "unavailable", "cancelled"):
+        log.warning("first-run prompt %s; launching directly", outcome)
+        return None, appid, cfg
+    # "launch" (Not now, or settings closed unsaved) and "saved": reload and play.
+    appid = picked or appid
+    return None, appid, cfgmod.load_effective(appid)
+
+
 def _maybe_run_menus(
     args: argparse.Namespace, appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]
 ) -> tuple[int | None, str, cfgmod.GameConfig]:
-    """The explicit --edit/--menu editor, then the config-triggered menu.
+    """Explicit --edit/--menu, the first-run prompt, then the pre-launch menu.
 
     --edit/--menu always skip the config-triggered menu (that is what used
     to be the `menu_shown` flag), so the check is simply "neither asked".
+    The first-run prompt replaces the pre-launch menu for that launch.
     """
     if args.edit or args.menu:
         return _explicit_editor(args, appid, cfg, game_cmd)
+    if _needs_first_run(args, appid, cfg, game_cmd):
+        return _first_run(appid, cfg, game_cmd)
     if cfg.general.show_menu and not consume_menu_skip(appid):
         return _config_menu(appid, cfg, game_cmd)
     return None, appid, cfg
@@ -1318,13 +1386,13 @@ def _legacy_prefix(appid: str, cfg: cfgmod.GameConfig, environment: str) -> tupl
     return cfgmod.move_legacy_prefix(base, stem)
 
 
-def _prepare_launch(appid: str, cfg: cfgmod.GameConfig) -> int | None:
+def _prepare_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> int | None:
     """Prefix layout migration, one-shot wipe and winetricks, pre-command.
 
     Returns an exit code when the launch must stop (the prefix could not
     be folded into its subfolder), else None.
     """
-    environment = cfgmod.normalize_runtime(cfg.runtime.type)
+    environment = effective_runtime(appid, cfg, game_cmd)
     ok, message = _legacy_prefix(appid, cfg, environment)
     if not ok:
         log.error("%s", message)
@@ -1367,7 +1435,10 @@ def _final_command(
     appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str], rc_file: str
 ) -> tuple[int, list[str], dict, list[str]]:
     """Build the launch argv/env. A non-zero code means "return it as-is"."""
-    problem = runtime_problem(appid, cfgmod.normalize_runtime(cfg.runtime.type))
+    runtime = effective_runtime(appid, cfg, game_cmd)
+    if runtime and not cfgmod.normalize_runtime(cfg.runtime.type):
+        log.info("runtime inferred from command: %s", runtime)
+    problem = runtime_problem(appid, runtime)
     if problem:
         log.error("%s", problem)
         print(f"tkarcade: {problem}", file=sys.stderr)
@@ -1376,7 +1447,9 @@ def _final_command(
         _remove_wrap_rc_file(rc_file)
         return 18, [], {}, []
     try:
-        final_cmd, extra_env, warnings = build_final_command(cfg, game_cmd, wrap_rc_file=rc_file)
+        final_cmd, extra_env, warnings = build_final_command(
+            cfg, game_cmd, wrap_rc_file=rc_file, runtime_type=runtime
+        )
     except (PrefixNotFoundError, RuntimeNotFoundError) as e:
         log.error("%s", e)
         print(f"tkarcade: {e}", file=sys.stderr)
@@ -1614,7 +1687,7 @@ def main(argv: list[str] | None = None) -> int:
         log.info("no game command to run; launch skipped")
         return 0
 
-    code = _prepare_launch(appid, cfg)
+    code = _prepare_launch(appid, cfg, game_cmd)
     if code is not None:
         return code
     return _launch_pipeline(appid, cfg, game_cmd, args)

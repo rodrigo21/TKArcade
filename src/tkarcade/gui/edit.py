@@ -11,6 +11,7 @@ internal error. Anything on stderr is diagnostic noise the parent logs.
 
 Usage: python -m tkarcade.gui.edit [--appid ID] [--pick]
        [--can-launch | --no-can-launch] [--menu]
+       [--first-run [--runtime proton|native]]
 """
 
 from __future__ import annotations
@@ -57,8 +58,15 @@ def game_name(appid: str) -> str:
     return names.get(appid, "")
 
 
-def run_editor(appid: str, menu: bool = False, can_launch: bool = True, pick: bool = False):
-    """Show the editor (or the pre-launch menu); returns (outcome, appid).
+def run_editor(
+    appid: str,
+    menu: bool = False,
+    can_launch: bool = True,
+    pick: bool = False,
+    first_run: bool = False,
+    runtime: str = "",
+):
+    """Show the editor (menu, first-run prompt or settings); (outcome, appid).
 
     Outcomes: 'launch', 'saved', 'cancelled' or 'unavailable' (the QML
     side could not be created). A window closed some other way counts as
@@ -85,11 +93,12 @@ def run_editor(appid: str, menu: bool = False, can_launch: bool = True, pick: bo
         app.quit()
 
     root.decided.connect(on_decided)
-    root.setProperty("mode", "menu" if menu else "edit")
+    root.setProperty("mode", "menu" if menu else "firstrun" if first_run else "edit")
     root.setProperty("appid", (appid or "").strip())
     root.setProperty("name", game_name(appid))
     root.setProperty("canLaunch", bool(can_launch))
     root.setProperty("pick", bool(pick))
+    root.setProperty("runtime", runtime if first_run else "")
     root.setProperty("timeout", menu_timeout(appid) if menu else 0)
     # Editor.qml is an invisible 1x1 host: start() is what creates the real
     # window (settings, picker or pre-launch menu). Without this call the
@@ -117,12 +126,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="show the Launch / Settings / Cancel menu instead of the editor",
     )
+    p.add_argument(
+        "--first-run",
+        action="store_true",
+        help="offer to configure a game that has no runtime yet",
+    )
+    p.add_argument(
+        "--runtime",
+        choices=("proton", "native"),
+        default="",
+        help="runtime to preselect in the first-run prompt",
+    )
     return p.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
-    tool = "--menu" if args.menu else "--edit"
+    tool = "--first-run" if args.first_run else "--menu" if args.menu else "--edit"
     if not _ensure_qapp(tool):
         return 2
     if not os.environ.get("QT_QUICK_CONTROLS_STYLE"):
@@ -134,6 +154,8 @@ def main(argv: list[str] | None = None) -> int:
         menu=args.menu,
         can_launch=args.can_launch,
         pick=bool(args.pick and not appid),
+        first_run=args.first_run,
+        runtime=args.runtime,
     )
     if outcome == "unavailable":
         return 2

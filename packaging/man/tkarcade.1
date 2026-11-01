@@ -16,9 +16,15 @@ natively (\fBnative\fR); local games through \fBnative\fR, a Wine binary
 (\fBwine\fR) or Proton via \fBumu-run\fR (\fBumu\fR). A local
 \fBnative\fR game may also run inside a Steam Linux Runtime
 (\fB[runtime] steam_runtime\fR) through \fBumu-run\fR, which downloads
-a missing runtime on the first launch. Local Windows
-prefixes default to \fB$XDG_DATA_HOME/tkarcade/prefixes/<name>\fR and
-may install DXVK and/or vkd3d-proton into the prefix at launch.
+a missing runtime on the first launch. A Steam game with no configured
+runtime prompts on launch to configure it, with the type inferred from
+\fB%command%\fR preselected (\fBproton\fR with Proton's
+\fBwaitforexitandrun\fR or a \fBproton\fR binary, else \fBnative\fR);
+\fBNot now\fR launches with that inferred type and saves nothing, and
+the inference is also the fallback when the settings cannot start.
+Local Windows prefixes default to
+\fB$XDG_DATA_HOME/tkarcade/prefixes/<name>\fR and may install DXVK
+and/or vkd3d-proton into the prefix at launch.
 .PP
 Logs go to \fB$XDG_STATE_HOME/tkarcade/games/<appid>.log\fR (full)
 plus a one-line entry per run in \fBlauncher.log\fR.
@@ -66,8 +72,8 @@ Print the version and exit.
 10 AppID not resolved. 11 empty game command. 12 pre-launch hook
 failed. 13 game executable not found. 14 custom prefix, wine/umu runtime
 or Proton install not found. 15 display needed but missing. 16
-export/import failed. 17 validation issues found. 18 environment not set
-(or invalid for the game's origin).
+export/import failed. 17 validation issues found. 18 runtime not set
+(local games) or invalid for the game's origin.
 .SH FILES
 .TP
 .I $XDG_CONFIG_HOME/tkarcade/games/<appid>.toml

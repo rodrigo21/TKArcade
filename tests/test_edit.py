@@ -32,6 +32,8 @@ def test_parse_args_defaults():
     assert args.pick is False
     assert args.can_launch is True
     assert args.menu is False
+    assert args.first_run is False
+    assert args.runtime == ""
 
 
 def test_parse_args_flags():
@@ -40,6 +42,14 @@ def test_parse_args_flags():
     args = edit.parse_args(["--appid", "7", "--pick", "--menu", "--no-can-launch"])
     assert (args.appid, args.pick, args.menu) == ("7", True, True)
     assert args.can_launch is False
+
+
+def test_parse_args_first_run():
+    from tkarcade.gui import edit
+
+    args = edit.parse_args(["--appid", "7", "--first-run", "--runtime", "proton"])
+    assert args.first_run is True
+    assert args.runtime == "proton"
 
 
 def test_main_without_a_display_is_unavailable(monkeypatch, capsys):
@@ -58,15 +68,49 @@ def test_main_prints_the_protocol_line(monkeypatch, capsys):
     monkeypatch.setattr(edit, "_ensure_qapp", lambda tool: True)
     seen = {}
 
-    def fake_run_editor(appid, menu=False, can_launch=True, pick=False):
-        seen.update(appid=appid, menu=menu, can_launch=can_launch, pick=pick)
+    def fake_run_editor(
+        appid, menu=False, can_launch=True, pick=False, first_run=False, runtime=""
+    ):
+        seen.update(
+            appid=appid,
+            menu=menu,
+            can_launch=can_launch,
+            pick=pick,
+            first_run=first_run,
+            runtime=runtime,
+        )
         return "launch", "588950"
 
     monkeypatch.setattr(edit, "run_editor", fake_run_editor)
     assert edit.main(["--appid", "7", "--menu"]) == 0
     out = capsys.readouterr().out
     assert json.loads(out.splitlines()[-1]) == {"outcome": "launch", "appid": "588950"}
-    assert seen == {"appid": "7", "menu": True, "can_launch": True, "pick": False}
+    assert seen == {
+        "appid": "7",
+        "menu": True,
+        "can_launch": True,
+        "pick": False,
+        "first_run": False,
+        "runtime": "",
+    }
+
+
+def test_main_passes_the_first_run_mode(monkeypatch, capsys):
+    from tkarcade.gui import edit
+
+    monkeypatch.setattr(edit, "_ensure_qapp", lambda tool: True)
+    seen = {}
+
+    def fake_run_editor(appid, **kwargs):
+        seen.update(appid=appid, **kwargs)
+        return "launch", appid
+
+    monkeypatch.setattr(edit, "run_editor", fake_run_editor)
+    assert edit.main(["--appid", "7", "--first-run", "--runtime", "proton"]) == 0
+    out = capsys.readouterr().out
+    assert json.loads(out.splitlines()[-1]) == {"outcome": "launch", "appid": "7"}
+    assert seen["first_run"] is True
+    assert seen["runtime"] == "proton"
 
 
 def test_main_asks_for_the_picker_only_without_an_appid(monkeypatch, capsys):
@@ -75,8 +119,8 @@ def test_main_asks_for_the_picker_only_without_an_appid(monkeypatch, capsys):
     monkeypatch.setattr(edit, "_ensure_qapp", lambda tool: True)
     seen = {}
 
-    def fake_run_editor(appid, menu=False, can_launch=True, pick=False):
-        seen["pick"] = pick
+    def fake_run_editor(appid, **kwargs):
+        seen["pick"] = kwargs["pick"]
         return "cancelled", appid
 
     monkeypatch.setattr(edit, "run_editor", fake_run_editor)

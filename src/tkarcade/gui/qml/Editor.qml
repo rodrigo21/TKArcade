@@ -17,17 +17,20 @@ Window {
     width: 1
     height: 1
 
-    property string mode: "edit" // "edit" | "menu"
+    property string mode: "edit" // "edit" | "menu" | "firstrun"
     property string appid: ""
     property string name: ""
     property int timeout: 0
     property bool canLaunch: true
     property bool pick: false
+    // Runtime inferred from the launch command, preselected on first run.
+    property string runtime: ""
     // Kept alive for the whole run: a createObject(null) window dies with
     // its JS reference (it has no QObject parent).
     property var settings: null
     property var prelaunch: null
     property var picker: null
+    property var firstrun: null
 
     // The selected outcome, read by edit.py: "launch" | "saved" |
     // "cancelled", plus the AppID the window ended up editing.
@@ -47,6 +50,10 @@ Window {
             openMenu()
             return
         }
+        if (mode === "firstrun") {
+            openFirstRun()
+            return
+        }
         if (appid !== "") {
             openSettings(appid, null)
             return
@@ -59,19 +66,22 @@ Window {
         decided("cancelled", "")
     }
 
-    function openSettings(forAppid, parentWindow) {
+    function openSettings(forAppid, parentWindow, tab, preselectRuntime) {
         if (settings === null) {
             settings = create("GameSettings.qml", {
                 "launchMode": mode === "edit",
                 "canLaunch": canLaunch
             })
             if (settings === null) {
-                decided("cancelled", "")
+                decided(mode === "firstrun" ? "launch" : "cancelled", appid)
                 return
             }
             settings.finished.connect(function (outcome) {
                 if (editor.mode === "edit") {
                     editor.decided(outcome, editor.appid)
+                } else if (editor.mode === "firstrun") {
+                    // Saved or dismissed: the user's intent is still to play.
+                    editor.decided("launch", editor.appid)
                 }
                 // In menu mode the settings window is modal on the menu and
                 // its result is ignored: Launch/Cancel stay the menu's call
@@ -81,7 +91,34 @@ Window {
         }
         editor.appid = forAppid
         settings.transientParent = parentWindow
+        settings.initialTab = tab || 0
+        settings.preselectRuntime = preselectRuntime || ""
         settings.openFor(forAppid)
+    }
+
+    function openFirstRun() {
+        var label = runtime === "proton" ? qsTr("Proton") : qsTr("Native (Steam Runtime)")
+        firstrun = create("ConfirmDialog.qml", {
+            "title": name !== "" ? name : qsTr("TKArcade"),
+            "question": qsTr("This game has no runtime configured yet."),
+            "detail": qsTr("The launch command uses %1. Configure it now?").arg(label),
+            "acceptText": qsTr("Configure"),
+            "rejectText": qsTr("Not now"),
+            "softIcon": true
+        })
+        if (firstrun === null) {
+            // Creation failure must not cost the launch: infer and play.
+            decided("launch", appid)
+            return
+        }
+        firstrun.accepted.connect(function () {
+            firstrun.visible = false
+            openSettings(appid, null, 2, runtime)
+        })
+        firstrun.closing.connect(function () {
+            decided("launch", appid)
+        })
+        firstrun.open(null)
     }
 
     function openPicker() {

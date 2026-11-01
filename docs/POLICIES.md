@@ -28,7 +28,8 @@ Standing decisions that shape every change. `AGENTS.md` links here.
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,
   13 missing exe, 14 missing prefix/wine/umu-run/Proton runtime, 15 no
-  display, 16 import/export, 17 validation issues, 18 environment not set).
+  display, 16 import/export, 17 validation issues, 18 runtime not set for
+  a local game or invalid for the game's origin).
   A Steam Linux Runtime that umu has not downloaded yet is **not** an
   exit-14 case: umu fetches it on the first launch, so it is only a hint
   in the dialog and a `(note)` line in `--validate`.
