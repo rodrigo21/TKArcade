@@ -11,24 +11,22 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver`, `optdepends` indentation and a lenient `check()`, plus an
   untracked `.SRCINFO`, never committed); `.qoder/` is git-ignored.
-- Landed: the graphics decision record (`docs/decisions/graphics-layers.md`):
-  `[graphics]` stays a plain-Wine feature because Proton prepends its
-  dist to `WINEDLLPATH` and appends its overrides, so only replacing
-  the runtime install could override per game — shared state reset by
-  updates. README and TODO updated; docs-only, no code.
-- Verified: `tests/test_docs.py` 6 passed and `scripts/check.sh
-  --changed` 10 passed (docs-only batch). venv unchanged
-  (`0.0.0.post613.dev0+57e4a35`). No real-display or real Steam library
+- Landed: two batches. The graphics decision record
+  (`docs/decisions/graphics-layers.md`): `[graphics]` stays a
+  plain-Wine feature because Proton prepends its dist to `WINEDLLPATH`
+  and appends its overrides, so only replacing the runtime install could
+  override per game — shared state reset by updates. Then the Compat
+  Tool filter: the Steam game's combo lists only directories holding the
+  `proton` launcher, so the anti-cheat runtime tools and the appended
+  System wine row are gone (`system_wine()` deleted).
+- Verified: `scripts/check.sh --changed` 512 passed on the filter
+  branch plus its one new backend test; docs batch covered by
+  `test_docs`/`test_packaging`. venv refreshed after the merge
+  (`0.0.0.post618.dev0+6ea48bc`). No real-display or real Steam library
   test.
-- Next: filter the Steam Compat Tool list (`proton.list_compat_tools()`
-  plus the system-wine row appended in `GuiModel.wineTools()`). It
-  currently offers `Proton EasyAntiCheat Runtime`, `Proton BattlEye
-  Runtime` and `System wine (...)`, none usable as a compat tool: the
-  anti-cheat runtimes are Steam-internal tools without a Proton/DXVK
-  tree, and system wine is not an installed Steam tool at all, so
-  `applyWineVersion` writes a name Steam ignores. Keep only real Proton
-  builds (a `proton` launcher inside) and drop the appended wine row;
-  the umu Proton picker is a separate model.
+- Next: pick from the `TODO.md` "Deferred design review" items —
+  external runtime versions (Lutris-like) or the Preferences/Global
+  Defaults content audits.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
