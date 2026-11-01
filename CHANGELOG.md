@@ -92,6 +92,14 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Launching a Steam game with `tkarcade %command%` no longer loses the
+  game to a dead pre-launch menu: Steam injects `gameoverlayrenderer.so`
+  through `LD_PRELOAD`, which broke Qt Quick's OpenGL context and
+  aborted the editor child. The child environment now drops Steam
+  library and overlay entries, a crash is distinguished from Cancel,
+  and the config-triggered menu falls back to a direct launch. `--edit`
+  reports a crashed editor with exit 15; `--menu` launches directly,
+  like the no-PySide6/no-display case.
 - The Profile selector shows the profile names again: its combo asked
   for a `display` text role that the plain name list does not have, so
   the field and the dropdown came up blank. Every other tooltip in the

@@ -955,14 +955,21 @@ def peel_display_appid(game_cmd: list[str], known: set[str] | None = None) -> tu
     return "", list(game_cmd)
 
 
-# Path fragments that, when present in LD_LIBRARY_PATH entries, mark them
-# as Steam-runtime pollution which breaks Qt theme plugin loading
-# (Breeze falls back to Fusion). Filtered out for GUI child processes.
-_STEAM_LIB_MARKERS = ("steam-runtime", "ubuntu12_32", ".local/share/Steam")
+# Path fragments that, when present in LD_LIBRARY_PATH or LD_PRELOAD
+# entries, mark them as Steam pollution: runtime paths break Qt theme
+# plugin loading, and the overlay renderer breaks Qt Quick's OpenGL
+# context creation. Filtered out for GUI child processes.
+_STEAM_LIB_MARKERS = (
+    "steam-runtime",
+    "ubuntu12_32",
+    "ubuntu12_64",
+    "gameoverlayrenderer",
+    ".local/share/Steam",
+)
 
 
 def clean_gui_env(env: dict[str, str]) -> dict[str, str]:
-    """Copy env minus Steam-runtime library paths (pure, testable)."""
+    """Copy env minus Steam library and overlay paths (pure, testable)."""
     env = dict(env)
     ld = env.get("LD_LIBRARY_PATH", "")
     if ld:
@@ -971,6 +978,17 @@ def clean_gui_env(env: dict[str, str]) -> dict[str, str]:
             env["LD_LIBRARY_PATH"] = ":".join(kept)
         else:
             env.pop("LD_LIBRARY_PATH", None)
+    preload = env.get("LD_PRELOAD", "")
+    if preload:
+        kept = [
+            p
+            for p in preload.replace(":", " ").split()
+            if p and not any(m in p for m in _STEAM_LIB_MARKERS)
+        ]
+        if kept:
+            env["LD_PRELOAD"] = ":".join(kept)
+        else:
+            env.pop("LD_PRELOAD", None)
     return env
 
 
@@ -1005,13 +1023,14 @@ def _parse_editor_output(stdout: str, appid: str) -> tuple[str, str] | None:
 def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True) -> tuple[str, str]:
     """Open the settings editor (or the pre-launch menu) in a child process.
 
-    Returns (outcome, appid). Outcomes: 'launch', 'saved', 'cancelled' or
-    'unavailable' (no PySide6/display, or the child could not be spawned).
-    A child crash is treated as 'cancelled': never launch on unknown user
-    intent. The child is `python -m tkarcade.gui.edit`, which prints the
-    single JSON line read here (see that module for the protocol); it runs
-    with a sanitized environment (clean_gui_env) because Steam's
-    LD_LIBRARY_PATH breaks Qt theme plugin loading.
+    Returns (outcome, appid). Outcomes: 'launch', 'saved', 'cancelled',
+    'crashed' or 'unavailable' (no PySide6/display, or the child could
+    not be spawned). A crash is not a user decision; callers decide
+    whether it blocks the launch. The child is `python -m
+    tkarcade.gui.edit`, which prints the single JSON line read here (see
+    that module for the protocol); it runs with a sanitized environment
+    (clean_gui_env) because Steam's LD_LIBRARY_PATH and LD_PRELOAD break
+    Qt theme loading and Quick's OpenGL context creation.
     """
     cmd = _editor_cmd(appid, for_menu, can_launch)
     try:
@@ -1026,8 +1045,9 @@ def run_editor_menu(appid: str, for_menu: bool = False, can_launch: bool = True)
     if proc.returncode == 2:
         return "unavailable", appid
     if proc.returncode != 0:
-        log.error("settings editor crashed (exit %s); launch cancelled", proc.returncode)
-        return "cancelled", appid
+        tail = " | ".join(proc.stderr.strip().splitlines()[-5:])[:500]
+        log.error("settings editor crashed (exit %s): %s", proc.returncode, tail or "no stderr")
+        return "crashed", appid
     parsed = _parse_editor_output(proc.stdout, appid)
     if parsed is None:
         return "cancelled", appid
@@ -1203,7 +1223,12 @@ def _explicit_editor(
         for_menu=args.menu and not args.edit,
         can_launch=bool(game_cmd or cfg.general.custom_executable.strip()),
     )
-    if outcome == "unavailable":
+    if outcome == "crashed":
+        if args.edit and not args.menu:
+            log.error("--edit editor crashed")
+            return 15, appid, cfg
+        log.warning("--menu editor crashed; launching directly")
+    elif outcome == "unavailable":
         if args.edit and not args.menu:
             log.error("--edit unavailable (needs PySide6 and a display)")
             return 15, appid, cfg
@@ -1233,6 +1258,9 @@ def _config_menu(
         for_menu=True,
         can_launch=bool(game_cmd or cfg.general.custom_executable.strip()),
     )
+    if outcome == "crashed":
+        log.warning("pre-launch menu crashed; launching directly")
+        return None, appid, cfg
     if outcome == "unavailable":
         log.warning("--menu unavailable (needs PySide6 and a display); launching directly")
         return None, appid, cfg

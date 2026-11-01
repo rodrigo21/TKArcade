@@ -346,6 +346,17 @@ def test_clean_gui_env():
     assert clean_gui_env({}) == {}
     only_steam = {"LD_LIBRARY_PATH": "/a/steam-runtime/b"}
     assert "LD_LIBRARY_PATH" not in clean_gui_env(only_steam)
+    mixed = {
+        "LD_PRELOAD": (
+            "/usr/lib/libgtk3-nocsd.so:"
+            "/home/u/.local/share/Steam/ubuntu12_64/gameoverlayrenderer.so"
+        )
+    }
+    assert clean_gui_env(mixed)["LD_PRELOAD"] == "/usr/lib/libgtk3-nocsd.so"
+    overlays = {
+        "LD_PRELOAD": "/x/ubuntu12_32/gameoverlayrenderer.so /y/ubuntu12_64/gameoverlayrenderer.so"
+    }
+    assert "LD_PRELOAD" not in clean_gui_env(overlays)
 
 
 def test_help_documents_exit_codes(xdg_env):
@@ -634,11 +645,27 @@ def test_menu_targets_a_positional_local_game(xdg_env, monkeypatch):
     ]
 
 
-def test_editor_menu_crash_is_cancelled(monkeypatch):
+def test_editor_menu_crash_is_reported(monkeypatch):
     from tkarcade import launcher as L
 
-    _fake_child(monkeypatch, returncode=1, stderr="Traceback (most recent call last):")
-    assert L.run_editor_menu("7") == ("cancelled", "7")
+    _fake_child(monkeypatch, returncode=-6, stderr="Failed to create RHI (backend 2)")
+    assert L.run_editor_menu("7") == ("crashed", "7")
+
+
+def test_config_menu_crash_launches_directly(monkeypatch):
+    from tkarcade import config as cfgmod
+    from tkarcade import launcher as L
+
+    monkeypatch.setattr(L, "run_editor_menu", lambda *a, **k: ("crashed", "7"))
+    cfg = cfgmod.GameConfig()
+    assert L._config_menu("7", cfg, ["game"]) == (None, "7", cfg)
+
+
+def test_explicit_edit_crash_returns_15(xdg_env, monkeypatch):
+    _fake_child(monkeypatch, returncode=-6)
+    from tkarcade import launcher as L
+
+    assert L.main(["--edit", "7"]) == 15
 
 
 def test_editor_menu_bad_output_is_cancelled(monkeypatch):
