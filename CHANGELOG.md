@@ -6,6 +6,12 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- The Steam game's Compat Tool list shows only real Proton builds now:
+  Steam's anti-cheat runtime tools (`Proton EasyAntiCheat Runtime`,
+  `Proton BattlEye Runtime`) and the appended `System wine (...)` row
+  are gone — the first launch no game as a compat tool, and system Wine
+  is not an installed Steam tool at all. A directory counts as a Proton
+  build only when it holds the `proton` launcher.
 - **BREAKING**: game IDs are origin-prefixed now: `steam-<appid>` for
   Steam games and `local-<slug>` for local ones, so a future store with
   numeric IDs cannot collide with Steam AppIDs. Configs, profiles,

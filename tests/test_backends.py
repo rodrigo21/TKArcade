@@ -880,6 +880,26 @@ def test_tool_mapping_cached_by_mtime(monkeypatch, tmp_path, xdg_env):
     pm.clear_tool_cache()
 
 
+def test_list_compat_tools_keeps_only_proton_builds(monkeypatch, tmp_path, xdg_env):
+    from tkarcade import proton as pm
+
+    root = tmp_path / "steam"
+    common = root / "steamapps" / "common"
+    for name in (
+        "Proton EasyAntiCheat Runtime",
+        "Proton BattlEye Runtime",
+        "SteamLinuxRuntime_sniper",
+    ):
+        (common / name).mkdir(parents=True)
+    (common / "Proton - Experimental").mkdir()
+    (common / "Proton - Experimental" / "proton").write_text("")
+    ge = root / "compatibilitytools.d" / "GE-Proton9-20"
+    ge.mkdir(parents=True)
+    (ge / "proton").write_text("")
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    assert pm.list_compat_tools() == ["GE-Proton9-20", "Proton - Experimental"]
+
+
 def test_audio_session_switches_and_restores(monkeypatch):
     calls = []
 

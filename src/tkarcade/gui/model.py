@@ -1442,20 +1442,13 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(result=list)
     def wineTools(self) -> list:
-        """[[tool, version]] installed compat tools plus system Wine."""
+        """[[tool, version]] installed Proton builds."""
         from .. import proton as protonmod
 
         try:
-            rows = [[t, protonmod.tool_version(t) or ""] for t in protonmod.list_compat_tools()]
+            return [[t, protonmod.tool_version(t) or ""] for t in protonmod.list_compat_tools()]
         except Exception:
-            rows = []
-        try:
-            system = protonmod.system_wine()
-        except Exception:
-            system = None
-        if system:
-            rows.append([f"System wine ({system})", ""])
-        return rows
+            return []
 
     @Slot(result=bool)
     def steamRunning(self) -> bool:
