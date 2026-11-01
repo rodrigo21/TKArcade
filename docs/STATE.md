@@ -9,28 +9,30 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 
 - Branch: `main`, clean. The working tree carries only the maintainer's
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
-  `pkgver` and an untracked `.SRCINFO`, never committed); `.qoder/` is
-  git-ignored.
-- Landed: the Steam overlay crash fix. Steam injects
-  `gameoverlayrenderer.so` through `LD_PRELOAD` for `tkarcade
-  %command%`; the 64-bit renderer aborted Qt Quick's OpenGL context
-  (SIGABRT), the editor child died and the game was skipped.
-  `clean_gui_env` now strips Steam library and overlay entries from
-  `LD_PRELOAD` too, `run_editor_menu` reports `crashed` instead of
-  `cancelled`, the config-triggered menu falls back to a direct
-  launch, `--edit` exits 15 on a crash and `--menu` launches directly.
-- Verified: the maintainer ran a real Steam launch through the venv
-  build and confirmed it works. `scripts/check.sh --changed` 70 passed,
-  full suite 486 passed, `--qml` 487 passed (one QML case aborted in
-  the batch and passed isolated). Venv refreshed after the merge
-  (`0.0.0.post598.dev0+2bea15f`).
-- Next: plan mode for the runtime batch. Unconfigured Steam games exit
-  18 because `defaults.toml` has no `[runtime] type`; infer it from
-  `%command%` (proton when it carries `waitforexitandrun`/Proton, else
-  native) without persisting, and cover imported (STL) games too.
-  After it: prefix safety (`prepare_fresh_prefix` wipes
-  `STEAM_COMPAT_DATA_PATH`), the origin model (numeric Steam shortcuts
-  vs `local-*` configs), then the remaining Steam-only audit findings.
+  `pkgver`, `optdepends` indentation and a lenient `check()`, plus an
+  untracked `.SRCINFO`, never committed); `.qoder/` is git-ignored.
+- Landed: unconfigured Steam games now offer to be configured on
+  launch. `tkarcade %command%` with no `[runtime] type` shows a
+  first-run prompt (imported STL configs included); Configure opens the
+  settings on the Runtime tab with `proton`/`native` inferred from the
+  command preselected, and Save starts the game with the new config.
+  Not now, or closing the prompt or settings, plays with the inference
+  and saves nothing, so the prompt returns next launch. An unavailable
+  or crashed editor falls back to the inference; local games keep exit
+  18. `clean_gui_env` strips Steam overlay/library entries from
+  `LD_PRELOAD` and a crashed child is reported as `crashed`.
+- Verified: `scripts/check.sh --changed` 496 passed, full suite 496
+  passed, `scripts/check.sh --qml` 497 passed (the batch aborts one QML
+  case under load and the driver re-runs it isolated). Offscreen
+  screenshots checked the prompt and the Runtime tab with proton and
+  native preselected. Venv refreshed after the merge
+  (`0.0.0.post600.dev0+6dc1449`). The maintainer has not yet repeated
+  the real Steam launch to see the prompt.
+- Next: plan mode for prefix safety. `prepare_fresh_prefix` wipes
+  `STEAM_COMPAT_DATA_PATH`/the prefix, so a fresh-prefix option can
+  destroy an existing one; audit it before the origin model (numeric
+  Steam shortcuts vs `local-*` configs) and the remaining Steam-only
+  audit findings.
 - Rebuild the `-git` package when the Steam path should follow `main`:
-  `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-fix).
+  `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
