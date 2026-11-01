@@ -168,7 +168,8 @@ only Wine/UMU games offer a prefix, and Steam adds ProtonDB and its
 shader cache. Scan
 Library batch-adds unconfigured Steam games; Remove Uninstalled Games
 drops the configs whose Steam install entry or local executable is gone
-(listed in a confirmation first); Clear Shader Cache per
+(listed in a confirmation first); rows with validation issues carry an
+error or warning badge whose tooltip lists them; Clear Shader Cache per
 game; double-click the ProtonDB rating to open its page; the Played
 column totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.

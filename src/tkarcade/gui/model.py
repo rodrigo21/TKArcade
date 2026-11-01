@@ -257,6 +257,8 @@ class GameListModel(QAbstractTableModel):
     CategoryRole = Qt.ItemDataRole.UserRole + 17
     RunningRole = Qt.ItemDataRole.UserRole + 18
     CoverRole = Qt.ItemDataRole.UserRole + 19
+    IssueLevelRole = Qt.ItemDataRole.UserRole + 20
+    IssuesTipRole = Qt.ItemDataRole.UserRole + 21
 
     ROLE_NAMES = (
         "gameId",
@@ -404,6 +406,8 @@ class GameListModel(QAbstractTableModel):
             GameListModel.CategoryRole: b"gameCategory",
             GameListModel.RunningRole: b"gameRunning",
             GameListModel.CoverRole: b"gameCover",
+            GameListModel.IssueLevelRole: b"gameIssueLevel",
+            GameListModel.IssuesTipRole: b"gameIssuesTip",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -427,6 +431,10 @@ class GameListModel(QAbstractTableModel):
         row = self._rows[index.row()]
         if role == GameListModel.RunningRole:
             return self.isRunning(str(row[0]))
+        if role == GameListModel.IssueLevelRole:
+            return self._issue_level(str(row[0]))
+        if role == GameListModel.IssuesTipRole:
+            return self._issue_tip(str(row[0]))
         cols = {
             GameListModel.IdRole: 0,
             GameListModel.NameRole: 1,
@@ -3394,14 +3402,36 @@ class GameListModel(QAbstractTableModel):
         ]
         return "\n".join(lines)
 
+    def _issue_report(self, appid: str) -> list[tuple[str, str]]:
+        if not hasattr(self, "_issues_cache"):
+            self._issues_cache: dict[str, list[tuple[str, str]]] = {}
+        if appid not in self._issues_cache:
+            from ..launcher import validate_issues
+
+            try:
+                self._issues_cache[appid] = list(validate_issues(appid))
+            except Exception as e:
+                self._issues_cache[appid] = [("error", str(e))]
+        return self._issues_cache[appid]
+
+    def _issue_level(self, appid: str) -> str:
+        levels = {severity for severity, _message in self._issue_report(appid)}
+        if "error" in levels:
+            return "error"
+        return "warning" if "warning" in levels else ""
+
+    def _issue_tip(self, appid: str) -> str:
+        prefix = f"{appid}: "
+        lines = []
+        for _severity, message in self._issue_report(appid):
+            text = message.removeprefix(prefix)
+            lines.append(text[:1].upper() + text[1:])
+        return "\n".join(lines)
+
     @Slot(str, result=list)
     def gameIssues(self, appid: str) -> list:
         """Cached validation issues (powers the issues-only filter)."""
-        if not hasattr(self, "_issues_cache"):
-            self._issues_cache: dict[str, list[str]] = {}
-        if appid not in self._issues_cache:
-            self._issues_cache[appid] = list(self.validateGame(appid))
-        return self._issues_cache[appid]
+        return [message for _severity, message in self._issue_report(appid)]
 
     @Slot(result="QVariantMap")
     def loadPrefs(self) -> dict:

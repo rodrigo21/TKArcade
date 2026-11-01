@@ -3540,6 +3540,44 @@ def test_issues_only_filter(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_issue_badge_shows_severity(qgui_app, xdg_env):
+    """Bad rows carry an error/warning badge with the issues in its tooltip."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid, name, exe, post in (
+        ("local-bad", "Bad", "/nonexistent/game", ""),
+        ("local-good", "Good", "/bin/true", ""),
+        ("local-warn", "Warn", "/bin/true", "/nonexistent/post"),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = exe
+        cfg.pre_post.post_command = post
+        cfg.runtime.type = "native"
+        C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    table = win.findChild(QQuickItem, "gameTable")
+    assert _rendered_names(table, proxy) == ["Bad", "Good", "Warn"]
+    cells = [_table_delegate(table, proxy, row, 1) for row in range(3)]
+    badges = [cell.findChild(QQuickItem, "issueBadge") for cell in cells]
+    assert [badge.property("visible") for badge in badges] == [True, False, True]
+    assert "dialog-error" in str(badges[0].property("source"))
+    assert "dialog-warning" in str(badges[2].property("source"))
+    tips = [cell.findChild(QObject, "issueBadgeTip") for cell in cells]
+    assert "Custom_executable not found" in tips[0].property("text")
+    assert "Post_command not found" in tips[2].property("text")
+    assert tips[1].property("text") == ""
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_footer_shows_filtered_count(qgui_app, xdg_env):
     """Footer appends the shown count while a filter is active."""
     from PySide6.QtQuick import QQuickItem

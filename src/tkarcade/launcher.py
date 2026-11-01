@@ -667,7 +667,7 @@ def notify_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> tu
     return name, icon
 
 
-def _config_prefix_issues(appid: str) -> list[str]:
+def _config_prefix_issues(appid: str) -> list[tuple[str, str]]:
     """Raw-TOML read and load problems ([] when the config is fine)."""
     import tomllib
 
@@ -677,24 +677,26 @@ def _config_prefix_issues(appid: str) -> list[str]:
             with path.open("rb") as f:
                 tomllib.load(f)
         except (OSError, tomllib.TOMLDecodeError) as e:
-            return [f"{appid}: invalid TOML ({e}); built-in defaults apply"]
+            return [("error", f"{appid}: invalid TOML ({e}); built-in defaults apply")]
     try:
         cfgmod.load(appid)
     except cfgmod.ConfigVersionError as e:
-        return [f"{appid}: config needs a newer TKArcade ({e})"]
+        return [("error", f"{appid}: config needs a newer TKArcade ({e})")]
     return []
 
 
-def _profile_issues(appid: str, cfg: cfgmod.GameConfig) -> list[str]:
+def _profile_issues(appid: str, cfg: cfgmod.GameConfig) -> list[tuple[str, str]]:
     """Selected-profile problems: missing file or unreadable TOML."""
     sel = cfg.general.active_profile
     if not sel:
         return []
     prof_path = cfgmod.profile_file(appid, sel)
     if not prof_path.exists():
-        return [f"{appid}: selected profile {sel!r} is missing; live config applies"]
+        return [("warning", f"{appid}: selected profile {sel!r} is missing; live config applies")]
     if cfgmod.toml_error(prof_path) is not None:
-        return [f"{appid}: selected profile {sel!r} is unreadable; live config applies"]
+        return [
+            ("warning", f"{appid}: selected profile {sel!r} is unreadable; live config applies")
+        ]
     return []
 
 
@@ -709,13 +711,13 @@ def _missing_exe(appid: str, label: str, command: str) -> str | None:
     return f"{appid}: {label} not found: {first}"
 
 
-def _environment_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
+def _environment_issues(appid: str, eff: cfgmod.GameConfig) -> list[tuple[str, str]]:
     """Unset or origin-invalid environment (no command here to infer from)."""
     problem = runtime_problem(appid, cfgmod.normalize_runtime(eff.runtime.type))
-    return [f"{appid}: {problem}"] if problem else []
+    return [("error", f"{appid}: {problem}")] if problem else []
 
 
-def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
+def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[tuple[str, str]]:
     """Missing Wine/UMU pieces for local Windows games (the launch would exit 14)."""
     environment = cfgmod.normalize_runtime(eff.runtime.type)
     steam_runtime = _steam_runtime_for(eff, environment)
@@ -723,22 +725,24 @@ def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
         # A missing runtime is not an issue: umu downloads it on first use.
         if shutil.which("umu-run"):
             return []
-        return [f"{appid}: umu-run not found in PATH (the Steam Linux Runtime needs it)"]
+        return [("error", f"{appid}: umu-run not found in PATH (the Steam Linux Runtime needs it)")]
     if environment not in ("wine", "umu"):
         return []
     prefs = cfgmod.load_preferences()
     if environment == "wine":
         wine = runtimes.wine_binary(eff.runtime.tool or prefs.wine_binary)
-        return [] if wine else [f"{appid}: wine binary not found (see Preferences)"]
+        return [] if wine else [("error", f"{appid}: wine binary not found (see Preferences)")]
     issues = []
     if not shutil.which("umu-run"):
-        issues.append(f"{appid}: umu-run not found in PATH (install umu-launcher)")
+        issues.append(("error", f"{appid}: umu-run not found in PATH (install umu-launcher)"))
     if runtimes.find_proton(eff.runtime.tool, prefs.proton_dirs) is None:
-        issues.append(f"{appid}: umu needs a Proton install (set it in the game settings)")
+        issues.append(
+            ("error", f"{appid}: umu needs a Proton install (set it in the game settings)")
+        )
     return issues
 
 
-def _graphics_issue(appid: str, eff: cfgmod.GameConfig) -> list[str]:
+def _graphics_issue(appid: str, eff: cfgmod.GameConfig) -> list[tuple[str, str]]:
     """Enabled graphics layers without an installed version to copy."""
     # Only a plain Wine prefix takes the layers: umu and Proton ship their
     # own DXVK/vkd3d, so [graphics] is ignored for those environments.
@@ -754,27 +758,33 @@ def _graphics_issue(appid: str, eff: cfgmod.GameConfig) -> list[str]:
         if runtimes.pick_graphics(kind, graphicsmod.layer_dirs(kind, prefs), selected) is None:
             if selected:
                 issues.append(
-                    f"{appid}: graphics layer {kind!r} version {selected!r} is not installed"
+                    (
+                        "warning",
+                        f"{appid}: graphics layer {kind!r} version {selected!r} is not installed",
+                    )
                 )
             else:
-                issues.append(f"{appid}: graphics layer {kind!r} has no installed version")
+                issues.append(
+                    ("warning", f"{appid}: graphics layer {kind!r} has no installed version")
+                )
     return issues
 
 
-def _exe_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
+def _exe_issues(appid: str, eff: cfgmod.GameConfig) -> list[tuple[str, str]]:
     """Hook, custom prefix and custom executable binaries that are missing."""
-    issues = [
-        issue
-        for issue in (
-            _missing_exe(appid, "pre_command", eff.pre_post.pre_command),
-            _missing_exe(appid, "post_command", eff.pre_post.post_command),
-            _missing_exe(appid, "custom_prefix", eff.general.custom_prefix),
-        )
-        if issue
-    ]
+    issues = []
+    # A failed pre hook aborts (exit 12); the post hook only notifies.
+    for label, command, severity in (
+        ("pre_command", eff.pre_post.pre_command, "error"),
+        ("post_command", eff.pre_post.post_command, "warning"),
+        ("custom_prefix", eff.general.custom_prefix, "error"),
+    ):
+        issue = _missing_exe(appid, label, command)
+        if issue:
+            issues.append((severity, issue))
     custom = eff.general.custom_executable.strip()
     if custom and not shutil.which(custom) and not Path(custom).is_file():
-        issues.append(f"{appid}: custom_executable not found: {custom}")
+        issues.append(("error", f"{appid}: custom_executable not found: {custom}"))
     return issues
 
 
@@ -813,7 +823,7 @@ def _mangohud_config_issue(appid: str, path: str) -> str | None:
     return None
 
 
-def _tool_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
+def _tool_issues(appid: str, eff: cfgmod.GameConfig) -> list[tuple[str, str]]:
     """Enabled wrappers whose binary (or MangoHud config) is missing."""
     issues: list[str] = []
     checks = (
@@ -828,17 +838,17 @@ def _tool_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:
     )
     for enabled, tool, note in checks:
         if enabled and not shutil.which(tool):
-            issues.append(f"{appid}: {note}")
+            issues.append(("warning", f"{appid}: {note}"))
     mh_issue = _mangohud_config_issue(appid, eff.mangohud.config_file)
     if mh_issue:
-        issues.append(mh_issue)
+        issues.append(("warning", mh_issue))
     if eff.ludusavi.enable and not lu_backend.find()[0]:
-        issues.append(f"{appid}: ludusavi not found (enabled)")
+        issues.append(("warning", f"{appid}: ludusavi not found (enabled)"))
     return issues
 
 
-def validate_game(appid: str) -> list[str]:
-    """Check one game's config and helper binaries. Returns issue strings."""
+def validate_issues(appid: str) -> list[tuple[str, str]]:
+    """Validation issues with severity: error blocks or misapplies, warning degrades."""
     prefix = _config_prefix_issues(appid)
     if prefix:
         return prefix
@@ -847,20 +857,29 @@ def validate_game(appid: str) -> list[str]:
     issues = _profile_issues(appid, cfg)
     install_issue = _install_issue(appid)
     if install_issue:
-        issues.append(install_issue)
+        issues.append(("error", install_issue))
     issues += _environment_issues(appid, eff)
     issues += _runtime_issues(appid, eff)
     issues += _graphics_issue(appid, eff)
     issues += _exe_issues(appid, eff)
     if eff.network.block_internet and not net_backend.available():
         issues.append(
-            f"{appid}: block_internet is on but unprivileged network namespaces are unavailable"
+            (
+                "error",
+                f"{appid}: block_internet is on but unprivileged network namespaces "
+                "are unavailable",
+            )
         )
     display_issue = _display_issue(appid, eff)
     if display_issue:
-        issues.append(display_issue)
+        issues.append(("warning", display_issue))
     issues += _tool_issues(appid, eff)
     return issues
+
+
+def validate_game(appid: str) -> list[str]:
+    """Check one game's config and helper binaries. Returns issue strings."""
+    return [message for _severity, message in validate_issues(appid)]
 
 
 def validate_notes(appid: str) -> list[str]:

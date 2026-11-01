@@ -1886,6 +1886,29 @@ Kirigami.Page {
                             Layout.preferredHeight: Kirigami.Units.iconSizes.small
                             Layout.alignment: Qt.AlignVCenter
                         }
+                        // Validation badge: error (launch blocked or config
+                        // not applied) beats warning (launch degraded).
+                        Kirigami.Icon {
+                            objectName: "issueBadge"
+                            visible: (model?.gameIssueLevel ?? "") !== ""
+                            source: model?.gameIssueLevel === "error"
+                                ? gameModel.iconName(["dialog-error", "dialog-warning"])
+                                : gameModel.iconName(["dialog-warning", "dialog-information"])
+                            color: model?.gameIssueLevel === "error"
+                                ? Kirigami.Theme.negativeTextColor
+                                : Kirigami.Theme.neutralTextColor
+                            Layout.preferredWidth: Kirigami.Units.iconSizes.small
+                            Layout.preferredHeight: Kirigami.Units.iconSizes.small
+                            Layout.alignment: Qt.AlignVCenter
+                            HoverHandler {
+                                id: issueBadgeHover
+                            }
+                            Controls.ToolTip {
+                                objectName: "issueBadgeTip"
+                                visible: issueBadgeHover.hovered
+                                text: model?.gameIssuesTip ?? ""
+                            }
+                        }
                     }
                 }
                 // plain text columns (App ID, Source and the library

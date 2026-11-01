@@ -417,6 +417,30 @@ def test_missing_install_flags_local_executable(xdg_env):
     assert L.missing_install("local-gone") is False
 
 
+def test_validate_issues_reports_severity(xdg_env):
+    from tkarcade import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-bad"
+    cfg.general.custom_executable = "/nonexistent/game"
+    cfg.pre_post.post_command = "/nonexistent/post"
+    cfg.display.mode = "bogus"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    report = L.validate_issues("local-bad")
+    assert (
+        "error",
+        "local-bad: custom_executable not found: /nonexistent/game",
+    ) in report
+    assert ("warning", "local-bad: post_command not found: /nonexistent/post") in report
+    assert (
+        "warning",
+        "local-bad: invalid display mode 'bogus'; use WIDTHxHEIGHT[@RATE]",
+    ) in report
+    # The CLI keeps the flat strings, in the same order.
+    assert [message for _severity, message in report] == L.validate_game("local-bad")
+
+
 def test_validate_steam_runtime_is_a_note_not_an_issue(
     xdg_env, fake_bin, monkeypatch, tmp_path, capsys
 ):

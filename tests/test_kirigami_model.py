@@ -110,6 +110,8 @@ def test_model_role_names_are_game_prefixed(qgui_app):
         b"gameIcon",
         b"gameId",
         b"gameInstallDir",
+        b"gameIssueLevel",
+        b"gameIssuesTip",
         b"gameLastPlayed",
         b"gameLastSecs",
         b"gameName",
@@ -1661,6 +1663,32 @@ def test_game_issues_cache_invalidated_on_refresh(qgui_app, xdg_env):
     C.save(fixed)
     model.refresh()
     assert model.gameIssues("local-broken") == []
+
+
+def test_issue_roles_expose_level_and_tip(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    for appid, exe, post in (
+        ("local-bad", "/nonexistent/game", ""),
+        ("local-warn", "/bin/true", "/nonexistent/post"),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.custom_executable = exe
+        cfg.pre_post.post_command = post
+        cfg.runtime.type = "native"
+        C.save(cfg)
+    model = GameListModel()
+    model.refresh()
+    rows = {
+        model.data(model.index(row, 0), GameListModel.IdRole): model.index(row, 0)
+        for row in range(model.rowCount())
+    }
+    assert model.data(rows["local-bad"], GameListModel.IssueLevelRole) == "error"
+    assert model.data(rows["local-warn"], GameListModel.IssueLevelRole) == "warning"
+    tip = model.data(rows["local-bad"], GameListModel.IssuesTipRole)
+    assert "Custom_executable not found" in tip
+    assert "local-bad:" not in tip
 
 
 def test_tray_recents_rows(qgui_app, xdg_env, monkeypatch):
