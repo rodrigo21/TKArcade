@@ -6,6 +6,18 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Changed
+- Preferences is grouped into Interface, Tray, Artwork and Runtime
+  sections now, with one label column across the frames; every setting
+  stays global.
+- **BREAKING**: the Global Defaults template carries launch behaviour
+  only now. Saving from the dialog writes no `[metadata]`, `[runtime]`,
+  `[graphics]`, `[audio]`, `[debug]`, `[artwork]` or `[notes]` section
+  and no `name`, `categories`, `custom_executable`, `launch_cwd` or
+  `active_profile` key; the Runtime tab is disabled with a note and the
+  per-game General `Game` and System `Audio` sections hide. New games
+  start without a runtime until one is chosen (the launcher exits 18),
+  and an existing `defaults.toml` keeps its per-game keys until the next
+  save.
 - The Steam game's Compat Tool list shows only real Proton builds now:
   Steam's anti-cheat runtime tools (`Proton EasyAntiCheat Runtime`,
   `Proton BattlEye Runtime`) and the appended `System wine (...)` row

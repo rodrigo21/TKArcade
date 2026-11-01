@@ -60,3 +60,6 @@ What each document is for and where the source of truth lives.
   menu matrix and the single model table behind it.
 - `decisions/graphics-layers.md` — why `[graphics]` stays a plain-Wine
   feature and the runtime build is the version selector.
+- `decisions/settings-placement.md` — the global Preferences sections,
+  the launch-behaviour-only Global Defaults template and the
+  per-game-only fields.

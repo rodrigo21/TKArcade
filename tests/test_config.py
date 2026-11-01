@@ -62,6 +62,44 @@ def test_missing_file_falls_back_to_defaults(xdg_env):
     assert C.load("nope").env.vars == {"D": "9"}
 
 
+def test_save_defaults_drops_per_game_keys(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.name = "Template Name"
+    cfg.general.categories = ["Retro"]
+    cfg.general.custom_executable = "/tmp/game.exe"
+    cfg.general.launch_cwd = "/tmp"
+    cfg.general.active_profile = "main"
+    cfg.general.show_menu = True
+    cfg.metadata.version = "1.0"
+    cfg.runtime.type = "proton"
+    cfg.runtime.tool = "GE-Proton9-20"
+    cfg.graphics.dxvk = True
+    cfg.audio.sink = "alsa_output.hdmi"
+    cfg.debug.proton_log = True
+    cfg.artwork.cover = "cover.png"
+    cfg.notes.text = "hello"
+    cfg.gamemode.feral_gamemode = True
+    C.save_defaults(cfg)
+    text = C.xdg.defaults_file().read_text()
+    for section in ("metadata", "runtime", "graphics", "audio", "debug", "artwork", "notes"):
+        assert f"[{section}]" not in text
+    for line in (
+        'name = "Template Name"',
+        "categories =",
+        "custom_executable =",
+        "launch_cwd =",
+        "active_profile =",
+    ):
+        assert line not in text
+    assert "show_menu = true" in text
+    assert "feral_gamemode = true" in text
+    back = C.load_defaults()
+    assert back.runtime.type == ""
+    assert back.general.categories == []
+    assert back.notes.text == ""
+    assert back.gamemode.feral_gamemode is True
+
+
 def test_legacy_ludusavi_keys_ignored(xdg_env):
     C.game_file("1").parent.mkdir(parents=True, exist_ok=True)
     C.game_file("1").write_text(

@@ -3143,7 +3143,7 @@ def test_enter_accepts_the_open_confirm(qgui_app, xdg_env):
 
     _save_one_game("local-doom", "Doom")
     template = C.load_defaults()
-    template.general.name = "From Template"
+    template.general.launch_args = "--from-template"
     C.save_defaults(template)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
@@ -3157,7 +3157,7 @@ def test_enter_accepts_the_open_confirm(qgui_app, xdg_env):
     QTest.keyClick(confirm, Qt.Key.Key_Return)
     assert _wait_for(lambda: confirm.isVisible() is False), "Enter missed the confirm"
     assert dialog.property("visible") is True  # still the settings window
-    assert C.load("local-doom").general.name == "From Template"
+    assert C.load("local-doom").general.launch_args == "--from-template"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3421,13 +3421,14 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     # (an explicit `height:` alone leaves contentHeight at -1).
     scroller = swin.findChild(QQuickItem, "prefsScroll")
     assert scroller.property("contentHeight") > 0
-    # The form keeps its label column at every allowed width (WidgetsFormLayout
-    # pins wideMode), so the window minimum must fit it: shrink to the minimum
-    # and check that no row runs past the right edge.
+    # The section forms keep their label column at every allowed width
+    # (WidgetsFormLayout pins wideMode), so the window minimum must fit
+    # them: shrink to the minimum and check that no row runs past the edge.
     swin.setProperty("width", swin.property("minimumWidth"))
     QTest.qWait(200)
     form = swin.findChild(QQuickItem, "prefsForm")
-    assert form.property("wideMode") is True
+    section_form = swin.findChild(QQuickItem, "prefsRuntimeForm")
+    assert section_form.property("wideMode") is True
     form_width = form.property("width")
     for item in form.findChildren(QQuickItem):
         if not item.isVisible():
@@ -3833,6 +3834,21 @@ def test_hamburger_global_defaults_entry(qgui_app, xdg_env):
     assert (
         dswin.findChild(QQuickItem, "settingsReset").property("text") == "Reset to Factory Defaults"
     )
+    # Per-game fields leave the template: the Runtime tab is disabled with
+    # the explanatory note, and the Game and Audio sections hide.
+    assert dswin.findChild(QQuickItem, "settingsTabRuntime").property("enabled") is False
+    assert dswin.findChild(QQuickItem, "settingsCats").isVisible() is False
+    tabs = dswin.findChild(QQuickItem, "settingsTabs")
+    tabs.setProperty("currentIndex", 5)
+    qgui_app.processEvents()
+    assert dswin.findChild(QQuickItem, "auSink").isVisible() is False
+    # The note lives on the Runtime page; the disabled tab only blocks the
+    # user, so select it directly and check it replaces the form.
+    tabs.setProperty("currentIndex", 2)
+    qgui_app.processEvents()
+    note = dswin.findChild(QQuickItem, "settingsDefaultsRuntimeNote")
+    assert note.property("visible") is True
+    assert dswin.findChild(QQuickItem, "settingsRuntimeType").isVisible() is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -5752,8 +5768,8 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     # A customised Global Defaults template: Reset must apply *it*, never
     # the built-in factory values (widgets _on_reset).
     template = C.load_defaults()
-    template.general.name = "From Template"
-    template.general.custom_executable = "/bin/false"
+    template.general.custom_prefix = "from-template"
+    template.general.launch_args = "--from-template"
     template.general.menu_timeout = 9
     C.save_defaults(template)
     win, engine, _proxy, warnings = _load_main(qgui_app)
@@ -5772,10 +5788,11 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     assert confirm.property("visible") is True
     dlg.acceptConfirm()
     qgui_app.processEvents()
-    assert name.property("text") == "From Template"
+    assert name.property("text") == ""
     live = C.load("local-doom")
-    assert live.general.name == "From Template"
-    assert live.general.custom_executable == "/bin/false"
+    assert live.general.name == ""
+    assert live.general.custom_prefix == "from-template"
+    assert live.general.launch_args == "--from-template"
     assert live.general.menu_timeout == 9
     # Profiles are never touched by a reset.
     assert C.list_profiles("local-doom") == ["keepme"]

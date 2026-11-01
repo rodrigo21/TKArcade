@@ -721,10 +721,31 @@ def load_defaults() -> GameConfig:
 
 
 def save_defaults(cfg: GameConfig) -> Path:
-    """Save the global defaults file (complete values, no appid)."""
+    """Save the global defaults file: launch behaviour, no per-game fields."""
     path = xdg.defaults_file()
     data = to_toml_dict(cfg)
-    data.get("general", {}).pop("gameid", None)
+    general = data.get("general", {})
+    for key in (
+        "gameid",
+        "name",
+        "custom_executable",
+        "launch_cwd",
+        "categories",
+        "active_profile",
+    ):
+        general.pop(key, None)
+    # Identity, runtime/graphics/audio switches, artwork and notes are
+    # picked per game; a template carrying them would pre-fill new games.
+    for section in (
+        "metadata",
+        "runtime",
+        "graphics",
+        "audio",
+        "debug",
+        "artwork",
+        "notes",
+    ):
+        data.pop(section, None)
     _write_atomic(path, _render_toml(data))
     return path
 

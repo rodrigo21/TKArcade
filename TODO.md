@@ -25,13 +25,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   `vkd3d_dirs` and `proton_dirs` already cover, what is missing (e.g.
   per-game overrides, archives in the cache dir, Steam Linux Runtime
   picks) and how the GUI should present it.
-- [ ] Preferences content: decide what is truly global (e.g. Proton/DXVK
-  directories, prefix base, SteamGridDB key) versus per-game, and whether
-  the window should be split into tabs/sections. The current form mixes
-  both and some rows are only meaningful with the tray enabled.
-- [ ] Global Defaults content: audit which fields belong in the template.
-  Per-game identity/artwork and paths that only make sense for one game
-  should not be there.
 
 ## Deferred release
 

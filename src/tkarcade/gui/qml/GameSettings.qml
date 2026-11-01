@@ -1686,7 +1686,9 @@ Window {
                 text: qsTr("Commands")
             }
             Controls.TabButton {
+                objectName: "settingsTabRuntime"
                 text: qsTr("Runtime")
+                enabled: !defaultsMode
             }
             Controls.TabButton {
                 text: qsTr("Performance")
@@ -1729,6 +1731,8 @@ Window {
                         SectionBox {
                             title: qsTr("Game")
                             Layout.fillWidth: true
+                            // Identity is per game: the template has no game.
+                            visible: !defaultsMode
                             WidgetsFormLayout {
                                 labelWidth: generalColumn.labelWidth
                                 id: generalForm
@@ -2175,10 +2179,30 @@ Window {
                 // content is squeezed into the viewport (nothing scrolls).
                 Item {
                     width: parent.width
-                    implicitHeight: compatColumn.implicitHeight
+                    implicitHeight: defaultsMode
+                        ? defaultsRuntimeNote.implicitHeight + Kirigami.Units.largeSpacing * 4
+                        : compatColumn.implicitHeight
+                    // The whole tab is per game (runtime, prefix, layers,
+                    // verbs); a defaults template only carries launch
+                    // behaviour, so the page explains where they live.
+                    Controls.Label {
+                        id: defaultsRuntimeNote
+                        objectName: "settingsDefaultsRuntimeNote"
+                        anchors.top: parent.top
+                        anchors.topMargin: Kirigami.Units.largeSpacing * 2
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: Kirigami.Units.largeSpacing * 2
+                        anchors.rightMargin: Kirigami.Units.largeSpacing * 2
+                        visible: defaultsMode
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                        text: qsTr("Runtime, Prefix and Graphics Switches Are Per Game; Set Them in the Game's Settings.")
+                    }
                     ColumnLayout {
                         id: compatColumn
                         width: parent.width
+                        visible: !defaultsMode
                         spacing: Kirigami.Units.smallSpacing
                         // One label column for the tab, so the fields of
                         // every section start at the same x.
@@ -3064,6 +3088,9 @@ Window {
                             SectionBox {
                                 title: qsTr("Audio")
                                 Layout.fillWidth: true
+                                // The sink is per game; no empty frame in the
+                                // defaults editor.
+                                visible: !defaultsMode
                                 WidgetsFormLayout {
                                     id: audioForm
                                     labelWidth: sysForm.labelWidth
