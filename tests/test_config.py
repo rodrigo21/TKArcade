@@ -142,12 +142,12 @@ def test_prepare_fresh_prefix(monkeypatch, tmp_path):
     pfx.mkdir(parents=True)
     (pfx / "save.dat").write_text("x")
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(tmp_path / "compatdata" / "70"))
-    assert pm.prepare_fresh_prefix() == (True, [])
+    assert pm.prepare_fresh_prefix("70") == (True, [])
     assert not (tmp_path / "compatdata" / "70").exists()
-    assert pm.prepare_fresh_prefix()[0] is True
-    assert "nothing to delete" in pm.prepare_fresh_prefix()[1][0]
+    assert pm.prepare_fresh_prefix("70")[0] is True
+    assert "nothing to delete" in pm.prepare_fresh_prefix("70")[1][0]
     monkeypatch.delenv("STEAM_COMPAT_DATA_PATH")
-    ok, warnings = pm.prepare_fresh_prefix()
+    ok, warnings = pm.prepare_fresh_prefix("70")
     assert ok is False and "missing" in warnings[0]
 
 
@@ -158,15 +158,55 @@ def test_prepare_fresh_prefix_refuses_non_prefix(monkeypatch, tmp_path):
     victim.mkdir()
     (victim / "save.dat").write_text("x")
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(victim))
-    ok, warnings = pm.prepare_fresh_prefix()
+    ok, warnings = pm.prepare_fresh_prefix("70")
     assert ok is False and "refused" in warnings[0]
     assert (victim / "save.dat").exists()  # untouched
     nested = tmp_path / "steamapps" / "common" / "70"
     nested.mkdir(parents=True)
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(nested))
-    ok, warnings = pm.prepare_fresh_prefix()
+    ok, warnings = pm.prepare_fresh_prefix("70")
     assert ok is False and "refused" in warnings[0]
     assert nested.exists()
+
+
+def test_prepare_fresh_prefix_refuses_another_game(monkeypatch, tmp_path):
+    from tkarcade import proton as pm
+
+    other = tmp_path / "compatdata" / "71"
+    (other / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(other))
+    ok, warnings = pm.prepare_fresh_prefix("70")
+    assert ok is False and "refused" in warnings[0]
+    assert (other / "pfx").exists()
+    assert pm.prepare_fresh_prefix("local-70")[0] is False
+    assert (other / "pfx").exists()
+
+
+def test_prepare_fresh_prefix_uses_the_configured_prefix(monkeypatch, tmp_path):
+    from tkarcade import proton as pm
+
+    env_prefix = tmp_path / "compatdata" / "70"
+    (env_prefix / "pfx").mkdir(parents=True)
+    configured = tmp_path / "custom" / "compatdata" / "70"
+    (configured / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(env_prefix))
+    assert pm.prepare_fresh_prefix("70", str(configured)) == (True, [])
+    assert not configured.exists()
+    assert (env_prefix / "pfx").exists()
+
+
+def test_prepare_fresh_prefix_refuses_a_symlink(monkeypatch, tmp_path):
+    from tkarcade import proton as pm
+
+    real = tmp_path / "real"
+    (real / "pfx").mkdir(parents=True)
+    link = tmp_path / "compatdata" / "70"
+    link.parent.mkdir()
+    link.symlink_to(real, target_is_directory=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(link))
+    ok, warnings = pm.prepare_fresh_prefix("70")
+    assert ok is False and "symlink" in warnings[0]
+    assert link.is_symlink() and (real / "pfx").exists()
 
 
 def test_sections_covered_by_key_map():

@@ -92,6 +92,13 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The fresh-prefix toggle (`[runtime] fresh_prefix`) only wipes this
+  game's own `compatdata/<appid>` prefix now: it uses the configured
+  `[runtime] prefix` when set, else `STEAM_COMPAT_DATA_PATH`, and
+  refuses a target whose folder is not this AppID or that is a symlink.
+  It is Proton-only (other runtimes keep the flag and log a warning),
+  and disarming it after a successful wipe no longer saves the effective
+  profile snapshot over the live config when a profile is active.
 - A Steam game with no configured runtime (including STL imports) no
   longer dies with exit 18 when launched through `tkarcade %command%`:
   the launcher offers to configure it. Configure opens the settings on

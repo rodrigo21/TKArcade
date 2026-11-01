@@ -263,7 +263,8 @@ class RuntimeConfig:
     """
 
     type: str = ""  # "" (not set)|proton|native|wine|umu
-    fresh_prefix: bool = False  # Steam only: wipe the compatdata before launch
+    # Proton only: wipe this game's own compatdata/<appid> prefix before launch.
+    fresh_prefix: bool = False
     winetricks_verbs: list[str] = field(default_factory=list)
     prefix: str = ""  # custom prefix dir ("" = Steam default / <prefix_base>/<appid>)
     prefix_name: str = ""  # local only: friendly dir name under prefix_base ("" = appid)

@@ -1355,16 +1355,28 @@ def _maybe_run_menus(
     return None, appid, cfg
 
 
-def _disarm_fresh_prefix(appid: str, cfg: cfgmod.GameConfig) -> None:
-    """Wipe the broken prefix once, then disarm the one-shot toggle."""
-    wiped_ok, fresh_warnings = protonmod.prepare_fresh_prefix()
+def _disarm_fresh_prefix(appid: str, prefix: str) -> None:
+    """Wipe this game's prefix once, then disarm the one-shot toggle.
+
+    The flag may come from the active profile: clear it there instead of
+    saving the effective snapshot over the live config.
+    """
+    wiped_ok, fresh_warnings = protonmod.prepare_fresh_prefix(appid, prefix)
     for w in fresh_warnings:
         log.warning("fresh_prefix: %s", w)
     if not wiped_ok:
         return
-    cfg.runtime.fresh_prefix = False
     try:
-        cfgmod.save(cfg)
+        live = cfgmod.load(appid)
+        name = live.general.active_profile
+        profile = cfgmod.profile_file(appid, name) if name else None
+        if profile is not None and profile.exists() and cfgmod.toml_error(profile) is None:
+            prof = cfgmod.load_profile(appid, name)
+            prof.runtime.fresh_prefix = False
+            cfgmod.save_profile(appid, name, prof)
+        else:
+            live.runtime.fresh_prefix = False
+            cfgmod.save(live)
         log.info("fresh_prefix disarmed after wipe")
     except Exception as e:
         log.warning("could not disarm fresh_prefix: %s", e)
@@ -1407,7 +1419,13 @@ def _prepare_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> 
     # restore brings the saves back into it. One-shot: disarm the toggle
     # afterwards so later launches (and winetricks state) stay consistent.
     if cfg.runtime.fresh_prefix:
-        _disarm_fresh_prefix(appid, cfg)
+        if environment == "proton":
+            _disarm_fresh_prefix(appid, cfg.runtime.prefix)
+        else:
+            log.warning(
+                "fresh_prefix is Proton-only; ignored for runtime %s",
+                environment or "not set",
+            )
     if environment == "proton":
         run = protonmod.run_winetricks(appid, cfg.runtime.winetricks_verbs)
     elif environment in ("wine", "umu") and cfg.runtime.winetricks_verbs:

@@ -506,10 +506,71 @@ def test_fresh_prefix_disarms_after_wipe(xdg_env, monkeypatch, tmp_path):
     pfx = tmp_path / "compatdata" / "77"
     (pfx / "pfx").mkdir(parents=True)
     monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
-    _save("77", runtime={"fresh_prefix": True})
+    _save("77", runtime={"type": "proton", "fresh_prefix": True})
     assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
     assert not pfx.exists()
     assert C.load("77").runtime.fresh_prefix is False
+
+
+def test_fresh_prefix_is_proton_only(xdg_env, monkeypatch, tmp_path):
+    pfx = tmp_path / "compatdata" / "78"
+    (pfx / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
+    _save("local-78", runtime={"type": "native", "fresh_prefix": True})
+    assert _run(_env(xdg_env), "--appid", "local-78", "/bin/echo", "hi").returncode == 0
+    assert (pfx / "pfx").exists()
+    assert C.load("local-78").runtime.fresh_prefix is True
+
+
+def test_fresh_prefix_refuses_another_games_prefix(xdg_env, monkeypatch, tmp_path):
+    other = tmp_path / "compatdata" / "88"
+    (other / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(other))
+    _save("77", runtime={"type": "proton", "fresh_prefix": True})
+    assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
+    assert (other / "pfx").exists()
+    assert C.load("77").runtime.fresh_prefix is True
+
+
+def test_fresh_prefix_wipes_the_configured_prefix(xdg_env, monkeypatch, tmp_path):
+    env_prefix = tmp_path / "compatdata" / "77"
+    (env_prefix / "pfx").mkdir(parents=True)
+    configured = tmp_path / "custom" / "compatdata" / "77"
+    (configured / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(env_prefix))
+    _save("77", runtime={"type": "proton", "fresh_prefix": True, "prefix": str(configured)})
+    assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
+    assert not configured.exists()
+    assert (env_prefix / "pfx").exists()
+    assert C.load("77").runtime.fresh_prefix is False
+
+
+def test_fresh_prefix_disarm_keeps_the_live_config(xdg_env, monkeypatch, tmp_path):
+    pfx = tmp_path / "compatdata" / "77"
+    (pfx / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
+    _save("77", runtime={"type": "proton"})
+    live = C.load("77")
+    live.general.name = "Live"
+    live.ludusavi.name_override = "Live"
+    C.save(live)
+    prof = C.load("77")
+    prof.general.name = "Profile"
+    prof.ludusavi.name_override = "Profile"
+    prof.runtime.fresh_prefix = True
+    C.save_profile("77", "alt", prof)
+    live = C.load("77")
+    live.general.active_profile = "alt"
+    C.save(live)
+    assert _run(_env(xdg_env), "--appid", "77", "/bin/echo", "hi").returncode == 0
+    assert not pfx.exists()
+    reloaded = C.load("77")
+    assert reloaded.general.name == "Live"
+    assert reloaded.general.active_profile == "alt"
+    assert reloaded.ludusavi.name_override == "Live"
+    profile = C.load_profile("77", "alt")
+    assert profile.general.name == "Profile"
+    assert profile.runtime.fresh_prefix is False
 
 
 def test_validate_dangling_profile(xdg_env):

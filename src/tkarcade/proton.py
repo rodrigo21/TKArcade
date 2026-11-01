@@ -163,27 +163,33 @@ def system_wine() -> str | None:
     return None
 
 
-def prepare_fresh_prefix() -> tuple[bool, list[str]]:
-    """Delete the Proton prefix so Steam recreates it on launch.
+def prepare_fresh_prefix(appid: str, prefix: str = "") -> tuple[bool, list[str]]:
+    """Delete this game's own Proton prefix so Steam recreates it.
 
-    Returns (ok, warnings). ok is False only when deletion failed or
-    STEAM_COMPAT_DATA_PATH is missing (keep retrying those); callers
-    should disarm one-shot toggles when ok is True.
+    `prefix` is the configured [runtime] prefix; without it the
+    STEAM_COMPAT_DATA_PATH Steam exported is used. Only a
+    compatdata/<appid> folder for this very AppID is wiped; a symlink is
+    refused, since deleting through it could hit a shared target.
+    Returns (ok, warnings). ok is False when the target is missing,
+    refused or the deletion failed (keep retrying those); callers disarm
+    one-shot toggles when ok is True.
     Saves inside the prefix are destroyed; cloud/manual backups survive.
     """
     import os
     import shutil
 
-    compat = os.environ.get("STEAM_COMPAT_DATA_PATH", "").strip()
+    compat = (prefix or os.environ.get("STEAM_COMPAT_DATA_PATH", "")).strip()
     if not compat:
         return False, ["fresh_prefix set but STEAM_COMPAT_DATA_PATH is missing; skipped"]
     target = Path(compat)
-    if not target.name.isdigit() or "compatdata" not in target.parts:
+    if not steammod.is_steam_id(appid) or target.name != appid or "compatdata" not in target.parts:
         return False, [
-            f"fresh_prefix refused: {compat} is not a compatdata/<appid> prefix; skipped"
+            f"fresh_prefix refused: {compat} is not this game's compatdata/<appid> prefix; skipped"
         ]
+    if target.is_symlink():
+        return False, [f"fresh_prefix refused: {compat} is a symlink; remove it manually"]
     try:
-        if target.is_dir() and not target.is_symlink():
+        if target.is_dir():
             shutil.rmtree(target)
             return True, []
         return True, [f"prefix not found, nothing to delete: {compat}"]
