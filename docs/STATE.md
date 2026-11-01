@@ -11,25 +11,27 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver`, `optdepends` indentation and a lenient `check()`, plus an
   untracked `.SRCINFO`, never committed); `.qoder/` is git-ignored.
-- Landed: copy IDs and confirmed prefix creation. The library menu's
-  Copy Game ID is the renamed canonical-ID action, next to a Steam-only
-  Copy Steam AppID (numeric) fed by `contextActions().steam_appid`. The
-  settings Runtime tab offers Create for local Wine/UMU prefixes before
-  they exist (Steam as before); Create always opens a confirm dialog and
+- Landed: two batches. Copy Game ID (canonical) plus Steam-only Copy
+  Steam AppID (numeric) in the library menu, and the settings Runtime
+  tab offers Create for local Wine/UMU prefixes before they exist (Steam
+  as before); Create always opens a confirm dialog and
   `ensurePrefix(appid, target)` creates exactly the dialog's target,
-  while Open never creates anything.
+  while Open never creates anything. Then the terminology pass: the
+  canonical ID reads Game ID in the library header, sort menu, header
+  menu, Columns dialog, export header, Game tab and Prefix Base tooltip;
+  the numeric value stays Steam AppID.
 - Verified: full suite with the QML driver, 512 passed
-  (`scripts/check.sh --changed` widened to it). Offscreen visual check:
-  menu labels/visibility for a Steam and a local game, the Create
-  confirm window, and the prefix directory absent until accepting.
-  pt_BR translated (638 finished). venv refreshed after the merge
-  (`0.0.0.post608.dev0+0d8c970`). No real-display or real Steam library
-  test.
-- Next: pass 1 of the ID terminology work (approved): the canonical ID
-  reads Game ID in the library column, sort menu, filter, export header
-  and settings label; the numeric value stays Steam AppID. Pass 2 is
-  recorded in `TODO.md`: rename `[general] appid` to `gameid` and
-  `--appid` to `--game-id`, with an alias and old-key read (breaking).
+  (`scripts/check.sh --changed` widened to it). The autofit test now
+  asserts the width changed from its start value: Game ID measures
+  exactly the default 90. Offscreen visual checks of the menu, the
+  Create confirm window (directory absent until accepting) and every
+  renamed label. pt_BR translated (638 finished). venv refreshed after
+  the merge (`0.0.0.post610.dev0+e66294c`). No real-display or real
+  Steam library test.
+- Next: pass 2 of the ID terminology work, recorded in `TODO.md`:
+  rename `[general] appid` to `gameid` and `--appid` to `--game-id`,
+  with an alias and old-key read (breaking, lands alone). Then the
+  DXVK/vkd3d design item in `TODO.md`.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
