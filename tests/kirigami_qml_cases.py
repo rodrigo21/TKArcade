@@ -3568,8 +3568,8 @@ def test_issue_badge_shows_severity(qgui_app, xdg_env):
     assert "dialog-error" in str(badges[0].property("source"))
     assert "dialog-warning" in str(badges[2].property("source"))
     tips = [cell.findChild(QObject, "issueBadgeTip") for cell in cells]
-    assert "Custom_executable not found" in tips[0].property("text")
-    assert "Post_command not found" in tips[2].property("text")
+    assert "Error: custom_executable not found" in tips[0].property("text")
+    assert "Warning: post_command not found" in tips[2].property("text")
     assert tips[1].property("text") == ""
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []

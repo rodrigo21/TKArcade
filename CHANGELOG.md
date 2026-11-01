@@ -19,7 +19,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - Games with validation issues show a badge at the end of the name
   cell: an error icon for issues that block the launch or leave the
   config unapplied, a warning icon for launches that continue degraded.
-  Its tooltip lists the same issues as Validate Game.
+  Its tooltip lists the same issues as Validate Game, one per line with
+  an `Error:`/`Warning:` label; config keys stay verbatim.
 
 ### Changed
 - The local Runtime list reads Native, UMU, Wine in both the Add Game

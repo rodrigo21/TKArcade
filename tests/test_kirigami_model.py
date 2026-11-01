@@ -1687,7 +1687,7 @@ def test_issue_roles_expose_level_and_tip(qgui_app, xdg_env):
     assert model.data(rows["local-bad"], GameListModel.IssueLevelRole) == "error"
     assert model.data(rows["local-warn"], GameListModel.IssueLevelRole) == "warning"
     tip = model.data(rows["local-bad"], GameListModel.IssuesTipRole)
-    assert "Custom_executable not found" in tip
+    assert "Error: custom_executable not found" in tip
     assert "local-bad:" not in tip
 
 

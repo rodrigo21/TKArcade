@@ -116,6 +116,16 @@ opencode session export <session-id> > /shared/tkarcade-session.json
 opencode session import --directory <checkout> /shared/tkarcade-session.json
 ```
 
+## UI wording
+
+UI strings are Title Case: labels, buttons, menus, window and dialog
+titles, checkboxes, table columns and status messages. Tool names keep
+their own spelling (`wine`, `umu-run`, `winetricks`, `vkd3d-proton`,
+`MangoHud`, `DXVK`, `logind`, `compatibilitytools.d`), and command-line
+flags, config keys and paths stay verbatim. A diagnostic that starts
+with a config key keeps it as-is: the `Error:`/`Warning:` label carries
+the capitalization instead.
+
 ## Translations (Qt Linguist)
 
 GUI strings go through QML `qsTr()`, with one Python exception: the

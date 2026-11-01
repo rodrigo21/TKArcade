@@ -3422,11 +3422,10 @@ class GameListModel(QAbstractTableModel):
 
     def _issue_tip(self, appid: str) -> str:
         prefix = f"{appid}: "
-        lines = []
-        for _severity, message in self._issue_report(appid):
-            text = message.removeprefix(prefix)
-            lines.append(text[:1].upper() + text[1:])
-        return "\n".join(lines)
+        return "\n".join(
+            f"{severity.capitalize()}: {message.removeprefix(prefix)}"
+            for severity, message in self._issue_report(appid)
+        )
 
     @Slot(str, result=list)
     def gameIssues(self, appid: str) -> list:
