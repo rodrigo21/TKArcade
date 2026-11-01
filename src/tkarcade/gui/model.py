@@ -817,7 +817,9 @@ class GameListModel(QAbstractTableModel):
             "runtime_tool": cfg.runtime.tool,
             "runtime_steam_runtime": cfg.runtime.steam_runtime,
             "graphics_dxvk": bool(cfg.graphics.dxvk),
+            "graphics_dxvk_version": cfg.graphics.dxvk_version,
             "graphics_vkd3d": cfgmod.normalize_graphics_vkd3d(cfg.graphics.vkd3d),
+            "graphics_vkd3d_version": cfg.graphics.vkd3d_version,
         }
 
     @Slot(str, result="QVariantMap")
@@ -1019,7 +1021,9 @@ class GameListModel(QAbstractTableModel):
             data.get("runtime_steam_runtime", "")
         )
         cfg.graphics.dxvk = bool(data.get("graphics_dxvk", False))
+        cfg.graphics.dxvk_version = str(data.get("graphics_dxvk_version", "")).strip()
         cfg.graphics.vkd3d = cfgmod.normalize_graphics_vkd3d(data.get("graphics_vkd3d", ""))
+        cfg.graphics.vkd3d_version = str(data.get("graphics_vkd3d_version", "")).strip()
         cats = data.get("categories", [])
         if isinstance(cats, str):
             cats = [c.strip() for c in cats.split(",")]
@@ -2779,7 +2783,7 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, result="QVariantMap")
     def graphicsState(self, appid: str) -> dict:
-        """Installed layers (marker) and newest available versions for a game."""
+        """Installed layers (marker) and the installed versions per layer."""
         prefs = cfgmod.load_preferences()
         prefix = None
         if appid:
@@ -2795,13 +2799,16 @@ class GameListModel(QAbstractTableModel):
             except Exception:
                 prefix = None
         available = {}
+        versions = {}
         for kind in ("dxvk", "vkd3d"):
-            found = runtimes.pick_graphics(kind, graphicsmod.layer_dirs(kind, prefs))
-            available[kind] = found.name if found else ""
+            found = runtimes.graphics_versions(kind, graphicsmod.layer_dirs(kind, prefs))
+            versions[kind] = [v.name for v in found]
+            available[kind] = versions[kind][0] if versions[kind] else ""
         return {
             "prefix": os.fspath(prefix) if prefix is not None else "",
             "installed": graphicsmod.installed(prefix) if prefix is not None else {},
             "available": available,
+            "versions": versions,
         }
 
     @Slot(str, result=str)

@@ -63,3 +63,5 @@ What each document is for and where the source of truth lives.
 - `decisions/settings-placement.md` — the global Preferences sections,
   the launch-behaviour-only Global Defaults template and the
   per-game-only fields.
+- `decisions/external-runtimes.md` — configured-only runtime discovery,
+  per-game DXVK/vkd3d version selection and the deferred archive cache.

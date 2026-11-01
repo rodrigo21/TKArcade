@@ -5,7 +5,26 @@ Breaking config changes are called out explicitly under `Changed`.
 
 ## [Unreleased]
 
+### Added
+- Per-game DXVK and vkd3d-proton versions: `[graphics] dxvk_version`
+  and `vkd3d_version` pick an installed version for a local Wine game;
+  empty keeps picking the newest one. The Graphics section exposes both
+  choices, and a missing selection is reported by the dialog and
+  `--validate` instead of silently using another version. Runtime
+  archives are still not downloaded or unpacked.
+
 ### Changed
+- The local Runtime list reads Native, UMU, Wine in both the Add Game
+  dialog and Settings.
+- The Graphics section shows a layer's version picker only while that
+  layer is on. D3D12 now uses two mutually exclusive checkboxes,
+  `vkd3d-proton` and `vkd3d`, with the lower compatibility of Wine's
+  builtin noted in a tooltip; the vkd3d-proton version picker appears
+  only for `vkd3d-proton`.
+- **BREAKING**: DXVK/vkd3d discovery scans only the directories set in
+  Preferences now. Lutris's default runtime directories (including the
+  Flatpak path) are no longer read; add the directory in Preferences if
+  your versions live there.
 - Preferences is grouped into Interface, Tray, Artwork and Runtime
   sections now, with one label column across the frames; every setting
   stays global.
@@ -139,6 +158,13 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Switching a local game from UMU to Wine no longer copies the umu
+  Proton path into the Wine binary field and saves it as `[runtime] tool`;
+  the read-only Detected Runtime row is hidden for Wine, since the Wine
+  field already names the binary.
+- The local UMU Proton picker lists only directories holding the
+  `proton` launcher now, so `Proton EasyAntiCheat Runtime` and
+  `Proton BattlEye Runtime` are gone from the `PROTONPATH` choices.
 - Steam context-menu items work again with origin-prefixed IDs: the
   digit-only test left in `MainPage.qml` hid Copy Launch Options and
   Open ProtonDB, and wrongly showed Copy Launch Command.

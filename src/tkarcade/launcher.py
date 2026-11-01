@@ -535,6 +535,8 @@ def _build_env(
             cfg.graphics.dxvk if environment == "wine" else False,
             cfg.graphics.vkd3d if environment == "wine" else "",
             runtime.get("prefs"),
+            cfg.graphics.dxvk_version if environment == "wine" else "",
+            cfg.graphics.vkd3d_version if environment == "wine" else "",
         )
         warnings += w
         for key, value in layer_env.items():
@@ -746,11 +748,17 @@ def _graphics_issue(appid: str, eff: cfgmod.GameConfig) -> list[str]:
     if not kinds:
         return []
     prefs = cfgmod.load_preferences()
-    return [
-        f"{appid}: graphics layer {kind!r} has no installed version"
-        for kind in kinds
-        if runtimes.pick_graphics(kind, graphicsmod.layer_dirs(kind, prefs)) is None
-    ]
+    issues = []
+    for kind in kinds:
+        selected = eff.graphics.dxvk_version if kind == "dxvk" else eff.graphics.vkd3d_version
+        if runtimes.pick_graphics(kind, graphicsmod.layer_dirs(kind, prefs), selected) is None:
+            if selected:
+                issues.append(
+                    f"{appid}: graphics layer {kind!r} version {selected!r} is not installed"
+                )
+            else:
+                issues.append(f"{appid}: graphics layer {kind!r} has no installed version")
+    return issues
 
 
 def _exe_issues(appid: str, eff: cfgmod.GameConfig) -> list[str]:

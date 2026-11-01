@@ -25,7 +25,7 @@ Window {
     property var page: null
     property var steamRows: []
     // Values behind runtimeTypeBox, in the same order as its labels.
-    readonly property var runtimes: ["native", "wine", "umu"]
+    readonly property var runtimes: ["native", "umu", "wine"]
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
@@ -109,8 +109,8 @@ Window {
             // Same three choices as Settings, in the same order.
             model: [
                 qsTr("Native"),
-                qsTr("Wine"),
-                qsTr("UMU")
+                qsTr("UMU"),
+                qsTr("Wine")
             ]
         }
         Controls.ComboBox {

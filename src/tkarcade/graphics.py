@@ -104,25 +104,31 @@ def installed(prefix: Path) -> dict[str, str]:
     return out
 
 
-def install(prefix: Path, layer: str, prefs: object) -> tuple[bool, list[str]]:
-    """Copy the newest version of `layer` into the prefix (idempotent).
+def install(prefix: Path, layer: str, prefs: object, version: str = "") -> tuple[bool, list[str]]:
+    """Copy the selected version of `layer` into the prefix (idempotent).
 
-    Returns (ok, warnings). Failure never aborts the launch: the launcher
-    falls back to the builtin DLLs and reports the warning.
+    Empty `version` picks the newest installed one. Returns (ok, warnings).
+    Failure never aborts the launch: the launcher falls back to the builtin
+    DLLs and reports the warning.
     """
     kind = _LAYER_KIND.get(layer)
     if not kind:
         return True, []
     extra = layer_dirs(layer, prefs)
-    version = runtimes.pick_graphics(kind, extra)
-    if version is None:
+    selected = str(version or "").strip()
+    found = runtimes.pick_graphics(kind, extra, selected)
+    if found is None:
         label = "DXVK" if kind == "dxvk" else "vkd3d-proton"
+        if selected:
+            return False, [
+                f"{label} version {selected!r} not found; check the {label} directories in Preferences"
+            ]
         return False, [
             f"{label} layer enabled but no version found; check the {label} directories in Preferences"
         ]
-    files = version.files()
+    files = found.files()
     if not files:
-        return False, [f"{kind}: version {version.name} has no DLLs for this prefix"]
+        return False, [f"{kind}: version {found.name} has no DLLs for this prefix"]
     copied: list[str] = []
     for src, target in files:
         dest_dir = Path(prefix) / "drive_c" / "windows" / target
@@ -138,7 +144,7 @@ def install(prefix: Path, layer: str, prefs: object) -> tuple[bool, list[str]]:
     layers = marker.get("layers") if isinstance(marker.get("layers"), dict) else {}
     previous = layers.get(kind) if isinstance(layers.get(kind), dict) else {}
     old_files = set(previous.get("files", []) or [])
-    layers[kind] = {"version": version.name, "files": sorted(old_files | set(copied))}
+    layers[kind] = {"version": found.name, "files": sorted(old_files | set(copied))}
     marker = {"version": MARKER_VERSION, "layers": layers}
     try:
         _write_marker(prefix, marker)
@@ -182,7 +188,14 @@ def uninstall(prefix: Path, kind: str = "") -> tuple[int, list[str]]:
     return removed, warnings
 
 
-def launch_env(prefix: Path, dxvk: bool, vkd3d: str, prefs: object) -> tuple[dict, list[str]]:
+def launch_env(
+    prefix: Path,
+    dxvk: bool,
+    vkd3d: str,
+    prefs: object,
+    dxvk_version: str = "",
+    vkd3d_version: str = "",
+) -> tuple[dict, list[str]]:
     """Environment for the enabled layers, installing them first.
 
     All layers off: no overrides unless a previous install left a marker
@@ -195,11 +208,11 @@ def launch_env(prefix: Path, dxvk: bool, vkd3d: str, prefs: object) -> tuple[dic
     attempted = effective_dxvk or effective_vkd3d == "proton"
     warnings: list[str] = []
     if effective_dxvk:
-        ok, w = install(prefix, "dxvk", prefs)
+        ok, w = install(prefix, "dxvk", prefs, dxvk_version)
         warnings += w
         effective_dxvk = ok
     if effective_vkd3d == "proton":
-        ok, w = install(prefix, "vkd3d", prefs)
+        ok, w = install(prefix, "vkd3d", prefs, vkd3d_version)
         warnings += w
         if not ok:
             effective_vkd3d = ""

@@ -293,7 +293,9 @@ class GraphicsConfig:
     """Graphics translation layers installed into a local game's prefix."""
 
     dxvk: bool = False  # D3D9/10/11 through DXVK
+    dxvk_version: str = ""  # "" = newest installed DXVK
     vkd3d: str = ""  # ""|proton|wine for D3D12
+    vkd3d_version: str = ""  # "" = newest installed vkd3d-proton
 
 
 @dataclass
@@ -857,7 +859,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "tool",
         "steam_runtime",
     },
-    "graphics": {"dxvk", "vkd3d"},
+    "graphics": {"dxvk", "dxvk_version", "vkd3d", "vkd3d_version"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
     "artwork": {"icon", "cover", "banner", "artwork_appid"},
@@ -1090,7 +1092,9 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.runtime.steam_runtime = normalize_steam_runtime(rt.get("steam_runtime", ""))
     gfx = _section(data, "graphics")
     cfg.graphics.dxvk = _as_bool(gfx.get("dxvk", False), False)
+    cfg.graphics.dxvk_version = str(gfx.get("dxvk_version", "")).strip()
     cfg.graphics.vkd3d = normalize_graphics_vkd3d(gfx.get("vkd3d", ""))
+    cfg.graphics.vkd3d_version = str(gfx.get("vkd3d_version", "")).strip()
     cfg.audio.sink = str(_section(data, "audio").get("sink", ""))
     art = _section(data, "artwork")
     cfg.artwork.icon = str(art.get("icon", ""))

@@ -4731,10 +4731,11 @@ def test_add_local_environment_preselects_settings(qgui_app, xdg_env):
     add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
     type_box = add.findChild(QQuickItem, "addRuntime")
     assert type_box.property("visible") is True
-    type_box.setProperty("currentIndex", 2)
+    assert type_box.property("model") == ["Native", "UMU", "Wine"]
+    type_box.setProperty("currentIndex", 1)  # UMU
     click("addConfirm", add)
     swin = _settings_window(qgui_app)
-    assert swin.findChild(QQuickItem, "settingsRuntimeType").property("currentIndex") == 2
+    assert swin.findChild(QQuickItem, "settingsRuntimeType").property("currentIndex") == 1
     swin.findChild(QQuickItem, "settingsName").setProperty("text", "Umu Test")
     swin.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
     click("settingsSave", swin)
@@ -4774,7 +4775,7 @@ def test_settings_exe_hint_switches_to_wine(qgui_app, xdg_env, tmp_path):
     assert swin.findChild(QQuickItem, "settingsSwitchType").property("text") == "Switch to Wine"
     click("settingsSwitchType", swin)
     qgui_app.processEvents()
-    assert swin.findChild(QQuickItem, "settingsRuntimeType").property("currentIndex") == 1
+    assert swin.findChild(QQuickItem, "settingsRuntimeType").property("currentIndex") == 2
     assert hint.property("visible") is False
     swin.findChild(QQuickItem, "settingsName").setProperty("text", "Hinted")
     click("settingsSave", swin)
@@ -5347,6 +5348,8 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     _save_one_game("local-doom", "Doom", "wine")
     saved = C.load("local-doom")
     saved.graphics.dxvk = True
+    saved.graphics.dxvk_version = "v9.9"
+    saved.graphics.vkd3d_version = "v2.13"
     # The explicit name drives the prefix folder: <base>/FriendlyDoom.
     saved.runtime.prefix_name = "Friendly Doom"
     C.save(saved)
@@ -5358,8 +5361,21 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
         "proton_installs",
         lambda extra="": [runtimes.ProtonInstall(proton_dir.name, proton_dir.resolve())],
     )
-    # A fake DXVK version in the default Lutris location, already copied
-    # into the game prefix (as a launch would have done).
+    # The layer versions live in the configured directories only.
+    dxvk_base = xdg_env["data"] / "dxvk"
+    vkd3d_base = xdg_env["data"] / "vkd3d"
+    for name in ("v9.9", "v10.0"):
+        version = dxvk_base / name
+        (version / "x64").mkdir(parents=True)
+        for dll in ("d3d11.dll", "dxgi.dll"):
+            (version / "x64" / dll).write_bytes(b"fake dll")
+    version = vkd3d_base / "v2.13"
+    (version / "x64").mkdir(parents=True)
+    (version / "x64" / "d3d12.dll").write_bytes(b"fake dll")
+    prefs = C.load_preferences()
+    prefs.dxvk_dirs = str(dxvk_base)
+    prefs.vkd3d_dirs = str(vkd3d_base)
+    C.save_preferences(prefs)
     prefix = C.prefix_dir(
         "local-doom", "", C.load_preferences().prefix_base, "Friendly Doom", "Doom"
     )
@@ -5367,11 +5383,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     reused = prefix.parent / "Reused"
     (reused / "drive_c").mkdir(parents=True)
     (reused / "system.reg").write_text("")
-    version = xdg_env["data"] / "lutris" / "runtime" / "dxvk" / "v9.9"
-    (version / "x64").mkdir(parents=True)
-    for dll in ("d3d11.dll", "dxgi.dll"):
-        (version / "x64" / dll).write_bytes(b"fake dll")
-    ok, install_warnings = G.install(prefix, "dxvk", C.load_preferences())
+    ok, install_warnings = G.install(prefix, "dxvk", prefs, "v9.9")
     assert ok, install_warnings
 
     win, engine, _proxy, warnings = _load_main(qgui_app)
@@ -5384,31 +5396,46 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     type_box = swin.findChild(QQuickItem, "settingsRuntimeType")
     wine_field = swin.findChild(QQuickItem, "settingsLocalWine")
     proton_box = swin.findChild(QQuickItem, "settingsLocalProton")
+    runtime_field = swin.findChild(QQuickItem, "settingsRuntime")
     prefix_field = swin.findChild(QQuickItem, "winePrefix")
     name_field = swin.findChild(QQuickItem, "settingsLocalPrefixName")
     name_hint = swin.findChild(QQuickItem, "settingsLocalPrefixHint")
     gfx_dxvk = swin.findChild(QQuickItem, "settingsGraphicsDxvk")
-    gfx_vkd3d = swin.findChild(QQuickItem, "settingsGraphicsVkd3d")
+    gfx_vkd3d_proton = swin.findChild(QQuickItem, "settingsGraphicsVkd3dProton")
+    gfx_vkd3d_wine = swin.findChild(QQuickItem, "settingsGraphicsVkd3dWine")
+    gfx_dxvk_version = swin.findChild(QQuickItem, "settingsDxvkVersion")
+    gfx_vkd3d_version = swin.findChild(QQuickItem, "settingsVkd3dVersion")
     local_verbs = swin.findChild(QQuickItem, "ptVerbs")
     status = swin.findChild(QQuickItem, "settingsGfxStatus")
     remove = swin.findChild(QQuickItem, "settingsGfxRemove")
 
-    # The origin decides the choices: a local game gets native/Wine/umu,
-    # and the saved "wine" type selects the second entry.
+    # The origin decides the choices: a local game gets native/umu/Wine,
+    # and the saved "wine" type selects the last entry.
     assert type_box.property("count") == 3
     assert type_box.property("model") == [
         "Native",
-        "Wine",
         "UMU",
+        "Wine",
     ]
-    assert type_box.property("currentIndex") == 1
+    assert type_box.property("currentIndex") == 2
     assert wine_field.property("visible") is True
+    assert wine_field.property("text") == ""
     assert proton_box.property("visible") is False
+    # Wine names its binary in the field above: no duplicate check row.
+    assert runtime_field.property("visible") is False
     assert prefix_field.property("visible") is True
     assert gfx_dxvk.property("visible") is True
     assert gfx_dxvk.property("checked") is True
-    assert gfx_vkd3d.property("visible") is True
-    assert gfx_vkd3d.property("currentIndex") == 0
+    assert gfx_vkd3d_proton.property("visible") is True
+    assert gfx_vkd3d_proton.property("checked") is False
+    assert gfx_vkd3d_wine.property("checked") is False
+    assert gfx_dxvk_version.property("visible") is True
+    assert gfx_dxvk_version.property("count") == 3
+    assert gfx_dxvk_version.property("currentIndex") == 2
+    assert gfx_dxvk_version.property("currentText") == "v9.9"
+    assert gfx_vkd3d_version.property("visible") is False
+    assert gfx_vkd3d_version.property("count") == 2
+    assert gfx_vkd3d_version.property("currentIndex") == 1
     assert local_verbs.property("visible") is True
     assert local_verbs.property("text") == ""
     assert "DXVK v9.9" in status.property("text")
@@ -5416,20 +5443,41 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
 
     # umu swaps the Wine path for the discovered Proton installs, and the
     # Graphics section goes away: Proton ships DXVK and vkd3d.
-    type_box.setProperty("currentIndex", 2)
+    type_box.setProperty("currentIndex", 1)
     QTest.qWait(80)
     assert wine_field.property("visible") is False
     assert proton_box.property("visible") is True
     assert proton_box.property("count") == 1
+    assert runtime_field.property("visible") is True
+    assert runtime_field.property("text") == "UMU: GE-Proton10-1"
     assert gfx_dxvk.property("visible") is False
-    type_box.setProperty("currentIndex", 1)
+    type_box.setProperty("currentIndex", 2)
     QTest.qWait(80)
+    # Wine has its own field, and the Proton path must not leak into it.
     assert gfx_dxvk.property("visible") is True
+    assert wine_field.property("text") == ""
+    assert runtime_field.property("visible") is False
 
     # Wine path and prefix dir round-trip through Save.
     wine_field.setProperty("text", "/opt/wine/bin/wine")
+    gfx_dxvk.setProperty("checked", False)
+    assert gfx_dxvk_version.property("visible") is False
     gfx_dxvk.setProperty("checked", True)
-    gfx_vkd3d.setProperty("currentIndex", 1)
+    assert gfx_dxvk_version.property("visible") is True
+    # The D3D12 layers are mutually exclusive; the version picker follows
+    # vkd3d-proton only.
+    gfx_vkd3d_proton.setProperty("checked", True)
+    assert gfx_vkd3d_proton.property("checked") is True
+    assert gfx_vkd3d_wine.property("checked") is False
+    assert gfx_vkd3d_version.property("visible") is True
+    gfx_vkd3d_wine.setProperty("checked", True)
+    assert gfx_vkd3d_wine.property("checked") is True
+    assert gfx_vkd3d_proton.property("checked") is False
+    assert gfx_vkd3d_version.property("visible") is False
+    gfx_vkd3d_proton.setProperty("checked", True)
+    assert gfx_vkd3d_wine.property("checked") is False
+    assert gfx_vkd3d_version.property("visible") is True
+    gfx_dxvk_version.setProperty("currentIndex", 1)
     local_verbs.setProperty("text", "dotnet48 vcrun2022")
     # The name resolves to a subfolder of the base; the picker lists the
     # complete prefixes under it.
@@ -5527,14 +5575,16 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert cfg.runtime.prefix == str(prefix.parent)
     assert cfg.runtime.prefix_name == "Friendly Doom"
     assert cfg.graphics.dxvk is True
+    assert cfg.graphics.dxvk_version == "v10.0"
     assert cfg.graphics.vkd3d == "proton"
+    assert cfg.graphics.vkd3d_version == "v2.13"
     assert cfg.runtime.winetricks_verbs == ["dotnet48", "vcrun2022"]
 
     # umu records the chosen Proton install path.
     page.openGameSettings("local-doom")
     QTest.qWait(150)
     _settings_tab(swin, TAB_COMPAT)
-    type_box.setProperty("currentIndex", 2)
+    type_box.setProperty("currentIndex", 1)
     QTest.qWait(80)
     proton_box.setProperty("currentIndex", 0)
     dlg.save()
@@ -5549,12 +5599,15 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     page.openGameSettings("local-doom")
     QTest.qWait(150)
     _settings_tab(swin, TAB_COMPAT)
-    assert type_box.property("currentIndex") == 2
+    assert type_box.property("currentIndex") == 1
     assert proton_box.property("currentIndex") == 0
     assert gfx_dxvk.property("visible") is False
-    # Back to Wine for the layer removal (umu hides the section).
-    type_box.setProperty("currentIndex", 1)
+    # Back to Wine for the layer removal (umu hides the section). The
+    # saved Proton tool stays behind: Wine starts from the system binary.
+    type_box.setProperty("currentIndex", 2)
     QTest.qWait(80)
+    assert wine_field.property("text") == ""
+    assert runtime_field.property("visible") is False
     assert "DXVK v9.9" in status.property("text")
     view = swin.findChild(QQuickItem, "settingsWineScroll")
     flick = view.property("contentItem")
@@ -5579,6 +5632,13 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     assert not G.marker_path(prefix).is_file()
     assert remove.property("enabled") is False
     assert "Nothing Installed" in status.property("text")
+
+    # Saving after the switch writes an empty Wine binary, not the Proton path.
+    dlg.save()
+    QTest.qWait(50)
+    cfg = C.load("local-doom")
+    assert cfg.runtime.type == "wine"
+    assert cfg.runtime.tool == ""
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []

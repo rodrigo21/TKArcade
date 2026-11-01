@@ -3,7 +3,7 @@
 from tkarcade import runtimes as R
 
 
-def _install(base, name, marker="version"):
+def _install(base, name, marker="proton"):
     path = base / name
     path.mkdir(parents=True)
     (path / marker).write_text("x\n")
@@ -26,6 +26,13 @@ def test_proton_installs_from_steam_root(xdg_env):
     (tools / "not-a-tool").mkdir()  # no marker, no proton in the name
     installs = R.proton_installs()
     assert [i.name for i in installs] == ["DW-Proton Latest", "GE-Proton9-1"]
+
+
+def test_proton_installs_require_the_launcher(xdg_env):
+    tools = xdg_env["home"] / ".local/share/Steam/compatibilitytools.d"
+    _install(tools, "GE-Proton9-1")
+    _install(tools, "Proton EasyAntiCheat Runtime", marker="version")
+    assert [i.name for i in R.proton_installs()] == ["GE-Proton9-1"]
 
 
 def test_proton_installs_extra_dirs(xdg_env, tmp_path):
@@ -60,15 +67,23 @@ def test_wine_binary_override_and_path(fake_bin, monkeypatch, tmp_path):
 
 
 def test_graphics_versions_newest_first(xdg_env):
-    base = xdg_env["data"] / "lutris/runtime/dxvk"
+    base = xdg_env["data"] / "dxvk"
     _graphics(base, "v2.6.2", "d3d11.dll")
     _graphics(base, "v2.14", "d3d11.dll")
     (base / "empty").mkdir()
-    versions = R.graphics_versions("dxvk")
+    versions = R.graphics_versions("dxvk", str(base))
     assert [v.name for v in versions] == ["v2.14", "v2.6.2"]
     assert versions[0].complete()
-    assert R.pick_graphics("dxvk") is not None
+    assert R.pick_graphics("dxvk", str(base)).name == "v2.14"
+    assert R.pick_graphics("dxvk", str(base), "v2.6.2").name == "v2.6.2"
+    assert R.pick_graphics("dxvk", str(base), "v9.9") is None
     assert R.pick_graphics("vkd3d") is None
+
+
+def test_graphics_versions_ignore_unconfigured_lutris_dir(xdg_env):
+    base = xdg_env["data"] / "lutris/runtime/dxvk"
+    _graphics(base, "v2.6.2", "d3d11.dll")
+    assert R.graphics_versions("dxvk") == []
 
 
 def test_graphics_version_files_and_extra_dirs(xdg_env, tmp_path):

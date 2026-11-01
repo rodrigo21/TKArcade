@@ -51,7 +51,7 @@ Window {
     readonly property bool wineAvailable: defaultsMode || ((fields.is_steam || false) && editAppid !== "")
     // Local prefix applicability mirrors contextActions(): native has none.
     readonly property bool localWindowsRuntime: !wineAvailable
-        && runtimeTypeBox.currentIndex >= 1
+        && runtimeKind() !== "native" && runtimeKind() !== ""
 
     // Outcome of a closing action, for that standalone editor only:
     // "saved" | "launch" | "cancelled". The shell ignores it (no listener).
@@ -89,6 +89,8 @@ Window {
     property bool verbsLoading: false
     property var gfxInfo: ({})
     property string gfxStatus: ""
+    property string gfxDxvkChoice: ""
+    property string gfxVkd3dChoice: ""
     property string errorText: ""
     property string pendingPrompt: "" // "saveAs" | "clone" | ""
     property var dmodeModel: [{"text": "", "data": ""}]
@@ -229,7 +231,12 @@ Window {
     function runtimeValues() {
         return (defaultsMode || (fields.is_steam || false))
             ? ["proton", "native"]
-            : ["native", "wine", "umu"]
+            : ["native", "umu", "wine"]
+    }
+
+    // Visibility follows the kind, not the index, so the list order can move.
+    function runtimeKind() {
+        return runtimeValues()[runtimeTypeBox.currentIndex] || ""
     }
 
     // protontricks always targets Steam's own compatdata dir: a Steam game
@@ -264,12 +271,13 @@ Window {
         if (defaultsMode || editAppid === "") {
             return ""
         }
+        var kind = runtimeKind()
         if (!(fields.is_steam || false)) {
-            if (runtimeTypeBox.currentIndex === 1) {
+            if (kind === "wine") {
                 var wine = localWineField.text.trim()
                 return wine !== "" ? wine : qsTr("Wine from PATH")
             }
-            if (runtimeTypeBox.currentIndex === 2) {
+            if (kind === "umu") {
                 var i = protonBox.currentIndex
                 if (i >= 0 && i < protonChoices.length) {
                     return qsTr("UMU: %1").arg(protonChoices[i].name)
@@ -281,7 +289,7 @@ Window {
                 ? qsTr("Native (No Runtime)")
                 : qsTr("Native · %1").arg(gameModel.steamRuntimeState(sr).label)
         }
-        if (runtimeTypeBox.currentIndex === 1) {
+        if (kind === "native") {
             return qsTr("Native (No Proton)")
         }
         return gameModel.detectedRuntime(editAppid)
@@ -301,15 +309,18 @@ Window {
                 : qsTr("Empty = the Prefix Base in Preferences"))
         protonChoices = opts.protons || []
         protonBox.model = protonChoices.map(function(p) { return p.name })
+        var savedKind = fields.runtime_type || ""
         if (!gameSettings.wineAvailable) {
-            localWineField.text = fields.runtime_tool || ""
+            localWineField.text = savedKind === "wine" ? (fields.runtime_tool || "") : ""
         }
         rtPrefixField.text = fields.runtime_prefix || ""
         localPrefixNameField.text = fields.runtime_prefix_name || ""
         var srIndex = gameSettings.steamRuntimeCodes().indexOf(fields.runtime_steam_runtime || "")
         srBox.currentIndex = srIndex > 0 ? srIndex : 0
         refreshPrefixHint()
-        var chosen = fields.runtime_tool || ""
+        // runtime_tool is a Wine path or a Proton path depending on the kind.
+        var chosen = (!gameSettings.wineAvailable && savedKind === "umu")
+            ? (fields.runtime_tool || "") : ""
         var idx = -1
         for (var i = 0; i < protonChoices.length; i++) {
             if (protonChoices[i].path === chosen) {
@@ -464,18 +475,76 @@ Window {
         catsPicker.open(gameSettings)
     }
 
+    function gfxVersionRows(kind, selected) {
+        var versions = (gfxInfo.versions || {})[kind] || []
+        var rows = [{"text": qsTr("Newest Installed"), "version": ""}]
+        if (selected !== "" && versions.indexOf(selected) < 0) {
+            rows.push({
+                "text": qsTr("%1 (Not Installed)").arg(selected),
+                "version": selected
+            })
+        }
+        for (var i = 0; i < versions.length; i++) {
+            rows.push({"text": versions[i], "version": versions[i]})
+        }
+        return rows
+    }
+
+    function gfxVersionIndex(rows, selected) {
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].version === selected) {
+                return i
+            }
+        }
+        return 0
+    }
+
+    function gfxDxvkVersionValue() {
+        return gfxDxvkVersion.currentValue || ""
+    }
+
+    function gfxVkd3dVersionValue() {
+        return gfxVkd3dVersion.currentValue || ""
+    }
+
+    function gfxVersionAvailable(kind, selected) {
+        if (selected === "") {
+            return true
+        }
+        var versions = (gfxInfo.versions || {})[kind] || []
+        return versions.indexOf(selected) >= 0
+    }
+
     function refreshGfx(reset) {
         gfxInfo = gameModel.graphicsState(editAppid)
         if (reset === true) {
             gfxDxvk.checked = fields.graphics_dxvk === true
-            var index = ["", "proton", "wine"].indexOf(fields.graphics_vkd3d || "")
-            gfxVkd3d.currentIndex = index >= 0 ? index : 0
+            var layer = fields.graphics_vkd3d || ""
+            gfxVkd3dProton.checked = layer === "proton"
+            gfxVkd3dWine.checked = layer === "wine"
+            gfxDxvkChoice = fields.graphics_dxvk_version || ""
+            gfxVkd3dChoice = fields.graphics_vkd3d_version || ""
         }
+        // The combo emits currentIndexChanged while its model is assigned;
+        // keep the saved choices in locals so that reset cannot erase them.
+        var dxvkChoice = gfxDxvkChoice
+        var vkd3dChoice = gfxVkd3dChoice
+        var dxvkRows = gfxVersionRows("dxvk", dxvkChoice)
+        var vkd3dRows = gfxVersionRows("vkd3d", vkd3dChoice)
+        gfxDxvkVersion.model = dxvkRows
+        gfxDxvkVersion.currentIndex = gfxVersionIndex(dxvkRows, dxvkChoice)
+        gfxVkd3dVersion.model = vkd3dRows
+        gfxVkd3dVersion.currentIndex = gfxVersionIndex(vkd3dRows, vkd3dChoice)
+        gfxDxvkChoice = dxvkChoice
+        gfxVkd3dChoice = vkd3dChoice
         gfxStatus = gfxStatusText()
     }
 
     function gfxVkd3dValue() {
-        return ["", "proton", "wine"][gfxVkd3d.currentIndex] || ""
+        if (gfxVkd3dProton.checked) {
+            return "proton"
+        }
+        return gfxVkd3dWine.checked ? "wine" : ""
     }
 
     function gfxStatusText() {
@@ -491,11 +560,23 @@ Window {
         var text = parts.length > 0
             ? qsTr("In the Prefix: %1").arg(parts.join(", "))
             : qsTr("Nothing Installed in the Prefix Yet (Installed at Launch).")
-        if (gfxDxvk.checked && !available.dxvk) {
-            text += " " + qsTr("No DXVK Version Found in the Configured Directories.")
+        var dxvkChoice = gfxDxvkVersionValue()
+        if (gfxDxvk.checked) {
+            if (!available.dxvk) {
+                text += " " + qsTr("No DXVK Version Found in the Configured Directories.")
+            } else if (!gfxVersionAvailable("dxvk", dxvkChoice)) {
+                text += " " + qsTr("Selected %1 Version %2 Is Not Installed.")
+                    .arg("DXVK").arg(dxvkChoice)
+            }
         }
-        if (gfxVkd3dValue() === "proton" && !available.vkd3d) {
-            text += " " + qsTr("No vkd3d-proton Version Found in the Configured Directories.")
+        var vkd3dChoice = gfxVkd3dVersionValue()
+        if (gfxVkd3dValue() === "proton") {
+            if (!available.vkd3d) {
+                text += " " + qsTr("No vkd3d-proton Version Found in the Configured Directories.")
+            } else if (!gfxVersionAvailable("vkd3d", vkd3dChoice)) {
+                text += " " + qsTr("Selected %1 Version %2 Is Not Installed.")
+                    .arg("vkd3d-proton").arg(vkd3dChoice)
+            }
         }
         return text
     }
@@ -685,12 +766,15 @@ Window {
             "runtime_prefix_name": localPrefixNameField.text,
             "runtime_tool": gameSettings.wineAvailable
                 ? wineToolData()
-                : (runtimeTypeBox.currentIndex === 2 ? protonChoicePath() : localWineField.text),
+                : (gameSettings.runtimeKind() === "umu" ? protonChoicePath() : localWineField.text),
             "runtime_steam_runtime": gameSettings.wineAvailable
                 ? ""
-                : (runtimeTypeBox.currentIndex === 0 ? gameSettings.steamRuntimeValue() : ""),
+                : (gameSettings.runtimeKind() === "native"
+                    ? gameSettings.steamRuntimeValue() : ""),
             "graphics_dxvk": gfxDxvk.checked,
+            "graphics_dxvk_version": gameSettings.gfxDxvkVersionValue(),
             "graphics_vkd3d": gfxVkd3dValue(),
+            "graphics_vkd3d_version": gameSettings.gfxVkd3dVersionValue(),
             "active_profile": dialogProfile
         }
     }
@@ -2228,12 +2312,23 @@ Window {
                                         ? [qsTr("Proton"), qsTr("Native (Steam Runtime)")]
                                         : [
                                             qsTr("Native"),
-                                            qsTr("Wine"),
-                                            qsTr("UMU")
+                                            qsTr("UMU"),
+                                            qsTr("Wine")
                                         ]
                                     displayText: currentIndex >= 0 ? currentText : qsTr("Choose...")
                                     KirigamiLayouts.FormData.label: qsTr("Runtime:")
-                                    onActivated: {
+                                    // currentIndex, not activated: a profile
+                                    // or a restored value changes the kind
+                                    // without a click.
+                                    onCurrentIndexChanged: {
+                                        // Switching to umu picks the newest
+                                        // Proton, so Save cannot record an
+                                        // empty PROTONPATH.
+                                        if (gameSettings.runtimeKind() === "umu"
+                                                && protonBox.currentIndex < 0
+                                                && protonChoices.length > 0) {
+                                            protonBox.currentIndex = 0
+                                        }
                                         runtimeField.text = gameSettings.runtimeText()
                                         gfxStatus = gameSettings.gfxStatusText()
                                     }
@@ -2243,13 +2338,15 @@ Window {
                                     objectName: "settingsRuntime"
                                     visible: !defaultsMode && editAppid !== ""
                                         && runtimeTypeBox.currentIndex >= 0
+                                        && gameSettings.runtimeKind() !== "wine"
                                     readOnly: true
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Detected Runtime:")
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: !gameSettings.wineAvailable && runtimeTypeBox.currentIndex === 1
+                                    visible: !gameSettings.wineAvailable
+                                        && gameSettings.runtimeKind() === "wine"
                                     KirigamiLayouts.FormData.label: qsTr("Wine Binary:")
                                     Controls.TextField {
                                         id: localWineField
@@ -2270,14 +2367,15 @@ Window {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: !gameSettings.wineAvailable && runtimeTypeBox.currentIndex === 2
+                                    visible: !gameSettings.wineAvailable
+                                        && gameSettings.runtimeKind() === "umu"
                                     KirigamiLayouts.FormData.label: qsTr("Proton:")
                                     Controls.ComboBox {
                                         id: protonBox
                                         objectName: "settingsLocalProton"
                                         Layout.fillWidth: true
                                         displayText: count > 0 ? currentText : qsTr("No Proton Install Found")
-                                        onActivated: runtimeField.text = gameSettings.runtimeText()
+                                        onCurrentIndexChanged: runtimeField.text = gameSettings.runtimeText()
                                     }
                                 }
                                 RowLayout {
@@ -2311,7 +2409,7 @@ Window {
                                     // Steam Linux Runtime; a Steam game gets
                                     // its runtime from Steam instead.
                                     visible: !defaultsMode && !(fields.is_steam || false)
-                                        && runtimeTypeBox.currentIndex === 0
+                                        && gameSettings.runtimeKind() === "native"
                                     KirigamiLayouts.FormData.label: qsTr("Steam Runtime:")
                                     Controls.ComboBox {
                                         id: srBox
@@ -2340,7 +2438,8 @@ Window {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     visible: !defaultsMode && !(fields.is_steam || false)
-                                        && runtimeTypeBox.currentIndex === 0 && steamRuntimeHint.text !== ""
+                                        && gameSettings.runtimeKind() === "native"
+                                        && steamRuntimeHint.text !== ""
                                     Controls.Label {
                                         objectName: "steamRuntimeHint"
                                         id: steamRuntimeHint
@@ -2360,7 +2459,9 @@ Window {
                                     Layout.fillWidth: true
                                     // Native needs no tool: the sentence
                                     // only makes sense for Wine/umu.
-                                    visible: !gameSettings.wineAvailable && runtimeTypeBox.currentIndex >= 1
+                                    visible: !gameSettings.wineAvailable
+                                        && (gameSettings.runtimeKind() === "umu"
+                                            || gameSettings.runtimeKind() === "wine")
                                     Controls.Label {
                                         objectName: "localRuntimeHint"
                                         Layout.fillWidth: true
@@ -2377,7 +2478,8 @@ Window {
                             Layout.fillWidth: true
                             // Steam always has a compatdata dir; local games
                             // only once a Wine/umu runtime is chosen.
-                            visible: gameSettings.wineAvailable || runtimeTypeBox.currentIndex >= 1
+                            visible: gameSettings.wineAvailable
+                                || gameSettings.runtimeKind() !== "native"
                             WidgetsFormLayout {
                                 id: prefixForm
                                 labelWidth: compatColumn.labelWidth
@@ -2389,7 +2491,8 @@ Window {
                                     // or, for a local game, the base and the
                                     // folder inside it. It reads as the
                                     // <base>/<folder> path the launch uses.
-                                    visible: gameSettings.wineAvailable || runtimeTypeBox.currentIndex >= 1
+                                    visible: gameSettings.wineAvailable
+                                        || gameSettings.runtimeKind() !== "native"
                                     KirigamiLayouts.FormData.label: gameSettings.wineAvailable
                                         ? qsTr("Custom Prefix Dir:")
                                         : qsTr("Wine Prefix:")
@@ -2512,7 +2615,8 @@ Window {
                                 // row that can shrink.
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: gameSettings.wineAvailable || runtimeTypeBox.currentIndex >= 1
+                                    visible: gameSettings.wineAvailable
+                                        || gameSettings.runtimeKind() !== "native"
                                     Controls.Label {
                                         objectName: "settingsLocalPrefixHint"
                                         // Kept in the layout even when empty
@@ -2637,7 +2741,8 @@ Window {
                             Layout.fillWidth: true
                             // Only a plain Wine prefix takes the layers: umu
                             // and Proton ship their own DXVK/vkd3d.
-                            visible: !gameSettings.wineAvailable && runtimeTypeBox.currentIndex === 1
+                            visible: !gameSettings.wineAvailable
+                                && gameSettings.runtimeKind() === "wine"
                             WidgetsFormLayout {
                                 id: graphicsForm
                                 labelWidth: compatColumn.labelWidth
@@ -2654,17 +2759,62 @@ Window {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("D3D12 Layer:")
+                                    visible: gfxDxvk.checked
+                                    KirigamiLayouts.FormData.label: qsTr("DXVK Version:")
                                     Controls.ComboBox {
-                                        id: gfxVkd3d
-                                        objectName: "settingsGraphicsVkd3d"
+                                        id: gfxDxvkVersion
+                                        objectName: "settingsDxvkVersion"
                                         Layout.fillWidth: true
-                                        model: [
-                                            qsTr("Off (Wine Builtin)"),
-                                            qsTr("vkd3d-proton"),
-                                            qsTr("vkd3d (Wine Builtin, Lower Compatibility)")
-                                        ]
-                                        onActivated: gfxStatus = gameSettings.gfxStatusText()
+                                        textRole: "text"
+                                        valueRole: "version"
+                                        onCurrentIndexChanged: {
+                                            gfxDxvkChoice = currentValue || ""
+                                            gfxStatus = gameSettings.gfxStatusText()
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("D3D12 Layer:")
+                                    Controls.CheckBox {
+                                        id: gfxVkd3dProton
+                                        objectName: "settingsGraphicsVkd3dProton"
+                                        text: qsTr("vkd3d-proton")
+                                        onCheckedChanged: {
+                                            if (checked) {
+                                                gfxVkd3dWine.checked = false
+                                            }
+                                            gfxStatus = gameSettings.gfxStatusText()
+                                        }
+                                    }
+                                    Controls.CheckBox {
+                                        id: gfxVkd3dWine
+                                        objectName: "settingsGraphicsVkd3dWine"
+                                        text: qsTr("vkd3d")
+                                        Controls.ToolTip.text: qsTr("Wine's Builtin vkd3d Has Lower D3D12 Compatibility Than vkd3d-proton.")
+                                        Controls.ToolTip.visible: hovered
+                                        onCheckedChanged: {
+                                            if (checked) {
+                                                gfxVkd3dProton.checked = false
+                                            }
+                                            gfxStatus = gameSettings.gfxStatusText()
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: gfxVkd3dProton.checked
+                                    KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Version:")
+                                    Controls.ComboBox {
+                                        id: gfxVkd3dVersion
+                                        objectName: "settingsVkd3dVersion"
+                                        Layout.fillWidth: true
+                                        textRole: "text"
+                                        valueRole: "version"
+                                        onCurrentIndexChanged: {
+                                            gfxVkd3dChoice = currentValue || ""
+                                            gfxStatus = gameSettings.gfxStatusText()
+                                        }
                                     }
                                 }
                                 RowLayout {

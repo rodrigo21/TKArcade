@@ -66,13 +66,10 @@ def _split_dirs(extra: str) -> list[Path]:
 
 
 def _looks_like_proton(path: Path) -> bool:
-    low = path.name.lower()
     try:
-        if (path / "proton").is_file() or (path / "version").is_file():
-            return True
+        return (path / "proton").is_file()
     except OSError:
         return False
-    return "proton" in low or low.startswith(("ge-", "dw-", "wine"))
 
 
 def proton_base_dirs() -> list[Path]:
@@ -178,29 +175,19 @@ def steam_runtime_installed(name: str) -> bool:
     return bool(path and path.is_dir())
 
 
-def graphics_dirs(kind: str, extra: str = "") -> list[Path]:
-    """Configured dirs plus the built-in Lutris runtime locations."""
-    rt = "dxvk" if kind == "dxvk" else "vkd3d"
-    defaults = [
-        xdg.data_home() / "lutris" / "runtime" / rt,
-        Path.home() / ".var/app/net.lutris.Lutris/data/lutris/runtime" / rt,
-    ]
-    return defaults + _split_dirs(extra)
-
-
 def _version_key(name: str) -> tuple:
     return (tuple(int(p) for p in re.findall(r"\d+", name)), name.casefold())
 
 
 def graphics_versions(kind: str, extra: str = "") -> list[GraphicsVersion]:
-    """Installed versions for one layer, newest first.
+    """Installed versions for one layer in the configured dirs, newest first.
 
     A directory counts as a version when it holds x64/<dll> (or x32/x86);
     a directory without the DLL is treated as a parent of version dirs.
     Deduplicated by real path.
     """
     found: dict[Path, GraphicsVersion] = {}
-    for root in graphics_dirs(kind, extra):
+    for root in _split_dirs(extra):
         try:
             if not root.is_dir():
                 continue
@@ -217,7 +204,10 @@ def graphics_versions(kind: str, extra: str = "") -> list[GraphicsVersion]:
     return sorted(found.values(), key=lambda v: _version_key(v.name), reverse=True)
 
 
-def pick_graphics(kind: str, extra: str = "") -> GraphicsVersion | None:
-    """Newest installed version of a layer, or None."""
+def pick_graphics(kind: str, extra: str = "", name: str = "") -> GraphicsVersion | None:
+    """Newest installed version, the one named `name`, or None."""
     versions = graphics_versions(kind, extra)
+    wanted = str(name or "").strip()
+    if wanted:
+        return next((v for v in versions if v.name == wanted), None)
     return versions[0] if versions else None

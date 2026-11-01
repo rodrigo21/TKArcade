@@ -104,19 +104,25 @@ their runtime) and for Wine/umu games. Runtimes live in
 launch that asks for it — the dialog says so and `--validate` prints a
 `(note)`, never an issue; only a missing `umu-run` refuses (exit 14).
 
-`[graphics] dxvk` and `[graphics] vkd3d` copy the newest matching builds
-found in the configured DXVK/vkd3d directories into the prefix at launch
-and select them through `WINEDLLOVERRIDES`. DXVK covers D3D9/10/11 and
-vkd3d-proton covers D3D12, so the two combine (`dxvk = true` plus
+`[graphics] dxvk` and `[graphics] vkd3d` copy a matching build found in
+the configured DXVK/vkd3d directories into the prefix at launch and
+select it through `WINEDLLOVERRIDES`. The version is per game:
+`dxvk_version` / `vkd3d_version`, with empty meaning the newest installed
+version. Only the directories set in Preferences are scanned; TKArcade
+does not read another launcher's default layout. DXVK covers D3D9/10/11
+and vkd3d-proton covers D3D12, so the two combine (`dxvk = true` plus
 `vkd3d = "proton"`); `vkd3d = "wine"` keeps Wine's builtin vkd3d, which
-has lower compatibility. A marker (`tkarcade-graphics.json`) records the
-copied files; **Remove from prefix** deletes only those. Only a plain
-Wine prefix takes the layers: `umu` and Steam's Proton ship their own
-DXVK/vkd3d, which own the DLL search path, so the section is hidden for
-them and `[graphics]` is ignored by design
-(`docs/decisions/graphics-layers.md`). To change those versions, pick a
-different Proton build — the per-game compat tool in Steam, or another
-runtime for a local umu game.
+has lower compatibility. A selected version that is no longer installed
+is reported by the dialog and `--validate`; the layer falls back to
+Wine's builtin instead of silently choosing another version. A marker
+(`tkarcade-graphics.json`) records the copied files; **Remove from
+prefix** deletes only those. Only a plain Wine prefix takes the layers:
+`umu` and Steam's Proton ship their own DXVK/vkd3d, which own the DLL
+search path, so the section is hidden for them and `[graphics]` is
+ignored by design (`docs/decisions/graphics-layers.md`). To change those
+versions, pick a different Proton build — the per-game compat tool in
+Steam, or another runtime for a local umu game. Runtime archives are not
+downloaded or unpacked; see `TODO.md` for the deferred cache option.
 
 ```toml
 # Local Windows game under Wine, with the graphics layers.
@@ -130,7 +136,9 @@ prefix_name = "DoomEternal"
 
 [graphics]
 dxvk = true
+dxvk_version = "v2.6.2"   # empty = newest installed
 vkd3d = "proton"
+vkd3d_version = "v2.13"   # empty = newest installed
 ```
 
 ```toml

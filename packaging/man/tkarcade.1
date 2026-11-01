@@ -23,8 +23,9 @@ runtime prompts on launch to configure it, with the type inferred from
 \fBNot now\fR launches with that inferred type and saves nothing, and
 the inference is also the fallback when the settings cannot start.
 Local Windows prefixes default to
-\fB$XDG_DATA_HOME/tkarcade/prefixes/<name>\fR and may install DXVK
-and/or vkd3d-proton into the prefix at launch.
+\fB$XDG_DATA_HOME/tkarcade/prefixes/<name>\fR and may install the
+selected DXVK and/or vkd3d-proton version (empty = newest found in the
+configured directories) into the prefix at launch.
 .PP
 Logs go to \fB$XDG_STATE_HOME/tkarcade/games/<gameid>.log\fR (full)
 plus a one-line entry per run in \fBlauncher.log\fR.

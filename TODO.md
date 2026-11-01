@@ -19,12 +19,14 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred design review
 
-- [ ] **External runtime versions.** Like Lutris, allow several DXVK,
-  vkd3d-proton and Proton versions from arbitrary locations, not only
-  what is installed system-wide. Audit what `[ui] dxvk_dirs`,
-  `vkd3d_dirs` and `proton_dirs` already cover, what is missing (e.g.
-  per-game overrides, archives in the cache dir, Steam Linux Runtime
-  picks) and how the GUI should present it.
+- [ ] **Runtime archives in a cache dir.** Downloads and archive
+  extraction were deferred when per-game DXVK/vkd3d versions landed
+  (`docs/decisions/external-runtimes.md`): the launcher is stdlib-only,
+  extraction needs a safe format story, and the cache needs a lifecycle.
+  Versions today come from the Preferences directories only.
+- [ ] **Steam Linux Runtime pick for local Wine/umu games.** A local
+  native game already picks one; a local Wine or umu game still runs
+  outside a container, so umu's own runtime selection is not exposed.
 
 ## Deferred release
 

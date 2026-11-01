@@ -45,6 +45,31 @@ def test_install_copies_and_records(xdg_env, tmp_path):
     assert G.installed(prefix) == {"dxvk": "v2.6.2"}
 
 
+def test_install_selected_version(xdg_env, tmp_path):
+    base = tmp_path / "dxvk"
+    _version(base, "v2.6.2", "d3d11.dll")
+    _version(base, "v2.14", "d3d11.dll")
+    prefix = tmp_path / "prefix"
+    prefs = _prefs(tmp_path, "dxvk", base)
+    ok, warnings = G.install(prefix, "dxvk", prefs, "v2.6.2")
+    assert ok and warnings == []
+    system32 = prefix / "drive_c/windows/system32"
+    assert (system32 / "d3d11.dll").read_bytes() == b"v2.6.2-x64"
+    assert G.installed(prefix) == {"dxvk": "v2.6.2"}
+
+
+def test_install_missing_selected_version_warns(xdg_env, tmp_path):
+    base = tmp_path / "dxvk"
+    _version(base, "v2.6.2", "d3d11.dll")
+    prefix = tmp_path / "prefix"
+    prefs = _prefs(tmp_path, "dxvk", base)
+    ok, warnings = G.install(prefix, "dxvk", prefs, "v9.9")
+    assert not ok
+    assert any("v9.9" in w for w in warnings)
+    assert not G.marker_path(prefix).is_file()
+    assert not (prefix / "drive_c/windows/system32/d3d11.dll").exists()
+
+
 def test_install_is_idempotent_and_keeps_old_files(xdg_env, tmp_path):
     base = tmp_path / "dxvk"
     _version(base, "v2.6.2", "d3d11.dll", ("x64/dxgi.dll",))
@@ -167,6 +192,23 @@ def test_launch_env_installs_both_layers(xdg_env, tmp_path):
     assert env["WINEDLLOVERRIDES"] == G.overrides(dxvk=True, vkd3d="proton")
 
 
+def test_launch_env_uses_selected_versions(xdg_env, tmp_path):
+    dxvk = tmp_path / "dxvk"
+    vkd3d = tmp_path / "vkd3d"
+    _version(dxvk, "v2.6.2", "d3d11.dll")
+    _version(dxvk, "v2.14", "d3d11.dll")
+    _version(vkd3d, "v2.13", "d3d12.dll")
+    _version(vkd3d, "v2.14", "d3d12.dll")
+    prefs = _prefs(tmp_path, "dxvk", dxvk)
+    prefs.vkd3d_dirs = str(vkd3d)
+    prefix = tmp_path / "prefix"
+    env, warnings = G.launch_env(prefix, True, "proton", prefs, "v2.6.2", "v2.13")
+    assert warnings == []
+    assert G.installed(prefix) == {"dxvk": "v2.6.2", "vkd3d": "v2.13"}
+    assert (prefix / "drive_c/windows/system32/d3d11.dll").read_bytes() == b"v2.6.2-x64"
+    assert env["WINEDLLOVERRIDES"] == G.overrides(dxvk=True, vkd3d="proton")
+
+
 def test_launch_env_without_versions_warns_and_falls_back(xdg_env, tmp_path):
     prefix = tmp_path / "prefix"
     prefs = _prefs(tmp_path, "vkd3d", tmp_path / "nowhere")
@@ -191,6 +233,7 @@ def test_launcher_installs_the_layer(xdg_env, fake_bin):
     fake_bin("wine")
     base = xdg_env["data"] / "dxvk"
     _version(base, "v2.6.2", "d3d11.dll")
+    _version(base, "v2.14", "d3d11.dll")
     prefs = C.load_preferences()
     prefs.dxvk_dirs = str(base)
     C.save_preferences(prefs)
@@ -199,9 +242,11 @@ def test_launcher_installs_the_layer(xdg_env, fake_bin):
     cfg.runtime.type = "wine"
     cfg.general.custom_executable = "/games/doom.exe"
     cfg.graphics.dxvk = True
+    cfg.graphics.dxvk_version = "v2.6.2"
     _cmd, env, warnings = build_final_command(cfg, [])
     prefix = xdg_env["data"] / "tkarcade/prefixes/local-doom"
-    assert (prefix / "drive_c/windows/system32/d3d11.dll").is_file()
+    dll = prefix / "drive_c/windows/system32/d3d11.dll"
+    assert dll.read_bytes() == b"v2.6.2-x64"
     assert env["WINEDLLOVERRIDES"].startswith("d3d9")
     assert warnings == []
 
@@ -237,6 +282,25 @@ def test_validate_flags_missing_graphics_version(xdg_env):
     C.save(cfg)
     issues = L.validate_game("local-doom")
     assert any("no installed version" in i for i in issues)
+
+
+def test_validate_flags_missing_selected_graphics_version(xdg_env):
+    from tkarcade import launcher as L
+
+    base = xdg_env["data"] / "dxvk"
+    _version(base, "v2.6.2", "d3d11.dll")
+    prefs = C.load_preferences()
+    prefs.dxvk_dirs = str(base)
+    C.save_preferences(prefs)
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.runtime.type = "wine"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.graphics.dxvk = True
+    cfg.graphics.dxvk_version = "v9.9"
+    C.save(cfg)
+    issues = L.validate_game("local-doom")
+    assert any("v9.9" in i and "not installed" in i for i in issues)
 
 
 def test_umu_ignores_the_graphics_layers(xdg_env, fake_bin, tmp_path):
