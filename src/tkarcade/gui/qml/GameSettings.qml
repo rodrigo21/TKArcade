@@ -3311,17 +3311,12 @@ Window {
                                     }
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        visible: editAppid !== ""
-                                        KirigamiLayouts.FormData.label: qsTr("Coverage:")
                                         Controls.Button {
                                             objectName: "luCoverage"
+                                            visible: editAppid !== ""
                                             text: qsTr("Check Coverage...")
                                             onClicked: gameModel.checkCoverage(editAppid, luName.text, fields.name || "")
                                         }
-                                    }
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        KirigamiLayouts.FormData.label: qsTr("Ludusavi:")
                                         Controls.Button {
                                             objectName: "luOpen"
                                             text: qsTr("Open Ludusavi...")

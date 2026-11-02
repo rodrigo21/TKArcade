@@ -5618,6 +5618,9 @@ def test_settings_ludusavi_open_button(qgui_app, xdg_env, monkeypatch):
     button = swin.findChild(QQuickItem, "luOpen")
     assert button is not None and button.isVisible()
     assert button.property("text") == "Open Ludusavi..."
+    coverage = swin.findChild(QQuickItem, "luCoverage")
+    assert coverage is not None and coverage.isVisible()
+    assert coverage.y() == button.y()  # side by side, no side labels
     monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
     _click(swin, "luOpen")
     qgui_app.processEvents()
