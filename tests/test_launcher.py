@@ -374,6 +374,35 @@ def test_validate_clean(xdg_env):
     assert L.cmd_validate(["31"]) == 0
 
 
+def test_validate_steam_note_only_for_steam_games(xdg_env, capsys):
+    from tkarcade import launcher as L
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-foo"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    L.cmd_validate(["local-foo"])
+    assert "no Steam installation found" not in capsys.readouterr().out
+    L.cmd_validate(["steam-77"])
+    assert "global: no Steam installation found" in capsys.readouterr().out
+
+
+def test_proton_log_only_on_proton_and_umu(xdg_env, monkeypatch, tmp_path):
+    from tkarcade import launcher as L
+
+    monkeypatch.setattr(L, "proton_log_dir", lambda appid: tmp_path)
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.debug.proton_log = True
+    for environment in ("proton", "umu"):
+        env, _ = L._build_env(cfg, environment)
+        assert env["PROTON_LOG"] == "1"
+        assert env["PROTON_LOG_DIR"] == str(tmp_path)
+    for environment in ("native", "wine"):
+        env, _ = L._build_env(cfg, environment)
+        assert "PROTON_LOG" not in env
+
+
 def test_validate_flags_uninstalled_steam_game(xdg_env):
     from tkarcade import launcher as L
 

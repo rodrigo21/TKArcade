@@ -1,4 +1,4 @@
-"""TKArcade - minimal Steam launch wrapper (GPLv3)."""
+"""TKArcade - Steam and local game launch wrapper (GPLv3)."""
 
 from __future__ import annotations
 

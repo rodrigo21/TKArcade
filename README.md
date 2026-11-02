@@ -1,6 +1,6 @@
 # TKArcade
 
-Minimal Steam launch wrapper (inspired by steamtinkerlaunch), in Python 3.12+.
+Steam and local game launch wrapper (inspired by steamtinkerlaunch), in Python 3.12+.
 
 GPLv3-or-later (SPDX `GPL-3.0-or-later`).
 

@@ -23,6 +23,15 @@ Breaking config changes are called out explicitly under `Changed`.
   an `Error:`/`Warning:` label; config keys stay verbatim.
 
 ### Changed
+- The app describes itself as a Steam and local game launch wrapper now
+  (README, man page, desktop entry and About).
+- `PROTON_LOG`/`PROTON_LOG_DIR` are set only for Proton and umu
+  launches; Wine and native games keep the stored setting without
+  passing variables they ignore. The start notification shows the
+  runtime label instead of claiming Proton when the runtime is unknown,
+  `--validate` prints the missing-Steam note only when the validated set
+  includes a Steam game, and Steam detection also matches the Flatpak
+  process before a compat-tool mapping is written.
 - The local Runtime list reads Native, UMU, Wine in both the Add Game
   dialog and Settings.
 - The Graphics section shows a layer's version picker only while that

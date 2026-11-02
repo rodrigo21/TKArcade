@@ -411,6 +411,16 @@ def test_launch_summary_shapes():
     assert body == "Native · soldier"
     title, body = ntf.launch_summary(appid="5", runtime_type="proton", wrappers=["A", "", "B"])
     assert body == "Proton · A · B"
+    title, body = ntf.launch_summary(appid="6", runtime_type="umu")
+    assert body == "UMU"
+    title, body = ntf.launch_summary(
+        appid="7", runtime_type="umu", proton_display="Proton via umu (GE-Proton10-1)"
+    )
+    assert body == "Proton via umu (GE-Proton10-1)"
+    title, body = ntf.launch_summary(appid="8")
+    assert body == "Unknown Runtime"
+    title, body = ntf.launch_summary(appid="9", runtime="Mystery")
+    assert body == "Mystery"
     assert all(not line.endswith((" ", "·")) for line in body.splitlines())
 
 
@@ -425,7 +435,7 @@ def test_launch_summary_proton_log_warning():
 
 def test_proton_log_env(xdg_env):
     cfg = C.GameConfig()
-    cfg.runtime.type = "native"
+    cfg.runtime.type = "proton"
     cfg.general.appid = "51"
     cfg.debug.proton_log = True
     _cmd, env, _ = build_final_command(cfg, ["/bin/true"])

@@ -1467,13 +1467,19 @@ class GameListModel(QAbstractTableModel):
         """Whether a Steam process is alive (mapping writes need it idle)."""
         import subprocess
 
-        try:
-            proc = subprocess.run(
-                ["pgrep", "-x", "steam"], capture_output=True, timeout=10, check=False
-            )
-        except Exception:
-            return True
-        return proc.returncode == 0
+        for argv in (
+            ["pgrep", "-x", "steam"],
+            ["pgrep", "-f", "[c]om.valvesoftware.Steam"],
+        ):
+            try:
+                proc = subprocess.run(argv, capture_output=True, timeout=10, check=False)
+            except Exception:
+                return True
+            if proc.returncode == 0:
+                return True
+            if proc.returncode != 1:  # pgrep error: cannot tell, assume alive
+                return True
+        return False
 
     @Slot(str, str, result=str)
     def applyWineVersion(self, appid: str, tool: str) -> str:
@@ -3398,7 +3404,7 @@ class GameListModel(QAbstractTableModel):
 
         lines = [
             f"TKArcade {__version__}",
-            "Minimal Steam Launch Wrapper. License: GPL-3.0-or-later.",
+            "Steam and Local Game Launch Wrapper. License: GPL-3.0-or-later.",
             "",
             f"Python {platform.python_version()} On {platform.system()}",
             f"PySide6 {pyside_version} (Qt {qt_version})",

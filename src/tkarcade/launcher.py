@@ -463,9 +463,9 @@ def _force_xwayland(env: dict) -> list[str]:
     return []
 
 
-def _debug_env(env: dict, cfg: cfgmod.GameConfig) -> None:
+def _debug_env(env: dict, cfg: cfgmod.GameConfig, environment: str) -> None:
     """PROTON_LOG / PROTON_LOG_DIR / WINEDEBUG toggles."""
-    if cfg.debug.proton_log:
+    if cfg.debug.proton_log and environment in ("proton", "umu"):
         env["PROTON_LOG"] = "1"
         env["PROTON_LOG_DIR"] = os.fspath(proton_log_dir(cfg.general.appid))
     winedebug = cfg.debug.winedebug.strip()
@@ -514,7 +514,7 @@ def _build_env(
     env.update(mh_env)
     if cfg.rtupscale.enable:
         warnings += _force_xwayland(env)
-    _debug_env(env, cfg)
+    _debug_env(env, cfg, environment)
     _steam_runtime_env(env, cfg, steam_runtime)
     if environment == "proton":
         prefix = cfg.runtime.prefix.strip()
@@ -900,7 +900,7 @@ def validate_notes(appid: str) -> list[str]:
 
 def cmd_validate(appids: list[str]) -> int:
     """Print a validation report. Returns 0 when clean, else 17."""
-    if not steammod.steam_roots():
+    if not steammod.steam_roots() and any(steammod.is_steam_id(a) for a in appids):
         print("global: no Steam installation found")
     problems = 0
     for appid in appids:
@@ -919,7 +919,7 @@ def cmd_validate(appids: list[str]) -> int:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="tkarcade",
-        description="Minimal Steam launch wrapper. Use in Steam as: tkarcade %command%",
+        description="Steam and local game launch wrapper. Use in Steam as: tkarcade %command%",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit codes:\n"
         "  0   ok: game ran (its own code), or menu/editor exited\n"

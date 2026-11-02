@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=TKArcade
-Comment=Minimal Steam launch wrapper settings
+Comment=Steam and local game launch wrapper settings
 Exec=tkarcade
 Icon=tkarcade
 Terminal=false

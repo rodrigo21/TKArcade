@@ -298,6 +298,34 @@ def test_about_text_names_program(qgui_app, xdg_env):
 
     body = GameListModel().aboutText()
     assert "TKArcade" in body and "GPL-3.0-or-later" in body
+    assert "Steam and Local Game Launch Wrapper" in body
+
+
+def test_steam_running_falls_back_to_the_flatpak_process(qgui_app, xdg_env, monkeypatch):
+    import subprocess
+
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    calls = []
+    returns = [1, 0]
+
+    def fake_run(argv, **kwargs):
+        calls.append(list(argv))
+        return subprocess.CompletedProcess(argv, returns[len(calls) - 1])
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert model.steamRunning() is True
+    assert calls == [
+        ["pgrep", "-x", "steam"],
+        ["pgrep", "-f", "[c]om.valvesoftware.Steam"],
+    ]
+    calls.clear()
+    returns[:] = [1, 1]
+    assert model.steamRunning() is False
+    calls.clear()
+    returns[:] = [2]
+    assert model.steamRunning() is True
 
 
 def test_history_summary_empty_without_log(qgui_app, xdg_env):

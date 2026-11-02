@@ -48,10 +48,10 @@ def launch_summary(
     *,
     appid: str,
     name: str = "",
-    runtime_type: str = "proton",
+    runtime_type: str = "",
     wrappers: list[str] | None = None,
     custom_executable: str = "",
-    proton_display: str = "Proton",
+    proton_display: str = "",
     runtime: str | None = None,
     proton_log: bool = False,
 ) -> tuple[str, str]:
@@ -65,8 +65,10 @@ def launch_summary(
         head = f"Native · {runtime}" if runtime else "Native"
     elif runtime_type == "wine":
         head = f"Wine · {runtime}" if runtime else "Wine"
+    elif runtime_type in ("proton", "umu"):
+        head = (proton_display or "").strip() or ("Proton" if runtime_type == "proton" else "UMU")
     else:
-        head = (proton_display or "").strip() or "Proton"
+        head = (runtime or "").strip() or "Unknown Runtime"
     parts = [head, *(wrappers or [])]
     lines = [" · ".join(p for p in parts if p.strip())]
     if (custom_executable or "").strip():
