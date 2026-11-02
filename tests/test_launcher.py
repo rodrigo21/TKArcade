@@ -1115,6 +1115,60 @@ def test_block_internet_wraps_the_game(monkeypatch):
     assert "Block Internet" in active_wrappers(cfg)
 
 
+def test_dry_run_skips_mutations(xdg_env, monkeypatch, tmp_path, capsys):
+    """--dry-run runs the read-only path only: no wipe, winetricks or menu."""
+    import shlex
+
+    from tkarcade import launcher, proton
+
+    game_cmd = [str(tmp_path / "proton"), "waitforexitandrun", "/game.exe"]
+    pfx = tmp_path / "compatdata" / "77"
+    (pfx / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
+    winetricks_calls = []
+    monkeypatch.setattr(
+        proton, "run_winetricks", lambda appid, verbs: winetricks_calls.append(appid) or []
+    )
+    menu_calls = []
+    monkeypatch.setattr(
+        launcher,
+        "_config_menu",
+        lambda appid, cfg, cmd: menu_calls.append(appid) or (None, appid, cfg),
+    )
+    _save(
+        "steam-77",
+        general={"show_menu": True},
+        runtime={"type": "proton", "fresh_prefix": True, "winetricks_verbs": ["dotnet48"]},
+    )
+    assert launcher.main(["--appid", "steam-77", "--dry-run", "--", *game_cmd]) == 0
+    assert (pfx / "pfx").exists()
+    assert C.load("steam-77").runtime.fresh_prefix is True
+    assert winetricks_calls == [] and menu_calls == []
+    rc, expected, _env, _warnings = launcher._final_command(
+        "steam-77", C.load("steam-77"), game_cmd, ""
+    )
+    assert rc == 0
+    assert shlex.join(expected) in capsys.readouterr().out
+
+
+def test_dry_run_keeps_the_legacy_prefix(xdg_env, tmp_path):
+    """--dry-run checks the legacy move without moving anything."""
+    from tkarcade import launcher
+
+    root = tmp_path / "old"
+    (root / "drive_c").mkdir(parents=True)
+    (root / "system.reg").write_text("", encoding="utf-8")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-ww"
+    cfg.runtime.type = "wine"
+    cfg.runtime.prefix = str(root)
+    assert launcher._prepare_launch("local-ww", cfg, [], dry_run=True) is None
+    assert sorted(p.name for p in root.iterdir()) == ["drive_c", "system.reg"]
+    # The same call without --dry-run folds the old prefix into its stem.
+    assert launcher._prepare_launch("local-ww", cfg, []) is None
+    assert [p.name for p in root.iterdir()] == [C.prefix_stem("local-ww", "", "")]
+
+
 def test_block_internet_unavailable_exits_14(xdg_env, monkeypatch):
     from tkarcade.backends import network
     from tkarcade.launcher import _final_command

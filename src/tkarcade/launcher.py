@@ -1425,6 +1425,10 @@ def _maybe_run_menus(
         return _explicit_editor(args, appid, cfg, game_cmd)
     if _needs_first_run(args, appid, cfg, game_cmd):
         return _first_run(appid, cfg, game_cmd)
+    # --dry-run prints the command only: no pre-launch menu, and the
+    # one-shot skip stays armed for the next real launch.
+    if args.dry_run:
+        return None, appid, cfg
     if cfg.general.show_menu and not consume_menu_skip(appid):
         return _config_menu(appid, cfg, game_cmd)
     return None, appid, cfg
@@ -1457,7 +1461,9 @@ def _disarm_fresh_prefix(appid: str, prefix: str) -> None:
         log.warning("could not disarm fresh_prefix: %s", e)
 
 
-def _legacy_prefix(appid: str, cfg: cfgmod.GameConfig, environment: str) -> tuple[bool, str]:
+def _legacy_prefix(
+    appid: str, cfg: cfgmod.GameConfig, environment: str, dry_run: bool = False
+) -> tuple[bool, str]:
     """Move a prefix that still lives at the base into its subfolder."""
     if environment not in ("wine", "umu"):
         return True, ""
@@ -1470,17 +1476,57 @@ def _legacy_prefix(appid: str, cfg: cfgmod.GameConfig, environment: str) -> tupl
         cfg.general.name,
     ).parent
     stem = cfgmod.prefix_stem(appid, cfg.runtime.prefix_name, cfg.general.name)
+    if dry_run:
+        # Only the check that would block the launch; nothing moves.
+        target = base / stem
+        try:
+            if not xdg.is_wine_prefix(base):
+                return True, ""
+            if target.is_dir() and any(target.iterdir()):
+                return False, f"{target} already has files; move the old prefix there by hand"
+        except OSError as e:
+            return False, f"could not inspect {target}: {e}"
+        return True, ""
     return cfgmod.move_legacy_prefix(base, stem)
 
 
-def _prepare_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> int | None:
+def _winetricks_step(
+    appid: str, cfg: cfgmod.GameConfig, environment: str, dry_run: bool
+) -> list[str]:
+    """Resolve and run the configured winetricks verbs; --dry-run only skips."""
+    if environment == "proton":
+        if cfg.runtime.prefix.strip() and cfg.runtime.winetricks_verbs:
+            # protontricks always targets Steam's default compatdata dir.
+            return ["winetricks skipped: custom prefix; run Winetricks from the game settings"]
+        if dry_run:
+            return []
+        return protonmod.run_winetricks(appid, cfg.runtime.winetricks_verbs)
+    if environment not in ("wine", "umu") or not cfg.runtime.winetricks_verbs or dry_run:
+        return []
+    prefs = cfgmod.load_preferences()
+    prefix = cfgmod.prefix_dir(
+        appid,
+        cfg.runtime.prefix,
+        prefs.prefix_base,
+        cfg.runtime.prefix_name,
+        cfg.general.name,
+    )
+    wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_binary)
+    proton = runtimes.find_proton(cfg.runtime.tool, prefs.proton_dirs)
+    return wtmod.run_local(appid, prefix, environment, wine, proton, cfg.runtime.winetricks_verbs)
+
+
+def _prepare_launch(
+    appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str], dry_run: bool = False
+) -> int | None:
     """Prefix layout migration, one-shot wipe and winetricks, pre-command.
 
     Returns an exit code when the launch must stop (the prefix could not
-    be folded into its subfolder), else None.
+    be folded into its subfolder), else None. With --dry-run only the
+    read-only checks run: the wipe, winetricks and the move are skipped.
     """
     environment = effective_runtime(appid, cfg, game_cmd)
-    ok, message = _legacy_prefix(appid, cfg, environment)
+    ok, message = _legacy_prefix(appid, cfg, environment, dry_run)
     if not ok:
         log.error("%s", message)
         print(f"tkarcade: {message}", file=sys.stderr)
@@ -1495,34 +1541,14 @@ def _prepare_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> 
     # afterwards so later launches (and winetricks state) stay consistent.
     if cfg.runtime.fresh_prefix:
         if environment == "proton":
-            _disarm_fresh_prefix(appid, cfg.runtime.prefix)
+            if not dry_run:
+                _disarm_fresh_prefix(appid, cfg.runtime.prefix)
         else:
             log.warning(
                 "fresh_prefix is Proton-only; ignored for runtime %s",
                 environment or "not set",
             )
-    if environment == "proton":
-        if cfg.runtime.prefix.strip() and cfg.runtime.winetricks_verbs:
-            # protontricks always targets Steam's default compatdata dir.
-            run = ["winetricks skipped: custom prefix; run Winetricks from the game settings"]
-        else:
-            run = protonmod.run_winetricks(appid, cfg.runtime.winetricks_verbs)
-    elif environment in ("wine", "umu") and cfg.runtime.winetricks_verbs:
-        prefs = cfgmod.load_preferences()
-        prefix = cfgmod.prefix_dir(
-            appid,
-            cfg.runtime.prefix,
-            prefs.prefix_base,
-            cfg.runtime.prefix_name,
-            cfg.general.name,
-        )
-        wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_binary)
-        proton = runtimes.find_proton(cfg.runtime.tool, prefs.proton_dirs)
-        run = wtmod.run_local(
-            appid, prefix, environment, wine, proton, cfg.runtime.winetricks_verbs
-        )
-    else:
-        run = []
+    run = _winetricks_step(appid, cfg, environment, dry_run)
     for w in run:
         log.warning("winetricks: %s", w)
     return None
@@ -1784,7 +1810,7 @@ def main(argv: list[str] | None = None) -> int:
         log.info("no game command to run; launch skipped")
         return 0
 
-    code = _prepare_launch(appid, cfg, game_cmd)
+    code = _prepare_launch(appid, cfg, game_cmd, args.dry_run)
     if code is not None:
         return code
     return _launch_pipeline(appid, cfg, game_cmd, args)

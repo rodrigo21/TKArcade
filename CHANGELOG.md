@@ -189,6 +189,10 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- `--dry-run` no longer changes anything before printing the command: it
+  skips the fresh-prefix wipe, the pending winetricks run, the legacy
+  prefix move (still validated) and the pre-launch menu, and leaves the
+  one-shot menu skip and fresh-prefix toggle armed for the real launch.
 - The Add Game dialog no longer squeezes the Steam game list: the games
   are radio rows in a list that scrolls past 20 gridUnits, the window
   hugs its content (the old body was 8px short of its margins) and the
