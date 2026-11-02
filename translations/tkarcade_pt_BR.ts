@@ -22,52 +22,52 @@
         <translation>Adicionar Jogo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="59"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="82"/>
         <source>Every Steam Game Is Already Configured.</source>
         <translation>Todo Jogo Steam Já Está Configurado.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="92"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="116"/>
         <source>What Kind of Game Is This?</source>
         <translation>Que Tipo de Jogo É Este?</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="98"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="122"/>
         <source>Steam Game</source>
         <translation>Jogo Steam</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="98"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="122"/>
         <source>Local Game</source>
         <translation>Jogo Local</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="101"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="125"/>
         <source>Runtime</source>
         <translation>Runtime</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="112"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="136"/>
         <source>UMU</source>
         <translation>UMU</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="111"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="135"/>
         <source>Native</source>
         <translation>Nativo</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="113"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="137"/>
         <source>Wine</source>
         <translation>Wine</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="130"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="181"/>
         <source>OK</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="137"/>
+        <location filename="../src/tkarcade/gui/qml/AddDialog.qml" line="188"/>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>
@@ -147,9 +147,14 @@
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/CategoryPicker.qml" line="82"/>
+        <location filename="../src/tkarcade/gui/qml/CategoryPicker.qml" line="121"/>
         <source>New Categories (Comma Separated)</source>
         <translation>Categorias Novas (Separadas por Vírgula)</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/CategoryPicker.qml" line="128"/>
+        <source>Add</source>
+        <translation>Adicionar</translation>
     </message>
 </context>
 <context>

@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- The category picker has an Add button next to the free-form field:
+  typed names land in the list immediately (comma-separated; an existing
+  category is checked instead of duplicated) and the dialog stays open.
 - The Saves (Ludusavi) section has an Open Ludusavi... button now,
   matching the hamburger action; a missing or Flatpak binary is reported
   in the dialog footer.

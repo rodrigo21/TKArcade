@@ -17,7 +17,16 @@ DialogWindow {
     property var catRows: []
     property alias newCategories: newField.text
     property string hint: ""
+    // Set by addTyped(); the list scrolls once the layout pass has given
+    // the column its final height.
+    property bool revealPending: false
     signal picked(var names)
+
+    onVisibleChanged: {
+        if (!visible) {
+            revealPending = false
+        }
+    }
 
     onAccepted: {
         var names = []
@@ -37,6 +46,36 @@ DialogWindow {
         picker.close()
     }
 
+    function addTyped() {
+        var typed = String(newField.text || "").split(",")
+        // Fresh array: the Repeater only updates when the model is
+        // reassigned (docs/QML-NOTES.md).
+        var rows = picker.catRows.slice()
+        for (var i = 0; i < typed.length; i++) {
+            var name = typed[i].trim()
+            if (name === "") {
+                continue
+            }
+            var found = -1
+            for (var j = 0; j < rows.length; j++) {
+                if (String(rows[j].name).toLowerCase() === name.toLowerCase()) {
+                    found = j
+                    break
+                }
+            }
+            // A match keeps the casing the category already uses.
+            if (found >= 0) {
+                rows[found] = {"name": rows[found].name, "state": 2}
+            } else {
+                rows.push({"name": name, "state": 2})
+            }
+        }
+        picker.catRows = rows
+        newField.text = ""
+        newField.forceActiveFocus()
+        picker.revealPending = true
+    }
+
     Controls.Label {
         Layout.fillWidth: true
         visible: picker.hint !== ""
@@ -44,6 +83,7 @@ DialogWindow {
         text: picker.hint
     }
     Controls.ScrollView {
+        id: catScroll
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.minimumHeight: 0
@@ -77,11 +117,31 @@ DialogWindow {
             }
         }
     }
-    Controls.TextField {
-        id: newField
-        placeholderText: qsTr("New Categories (Comma Separated)")
+    Connections {
+        target: catScroll.contentItem
+        function onContentHeightChanged() {
+            if (!picker.revealPending) {
+                return
+            }
+            picker.revealPending = false
+            var flick = catScroll.contentItem
+            flick.contentY = Math.max(0, flick.contentHeight - flick.height)
+        }
+    }
+    RowLayout {
         Layout.fillWidth: true
-        Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-        onAccepted: picker.accepted()
+        Controls.TextField {
+            id: newField
+            placeholderText: qsTr("New Categories (Comma Separated)")
+            Layout.fillWidth: true
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+            onAccepted: picker.accepted()
+        }
+        Controls.Button {
+            objectName: "categoryAdd"
+            text: qsTr("Add")
+            enabled: newField.text.trim() !== ""
+            onClicked: picker.addTyped()
+        }
     }
 }

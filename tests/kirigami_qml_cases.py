@@ -6721,6 +6721,56 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_category_picker_add_button(qgui_app, xdg_env):
+    """Add checks the typed categories at once, without a duplicate."""
+    from PySide6.QtCore import QMetaObject, QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid, cats in (("local-doom", []), ("local-quake", ["Action"])):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.general.categories = cats
+        C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    assert QMetaObject.invokeMethod(dlg, "openCatsPicker") is True
+    QTest.qWait(150)
+    picker = win.findChild(QObject, "settingsCatsPicker")
+    assert picker.property("visible") is True
+    assert picker.property("catRows").toVariant() == [{"name": "Action", "state": 0}]
+    picker.setProperty("newCategories", "Retro, action")
+    QTest.qWait(50)
+    button = picker.findChild(QQuickItem, "categoryAdd")
+    assert button is not None and button.property("enabled") is True
+    _click_item(button)
+    qgui_app.processEvents()
+    # The dialog stays open; the field clears and both names are checked,
+    # with "action" folded into the existing "Action".
+    assert picker.property("visible") is True
+    assert picker.property("newCategories") == ""
+    assert picker.property("catRows").toVariant() == [
+        {"name": "Action", "state": 2},
+        {"name": "Retro", "state": 2},
+    ]
+    _click(picker, "dialogOk")
+    qgui_app.processEvents()
+    assert picker.property("visible") is False
+    assert swin.findChild(QQuickItem, "settingsCats").property("text") == "Action, Retro"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_library_columns_headers(qgui_app, xdg_env):
     """New library columns: titles, visibility flags, header menu."""
     from PySide6.QtCore import QObject
