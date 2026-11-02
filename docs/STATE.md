@@ -11,47 +11,32 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver`, `optdepends` indentation and a lenient `check()`, plus an
   untracked `.SRCINFO`, never committed); `.qoder/` is git-ignored.
-- Landed: ten batches; the latest drops Steam-only assumptions
-  (`PROTON_LOG` only for proton/umu, notification never claims Proton for
-  an unknown runtime, `--validate` note only for Steam games, Flatpak
-  Steam detection, "Steam and local game launch wrapper" wording).
-  Before it: winetricks skip for a custom Steam prefix; sanitized
-  launcher state paths; config identity guards; validation badge:
-  `launcher.validate_issues()`
-  tags each check as error (launch blocked or config unapplied) or
-  warning (launch degraded), while `validate_game()`/`--validate` keep
-  the flat strings; the table's name cell shows the worst level as a
-  red error or orange warning icon whose tooltip lists the issues, one
-  per line with an `Error:`/`Warning:` label and the keys verbatim (the
-  Title Case rule is in `docs/DEVELOPMENT.md`). `TODO.md` keeps the
-  badge for the card/icon views. Before it: missing
-  installs (`missing_install()` catches a Steam game without an
-  appmanifest/install folder — only when a Steam root exists — or a
-  local executable that vanished; the issues filter, Validate Game and
-  `--validate` exit 17, and the hamburger's "Remove Uninstalled
-  Games..." confirms before deleting only those configs and reuses the
-  leftover cleanup), then external runtime versions
-  (`docs/decisions/external-runtimes.md`): DXVK/vkd3d come only from the
-  Preferences directories (the Lutris and Flatpak-Lutris defaults are
-  gone), each local Wine game picks `[graphics] dxvk_version` /
-  `vkd3d_version` (empty = newest, a missing selection warns instead of
-  falling back), and Proton installs require the `proton` launcher. Its
-  settings follow-up reads Native, UMU, Wine, keys the Runtime rows on
-  the kind (no Proton path leaking into the Wine field, no Detected
-  Runtime row for Wine) and turns D3D12 into two mutually exclusive
-  checkboxes with the version picker shown only while its layer is on.
-  Earlier: the graphics-layers and settings-placement decisions and the
-  Compat Tool filter (details in `CHANGELOG.md`).
-- Verified: B4 targeted tests (244), `--changed` and fast suite (533);
-  B3 targeted tests (85), `--changed` (88), fast suite (530); B2
-  targeted tests (90), `--changed` (102), fast suite (529); B1 targeted
-  tests (185), fast suite (526). Before it, `scripts/check.sh --qml`
-  526 passed and offscreen screenshots covered the badge on
-  error/warning/healthy rows, its colors and tooltips, at default and
-  narrow widths, no QML warnings. Venv refreshed after each merge. No
-  real-display or real Steam library test.
-- Next: the remaining audit-remediation batches B5–B8 — GUI local
-  correctness, preset applicability, name/origin consolidation and
+- Landed: eleven batches; the latest fixes GUI local-game correctness:
+  the pre-launch menu names the real runtime (`Proton: <tool>`,
+  `UMU: <Proton>`, `Wine: <binary>`, `Native`/`Steam Runtime`,
+  `Runtime Not Set`), a Steam game's custom prefix resolves as the
+  compatdata dir itself (sharing in the settings hint, empty field =
+  Steam default), a local prefix under a `compatdata` folder is no
+  longer Steam-owned, and the game list skips ProtonDB for local games.
+  Before it: Steam-only assumptions dropped (`PROTON_LOG` only for
+  proton/umu, notification never claims Proton for an unknown runtime,
+  `--validate` note only for Steam games, Flatpak Steam detection,
+  "Steam and local game launch wrapper" wording), winetricks skip for a
+  custom Steam prefix, sanitized launcher state paths, config identity
+  guards and the validation badge (`launcher.validate_issues()`
+  error/warning levels, one labelled issue per tooltip line). Earlier
+  batches: `CHANGELOG.md`.
+- Verified: B5 targeted model tests and touched QML cases, full QML
+  driver green, `--changed` and fast suite (537); offscreen screenshots
+  covered the pre-launch runtime line (`Wine: wine`, no elision) and the
+  Steam prefix hint at default (756 px) and minimum (612 px) width, no
+  clipping and no QML warnings. Before it: B4 targeted tests (244),
+  `--changed` and fast suite (533); B3 (85), `--changed` (88), fast suite
+  (530); B2 (90), `--changed` (102), fast suite (529); B1 (185), fast
+  suite (526). Venv refreshed after each merge. No real-display or real
+  Steam library test.
+- Next: the remaining audit-remediation batches B6–B8 — preset
+  applicability for local runtimes, name/origin consolidation and
   docs — then the `TODO.md` "Deferred design review" items (runtime
   archives in a cache dir, the Steam Linux Runtime pick for local
   Wine/umu games and the issue badge in the card/icon views).
