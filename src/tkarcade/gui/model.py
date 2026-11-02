@@ -1930,7 +1930,10 @@ class GameListModel(QAbstractTableModel):
         except (OSError, ValueError) as e:
             return str(e)
         self.refresh()
-        return f"Cloned {src} to {cand}."
+        msg = f"Cloned {src} to {cand}."
+        if steammod.origin(src) != steammod.origin(cand):
+            msg += " Review the Runtime for the New Origin."
+        return msg
 
     @Slot(list, result=str)
     def resetGames(self, appids) -> str:
@@ -1943,6 +1946,10 @@ class GameListModel(QAbstractTableModel):
             try:
                 cfg = cfgmod.load_defaults()
                 cfg.general.appid = appid
+                if steammod.origin(appid) == "local":
+                    live = cfgmod.load(appid)
+                    cfg.general.name = live.general.name
+                    cfg.runtime.prefix_name = live.runtime.prefix_name
                 cfgmod.save(cfg)
                 count += 1
             except Exception as e:

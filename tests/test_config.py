@@ -55,6 +55,18 @@ def test_save_is_full_snapshot(xdg_env):
     assert 'type = ""' in text and "custom_prefix" in text
 
 
+def test_save_requires_game_id(xdg_env):
+    import pytest
+
+    cfg = C.GameConfig()
+    with pytest.raises(ValueError):
+        C.save(cfg)
+    cfg.general.appid = "   "
+    with pytest.raises(ValueError):
+        C.save(cfg)
+    assert not C.game_file("unknown").exists()
+
+
 def test_missing_file_falls_back_to_defaults(xdg_env):
     d = C.load_defaults()
     d.env.vars = {"D": "9"}

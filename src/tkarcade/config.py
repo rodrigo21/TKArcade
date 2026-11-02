@@ -1307,7 +1307,9 @@ def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
 
 def save(cfg: GameConfig) -> Path:
     """Save a game's complete config snapshot."""
-    path = game_file(cfg.general.appid or "unknown")
+    if not str(cfg.general.appid or "").strip():
+        raise ValueError("game config has no game ID")
+    path = game_file(cfg.general.appid)
     data = to_toml_dict(cfg)
     data.setdefault("general", {})["gameid"] = cfg.general.appid
     _write_atomic(path, _render_toml(data))

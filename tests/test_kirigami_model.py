@@ -1093,6 +1093,7 @@ def test_clone_reset_games(qgui_app, xdg_env):
         cfg = C.GameConfig()
         cfg.general.appid = appid
         cfg.general.name = appid
+        cfg.runtime.prefix_name = f"{appid}-prefix"
         C.save(cfg)
     prof = C.profiles_dir("local-doom")
     prof.mkdir(parents=True, exist_ok=True)
@@ -1106,15 +1107,21 @@ def test_clone_reset_games(qgui_app, xdg_env):
     assert model.cloneGameTo("local-doom", "local-new", False) == "Cloned local-doom to local-new."
     assert C.game_file("local-new").is_file()
     assert (C.profiles_dir("local-new") / "fast.toml").is_file()
-    assert model.cloneGameTo("local-doom", "570", False) == "Cloned local-doom to steam-570."
+    assert model.cloneGameTo("local-doom", "570", False) == (
+        "Cloned local-doom to steam-570. Review the Runtime for the New Origin."
+    )
     assert C.game_file("steam-570").is_file()
     assert model.cloneGameTo("local-doom", "Doom2", False) == "Cloned local-doom to local-doom2."
     assert C.game_file("local-doom2").is_file()
     assert model.cloneGameTo("local-doom", "local-quake", True).startswith("Cloned")
     assert model.resetGames([]) == "Select Games First."
     assert model.resetGames(["local-doom"]) == "Reset 1 Game(s) to the Global Defaults Template."
-    assert C.load("local-doom").general.name == ""
+    reset = C.load("local-doom")
+    assert reset.general.name == "local-doom"
+    assert reset.runtime.prefix_name == "local-doom-prefix"
     assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
+    assert model.resetGames(["steam-570"]) == "Reset 1 Game(s) to the Global Defaults Template."
+    assert C.load("steam-570").general.name == ""
 
 
 def test_settings_steam_create(qgui_app, xdg_env):

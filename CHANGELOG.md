@@ -167,6 +167,12 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Resetting a local game to the Global Defaults template keeps its name
+  and prefix folder name now — both are identity, and the prefix path
+  stems from them — while a Steam game still resets fully. Cloning a
+  game to the other origin warns that the runtime must be reviewed for
+  the new origin, and saving a config with no game ID is refused
+  instead of writing `games/unknown.toml`.
 - The issues-only filter, Validate Game and `--validate` report a Steam
   game no longer installed in Steam (appmanifest or install folder
   missing) instead of treating the stale config as healthy.
