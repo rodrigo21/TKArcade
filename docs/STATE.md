@@ -11,7 +11,11 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver`, `optdepends` indentation and a lenient `check()`, plus an
   untracked `.SRCINFO`, never committed); `.qoder/` is git-ignored.
-- Landed: six batches. Validation badge: `launcher.validate_issues()`
+- Landed: seven batches; the latest guards config identity
+  (`config.save()` refuses a blank game ID instead of writing
+  `unknown.toml`, a local reset keeps `name` and `prefix_name`, and a
+  cross-origin clone warns that the runtime must be reviewed). Before
+  it: validation badge: `launcher.validate_issues()`
   tags each check as error (launch blocked or config unapplied) or
   warning (launch degraded), while `validate_game()`/`--validate` keep
   the flat strings; the table's name cell shows the worst level as a
@@ -36,15 +40,18 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   checkboxes with the version picker shown only while its layer is on.
   Earlier: the graphics-layers and settings-placement decisions and the
   Compat Tool filter (details in `CHANGELOG.md`).
-- Verified: `scripts/check.sh --qml` 526 passed on the branch (one QML
-  batch abort re-ran in isolation, known Qt teardown); offscreen
-  screenshots covered the badge on error/warning/healthy rows, its
-  colors and tooltips, at default and narrow widths, no QML warnings;
-  venv refreshed after the merge. No real-display or real Steam library
-  test.
-- Next: the `TODO.md` "Deferred design review" items — runtime archives
-  in a cache dir (option C), the Steam Linux Runtime pick for local
-  Wine/umu games and the issue badge in the card/icon views.
+- Verified: B1 passed its targeted tests (185) and the fast suite (526)
+  on the branch; before it, `scripts/check.sh --qml` 526 passed and
+  offscreen screenshots covered the badge on error/warning/healthy rows,
+  its colors and tooltips, at default and narrow widths, no QML
+  warnings. Venv refreshed after the merge. No real-display or real
+  Steam library test.
+- Next: the remaining audit-remediation batches B2–B8 — state paths and
+  PID robustness, Winetricks custom prefix, Steam assumptions, GUI
+  local correctness, preset applicability, name/origin consolidation
+  and docs — then the `TODO.md` "Deferred design review" items (runtime
+  archives in a cache dir, the Steam Linux Runtime pick for local
+  Wine/umu games and the issue badge in the card/icon views).
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
