@@ -1277,6 +1277,7 @@ def test_migrate_ids_renames_steam_stores(xdg_env):
     assert not C.game_file("570").exists()
     assert C.profiles_dir("steam-570").joinpath("Default.toml").is_file()
     assert C.load_profile("steam-570", "Default").general.appid == "steam-570"
+    assert 'gameid = "steam-570"' in C.profile_file("steam-570", "Default").read_text()
     # Steam art is keyed by the numeric AppID: the rename leaves it in place.
     assert artwork.manual_dir("steam-570").joinpath("cover.png").is_file()
     assert artwork.grid_path("steam-570").is_file()

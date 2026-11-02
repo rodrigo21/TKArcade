@@ -1502,17 +1502,21 @@ def _move_storage(appid: str, new: str, cfg: GameConfig) -> None:
     if not appid.isdigit():
         # Steam's prefix is Steam's own compatdata dir, not `prefix_base`.
         _pin_prefix(appid, new, cfg)
-    for profile in profiles_dir(appid).glob("*.toml") if profiles_dir(appid).is_dir() else ():
-        try:
-            prof = load_profile(appid, profile.stem)
-            prof.general.appid = new
-            save_profile(appid, profile.stem, prof)
-        except Exception as e:
-            log.warning("migrate: profile %s not rewritten (%s)", profile, e)
     cfg.general.appid = new
     save(cfg)
     game_file(appid).unlink(missing_ok=True)
     _move_path(profiles_dir(appid), profiles_dir(new))
+    # save_profile stamps the directory's AppID, so rewrite the moved
+    # snapshots under the new one (load_profile heals the runtime only).
+    for profile in profiles_dir(new).glob("*.toml"):
+        try:
+            if str(_section(_read_toml(profile), "general").get("gameid", "")) == new:
+                continue
+            prof = load_profile(new, profile.stem)
+            prof.general.appid = new
+            save_profile(new, profile.stem, prof)
+        except Exception as e:
+            log.warning("migrate: profile %s not rewritten (%s)", profile, e)
     _move_path(artwork.manual_dir(appid), artwork.manual_dir(new))
     for kind in artwork.ART_KINDS:
         _move_path(artwork.grid_path(appid, kind), artwork.grid_path(new, kind))

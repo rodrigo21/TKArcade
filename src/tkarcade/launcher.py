@@ -239,9 +239,10 @@ def consume_menu_skip(appid: str) -> bool:
 
 
 def swap_proton_executable(game_cmd: list[str], custom: str) -> list[str]:
-    """Swap exe inside Proton prefix. Keeps 'proton run' wrapper.
+    """Swap exe inside Proton prefix. Keeps the Proton verb.
 
-    - if 'run' token found (proton run <exe>), replace next token
+    - if 'waitforexitandrun' (Steam's real verb) or 'run' is found,
+      replace the next token
     - elif '--' found, replace token after '--'
     - elif empty game_cmd, return [custom]
     - else return game_cmd unchanged + warning handled by caller
@@ -252,11 +253,12 @@ def swap_proton_executable(game_cmd: list[str], custom: str) -> list[str]:
     if not game_cmd:
         return [custom]
     out = list(game_cmd)
-    if "run" in out:
-        i = out.index("run")
-        if i + 1 < len(out):
-            out[i + 1] = custom
-            return out
+    for marker in ("waitforexitandrun", "run"):
+        if marker in out:
+            i = out.index(marker)
+            if i + 1 < len(out):
+                out[i + 1] = custom
+                return out
     if "--" in out:
         i = out.index("--")
         if i + 1 < len(out):
@@ -517,7 +519,7 @@ def _build_env(
     _debug_env(env, cfg, environment)
     _steam_runtime_env(env, cfg, steam_runtime)
     if environment == "proton":
-        prefix = cfg.runtime.prefix.strip()
+        prefix = os.path.expanduser(cfg.runtime.prefix.strip())
         if prefix and "STEAM_COMPAT_DATA_PATH" not in env:
             env["STEAM_COMPAT_DATA_PATH"] = prefix
     elif environment in ("wine", "umu") and runtime:

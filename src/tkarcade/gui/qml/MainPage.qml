@@ -1232,7 +1232,7 @@ Kirigami.Page {
                                     Controls.MenuItem {
                                         text: qsTr("Reload")
                                         onTriggered: {
-                                            gameModel.refresh()
+                                            gameModel.reload()
                                             gamesPage.ensureSelection()
                                         }
                                     }

@@ -189,6 +189,13 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Reload drops the cached Steam game list now, so games installed since
+  the last scan appear without restarting TKArcade. A Steam game's
+  `custom_executable` override replaces the game after Steam's
+  `waitforexitandrun` verb, and a `~` in a `[runtime] prefix` is
+  expanded before being exported as `STEAM_COMPAT_DATA_PATH`.
+- Migrated profile snapshots are rewritten with the new game ID. The
+  runtime healed it on load, but the file kept pointing at the old ID.
 - Terminate no longer SIGKILLs the launcher during its post-hook: the
   10 s escalation stops, and revalidates the launcher, once the game's
   record is gone or replaced. The Table view's running marker and the

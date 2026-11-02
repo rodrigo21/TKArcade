@@ -529,6 +529,12 @@ class GameListModel(QAbstractTableModel):
             self.runningChanged.emit()
         self.refreshed.emit()
 
+    @Slot()
+    def reload(self) -> None:
+        """Reload rows and drop the Steam games cache first (the Reload action)."""
+        steammod.clear_games_cache()
+        self.refresh()
+
     def _load_running(self) -> dict[str, dict]:
         """Live running records by AppID (never raises: a poll, not a load)."""
         try:

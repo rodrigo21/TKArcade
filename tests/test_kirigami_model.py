@@ -41,6 +41,25 @@ def test_model_lists_steam_and_local_sorted(qgui_app, xdg_env):
     ]
 
 
+def test_reload_drops_the_steam_games_cache(qgui_app, xdg_env, monkeypatch, tmp_path):
+    from tkarcade import steam
+
+    root = tmp_path / "steamapps"
+    root.mkdir()
+    (root / "appmanifest_10.acf").write_text('"AppState"\n{\n"appid" "10"\n}\n')
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    model = _model(qgui_app)
+    assert [a for a, _n in steam.list_games()] == ["steam-10"]
+    (root / "appmanifest_11.acf").write_text('"AppState"\n{\n"appid" "11"\n}\n')
+    model.refresh()
+    assert [a for a, _n in steam.list_games()] == ["steam-10"]  # cached
+    model.reload()
+    assert [a for a, _n in steam.list_games()] == ["steam-10", "steam-11"]
+    model._stop_timers()
+    model.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_model_add_local_validation(qgui_app, xdg_env, tmp_path):
     model = _model(qgui_app)
     assert model.addLocal("", "/bin/true") == ""

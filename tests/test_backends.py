@@ -33,6 +33,12 @@ def test_swap_proton_run_marker():
     ]
 
 
+def test_swap_proton_waitforexitandrun_marker():
+    assert swap_proton_executable(
+        ["/p/proton", "waitforexitandrun", "/g/old.exe", "-x"], "/g/new.exe"
+    ) == ["/p/proton", "waitforexitandrun", "/g/new.exe", "-x"]
+
+
 def test_swap_proton_dashdash_marker():
     assert swap_proton_executable(["a", "--", "old"], "new") == [
         "a",

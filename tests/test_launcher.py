@@ -1115,6 +1115,18 @@ def test_block_internet_wraps_the_game(monkeypatch):
     assert "Block Internet" in active_wrappers(cfg)
 
 
+def test_proton_prefix_expands_home(xdg_env):
+    """A ~ in [runtime] prefix reaches STEAM_COMPAT_DATA_PATH expanded."""
+    from tkarcade.launcher import build_final_command
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "77"
+    cfg.runtime.type = "proton"
+    cfg.runtime.prefix = "~/compatdata/77"
+    _cmd, env, _warnings = build_final_command(cfg, ["/bin/true"])
+    assert env["STEAM_COMPAT_DATA_PATH"] == str(xdg_env["home"] / "compatdata" / "77")
+
+
 def test_dry_run_skips_mutations(xdg_env, monkeypatch, tmp_path, capsys):
     """--dry-run runs the read-only path only: no wipe, winetricks or menu."""
     import shlex
