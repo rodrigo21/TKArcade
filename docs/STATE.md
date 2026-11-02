@@ -11,11 +11,13 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   packaging churn in `packaging/arch/tkarcade-git/` (`PKGBUILD`
   `pkgver`, `optdepends` indentation and a lenient `check()`, plus an
   untracked `.SRCINFO`, never committed); `.qoder/` is git-ignored.
-- Landed: nine batches; the latest skips launch-time winetricks verbs
-  for a Steam game with a custom `[runtime] prefix` (protontricks only
-  targets Steam's default compatdata). Before it: sanitized launcher
-  state paths and dead-record detection; before it: config identity
-  guards; before it: validation badge: `launcher.validate_issues()`
+- Landed: ten batches; the latest drops Steam-only assumptions
+  (`PROTON_LOG` only for proton/umu, notification never claims Proton for
+  an unknown runtime, `--validate` note only for Steam games, Flatpak
+  Steam detection, "Steam and local game launch wrapper" wording).
+  Before it: winetricks skip for a custom Steam prefix; sanitized
+  launcher state paths; config identity guards; validation badge:
+  `launcher.validate_issues()`
   tags each check as error (launch blocked or config unapplied) or
   warning (launch degraded), while `validate_game()`/`--validate` keep
   the flat strings; the table's name cell shows the worst level as a
@@ -40,18 +42,19 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   checkboxes with the version picker shown only while its layer is on.
   Earlier: the graphics-layers and settings-placement decisions and the
   Compat Tool filter (details in `CHANGELOG.md`).
-- Verified: B3 passed its targeted tests (85), `--changed` (88) and the
-  fast suite (530); B2 targeted tests (90), `--changed` (102), fast
-  suite (529); B1 targeted tests (185), fast suite (526). Before it,
-  `scripts/check.sh --qml` 526 passed and offscreen screenshots covered
-  the badge on error/warning/healthy rows, its colors and tooltips, at
-  default and narrow widths, no QML warnings. Venv refreshed after each
-  merge. No real-display or real Steam library test.
-- Next: the remaining audit-remediation batches B4–B8 — Steam
-  assumptions, GUI local correctness, preset applicability, name/origin
-  consolidation and docs — then the `TODO.md` "Deferred design review"
-  items (runtime archives in a cache dir, the Steam Linux Runtime pick
-  for local Wine/umu games and the issue badge in the card/icon views).
+- Verified: B4 targeted tests (244), `--changed` and fast suite (533);
+  B3 targeted tests (85), `--changed` (88), fast suite (530); B2
+  targeted tests (90), `--changed` (102), fast suite (529); B1 targeted
+  tests (185), fast suite (526). Before it, `scripts/check.sh --qml`
+  526 passed and offscreen screenshots covered the badge on
+  error/warning/healthy rows, its colors and tooltips, at default and
+  narrow widths, no QML warnings. Venv refreshed after each merge. No
+  real-display or real Steam library test.
+- Next: the remaining audit-remediation batches B5–B8 — GUI local
+  correctness, preset applicability, name/origin consolidation and
+  docs — then the `TODO.md` "Deferred design review" items (runtime
+  archives in a cache dir, the Steam Linux Runtime pick for local
+  Wine/umu games and the issue badge in the card/icon views).
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
