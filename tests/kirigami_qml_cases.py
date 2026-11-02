@@ -2400,7 +2400,12 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
     _settings_tab(swin, TAB_DISPLAY)
     assert shown("gsEnable", "mhEnable", "rtEnable") == ["gsEnable"]
     _settings_tab(swin, TAB_SYSTEM)
-    assert shown("luEnable", "luName", "luCoverage") == ["luEnable", "luName", "luCoverage"]
+    assert shown("luEnable", "luName", "luCoverage", "luOpen") == [
+        "luEnable",
+        "luName",
+        "luCoverage",
+        "luOpen",
+    ]
     _settings_tab(swin, TAB_ART)
     assert shown("artIcon", "settingsNotes") == ["artIcon", "settingsNotes"]
     assert shown("luEnable") == []
@@ -5441,6 +5446,59 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env, tmp_path):
     # Native picks no tool, so the "pick an installed tool" hint stays off.
     assert swin.findChild(QQuickItem, "localRuntimeHint").property("visible") is False
 
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_ludusavi_open_button(qgui_app, xdg_env, monkeypatch):
+    """The Saves section opens Ludusavi and reports a missing binary."""
+    import shutil
+
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_SYSTEM)
+    QTest.qWait(150)
+    # Saves is the last System section: reveal the button before clicking.
+    flick = swin.findChild(QQuickItem, "settingsSystemScroll").property("contentItem")
+    flick.setProperty("contentY", flick.property("contentHeight") - flick.property("height"))
+    QTest.qWait(80)
+    qgui_app.processEvents()
+    button = swin.findChild(QQuickItem, "luOpen")
+    assert button is not None and button.isVisible()
+    assert button.property("text") == "Open Ludusavi..."
+    monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
+    _click(swin, "luOpen")
+    qgui_app.processEvents()
+    err = swin.findChild(QQuickItem, "settingsError")
+    assert err.property("text") == "Ludusavi Was Not Found in PATH."
+    assert err.property("visible") is True
+    monkeypatch.undo()
+    # The button belongs to the shared Saves section: the Defaults editor
+    # offers it too, while Coverage stays a per-game action.
+    dlg.openDefaults()
+    QTest.qWait(150)
+    dswin = _modal_window(qgui_app, ("Global Defaults",))
+    dswin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_SYSTEM)
+    QTest.qWait(150)
+    assert dswin.findChild(QQuickItem, "luOpen").isVisible()
+    assert dswin.findChild(QQuickItem, "luCoverage").property("visible") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

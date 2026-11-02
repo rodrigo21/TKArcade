@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- The Saves (Ludusavi) section has an Open Ludusavi... button now,
+  matching the hamburger action; a missing or Flatpak binary is reported
+  in the dialog footer.
 - Per-game DXVK and vkd3d-proton versions: `[graphics] dxvk_version`
   and `vkd3d_version` pick an installed version for a local Wine game;
   empty keeps picking the newest one. The Graphics section exposes both

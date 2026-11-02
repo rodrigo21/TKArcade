@@ -422,6 +422,13 @@ Window {
         }
     }
 
+    function openLudusaviTool() {
+        var message = gameModel.openLudusavi()
+        if (message !== "") {
+            settingsError.text = message
+        }
+    }
+
     // Rows are the categories in use plus the names already typed in the
     // field, checked when the field carries them (case-insensitive, like
     // the library filter).
@@ -3310,6 +3317,15 @@ Window {
                                             objectName: "luCoverage"
                                             text: qsTr("Check Coverage...")
                                             onClicked: gameModel.checkCoverage(editAppid, luName.text, fields.name || "")
+                                        }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        KirigamiLayouts.FormData.label: qsTr("Ludusavi:")
+                                        Controls.Button {
+                                            objectName: "luOpen"
+                                            text: qsTr("Open Ludusavi...")
+                                            onClicked: gameSettings.openLudusaviTool()
                                         }
                                     }
                                 }

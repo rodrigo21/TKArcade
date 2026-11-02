@@ -284,13 +284,21 @@ def test_played_tip_role(qgui_app, xdg_env):
     assert tip == "No Recorded Sessions"
 
 
-def test_ludusavi_missing_reports(qgui_app, xdg_env, monkeypatch):
+def test_ludusavi_open_reports(qgui_app, xdg_env, monkeypatch):
     import shutil
+    import subprocess
 
     from tkarcade.gui.model import GameListModel
 
     monkeypatch.setattr(shutil, "which", lambda _name: None)
     assert GameListModel().openLudusavi() == "Ludusavi Was Not Found in PATH."
+    monkeypatch.setattr(shutil, "which", lambda _name: "/var/lib/flatpak/exports/bin/ludusavi")
+    assert GameListModel().openLudusavi().startswith("Flatpak Ludusavi Detected")
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/ludusavi")
+    calls = []
+    monkeypatch.setattr(subprocess, "Popen", lambda args: calls.append(args))
+    assert GameListModel().openLudusavi() == ""
+    assert calls == [["/usr/bin/ludusavi"]]
 
 
 def test_about_text_names_program(qgui_app, xdg_env):

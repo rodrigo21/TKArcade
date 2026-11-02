@@ -236,9 +236,9 @@ See `tkarcade --help` and `man tkarcade` (man ships in the Arch packages).
   prefix or env var is the usual suspect. `--dry-run` prints the final
   command without running it.
 * **Ludusavi does nothing** — the game must exist in Ludusavi (manifest
-  or custom entry); use `Open Ludusavi...` and the `Check Coverage`
-  button. The `wrap` exit code is always 0; the real game code is
-  recovered internally and logged.
+  or custom entry); use `Open Ludusavi...` in the Saves section (or the
+  hamburger menu) and the `Check Coverage` button. The `wrap` exit code
+  is always 0; the real game code is recovered internally and logged.
 * **Night Light stuck off** — a leaked inhibitor holder may survive a
   crash: `pkill -f nightlight_holder`.
 * **GUI looks unthemed under Steam** — the editor runs in a subprocess
