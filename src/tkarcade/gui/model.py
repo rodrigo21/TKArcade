@@ -586,7 +586,8 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             gcfg = None
         is_steam = steammod.is_steam_id(appid)
-        data, _fresh = pdbmod.cached(appid)
+        # ProtonDB only knows Steam AppIDs.
+        data, _fresh = pdbmod.cached(appid) if is_steam else (None, False)
         tier = str(((data or {}).get("tier", "")) or "").lower()
         bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
         icon = self._row_icon(appid, gcfg)
@@ -1222,16 +1223,38 @@ class GameListModel(QAbstractTableModel):
             return ""
 
     @Slot(str, result=str)
-    def protonLabel(self, appid: str) -> str:
-        """Proton tool/version label for the pre-launch menu (widgets parity)."""
+    def launchRuntimeLabel(self, appid: str) -> str:
+        """Runtime line for the pre-launch menu (widgets parity)."""
+        appid = str(appid or "")
         if not appid:
             return "—"
-        from .. import proton as protonmod
-
         try:
-            return protonmod.tool_display(appid)
+            cfg = cfgmod.load(appid)
         except Exception:
-            return "Proton"
+            return "Runtime Not Set"
+        is_steam = steammod.is_steam_id(appid)
+        kind = cfg.runtime.type
+        if kind == "proton" and is_steam:
+            from .. import proton as protonmod
+
+            try:
+                tool = protonmod.tool_display(appid)
+            except Exception:
+                tool = "Proton"
+            return f"Proton: {tool}" if tool != "Proton" else "Proton"
+        if kind == "umu" and not is_steam:
+            try:
+                install = self._wine_env(cfg)[2]
+            except Exception:
+                install = None
+            return f"UMU: {install.name}" if install is not None else "UMU"
+        if kind == "wine" and not is_steam:
+            try:
+                wine = self._wine_env(cfg)[1]
+            except Exception:
+                wine = ""
+            return f"Wine: {Path(wine).name}" if wine else "Wine"
+        return cfgmod.runtime_label(kind, is_steam, cfg.runtime.steam_runtime) or "Runtime Not Set"
 
     @Slot(result=list)
     def allCategories(self) -> list:
@@ -2758,23 +2781,37 @@ class GameListModel(QAbstractTableModel):
     def prefixNameState(self, appid: str, name: str, path: str = "", game_name: str = "") -> dict:
         """Resolved prefix for the name and dir fields, plus sharing info.
 
-        The dir is the base and the prefix is always ``<base>/<stem>``:
-        the stem is the explicit name, else the game name normalised,
-        else the AppID.
+        A Steam game's field is its compatdata dir itself (empty = Steam's
+        default). A local prefix is always ``<base>/<stem>``: the stem is
+        the explicit name, else the game name normalised, else the AppID.
         """
         prefs = cfgmod.load_preferences()
         typed = name.strip()
-        target = cfgmod.prefix_dir(appid, path.strip(), prefs.prefix_base, name, game_name)
-        others = [a for a in self._prefix_users(prefs).get(os.fspath(target), []) if a != appid]
+        is_steam = steammod.is_steam_id(appid)
+        if is_steam:
+            custom = path.strip()
+            target = Path(custom).expanduser() if custom else None
+        else:
+            target = cfgmod.prefix_dir(appid, path.strip(), prefs.prefix_base, name, game_name)
+        usage = self._prefix_users(prefs)
+        others = []
+        if target is not None:
+            others = [a for a in usage.get(os.fspath(target), []) if a != appid]
         names = {a: n for a, n in steammod.list_games()}
         names.update(steammod.local_names())
+        sanitized = ""
+        renamed = False
+        if target is not None and not is_steam:
+            sanitized = target.name
+            renamed = bool(typed) and target.name != typed
         return {
-            "target": os.fspath(target),
-            "sanitized": target.name,
-            "renamed": bool(typed) and target.name != typed,
+            "target": os.fspath(target) if target is not None else "",
+            "sanitized": sanitized,
+            "renamed": renamed,
             "shared": [names.get(a, a) for a in others],
-            "exists": target.is_dir(),
-            "is_prefix": xdg.is_wine_prefix(target),
+            "exists": target is not None and target.is_dir(),
+            "is_prefix": target is not None and xdg.is_wine_prefix(target),
+            "steam": is_steam,
         }
 
     @Slot(str, str, result="QVariantList")
@@ -3040,7 +3077,7 @@ class GameListModel(QAbstractTableModel):
             resolved = path.resolve()
         except Exception:
             return None
-        if "compatdata" in resolved.parts:
+        if steammod.origin(appid) == "steam" and "compatdata" in resolved.parts:
             return None
         return resolved if resolved.is_dir() else None
 

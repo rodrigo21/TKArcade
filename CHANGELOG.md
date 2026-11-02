@@ -176,6 +176,13 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The pre-launch menu names the runtime the launch will actually use —
+  the Proton tool, the UMU Proton, the Wine binary, the Steam Runtime
+  or `Native` — instead of always claiming Proton. A Steam game's
+  custom prefix resolves as the compatdata directory itself (its
+  sharing is reported in the settings hint), a local prefix living
+  under a `compatdata` folder is no longer treated as Steam-owned, and
+  the game list no longer reads ProtonDB data for local games.
 - A Steam game with a custom `[runtime] prefix` no longer runs its
   pending winetricks verbs against Steam's default compatdata directory:
   the launch logs a skip and points at Winetricks in the game settings,

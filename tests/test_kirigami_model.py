@@ -1304,6 +1304,125 @@ def test_prefix_name_state_and_choices(qgui_app, xdg_env, tmp_path):
     assert custom_choices[0]["path"] == str(other_prefix)
 
 
+def test_prefix_name_state_steam_uses_the_custom_dir(qgui_app, xdg_env, tmp_path):
+    """A Steam field is the compatdata dir itself, never <base>/<stem>."""
+    from tkarcade.gui.model import GameListModel
+
+    custom = tmp_path / "custom-compatdata"
+    (custom / "pfx").mkdir(parents=True)
+    for appid in ("steam-99", "steam-100"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.runtime.type = "proton"
+        cfg.runtime.prefix = str(custom)
+        C.save(cfg)
+
+    model = GameListModel()
+    state = model.prefixNameState("steam-99", "", str(custom), "")
+    assert state["steam"] is True
+    assert state["target"] == str(custom)
+    assert state["exists"] is True
+    assert state["renamed"] is False
+    assert state["shared"] == ["steam-100"]
+
+    # An empty field means Steam's default dir: no target to report.
+    default = model.prefixNameState("steam-99", "", "", "")
+    assert default["target"] == ""
+    assert default["exists"] is False
+    assert default["shared"] == []
+
+    local = model.prefixNameState("local-x", "", "", "")
+    assert local["steam"] is False
+    assert local["target"] != ""
+
+
+def test_resolved_prefix_keeps_local_compatdata_dirs(qgui_app, xdg_env, tmp_path):
+    """Only a Steam game's compatdata dir is Steam-owned."""
+    from tkarcade.gui.model import GameListModel
+
+    prefs = C.load_preferences()
+    prefs.prefix_base = str(tmp_path / "compatdata" / "custom")
+    C.save_preferences(prefs)
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.runtime.type = "wine"
+    C.save(local)
+    prefix = tmp_path / "compatdata" / "custom" / "local-doom"
+    prefix.mkdir(parents=True)
+
+    steam_dir = tmp_path / "steam" / "compatdata" / "77"
+    steam_dir.mkdir(parents=True)
+    steam = C.GameConfig()
+    steam.general.appid = "steam-77"
+    steam.runtime.prefix = str(steam_dir)
+    C.save(steam)
+
+    model = GameListModel()
+    assert model._resolved_prefix("local-doom") == prefix.resolve()
+    assert model._resolved_prefix("steam-77") is None
+
+
+def test_launch_runtime_label_names_the_runtime(qgui_app, xdg_env, tmp_path, monkeypatch):
+    """The pre-launch line follows the config instead of assuming Proton."""
+    from tkarcade import proton as P
+    from tkarcade.gui.model import GameListModel
+
+    proton = tmp_path / "GE-Proton9-20"
+    proton.mkdir()
+    wine = tmp_path / "wine"
+    wine.write_text("#!/bin/sh\n")
+    wine.chmod(0o755)
+    for appid, kind, tool in (
+        ("steam-620", "proton", ""),
+        ("local-umu", "umu", str(proton)),
+        ("local-wine", "wine", str(wine)),
+        ("local-native", "native", ""),
+        ("steam-730", "native", ""),
+        ("local-broken", "proton", ""),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.runtime.type = kind
+        cfg.runtime.tool = tool
+        C.save(cfg)
+
+    monkeypatch.setattr(P, "tool_display", lambda appid: "GE-Proton9-20 (build 1)")
+    model = GameListModel()
+    assert model.launchRuntimeLabel("") == "—"
+    assert model.launchRuntimeLabel("steam-620") == "Proton: GE-Proton9-20 (build 1)"
+    assert model.launchRuntimeLabel("local-umu") == "UMU: GE-Proton9-20"
+    assert model.launchRuntimeLabel("local-wine") == "Wine: wine"
+    assert model.launchRuntimeLabel("local-native") == "Native"
+    assert model.launchRuntimeLabel("steam-730") == "Steam Runtime"
+    # Proton is Steam's own: an invalid local pairing labels nothing.
+    assert model.launchRuntimeLabel("local-broken") == "Runtime Not Set"
+    assert model.launchRuntimeLabel("missing") == "Runtime Not Set"
+
+    native = C.load("local-native")
+    native.runtime.steam_runtime = "sniper"
+    C.save(native)
+    assert model.launchRuntimeLabel("local-native") == "Steam Runtime (sniper)"
+
+
+def test_row_skips_protondb_for_local_games(qgui_app, xdg_env, monkeypatch):
+    """ProtonDB tiers are Steam-only; the local row keeps the column blank."""
+    from tkarcade.gui import model as M
+
+    for appid in ("local-doom", "steam-620"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        C.save(cfg)
+    model = M.GameListModel()
+    calls = []
+    monkeypatch.setattr(M.pdbmod, "cached", lambda appid: calls.append(appid) or ({}, False))
+    local = model._row("local-doom", {}, {})
+    assert calls == []
+    assert local[4] == ""
+    steam = model._row("steam-620", {}, {})
+    assert calls == ["steam-620"]
+    assert steam[4] == ""
+
+
 def test_save_game_pins_the_prefix_folder(qgui_app, xdg_env, tmp_path):
     """The name-derived folder is stored, so a rename never moves it."""
     from tkarcade.gui.model import GameListModel

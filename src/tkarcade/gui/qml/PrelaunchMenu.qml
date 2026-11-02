@@ -33,10 +33,10 @@ Window {
     property bool canLaunch: true
     property int remaining: 0
     property bool outcomeReported: false
-    // Landcape artwork URL and "Proton: ..." line, filled in openMenu()
+    // Landscape artwork URL and the runtime line, filled in openMenu()
     // (widgets MenuDialog parity).
     property string artSource: ""
-    property string protonText: ""
+    property string runtimeText: ""
 
     // "Name (appid)" like the widgets dialog header.
     readonly property string heading: name !== "" && appid !== ""
@@ -54,7 +54,7 @@ Window {
         details = detailText()
         var art = appid !== "" ? gameModel.landscapeArt(appid) : ""
         artSource = art !== "" ? "file://" + art : ""
-        protonText = qsTr("Proton: %1").arg(gameModel.protonLabel(appid))
+        runtimeText = gameModel.launchRuntimeLabel(appid)
         remaining = canLaunch ? Math.max(0, Number(timeout) || 0) : 0
         gameModel.watchDialogKeys(prelaunch)
         visible = true
@@ -177,12 +177,12 @@ Window {
                     text: prelaunch.heading
                 }
                 Controls.Label {
-                    objectName: "prelaunchProton"
+                    objectName: "prelaunchRuntime"
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                     opacity: 0.7
                     font: Kirigami.Theme.smallFont
-                    text: prelaunch.protonText
+                    text: prelaunch.runtimeText
                 }
                 Controls.Label {
                     objectName: "prelaunchDetails"

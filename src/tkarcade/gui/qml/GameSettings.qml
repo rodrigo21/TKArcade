@@ -334,9 +334,10 @@ Window {
         steamRuntimeHint.text = steamRuntimeHintText()
     }
 
-    // The dir field is the base: the prefix itself is a subfolder of it
-    // named after the game (or the explicit name), so the hint reports
-    // the path the launch really uses.
+    // A local game's dir field is the base: the prefix itself is a
+    // subfolder named after the game (or the explicit name). A Steam
+    // game's field is the compatdata dir itself. Either way the hint
+    // reports the path the launch really uses.
     function refreshPrefixHint() {
         if (editAppid === "") {
             prefixHint = ""
@@ -346,12 +347,8 @@ Window {
         }
         var state = gameModel.prefixNameState(
             editAppid, localPrefixNameField.text, rtPrefixField.text, nameField.text)
-        prefixTarget = gameSettings.wineAvailable
-            ? rtPrefixField.text.trim() : state.target
-        // Steam's prefix is its compatdata dir, not <base>/<folder>:
-        // the field itself decides, as before.
-        prefixExists = gameSettings.wineAvailable ? rtPrefixField.text.trim() !== ""
-            : state.exists === true
+        prefixTarget = state.target
+        prefixExists = state.exists === true
         var parts = []
         if (state.renamed === true) {
             parts.push(qsTr("Saved as: %1").arg(state.sanitized))
@@ -359,9 +356,13 @@ Window {
         if ((state.shared || []).length > 0) {
             parts.push(qsTr("Shared with: %1").arg(state.shared.join(", ")))
         }
-        parts.push(state.exists === true
-            ? qsTr("Prefix: %1").arg(state.target)
-            : qsTr("Created at Launch: %1").arg(state.target))
+        // A Steam game with an empty field uses Steam's own compatdata
+        // dir: nothing to report, and no derived path.
+        if (state.target !== "") {
+            parts.push(state.exists === true
+                ? qsTr("Prefix: %1").arg(state.target)
+                : qsTr("Created at Launch: %1").arg(state.target))
+        }
         prefixHint = parts.join(" — ")
     }
 
@@ -2627,10 +2628,9 @@ Window {
                                         Layout.minimumWidth: 0
                                         wrapMode: Text.WordWrap
                                         opacity: 0.7
-                                        // Steam's prefix is the compatdata
-                                        // dir itself; the <base>/<folder>
-                                        // resolution is a local-game rule.
-                                        text: gameSettings.wineAvailable ? "" : gameSettings.prefixHint
+                                        // Empty for a Steam game that uses
+                                        // its default compatdata dir.
+                                        text: gameSettings.prefixHint
                                     }
                                     Controls.Button {
                                         objectName: "winePrefixClear"

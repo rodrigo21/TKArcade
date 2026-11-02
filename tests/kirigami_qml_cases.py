@@ -5312,13 +5312,13 @@ def test_kirigami_quit_action_neutered():
     assert 'quitAction.shortcut = ""' in src
 
 
-def test_settings_system_and_wine_flow(qgui_app, xdg_env):
+def test_settings_system_and_wine_flow(qgui_app, xdg_env, tmp_path):
     """Ludusavi/System fields persist; Wine edits Steam games only.
 
     One main window covers both games and all three tabs: the two cases
     this replaces each loaded their own.
     """
-    from PySide6.QtCore import QObject
+    from PySide6.QtCore import QMetaObject, QObject
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
 
@@ -5383,6 +5383,7 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
     # Steam's prefix is one compatdata dir: no base/folder split.
     assert swin.findChild(QQuickItem, "prefixBaseSuffix").property("visible") is False
     assert swin.findChild(QQuickItem, "prefixFolderSuffix").property("visible") is False
+    assert swin.findChild(QQuickItem, "settingsLocalPrefixName").property("visible") is False
     # One width and height for every action of the tab: before, only
     # "Protontricks…"/"Winetricks…" outgrew the style's 80 px floor.
     widths, heights = _visible_button_sizes(swin, RUNTIME_ACTION_BUTTONS)
@@ -5397,6 +5398,13 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env):
         return item.mapToItem(content, 0, 0).x() + item.width()
 
     assert right("winePrefixOpen") == right("ptVerbsGui")
+    # A set compatdata dir resolves as itself, not <dir>/<appid>.
+    prefix = swin.findChild(QQuickItem, "winePrefix")
+    prefix.setProperty("text", str(tmp_path / "custom-pfx"))
+    QMetaObject.invokeMethod(dlg, "refreshPrefixHint")
+    qgui_app.processEvents()
+    hint = swin.findChild(QQuickItem, "settingsLocalPrefixHint")
+    assert hint.property("text") == f"Created at Launch: {tmp_path / 'custom-pfx'}"
     swin.findChild(QQuickItem, "ptFresh").setProperty("checked", True)
     swin.findChild(QQuickItem, "ptVerbs").setProperty("text", "dotnet48")
     swin.findChild(QQuickItem, "ptDebug").setProperty("currentIndex", 2)
@@ -6131,6 +6139,8 @@ def test_clone_reset_menu_flows(qgui_app, xdg_env):
         cfg = C.GameConfig()
         cfg.general.appid = appid
         cfg.general.name = appid
+        if appid == "local-doom":
+            cfg.runtime.type = "wine"
         C.save(cfg)
     prof = C.profiles_dir("local-doom")
     prof.mkdir(parents=True, exist_ok=True)
@@ -6159,7 +6169,11 @@ def test_clone_reset_menu_flows(qgui_app, xdg_env):
     page.openResetDialog()
     reset = _confirm_window(qgui_app, "resetDialog")
     _click(reset, "confirmOk")
-    assert C.load("local-doom").general.name == ""
+    # A local game keeps its identity (the name drives the prefix dir);
+    # the settings go back to the defaults template.
+    reset_cfg = C.load("local-doom")
+    assert reset_cfg.general.name == "local-doom"
+    assert reset_cfg.runtime.type == ""
     assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -7197,6 +7211,42 @@ def test_prelaunch_menu_enter_launches(qgui_app, xdg_env):
     QTest.keyClick(menu, Qt.Key.Key_Return)
     assert _wait_for(lambda: bool(decided)), "Enter reported nothing"
     assert decided == [("launch", "local-doom")]
+    _editor_finish(qgui_app, engine, [menu])
+
+
+def test_prelaunch_menu_names_the_runtime(qgui_app, xdg_env, tmp_path, monkeypatch):
+    """The runtime line follows the config instead of a hardcoded Proton."""
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+    from tkarcade import proton as P
+
+    _save_one_game("local-doom", "Doom", "wine")
+    cfg = C.load("local-doom")
+    wine = tmp_path / "wine"
+    wine.write_text("#!/bin/sh\n")
+    wine.chmod(0o755)
+    cfg.runtime.tool = str(wine)
+    C.save(cfg)
+    _root, engine, _model, _decided, _warnings = _load_editor(
+        qgui_app, mode="menu", appid="local-doom", name="Doom"
+    )
+    menu = _editor_window(qgui_app, "TKArcade — Doom")
+    assert menu.findChild(QQuickItem, "prelaunchRuntime").property("text") == "Wine: wine"
+    _editor_finish(qgui_app, engine, [menu])
+
+    steam = C.GameConfig()
+    steam.general.appid = "steam-620"
+    steam.runtime.type = "proton"
+    C.save(steam)
+    monkeypatch.setattr(P, "tool_display", lambda appid: "GE-Proton9-20")
+    _root, engine, _model, _decided, _warnings = _load_editor(
+        qgui_app, mode="menu", appid="steam-620", name="Half-Life"
+    )
+    menu = _editor_window(qgui_app, "TKArcade — Half-Life")
+    assert (
+        menu.findChild(QQuickItem, "prelaunchRuntime").property("text") == "Proton: GE-Proton9-20"
+    )
     _editor_finish(qgui_app, engine, [menu])
 
 
