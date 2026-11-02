@@ -13,17 +13,41 @@ Window {
     objectName: "addGameDialog"
     title: qsTr("Add Game")
     modality: Qt.WindowModal
-    // Widgets AddSourceDialog: a short QDialog sized to its two rows and
-    // the button box.
+    // Widgets AddSourceDialog: a short QDialog sized to its rows and the
+    // button box; the Steam list scrolls once it would pass 20 gridUnits.
+    readonly property real steamListCap: Kirigami.Units.gridUnit * 20
+    // Width follows the widest "name [appid]" so nothing is clipped,
+    // capped to 90% of the screen (ScanDialog); Local keeps the dialog
+    // width the widgets used.
+    readonly property real screenCap: screen ? screen.width * 0.9
+                                             : Kirigami.Units.gridUnit * 80
+    FontMetrics {
+        id: addMetrics
+        font: Kirigami.Theme.defaultFont
+    }
+    function contentWidth() {
+        var widest = 0
+        for (var i = 0; i < steamRows.length; i++) {
+            widest = Math.max(widest, addMetrics.advanceWidth(steamRows[i].text))
+        }
+        // Radio indicator, padding and the scroll bar.
+        return widest + Kirigami.Units.gridUnit * 3
+    }
     minimumWidth: Kirigami.Units.gridUnit * 20
     minimumHeight: Kirigami.Units.gridUnit * 8
-    width: Kirigami.Units.gridUnit * 26
-    height: body.implicitHeight + Kirigami.Units.largeSpacing * 2
+    width: sourceBox.currentIndex === 0
+        ? Math.min(screenCap,
+                   Math.max(minimumWidth, contentWidth() + body.anchors.margins * 2))
+        : Kirigami.Units.gridUnit * 26
+    // The body margins are 12px per side; the old largeSpacing * 2 (8px
+    // per side) left the body 8px short and squeezed the Steam list.
+    height: Math.max(minimumHeight, body.implicitHeight + body.anchors.margins * 2)
     visible: false
     color: Kirigami.Theme.backgroundColor
 
     property var page: null
     property var steamRows: []
+    property int steamIndex: 0
     // Values behind runtimeTypeBox, in the same order as its labels.
     readonly property var runtimes: ["native", "umu", "wine"]
 
@@ -48,8 +72,7 @@ Window {
             fresh.push({"text": rows[i][1] + " [" + rows[i][0] + "]", "data": rows[i][0]})
         }
         steamRows = fresh
-        steamBox.model = fresh
-        steamBox.currentIndex = 0
+        steamIndex = 0
     }
 
     function accept() {
@@ -61,8 +84,9 @@ Window {
                 addGameDialog.close()
                 return
             }
-            var item = steamBox.model[steamBox.currentIndex]
-            var appid = item !== undefined ? item.data : ""
+            var index = steamIndex
+            var item = index >= 0 && index < steamRows.length ? steamRows[index] : null
+            var appid = item !== null ? item.data : ""
             addGameDialog.close()
             if (appid !== "" && page !== null) {
                 page.openGameSettings(appid)
@@ -113,12 +137,39 @@ Window {
                 qsTr("Wine")
             ]
         }
-        Controls.ComboBox {
-            id: steamBox
+        Item {
+            id: steamArea
             objectName: "addSteamGame"
             visible: sourceBox.currentIndex === 0
             Layout.fillWidth: true
-            textRole: "text"
+            Layout.fillHeight: true
+            // The implicit height feeds the window binding; the cap keeps
+            // a long library scrollable instead of stretching the dialog.
+            implicitHeight: Math.min(addGameDialog.steamListCap, steamColumn.implicitHeight)
+            Controls.ScrollView {
+                anchors.fill: parent
+                clip: true
+                ColumnLayout {
+                    id: steamColumn
+                    objectName: "addSteamColumn"
+                    width: Math.max(parent.width, implicitWidth)
+                    spacing: Kirigami.Units.smallSpacing
+                    Repeater {
+                        model: addGameDialog.steamRows
+                        Controls.RadioButton {
+                            required property var modelData
+                            required property int index
+                            text: modelData.text
+                            checked: addGameDialog.steamIndex === index
+                            onToggled: {
+                                if (checked) {
+                                    addGameDialog.steamIndex = index
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         RowLayout {
             Layout.fillWidth: true

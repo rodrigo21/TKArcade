@@ -186,6 +186,11 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The Add Game dialog no longer squeezes the Steam game list: the games
+  are radio rows in a list that scrolls past 20 gridUnits, the window
+  hugs its content (the old body was 8px short of its margins) and the
+  width follows the longest `name [appid]`, capped at 90% of the
+  screen. Local keeps the old dialog size.
 - The Global Defaults template reaches new Local games now: Add Game opens
   Settings seeded from it instead of blank settings. Resetting a local
   game also keeps its executable and runtime type/tool/prefix, so a

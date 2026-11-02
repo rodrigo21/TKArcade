@@ -6148,8 +6148,10 @@ def test_settings_profile_switch_save(qgui_app, xdg_env):
 
 
 def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
-    """Add chooser routes Steam picks to settings and Local to blank."""
+    """Add chooser lists Steam games and routes picks to settings."""
+    from PySide6.QtCore import QMetaObject
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
     import tkarcade.steam as steammod
     from tkarcade import config as C
@@ -6160,9 +6162,25 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     def click(name, host):
         _click(host, name)
 
-    click("titleAdd", win)
-    add = _modal_window(qgui_app, ("Add Game",))
+    def open_add():
+        click("titleAdd", win)
+        add = _modal_window(qgui_app, ("Add Game",))
+        QTest.qWait(250)
+        return add
+
+    add = open_add()
     assert add.findChild(QQuickItem, "addSource") is not None
+    rows = add.property("steamRows").toVariant()
+    assert rows == [{"text": "Doom 3 [steam-99]", "data": "steam-99"}]
+    assert add.property("steamIndex") == 0
+    # minimumWidth is 20 gridUnits; the cap is the same expression.
+    grid = add.property("minimumWidth") / 20
+    view = add.findChild(QQuickItem, "addSteamGame")
+    assert view is not None and view.isVisible()
+    # One row: the window hugs it, so the list does not scroll.
+    assert view.property("height") < 20 * grid
+    column = add.findChild(QQuickItem, "addSteamColumn")
+    assert column.property("implicitHeight") <= view.property("height") + 1
     click("addConfirm", add)
     swin = _settings_window(qgui_app)
     assert proxy.rowCount() == 0
@@ -6173,11 +6191,46 @@ def test_add_source_steam_and_local_flows(qgui_app, xdg_env, monkeypatch):
     swin.findChild(QQuickItem, "settingsRuntimeType").setProperty("currentIndex", 0)
     click("settingsSave", swin)
     assert C.game_file("steam-99").is_file()
-    click("titleAdd", win)
-    add2 = _modal_window(qgui_app, ("Add Game",))
-    add2.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
-    click("addConfirm", add2)
-    _modal_window(qgui_app, ("Add Game",))
+
+    # A long library gets a capped, scrolling list; the pick carries the
+    # highlighted row's AppID.
+    long_games = [(f"steam-{100 + i}", f"Game {i}") for i in range(30)]
+    monkeypatch.setattr(steammod, "list_games", lambda: long_games)
+    add = open_add()
+    rows = add.property("steamRows").toVariant()
+    assert len(rows) == 30
+    assert rows[17]["text"] == "Game 17 [steam-117]"
+    view = add.findChild(QQuickItem, "addSteamGame")
+    assert abs(view.property("height") - 20 * grid) <= 1
+    column = add.findChild(QQuickItem, "addSteamColumn")
+    assert column.property("implicitHeight") > view.property("height")
+    add.setProperty("steamIndex", 17)
+    click("addConfirm", add)
+    swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsAppid").property("text") == "steam-117"
+    swin.close()
+    qgui_app.processEvents()
+
+    # One row again: the window shrinks back instead of keeping the cap.
+    monkeypatch.setattr(steammod, "list_games", lambda: [("steam-77", "Doom")])
+    add = open_add()
+    view = add.findChild(QQuickItem, "addSteamGame")
+    assert view.property("height") < 20 * grid
+
+    # Local keeps the fixed width and the runtime combo; its flow opens
+    # empty settings with that runtime preselected.
+    add.findChild(QQuickItem, "addSource").setProperty("currentIndex", 1)
+    QTest.qWait(50)
+    assert abs(add.property("width") - 26 * grid) <= 1
+    assert add.findChild(QQuickItem, "addRuntime").isVisible()
+    QMetaObject.invokeMethod(add, "accept")
+    qgui_app.processEvents()
+    newswin = _settings_window(qgui_app)
+    assert newswin.findChild(QQuickItem, "settingsAppid").property("text") == ""
+    assert newswin.findChild(QQuickItem, "settingsRuntimeType").property("currentIndex") == 0
+    newswin.close()
+    qgui_app.processEvents()
+
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
