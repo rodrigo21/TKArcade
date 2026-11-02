@@ -55,10 +55,10 @@ def is_alive(record: dict) -> bool:
     """A record is live only while the same process still holds the PID."""
     try:
         pid = int(record.get("pid", 0))
-        start = record.get("start")
+        start = int(record.get("start"))
     except (TypeError, ValueError):
         return False
-    if pid <= 0:
+    if pid <= 0 or start < 0:
         return False
     return process_start_time(pid) == start
 

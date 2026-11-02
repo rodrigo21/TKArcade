@@ -805,6 +805,28 @@ def test_setup_logging_no_duplicate_handler(xdg_env):
     assert len(targets) == 1
 
 
+def test_state_paths_sanitize_the_game_id(xdg_env):
+    from tkarcade import xdg
+    from tkarcade.launcher import (
+        _new_wrap_rc_file,
+        _remove_wrap_rc_file,
+        setup_logging,
+        write_global_log,
+    )
+
+    odd = "../../evil"
+    assert setup_logging(odd) == xdg.games_log_dir() / "evil.log"
+    sentinel = _new_wrap_rc_file(odd)
+    try:
+        assert Path(sentinel).parent == xdg.app_state_dir()
+        assert Path(sentinel).name.startswith("tkarcade-evil-")
+    finally:
+        _remove_wrap_rc_file(sentinel)
+    write_global_log(odd, 0, ["/bin/true"])
+    line = xdg.log_file().read_text(encoding="utf-8").strip().splitlines()[-1]
+    assert " appid=evil exit=0 " in line
+
+
 def test_dry_run_loads_config_once(xdg_env, monkeypatch):
     from tkarcade import launcher as L
 

@@ -96,6 +96,21 @@ def test_read_rejects_a_reused_pid(xdg_env):
     assert not path.exists()
 
 
+def test_read_rejects_a_record_without_start(xdg_env):
+    path = _write_record("13", os.getpid())
+    data = json.loads(path.read_text())
+    del data["start"]
+    path.write_text(json.dumps(data))
+    assert running.read("13") is None
+    assert not path.exists()
+    for index, start in enumerate((None, "oops")):
+        appid = f"14{index}"
+        path = _write_record(appid, os.getpid())
+        path.write_text(json.dumps({**json.loads(path.read_text()), "start": start}))
+        assert running.read(appid) is None
+        assert not path.exists()
+
+
 def test_sweep_keeps_live_records(xdg_env, launcher):
     proc = launcher()
     _write_record("13", proc.pid)

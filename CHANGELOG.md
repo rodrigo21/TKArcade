@@ -167,6 +167,12 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Launcher state paths sanitize the game ID now: an odd `--game-id` can
+  no longer place the per-game log or the wrap sentinel outside the
+  state directory, and the global log writes the same sanitized token
+  the history parser expects. A running-game record without a usable
+  process start time counts as dead instead of matching an unreadable
+  process.
 - Resetting a local game to the Global Defaults template keeps its name
   and prefix folder name now — both are identity, and the prefix path
   stems from them — while a Steam game still resets fully. Cloning a

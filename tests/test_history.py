@@ -24,6 +24,16 @@ def test_parse_new_and_old_lines(tmp_path):
     assert stats["2"].last == "2026-09-25T12:00:00"
 
 
+def test_parse_canonical_and_sanitized_ids(tmp_path):
+    log = tmp_path / "launcher.log"
+    log.write_text(
+        "2026-09-25T10:00:00 appid=steam-77 exit=0 cmd=/bin/true\n"
+        "2026-09-25T10:01:00 appid=local-doom exit=0 cmd=/bin/true\n"
+        "2026-09-25T10:02:00 appid=evil exit=0 cmd=/bin/true\n"
+    )
+    assert [s.appid for s in H.parse_log(log)] == ["steam-77", "local-doom", "evil"]
+
+
 def test_parse_missing_file(tmp_path):
     assert H.parse_log(tmp_path / "nope.log") == []
     assert H.summarize([]) == {}

@@ -134,9 +134,8 @@ def setup_logging(appid: str = "", verbose: bool = False) -> Path:
     if not appid:
         return xdg.log_file()
     try:
-        d = xdg.games_log_dir()
-        d.mkdir(parents=True, exist_ok=True)
-        target = d / f"{appid}.log"
+        target = xdg.game_log_file(appid)
+        target.parent.mkdir(parents=True, exist_ok=True)
         root = logging.getLogger()
         for h in root.handlers:
             name = getattr(h, "baseFilename", "")
@@ -156,7 +155,7 @@ def setup_logging(appid: str = "", verbose: bool = False) -> Path:
         root.addHandler(fh)
         return target
     except Exception:
-        return Path(f"{appid}.log")
+        return Path(f"{xdg.safe_stem(appid)}.log")
 
 
 def write_global_log(
@@ -170,7 +169,7 @@ def write_global_log(
         shown = shlex.join(cmd)
         if len(shown) > 300:
             shown = shown[:300] + "..."
-        line = f"{stamp} appid={appid} exit={exit_code}"
+        line = f"{stamp} appid={xdg.safe_stem(appid)} exit={exit_code}"
         if duration is not None:
             line += f" dur={max(0, int(duration))}"
         line += f" cmd={shown}\n"
@@ -584,7 +583,9 @@ def _new_wrap_rc_file(appid: str) -> str:
     """Reserve a sentinel path where the wrap shim writes the game exit code."""
     d = xdg.app_state_dir()
     d.mkdir(parents=True, exist_ok=True)
-    fd, path = tempfile.mkstemp(prefix=f"tkarcade-{appid}-", suffix=".rc", dir=str(d))
+    fd, path = tempfile.mkstemp(
+        prefix=f"tkarcade-{xdg.safe_stem(appid)}-", suffix=".rc", dir=str(d)
+    )
     os.close(fd)
     return path
 
