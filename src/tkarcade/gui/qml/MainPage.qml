@@ -119,6 +119,9 @@ Kirigami.Page {
     property int iconSize: viewSizes["icons"] || 96
     property var selectedIds: []
     property string anchorId: ""
+    // Set by a user-cleared selection: background refreshes must not
+    // re-select the first row behind the user's back.
+    property bool selectionCleared: false
     property int hoveredRow: -1
     property string sortRole: "gameName"
     property bool sortDescending: false
@@ -282,6 +285,7 @@ Kirigami.Page {
         }
         var gid = gameFilter.idAt(row)
         selectedIds = [gid]
+        selectionCleared = false
         anchorId = gid
         var index = gameFilter.proxyIndex(row)
         gameTable.selectionModel.setCurrentIndex(
@@ -310,6 +314,7 @@ Kirigami.Page {
             range.push(gameFilter.idAt(r))
         }
         selectedIds = range
+        selectionCleared = false
         gameTable.selectionModel.clearSelection()
         for (var s = from; s <= to; s++) {
             gameTable.selectionModel.select(
@@ -353,6 +358,7 @@ Kirigami.Page {
 
     function select(gid) {
         selectedIds = [gid]
+        selectionCleared = false
         anchorId = gid
         syncIndexes(gid)
     }
@@ -366,6 +372,7 @@ Kirigami.Page {
             ids.push(gameFilter.idAt(i))
         }
         selectedIds = ids
+        selectionCleared = false
         anchorId = ids.length > 0 ? ids[0] : ""
         if (viewMode === "list") {
             applySelectionToTable()
@@ -379,6 +386,7 @@ Kirigami.Page {
     // model index. Called from the table's and the grid's empty area.
     function clearSelection() {
         selectedIds = []
+        selectionCleared = true
         anchorId = ""
         if (gameTable.selectionModel !== null) {
             gameTable.selectionModel.clearSelection()
@@ -406,6 +414,7 @@ Kirigami.Page {
             kept.push(gid)
         }
         selectedIds = kept
+        selectionCleared = kept.length === 0
         anchorId = gid
         if (gamesPage.viewMode === "list") {
             tableToggleRow(gameFilter.indexOf(gid))
@@ -432,6 +441,7 @@ Kirigami.Page {
             range.push(gameFilter.idAt(row))
         }
         selectedIds = range
+        selectionCleared = false
         iconGrid.currentIndex = target
     }
 
@@ -456,7 +466,7 @@ Kirigami.Page {
             }
         }
         selectedIds = kept
-        if (selectedIds.length === 0 && gameFilter.rowCount() > 0) {
+        if (selectedIds.length === 0 && !selectionCleared && gameFilter.rowCount() > 0) {
             select(gameFilter.idAt(0))
         } else if (viewMode === "list") {
             gamesPage.applySelectionToTable()

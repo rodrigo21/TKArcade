@@ -39,6 +39,17 @@ Window {
         rows = gameModel.historySummary()
     }
 
+    // A session finishing while this window is open changes the log; the
+    // model refresh notifies here instead of the view staying a snapshot.
+    Connections {
+        target: gameModel
+        function onRefreshed() {
+            if (historyView.visible) {
+                historyView.rows = gameModel.historySummary()
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         // Widgets QDialog layout margin: 12px (Breeze uses 10).

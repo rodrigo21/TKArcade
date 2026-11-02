@@ -189,6 +189,16 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- A session that finishes while the Session History window is open shows
+  up immediately, and a background refresh no longer selects the first
+  game after the selection was cleared on purpose.
+- Playtime and the "Played" notification stop at game exit, before the
+  post-exit hook. A game killed by signal N reports 128+N (e.g. 143 for
+  SIGTERM) with or without Ludusavi's wrap, matching the exit-code
+  contract.
+- A running record that cannot be written no longer aborts the launch
+  (the GUI just shows no running marker); concurrent launches also stop
+  sharing one temp file.
 - Reload drops the cached Steam game list now, so games installed since
   the last scan appear without restarting TKArcade. A Steam game's
   `custom_executable` override replaces the game after Steam's

@@ -1065,6 +1065,37 @@ def test_row_selection_and_numbering(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_cleared_selection_survives_a_background_refresh(qgui_app, xdg_env):
+    """A user-cleared selection stays empty when a refresh follows it."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    for appid in ("local-a", "local-b"):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    assert _page_selected_ids(page) == [proxy.idAt(0)]  # initial load selects
+    page.clearSelection()
+    qgui_app.processEvents()
+    assert _page_selected_ids(page) == []
+    proxy.sourceModel().refresh()
+    qgui_app.processEvents()
+    assert _page_selected_ids(page) == []
+    page.select(proxy.idAt(1))
+    proxy.sourceModel().refresh()
+    qgui_app.processEvents()
+    assert _page_selected_ids(page) == [proxy.idAt(1)]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_columns_menu_hides_app_id(qgui_app, xdg_env):
     from PySide6.QtQuick import QQuickItem
 
@@ -3387,6 +3418,48 @@ def test_history_view_clears_row(qgui_app, xdg_env):
     confirm = _confirm_window(qgui_app, "historyClearAllDialog")
     _click(confirm, "confirmOk")
     assert _wait_for(lambda: confirm.isVisible() is False), "clear-all confirm stayed open"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_history_view_follows_a_finished_session(qgui_app, xdg_env):
+    """An open History view reloads when a session reaches the log."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+    from tkarcade import xdg
+
+    for appid, name in (("local-doom", "Doom"), ("local-quake", "Quake")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        C.save(cfg)
+    xdg.log_file().parent.mkdir(parents=True, exist_ok=True)
+    xdg.log_file().write_text(
+        "2026-01-02T10:00:00 appid=local-doom exit=0 dur=60 cmd=tkarcade\n",
+        encoding="utf-8",
+    )
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    view = win.findChild(QObject, "historyView")
+    view.setProperty("rows", proxy.sourceModel().historySummary())
+    view.open()
+    qgui_app.processEvents()
+
+    def names():
+        rows = view.property("rows")
+        if hasattr(rows, "toVariant"):
+            rows = rows.toVariant()
+        return sorted(str(row["name"]) for row in rows)
+
+    assert names() == ["Doom"]
+    with xdg.log_file().open("a", encoding="utf-8") as log:
+        log.write("2026-01-03T10:00:00 appid=local-quake exit=0 dur=60 cmd=tkarcade\n")
+    proxy.sourceModel().refresh()
+    qgui_app.processEvents()
+    assert names() == ["Doom", "Quake"]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

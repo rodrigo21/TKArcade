@@ -248,6 +248,41 @@ def test_wrap_sentinel_recovers_exit_code(xdg_env, fake_bin):
     assert _run(env, "--appid", "4", "/bin/true").returncode == 0
 
 
+def test_signal_exit_is_128_plus_n(xdg_env):
+    """A game killed by signal N reports 128+N, wrap or not."""
+    import signal
+
+    _save("local-sig")
+    game = "import os, signal; os.kill(os.getpid(), signal.SIGTERM)"
+    r = _run(_env(xdg_env), "--appid", "local-sig", sys.executable, "-c", game)
+    assert r.returncode == 128 + signal.SIGTERM
+
+
+def test_playtime_stops_at_game_exit(monkeypatch):
+    """Playtime and the notification exclude the post-exit hook."""
+    from tkarcade import launcher
+
+    now = [100.0]
+    monkeypatch.setattr(launcher.time, "monotonic", lambda: now[0])
+
+    def run_game(*_args):
+        now[0] = 105.0
+        return False, 0
+
+    def post_hook(*_args):
+        now[0] = 130.0
+
+    monkeypatch.setattr(launcher, "_pre_hook", lambda *a: None)
+    monkeypatch.setattr(launcher, "_run_game_process", run_game)
+    monkeypatch.setattr(launcher, "_post_hook", post_hook)
+    logged = []
+    monkeypatch.setattr(launcher, "write_global_log", lambda *a: logged.append(a[3]))
+    cfg = C.GameConfig()
+    cfg.notifications.notify_on_launch = False
+    assert launcher._game_body("local-x", cfg, ["/g"], ["/g"], {}, "") == 0
+    assert logged == [5.0]
+
+
 def test_edit_without_display(xdg_env, monkeypatch):
     monkeypatch.delenv("DISPLAY", raising=False)
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)

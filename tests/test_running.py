@@ -79,6 +79,22 @@ def test_record_path_is_safe(xdg_env):
     assert "/" not in path.name
 
 
+def test_record_write_failure_does_not_abort(xdg_env, monkeypatch):
+    def boom(_record):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(running, "_write", boom)
+    with running.Record("local-doom") as rec:
+        assert rec.pid == os.getpid()
+
+
+def test_record_temp_name_is_unique_per_process(xdg_env, monkeypatch):
+    seen = []
+    monkeypatch.setattr(running.os, "replace", lambda src, dst: seen.append(src))
+    running._write({"appid": "local-doom", "pid": 1, "start": 0, "started": 0})
+    assert seen and str(os.getpid()) in seen[0].name
+
+
 def test_read_drops_stale_record(xdg_env, launcher):
     proc = launcher()
     pid = proc.pid

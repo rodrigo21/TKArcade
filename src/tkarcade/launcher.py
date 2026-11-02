@@ -1692,6 +1692,8 @@ def _run_game_process(
     with runmod.forward_signals(proc), runmod.Record(appid):
         returncode = proc.wait()
     game_rc = _read_wrap_rc_file(rc_file, returncode) if rc_file else returncode
+    if game_rc < 0:  # killed by signal N: report 128+N, like the wrap shim
+        game_rc = 128 - game_rc
     log.info("game exit=%s", game_rc)
     return False, game_rc
 
@@ -1717,13 +1719,15 @@ def _game_body(
         failed, game_rc = _run_game_process(appid, cfg, final_cmd, extra_env, rc_file)
         if failed:
             return game_rc
+        # Game time only: the post-hook is launcher housekeeping.
+        duration = time.monotonic() - start
         _post_hook(appid, cfg, extra_env)
-        write_global_log(appid, int(game_rc), final_cmd, time.monotonic() - start)
+        write_global_log(appid, int(game_rc), final_cmd, duration)
         if session_info is not None:
             name, icon = session_info
             notify_backend.send(
                 f"Finished {name}",
-                f"Played {notify_backend.format_duration(time.monotonic() - start)}",
+                f"Played {notify_backend.format_duration(duration)}",
                 icon=icon,
                 expire_ms=5000,
             )

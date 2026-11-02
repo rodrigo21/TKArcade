@@ -66,7 +66,8 @@ def is_alive(record: dict) -> bool:
 def _write(record: dict) -> None:
     path = record_path(str(record["appid"]))
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".json.tmp")
+    # PID-stamped temp: two launches writing at once must not share it.
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     tmp.write_text(json.dumps(record))
     os.replace(tmp, path)
 
@@ -131,14 +132,16 @@ class Record:
 
     def __enter__(self) -> Record:
         self.pid = os.getpid()
-        _write(
-            {
-                "appid": self.appid,
-                "pid": self.pid,
-                "start": process_start_time(self.pid),
-                "started": time.time(),
-            }
-        )
+        # A missing record only hides the GUI badge; never abort the launch.
+        with contextlib.suppress(OSError):
+            _write(
+                {
+                    "appid": self.appid,
+                    "pid": self.pid,
+                    "start": process_start_time(self.pid),
+                    "started": time.time(),
+                }
+            )
         return self
 
     def clear(self) -> None:
