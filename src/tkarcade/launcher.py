@@ -1502,7 +1502,11 @@ def _prepare_launch(appid: str, cfg: cfgmod.GameConfig, game_cmd: list[str]) -> 
                 environment or "not set",
             )
     if environment == "proton":
-        run = protonmod.run_winetricks(appid, cfg.runtime.winetricks_verbs)
+        if cfg.runtime.prefix.strip() and cfg.runtime.winetricks_verbs:
+            # protontricks always targets Steam's default compatdata dir.
+            run = ["winetricks skipped: custom prefix; run Winetricks from the game settings"]
+        else:
+            run = protonmod.run_winetricks(appid, cfg.runtime.winetricks_verbs)
     elif environment in ("wine", "umu") and cfg.runtime.winetricks_verbs:
         prefs = cfgmod.load_preferences()
         prefix = cfgmod.prefix_dir(

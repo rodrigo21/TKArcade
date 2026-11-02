@@ -167,6 +167,11 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- A Steam game with a custom `[runtime] prefix` no longer runs its
+  pending winetricks verbs against Steam's default compatdata directory:
+  the launch logs a skip and points at Winetricks in the game settings,
+  which targets the configured prefix. The default Steam prefix keeps
+  running the verbs through protontricks.
 - Launcher state paths sanitize the game ID now: an odd `--game-id` can
   no longer place the per-game log or the wrap sentinel outside the
   state directory, and the global log writes the same sanitized token

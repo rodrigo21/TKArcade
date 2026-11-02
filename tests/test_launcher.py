@@ -827,6 +827,28 @@ def test_state_paths_sanitize_the_game_id(xdg_env):
     assert " appid=evil exit=0 " in line
 
 
+def test_winetricks_skips_a_custom_steam_prefix(xdg_env, monkeypatch, caplog):
+    from tkarcade import launcher, proton
+
+    calls = []
+    monkeypatch.setattr(proton, "run_winetricks", lambda appid, verbs: calls.append(appid) or [])
+    cfg = C.GameConfig()
+    cfg.general.appid = "75"
+    cfg.runtime.type = "proton"
+    cfg.runtime.prefix = "/tmp/custom-prefix"
+    cfg.runtime.winetricks_verbs = ["dotnet48"]
+    C.save(cfg)
+    with caplog.at_level("WARNING", logger="tkarcade"):
+        assert launcher._prepare_launch("75", C.load("75"), []) is None
+    assert calls == []
+    assert "winetricks skipped: custom prefix" in caplog.text
+
+    cfg.runtime.prefix = ""
+    C.save(cfg)
+    assert launcher._prepare_launch("75", C.load("75"), []) is None
+    assert calls == ["75"]
+
+
 def test_dry_run_loads_config_once(xdg_env, monkeypatch):
     from tkarcade import launcher as L
 
