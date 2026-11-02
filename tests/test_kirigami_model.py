@@ -2068,6 +2068,94 @@ def test_model_running_role_and_terminate(qgui_app, xdg_env):
         running.record_path("local-run").unlink(missing_ok=True)
 
 
+def test_terminate_escalation_stops_when_the_record_goes(qgui_app, xdg_env, monkeypatch):
+    """A game that exits inside the grace period cancels the pending SIGKILL."""
+    from tkarcade import running
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-run"
+    cfg.general.name = "Running"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    model = GameListModel()
+    record = {"appid": "local-run", "pid": 4242, "start": 7, "started": 0}
+    monkeypatch.setattr(model, "_load_running", lambda: {"local-run": record})
+    monkeypatch.setattr(running, "terminate", lambda appid: record)
+    model._refresh_running()
+    assert model.terminate("local-run") is True
+    assert model._kill_timer.isActive() is True
+    # The game exits: the record disappears while the launcher's post-hook
+    # may still be running, so the escalation must not fire.
+    monkeypatch.setattr(model, "_load_running", lambda: {})
+    model._refresh_running()
+    assert model._kill_timer.isActive() is False
+    assert model._kill_record is None
+    model._stop_timers()
+    model.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_force_kill_requires_the_same_live_record(qgui_app, xdg_env, monkeypatch):
+    """SIGKILL only goes out while the very launcher that was signalled lives."""
+    from tkarcade import running
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    stale = {"appid": "local-run", "pid": 4242, "start": 7, "started": 0}
+    fresh = {"appid": "local-run", "pid": 5252, "start": 9, "started": 0}
+    killed = []
+    monkeypatch.setattr(running, "kill", lambda record: killed.append(record) or True)
+    monkeypatch.setattr(model, "_load_running", lambda: {})
+    # The game exited and the launcher is in its post-hook: no record file.
+    monkeypatch.setattr(running, "read", lambda appid: None)
+    model._kill_record = stale
+    model._force_kill()
+    assert killed == []
+    # A relaunch replaced the record: never kill the new launcher.
+    monkeypatch.setattr(running, "read", lambda appid: fresh)
+    model._kill_record = stale
+    model._force_kill()
+    assert killed == []
+    # Same launcher still alive: escalate.
+    monkeypatch.setattr(running, "read", lambda appid: stale)
+    model._kill_record = stale
+    model._force_kill()
+    assert killed == [stale]
+    model._stop_timers()
+    model.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_refresh_emits_running_changed(qgui_app, xdg_env, monkeypatch):
+    """refresh() notifies runningIds bindings when the running set changes."""
+    from PySide6.QtTest import QSignalSpy
+
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-run"
+    cfg.general.name = "Running"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    model = GameListModel()
+    spy = QSignalSpy(model.runningChanged)
+    record = {"appid": "local-run", "pid": 4242, "start": 7, "started": 0}
+    monkeypatch.setattr(model, "_load_running", lambda: {"local-run": record})
+    model.refresh()
+    assert spy.count() == 1
+    model.refresh()
+    assert spy.count() == 1
+    monkeypatch.setattr(model, "_load_running", lambda: {})
+    model.refresh()
+    assert spy.count() == 2
+    model._stop_timers()
+    model.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_row_icon_uses_the_artwork_source_appid(qgui_app, xdg_env):
     """A local game's row icon is the source AppID's downloaded art."""
     from tkarcade import artwork

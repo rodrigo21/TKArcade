@@ -189,6 +189,11 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Terminate no longer SIGKILLs the launcher during its post-hook: the
+  10 s escalation stops, and revalidates the launcher, once the game's
+  record is gone or replaced. The Table view's running marker and the
+  `runningIds` bindings also update as soon as a session starts or ends;
+  before, only the first column was repainted.
 - `--dry-run` no longer changes anything before printing the command: it
   skips the fresh-prefix wipe, the pending winetricks run, the legacy
   prefix move (still validated) and the pre-launch menu, and leaves the

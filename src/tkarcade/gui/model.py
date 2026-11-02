@@ -515,7 +515,9 @@ class GameListModel(QAbstractTableModel):
             stats = {}
         rows = [self._row(appid, names, stats) for appid in cfgmod.list_appids()]
         rows.sort(key=lambda r: r[1].lower())
-        self._running = self._load_running()
+        running = self._load_running()
+        running_changed = running.keys() != self._running.keys()
+        self._running = running
         try:
             self._sync_category_store()
         except Exception as e:
@@ -523,6 +525,8 @@ class GameListModel(QAbstractTableModel):
         self.beginResetModel()
         self._rows = rows
         self.endResetModel()
+        if running_changed:
+            self.runningChanged.emit()
         self.refreshed.emit()
 
     def _load_running(self) -> dict[str, dict]:
@@ -548,11 +552,21 @@ class GameListModel(QAbstractTableModel):
         running = self._load_running()
         changed = running.keys() != self._running.keys()
         self._running = running
+        pending = self._kill_record
+        if pending is not None:
+            live = running.get(str(pending.get("appid")))
+            # The game exited (or a new launch replaced it): the escalating
+            # SIGKILL would hit the launcher's post-hook instead.
+            if live is None or live.get("pid") != pending.get("pid"):
+                self._kill_timer.stop()
+                self._kill_record = None
         if not changed:
             return
         if self._rows:
             self.dataChanged.emit(
-                self.index(0, 0), self.index(len(self._rows) - 1, 0), [GameListModel.RunningRole]
+                self.index(0, 0),
+                self.index(len(self._rows) - 1, self.columnCount() - 1),
+                [GameListModel.RunningRole],
             )
         self.runningChanged.emit()
 
@@ -603,7 +617,11 @@ class GameListModel(QAbstractTableModel):
         if self._closing:
             return
         record, self._kill_record = self._kill_record, None
-        if record and runningmod.kill(record):
+        # Only while that very launcher still holds the record: after the
+        # game exits the launcher runs its post-hook with the record gone,
+        # and SIGKILL there would skip the display/audio restore.
+        live = runningmod.read(str(record.get("appid"))) if record else None
+        if live is not None and live.get("pid") == record.get("pid") and runningmod.kill(record):
             log.warning("terminate: SIGKILL to the process group of pid %s", record.get("pid"))
         self._refresh_running()
 

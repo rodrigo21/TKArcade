@@ -3583,6 +3583,68 @@ def test_issue_badge_shows_severity(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_running_badge_updates_in_table(qgui_app, xdg_env):
+    """The Table view repaints the running glyph when a record appears/goes."""
+    import json
+    import subprocess
+    import sys
+
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+    from tkarcade import running as R
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-run"
+    cfg.general.name = "Running"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    table = win.findChild(QQuickItem, "gameTable")
+    assert _rendered_names(table, proxy) == ["Running"]
+    model = proxy.sourceModel()
+
+    def badge_visible():
+        cell = _table_delegate(table, proxy, 0, 1)
+        return cell.findChild(QQuickItem, "runningIndicator").property("visible")
+
+    assert badge_visible() is False
+    child = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
+    )
+    try:
+        path = R.record_path("local-run")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "appid": "local-run",
+                    "pid": child.pid,
+                    "start": R.process_start_time(child.pid),
+                    "started": 0,
+                }
+            )
+        )
+        model._refresh_running()
+        qgui_app.processEvents()
+        assert badge_visible() is True
+        R.record_path("local-run").unlink()
+        model._refresh_running()
+        qgui_app.processEvents()
+        assert badge_visible() is False
+        real = [w for w in warnings if "graphics scene" not in w]
+        assert real == []
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=10)
+        R.record_path("local-run").unlink(missing_ok=True)
+        win.close()
+        engine.deleteLater()
+        qgui_app.processEvents()
+
+
 def test_footer_shows_filtered_count(qgui_app, xdg_env):
     """Footer appends the shown count while a filter is active."""
     from PySide6.QtQuick import QQuickItem
