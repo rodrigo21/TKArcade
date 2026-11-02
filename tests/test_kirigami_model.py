@@ -1114,6 +1114,48 @@ def test_settings_env_bulk_preset(qgui_app, xdg_env):
     assert len(again["rows"]) == len(res["rows"])
 
 
+def test_env_preset_checks_the_local_proton(qgui_app, xdg_env, tmp_path, monkeypatch):
+    """Proton-only presets match the runtime a local game launches with."""
+    from tkarcade.gui.model import GameListModel
+
+    proton = tmp_path / "GE-Proton9-20"
+    proton.mkdir()
+    for appid, kind, tool in (
+        ("local-umu", "umu", str(proton)),
+        ("local-wine", "wine", ""),
+        ("local-native", "native", ""),
+        ("steam-620", "proton", ""),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.runtime.type = kind
+        cfg.runtime.tool = tool
+        C.save(cfg)
+
+    model = GameListModel()
+    name = "Proton Wayland"
+    assert model.envPresetMismatch(name, "local-umu") == ""
+    # No Proton at all: the preset's tuple cannot match.
+    assert model.envPresetMismatch(name, "local-wine") == "ge/cachyos/dw Proton"
+    assert model.envPresetMismatch(name, "local-native") == "ge/cachyos/dw Proton"
+    # A Steam game with no compat-tool mapping stays unknown (offered).
+    monkeypatch.setattr("tkarcade.proton.compat_tool_name", lambda appid: None)
+    assert model.envPresetMismatch(name, "steam-620") == ""
+    monkeypatch.setattr("tkarcade.proton.compat_tool_name", lambda appid: "proton_9")
+    assert model.envPresetMismatch(name, "steam-620") == "ge/cachyos/dw Proton"
+
+    cachy = tmp_path / "proton-cachyos-slr"
+    cachy.mkdir()
+    cfg = C.load("local-umu")
+    cfg.runtime.tool = str(cachy)
+    C.save(cfg)
+    assert model.envPresetMismatch(name, "local-umu") == ""
+    # umu without a Proton install is as unusable as no Proton at all.
+    cfg.runtime.tool = ""
+    C.save(cfg)
+    assert model.envPresetMismatch(name, "local-umu") == "ge/cachyos/dw Proton"
+
+
 def test_clone_reset_games(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

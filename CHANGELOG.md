@@ -23,6 +23,11 @@ Breaking config changes are called out explicitly under `Changed`.
   an `Error:`/`Warning:` label; config keys stay verbatim.
 
 ### Changed
+- A preset that targets specific Proton flavors also checks local games
+  now: an UMU game is matched by the Proton it will launch with, while
+  Wine, native and UMU-without-a-Proton games are reported as a
+  mismatch (still offered through "Apply Anyway?"). Steam games with no
+  compat-tool mapping keep offering every preset.
 - The app describes itself as a Steam and local game launch wrapper now
   (README, man page, desktop entry and About).
 - `PROTON_LOG`/`PROTON_LOG_DIR` are set only for Proton and umu

@@ -2135,6 +2135,36 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return ""
 
+    def _proton_flavor(self, appid: str) -> tuple[bool, str]:
+        """(known, flavor) of the Proton the game would launch with.
+
+        ``known`` is False only when the mapping cannot be read (Steam
+        game with no compat-tool mapping, unreadable config): the caller
+        keeps offering the preset, as before. A local Wine/native game
+        (or umu without a Proton) is known to have none.
+        """
+        from .. import proton as protonmod
+
+        if steammod.is_steam_id(appid):
+            try:
+                tool = protonmod.compat_tool_name(appid) or ""
+            except Exception:
+                tool = ""
+            return (bool(tool), protonmod.flavor(tool) if tool else "")
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception:
+            return (False, "")
+        if cfg.runtime.type != "umu":
+            return (True, "")
+        try:
+            install = self._wine_env(cfg)[2]
+        except Exception:
+            install = None
+        if install is None:
+            return (True, "")
+        return (True, protonmod.flavor(install.name))
+
     @Slot(str, str, result=str)
     def envPresetMismatch(self, name: str, appid: str) -> str:
         """Why a preset may not apply here, or '' when it fits."""
@@ -2154,14 +2184,8 @@ class GameListModel(QAbstractTableModel):
                 if vendors and not (set(preset.drivers) & set(vendors)):
                     return "/".join(preset.drivers) + " GPUs"
             if preset.proton and appid:
-                from .. import proton as protonmod
-
-                try:
-                    tool = protonmod.compat_tool_name(appid) or ""
-                    flavor = protonmod.flavor(tool) if tool else ""
-                except Exception:
-                    tool, flavor = "", ""
-                if tool and flavor not in preset.proton:
+                known, flavor = self._proton_flavor(appid)
+                if known and flavor not in preset.proton:
                     return "/".join(preset.proton) + " Proton"
         except Exception as e:
             log.warning("envPresetMismatch failed: %s", e)
