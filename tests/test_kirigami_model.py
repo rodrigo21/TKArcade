@@ -1191,7 +1191,15 @@ def test_clone_reset_games(qgui_app, xdg_env):
         cfg.general.appid = appid
         cfg.general.name = appid
         cfg.runtime.prefix_name = f"{appid}-prefix"
+        if appid == "local-doom":
+            cfg.general.custom_executable = "/bin/true"
+            cfg.runtime.type = "wine"
+            cfg.runtime.tool = "/opt/wine/bin/wine"
+            cfg.runtime.prefix = "/tmp/doom-prefix"
         C.save(cfg)
+    template = C.load_defaults()
+    template.general.menu_timeout = 7
+    C.save_defaults(template)
     prof = C.profiles_dir("local-doom")
     prof.mkdir(parents=True, exist_ok=True)
     (prof / "fast.toml").write_text("[general]\n")
@@ -1211,11 +1219,26 @@ def test_clone_reset_games(qgui_app, xdg_env):
     assert model.cloneGameTo("local-doom", "Doom2", False) == "Cloned local-doom to local-doom2."
     assert C.game_file("local-doom2").is_file()
     assert model.cloneGameTo("local-doom", "local-quake", True).startswith("Cloned")
+    # The template carries the game's identity; every other field is the
+    # Global Defaults template.
+    tpl = model.templateGame("local-doom")
+    assert tpl["name"] == "local-doom"
+    assert tpl["custom_executable"] == "/bin/true"
+    assert tpl["runtime_type"] == "wine"
+    assert tpl["runtime_tool"] == "/opt/wine/bin/wine"
+    assert tpl["runtime_prefix"] == "/tmp/doom-prefix"
+    assert tpl["runtime_prefix_name"] == "local-doom-prefix"
+    assert tpl["menu_timeout"] == 7
     assert model.resetGames([]) == "Select Games First."
     assert model.resetGames(["local-doom"]) == "Reset 1 Game(s) to the Global Defaults Template."
     reset = C.load("local-doom")
     assert reset.general.name == "local-doom"
+    assert reset.general.custom_executable == "/bin/true"
+    assert reset.runtime.type == "wine"
+    assert reset.runtime.tool == "/opt/wine/bin/wine"
+    assert reset.runtime.prefix == "/tmp/doom-prefix"
     assert reset.runtime.prefix_name == "local-doom-prefix"
+    assert reset.general.menu_timeout == 7
     assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
     assert model.resetGames(["steam-570"]) == "Reset 1 Game(s) to the Global Defaults Template."
     assert C.load("steam-570").general.name == ""

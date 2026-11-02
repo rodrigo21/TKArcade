@@ -4779,11 +4779,15 @@ def test_settings_edit_saves_name(qgui_app, xdg_env):
 
 
 def test_settings_add_creates_game(qgui_app, xdg_env):
-    """Add offers sources; Local opens blank settings that create the game."""
+    """Add offers sources; Local opens settings seeded from the Defaults."""
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
 
+    template = C.load_defaults()
+    template.general.menu_timeout = 9
+    template.mangohud.fps_limit = 42
+    C.save_defaults(template)
     win, engine, proxy, warnings = _load_main(qgui_app)
 
     def click(name, host):
@@ -4799,6 +4803,9 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
     click("addConfirm", add)
     swin = _settings_window(qgui_app)
     assert swin.findChild(QQuickItem, "settingsRuntimeType").property("currentIndex") == 0
+    # The Global Defaults template seeds every other field.
+    assert swin.findChild(QQuickItem, "settingsTimeout").property("value") == 9
+    assert swin.findChild(QQuickItem, "mhFps").property("value") == 42
     swin.findChild(QQuickItem, "settingsName").setProperty("text", "Doom")
     swin.findChild(QQuickItem, "settingsExe").setProperty("text", "/bin/true")
     click("settingsSave", swin)
@@ -4807,6 +4814,8 @@ def test_settings_add_creates_game(qgui_app, xdg_env):
     assert created.startswith("local-")
     assert C.load(created).general.name == "Doom"
     assert C.load(created).runtime.type == "native"
+    assert C.load(created).general.menu_timeout == 9
+    assert C.load(created).mangohud.fps_limit == 42
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -5931,6 +5940,10 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     cfg.general.appid = "local-doom"
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "wine"
+    cfg.runtime.tool = "/opt/wine/bin/wine"
+    cfg.runtime.prefix = "/tmp/doom-prefix"
+    cfg.runtime.prefix_name = "doom-prefix"
     C.save(cfg)
     C.save_profile("local-doom", "keepme", C.load("local-doom"))
     # A customised Global Defaults template: Reset must apply *it*, never
@@ -5956,9 +5969,16 @@ def test_settings_defaults_and_reset_flow(qgui_app, xdg_env):
     assert confirm.property("visible") is True
     dlg.acceptConfirm()
     qgui_app.processEvents()
-    assert name.property("text") == ""
+    assert name.property("text") == "Doom"
     live = C.load("local-doom")
-    assert live.general.name == ""
+    # The identity survives the reset; every other field comes from the
+    # template.
+    assert live.general.name == "Doom"
+    assert live.general.custom_executable == "/bin/true"
+    assert live.runtime.type == "wine"
+    assert live.runtime.tool == "/opt/wine/bin/wine"
+    assert live.runtime.prefix == "/tmp/doom-prefix"
+    assert live.runtime.prefix_name == "doom-prefix"
     assert live.general.custom_prefix == "from-template"
     assert live.general.launch_args == "--from-template"
     assert live.general.menu_timeout == 9
@@ -6139,9 +6159,14 @@ def test_clone_reset_menu_flows(qgui_app, xdg_env):
         cfg = C.GameConfig()
         cfg.general.appid = appid
         cfg.general.name = appid
+        cfg.runtime.prefix_name = f"{appid}-prefix"
         if appid == "local-doom":
             cfg.runtime.type = "wine"
+            cfg.general.custom_executable = "/bin/true"
         C.save(cfg)
+    template = C.load_defaults()
+    template.general.menu_timeout = 7
+    C.save_defaults(template)
     prof = C.profiles_dir("local-doom")
     prof.mkdir(parents=True, exist_ok=True)
     (prof / "fast.toml").write_text("[general]\n")
@@ -6169,11 +6194,14 @@ def test_clone_reset_menu_flows(qgui_app, xdg_env):
     page.openResetDialog()
     reset = _confirm_window(qgui_app, "resetDialog")
     _click(reset, "confirmOk")
-    # A local game keeps its identity (the name drives the prefix dir);
-    # the settings go back to the defaults template.
+    # A local game keeps its identity; the settings go back to the
+    # defaults template.
     reset_cfg = C.load("local-doom")
     assert reset_cfg.general.name == "local-doom"
-    assert reset_cfg.runtime.type == ""
+    assert reset_cfg.general.custom_executable == "/bin/true"
+    assert reset_cfg.runtime.type == "wine"
+    assert reset_cfg.runtime.prefix_name == "local-doom-prefix"
+    assert reset_cfg.general.menu_timeout == 7
     assert (C.profiles_dir("local-doom") / "fast.toml").is_file()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []

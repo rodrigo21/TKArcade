@@ -183,6 +183,11 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The Global Defaults template reaches new Local games now: Add Game opens
+  Settings seeded from it instead of blank settings. Resetting a local
+  game also keeps its executable and runtime type/tool/prefix, so a
+  configured game stays launchable while every other field comes back
+  from the template.
 - The library's Played and Last Played columns and the session tooltip
   refresh once a finished session reaches the launcher log, instead of
   staying stale until the next full refresh or a restart.

@@ -887,20 +887,33 @@ class GameListModel(QAbstractTableModel):
         cfg.general.appid = appid
         return self._game_to_map(cfg, appid)
 
+    @staticmethod
+    def _keep_local_identity(cfg, live) -> None:
+        """Keep what identifies and launches a local game across a Reset."""
+        cfg.general.name = live.general.name
+        cfg.general.custom_executable = live.general.custom_executable
+        cfg.runtime.type = live.runtime.type
+        cfg.runtime.tool = live.runtime.tool
+        cfg.runtime.prefix = live.runtime.prefix
+        cfg.runtime.prefix_name = live.runtime.prefix_name
+
     @Slot(str, result="QVariantMap")
     def templateGame(self, appid: str) -> dict:
         """The user's Global Defaults template as fields for one game.
 
         Widgets parity (_on_reset): Reset applies defaults.toml, never the
-        built-in factory values, and the AppID is kept. Profiles are not
-        touched (the caller clears the active profile).
+        built-in factory values, and the AppID is kept. A local game keeps
+        its identity (name, executable, runtime); profiles are not touched
+        (the caller clears the active profile).
         """
         try:
             cfg = cfgmod.load_defaults()
+            cfg.general.appid = appid
+            if appid and steammod.origin(appid) == "local":
+                self._keep_local_identity(cfg, cfgmod.load(appid))
         except Exception as e:
             log.warning("templateGame(%s) failed: %s", appid, e)
             return {}
-        cfg.general.appid = appid
         return self._game_to_map(cfg, appid)
 
     @Slot(str, str, result=bool)
@@ -2004,9 +2017,7 @@ class GameListModel(QAbstractTableModel):
                 cfg = cfgmod.load_defaults()
                 cfg.general.appid = appid
                 if steammod.origin(appid) == "local":
-                    live = cfgmod.load(appid)
-                    cfg.general.name = live.general.name
-                    cfg.runtime.prefix_name = live.runtime.prefix_name
+                    self._keep_local_identity(cfg, cfgmod.load(appid))
                 cfgmod.save(cfg)
                 count += 1
             except Exception as e:

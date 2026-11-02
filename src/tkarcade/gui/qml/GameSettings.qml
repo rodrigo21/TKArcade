@@ -131,22 +131,6 @@ Window {
         }
     }
 
-    function blankFields() {
-        return {
-            "appid": "",
-            "name": "",
-            "custom_executable": "",
-            "runtime_type": "",
-            "show_menu": false,
-            "menu_timeout": 0,
-            "custom_prefix": "",
-            "active_profile": "",
-            "notes": "",
-            "profiles": [],
-            "is_steam": false
-        }
-    }
-
     function openFor(appid) {
         editAppid = appid
         defaultsMode = false
@@ -160,7 +144,9 @@ Window {
     function openNew(runtimeType) {
         editAppid = ""
         defaultsMode = false
-        fields = blankFields()
+        // A new Local game starts from the Global Defaults template, like
+        // every game without its own file does at launch.
+        fields = gameModel.loadDefaults()
         // The Add dialog preselects the local runtime; empty leaves the
         // native default that pushToControls already applies.
         fields.runtime_type = runtimeType || ""
