@@ -12,20 +12,20 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   (`PKGBUILD` `pkgver`, `optdepends` indentation and a lenient
   `check()`, plus an untracked `.SRCINFO`, never committed); `.qoder/`
   is git-ignored.
-- Landed: twenty-three batches; the second bug-hunt pass is complete.
-  The last eight: Global Defaults reaches new Local games (template
-  seed, identity-preserving reset), Open Ludusavi... in the Saves
-  section, the inline Steam list in Add Game, the category picker Add
-  button, `--dry-run` is read-only again, the running badge/Terminate
-  fixes, the Steam cache/prefix/migrated-profile fixes and the
-  history/playtime/record robustness batch. Earlier batches:
-  `CHANGELOG.md`.
-- Verified: `scripts/check.sh --changed` widened to the full fast suite
-  and the QML driver (552 pass); targeted cases cover dry-run,
-  terminate escalation, the running badge, cache reload, profile
-  migration, signal exits, the playtime boundary, live History and the
-  cleared selection. Venv refreshed after each merge. No real-display
-  or real Steam library test.
+- Landed: twenty-four batches. The latest pairs the Saves (Ludusavi)
+  buttons on one row with no side labels, refining the Open Ludusavi...
+  button; before it the second bug-hunt pass, whose last eight landed
+  Global Defaults for new Local games, the inline Steam list in Add
+  Game, the category picker Add button, `--dry-run` read-only, the
+  running badge/Terminate fixes, the Steam cache/prefix/migrated-profile
+  fixes and the history/playtime/record robustness batch. Earlier
+  batches: `CHANGELOG.md`.
+- Verified: for the Saves row, the targeted QML case (same row, hidden
+  in Defaults), `tests/test_i18n.py` (4 pass) and an offscreen
+  screenshot (buttons aligned with the field column, no leftover
+  labels); `scripts/check.sh --changed` ran the full fast suite and the
+  QML driver (552 pass). Venv refreshed after the merge. No
+  real-display or real Steam library test.
 - Next: the `TODO.md` "Deferred design review" items — runtime archives
   in a cache dir, the Steam Linux Runtime pick for local Wine/umu games,
   the issue badge in the card/icon views, name-based artwork for local
