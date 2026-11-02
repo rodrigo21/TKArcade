@@ -486,14 +486,20 @@ class GameListModel(QAbstractTableModel):
         data["gameRunning"] = self.isRunning(str(self._rows[row][0]))
         return data
 
+    @staticmethod
+    def _all_names() -> dict[str, str]:
+        """Display names of every game: Steam library first, locals merged."""
+        names = {a: n for a, n in steammod.list_games()}
+        names.update(steammod.local_names())
+        return names
+
     @Slot()
     def refresh(self) -> None:
         """Reload rows from disk (Steam names first, local names merged)."""
         if self._closing:
             return
-        names = {a: n for a, n in steammod.list_games()}
-        self._steam_detected = len(names)
-        names.update(steammod.local_names())
+        self._steam_detected = len(steammod.list_games())
+        names = self._all_names()
         # Drop stale validation results: configs may have changed on disk.
         self._issues_cache = {}
         try:
@@ -585,7 +591,8 @@ class GameListModel(QAbstractTableModel):
             gcfg = cfgmod.load(appid)
         except Exception:
             gcfg = None
-        is_steam = steammod.is_steam_id(appid)
+        origin = steammod.origin(appid)
+        is_steam = origin == "steam"
         # ProtonDB only knows Steam AppIDs.
         data, _fresh = pdbmod.cached(appid) if is_steam else (None, False)
         tier = str(((data or {}).get("tier", "")) or "").lower()
@@ -596,7 +603,7 @@ class GameListModel(QAbstractTableModel):
         return (
             appid,
             label,
-            "Steam" if is_steam else "Local",
+            origin.title(),
             played,
             tier.title(),
             bg,
@@ -1127,8 +1134,7 @@ class GameListModel(QAbstractTableModel):
     def cloneTargets(self, exclude: str) -> list:
         """Configured games except one: [[appid, name]], by name."""
         try:
-            names = {a: n for a, n in steammod.list_games()}
-            names.update(steammod.local_names())
+            names = self._all_names()
             rows = [[a, names.get(a, a)] for a in sorted(set(cfgmod.list_appids()) - {exclude})]
         except Exception:
             return []
@@ -1144,8 +1150,7 @@ class GameListModel(QAbstractTableModel):
         in from Python: Repeater models must stay JS).
         """
         try:
-            names = {a: n for a, n in steammod.list_games()}
-            names.update(steammod.local_names())
+            names = self._all_names()
             configured = list(cfgmod.list_appids())
             rows = [[a, names.get(a, a)] for a in configured]
             known = set(configured)
@@ -2821,8 +2826,7 @@ class GameListModel(QAbstractTableModel):
         others = []
         if target is not None:
             others = [a for a in usage.get(os.fspath(target), []) if a != appid]
-        names = {a: n for a, n in steammod.list_games()}
-        names.update(steammod.local_names())
+        names = self._all_names()
         sanitized = ""
         renamed = False
         if target is not None and not is_steam:
@@ -2848,8 +2852,7 @@ class GameListModel(QAbstractTableModel):
         prefs = cfgmod.load_preferences()
         root = base.strip() or prefs.prefix_base
         usage = self._prefix_users(prefs)
-        names = {a: n for a, n in steammod.list_games()}
-        names.update(steammod.local_names())
+        names = self._all_names()
         out = []
         for path in xdg.iter_prefixes(root):
             users = usage.get(os.fspath(path), [])
@@ -3026,8 +3029,7 @@ class GameListModel(QAbstractTableModel):
     @Slot(list, result=list)
     def gameNames(self, appids: list) -> list:
         """Display names for AppIDs (dialog labels)."""
-        names = {a: n for a, n in steammod.list_games()}
-        names.update(steammod.local_names())
+        names = self._all_names()
         return [names.get(str(a), str(a)) for a in appids]
 
     @Slot(result=list)
@@ -3146,11 +3148,9 @@ class GameListModel(QAbstractTableModel):
     @staticmethod
     def _leftover_names() -> dict:
         try:
-            names = {a: n for a, n in steammod.list_games()}
-            names.update(steammod.local_names())
+            return GameListModel._all_names()
         except Exception:
             return {}
-        return names
 
     @staticmethod
     def _leftover_stats() -> dict:
@@ -3385,8 +3385,7 @@ class GameListModel(QAbstractTableModel):
     def orphanedProfiles(self) -> list:
         """Orphaned profiles as [appid, name, count] rows."""
         try:
-            names = {a: n for a, n in steammod.list_games()}
-            names.update(steammod.local_names())
+            names = self._all_names()
             rows = cfgmod.orphaned_profiles()
         except Exception:
             return []
@@ -3396,8 +3395,7 @@ class GameListModel(QAbstractTableModel):
     def historySummary(self) -> list:
         """Per-game session aggregates (newest first), for the history view."""
         try:
-            names = {a: n for a, n in steammod.list_games()}
-            names.update(steammod.local_names())
+            names = self._all_names()
             stats = histmod.summarize(histmod.parse_log(xdg.log_file()))
         except Exception:
             return []
@@ -4320,7 +4318,7 @@ class GameFilterModel(QSortFilterProxyModel):
     def _accepts_source(self, appid) -> bool:
         if self._source == "all":
             return True
-        return steammod.is_steam_id(str(appid)) == (self._source == "steam")
+        return steammod.origin(str(appid)) == self._source
 
     def _accepts_text(self, model, index, appid) -> bool:
         if not self._text:

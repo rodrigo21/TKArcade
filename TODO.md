@@ -30,6 +30,12 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 - [ ] **Issue badge in the card and icon views.** The table's
   error/warning badge and its tooltip are table-only; `GameCard` and
   `GameIconDelegate` need the same when those views are revisited.
+- [ ] **Unify prefix resolution.** `prefixDir`, `_prefix_users`,
+  `_resolved_prefix`, `installedVerbs`, `openWinetricksGui` and
+  `_prefix_to_clear` each resolve a game's Wine prefix on their own;
+  folding them into one resolver is a no-behavior-change refactor
+  across the model and the launcher, deferred to a session with a
+  dedicated verification budget.
 
 ## Deferred release
 
