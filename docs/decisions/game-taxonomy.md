@@ -78,12 +78,37 @@ returns `""` for an invalid pairing and the launcher exits 18 with a
 message naming the valid choices; the settings combo only offers the
 origin's values.
 
+Loading is lenient: `config.load()` keeps a stored `runtime.type` even
+when the origin makes it invalid, so a hand-edited config is never
+silently rewritten. The launch path and `--validate` apply
+`runtime_problem()` (exit 18) and name the valid choices. Likewise
+`[runtime] fresh_prefix` is Proton-only: for any other runtime the
+launcher ignores it and logs a warning, keeping the toggle for a later
+Proton run.
+
 **The free `platform` label is gone.** It was a string with no consumer
 (no export, no filter, no launch effect) that only fed the Platform
 column; it is removed instead of renamed, so the Platform column can
 carry the derived system and categories cover "plays on the Deck". The
 rejected alternative was keeping it as a "Device" label, which would
 have added a second, functionless concept next to the axis that matters.
+
+## Label details
+
+`Steam Runtime` for a Steam native game names Steam's own runtime
+wrapper; it is not the `[runtime] steam_runtime` Steam Linux Runtime
+container that a local native game can pick (that one labels
+`Steam Runtime (<code>)` from the stored value).
+
+`proton.native_runtime()` sniffs the SLR codename out of Steam's wrapper
+argv only to fill the launch notification: it is label-only and changes
+no argument. Outside Steam there is no wrapper to sniff, so a local
+native game's label relies solely on its stored `steam_runtime`.
+
+The settings "Detected Runtime" field is Steam-only: `detectedRuntime()`
+returns empty for local games, which instead show the runtime they are
+configured with; a local Wine game hides the row because the Wine
+binary field carries the value.
 
 ## Presentation
 

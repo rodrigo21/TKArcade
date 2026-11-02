@@ -892,8 +892,8 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1422"/>
-        <source>Ludusavi via Flatpak (%1) — May Not See Proton Prefixes</source>
-        <translation>Ludusavi via Flatpak (%1) — Pode Não Ver os Prefixos Proton</translation>
+        <source>Ludusavi via Flatpak (%1) — May Not See Wine/Proton Prefixes</source>
+        <translation>Ludusavi via Flatpak (%1) — Pode Não Ver os Prefixos Wine/Proton</translation>
     </message>
     <message>
         <location filename="../src/tkarcade/gui/qml/GameSettings.qml" line="1424"/>

@@ -74,7 +74,10 @@ Settings have three homes, and a field keeps the one it already had:
   once.
 - New games start from the trimmed template with no runtime set (the
   library shows Not Set and the launcher exits 18 until one is chosen);
-  that is the intended explicit choice.
+  that is the intended explicit choice. The tarball,
+  SteamTinkerLaunch and predecessor-config importers do the same: a
+  Steam game gets the launcher's first-run prompt at its next launch,
+  while a local game shows Not Set and exits 18 until one is chosen.
 - `diff_vs_defaults()` now reports those per-game fields as differences
   from the template, which is what they are.
 

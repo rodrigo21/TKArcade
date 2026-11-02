@@ -23,6 +23,8 @@ Breaking config changes are called out explicitly under `Changed`.
   an `Error:`/`Warning:` label; config keys stay verbatim.
 
 ### Changed
+- The Flatpak Ludusavi warning names Wine/Proton prefixes now, since the
+  sandbox may hide a local Wine game's prefix too.
 - A preset that targets specific Proton flavors also checks local games
   now: an UMU game is matched by the Proton it will launch with, while
   Wine, native and UMU-without-a-Proton games are reported as a

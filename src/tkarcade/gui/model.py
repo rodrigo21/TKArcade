@@ -2575,7 +2575,7 @@ class GameListModel(QAbstractTableModel):
 
     @staticmethod
     def _ludusavi_status(cfg) -> dict:
-        """Flatpak Ludusavi cannot see Proton prefixes: always warn."""
+        """Flatpak Ludusavi cannot see Wine/Proton prefixes: always warn."""
         exe = shutil.which("ludusavi")
         if exe and "flatpak" in exe:
             return {"kind": "note", "msg": "ludusavi-flatpak", "args": [exe]}

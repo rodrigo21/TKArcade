@@ -44,6 +44,12 @@ Faugus's collision risk.
   variables (`STEAMAPPID`, `SteamAppId`, `STEAM_APP_ID`) and a numeric
   `STEAM_COMPAT_DATA_PATH` basename become `steam-<n>`; local IDs pass
   through, so a numeric shortcut keeps working.
+- A non-Steam game added to Steam reaches the launcher only through its
+  numeric shortcut ID, indistinguishable from a Steam AppID without
+  reading `shortcuts.vdf` (a GUI-only dependency; the launcher is
+  stdlib-only). The shortcut therefore resolves as `steam-<n>` and is
+  treated as a Steam game; mapping numeric shortcuts to `local-*`
+  configs is deferred (`TODO.md`).
 - Creation points emit canonical IDs: local games, `list_games`, STL
   import and the clone dialog.
 

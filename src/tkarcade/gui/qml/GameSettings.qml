@@ -1419,7 +1419,7 @@ Window {
         case "hook-missing":
             return qsTr("%1 Not Found: %2").arg(args[0]).arg(args[1])
         case "ludusavi-flatpak":
-            return qsTr("Ludusavi via Flatpak (%1) — May Not See Proton Prefixes").arg(args[0])
+            return qsTr("Ludusavi via Flatpak (%1) — May Not See Wine/Proton Prefixes").arg(args[0])
         case "steam-ok":
             return qsTr("Steam Launch Options: %1").arg(args[0])
         case "steam-stale":

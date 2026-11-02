@@ -29,7 +29,7 @@ def find() -> tuple[str | None, str | None]:
     if not path:
         return None, "ludusavi not found in PATH"
     if is_flatpak_path(path) or "flatpak" in path:
-        return path, "flatpak ludusavi may not see Proton prefixes; prefer standalone binary"
+        return path, "flatpak ludusavi may not see Wine/Proton prefixes; prefer standalone binary"
     return path, None
 
 

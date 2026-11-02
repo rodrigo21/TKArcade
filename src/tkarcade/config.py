@@ -252,7 +252,8 @@ class RuntimeConfig:
     mean, because only one runtime is active at a time:
 
     - ``prefix``: Steam compatdata dir (``STEAM_COMPAT_DATA_PATH``) for
-      ``proton``; the full ``WINEPREFIX`` for ``wine``/``umu``.
+      ``proton``; the prefix **base** for ``wine``/``umu``, whose
+      ``WINEPREFIX`` is ``<base>/<folder>`` (see ``prefix_dir``).
     - ``tool``: preferred Steam compat tool for ``proton``; the Wine
       executable for ``wine``; the umu ``PROTONPATH`` for ``umu``.
 
@@ -266,7 +267,7 @@ class RuntimeConfig:
     # Proton only: wipe this game's own compatdata/<appid> prefix before launch.
     fresh_prefix: bool = False
     winetricks_verbs: list[str] = field(default_factory=list)
-    prefix: str = ""  # custom prefix dir ("" = Steam default / <prefix_base>/<appid>)
+    prefix: str = ""  # Steam compatdata dir / local base ("" = Steam default / prefix_base)
     prefix_name: str = ""  # local only: friendly dir name under prefix_base ("" = appid)
     tool: str = ""  # runtime tool ("" = Steam default / global preference)
     steam_runtime: str = ""  # local native only: scout|soldier|sniper|steamrt4

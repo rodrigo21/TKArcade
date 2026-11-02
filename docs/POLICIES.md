@@ -29,7 +29,7 @@ Standing decisions that shape every change. `AGENTS.md` links here.
   `-git` source pins that branch; point the pin back at `main` before
   deleting the branch. At release time check every package for new
   versions, update every PKGBUILD and build them all.
-- Flatpak Ludusavi cannot see Proton prefixes: always warn, never
+- Flatpak Ludusavi cannot see Wine/Proton prefixes: always warn, never
   silently accept it.
 - Exit codes are part of the CLI contract (10 no AppID, 12 pre-hook,
   13 missing exe, 14 missing prefix/wine/umu-run/Proton runtime, 15 no
