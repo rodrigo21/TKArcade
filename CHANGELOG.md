@@ -183,6 +183,9 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The library's Played and Last Played columns and the session tooltip
+  refresh once a finished session reaches the launcher log, instead of
+  staying stale until the next full refresh or a restart.
 - The pre-launch menu names the runtime the launch will actually use —
   the Proton tool, the UMU Proton, the Wine binary, the Steam Runtime
   or `Native` — instead of always claiming Proton. A Steam game's

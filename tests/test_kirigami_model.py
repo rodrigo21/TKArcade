@@ -929,6 +929,33 @@ def test_library_columns_roles(qgui_app, xdg_env):
     game_filter.sortBy("gameLastSecs", True)
 
 
+def test_finished_session_refreshes_played_columns(qgui_app, xdg_env):
+    from tkarcade import xdg
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    model = GameListModel()
+    assert model.rowData(0)["gameLastPlayed"] == "—"
+    xdg.log_file().parent.mkdir(parents=True, exist_ok=True)
+    xdg.log_file().write_text(
+        "2026-01-02T10:00:00 appid=local-doom exit=0 dur=60 cmd=tkarcade\n",
+        encoding="utf-8",
+    )
+    model._poll_history()
+    row = model.rowData(0)
+    assert row["gamePlayed"] == "1m 00s"
+    assert row["gamePlayedSecs"] == 60
+    assert row["gameLastPlayed"] == "2026-01-02 10:00"
+    resets = []
+    model.modelReset.connect(lambda: resets.append(True))
+    model._poll_history()
+    assert resets == []
+
+
 def test_settings_preview_diff(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

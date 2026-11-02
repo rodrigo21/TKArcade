@@ -330,6 +330,9 @@ class GameListModel(QAbstractTableModel):
         self._steam_status: tuple[str, str, str] | None = None
         # Live running records by AppID (the launcher owns the files).
         self._running: dict[str, dict] = {}
+        # Global log signature at the last refresh, so the poll notices a
+        # session line written after the game (and its post-hook) ends.
+        self._log_sig: tuple[int, int] | None = None
         # Steam display names learned by an explicit artwork fetch, so the
         # status row can name the Artwork Source AppID without a lookup.
         self._art_names: dict[str, str] = {}
@@ -337,6 +340,7 @@ class GameListModel(QAbstractTableModel):
         self._running_timer = QTimer(self)
         self._running_timer.setInterval(self.RUNNING_POLL_MS)
         self._running_timer.timeout.connect(self._refresh_running)
+        self._running_timer.timeout.connect(self._poll_history)
         self._running_timer.start()
         # Escalation for a launcher that ignored the SIGTERM (model-owned
         # so a destroyed model cannot fire into nothing).
@@ -498,6 +502,9 @@ class GameListModel(QAbstractTableModel):
         """Reload rows from disk (Steam names first, local names merged)."""
         if self._closing:
             return
+        # Captured before parsing: a line appended mid-read changes the
+        # signature again and the next poll refreshes.
+        self._log_sig = self._log_signature()
         self._steam_detected = len(steammod.list_games())
         names = self._all_names()
         # Drop stale validation results: configs may have changed on disk.
@@ -548,6 +555,22 @@ class GameListModel(QAbstractTableModel):
                 self.index(0, 0), self.index(len(self._rows) - 1, 0), [GameListModel.RunningRole]
             )
         self.runningChanged.emit()
+
+    @staticmethod
+    def _log_signature() -> tuple[int, int] | None:
+        """(mtime_ns, size) of the global log; None when it is absent."""
+        try:
+            st = xdg.log_file().stat()
+        except OSError:
+            return None
+        return st.st_mtime_ns, st.st_size
+
+    def _poll_history(self) -> None:
+        """Reload rows when the launcher appended a session line."""
+        if self._closing:
+            return
+        if self._log_signature() != self._log_sig:
+            self.refresh()
 
     def _running_ids(self) -> list[str]:
         return list(self._running)
