@@ -12,19 +12,18 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   (`PKGBUILD` `pkgver`, `optdepends` indentation and a lenient
   `check()`, plus an untracked `.SRCINFO`, never committed); `.qoder/`
   is git-ignored.
-- Landed: twenty-five batches. The latest adds the hidden-by-default
-  Release Date (manual `[metadata] date`, else cached Steam store date)
-  and Installed (`[general] installed_at`, else the `.toml` birth time)
-  columns, both also in History where applicable; the Configure Columns
-  dialog now follows the table order; compact `SLR`/`SLR 1.0`–`SLR 4.0`
-  runtime labels in the table; and the Wine column shows `—` for native
-  games and the Proton install name for local UMU games. Earlier
-  batches: `CHANGELOG.md`.
-- Verified: full fast suite and the QML driver (568 pass), the targeted
-  column/dialog/history QML cases, `tests/test_i18n.py` (4 pass) and
-  offscreen screenshots (table with both columns enabled, Configure
-  Columns after Move Up, History Installed column). Venv refreshed
-  after the merge. No real-display or real Steam library test.
+- Landed: twenty-six batches. The latest changes the library's default
+  column layout: Release Date, Origin, Platform, Played, Last Played
+  and Installed show after `#` and Game; Runtime, Wine, ProtonDB, Game
+  ID and Install Dir start hidden. A new `column_layout_version`
+  preference resets saved order/visibility once to these defaults and
+  keeps fitted widths. Earlier batches: `CHANGELOG.md`.
+- Verified: `tests/test_config.py` + `tests/test_kirigami_model.py`
+  (205 pass), full fast suite and the QML driver (568 pass), the
+  targeted column/header QML cases, and offscreen screenshots (default
+  table with readable Release Date/Installed cells, Configure Columns,
+  migrated old prefs). Venv refreshed after the merge. No real-display
+  or real Steam library test.
 - Next: the `TODO.md` "Deferred design review" items — runtime archives
   in a cache dir, the Steam Linux Runtime pick for local Wine/umu games,
   the issue badge in the card/icon views, name-based artwork for local
