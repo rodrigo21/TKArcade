@@ -20,11 +20,10 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Verified: targeted steam/backends tests (91 pass), the full fast suite
   (572 pass) and the QML driver (573 pass; one batch aborted with
   rc=-11 and passed on isolated re-run). Venv refreshed after the
-  merge. No real-display or real Steam library test; VDF coverage is
-  fixture-based.
+  merge. No real-display test. The real-device shortcut check was
+  closed by the maintainer on 2026-11-03 without a run; VDF coverage
+  stays fixture-based.
 - Next: the remaining `TODO.md` themes — name-based artwork for local
   games and prefix-resolution unification, then the deferred
   research/release items.
-- Rebuild the `-git` package when the Steam path should follow `main`:
-  `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.

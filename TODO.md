@@ -21,7 +21,7 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 - [ ] **Runtime archives in a cache dir.** Downloads and archive
   extraction were deferred when per-game DXVK/vkd3d versions landed
-  (`docs/decisions/external-runtimes.md`): the launcher is stdlib-only,
+  (`docs/decisions/external-runtimes.md`): the launcher never downloads,
   extraction needs a safe format story, and the cache needs a lifecycle.
   Versions today come from the Preferences directories only. Design:
   `docs/decisions/runtime-archives.md`.
