@@ -26,9 +26,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   or real Steam library test.
 - Next: the `TODO.md` "Deferred design review" items — runtime archives
   in a cache dir (design frozen in `docs/decisions/runtime-archives.md`,
-  not implemented), the Steam Linux Runtime pick for local Wine/umu games,
-  the issue badge in the card/icon views, name-based artwork for local
-  games, numeric shortcut mapping and prefix-resolution unification.
+  not implemented), the issue badge in the card/icon views, name-based
+  artwork for local games, numeric shortcut mapping and prefix-resolution
+  unification.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.

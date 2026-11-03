@@ -54,7 +54,7 @@ and make launches depend on remote availability.
 | Local UMU Proton list | Only directories with the `proton` launcher; `proton_dirs` plus Steam roots. |
 | Graphics directories | Only `dxvk_dirs` / `vkd3d_dirs` from Preferences. |
 | Archives in a cache dir | Not supported; see `TODO.md`. |
-| Steam Linux Runtime | Still a local-native choice; extending it to Wine/umu is a separate open item. |
+| Steam Linux Runtime | A local-native choice only; umu owns the runtime for Wine/umu games and exposes no variant pick (umu#312), so extending it is dropped. |
 
 ## Rejected alternatives
 

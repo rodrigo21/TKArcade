@@ -25,9 +25,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   extraction needs a safe format story, and the cache needs a lifecycle.
   Versions today come from the Preferences directories only. Design:
   `docs/decisions/runtime-archives.md`.
-- [ ] **Steam Linux Runtime pick for local Wine/umu games.** A local
-  native game already picks one; a local Wine or umu game still runs
-  outside a container, so umu's own runtime selection is not exposed.
 - [ ] **Issue badge in the card and icon views.** The table's
   error/warning badge and its tooltip are table-only; `GameCard` and
   `GameIconDelegate` need the same when those views are revisited.
