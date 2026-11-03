@@ -226,6 +226,9 @@ Breaking config changes are called out explicitly under `Changed`.
   `custom_executable` override replaces the game after Steam's
   `waitforexitandrun` verb, and a `~` in a `[runtime] prefix` is
   expanded before being exported as `STEAM_COMPAT_DATA_PATH`.
+- The game settings' prefix Open button resolves a Steam custom prefix
+  with `~` like the rest of the app, instead of handing the literal
+  home-relative path to the desktop opener.
 - Migrated profile snapshots are rewritten with the new game ID. The
   runtime healed it on load, but the file kept pointing at the old ID.
 - Terminate no longer SIGKILLs the launcher during its post-hook: the

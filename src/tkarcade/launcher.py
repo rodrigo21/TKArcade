@@ -295,13 +295,7 @@ def _runtime_paths(cfg: cfgmod.GameConfig, environment: str = "") -> dict:
     elif environment == "umu":
         proton = runtimes.find_proton(tool, prefs.proton_dirs)
     return {
-        "prefix": cfgmod.prefix_dir(
-            appid,
-            cfg.runtime.prefix,
-            prefs.prefix_base,
-            cfg.runtime.prefix_name,
-            cfg.general.name,
-        ),
+        "prefix": cfgmod.prefix_target(appid, cfg, prefs).container,
         "wine": wine,
         "proton": proton,
         "prefs": prefs,
@@ -519,9 +513,11 @@ def _build_env(
     _debug_env(env, cfg, environment)
     _steam_runtime_env(env, cfg, steam_runtime)
     if environment == "proton":
-        prefix = os.path.expanduser(cfg.runtime.prefix.strip())
-        if prefix and "STEAM_COMPAT_DATA_PATH" not in env:
-            env["STEAM_COMPAT_DATA_PATH"] = prefix
+        target = (
+            cfgmod.prefix_target(cfg.general.appid, cfg) if cfg.runtime.prefix.strip() else None
+        )
+        if target is not None and "STEAM_COMPAT_DATA_PATH" not in env:
+            env["STEAM_COMPAT_DATA_PATH"] = str(target.container)
     elif environment in ("wine", "umu") and runtime:
         # WINEPREFIX: per-game base, else <prefix_base>/<stem>.
         env["WINEPREFIX"] = str(runtime["prefix"])

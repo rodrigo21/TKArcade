@@ -813,6 +813,51 @@ def prefix_dir(
     return root / prefix_stem(appid, name, game_name)
 
 
+@dataclass(frozen=True)
+class PrefixTarget:
+    """A game's prefix paths: Steam compatdata/custom dir, or local subfolder."""
+
+    container: Path  # folder shown and deleted; a Steam one holds pfx inside
+    wineprefix: Path  # WINEPREFIX: the container, or container/"pfx" on Steam
+    managed: bool  # TKArcade-created (local or custom), never Steam compatdata
+
+
+def prefix_target(
+    appid: str, cfg: GameConfig | None = None, prefs: Preferences | None = None
+) -> PrefixTarget | None:
+    """Resolve a game's prefix paths (None: Steam's compatdata not created yet).
+
+    ``cfg`` is the caller's view: the GUI's live config or the launcher's
+    profile-merged one. None falls back to the local default location, as
+    a config already removed by the cleanup scan still needs its path.
+    """
+    from . import steam as steammod
+
+    appid = str(appid)
+    if cfg is not None and steammod.is_steam_id(appid):
+        custom = cfg.runtime.prefix.strip()
+        if not custom:
+            container = steammod.prefix_dir(appid)
+            if container is None:
+                return None
+            return PrefixTarget(container, container / "pfx", False)
+        container = Path(custom).expanduser()
+        return PrefixTarget(container, container / "pfx", True)
+    if prefs is None:
+        prefs = load_preferences()
+    if cfg is None:
+        container = prefix_dir(appid, "", prefs.prefix_base, "")
+    else:
+        container = prefix_dir(
+            appid,
+            cfg.runtime.prefix,
+            prefs.prefix_base,
+            cfg.runtime.prefix_name,
+            cfg.general.name,
+        )
+    return PrefixTarget(container, container, True)
+
+
 def move_legacy_prefix(base: Path, stem: str) -> tuple[bool, str]:
     """Fold an old prefix (the base itself) into ``<base>/<stem>``.
 

@@ -1617,6 +1617,33 @@ def test_resolved_prefix_keeps_local_compatdata_dirs(qgui_app, xdg_env, tmp_path
     assert model._resolved_prefix("steam-77") is None
 
 
+def test_prefix_users_skip_steam_default(qgui_app, xdg_env, tmp_path, monkeypatch):
+    """Sharing counts local and custom prefixes; Steam's compatdata is Steam's."""
+    from tkarcade.gui.model import GameListModel
+
+    compatdata = tmp_path / "steamapps" / "compatdata" / "77"
+    compatdata.mkdir(parents=True)
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+    custom = tmp_path / "custom"
+    base = tmp_path / "base"
+    for appid, kind, prefix in (
+        ("steam-77", "proton", ""),
+        ("steam-78", "proton", str(custom)),
+        ("local-doom", "wine", str(base)),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.runtime.type = kind
+        cfg.runtime.prefix = prefix
+        C.save(cfg)
+
+    model = GameListModel()
+    users = model._prefix_users(C.load_preferences())
+    assert users[str(custom)] == ["steam-78"]
+    assert str(compatdata) not in users
+    assert users[str(base / "local-doom")] == ["local-doom"]
+
+
 def test_launch_runtime_label_names_the_runtime(qgui_app, xdg_env, tmp_path, monkeypatch):
     """The pre-launch line follows the config instead of assuming Proton."""
     from tkarcade import proton as P

@@ -29,12 +29,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   AppID to look up, so grid search needs a SteamGridDB name query, its
   own cache and a UI decision; the donor `[artwork] artwork_appid` keeps
   working meanwhile. A feature, not an audit fix.
-- [ ] **Unify prefix resolution.** `prefixDir`, `_prefix_users`,
-  `_resolved_prefix`, `installedVerbs`, `openWinetricksGui` and
-  `_prefix_to_clear` each resolve a game's Wine prefix on their own;
-  folding them into one resolver is a no-behavior-change refactor
-  across the model and the launcher, deferred to a session with a
-  dedicated verification budget.
 
 ## Deferred release
 

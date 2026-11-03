@@ -610,6 +610,35 @@ def test_prefix_dir_resolution(xdg_env, monkeypatch):
     assert xdgmod.default_prefix_base() == Path("/tmp/opencode/data/tkarcade/prefixes")
 
 
+def test_prefix_target_resolution(xdg_env, monkeypatch, tmp_path):
+    compatdata = tmp_path / "steamapps" / "compatdata" / "77"
+    compatdata.mkdir(parents=True)
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path))
+
+    steam = C.GameConfig()
+    steam.general.appid = "steam-77"
+    assert C.prefix_target("steam-77", steam) == C.PrefixTarget(
+        compatdata, compatdata / "pfx", False
+    )
+    assert C.prefix_target("steam-78", steam) is None  # never launched
+
+    steam.runtime.prefix = "~/custom-prefix"
+    custom = Path.home() / "custom-prefix"
+    assert C.prefix_target("steam-77", steam) == C.PrefixTarget(custom, custom / "pfx", True)
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.runtime.prefix = str(tmp_path / "base")
+    prefix = tmp_path / "base" / "Doom"
+    assert C.prefix_target("local-doom", local) == C.PrefixTarget(prefix, prefix, True)
+
+    prefs = C.load_preferences()
+    prefs.prefix_base = str(tmp_path / "prefs")
+    fallback = tmp_path / "prefs" / "local-gone"
+    assert C.prefix_target("local-gone", None, prefs) == C.PrefixTarget(fallback, fallback, True)
+
+
 def test_folder_stem_normalises_readable_names():
     from tkarcade import xdg as xdgmod
 
