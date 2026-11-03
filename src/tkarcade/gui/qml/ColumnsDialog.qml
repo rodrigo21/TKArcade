@@ -12,6 +12,11 @@ DialogWindow {
     rejectText: qsTr("Close")
 
     property var page: null
+    // Table order, so the list follows every Move Up/Down (the bug was a
+    // static logical-order model).
+    readonly property var listedLogicals: page !== null
+        ? page.columnOrder.filter(function(l) { return l >= 2 })
+        : []
 
     onAccepted: {
         if (page !== null) {
@@ -36,37 +41,20 @@ DialogWindow {
             return "showWine"
         } else if (logical === 10) {
             return "showInstallDir"
+        } else if (logical === 11) {
+            return "showReleaseDate"
+        } else if (logical === 12) {
+            return "showInstalled"
         }
         return "showOrigin"
-    }
-
-    function titleFor(logical) {
-        if (logical === 2) {
-            return qsTr("Game ID")
-        } else if (logical === 3) {
-            return qsTr("Played")
-        } else if (logical === 4) {
-            return qsTr("ProtonDB")
-        } else if (logical === 6) {
-            return qsTr("Last Played")
-        } else if (logical === 7) {
-            return qsTr("Platform")
-        } else if (logical === 8) {
-            return qsTr("Runtime")
-        } else if (logical === 9) {
-            return qsTr("Wine")
-        } else if (logical === 10) {
-            return qsTr("Install Dir")
-        }
-        return qsTr("Origin")
     }
 
     Controls.Label {
         text: qsTr("Uncheck to Hide, Arrows to Reorder.")
     }
     Repeater {
-        // Static literal: JS array end to end, never a QVariantList.
-        model: [2, 3, 4, 5, 6, 7, 8, 9, 10]
+        // JS array end to end, never a QVariantList.
+        model: columnsDialog.listedLogicals
         delegate: RowLayout {
             required property int modelData
             property int logical: modelData
@@ -78,7 +66,7 @@ DialogWindow {
             }
             Controls.Label {
                 Layout.fillWidth: true
-                text: columnsDialog.titleFor(logical)
+                text: page !== null ? page.columnTitle(logical) : ""
             }
             Controls.ToolButton {
                 icon.name: "go-up"

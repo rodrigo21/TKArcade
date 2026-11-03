@@ -24,6 +24,7 @@ Window {
     // Column widths shared by the header and the delegates so the two
     // rows of labels stay aligned (widgets QTableWidget parity).
     readonly property int colLast: Kirigami.Units.gridUnit * 9
+    readonly property int colInstalled: Kirigami.Units.gridUnit * 9
     readonly property int colRuns: Kirigami.Units.gridUnit * 4
     readonly property int colTotal: Kirigami.Units.gridUnit * 5
     readonly property int colFails: Kirigami.Units.gridUnit * 4
@@ -109,6 +110,17 @@ Window {
                     color: Kirigami.Theme.textColor
                 }
                 Controls.Label {
+                    id: installedHeader
+                    objectName: "historyHeaderInstalled"
+                    Layout.preferredWidth: historyView.colInstalled
+                    text: qsTr("Installed")
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                    color: Kirigami.Theme.textColor
+                }
+                Controls.Label {
                     id: runsHeader
                     objectName: "historyHeaderRuns"
                     Layout.preferredWidth: historyView.colRuns
@@ -176,6 +188,14 @@ Window {
                 }
                 Rectangle {
                     objectName: "historyHeaderSep"
+                    x: installedHeader.x + installedHeader.width
+                    width: 1
+                    height: parent.height
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.18
+                }
+                Rectangle {
+                    objectName: "historyHeaderSep"
                     x: runsHeader.x + runsHeader.width
                     width: 1
                     height: parent.height
@@ -230,6 +250,12 @@ Window {
                     objectName: "historyLast"
                     text: modelData.last
                     opacity: 0.7
+                    elide: Text.ElideRight
+                }
+                Controls.Label {
+                    Layout.preferredWidth: historyView.colInstalled
+                    objectName: "historyInstalled"
+                    text: modelData.installed ?? ""
                     elide: Text.ElideRight
                 }
                 Controls.Label {

@@ -74,6 +74,14 @@ STEAM_RUNTIMES = {
     "steamrt4": "Steam Linux Runtime 4.0 (steamrt4)",
 }
 
+#: Compact Runtime column names; the full labels above stay in the dialog.
+STEAM_RUNTIME_SHORT = {
+    "scout": "SLR 1.0",
+    "soldier": "SLR 2.0",
+    "sniper": "SLR 3.0",
+    "steamrt4": "SLR 4.0",
+}
+
 
 def normalize_runtime(value: object) -> str:
     """Return a known runtime type, or "" (unset).
@@ -128,6 +136,21 @@ def runtime_label(runtime: object, is_steam: bool, steam_runtime: object = "") -
     return ""
 
 
+def runtime_short_label(runtime: object, is_steam: bool, steam_runtime: object = "") -> str:
+    """Compact Runtime column label: ``SLR 4.0`` instead of the full name.
+
+    Steam picks its native runtime, so its version stays unknown ("SLR");
+    a local native game names the one it was configured with.
+    """
+    kind = normalize_runtime(runtime)
+    if kind == RuntimeType.NATIVE and is_steam:
+        return "SLR"
+    if kind == RuntimeType.NATIVE:
+        name = normalize_steam_runtime(steam_runtime)
+        return STEAM_RUNTIME_SHORT[name] if name else "Native"
+    return runtime_label(kind, is_steam, steam_runtime)
+
+
 @dataclass
 class GeneralConfig:
     appid: str = ""
@@ -140,6 +163,7 @@ class GeneralConfig:
     categories: list[str] = field(default_factory=list)  # tags, multiple per game
     launch_args: str = ""  # extra args appended to the game command
     launch_cwd: str = ""  # working-directory override ("" = exe folder for local games)
+    installed_at: str = ""  # ISO instant of the first save ("" = old config, use file birth)
 
 
 @dataclass
@@ -735,6 +759,7 @@ def save_defaults(cfg: GameConfig) -> Path:
         "launch_cwd",
         "categories",
         "active_profile",
+        "installed_at",
     ):
         general.pop(key, None)
     # Identity, runtime/graphics/audio switches, artwork and notes are
@@ -836,6 +861,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "categories",
         "launch_args",
         "launch_cwd",
+        "installed_at",
     },
     "metadata": {"version", "date", "tag"},
     "env": {"vars"},
@@ -1037,6 +1063,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.general.categories = normalize_categories(_str_list(g.get("categories", [])))
     cfg.general.launch_args = str(g.get("launch_args", ""))
     cfg.general.launch_cwd = str(g.get("launch_cwd", ""))
+    cfg.general.installed_at = str(g.get("installed_at", "")).strip()
     md = _section(data, "metadata")
     cfg.metadata.version = str(md.get("version", "")).strip()
     cfg.metadata.date = str(md.get("date", "")).strip()
@@ -1165,10 +1192,10 @@ def _clean_int_list(text: str) -> str:
 
 
 def _clean_width_map(text: str) -> str:
-    """Normalize 'logical=px' pairs (logical 0-11, px 20-2000).
+    """Normalize 'logical=px' pairs (logical 0-12, px 20-2000).
 
     The upper bound must match the table width the model writes
-    (12 columns): a smaller one silently dropped every width for the
+    (13 columns): a smaller one silently dropped every width for the
     library columns past 'Source' on the next load.
     """
     out = []
@@ -1178,7 +1205,7 @@ def _clean_width_map(text: str) -> str:
         left, _, right = part.partition("=")
         if left.strip().isdecimal() and right.strip().isdecimal():
             logical, width = int(left.strip()), int(right.strip())
-            if 0 <= logical <= 11 and 20 <= width <= 2000:
+            if 0 <= logical <= 12 and 20 <= width <= 2000:
                 out.append(f"{logical}={width}")
     return ",".join(out)
 
@@ -1306,13 +1333,94 @@ def _load_ludusavi(raw: dict, extra: dict) -> LudusaviConfig:
     return out
 
 
+def _statx_birth(path: Path) -> float | None:
+    """Birth time via statx (ctypes); None when unavailable."""
+    import ctypes
+
+    class _Stamp(ctypes.Structure):
+        _fields_ = [
+            ("tv_sec", ctypes.c_int64),
+            ("tv_nsec", ctypes.c_uint32),
+            ("_pad", ctypes.c_int32),
+        ]
+
+    class _Statx(ctypes.Structure):
+        _fields_ = [
+            ("stx_mask", ctypes.c_uint32),
+            ("stx_blksize", ctypes.c_uint32),
+            ("stx_attributes", ctypes.c_uint64),
+            ("stx_nlink", ctypes.c_uint32),
+            ("stx_uid", ctypes.c_uint32),
+            ("stx_gid", ctypes.c_uint32),
+            ("stx_mode", ctypes.c_uint16),
+            ("_spare0", ctypes.c_uint16 * 1),
+            ("stx_ino", ctypes.c_uint64),
+            ("stx_size", ctypes.c_uint64),
+            ("stx_blocks", ctypes.c_uint64),
+            ("stx_attributes_mask", ctypes.c_uint64),
+            ("stx_atime", _Stamp),
+            ("stx_btime", _Stamp),
+            ("stx_ctime", _Stamp),
+            ("stx_mtime", _Stamp),
+            ("stx_rdev_major", ctypes.c_uint32),
+            ("stx_rdev_minor", ctypes.c_uint32),
+            ("stx_dev_major", ctypes.c_uint32),
+            ("stx_dev_minor", ctypes.c_uint32),
+            ("stx_mnt_id", ctypes.c_uint64),
+            ("stx_dio_mem_align", ctypes.c_uint32),
+            ("stx_dio_offset_align", ctypes.c_uint32),
+            ("_spare3", ctypes.c_uint64 * 12),
+        ]
+
+    try:
+        statx = ctypes.CDLL(None).statx
+    except (OSError, AttributeError):
+        return None
+    statx.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_uint,
+        ctypes.POINTER(_Statx),
+    ]
+    statx.restype = ctypes.c_int
+    buf = _Statx()
+    # AT_FDCWD, AT_STATX_SYNC_AS_STAT, STATX_BTIME.
+    if statx(-100, os.fsencode(path), 0, 0x800, ctypes.byref(buf)) != 0:
+        return None
+    if not buf.stx_mask & 0x800:
+        return None
+    return buf.stx_btime.tv_sec + buf.stx_btime.tv_nsec / 1e9
+
+
+def installed_stamp(path: Path) -> str:
+    """Config file birth time (ISO local), mtime when unavailable."""
+    try:
+        ts = getattr(os.stat(path), "st_birthtime", None)
+    except OSError:
+        return ""
+    if not ts:
+        ts = _statx_birth(path)
+    if not ts:
+        try:
+            ts = os.stat(path).st_mtime
+        except OSError:
+            return ""
+    return datetime.datetime.fromtimestamp(ts).astimezone().isoformat(timespec="seconds")
+
+
 def save(cfg: GameConfig) -> Path:
     """Save a game's complete config snapshot."""
     if not str(cfg.general.appid or "").strip():
         raise ValueError("game config has no game ID")
     path = game_file(cfg.general.appid)
     data = to_toml_dict(cfg)
-    data.setdefault("general", {})["gameid"] = cfg.general.appid
+    general = data.setdefault("general", {})
+    general["gameid"] = cfg.general.appid
+    if not general.get("installed_at"):
+        # Birth time before the atomic replace swaps the inode away.
+        now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+        general["installed_at"] = installed_stamp(path) or now
     _write_atomic(path, _render_toml(data))
     return path
 
@@ -1329,6 +1437,7 @@ def diff_vs_defaults(cfg: GameConfig) -> str:
         general.pop("gameid", None)
         general.pop("name", None)
         general.pop("active_profile", None)
+        general.pop("installed_at", None)
     return "\n".join(
         difflib.unified_diff(
             _render_toml(base).splitlines(),

@@ -29,6 +29,7 @@ from .. import graphics as graphicsmod
 from .. import history as histmod
 from .. import launcher as launchermod
 from .. import protondb as pdbmod
+from .. import releasedate as rdmod
 from .. import running as runningmod
 from .. import runtimes, xdg
 from .. import steam as steammod
@@ -259,6 +260,8 @@ class GameListModel(QAbstractTableModel):
     CoverRole = Qt.ItemDataRole.UserRole + 19
     IssueLevelRole = Qt.ItemDataRole.UserRole + 20
     IssuesTipRole = Qt.ItemDataRole.UserRole + 21
+    ReleaseDateRole = Qt.ItemDataRole.UserRole + 22
+    InstalledAtRole = Qt.ItemDataRole.UserRole + 23
 
     ROLE_NAMES = (
         "gameId",
@@ -280,6 +283,8 @@ class GameListModel(QAbstractTableModel):
         "gameCategory",
         "gameRunning",
         "gameCover",
+        "gameReleaseDate",
+        "gameInstalledAt",
     )
 
     refreshed = Signal()
@@ -412,6 +417,8 @@ class GameListModel(QAbstractTableModel):
             GameListModel.CoverRole: b"gameCover",
             GameListModel.IssueLevelRole: b"gameIssueLevel",
             GameListModel.IssuesTipRole: b"gameIssuesTip",
+            GameListModel.ReleaseDateRole: b"gameReleaseDate",
+            GameListModel.InstalledAtRole: b"gameInstalledAt",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -419,13 +426,13 @@ class GameListModel(QAbstractTableModel):
 
     def columnCount(self, parent: QModelIndex | None = None) -> int:
         # Fixed logical columns (proxy permutes/hides them for the view).
-        return 0 if (parent is not None and parent.isValid()) else 12
+        return 0 if (parent is not None and parent.isValid()) else 13
 
     def index(self, row: int, column: int, parent: QModelIndex | None = None):
         # Table models own their indexes (unlike proxy mapping, this is safe).
         if parent is not None and parent.isValid():
             return QModelIndex()
-        if 0 <= row < len(self._rows) and 0 <= column < 12:
+        if 0 <= row < len(self._rows) and 0 <= column < 13:
             return self.createIndex(row, column)
         return QModelIndex()
 
@@ -458,6 +465,8 @@ class GameListModel(QAbstractTableModel):
             GameListModel.InstallDirRole: 15,
             GameListModel.CategoryRole: 16,
             GameListModel.CoverRole: 17,
+            GameListModel.ReleaseDateRole: 18,
+            GameListModel.InstalledAtRole: 19,
         }
         return row[cols[role]] if role in cols else None
 
@@ -483,6 +492,8 @@ class GameListModel(QAbstractTableModel):
             "gameInstallDir",
             "gameCategory",
             "gameCover",
+            "gameReleaseDate",
+            "gameInstalledAt",
         )
         if not 0 <= row < len(self._rows):
             return {}
@@ -662,7 +673,7 @@ class GameListModel(QAbstractTableModel):
             last_secs,
             cfgmod.platform_for(gcfg.runtime.type) if gcfg is not None else "",
             (
-                cfgmod.runtime_label(gcfg.runtime.type, is_steam, gcfg.runtime.steam_runtime)
+                cfgmod.runtime_short_label(gcfg.runtime.type, is_steam, gcfg.runtime.steam_runtime)
                 or "Not Set"
             )
             if gcfg is not None
@@ -671,6 +682,8 @@ class GameListModel(QAbstractTableModel):
             self._row_install_dir(appid, gcfg),
             ", ".join(gcfg.general.categories) if gcfg is not None else "",
             str(cover) if cover else "",
+            self._row_release_date(appid, gcfg, is_steam),
+            self._row_installed(appid, gcfg),
         )
 
     @staticmethod
@@ -699,17 +712,49 @@ class GameListModel(QAbstractTableModel):
 
     @staticmethod
     def _row_wine(appid: str, gcfg, is_steam: bool) -> str:
-        """Proton tool label for Steam ids, else the configured Wine version."""
+        """Wine/Proton label; a dash when the game runs natively."""
         if is_steam:
             from .. import proton as protonmod
 
             try:
+                if gcfg is not None and gcfg.runtime.type == cfgmod.RuntimeType.NATIVE:
+                    return "—"
+                tool = protonmod.compat_tool_name(appid)
+                if tool and protonmod.is_steam_runtime_tool(tool):
+                    return "—"
                 return protonmod.tool_display(appid)
             except Exception:
-                return "Proton"
-        if gcfg is not None and gcfg.runtime.tool:
-            return gcfg.runtime.tool
-        return ""
+                return "—"
+        tool = (gcfg.runtime.tool or "").strip() if gcfg is not None else ""
+        if not tool or gcfg.runtime.type == cfgmod.RuntimeType.NATIVE:
+            return "—"
+        if gcfg.runtime.type == cfgmod.RuntimeType.UMU:
+            return Path(tool.rstrip("/")).name or tool
+        return tool
+
+    @staticmethod
+    def _row_release_date(appid: str, gcfg, is_steam: bool) -> str:
+        """Manual metadata date first, else the cached Steam store date."""
+        if gcfg is not None and gcfg.metadata.date.strip():
+            return gcfg.metadata.date.strip()
+        if not is_steam:
+            return "—"
+        try:
+            date, _fresh = rdmod.cached(appid)
+        except Exception:
+            date = ""
+        return date or "—"
+
+    @staticmethod
+    def _row_installed(appid: str, gcfg) -> str:
+        """First-save timestamp, falling back to the config file's birth time."""
+        stamp = gcfg.general.installed_at if gcfg is not None else ""
+        if not stamp:
+            try:
+                stamp = cfgmod.installed_stamp(cfgmod.game_file(appid))
+            except Exception:
+                stamp = ""
+        return stamp.replace("T", " ")[:16] if stamp else "—"
 
     @staticmethod
     def _row_install_dir(appid: str, gcfg) -> str:
@@ -3359,7 +3404,7 @@ class GameListModel(QAbstractTableModel):
 
     @Slot()
     def fetchMissing(self) -> None:
-        """Refresh stale ProtonDB tiers and missing artwork off-thread.
+        """Refresh stale ProtonDB tiers, release dates and missing artwork off-thread.
 
         Only explicit UI entry calls this (never refresh() itself), so
         headless tests stay offline. Emits backgroundDone -> refresh.
@@ -3390,16 +3435,20 @@ class GameListModel(QAbstractTableModel):
             pass
 
     def _fetch_one(self, appid, api_key: str, provider: str, target: str) -> None:
-        """Refresh ProtonDB (and art) for one Steam appid."""
+        """Refresh ProtonDB, the release date (and art) for one Steam appid."""
         try:
             _data, fresh = pdbmod.cached(appid)
-        except Exception:
-            return
-        if not fresh:
-            try:
+            if not fresh:
                 pdbmod.refresh(appid)
-            except Exception:
-                return
+        except Exception:
+            pass
+        try:
+            if not cfgmod.load(appid).metadata.date.strip():
+                _date, fresh = rdmod.cached(appid)
+                if not fresh:
+                    rdmod.refresh(appid)
+        except Exception:
+            pass
         self._fetch_donor(target, api_key, provider)
 
     def _fetch_donor(self, target: str, api_key: str, provider: str) -> None:
@@ -3458,17 +3507,24 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return []
         rows = sorted(stats.values(), key=lambda s: s.last, reverse=True)
-        return [
-            {
-                "appid": s.appid,
-                "name": names.get(s.appid, s.appid),
-                "last": s.last.replace("T", " "),
-                "runs": s.runs,
-                "total": format_duration(s.total_dur),
-                "fails": s.fails,
-            }
-            for s in rows[:500]
-        ]
+        out = []
+        for s in rows[:500]:
+            try:
+                cfg = cfgmod.load(s.appid)
+            except Exception:
+                cfg = None
+            out.append(
+                {
+                    "appid": s.appid,
+                    "name": names.get(s.appid, s.appid),
+                    "last": s.last.replace("T", " "),
+                    "installed": self._row_installed(s.appid, cfg),
+                    "runs": s.runs,
+                    "total": format_duration(s.total_dur),
+                    "fails": s.fails,
+                }
+            )
+        return out
 
     @Slot(result=str)
     def openLudusavi(self) -> str:
@@ -3873,6 +3929,8 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameRuntime",
         "gameWine",
         "gameInstallDir",
+        "gameReleaseDate",
+        "gameInstalledAt",
     )
     COLUMN_TITLES = {
         "#": "#",
@@ -3886,10 +3944,12 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameRuntime": "Runtime",
         "gameWine": "Wine",
         "gameInstallDir": "Install Dir",
+        "gameReleaseDate": "Release Date",
+        "gameInstalledAt": "Installed",
     }
 
     #: Fresh/hidden-by-default library columns (Last Played shows).
-    _DEFAULT_HIDDEN = frozenset({7, 8, 9, 10})
+    _DEFAULT_HIDDEN = frozenset({7, 8, 9, 10, 11, 12})
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -3914,12 +3974,18 @@ class GameFilterModel(QSortFilterProxyModel):
             hidden = {int(x) for x in cfgmod.load_preferences().hidden_columns.split(",")}
         except Exception:
             hidden = set()
-        if sorted(order) != [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
-            # Old/short orders reset (no migration shims); keep the old
-            # hides, new library columns stay hidden except Last Played.
-            order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        full = list(range(13))
+        if sorted(order) == list(range(11)):
+            # Pre-Release/Installed orders keep their layout; the new
+            # columns go last and stay hidden once.
+            order = order + [11, 12]
+            hidden |= {11, 12}
+        elif sorted(order) != full:
+            # Old/short orders reset; keep the old hides, new library
+            # columns stay hidden except Last Played.
+            order = full
             hidden = (hidden & {1, 2, 3, 4, 5}) | set(GameFilterModel._DEFAULT_HIDDEN)
-        return order, {h for h in hidden if h in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)}
+        return order, {h for h in hidden if 1 <= h <= 12}
 
     def _view_columns(self) -> list[int]:
         """Logical columns in view order (hidden stay mapped, QML widths them 0)."""
@@ -3941,7 +4007,7 @@ class GameFilterModel(QSortFilterProxyModel):
                 logical, width = int(left.strip()), int(right.strip())
             except ValueError:
                 continue
-            if 0 <= logical <= 10 and 20 <= width <= 2000:
+            if 0 <= logical <= 12 and 20 <= width <= 2000:
                 widths[logical] = width
         return widths
 
@@ -4005,7 +4071,7 @@ class GameFilterModel(QSortFilterProxyModel):
             logical, width = int(logical), int(width)
         except (TypeError, ValueError):
             return
-        if logical not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) or not 20 <= width <= 2000:
+        if not 1 <= logical <= 12 or not 20 <= width <= 2000:
             return
         if self._widths.get(logical) != width:
             self._widths[logical] = width
@@ -4062,7 +4128,7 @@ class GameFilterModel(QSortFilterProxyModel):
             logical = int(logical)
         except (TypeError, ValueError):
             return 0
-        if logical not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+        if not 0 <= logical <= 12:
             return 0
         measured = self._measure_column(logical)
         if not measured:
@@ -4076,7 +4142,7 @@ class GameFilterModel(QSortFilterProxyModel):
     @Slot()
     def fitDefaults(self) -> None:
         """Fit visible content columns capped: fresh starts and resets."""
-        for logical in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+        for logical in range(1, 13):
             measured = self._measure_column(logical)
             if measured:
                 self._widths[logical] = min(max(40, measured), self.DEFAULT_FIT_MAX)
@@ -4111,6 +4177,8 @@ class GameFilterModel(QSortFilterProxyModel):
                 8: GameListModel.RuntimeRole,
                 9: GameListModel.WineRole,
                 10: GameListModel.InstallDirRole,
+                11: GameListModel.ReleaseDateRole,
+                12: GameListModel.InstalledAtRole,
             }
             return str(model.data(sidx, roles[logical]) or "")
         return super().data(index, role)
@@ -4143,7 +4211,7 @@ class GameFilterModel(QSortFilterProxyModel):
     @Slot()
     def resetColumns(self) -> None:
         """Default order and visibility, columns fitted capped."""
-        self._order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        self._order = list(range(13))
         self._hidden = set(self._DEFAULT_HIDDEN)
         self._widths = {}
         self._save_columns()
@@ -4212,6 +4280,8 @@ class GameFilterModel(QSortFilterProxyModel):
         "showRuntime": 8,
         "showWine": 9,
         "showInstallDir": 10,
+        "showReleaseDate": 11,
+        "showInstalled": 12,
     }
 
     def _get_flag(self, name: str) -> bool:
@@ -4284,6 +4354,18 @@ class GameFilterModel(QSortFilterProxyModel):
     def _set_showInstallDir(self, value: bool) -> None:
         self._set_flag("showInstallDir", value)
 
+    def _get_showReleaseDate(self) -> bool:
+        return self._get_flag("showReleaseDate")
+
+    def _set_showReleaseDate(self, value: bool) -> None:
+        self._set_flag("showReleaseDate", value)
+
+    def _get_showInstalled(self) -> bool:
+        return self._get_flag("showInstalled")
+
+    def _set_showInstalled(self, value: bool) -> None:
+        self._set_flag("showInstalled", value)
+
     showAppId = Property(bool, _get_showAppId, _set_showAppId, notify=columnsChanged)
     showPlayed = Property(bool, _get_showPlayed, _set_showPlayed, notify=columnsChanged)
     showTier = Property(bool, _get_showTier, _set_showTier, notify=columnsChanged)
@@ -4293,6 +4375,10 @@ class GameFilterModel(QSortFilterProxyModel):
     showRuntime = Property(bool, _get_showRuntime, _set_showRuntime, notify=columnsChanged)
     showWine = Property(bool, _get_showWine, _set_showWine, notify=columnsChanged)
     showInstallDir = Property(bool, _get_showInstallDir, _set_showInstallDir, notify=columnsChanged)
+    showReleaseDate = Property(
+        bool, _get_showReleaseDate, _set_showReleaseDate, notify=columnsChanged
+    )
+    showInstalled = Property(bool, _get_showInstalled, _set_showInstalled, notify=columnsChanged)
 
     @Slot(int, result="QVariantMap")
     def rowData(self, row: int) -> dict:

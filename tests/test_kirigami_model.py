@@ -129,6 +129,7 @@ def test_model_role_names_are_game_prefixed(qgui_app):
         b"gameIcon",
         b"gameId",
         b"gameInstallDir",
+        b"gameInstalledAt",
         b"gameIssueLevel",
         b"gameIssuesTip",
         b"gameLastPlayed",
@@ -139,6 +140,7 @@ def test_model_role_names_are_game_prefixed(qgui_app):
         b"gamePlayed",
         b"gamePlayedSecs",
         b"gamePlayedTip",
+        b"gameReleaseDate",
         b"gameRunning",
         b"gameRuntime",
         b"gameTier",
@@ -562,13 +564,13 @@ def test_column_prefs_roundtrip(qgui_app, xdg_env):
     proxy.setSourceModel(source)
     assert proxy.columnLogical(0) == 0
     proxy.moveColumn(2, 1)
-    assert [proxy.columnLogical(c) for c in range(11)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10]
+    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     assert C.load_preferences().column_order.split(",")[:3] == ["0", "1", "3"]
     proxy.showAppId = False
     assert "2" in C.load_preferences().hidden_columns.split(",")
     proxy.resetColumns()
-    assert [proxy.columnLogical(c) for c in range(11)] == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    assert C.load_preferences().hidden_columns == "7,8,9,10"
+    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    assert C.load_preferences().hidden_columns == "7,8,9,10,11,12"
 
 
 def test_column_width_autofit_persists(qgui_app, xdg_env):
@@ -940,20 +942,154 @@ def test_library_columns_roles(qgui_app, xdg_env):
     cfg.runtime.type = "native"
     C.save(cfg)
     model = GameListModel()
-    assert model.columnCount() == 12
+    assert model.columnCount() == 13
     row = model.rowData(0)
     assert row["gamePlatform"] == "Linux"
     assert row["gameCategory"] == "Action"
     assert row["gameRuntime"] == "Native"
+    assert row["gameReleaseDate"] == "—"
     assert row["gameLastPlayed"] == "—"
     assert row["gameLastSecs"] == -1
+    assert row["gameInstalledAt"][:2] == "20"
     game_filter = GameFilterModel()
     game_filter.setSourceModel(model)
-    assert game_filter.columnCount() == 11
-    assert game_filter._order == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    assert game_filter._hidden == {7, 8, 9, 10}
+    assert game_filter.columnCount() == 13
+    assert game_filter._order == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    assert game_filter._hidden == {7, 8, 9, 10, 11, 12}
     assert game_filter.showLastPlayed is True
+    assert game_filter.showReleaseDate is False
     game_filter.sortBy("gameLastSecs", True)
+
+
+def test_release_date_manual_wins_over_steam_cache(qgui_app, xdg_env):
+    import json
+
+    from tkarcade import releasedate as rd
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-213"
+    C.save(cfg)
+    path = rd.cache_path("steam-213")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"saved": int(time.time()), "date": "2025-08-28"}), encoding="utf-8")
+
+    def dates():
+        model = GameListModel()
+        return {
+            model.data(model.index(i, 0), model.IdRole): model.rowData(i)["gameReleaseDate"]
+            for i in range(model.rowCount())
+        }
+
+    assert dates()["steam-213"] == "2025-08-28"
+    cfg.metadata.date = "1993-12-10"
+    C.save(cfg)
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    C.save(local)
+    cells = dates()
+    assert cells["steam-213"] == "1993-12-10"
+    assert cells["local-doom"] == "—"
+
+
+def test_installed_cell_prefers_stamp_then_birth_time(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    stamp = C.load("local-doom").general.installed_at
+    expected = stamp.replace("T", " ")[:16]
+    assert expected != ""
+    assert GameListModel().rowData(0)["gameInstalledAt"] == expected
+    path = C.game_file("local-doom")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(stamp, ""),
+        encoding="utf-8",
+    )
+    fallback = C.installed_stamp(path).replace("T", " ")[:16]
+    assert fallback != ""
+    assert GameListModel().rowData(0)["gameInstalledAt"] == fallback
+
+
+def test_wine_column_dash_and_proton_names(qgui_app, xdg_env, monkeypatch):
+    from tkarcade import proton as pmod
+    from tkarcade.gui.model import GameListModel
+
+    for appid, name, kind, tool in (
+        ("steam-214", "", "native", ""),
+        ("steam-213", "", "proton", ""),
+        ("local-doom", "Doom", "umu", "/opt/GE-Proton9-1"),
+        ("local-quake", "Quake", "native", "/usr/bin/wine"),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.runtime.type = kind
+        cfg.runtime.tool = tool
+        C.save(cfg)
+
+    def wine_cells():
+        model = GameListModel()
+        return {
+            model.data(model.index(i, 0), model.IdRole): model.rowData(i)["gameWine"]
+            for i in range(model.rowCount())
+        }
+
+    monkeypatch.setattr(pmod, "compat_tool_name", lambda appid: "steamlinuxruntime_sniper")
+    cells = wine_cells()
+    assert cells["steam-214"] == "—"  # Steam native: no Wine
+    assert cells["steam-213"] == "—"  # Steam Linux Runtime tool, not Wine
+    assert cells["local-doom"] == "GE-Proton9-1"  # basename, not PROTONPATH
+    assert cells["local-quake"] == "—"  # stale tool on a native game
+    monkeypatch.setattr(pmod, "compat_tool_name", lambda appid: "proton_9")
+    assert wine_cells()["steam-213"] == "proton_9"
+
+
+def test_runtime_column_short_labels(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    for appid, name, kind, steam_runtime in (
+        ("steam-213", "", "native", ""),
+        ("local-a", "A", "native", "sniper"),
+        ("local-b", "B", "native", ""),
+        ("local-c", "C", "umu", ""),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.runtime.type = kind
+        cfg.runtime.steam_runtime = steam_runtime
+        cfg.runtime.tool = "/opt/GE-Proton9-1" if kind == "umu" else ""
+        C.save(cfg)
+    model = GameListModel()
+    cells = {
+        model.data(model.index(i, 0), model.IdRole): model.rowData(i)["gameRuntime"]
+        for i in range(model.rowCount())
+    }
+    assert cells["steam-213"] == "SLR"
+    assert cells["local-a"] == "SLR 3.0"
+    assert cells["local-b"] == "Native"
+    assert cells["local-c"] == "UMU"
+
+
+def test_history_summary_carries_installed(qgui_app, xdg_env):
+    from tkarcade import xdg
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-42"
+    cfg.general.name = "Doom"
+    C.save(cfg)
+    log = xdg.log_file()
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text("2026-01-01T10:00:00 appid=steam-42 exit=0 dur=60 cmd=doom\n", encoding="utf-8")
+    summary = GameListModel().historySummary()
+    assert summary[0]["appid"] == "steam-42"
+    stamp = C.load("steam-42").general.installed_at
+    assert summary[0]["installed"] == stamp.replace("T", " ")[:16]
 
 
 def test_finished_session_refreshes_played_columns(qgui_app, xdg_env):
@@ -1857,13 +1993,13 @@ def _filtered(qgui_app, appids=("213", "local-doom")):
     return proxy
 
 
-def test_proxy_is_eleven_column_table(qgui_app, xdg_env):
+def test_proxy_is_thirteen_column_table(qgui_app, xdg_env):
     from PySide6.QtCore import Qt
 
     proxy = _filtered(qgui_app)
-    assert proxy.columnCount() == 11
+    assert proxy.columnCount() == 13
     assert proxy.columnCount(proxy.index(0, 0)) == 0
-    assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(11)] == [
+    assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(13)] == [
         "#",
         "Game",
         "Game ID",
@@ -1875,6 +2011,8 @@ def test_proxy_is_eleven_column_table(qgui_app, xdg_env):
         "Runtime",
         "Wine",
         "Install Dir",
+        "Release Date",
+        "Installed",
     ]
     assert proxy.data(proxy.index(0, 0)) == "1"
     # Sorted by name: the local game ("Doom") comes before "steam-213".
@@ -1891,20 +2029,42 @@ def test_proxy_is_eleven_column_table(qgui_app, xdg_env):
 def test_proxy_move_hide_reset_columns(qgui_app, xdg_env):
     proxy = _filtered(qgui_app)
     proxy.moveColumn(2, 1)
-    assert proxy.columnCount() == 11
+    assert proxy.columnCount() == 13
     assert (
         proxy.headerData(2, __import__("PySide6.QtCore", fromlist=["x"]).Qt.Orientation.Horizontal)
         == "Played"
     )
     assert C.load_preferences().column_order.split(",")[:3] == ["0", "1", "3"]
     proxy.showAppId = False
-    assert proxy.columnCount() == 11  # hidden columns keep mapped slots
+    assert proxy.columnCount() == 13  # hidden columns keep mapped slots
     assert "2" in C.load_preferences().hidden_columns.split(",")
     proxy.resetColumns()
-    assert proxy.columnCount() == 11
-    assert C.load_preferences().hidden_columns == "7,8,9,10"
+    assert proxy.columnCount() == 13
+    assert C.load_preferences().hidden_columns == "7,8,9,10,11,12"
     proxy.moveColumn(0, -1)  # edge: no-op, stays valid
-    assert proxy.columnCount() == 11
+    assert proxy.columnCount() == 13
+
+
+def test_proxy_columns_migrate_old_order_once(qgui_app, xdg_env):
+    prefs = C.load_preferences()
+    prefs.column_order = "0,1,3,2,4,5,6,7,8,9,10"
+    prefs.hidden_columns = "2,9"
+    C.save_preferences(prefs)
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    proxy = GameFilterModel()
+    proxy.setSourceModel(GameListModel())
+    assert proxy._order == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    assert proxy._hidden == {2, 9, 11, 12}
+    assert C.load_preferences().hidden_columns == "2,9"  # saved on next change
+    again = GameFilterModel()
+    again.setSourceModel(GameListModel())
+    assert again._order == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    assert again._hidden == {2, 9, 11, 12}
+    again.showReleaseDate = True
+    prefs = C.load_preferences()
+    assert prefs.column_order == "0,1,3,2,4,5,6,7,8,9,10,11,12"
+    assert prefs.hidden_columns == "2,9,12"
 
 
 def test_refresh_counts_only_steam_detected(qgui_app, xdg_env):

@@ -656,7 +656,7 @@ def test_header_sort_repaints_rows(qgui_app, xdg_env):
 
 
 def test_library_columns_render_and_autofit(qgui_app, xdg_env):
-    """Columns 6-10 show their role data; double-click still autofits."""
+    """Columns 6-12 show their role data; double-click still autofits."""
     from PySide6.QtCore import QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
@@ -687,13 +687,18 @@ def test_library_columns_render_and_autofit(qgui_app, xdg_env):
         8: "Wine",
         9: "wine-9.0",
         10: "/bin",
+        11: "—",
+        12: proxy.data(proxy.index(0, 12)),
     }
+    assert expected[12] != "—"
     flags = {
         6: "showLastPlayed",
         7: "showPlatform",
         8: "showRuntime",
         9: "showWine",
         10: "showInstallDir",
+        11: "showReleaseDate",
+        12: "showInstalled",
     }
     for logical, flag in flags.items():
         for other in flags.values():
@@ -831,6 +836,8 @@ def _column_widths(proxy, table, page=None):
         8: 80.0,
         9: 80.0,
         10: 80.0,
+        11: 80.0,
+        12: 80.0,
     }
     try:
         live = {lg: float(proxy.columnWidth(lg) or 0) for lg in defaults}
@@ -871,6 +878,8 @@ def _shown_flags(proxy):
         (8, "showRuntime"),
         (9, "showWine"),
         (10, "showInstallDir"),
+        (11, "showReleaseDate"),
+        (12, "showInstalled"),
     ):
         try:
             shown[logical] = bool(proxy.property(flag))
@@ -888,7 +897,7 @@ def _column_cell_x(host, page, proxy, logical):
         raw = page.property("columnOrder")
         order = list(raw.toVariant()) if hasattr(raw, "toVariant") else list(raw)
     except Exception:
-        order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     table = None
     try:
         win = host.window()
@@ -3350,7 +3359,18 @@ def test_history_view_clears_row(qgui_app, xdg_env):
 
     win, engine, _proxy, warnings = _load_main(qgui_app)
     view = win.findChild(QObject, "historyView")
-    view.setProperty("rows", [{"appid": "42", "name": "Doom", "last": "yesterday", "total": "1h"}])
+    view.setProperty(
+        "rows",
+        [
+            {
+                "appid": "42",
+                "name": "Doom",
+                "last": "yesterday",
+                "installed": "2026-01-01 09:00",
+                "total": "1h",
+            }
+        ],
+    )
     view.open()
     qgui_app.processEvents()
     header = win.findChild(QQuickItem, "historyHeader")
@@ -3362,11 +3382,12 @@ def test_history_view_clears_row(qgui_app, xdg_env):
     seps = [
         item for item in win.findChildren(QQuickItem) if item.objectName() == "historyHeaderSep"
     ]
-    assert len(seps) == 5
+    assert len(seps) == 6
     assert all(item.isVisible() and item.height() > 0 for item in seps)
     expected_headers = (
         ("historyHeaderGame", "Game"),
         ("historyHeaderLast", "Last Played"),
+        ("historyHeaderInstalled", "Installed"),
         ("historyHeaderRuns", "Sessions"),
         ("historyHeaderTotal", "Total Time"),
         ("historyHeaderFails", "Failures"),
@@ -3402,6 +3423,7 @@ def test_history_view_clears_row(qgui_app, xdg_env):
     for header_name, cell_name in (
         ("historyHeaderGame", "historyName"),
         ("historyHeaderLast", "historyLast"),
+        ("historyHeaderInstalled", "historyInstalled"),
         ("historyHeaderRuns", "historyRuns"),
         ("historyHeaderTotal", "historyTotal"),
         ("historyHeaderFails", "historyFails"),
@@ -3411,6 +3433,8 @@ def test_history_view_clears_row(qgui_app, xdg_env):
         assert cell is not None and cell.isVisible()
         assert abs(headers[header_name].property("x") - cell.property("x")) < 0.5
         assert abs(headers[header_name].property("width") - cell.property("width")) < 0.5
+    installed_cell = delegate.findChild(QQuickItem, "historyInstalled")
+    assert installed_cell.property("text") == "2026-01-01 09:00"
     clear = delegate.findChild(QQuickItem, "historyClear")
     assert clear.property("flat") is False
     hist = _modal_window(qgui_app, ("Session History",))
@@ -3791,7 +3815,7 @@ def test_column_move_reorders_cells(qgui_app, xdg_env):
     C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    assert page.property("columnOrder").toVariant() == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    assert page.property("columnOrder").toVariant() == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     header = win.findChild(QQuickItem, "tableHeader")
 
     def xs():
@@ -3803,7 +3827,7 @@ def test_column_move_reorders_cells(qgui_app, xdg_env):
     qgui_app.processEvents()
     app_x, played_x = xs()
     assert played_x < app_x
-    assert page.property("columnOrder").toVariant() == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10]
+    assert page.property("columnOrder").toVariant() == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3822,12 +3846,12 @@ def test_column_layout_persists(qgui_app, xdg_env):
     win, engine, proxy, warnings = _load_main(qgui_app)
     assert proxy.columnLogical(0) == 0
     proxy.moveColumn(2, 1)
-    assert [proxy.columnLogical(c) for c in range(11)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10]
+    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     proxy.setProperty("showOrigin", False)
     qgui_app.processEvents()
     prefs = C.load_preferences()
-    assert prefs.column_order == "0,1,3,2,4,5,6,7,8,9,10"
-    assert prefs.hidden_columns == "5,7,8,9,10"
+    assert prefs.column_order == "0,1,3,2,4,5,6,7,8,9,10,11,12"
+    assert prefs.hidden_columns == "5,7,8,9,10,11,12"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4110,11 +4134,15 @@ def test_header_menu_resets_columns(qgui_app, xdg_env):
     assert reset is not None
     proxy.setProperty("showAppId", False)
     proxy.setProperty("showPlatform", True)
+    proxy.setProperty("showReleaseDate", True)
+    proxy.setProperty("showInstalled", True)
     qgui_app.processEvents()
     _fire(reset)
     qgui_app.processEvents()
     assert proxy.property("showAppId") is True
     assert proxy.property("showPlatform") is False
+    assert proxy.property("showReleaseDate") is False
+    assert proxy.property("showInstalled") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4250,6 +4278,15 @@ def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     qgui_app.processEvents()
     dialog = win.findChild(QObject, "columnsDialog")
     assert dialog.property("visible") is True
+    listed = dialog.property("listedLogicals")
+    listed = listed.toVariant() if hasattr(listed, "toVariant") else listed
+    assert list(listed) == list(range(2, 13))
+    page = win.findChild(QObject, "gamesPage")
+    page.moveColumn(2, 1)
+    qgui_app.processEvents()
+    listed = dialog.property("listedLogicals")
+    listed = listed.toVariant() if hasattr(listed, "toVariant") else listed
+    assert list(listed) == [3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     # Dialog content is lazy offscreen: exercise the same flags directly.
     proxy.setProperty("showAppId", False)
     qgui_app.processEvents()
@@ -4332,7 +4369,7 @@ def test_header_width_matches_table_for_unfitted_columns(qgui_app, xdg_env):
     for _ in range(5):
         qgui_app.processEvents()
     cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
-    for logical in range(11):
+    for logical in range(13):
         cell = cells.get(f"headerCell{logical}")
         assert cell is not None, logical
         assert cell.property("width") == page.tableColumnWidth(logical), logical
@@ -6923,9 +6960,15 @@ def test_library_columns_headers(qgui_app, xdg_env):
     win, engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     assert page.columnTitle(6) == "Last Played"
+    assert page.columnTitle(11) == "Release Date"
+    assert page.columnTitle(12) == "Installed"
     assert page.columnVisible(6) is True
     assert page.columnVisible(10) is False
+    assert page.columnVisible(11) is False
+    assert page.columnVisible(12) is False
     assert page.columnSortRole(6) == "gameLastSecs"
+    assert page.columnSortRole(11) == "gameReleaseDate"
+    assert page.columnSortRole(12) == "gameInstalledAt"
     page.headerClicked(6)
     qgui_app.processEvents()
     real = [w for w in warnings if "graphics scene" not in w]

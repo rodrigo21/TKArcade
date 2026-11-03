@@ -108,6 +108,12 @@ def tool_display(appid: str) -> str:
     return f"{tool} ({version})" if version else tool
 
 
+def is_steam_runtime_tool(tool: str) -> bool:
+    """True for Steam Linux Runtime compat tools (native games)."""
+    low = (tool or "").strip().lower()
+    return low.startswith("steamlinuxruntime") or low.startswith("steam-runtime")
+
+
 def flavor(tool: str) -> str:
     """Classify a compat tool: 'cachyos', 'ge', 'dw' or 'valve' (default)."""
     low = (tool or "").lower()

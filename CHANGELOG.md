@@ -27,6 +27,11 @@ Breaking config changes are called out explicitly under `Changed`.
   config unapplied, a warning icon for launches that continue degraded.
   Its tooltip lists the same issues as Validate Game, one per line with
   an `Error:`/`Warning:` label; config keys stay verbatim.
+- The library table has two hidden-by-default columns: Release Date
+  (the manual `[metadata] date`, else the Steam store date cached for
+  30 days) and Installed (the `[general] installed_at` stamp written on
+  the first save, or the game's `.toml` birth time for older configs).
+  Session History shows the installed value too.
 
 ### Changed
 - The Flatpak Ludusavi warning names Wine/Proton prefixes now, since the
@@ -47,6 +52,11 @@ Breaking config changes are called out explicitly under `Changed`.
   process before a compat-tool mapping is written.
 - The local Runtime list reads Native, UMU, Wine in both the Add Game
   dialog and Settings.
+- The Runtime column uses compact Steam Linux Runtime labels (`SLR`,
+  `SLR 1.0`–`SLR 4.0`); Settings and the launch menu keep the full
+  names. The Wine column shows `—` for native games and Steam Linux
+  Runtime tools, and the Proton install name (not the full
+  `PROTONPATH`) for a local UMU game.
 - The Graphics section shows a layer's version picker only while that
   layer is on. D3D12 now uses two mutually exclusive checkboxes,
   `vkd3d-proton` and `vkd3d`, with the lower compatibility of Wine's
@@ -189,6 +199,8 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The Configure Columns list follows the table order now: moving a
+  column up or down there no longer leaves the dialog out of sync.
 - A session that finishes while the Session History window is open shows
   up immediately, and a background refresh no longer selects the first
   game after the selection was cleared on purpose.

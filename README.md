@@ -49,9 +49,10 @@ Games added with **Add → Local** keep their own origin. `[runtime] type`
 says how the game runs: `native` (a Linux build), `wine` or `umu` for
 local games; Steam games use `proton` (Steam's Proton) or `native`
 (Steam Runtime). The library derives `Origin` (Steam/Local) and
-`Platform` (Linux/Windows) from it, and the `Runtime` column shows the
-runtime label (`Native`, `Wine`, `UMU`, `Steam Proton`, `Steam Runtime`);
-there is no separate platform label. A Steam game with no configured
+`Platform` (Linux/Windows) from it, and the `Runtime` column shows a
+compact runtime label (`Native`, `Wine`, `UMU`, `Steam Proton`, plus
+`SLR` and `SLR 1.0`–`SLR 4.0` for the Steam Linux Runtimes); there is
+no separate platform label. A Steam game with no configured
 runtime prompts on launch to configure it: the settings open on the
 Runtime tab with the type inferred from `%command%` preselected
 (`proton` with Proton's `waitforexitandrun` or a `proton` binary,
@@ -173,6 +174,13 @@ error or warning badge whose tooltip lists them; Clear Shader Cache per
 game; double-click the ProtonDB rating to open its page; the Played
 column totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.
+
+The hidden-by-default `Release Date` and `Installed` columns (header
+menu or Configure Columns) show the manual `[metadata] date` first and
+otherwise the Steam store release date, cached for 30 days; `Installed`
+uses the `[general] installed_at` stamp written on the first save, or
+the game's `.toml` birth time for older configs. Session History shows
+the same installed value.
 
 **Game dialog** — tabs for General (the game, optional `version`/`date`/
 `tag` metadata shown as name suffixes, categories and launch settings),

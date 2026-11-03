@@ -263,6 +263,44 @@ def test_sections_covered_by_key_map():
     assert set(C.to_toml_dict(C.GameConfig())) == set(C.SECTION_KEYS)
 
 
+def test_save_stamps_installed_at(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "424242"
+    path = C.save(cfg)
+    stamp = C.load("424242").general.installed_at
+    assert stamp and C.installed_stamp(path)
+    cfg = C.load("424242")
+    cfg.general.installed_at = "2026-01-02T03:04:05-03:00"
+    C.save(cfg)
+    assert C.load("424242").general.installed_at == "2026-01-02T03:04:05-03:00"
+
+
+def test_save_backfills_installed_at_from_birth_time(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-old"
+    path = C.save(cfg)
+    text = "\n".join(
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if not line.startswith("installed_at")
+    )
+    path.write_text(text + "\n", encoding="utf-8")
+    expected = C.installed_stamp(path)
+    C.save(C.load("local-old"))
+    assert C.load("local-old").general.installed_at == expected
+
+
+def test_defaults_and_diff_skip_installed_at(xdg_env):
+    defaults = C.load_defaults()
+    defaults.general.installed_at = "2020-01-01T00:00:00+00:00"
+    C.save_defaults(defaults)
+    assert C.load_defaults().general.installed_at == ""
+    cfg = C.GameConfig()
+    cfg.general.appid = "70"
+    C.save(cfg)
+    assert "installed_at" not in C.diff_vs_defaults(C.load("70"))
+
+
 def test_profiles_crud(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "70"
@@ -409,7 +447,7 @@ def test_preferences_invalid_values(xdg_env):
 #: Every persisted leaf field, set to a distinctive value that sits inside
 #: the documented range. A load that silently drops or re-clamps one of
 #: them (a bound narrower than what the writers produce: the column-width
-#: map was capped at 5 logicals while the table writes 11) fails
+#: map was capped at 5 logicals while the table writes 13) fails
 #: test_every_field_roundtrips below.
 _GAME_FIELDS = {
     "general.name": "Test Name",
@@ -422,6 +460,7 @@ _GAME_FIELDS = {
     "general.categories": ["Action", "Retro"],
     "general.launch_args": "--foo --bar",
     "general.launch_cwd": "/tmp/opencode/cwd",
+    "general.installed_at": "2026-01-02T03:04:05-03:00",
     "metadata.version": "v0.3.5",
     "metadata.date": "2026-10-29",
     "metadata.tag": "Beta",
@@ -899,11 +938,11 @@ def test_column_width_prefs_roundtrip(xdg_env):
     prefs.column_widths = "1=210,2=90"
     C.save_preferences(prefs)
     assert C.load_preferences().column_widths == "1=210,2=90"
-    # Every logical column of the 12-column table survives (0-11); only
+    # Every logical column of the 13-column table survives (0-12); only
     # out-of-range widths and unknown logics are dropped.
-    prefs.column_widths = "x,1=5,2=99,9=50,3=3000,12=100"
+    prefs.column_widths = "x,1=5,2=99,9=50,3=3000,12=100,13=100"
     C.save_preferences(prefs)
-    assert C.load_preferences().column_widths == "2=99,9=50"
+    assert C.load_preferences().column_widths == "2=99,9=50,12=100"
     prefs.column_widths = "6=140,7=120,11=95"
     C.save_preferences(prefs)
     assert C.load_preferences().column_widths == "6=140,7=120,11=95"
@@ -1493,6 +1532,14 @@ def test_runtime_axes_are_derived():
     assert C.runtime_label("proton", False, "sniper") == ""
     assert C.runtime_label("wine", True, "sniper") == ""
     assert C.runtime_label("umu", True, "sniper") == ""
+
+    # The library column shortens the SLR names; the dialog keeps the full.
+    assert C.runtime_short_label("native", True) == "SLR"
+    assert C.runtime_short_label("native", False) == "Native"
+    assert C.runtime_short_label("native", False, "scout") == "SLR 1.0"
+    assert C.runtime_short_label("native", False, "steamrt4") == "SLR 4.0"
+    assert C.runtime_short_label("native", False, "bogus") == "Native"
+    assert C.runtime_short_label("proton", True) == "Steam Proton"
 
 
 def test_steam_runtime_names():
