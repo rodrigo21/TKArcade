@@ -12,23 +12,22 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   (`PKGBUILD` `pkgver`, `optdepends` indentation and a lenient
   `check()`, plus an untracked `.SRCINFO`, never committed); `.qoder/`
   is git-ignored.
-- Landed: twenty-six batches. The latest changes the library's default
-  column layout: Release Date, Origin, Platform, Played, Last Played
-  and Installed show after `#` and Game; Runtime, Wine, ProtonDB, Game
-  ID and Install Dir start hidden. A new `column_layout_version`
-  preference resets saved order/visibility once to these defaults and
-  keeps fitted widths. Earlier batches: `CHANGELOG.md`.
-- Verified: `tests/test_config.py` + `tests/test_kirigami_model.py`
-  (205 pass), full fast suite and the QML driver (568 pass), the
-  targeted column/header QML cases, and offscreen screenshots (default
-  table with readable Release Date/Installed cells, Configure Columns,
-  migrated old prefs). Venv refreshed after the merge. No real-display
-  or real Steam library test.
-- Next: the `TODO.md` "Deferred design review" items — runtime archives
-  in a cache dir (design frozen in `docs/decisions/runtime-archives.md`,
-  not implemented), the issue badge in the card/icon views, name-based
-  artwork for local games, numeric shortcut mapping and prefix-resolution
-  unification.
+- Landed: twenty-nine batches. The latest shows the validation badge
+  (error/warning icon and tooltip) on cards and icon cells too, matching
+  the table. The two docs batches froze the runtime-archives design
+  (`docs/decisions/runtime-archives.md`, not implemented) and dropped
+  the Steam Linux Runtime pick item (upstream-blocked). Earlier
+  batches: `CHANGELOG.md`.
+- Verified: full fast suite and the QML driver (568 pass) on the badge
+  branch, the targeted badge QML cases, and offscreen screenshots
+  (table/cards/icons badges, no layout shift). One one-off
+  `test_header_divider_drag_resizes_and_persists` flake passed on
+  re-run. Venv refreshed after the merge. No real-display or real
+  Steam library test.
+- Next: the remaining `TODO.md` themes — name-based artwork for local
+  games, numeric shortcut mapping (discussion in progress: using the
+  packaged `vdf` in the launcher) and prefix-resolution unification,
+  then the deferred research/release items.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
