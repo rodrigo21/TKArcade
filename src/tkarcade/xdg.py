@@ -64,6 +64,11 @@ def app_cache_dir() -> Path:
     return cache_home() / "tkarcade"
 
 
+def archives_cache_dir() -> Path:
+    """Runtime archives waiting for extraction (downloads and user drops)."""
+    return app_cache_dir() / "archives"
+
+
 def log_file() -> Path:
     return app_state_dir() / "launcher.log"
 
@@ -83,6 +88,11 @@ def defaults_file() -> Path:
 def default_prefix_base() -> Path:
     """Built-in base directory for game prefixes (preferences may override)."""
     return data_home() / "tkarcade" / "prefixes"
+
+
+def runtimes_dir() -> Path:
+    """Managed DXVK/vkd3d installs written by the GUI download helper."""
+    return data_home() / "tkarcade" / "runtimes"
 
 
 def is_wine_prefix(path: Path) -> bool:

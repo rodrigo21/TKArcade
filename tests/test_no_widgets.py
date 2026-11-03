@@ -81,3 +81,45 @@ def test_no_widgets_package_imports():
         if any("widgets" in t.split(".") for t in _import_targets(path))
     ]
     assert offenders == []
+
+
+#: Modules on the launcher path: they run on every game start and stay
+#: stdlib-first (vdf is the one allowed third-party import).
+LAUNCHER_MODULES = (
+    "launcher.py",
+    "config.py",
+    "proton.py",
+    "steam.py",
+    "xdg.py",
+    "nightlight_holder.py",
+    "winetricks.py",
+    "runtimes.py",
+    "graphics.py",
+)
+_BANNED_ROOTS = ("PySide6", "zstandard", "runtime_archives")
+
+
+def _import_names(path: Path) -> list[str]:
+    """Every module or imported name, relative imports included."""
+    names: list[str] = []
+    tree = ast.parse(path.read_bytes())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.module:
+                names.append(node.module)
+            names += [alias.name for alias in node.names]
+        elif isinstance(node, ast.Import):
+            names += [alias.name for alias in node.names]
+    return names
+
+
+def test_launcher_modules_stay_stdlib_and_qt_free():
+    paths = [ROOT / "src/tkarcade" / name for name in LAUNCHER_MODULES]
+    paths += sorted((ROOT / "src/tkarcade/backends").glob("*.py"))
+    offenders = [
+        f"{path.relative_to(ROOT)}: {name}"
+        for path in paths
+        for name in _import_names(path)
+        if name.split(".")[0] in _BANNED_ROOTS
+    ]
+    assert offenders == []

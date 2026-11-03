@@ -1599,6 +1599,13 @@ Window {
                 showFetchResult(status, provider)
             }
         }
+        // Managed runtime versions changed (download or extraction): the
+        // graphics pickers list what is actually installed.
+        function onArchivesChanged() {
+            if (editAppid !== "") {
+                refreshGfx(false)
+            }
+        }
     }
 
     Connections {

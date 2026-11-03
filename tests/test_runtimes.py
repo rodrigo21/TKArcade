@@ -80,6 +80,26 @@ def test_graphics_versions_newest_first(xdg_env):
     assert R.pick_graphics("vkd3d") is None
 
 
+def test_graphics_versions_include_managed_dir(xdg_env):
+    managed = xdg_env["data"] / "tkarcade" / "runtimes" / "dxvk"
+    _graphics(managed, "dxvk-2.7.1", "d3d11.dll")
+    extra = xdg_env["data"] / "dxvk"
+    _graphics(extra, "dxvk-2.14.0", "d3d11.dll")
+    versions = R.graphics_versions("dxvk", str(extra))
+    assert [v.name for v in versions] == ["dxvk-2.14.0", "dxvk-2.7.1"]
+    # Managed installs show up with no configured directory at all.
+    assert [v.name for v in R.graphics_versions("dxvk")] == ["dxvk-2.7.1"]
+
+
+def test_graphics_versions_managed_wins_on_equal_names(xdg_env, tmp_path):
+    managed = xdg_env["data"] / "tkarcade" / "runtimes" / "dxvk"
+    configured = tmp_path / "dxvk"
+    _graphics(managed, "dxvk-2.7.1", "d3d11.dll")
+    _graphics(configured, "dxvk-2.7.1", "d3d11.dll")
+    versions = [v for v in R.graphics_versions("dxvk", str(configured)) if v.name == "dxvk-2.7.1"]
+    assert [v.root for v in versions] == [managed / "dxvk-2.7.1", configured / "dxvk-2.7.1"]
+
+
 def test_graphics_versions_ignore_unconfigured_lutris_dir(xdg_env):
     base = xdg_env["data"] / "lutris/runtime/dxvk"
     _graphics(base, "v2.6.2", "d3d11.dll")

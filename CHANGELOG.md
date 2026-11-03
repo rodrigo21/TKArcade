@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Preferences can download the latest DXVK and vkd3d-proton release;
+  archives dropped into `$XDG_CACHE_HOME/tkarcade/archives` are extracted
+  on the next GUI version scan into
+  `$XDG_DATA_HOME/tkarcade/runtimes`. The launcher never downloads or
+  unpacks anything.
 - The category picker has an Add button next to the free-form field:
   typed names land in the list immediately (comma-separated; an existing
   category is checked instead of duplicated) and the dialog stays open.
@@ -16,8 +21,7 @@ Breaking config changes are called out explicitly under `Changed`.
   and `vkd3d_version` pick an installed version for a local Wine game;
   empty keeps picking the newest one. The Graphics section exposes both
   choices, and a missing selection is reported by the dialog and
-  `--validate` instead of silently using another version. Runtime
-  archives are still not downloaded or unpacked.
+  `--validate` instead of silently using another version.
 - A hamburger action removes the configurations of games whose install
   is gone: Steam games without an appmanifest or install folder and
   local games whose executable no longer exists. It lists them in a

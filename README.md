@@ -109,8 +109,13 @@ launch that asks for it — the dialog says so and `--validate` prints a
 the configured DXVK/vkd3d directories into the prefix at launch and
 select it through `WINEDLLOVERRIDES`. The version is per game:
 `dxvk_version` / `vkd3d_version`, with empty meaning the newest installed
-version. Only the directories set in Preferences are scanned; TKArcade
-does not read another launcher's default layout. DXVK covers D3D9/10/11
+version. Managed downloads land in `$XDG_DATA_HOME/tkarcade/runtimes`;
+that directory and the ones set in Preferences are scanned, and
+TKArcade does not read another launcher's default layout. Preferences
+can download the latest DXVK/vkd3d-proton release, and archives dropped
+into `$XDG_CACHE_HOME/tkarcade/archives` are extracted on the next GUI
+scan. The launcher never downloads or unpacks anything. DXVK covers
+D3D9/10/11
 and vkd3d-proton covers D3D12, so the two combine (`dxvk = true` plus
 `vkd3d = "proton"`); `vkd3d = "wine"` keeps Wine's builtin vkd3d, which
 has lower compatibility. A selected version that is no longer installed
@@ -122,8 +127,7 @@ prefix** deletes only those. Only a plain Wine prefix takes the layers:
 search path, so the section is hidden for them and `[graphics]` is
 ignored by design (`docs/decisions/graphics-layers.md`). To change those
 versions, pick a different Proton build — the per-game compat tool in
-Steam, or another runtime for a local umu game. Runtime archives are not
-downloaded or unpacked; see `TODO.md` for the deferred cache option.
+Steam, or another runtime for a local umu game.
 
 ```toml
 # Local Windows game under Wine, with the graphics layers.

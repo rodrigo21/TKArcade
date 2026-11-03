@@ -16,6 +16,9 @@ dependencies = [
   "PySide6>=6.12",
   "vdf",
   "jeepney",
+  # The stdlib compression.zstd module arrived in 3.14; older
+  # interpreters use this fallback for vkd3d-proton archives.
+  "zstandard; python_version < '3.14'",
 ]
 
 [project.optional-dependencies]

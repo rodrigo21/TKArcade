@@ -31,6 +31,7 @@ from .. import launcher as launchermod
 from .. import protondb as pdbmod
 from .. import releasedate as rdmod
 from .. import running as runningmod
+from .. import runtime_archives as archivesmod
 from .. import runtimes, xdg
 from .. import steam as steammod
 from .. import winetricks as wtmod
@@ -308,6 +309,12 @@ class GameListModel(QAbstractTableModel):
     terminateReported = Signal(bool, str, str)
     # The set of running AppIDs changed (indicator repaint).
     runningChanged = Signal()
+    # Runtime archive work: download/extraction progress (kind, message),
+    # the end of one download (kind, "" = installed) and the managed
+    # versions changed. GUI-only; the launcher never imports that helper.
+    archiveProgress = Signal(str, str)
+    archiveFinished = Signal(str, str)
+    archivesChanged = Signal()
 
     # How often the running records are re-read, and how long a
     # terminating launcher gets before its process group is SIGKILLed.
@@ -341,6 +348,11 @@ class GameListModel(QAbstractTableModel):
         # Steam display names learned by an explicit artwork fetch, so the
         # status row can name the Artwork Source AppID without a lookup.
         self._art_names: dict[str, str] = {}
+        # Runtime archive downloads/extraction (one of each at a time).
+        self._archive_lock = threading.Lock()
+        self._archive_work_lock = threading.Lock()
+        self._archive_busy: set[str] = set()
+        self._archive_sync_running = False
         self.backgroundDone.connect(self.refresh)
         self._running_timer = QTimer(self)
         self._running_timer.setInterval(self.RUNNING_POLL_MS)
@@ -2941,6 +2953,7 @@ class GameListModel(QAbstractTableModel):
     @Slot(str, result="QVariantMap")
     def graphicsState(self, appid: str) -> dict:
         """Installed layers (marker) and the installed versions per layer."""
+        self._kick_archive_sync()
         prefs = cfgmod.load_preferences()
         prefix = None
         if appid:
@@ -2989,6 +3002,74 @@ class GameListModel(QAbstractTableModel):
         log.info("graphics: removed %d file(s) from %s", removed, prefix)
         self.refresh()
         return warnings[0] if warnings else ""
+
+    @Slot(result="QVariantMap")
+    def runtimeArchiveDirs(self) -> dict:
+        """Where downloads land and where dropped archives are picked up."""
+        return {
+            "managed": os.fspath(xdg.runtimes_dir()),
+            "cache": os.fspath(xdg.archives_cache_dir()),
+        }
+
+    @Slot(str)
+    def downloadLatestGraphics(self, kind: str) -> None:
+        """Download and install the latest release off the GUI thread."""
+        if kind not in runtimes.GRAPHICS_DLLS:
+            self.archiveFinished.emit(str(kind), "Unknown Runtime Layer.")
+            return
+        with self._archive_lock:
+            if kind in self._archive_busy:
+                return
+            self._archive_busy.add(kind)
+        self.archiveProgress.emit(kind, "Checking the Latest Release…")
+        threading.Thread(target=self._download_archive_worker, args=(kind,), daemon=True).start()
+
+    def _download_archive_worker(self, kind: str) -> None:
+        try:
+            with self._archive_work_lock:
+                message = archivesmod.download_latest(
+                    kind, progress=lambda text: self.archiveProgress.emit(kind, text)
+                )
+        except Exception as e:  # never kill the signal path on a helper bug
+            message = f"{kind} download failed: {e}"
+        with self._archive_lock:
+            self._archive_busy.discard(kind)
+        self.archiveFinished.emit(kind, message)
+        if not message:
+            self.archivesChanged.emit()
+
+    def _kick_archive_sync(self) -> None:
+        """Extract pending cache archives in the background (once at a time)."""
+        try:
+            pending = any(
+                entry.is_file()
+                and not entry.name.endswith(".part")
+                and archivesmod.supported(entry.name)
+                for entry in xdg.archives_cache_dir().iterdir()
+            )
+        except OSError:
+            return
+        if not pending:
+            return
+        with self._archive_lock:
+            if self._archive_sync_running:
+                return
+            self._archive_sync_running = True
+        threading.Thread(target=self._sync_archive_worker, daemon=True).start()
+
+    def _sync_archive_worker(self) -> None:
+        try:
+            with self._archive_work_lock:
+                changed = archivesmod.sync_archives(
+                    progress=lambda text: log.info("runtime archives: %s", text)
+                )
+        except Exception as e:
+            log.warning("runtime archive sync failed: %s", e)
+            changed = []
+        with self._archive_lock:
+            self._archive_sync_running = False
+        if changed:
+            self.archivesChanged.emit()
 
     @Slot(str, result=str)
     def shaderDir(self, appid: str) -> str:

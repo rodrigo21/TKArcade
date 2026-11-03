@@ -1,0 +1,255 @@
+"""Runtime archive downloads and safe extraction (no network, no Qt)."""
+
+import hashlib
+import io
+import json
+import stat
+import sys
+import tarfile
+import zipfile
+from pathlib import Path
+
+import pytest
+
+from tkarcade import runtime_archives as A
+from tkarcade import xdg
+
+API_URLS = {
+    "dxvk": "https://api.github.com/repos/doitsujin/dxvk/releases/latest",
+    "vkd3d": "https://api.github.com/repos/HansKristian-Work/vkd3d-proton/releases/latest",
+}
+
+
+def _tar_bytes(root: str, files: dict[str, bytes], mode: str = "w:gz") -> bytes:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode=mode) as tf:
+        for rel, data in files.items():
+            info = tarfile.TarInfo(f"{root}/{rel}" if root else rel)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def _zstd_bytes(data: bytes) -> bytes:
+    try:
+        from compression import zstd
+    except ImportError:
+        zstandard = pytest.importorskip("zstandard")
+        return zstandard.ZstdCompressor().compress(data)
+    return zstd.compress(data)
+
+
+def _zip_bytes(entries: dict[str, bytes]) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, data in entries.items():
+            zf.writestr(name, data)
+    return buf.getvalue()
+
+
+def _opener(payloads: dict[str, bytes]):
+    calls: list[str] = []
+
+    def opener(request, timeout=None):
+        url = request.full_url if hasattr(request, "full_url") else str(request)
+        calls.append(url)
+        return io.BytesIO(payloads[url])
+
+    return opener, calls
+
+
+def _release_payload(kind: str, name: str, url: str, data: bytes) -> bytes:
+    return json.dumps(
+        {
+            "assets": [
+                {
+                    "name": name,
+                    "browser_download_url": url,
+                    "size": len(data),
+                    "digest": "sha256:" + hashlib.sha256(data).hexdigest(),
+                }
+            ]
+        }
+    ).encode()
+
+
+def _installed(kind: str, name: str) -> Path:
+    return xdg.runtimes_dir() / kind / name
+
+
+def test_latest_release_picks_preferred_asset(xdg_env):
+    payload = json.dumps(
+        {
+            "assets": [
+                {"name": "dxvk-2.7.1.zip", "browser_download_url": "https://x/d.zip"},
+                {
+                    "name": "dxvk-2.7.1.tar.gz",
+                    "browser_download_url": "https://x/d.tar.gz",
+                    "size": 12,
+                    "digest": "sha256:abc",
+                },
+            ]
+        }
+    ).encode()
+    opener, calls = _opener({API_URLS["dxvk"]: payload})
+    release = A.latest_release("dxvk", opener)
+    assert release == {
+        "name": "dxvk-2.7.1.tar.gz",
+        "url": "https://x/d.tar.gz",
+        "size": 12,
+        "digest": "sha256:abc",
+    }
+    assert calls == [API_URLS["dxvk"]]
+
+
+def test_latest_release_requires_a_matching_asset(xdg_env):
+    opener, _calls = _opener({API_URLS["dxvk"]: b'{"assets": []}'})
+    with pytest.raises(A.ArchiveError, match="no dxvk archive"):
+        A.latest_release("dxvk", opener)
+    with pytest.raises(A.ArchiveError, match="unknown runtime kind"):
+        A.latest_release("wine", opener)
+
+
+def test_latest_release_surfaces_api_errors(xdg_env):
+    def opener(request, timeout=None):
+        raise OSError("HTTP 403")
+
+    with pytest.raises(A.ArchiveError, match="HTTP 403"):
+        A.latest_release("dxvk", opener)
+
+
+def test_download_latest_extracts_and_cleans_up(xdg_env):
+    data = _tar_bytes("dxvk-2.7.1", {"x64/d3d11.dll": b"dll", "x64/dxgi.dll": b"dll"})
+    asset = "https://x/dxvk-2.7.1.tar.gz"
+    opener, _calls = _opener(
+        {API_URLS["dxvk"]: _release_payload("dxvk", "dxvk-2.7.1.tar.gz", asset, data), asset: data}
+    )
+    messages: list[str] = []
+    assert A.download_latest("dxvk", opener, messages.append) == ""
+    target = _installed("dxvk", "dxvk-2.7.1")
+    assert (target / "x64" / "d3d11.dll").read_bytes() == b"dll"
+    cache = xdg.archives_cache_dir()
+    assert list(cache.iterdir()) == []
+    assert any("Installed dxvk-2.7.1" in m for m in messages)
+
+
+def test_download_latest_rejects_wrong_digest(xdg_env):
+    data = _tar_bytes("dxvk-2.7.1", {"x64/d3d11.dll": b"dll"})
+    asset = "https://x/dxvk-2.7.1.tar.gz"
+    payload = json.dumps(
+        {
+            "assets": [
+                {
+                    "name": "dxvk-2.7.1.tar.gz",
+                    "browser_download_url": asset,
+                    "digest": "sha256:" + "0" * 64,
+                }
+            ]
+        }
+    ).encode()
+    opener, _calls = _opener({API_URLS["dxvk"]: payload, asset: data})
+    message = A.download_latest("dxvk", opener)
+    assert "does not match" in message
+    assert not _installed("dxvk", "dxvk-2.7.1").exists()
+    assert list(xdg.archives_cache_dir().iterdir()) == []
+
+
+def test_extract_archive_detects_kind_and_skips_existing(xdg_env, tmp_path):
+    data = _tar_bytes("vkd3d-proton-3.1", {"x64/d3d12.dll": b"dll"})
+    archive = tmp_path / "vkd3d-proton-3.1.tar.gz"
+    archive.write_bytes(data)
+    first = A.extract_archive(archive)
+    assert first == _installed("vkd3d", "vkd3d-proton-3.1")
+    assert (first / "x64" / "d3d12.dll").is_file()
+    assert A.extract_archive(archive) == first
+    assert not list(xdg.runtimes_dir().glob(".staging-*"))
+
+
+def test_extract_archive_reads_tar_zst(xdg_env, tmp_path):
+    plain = _tar_bytes("dxvk-2.7.1", {"x64/d3d11.dll": b"dll"}, mode="w")
+    archive = tmp_path / "dxvk-2.7.1.tar.zst"
+    archive.write_bytes(_zstd_bytes(plain))
+    assert A.extract_archive(archive) == _installed("dxvk", "dxvk-2.7.1")
+
+
+def test_extract_archive_reads_zip(xdg_env, tmp_path):
+    archive = tmp_path / "dxvk-2.7.1.zip"
+    archive.write_bytes(_zip_bytes({"dxvk-2.7.1/x64/d3d11.dll": b"dll"}))
+    assert A.extract_archive(archive) == _installed("dxvk", "dxvk-2.7.1")
+
+
+def test_extract_rejects_tar_traversal(xdg_env, tmp_path):
+    archive = tmp_path / "evil.tar.gz"
+    archive.write_bytes(_tar_bytes("", {"../escape": b"x", "dxvk-2.7.1/x64/d3d11.dll": b"d"}))
+    with pytest.raises(A.ArchiveError):
+        A.extract_archive(archive)
+    assert not (xdg.runtimes_dir().parent / "escape").exists()
+
+
+def test_extract_rejects_zip_traversal_and_symlinks(xdg_env, tmp_path):
+    traversal = tmp_path / "evil.zip"
+    traversal.write_bytes(_zip_bytes({"../escape": b"x"}))
+    with pytest.raises(A.ArchiveError, match="unsafe archive member"):
+        A.extract_archive(traversal)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        info = zipfile.ZipInfo("dxvk-2.7.1/x64/link")
+        info.external_attr = (stat.S_IFLNK | 0o777) << 16
+        zf.writestr(info, "target")
+    link = tmp_path / "link.zip"
+    link.write_bytes(buf.getvalue())
+    with pytest.raises(A.ArchiveError, match="symlink"):
+        A.extract_archive(link)
+
+
+def test_extract_requires_one_version_directory(xdg_env, tmp_path):
+    flat = tmp_path / "flat.tar.gz"
+    flat.write_bytes(_tar_bytes("", {"x64/d3d11.dll": b"dll"}))
+    with pytest.raises(A.ArchiveError, match="top-level version directory"):
+        A.extract_archive(flat)
+
+
+def test_extract_caps_members_and_size(xdg_env, tmp_path, monkeypatch):
+    two = tmp_path / "two.zip"
+    two.write_bytes(_zip_bytes({"a/x": b"", "b/x": b""}))
+    monkeypatch.setattr(A, "MAX_MEMBERS", 1)
+    with pytest.raises(A.ArchiveError, match="too many entries"):
+        A.extract_archive(two)
+    monkeypatch.setattr(A, "MAX_MEMBERS", 20_000)
+    monkeypatch.setattr(A, "MAX_EXTRACTED_BYTES", 1)
+    big = tmp_path / "big.zip"
+    big.write_bytes(_zip_bytes({"dxvk-1/x64/d3d11.dll": b"two bytes"}))
+    with pytest.raises(A.ArchiveError, match="size cap"):
+        A.extract_archive(big)
+
+
+def test_sync_extracts_cache_and_keeps_user_files(xdg_env, tmp_path):
+    cache = xdg.archives_cache_dir()
+    cache.mkdir(parents=True)
+    archive = cache / "dxvk-2.7.1.tar.gz"
+    archive.write_bytes(_tar_bytes("dxvk-2.7.1", {"x64/d3d11.dll": b"dll"}))
+    (xdg.runtimes_dir() / ".staging-stale").mkdir(parents=True)
+    assert A.sync_archives() == ["dxvk-2.7.1"]
+    assert archive.is_file()
+    assert A.sync_archives() == []
+    assert not (xdg.runtimes_dir() / ".staging-stale").exists()
+
+
+def test_sync_reports_failures_through_progress(xdg_env):
+    cache = xdg.archives_cache_dir()
+    cache.mkdir(parents=True)
+    (cache / "broken.zip").write_bytes(b"not a zip")
+    messages: list[str] = []
+    assert A.sync_archives(messages.append) == []
+    assert messages and messages[0].startswith("broken.zip:")
+
+
+def test_zstd_needs_a_backend(xdg_env, tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "compression", None)
+    monkeypatch.setitem(sys.modules, "zstandard", None)
+    with (
+        pytest.raises(A.ArchiveError, match="zstd archives need"),
+        A._zstd_stream(tmp_path / "x.tar.zst"),
+    ):
+        pass

@@ -25,10 +25,11 @@ TKArcade into a runtime downloader.
   Steam games keep Steam's compat-tool mapping. A directory counts as
   Proton only when it holds the `proton` launcher, so anti-cheat
   runtime tools no longer appear as `PROTONPATH` choices.
-- **No download or extraction.** Versions are installed by the user
-  (distro, ProtonPlus/ProtonUp-Qt, manual unpacking). TKArcade only
-  discovers and uses them. Archive support from a cache directory
-  (option C) stays in `TODO.md`.
+- **Discovery stays read-only; downloads are GUI-only.** Versions are
+  installed by the user (distro, ProtonPlus/ProtonUp-Qt, manual
+  unpacking) or downloaded/extracted by the GUI
+  (`runtime-archives.md`). TKArcade only discovers and uses them; the
+  launcher still never downloads or unpacks.
 
 ## Why
 
@@ -52,8 +53,8 @@ and make launches depend on remote availability.
 | Local Wine, selected version missing | The layer is not installed; launch and `--validate` warn, and the dialog marks the version as not installed. |
 | Local umu / Steam Proton | `[graphics]` is ignored; the runtime ships its own DXVK/vkd3d (`graphics-layers.md`). |
 | Local UMU Proton list | Only directories with the `proton` launcher; `proton_dirs` plus Steam roots. |
-| Graphics directories | Only `dxvk_dirs` / `vkd3d_dirs` from Preferences. |
-| Archives in a cache dir | Not supported; see `TODO.md`. |
+| Graphics directories | The managed `runtimes_dir()` directory plus `dxvk_dirs` / `vkd3d_dirs` from Preferences. |
+| Archives in a cache dir | Extracted by the GUI on its next version scan into the managed directory; the launcher never unpacks. |
 | Steam Linux Runtime | A local-native choice only; umu owns the runtime for Wine/umu games and exposes no variant pick (umu#312), so extending it is dropped. |
 
 ## Rejected alternatives
@@ -63,7 +64,9 @@ and make launches depend on remote availability.
   used.
 - **Silent newest fallback for a missing selection.** Launches stop
   matching the saved config; the user cannot tell which layer ran.
-- **Manage/download runtime versions.** Duplicates ProtonPlus/ProtonUp-Qt
-  and the distro, and violates the read-only launcher policy.
+- **Manage/download runtime versions in the launcher.** Duplicates
+  ProtonPlus/ProtonUp-Qt and the distro, and violates the read-only
+  launcher policy. The GUI-side download landed on its own terms in
+  `runtime-archives.md`.
 - **Per-game Proton copies.** Already rejected in `graphics-layers.md`:
   gigabytes per game and shared-state writes into the runtime install.

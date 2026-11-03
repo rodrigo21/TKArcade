@@ -1,8 +1,10 @@
 """Runtime discovery: Wine, Proton and graphics-layer installations.
 
 Read-only on purpose: Proton installs are managed by ProtonPlus/ProtonUp-Qt
-and Wine comes from the distro (or an explicit path), so TKArcade only
-lists what is already on disk and never downloads or updates anything.
+and Wine comes from the distro (or an explicit path). Graphics versions are
+read from the managed installs (written by the GUI-only
+`runtime_archives` helper) and the configured directories; this module
+itself never downloads, updates or unpacks anything.
 Stdlib only: the launcher imports this on every game start.
 """
 
@@ -179,15 +181,21 @@ def _version_key(name: str) -> tuple:
     return (tuple(int(p) for p in re.findall(r"\d+", name)), name.casefold())
 
 
-def graphics_versions(kind: str, extra: str = "") -> list[GraphicsVersion]:
-    """Installed versions for one layer in the configured dirs, newest first.
+def _graphics_roots(kind: str, extra: str) -> list[Path]:
+    """Managed installs first, then the configured directories."""
+    return [xdg.runtimes_dir() / kind, *_split_dirs(extra)]
 
-    A directory counts as a version when it holds x64/<dll> (or x32/x86);
+
+def graphics_versions(kind: str, extra: str = "") -> list[GraphicsVersion]:
+    """Installed versions for one layer, newest first.
+
+    The managed directory comes first, then the configured ones. A
+    directory counts as a version when it holds x64/<dll> (or x32/x86);
     a directory without the DLL is treated as a parent of version dirs.
     Deduplicated by real path.
     """
     found: dict[Path, GraphicsVersion] = {}
-    for root in _split_dirs(extra):
+    for root in _graphics_roots(kind, extra):
         try:
             if not root.is_dir():
                 continue

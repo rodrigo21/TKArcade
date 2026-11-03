@@ -27,6 +27,36 @@ Window {
     property var values: ({})
     property var page: null
     property var langCodes: []
+    // Runtime archive downloads: one entry per layer, fed by the model
+    // signals so the dialog keeps its state across reopenings.
+    property var archiveBusy: ({"dxvk": false, "vkd3d": false})
+    property var archiveStatus: ({"dxvk": "", "vkd3d": ""})
+    property var archiveDirs: gameModel.runtimeArchiveDirs()
+
+    function setArchiveState(kind, busy, message) {
+        var busyCopy = {}
+        var statusCopy = {}
+        for (var k in archiveBusy) {
+            busyCopy[k] = archiveBusy[k]
+            statusCopy[k] = archiveStatus[k]
+        }
+        busyCopy[kind] = busy
+        statusCopy[kind] = message
+        archiveBusy = busyCopy
+        archiveStatus = statusCopy
+    }
+
+    Connections {
+        target: gameModel
+        function onArchiveProgress(kind, message) {
+            prefsDialog.setArchiveState(kind, true, message)
+        }
+        function onArchiveFinished(kind, message) {
+            prefsDialog.setArchiveState(
+                kind, false,
+                message === "" ? qsTr("Installed the Latest Release.") : message)
+        }
+    }
 
     function open() {
         transientParent = Controls.ApplicationWindow.window
@@ -36,6 +66,8 @@ Window {
 
     function load() {
         values = gameModel.loadPrefs()
+        archiveBusy = ({"dxvk": false, "vkd3d": false})
+        archiveStatus = ({"dxvk": "", "vkd3d": ""})
         quickSpin.value = values.trayQuickCount ?? 5
         var opts = gameModel.languageOptions()
         langCodes = []
@@ -312,6 +344,58 @@ Window {
                                 KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Directories:")
                                 Controls.ToolTip.text: qsTr("Directories Holding One vkd3d-proton Version per Subdirectory.")
                                 Controls.ToolTip.visible: hovered
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Kirigami.Units.smallSpacing
+                                KirigamiLayouts.FormData.label: qsTr("DXVK Install:")
+                                Controls.Button {
+                                    objectName: "prefsDownloadDxvk"
+                                    text: qsTr("Download Latest…")
+                                    enabled: !prefsDialog.archiveBusy["dxvk"]
+                                    onClicked: gameModel.downloadLatestGraphics("dxvk")
+                                    Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.BusyIndicator {
+                                    running: prefsDialog.archiveBusy["dxvk"]
+                                    visible: running
+                                    implicitWidth: Kirigami.Units.iconSizes.small
+                                    implicitHeight: Kirigami.Units.iconSizes.small
+                                }
+                                Controls.Label {
+                                    objectName: "prefsDxvkDownloadStatus"
+                                    Layout.fillWidth: true
+                                    text: prefsDialog.archiveStatus["dxvk"] ?? ""
+                                    visible: text !== ""
+                                    elide: Text.ElideRight
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Kirigami.Units.smallSpacing
+                                KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Install:")
+                                Controls.Button {
+                                    objectName: "prefsDownloadVkd3d"
+                                    text: qsTr("Download Latest…")
+                                    enabled: !prefsDialog.archiveBusy["vkd3d"]
+                                    onClicked: gameModel.downloadLatestGraphics("vkd3d")
+                                    Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.BusyIndicator {
+                                    running: prefsDialog.archiveBusy["vkd3d"]
+                                    visible: running
+                                    implicitWidth: Kirigami.Units.iconSizes.small
+                                    implicitHeight: Kirigami.Units.iconSizes.small
+                                }
+                                Controls.Label {
+                                    objectName: "prefsVkd3dDownloadStatus"
+                                    Layout.fillWidth: true
+                                    text: prefsDialog.archiveStatus["vkd3d"] ?? ""
+                                    visible: text !== ""
+                                    elide: Text.ElideRight
+                                }
                             }
                         }
                     }

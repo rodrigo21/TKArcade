@@ -58,9 +58,11 @@ The launcher (`src/tkarcade/launcher.py`, `config.py`, `backends/`,
 `winetricks.py`) must stay **stdlib-first**: it runs on every game
 start and may import `vdf` (pure Python, a runtime dependency of the
 package) to read Steam files; any other third-party import needs its
-own decision. PySide6/jeepney are for GUI/helpers only. The exit-code
-contract, the no-shims policy and the `config_version` stamp are in
-`docs/POLICIES.md`.
+own decision. PySide6/jeepney are for GUI/helpers only. The GUI-only
+runtime archive helper imports `zstandard` lazily below Python 3.14
+(stdlib `compression.zstd` above); the launcher never imports it. The
+exit-code contract, the no-shims policy and the `config_version` stamp
+are in `docs/POLICIES.md`.
 
 ## Tags and releases
 

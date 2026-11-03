@@ -394,6 +394,91 @@ def test_fetch_missing_killswitch(qgui_app, xdg_env, monkeypatch):
     assert len(calls) == 1
 
 
+def test_download_latest_graphics_runs_worker(qgui_app, xdg_env, monkeypatch):
+
+    from tkarcade.gui import model as M
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), **kwargs):
+            self._target = target
+            self._args = args
+
+        def start(self):
+            self._target(*self._args)
+
+    monkeypatch.setattr(M.threading, "Thread", FakeThread)
+    monkeypatch.setattr(
+        M.archivesmod,
+        "download_latest",
+        lambda kind, progress=None: (progress("Halfway."), "")[1],
+    )
+    model = M.GameListModel()
+    progress: list[tuple[str, str]] = []
+    finished: list[tuple[str, str]] = []
+    changed: list[bool] = []
+    model.archiveProgress.connect(lambda kind, text: progress.append((kind, text)))
+    model.archiveFinished.connect(lambda kind, text: finished.append((kind, text)))
+    model.archivesChanged.connect(lambda: changed.append(True))
+    model.downloadLatestGraphics("dxvk")
+    assert ("dxvk", "Halfway.") in progress
+    assert finished == [("dxvk", "")]
+    assert changed == [True]
+    assert model._archive_busy == set()
+    model.downloadLatestGraphics("wine")
+    assert finished[-1] == ("wine", "Unknown Runtime Layer.")
+
+
+def test_download_latest_reports_helper_errors(qgui_app, xdg_env, monkeypatch):
+    from tkarcade.gui import model as M
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), **kwargs):
+            self._target = target
+            self._args = args
+
+        def start(self):
+            self._target(*self._args)
+
+    def fail(kind, progress=None):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(M.threading, "Thread", FakeThread)
+    monkeypatch.setattr(M.archivesmod, "download_latest", fail)
+    model = M.GameListModel()
+    finished: list[tuple[str, str]] = []
+    changed: list[bool] = []
+    model.archiveFinished.connect(lambda kind, text: finished.append((kind, text)))
+    model.archivesChanged.connect(lambda: changed.append(True))
+    model.downloadLatestGraphics("vkd3d")
+    assert finished == [("vkd3d", "vkd3d download failed: boom")]
+    assert changed == []
+
+
+def test_graphics_state_extracts_pending_archives(qgui_app, xdg_env, monkeypatch):
+    from tkarcade import xdg
+    from tkarcade.gui import model as M
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), **kwargs):
+            self._target = target
+            self._args = args
+
+        def start(self):
+            self._target(*self._args)
+
+    cache = xdg.archives_cache_dir()
+    cache.mkdir(parents=True)
+    (cache / "dxvk-2.7.1.tar.gz").write_bytes(b"x")
+    monkeypatch.setattr(M.threading, "Thread", FakeThread)
+    monkeypatch.setattr(M.archivesmod, "sync_archives", lambda progress=None: ["dxvk-2.7.1"])
+    model = M.GameListModel()
+    changed: list[bool] = []
+    model.archivesChanged.connect(lambda: changed.append(True))
+    model.graphicsState("")
+    assert changed == [True]
+    assert model._archive_sync_running is False
+
+
 def test_remove_and_profiles_roundtrip(qgui_app, xdg_env):
     from tkarcade import config as C
     from tkarcade.gui.model import GameListModel

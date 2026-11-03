@@ -3572,6 +3572,34 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_prefs_runtime_download_rows(qgui_app, xdg_env):
+    """The Runtime section offers one download row per graphics layer."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    win, _engine, _proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "prefsDialog")
+    dialog.setProperty("values", {})
+    dialog.setProperty("visible", True)
+    qgui_app.processEvents()
+    swin = _modal_window(qgui_app, ("Preferences",))
+    for name in ("prefsDownloadDxvk", "prefsDownloadVkd3d"):
+        button = swin.findChild(QQuickItem, name)
+        assert button is not None, f"missing {name}"
+        assert button.property("visible") is True
+        assert button.property("enabled") is True
+        assert button.property("text").startswith("Download Latest")
+    for name in ("prefsDxvkDownloadStatus", "prefsVkd3dDownloadStatus"):
+        status = swin.findChild(QQuickItem, name)
+        assert status is not None, f"missing {name}"
+        assert status.property("visible") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    _engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_prefs_enter_saves(qgui_app, xdg_env):
     """Enter saves the Preferences window (the widgets default button)."""
     from PySide6.QtCore import QObject, Qt

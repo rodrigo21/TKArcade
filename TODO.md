@@ -19,12 +19,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred design review
 
-- [ ] **Runtime archives in a cache dir.** Downloads and archive
-  extraction were deferred when per-game DXVK/vkd3d versions landed
-  (`docs/decisions/external-runtimes.md`): the launcher never downloads,
-  extraction needs a safe format story, and the cache needs a lifecycle.
-  Versions today come from the Preferences directories only. Design:
-  `docs/decisions/runtime-archives.md`.
 - [ ] **Artwork by name for local games.** A local game has no Steam
   AppID to look up, so grid search needs a SteamGridDB name query, its
   own cache and a UI decision; the donor `[artwork] artwork_appid` keeps
