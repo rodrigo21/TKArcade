@@ -12,22 +12,22 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   (`PKGBUILD` `pkgver`, `optdepends` indentation and a lenient
   `check()`, plus an untracked `.SRCINFO`, never committed); `.qoder/`
   is git-ignored.
-- Landed: twenty-nine batches. The latest shows the validation badge
-  (error/warning icon and tooltip) on cards and icon cells too, matching
-  the table. The two docs batches froze the runtime-archives design
-  (`docs/decisions/runtime-archives.md`, not implemented) and dropped
-  the Steam Linux Runtime pick item (upstream-blocked). Earlier
-  batches: `CHANGELOG.md`.
-- Verified: full fast suite and the QML driver (568 pass) on the badge
-  branch, the targeted badge QML cases, and offscreen screenshots
-  (table/cards/icons badges, no layout shift). One one-off
-  `test_header_divider_drag_resizes_and_persists` flake passed on
-  re-run. Venv refreshed after the merge. No real-display or real
-  Steam library test.
+- Landed: thirty batches. The latest maps a numeric Steam shortcut ID to
+  the user's `local-*` config: when no `steam-<n>.toml` exists, the
+  launcher reads `shortcuts.vdf` (read-only, packaged `vdf`) and applies
+  the single local config with the same executable. The launcher
+  invariant is now stdlib-first (`vdf` allowed). Earlier batches:
+  `CHANGELOG.md`.
+- Verified: targeted steam/config/launcher tests (201 pass), the full
+  fast suite (573 pass) and the QML driver (574 pass; one batch aborted
+  with rc=-11 and passed on isolated re-run). Venv refreshed after the
+  merge. No real Steam userdata/`shortcuts.vdf` on this machine, so the
+  end-to-end shortcut launch is covered only by fake-Steam fixtures; no
+  real-display test.
 - Next: the remaining `TODO.md` themes — name-based artwork for local
-  games, numeric shortcut mapping (discussion in progress: using the
-  packaged `vdf` in the launcher) and prefix-resolution unification,
-  then the deferred research/release items.
+  games and prefix-resolution unification, then the deferred
+  research/release items. The regex VDF fallbacks that `vdf` makes
+  redundant are a separate cleanup.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
