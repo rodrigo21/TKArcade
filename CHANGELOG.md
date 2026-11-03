@@ -27,13 +27,18 @@ Breaking config changes are called out explicitly under `Changed`.
   config unapplied, a warning icon for launches that continue degraded.
   Its tooltip lists the same issues as Validate Game, one per line with
   an `Error:`/`Warning:` label; config keys stay verbatim.
-- The library table has two hidden-by-default columns: Release Date
-  (the manual `[metadata] date`, else the Steam store date cached for
-  30 days) and Installed (the `[general] installed_at` stamp written on
-  the first save, or the game's `.toml` birth time for older configs).
-  Session History shows the installed value too.
+- The library table adds Release Date (the manual `[metadata] date`,
+  else the Steam store date cached for 30 days) and Installed (the
+  `[general] installed_at` stamp written on the first save, or the
+  game's `.toml` birth time for older configs). Session History shows
+  the installed value too.
 
 ### Changed
+- The library's default layout leads with Release Date, Origin,
+  Platform, Played, Last Played and Installed; Runtime, Wine, ProtonDB,
+  Game ID and Install Dir start hidden after them. **BREAKING**: saved
+  column order and visibility reset once to these defaults; fitted
+  widths are kept.
 - The Flatpak Ludusavi warning names Wine/Proton prefixes now, since the
   sandbox may hide a local Wine game's prefix too.
 - A preset that targets specific Proton flavors also checks local games

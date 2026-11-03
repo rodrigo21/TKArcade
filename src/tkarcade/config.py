@@ -336,6 +336,11 @@ class AudioConfig:
     sink: str = ""  # output sink for the session ("" = system default)
 
 
+#: Bumped when the default library column layout changes: saved layouts
+#: below it reset once to the current defaults (order + visibility).
+COLUMN_LAYOUT_VERSION = 1
+
+
 @dataclass
 class Preferences:
     """Program-level preferences (never per-game)."""
@@ -354,6 +359,7 @@ class Preferences:
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
     column_widths: str = ""  # fitted widths, e.g. "1=210,2=90"
+    column_layout_version: int = 0  # 0 = layout saved before the defaults
     tray_quick_launch: bool = True  # recent games section in the tray menu
     tray_quick_count: int = 5  # recent games shown (1-10)
     language: str = "system"  # system locale, "en" for English, or a locale code
@@ -1156,6 +1162,10 @@ def load_preferences() -> Preferences:
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
     out.column_widths = _clean_width_map(str(ui.get("column_widths", "") or ""))
+    try:
+        out.column_layout_version = max(0, int(ui.get("column_layout_version", 0) or 0))
+    except (TypeError, ValueError):
+        out.column_layout_version = 0
     out.tray_quick_launch = _as_bool(ui.get("tray_quick_launch", True), True)
     out.tray_quick_count = _clamp_quick_count(ui.get("tray_quick_count", 5))
     lang = str(ui.get("language", "system") or "system").strip()
@@ -1244,6 +1254,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "column_order": _clean_int_list(prefs.column_order),
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
             "column_widths": _clean_width_map(prefs.column_widths),
+            "column_layout_version": max(0, int(prefs.column_layout_version or 0)),
             "tray_quick_launch": bool(prefs.tray_quick_launch),
             "tray_quick_count": _clamp_quick_count(prefs.tray_quick_count),
             "language": prefs.language if isinstance(prefs.language, str) else "system",

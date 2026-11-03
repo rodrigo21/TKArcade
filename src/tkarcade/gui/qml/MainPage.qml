@@ -911,7 +911,7 @@ Kirigami.Page {
         return ""
     }
 
-    property var columnOrder: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] // JS mirror of the proxy
+    property var columnOrder: [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10] // JS mirror of the proxy
     // order (fresh JS array from JSON: QVariantList lays out at zero
     // width). Refreshed on start and on every columnsChanged.
     property var fittedColumnWidths: ({}) // logical -> px, same mirror rule
@@ -1004,17 +1004,17 @@ Kirigami.Page {
 
     function resetColumns() {
         gameFilter.resetColumns()
-        gameFilter.showAppId = true
+        gameFilter.showAppId = false
         gameFilter.showPlayed = true
-        gameFilter.showTier = true
+        gameFilter.showTier = false
         gameFilter.showOrigin = true
         gameFilter.showLastPlayed = true
-        gameFilter.showPlatform = false
+        gameFilter.showPlatform = true
         gameFilter.showRuntime = false
         gameFilter.showWine = false
         gameFilter.showInstallDir = false
-        gameFilter.showReleaseDate = false
-        gameFilter.showInstalled = false
+        gameFilter.showReleaseDate = true
+        gameFilter.showInstalled = true
     }
 
     function defaultColumnWidth(logical) {
@@ -1028,8 +1028,11 @@ Kirigami.Page {
         if (logical === 2 || logical === 3) {
             return 90
         }
-        if (logical === 4) {
+        if (logical === 4 || logical === 12) {
             return 110
+        }
+        if (logical === 11) {
+            return 100
         }
         return 80
     }

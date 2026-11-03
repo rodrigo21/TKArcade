@@ -175,9 +175,11 @@ game; double-click the ProtonDB rating to open its page; the Played
 column totals session history (clearable in Session History); the tray
 icon lists recent games for quick launch through Steam.
 
-The hidden-by-default `Release Date` and `Installed` columns (header
-menu or Configure Columns) show the manual `[metadata] date` first and
-otherwise the Steam store release date, cached for 30 days; `Installed`
+The default table layout shows Release Date, Origin, Platform, Played,
+Last Played and Installed after the game name; Runtime, Wine, ProtonDB,
+Game ID and Install Dir start hidden (header menu or Configure
+Columns). Release Date shows the manual `[metadata] date` first and
+otherwise the Steam store release date, cached for 30 days; Installed
 uses the `[general] installed_at` stamp written on the first save, or
 the game's `.toml` birth time for older configs. Session History shows
 the same installed value.

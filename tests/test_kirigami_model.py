@@ -563,14 +563,14 @@ def test_column_prefs_roundtrip(qgui_app, xdg_env):
     proxy = GameFilterModel()
     proxy.setSourceModel(source)
     assert proxy.columnLogical(0) == 0
-    proxy.moveColumn(2, 1)
-    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    assert C.load_preferences().column_order.split(",")[:3] == ["0", "1", "3"]
-    proxy.showAppId = False
-    assert "2" in C.load_preferences().hidden_columns.split(",")
+    proxy.moveColumn(11, 1)
+    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 5, 11, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+    assert C.load_preferences().column_order.split(",")[:4] == ["0", "1", "5", "11"]
+    proxy.showOrigin = False
+    assert "5" in C.load_preferences().hidden_columns.split(",")
     proxy.resetColumns()
-    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    assert C.load_preferences().hidden_columns == "7,8,9,10,11,12"
+    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+    assert C.load_preferences().hidden_columns == "2,4,8,9,10"
 
 
 def test_column_width_autofit_persists(qgui_app, xdg_env):
@@ -954,10 +954,10 @@ def test_library_columns_roles(qgui_app, xdg_env):
     game_filter = GameFilterModel()
     game_filter.setSourceModel(model)
     assert game_filter.columnCount() == 13
-    assert game_filter._order == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    assert game_filter._hidden == {7, 8, 9, 10, 11, 12}
+    assert game_filter._order == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+    assert game_filter._hidden == {2, 4, 8, 9, 10}
     assert game_filter.showLastPlayed is True
-    assert game_filter.showReleaseDate is False
+    assert game_filter.showReleaseDate is True
     game_filter.sortBy("gameLastSecs", True)
 
 
@@ -2002,23 +2002,23 @@ def test_proxy_is_thirteen_column_table(qgui_app, xdg_env):
     assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(13)] == [
         "#",
         "Game",
-        "Game ID",
-        "Played",
-        "ProtonDB",
+        "Release Date",
         "Origin",
-        "Last Played",
         "Platform",
+        "Played",
+        "Last Played",
+        "Installed",
         "Runtime",
         "Wine",
+        "ProtonDB",
+        "Game ID",
         "Install Dir",
-        "Release Date",
-        "Installed",
     ]
     assert proxy.data(proxy.index(0, 0)) == "1"
     # Sorted by name: the local game ("Doom") comes before "steam-213".
     assert proxy.data(proxy.index(0, 1)) == "Doom"
-    assert proxy.data(proxy.index(1, 2)) == "steam-213"
-    assert proxy.data(proxy.index(1, 5)) == "Steam"
+    assert proxy.data(proxy.index(1, 11)) == "steam-213"
+    assert proxy.data(proxy.index(1, 3)) == "Steam"
     assert proxy.data(proxy.index(9, 0)) is None
     # custom roles stay row-based: delegates keep working per column
     from tkarcade.gui.model import GameListModel
@@ -2028,43 +2028,46 @@ def test_proxy_is_thirteen_column_table(qgui_app, xdg_env):
 
 def test_proxy_move_hide_reset_columns(qgui_app, xdg_env):
     proxy = _filtered(qgui_app)
-    proxy.moveColumn(2, 1)
+    proxy.moveColumn(11, 1)
     assert proxy.columnCount() == 13
     assert (
         proxy.headerData(2, __import__("PySide6.QtCore", fromlist=["x"]).Qt.Orientation.Horizontal)
-        == "Played"
+        == "Origin"
     )
-    assert C.load_preferences().column_order.split(",")[:3] == ["0", "1", "3"]
-    proxy.showAppId = False
+    assert C.load_preferences().column_order.split(",")[:4] == ["0", "1", "5", "11"]
+    proxy.showOrigin = False
     assert proxy.columnCount() == 13  # hidden columns keep mapped slots
-    assert "2" in C.load_preferences().hidden_columns.split(",")
+    assert "5" in C.load_preferences().hidden_columns.split(",")
     proxy.resetColumns()
     assert proxy.columnCount() == 13
-    assert C.load_preferences().hidden_columns == "7,8,9,10,11,12"
+    assert C.load_preferences().hidden_columns == "2,4,8,9,10"
     proxy.moveColumn(0, -1)  # edge: no-op, stays valid
     assert proxy.columnCount() == 13
 
 
-def test_proxy_columns_migrate_old_order_once(qgui_app, xdg_env):
+def test_proxy_columns_migrate_saved_layout_once(qgui_app, xdg_env):
     prefs = C.load_preferences()
-    prefs.column_order = "0,1,3,2,4,5,6,7,8,9,10"
+    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11,12"
     prefs.hidden_columns = "2,9"
-    C.save_preferences(prefs)
+    C.save_preferences(prefs)  # no column_layout_version: pre-defaults
     from tkarcade.gui.model import GameFilterModel, GameListModel
 
     proxy = GameFilterModel()
     proxy.setSourceModel(GameListModel())
-    assert proxy._order == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    assert proxy._hidden == {2, 9, 11, 12}
-    assert C.load_preferences().hidden_columns == "2,9"  # saved on next change
+    assert proxy._order == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+    assert proxy._hidden == {2, 4, 8, 9, 10}
+    prefs = C.load_preferences()
+    assert prefs.column_layout_version == C.COLUMN_LAYOUT_VERSION
+    assert prefs.column_order == "0,1,11,5,7,3,6,12,8,9,4,2,10"
+    assert prefs.hidden_columns == "2,4,8,9,10"
+    # Once versioned, a custom layout survives the next load.
+    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11,12"
+    prefs.hidden_columns = ""
+    C.save_preferences(prefs)
     again = GameFilterModel()
     again.setSourceModel(GameListModel())
-    assert again._order == [0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    assert again._hidden == {2, 9, 11, 12}
-    again.showReleaseDate = True
-    prefs = C.load_preferences()
-    assert prefs.column_order == "0,1,3,2,4,5,6,7,8,9,10,11,12"
-    assert prefs.hidden_columns == "2,9,12"
+    assert again._order == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    assert again._hidden == set()
 
 
 def test_refresh_counts_only_steam_detected(qgui_app, xdg_env):

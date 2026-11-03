@@ -435,13 +435,14 @@ def test_preferences_invalid_values(xdg_env):
     xdgmod.app_config_dir().mkdir(parents=True, exist_ok=True)
     xdgmod.preferences_file().write_text(
         '[ui]\nshow_preview = "no"\ntray_icon = "rainbow"\ntray_enable = true\n'
-        "minimize_to_tray = true\n",
+        'minimize_to_tray = true\ncolumn_layout_version = "x"\n',
         encoding="utf-8",
     )
     back = C.load_preferences()
     assert back.show_preview is False
     assert back.tray_icon == "normal"
     assert back.minimize_to_tray is True
+    assert back.column_layout_version == 0
 
 
 #: Every persisted leaf field, set to a distinctive value that sits inside
@@ -526,6 +527,7 @@ _PREF_FIELDS = {
     "column_order": "1,2,3,4,5,6,7,8,9,10,11",
     "hidden_columns": "4,5",
     "column_widths": "1=210,2=90,11=150",
+    "column_layout_version": 1,
     "tray_quick_launch": False,
     "tray_quick_count": 7,
     "language": "pt_BR",

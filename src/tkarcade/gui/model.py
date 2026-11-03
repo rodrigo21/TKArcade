@@ -3948,8 +3948,10 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameInstalledAt": "Installed",
     }
 
-    #: Fresh/hidden-by-default library columns (Last Played shows).
-    _DEFAULT_HIDDEN = frozenset({7, 8, 9, 10, 11, 12})
+    #: Default view order: Release Date, Origin, Platform, Played, Last
+    #: Played and Installed show after the game name; the rest hide.
+    _DEFAULT_ORDER = (0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10)
+    _DEFAULT_HIDDEN = frozenset({2, 4, 8, 9, 10})
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -3966,25 +3968,35 @@ class GameFilterModel(QSortFilterProxyModel):
     @staticmethod
     def _load_columns() -> tuple[list[int], set[int]]:
         """Column order + hidden set from prefs (garbage means defaults)."""
+        prefs = cfgmod.load_preferences()
         try:
-            order = [int(x) for x in cfgmod.load_preferences().column_order.split(",")]
+            version = int(prefs.column_layout_version or 0)
+        except (TypeError, ValueError):
+            version = 0
+        if version < cfgmod.COLUMN_LAYOUT_VERSION:
+            # One-time reset to the current defaults; fitted widths
+            # survive because they stay keyed by logical column.
+            order = list(GameFilterModel._DEFAULT_ORDER)
+            hidden = set(GameFilterModel._DEFAULT_HIDDEN)
+            prefs.column_order = ",".join(map(str, order))
+            prefs.hidden_columns = ",".join(map(str, sorted(hidden)))
+            prefs.column_layout_version = cfgmod.COLUMN_LAYOUT_VERSION
+            try:
+                cfgmod.save_preferences(prefs)
+            except OSError:
+                pass
+            return order, hidden
+        try:
+            order = [int(x) for x in prefs.column_order.split(",")]
         except Exception:
             order = []
         try:
-            hidden = {int(x) for x in cfgmod.load_preferences().hidden_columns.split(",")}
+            hidden = {int(x) for x in prefs.hidden_columns.split(",")}
         except Exception:
             hidden = set()
-        full = list(range(13))
-        if sorted(order) == list(range(11)):
-            # Pre-Release/Installed orders keep their layout; the new
-            # columns go last and stay hidden once.
-            order = order + [11, 12]
-            hidden |= {11, 12}
-        elif sorted(order) != full:
-            # Old/short orders reset; keep the old hides, new library
-            # columns stay hidden except Last Played.
-            order = full
-            hidden = (hidden & {1, 2, 3, 4, 5}) | set(GameFilterModel._DEFAULT_HIDDEN)
+        if sorted(order) != list(range(13)):
+            order = list(GameFilterModel._DEFAULT_ORDER)
+            hidden = set(GameFilterModel._DEFAULT_HIDDEN)
         return order, {h for h in hidden if 1 <= h <= 12}
 
     def _view_columns(self) -> list[int]:
@@ -4019,6 +4031,7 @@ class GameFilterModel(QSortFilterProxyModel):
         prefs.column_order = ",".join(map(str, self._order))
         prefs.hidden_columns = ",".join(map(str, sorted(self._hidden)))
         prefs.column_widths = ",".join(f"{k}={v}" for k, v in sorted(self._widths.items()))
+        prefs.column_layout_version = cfgmod.COLUMN_LAYOUT_VERSION
         try:
             cfgmod.save_preferences(prefs)
         except OSError:
@@ -4211,7 +4224,7 @@ class GameFilterModel(QSortFilterProxyModel):
     @Slot()
     def resetColumns(self) -> None:
         """Default order and visibility, columns fitted capped."""
-        self._order = list(range(13))
+        self._order = list(self._DEFAULT_ORDER)
         self._hidden = set(self._DEFAULT_HIDDEN)
         self._widths = {}
         self._save_columns()
