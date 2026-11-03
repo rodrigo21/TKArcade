@@ -65,3 +65,5 @@ What each document is for and where the source of truth lives.
   per-game-only fields.
 - `decisions/external-runtimes.md` — configured-only runtime discovery,
   per-game DXVK/vkd3d version selection and the deferred archive cache.
+- `decisions/runtime-archives.md` — proposed (not landed): latest-release
+  download and safe archive extraction for DXVK/vkd3d-proton.

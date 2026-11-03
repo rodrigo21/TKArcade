@@ -23,7 +23,8 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   extraction were deferred when per-game DXVK/vkd3d versions landed
   (`docs/decisions/external-runtimes.md`): the launcher is stdlib-only,
   extraction needs a safe format story, and the cache needs a lifecycle.
-  Versions today come from the Preferences directories only.
+  Versions today come from the Preferences directories only. Design:
+  `docs/decisions/runtime-archives.md`.
 - [ ] **Steam Linux Runtime pick for local Wine/umu games.** A local
   native game already picks one; a local Wine or umu game still runs
   outside a container, so umu's own runtime selection is not exposed.
