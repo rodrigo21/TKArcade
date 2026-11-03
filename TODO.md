@@ -19,6 +19,16 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred design review
 
+- [ ] **Runtime version manager (Lutris-like).** Keep several
+  DXVK/vkd3d-proton versions side by side, including unofficial builds
+  such as DXVK-Sarek (official DXVK does not run on the maintainer's
+  gaming PC), and choose the version per game. Today the GUI installs
+  only the latest official release per kind into the managed directory,
+  while `[graphics] dxvk_version`/`vkd3d_version` pick among installed
+  version names; a manager needs multi-release download, unofficial
+  sources (custom URL or repository), provenance labels and retention,
+  on top of the managed directory and cache from
+  `docs/decisions/runtime-archives.md`.
 - [ ] **Artwork by name for local games.** A local game has no Steam
   AppID to look up, so grid search needs a SteamGridDB name query, its
   own cache and a UI decision; the donor `[artwork] artwork_appid` keeps

@@ -127,4 +127,5 @@ check that the launcher module set imports neither `zstandard` nor
 ## Out of scope
 
 - Proton/Wine downloads, an arbitrary URL field, signature verification,
-  retention/cleanup policy, mirrors.
+  retention/cleanup policy, mirrors. A Lutris-like manager with multiple
+  and unofficial releases (DXVK-Sarek) is the `TODO.md` follow-up.
