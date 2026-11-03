@@ -12,22 +12,19 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   (`PKGBUILD` `pkgver`, `optdepends` indentation and a lenient
   `check()`, plus an untracked `.SRCINFO`, never committed); `.qoder/`
   is git-ignored.
-- Landed: thirty batches. The latest maps a numeric Steam shortcut ID to
-  the user's `local-*` config: when no `steam-<n>.toml` exists, the
-  launcher reads `shortcuts.vdf` (read-only, packaged `vdf`) and applies
-  the single local config with the same executable. The launcher
-  invariant is now stdlib-first (`vdf` allowed). Earlier batches:
+- Landed: thirty-one batches. The latest drops the regex VDF fallbacks
+  for libraryfolders, appmanifest, launch options and the compat-tool
+  mapping: `vdf` is a runtime dependency, and unreadable files now
+  yield no information instead of a regex guess. Earlier batches:
   `CHANGELOG.md`.
-- Verified: targeted steam/config/launcher tests (201 pass), the full
-  fast suite (573 pass) and the QML driver (574 pass; one batch aborted
-  with rc=-11 and passed on isolated re-run). Venv refreshed after the
-  merge. No real Steam userdata/`shortcuts.vdf` on this machine, so the
-  end-to-end shortcut launch is covered only by fake-Steam fixtures; no
-  real-display test.
+- Verified: targeted steam/backends tests (91 pass), the full fast suite
+  (572 pass) and the QML driver (573 pass; one batch aborted with
+  rc=-11 and passed on isolated re-run). Venv refreshed after the
+  merge. No real-display or real Steam library test; VDF coverage is
+  fixture-based.
 - Next: the remaining `TODO.md` themes — name-based artwork for local
   games and prefix-resolution unification, then the deferred
-  research/release items. The regex VDF fallbacks that `vdf` makes
-  redundant are a separate cleanup.
+  research/release items.
 - Rebuild the `-git` package when the Steam path should follow `main`:
   `/usr/bin/tkarcade` is still post597 (`b4db456`, pre-overlay-fix).
 - Nothing blocking.
