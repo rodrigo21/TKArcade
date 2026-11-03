@@ -21,6 +21,8 @@ Kirigami.Card {
     required property string gameIcon
     required property string gameCover
     required property bool gameRunning
+    required property string gameIssueLevel
+    required property string gameIssuesTip
     property bool selected: false
 
     signal playRequested(string gid)
@@ -124,6 +126,32 @@ Kirigami.Card {
             } else {
                 gameCard.rowTapped(gameCard.gameId, mouse.modifiers)
             }
+        }
+    }
+
+    // Validation badge, same glyph/colors as the table; declared after
+    // the MouseArea so the tooltip hover sits above it.
+    Kirigami.Icon {
+        objectName: "cardIssueBadge"
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: Kirigami.Units.smallSpacing
+        visible: gameCard.gameIssueLevel !== ""
+        source: gameCard.gameIssueLevel === "error"
+            ? gameModel.iconName(["dialog-error", "dialog-warning"])
+            : gameModel.iconName(["dialog-warning", "dialog-information"])
+        color: gameCard.gameIssueLevel === "error"
+            ? Kirigami.Theme.negativeTextColor
+            : Kirigami.Theme.neutralTextColor
+        width: Kirigami.Units.iconSizes.small
+        height: width
+        HoverHandler {
+            id: cardIssueHover
+        }
+        Controls.ToolTip {
+            objectName: "cardIssueBadgeTip"
+            visible: cardIssueHover.hovered
+            text: gameCard.gameIssuesTip
         }
     }
 

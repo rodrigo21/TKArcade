@@ -17,6 +17,8 @@ Item {
     required property string gamePlayed
     required property string gameIcon
     required property bool gameRunning
+    required property string gameIssueLevel
+    required property string gameIssuesTip
     property int cellSize: 96
     property bool selected: false
 
@@ -72,6 +74,29 @@ Item {
                 source: gameModel.iconName(["input-gamepad", "applications-games"])
                 width: Math.min(parent.width, parent.height, iconCell.cellSize) * 0.6
                 height: width
+            }
+            // Validation badge, same glyph/colors as the table.
+            Kirigami.Icon {
+                objectName: "iconIssueBadge"
+                anchors.top: parent.top
+                anchors.right: parent.right
+                visible: iconCell.gameIssueLevel !== ""
+                source: iconCell.gameIssueLevel === "error"
+                    ? gameModel.iconName(["dialog-error", "dialog-warning"])
+                    : gameModel.iconName(["dialog-warning", "dialog-information"])
+                color: iconCell.gameIssueLevel === "error"
+                    ? Kirigami.Theme.negativeTextColor
+                    : Kirigami.Theme.neutralTextColor
+                width: Kirigami.Units.iconSizes.small
+                height: width
+                HoverHandler {
+                    id: iconIssueHover
+                }
+                Controls.ToolTip {
+                    objectName: "iconIssueBadgeTip"
+                    visible: iconIssueHover.hovered
+                    text: iconCell.gameIssuesTip
+                }
             }
         }
         Controls.Label {

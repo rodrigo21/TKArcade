@@ -1752,6 +1752,8 @@ def test_game_card_binds_roles(qgui_app):
             "gameIcon": "",
             "gameCover": "",
             "gameRunning": False,
+            "gameIssueLevel": "",
+            "gameIssuesTip": "",
         },
     )
     real = [w for w in warnings if "graphics scene" not in w]
@@ -1771,6 +1773,8 @@ def test_game_icon_delegate_binds_roles(qgui_app):
             "gamePlayed": "38s",
             "gameIcon": "",
             "gameRunning": False,
+            "gameIssueLevel": "",
+            "gameIssuesTip": "",
         },
     )
     real = [w for w in warnings if "graphics scene" not in w]
@@ -3684,6 +3688,32 @@ def test_issue_badge_shows_severity(qgui_app, xdg_env):
     assert "Error: custom_executable not found" in tips[0].property("text")
     assert "Warning: post_command not found" in tips[2].property("text")
     assert tips[1].property("text") == ""
+    page = win.findChild(QObject, "gamesPage")
+    layout = win.findChild(QQuickItem, "cardLayout")
+    page.setProperty("viewMode", "cards")
+    qgui_app.processEvents()
+    cards = {card.property("gameId"): card for card in _delegate_rows(layout)}
+    order = ("local-bad", "local-good", "local-warn")
+    card_badges = [cards[appid].findChild(QQuickItem, "cardIssueBadge") for appid in order]
+    assert [badge.property("visible") for badge in card_badges] == [True, False, True]
+    assert "dialog-error" in str(card_badges[0].property("source"))
+    assert "dialog-warning" in str(card_badges[2].property("source"))
+    card_tips = [cards[appid].findChild(QObject, "cardIssueBadgeTip") for appid in order]
+    assert "Error: custom_executable not found" in card_tips[0].property("text")
+    assert "Warning: post_command not found" in card_tips[2].property("text")
+    assert card_tips[1].property("text") == ""
+    grid = win.findChild(QQuickItem, "iconGrid")
+    page.setProperty("viewMode", "icons")
+    qgui_app.processEvents()
+    cells = {cell.property("gameId"): cell for cell in _delegate_rows(grid)}
+    icon_badges = [cells[appid].findChild(QQuickItem, "iconIssueBadge") for appid in order]
+    assert [badge.property("visible") for badge in icon_badges] == [True, False, True]
+    assert "dialog-error" in str(icon_badges[0].property("source"))
+    assert "dialog-warning" in str(icon_badges[2].property("source"))
+    icon_tips = [cells[appid].findChild(QObject, "iconIssueBadgeTip") for appid in order]
+    assert "Error: custom_executable not found" in icon_tips[0].property("text")
+    assert "Warning: post_command not found" in icon_tips[2].property("text")
+    assert icon_tips[1].property("text") == ""
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

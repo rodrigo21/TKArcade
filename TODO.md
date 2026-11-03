@@ -25,9 +25,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   extraction needs a safe format story, and the cache needs a lifecycle.
   Versions today come from the Preferences directories only. Design:
   `docs/decisions/runtime-archives.md`.
-- [ ] **Issue badge in the card and icon views.** The table's
-  error/warning badge and its tooltip are table-only; `GameCard` and
-  `GameIconDelegate` need the same when those views are revisited.
 - [ ] **Artwork by name for local games.** A local game has no Steam
   AppID to look up, so grid search needs a SteamGridDB name query, its
   own cache and a UI decision; the donor `[artwork] artwork_appid` keeps
