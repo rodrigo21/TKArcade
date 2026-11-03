@@ -526,8 +526,6 @@ def test_send_icon_and_expiry(monkeypatch, tmp_path):
 
 
 def test_proton_version_lookup(monkeypatch, tmp_path, xdg_env):
-    import sys
-
     from tkarcade import proton as pm
 
     root = tmp_path / "steam"
@@ -542,10 +540,6 @@ def test_proton_version_lookup(monkeypatch, tmp_path, xdg_env):
     monkeypatch.setenv("STEAM_ROOT", str(root))
     assert pm.tool_display("42") == "GE-Proton9-15 (GE-Proton9-15)"
     assert pm.tool_display("43") == "Proton"
-
-    # stdlib regex fallback without the vdf package
-    monkeypatch.setitem(sys.modules, "vdf", None)
-    assert pm.tool_display("42") == "GE-Proton9-15 (GE-Proton9-15)"
 
 
 def test_mangohud_create_templates(xdg_env):
@@ -608,16 +602,6 @@ def test_launch_options_status(monkeypatch, tmp_path, xdg_env):
 def test_launch_options_unknown_without_userdata(monkeypatch, tmp_path, xdg_env):
     monkeypatch.setenv("STEAM_ROOT", str(tmp_path / "empty"))
     assert S.launch_options_status("60")[0] == "unknown"
-
-
-def test_launch_options_regex_fallback(monkeypatch, tmp_path, xdg_env):
-    import sys
-
-    root = tmp_path / "steam"
-    _write_localconfig(root, "u1", '"60"\n{\n"LaunchOptions" "TKARCADE %command%"\n}')
-    monkeypatch.setenv("STEAM_ROOT", str(root))
-    monkeypatch.setitem(sys.modules, "vdf", None)
-    assert S.launch_options_status("60")[0] == "ok"
 
 
 def test_nightlight_start_idempotent(monkeypatch):

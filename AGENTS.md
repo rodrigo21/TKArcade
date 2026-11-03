@@ -1,7 +1,7 @@
 # AGENTS.md — instructions for AI coding agents on TKArcade
 
 TKArcade is a minimal Steam launch wrapper: per-game TOML configs,
-a stdlib-only launcher CLI (`tkarcade %command%`) and a PySide6 GUI.
+a stdlib-first launcher CLI (`tkarcade %command%`) and a PySide6 GUI.
 License: GPL-3.0-or-later.
 
 ## Communication

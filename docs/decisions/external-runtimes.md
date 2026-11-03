@@ -39,7 +39,7 @@ source of truth in Preferences. A per-game version is the same model
 `graphics-layers.md` already uses for runtime builds: choose the build,
 do not replace files inside it.
 
-`runtimes.py` is imported by the stdlib-only launcher on every game
+`runtimes.py` is imported by the launcher on every game
 start, so it must stay read-only and cheap. Downloading, verifying and
 unpacking archives there would add a network/package-manager surface
 and make launches depend on remote availability.

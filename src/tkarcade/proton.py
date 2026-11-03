@@ -1,4 +1,4 @@
-"""Proton version lookup (best effort, no deps).
+"""Proton version lookup (best effort).
 
 Reads the per-game compat tool from Steam's config.vdf and its `version`
 file from the tool install dir. Anything missing -> None (callers omit).
@@ -6,7 +6,6 @@ file from the tool install dir. Anything missing -> None (callers omit).
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from . import steam as steammod
@@ -54,26 +53,19 @@ def clear_tool_cache() -> None:
 def _parse_tool_mapping(text: str) -> dict[str, str]:
     """Parse the whole CompatToolMapping section: {appid: tool name}."""
     data = steammod.loads_kv1(text)
-    if data is not None:
-        try:
-            section = data["InstallConfigStore"]["Software"]["Valve"]["Steam"]["CompatToolMapping"]
-            if isinstance(section, dict):
-                return {
-                    str(a): str(e.get("name", "")).strip()
-                    for a, e in section.items()
-                    if isinstance(e, dict) and str(e.get("name", "")).strip()
-                }
-        except (KeyError, TypeError, AttributeError):
-            pass
-    # stdlib fallback: every "appid" { "name" "tool" } pair in the section.
-    region = text.find("CompatToolMapping")
-    if region < 0:
+    if data is None:
         return {}
-    out: dict[str, str] = {}
-    for match in re.finditer(r'"(\d+)"\s*\{\s*"name"\s+"([^"]+)"', text[region:]):
-        if match.group(2).strip():
-            out.setdefault(match.group(1), match.group(2).strip())
-    return out
+    try:
+        section = data["InstallConfigStore"]["Software"]["Valve"]["Steam"]["CompatToolMapping"]
+    except (KeyError, TypeError, AttributeError):
+        return {}
+    if not isinstance(section, dict):
+        return {}
+    return {
+        str(a): str(e.get("name", "")).strip()
+        for a, e in section.items()
+        if isinstance(e, dict) and str(e.get("name", "")).strip()
+    }
 
 
 def tool_version(tool: str) -> str | None:

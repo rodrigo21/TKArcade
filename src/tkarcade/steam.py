@@ -1,4 +1,4 @@
-"""Steam helpers: resolve AppID, list installed games (vdf optional)."""
+"""Steam helpers: resolve AppID, list installed games, read Steam VDF files."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ def steam_roots() -> list[Path]:
 
 
 def loads_kv1(text: str) -> dict | None:
-    """Parse Valve KV1 text with the vdf package when available."""
+    """Parse Valve KV1 text (None when it cannot be parsed)."""
     try:
         import vdf  # type: ignore
 
@@ -113,29 +113,15 @@ def _section_paths(libs: dict) -> list[Path]:
     return [p for p in out if p.exists()]
 
 
-def _regex_paths(text: str) -> list[Path]:
-    """Fallback extraction: `"path"` values plus legacy numeric-key pairs."""
-    out = []
-    for m in re.finditer(r'"path"\s+"([^"]+)"', text):
-        p = Path(m.group(1))
-        if p.exists():
-            out.append(p)
-    for m in re.finditer(r'"\d+"\s+"([^"]+)"', text):
-        p = Path(m.group(1))
-        if p.exists() and p not in out:
-            out.append(p)
-    return out
-
-
 def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
-    """Parse libraryfolders.vdf without deps (KV1 subset). Returns library paths."""
+    """Parse libraryfolders.vdf (KV1). Returns library paths."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
         return []
     data = loads_kv1(text)
     if data is None:
-        return _regex_paths(text)
+        return []
     return _section_paths(_vdf_library_section(data))
 
 
@@ -158,20 +144,18 @@ def library_paths() -> list[Path]:
 
 
 def _parse_acf_name(path: Path) -> tuple[str, str]:
-    """Return (appid, name) from appmanifest_<id>.acf without deps."""
+    """Return (appid, name) from appmanifest_<id>.acf."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
         return "", ""
     data = loads_kv1(text)
-    if data is not None:
-        app = data.get("AppState", {})
-        if isinstance(app, dict):
-            return str(app.get("appid", "")), str(app.get("name", ""))
+    if data is None:
         return "", ""
-    m_id = re.search(r'"appid"\s+"(\d+)"', text)
-    m_name = re.search(r'"name"\s+"([^"]+)"', text)
-    return (m_id.group(1) if m_id else ""), (m_name.group(1) if m_name else "")
+    app = data.get("AppState", {})
+    if isinstance(app, dict):
+        return str(app.get("appid", "")), str(app.get("name", ""))
+    return "", ""
 
 
 _GAMES_CACHE: dict[tuple[str, str], list[tuple[str, str]]] = {}
@@ -184,13 +168,12 @@ def _parse_acf_installdir(path: Path) -> str:
     except Exception:
         return ""
     data = loads_kv1(text)
-    if data is not None:
-        app = data.get("AppState", {})
-        if isinstance(app, dict):
-            return str(app.get("installdir", ""))
+    if data is None:
         return ""
-    m = re.search(r'"installdir"\s+"([^"]+)"', text)
-    return m.group(1) if m else ""
+    app = data.get("AppState", {})
+    if isinstance(app, dict):
+        return str(app.get("installdir", ""))
+    return ""
 
 
 def local_names() -> dict[str, str]:
@@ -466,27 +449,14 @@ def _launch_options_from_text(text: str, appid: str) -> str | None:
     if not appid:
         return None
     data = loads_kv1(text)
-    if data is not None:
-        try:
-            steam = data["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]
-            apps = steam.get("Apps", steam.get("apps", {}))
-            entry = apps.get(appid, {})
-            if isinstance(entry, dict) and "LaunchOptions" in entry:
-                return str(entry["LaunchOptions"])
-            return None
-        except (KeyError, TypeError, AttributeError):
-            pass
-    match = re.search(
-        r'"Apps"\s*\{(?P<apps>.*)\}\s*\}\s*\}\s*\}\s*\}$',
-        text,
-        re.DOTALL | re.IGNORECASE,
-    )
-    region = match.group("apps") if match else text
-    # One nesting level tolerated (e.g. a "cloud" {...} block sits
-    # between the AppID and its LaunchOptions in real files).
-    match = re.search(
-        r'"' + re.escape(appid) + r'"\s*\{(?:[^{}]|\{[^{}]*\})*?"LaunchOptions"\s+"([^"]*)"',
-        region,
-        re.DOTALL,
-    )
-    return match.group(1) if match else None
+    if data is None:
+        return None
+    try:
+        steam = data["UserLocalConfigStore"]["Software"]["Valve"]["Steam"]
+        apps = steam.get("Apps", steam.get("apps", {}))
+        entry = apps.get(appid, {})
+    except (KeyError, TypeError, AttributeError):
+        return None
+    if isinstance(entry, dict) and "LaunchOptions" in entry:
+        return str(entry["LaunchOptions"])
+    return None

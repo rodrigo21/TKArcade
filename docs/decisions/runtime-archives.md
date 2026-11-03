@@ -8,7 +8,7 @@ landing record when the feature lands. Current behaviour lives in
 
 Goal: let TKArcade download the latest DXVK / vkd3d-proton release and
 extract archives placed in a cache directory, without turning the
-stdlib-only launcher into a downloader.
+launcher into a downloader.
 
 ## Context
 
@@ -34,8 +34,9 @@ zstd support needs a dependency.
   Only the GUI scans; the launcher never unpacks anything.
 - **zstd via PyPI `zstandard`** (BSD, GPL-compatible). Only the GUI-side
   helper imports it, and lazily, so the module stays importable without it.
-- **The launcher stays stdlib-only.** Discovery gains one read-only path;
-  download and extraction live in a module the launcher never imports.
+- **The launcher never downloads or unpacks.** Discovery gains one
+  read-only path; download and extraction live in a module the launcher
+  never imports.
 
 ## Proposed design (not implemented)
 
