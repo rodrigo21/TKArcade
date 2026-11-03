@@ -8,23 +8,25 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 `/handoff` before stopping mid-task.
 
 - Branch: `main`, pushed, clean. The working tree carries only the
-  maintainer's packaging churn in `packaging/arch/tkarcade-git/`
-  (`PKGBUILD` `pkgver`, `optdepends` indentation and a lenient
-  `check()`, plus an untracked `.SRCINFO`, never committed); `.qoder/`
+  maintainer's packaging churn in
+  `packaging/arch/tkarcade-git/PKGBUILD`, never committed; `.qoder/`
   is git-ignored.
-- Landed: thirty-two batches. The latest unifies prefix resolution:
-  `config.prefix_target` returns the container, the WINEPREFIX and
-  whether TKArcade owns it, and the GUI model and launcher all use it;
-  a Steam custom prefix with `~` now expands in the settings' Open
-  button. Earlier batches: `CHANGELOG.md`.
-- Verified: targeted config/model tests (208 pass), the full fast suite
-  (574 pass) and the QML driver (575 pass). The first run of each suite
-  hit the known Qt/pytest-qt segfault and passed on rerun; the QML
-  driver re-ran its aborted batches in isolation. Venv refreshed after
-  the merge. No real-display test. The real-device shortcut check was
-  closed by the maintainer on 2026-11-03 without a run; VDF coverage
-  stays fixture-based.
-- Next: the remaining `TODO.md` themes — name-based artwork for local
-  games, the runtime-archives design, then the deferred
+- Landed: thirty-three batches. The latest adds runtime archives:
+  Preferences downloads the latest official DXVK/vkd3d-proton release
+  (sha256 verified when the API provides it), archives in the cache
+  dir are extracted automatically on GUI scans into
+  `$XDG_DATA_HOME/tkarcade/runtimes`, launcher discovery stays
+  read-only, and zstd uses the 3.14 stdlib module with a lazy
+  `zstandard` fallback below it. A docs commit records the deferred
+  Lutris-like version manager (unofficial builds such as DXVK-Sarek,
+  per-game choice). Earlier batches: `CHANGELOG.md`.
+- Verified: targeted runtime/model tests (132 pass), the full fast
+  suite (595 pass) and the QML driver (596 pass; the known Qt/pytest-qt
+  segmentations were re-run in isolation), an offscreen screenshot of
+  the Preferences Runtime rows, and translations with 0 unfinished
+  strings. Venv refreshed after the merge. No live GitHub download (the
+  manual check stays pending) and no real-display test.
+- Next: the `TODO.md` design-review items — the runtime version
+  manager, then name-based artwork for local games, then the deferred
   research/release items.
 - Nothing blocking.
