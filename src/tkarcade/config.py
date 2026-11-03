@@ -1467,6 +1467,38 @@ def list_appids() -> list[str]:
     return [p.stem for p in sorted(d.glob("*.toml"))]
 
 
+def _exe_path(value: str) -> Path | None:
+    text = str(value or "").strip()
+    if text.startswith('"'):
+        end = text.find('"', 1)
+        text = text[1:end] if end > 0 else text[1:]
+    text = text.strip()
+    if not text:
+        return None
+    try:
+        return Path(text).expanduser().resolve()
+    except OSError:
+        return None
+
+
+def local_id_for_executable(exe: str) -> str:
+    """The ``local-*`` ID whose executable is `exe` ('' when none/ambiguous)."""
+    target = _exe_path(exe)
+    if target is None:
+        return ""
+    hits: list[str] = []
+    for appid in list_appids():
+        if not appid.startswith("local-"):
+            continue
+        try:
+            cfg = load(appid)
+        except ConfigVersionError:
+            continue
+        if _exe_path(cfg.general.custom_executable) == target:
+            hits.append(appid)
+    return hits[0] if len(hits) == 1 else ""
+
+
 def tksteamlaunch_base() -> Path:
     """Config dir of the predecessor project (import source, never written)."""
     return xdg.config_home() / "tksteamlaunch"

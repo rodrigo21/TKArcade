@@ -85,3 +85,33 @@ def test_libraryfolders_legacy_layout(xdg_env, tmp_path, monkeypatch):
     # Without vdf the numeric-key regex fallback covers the same file.
     monkeypatch.setattr(S, "loads_kv1", lambda text: None)
     assert S._parse_libraryfolders_vdf(lf) == [lib]
+
+
+def _write_shortcuts(root, uid, appid, exe):
+    import vdf
+
+    confdir = root / "userdata" / uid / "config"
+    confdir.mkdir(parents=True)
+    signed = appid - 2**32 if appid >= 2**31 else appid
+    entry = {"appid": signed, "AppName": "Shortcut", "Exe": f'"{exe}"'}
+    with (confdir / "shortcuts.vdf").open("wb") as handle:
+        vdf.binary_dump({"shortcuts": {"0": entry}}, handle)
+
+
+def test_shortcut_exe_maps_unsigned_id(xdg_env, monkeypatch, tmp_path):
+    from tkarcade import steam as S
+
+    root = tmp_path / "steam"
+    _write_shortcuts(root, "u1", 3_000_000_000, "/games/My Game/run.sh")
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    assert S.shortcut_exe("3000000000") == "/games/My Game/run.sh"
+    assert S.shortcut_exe("steam-3000000000") == "/games/My Game/run.sh"
+    assert S.shortcut_exe("3000000001") == ""
+    assert S.shortcut_exe("local-doom") == ""
+
+
+def test_shortcut_exe_without_userdata(xdg_env, monkeypatch, tmp_path):
+    from tkarcade import steam as S
+
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path / "empty"))
+    assert S.shortcut_exe("42") == ""

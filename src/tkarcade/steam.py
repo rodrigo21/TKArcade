@@ -412,6 +412,55 @@ def launch_options_status(appid: str) -> tuple[str, str]:
     return "unknown", ""
 
 
+def _shortcuts_entries(path: Path) -> list[dict]:
+    try:
+        import vdf  # type: ignore
+
+        with path.open("rb") as handle:
+            data = vdf.binary_load(handle)
+    except Exception:
+        return []
+    if not isinstance(data, dict):
+        return []
+    entries = data.get("shortcuts", {})
+    if not isinstance(entries, dict):
+        return []
+    return [e for e in entries.values() if isinstance(e, dict)]
+
+
+def _clean_exe(value: object) -> str:
+    exe = str(value or "").strip()
+    if exe.startswith('"'):
+        end = exe.find('"', 1)
+        exe = exe[1:end] if end > 0 else exe[1:]
+    return exe.strip()
+
+
+def shortcut_exe(appid: str) -> str:
+    """Executable behind a numeric Steam shortcut ID ('' when unknown).
+
+    Reads Steam's ``shortcuts.vdf`` for every profile, read-only. The
+    launcher uses it to map a non-Steam shortcut to its local config.
+    """
+    numeric = steam_appid(appid)
+    if not numeric:
+        return ""
+    wanted = int(numeric)
+    for root in steam_roots():
+        userdir = root / "userdata"
+        try:
+            profiles = [p for p in userdir.iterdir() if p.is_dir()]
+        except Exception:
+            continue
+        for profile in profiles:
+            for entry in _shortcuts_entries(profile / "config" / "shortcuts.vdf"):
+                value = entry.get("appid")
+                # vdf reads the field as signed int32; Steam writes it unsigned.
+                if isinstance(value, int) and (value & 0xFFFFFFFF) == wanted:
+                    return _clean_exe(entry.get("Exe"))
+    return ""
+
+
 def _launch_options_from_text(text: str, appid: str) -> str | None:
     appid = steam_appid(appid)
     if not appid:

@@ -29,11 +29,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   AppID to look up, so grid search needs a SteamGridDB name query, its
   own cache and a UI decision; the donor `[artwork] artwork_appid` keeps
   working meanwhile. A feature, not an audit fix.
-- [ ] **Map numeric Steam shortcut IDs to `local-*` configs.** The
-  launcher only sees Steam's numeric shortcut ID, so a non-Steam
-  shortcut resolves as `steam-<n>`; mapping it needs a `shortcuts.vdf`
-  reader (the launcher is stdlib-only) or an exe-path heuristic.
-  Current limitation recorded in `docs/decisions/origin-prefixed-ids.md`.
 - [ ] **Unify prefix resolution.** `prefixDir`, `_prefix_users`,
   `_resolved_prefix`, `installedVerbs`, `openWinetricksGui` and
   `_prefix_to_clear` each resolve a game's Wine prefix on their own;

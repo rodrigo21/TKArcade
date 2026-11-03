@@ -1228,3 +1228,69 @@ def test_block_internet_unavailable_exits_14(xdg_env, monkeypatch):
     rc, cmd, _env, _warnings = _final_command("78", cfg, ["/bin/true"], "")
     assert rc == 14
     assert cmd == []
+
+
+def _write_shortcuts(root, uid, appid, exe):
+    import vdf
+
+    confdir = root / "userdata" / uid / "config"
+    confdir.mkdir(parents=True)
+    signed = appid - 2**32 if appid >= 2**31 else appid
+    entry = {"appid": signed, "AppName": "Shortcut", "Exe": f'"{exe}"'}
+    with (confdir / "shortcuts.vdf").open("wb") as handle:
+        vdf.binary_dump({"shortcuts": {"0": entry}}, handle)
+
+
+def _counting_load(monkeypatch):
+    from tkarcade import launcher as L
+
+    calls = []
+    real = C.load_effective
+
+    def counting(appid):
+        calls.append(appid)
+        return real(appid)
+
+    monkeypatch.setattr(L.cfgmod, "load_effective", counting)
+    return calls
+
+
+def test_shortcut_id_maps_to_local_config(xdg_env, monkeypatch, tmp_path):
+    from tkarcade import launcher as L
+
+    exe = tmp_path / "game.sh"
+    exe.write_text("#!/bin/sh\n")
+    _save("local-my-game", general={"custom_executable": str(exe)})
+    root = tmp_path / "steam"
+    _write_shortcuts(root, "u1", 3_000_000_000, str(exe))
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    monkeypatch.setenv("STEAMAPPID", "3000000000")
+    calls = _counting_load(monkeypatch)
+    assert L.main(["--dry-run", "--", "/bin/true"]) == 0
+    assert calls == ["local-my-game"]
+
+
+def test_existing_steam_config_wins_over_shortcut(xdg_env, monkeypatch, tmp_path):
+    from tkarcade import launcher as L
+
+    exe = tmp_path / "game.sh"
+    exe.write_text("#!/bin/sh\n")
+    _save("local-my-game", general={"custom_executable": str(exe)})
+    _save("steam-3000000001")
+    root = tmp_path / "steam"
+    _write_shortcuts(root, "u1", 3_000_000_001, str(exe))
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    monkeypatch.setenv("STEAMAPPID", "3000000001")
+    calls = _counting_load(monkeypatch)
+    assert L.main(["--dry-run", "--", "/bin/true"]) == 0
+    assert calls == ["steam-3000000001"]
+
+
+def test_unknown_shortcut_keeps_steam_id(xdg_env, monkeypatch, tmp_path):
+    from tkarcade import launcher as L
+
+    monkeypatch.setenv("STEAM_ROOT", str(tmp_path / "empty"))
+    monkeypatch.setenv("STEAMAPPID", "3000000002")
+    calls = _counting_load(monkeypatch)
+    assert L.main(["--dry-run", "--", "/bin/true"]) == 0
+    assert calls == ["steam-3000000002"]

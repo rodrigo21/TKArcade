@@ -1323,7 +1323,15 @@ def _load_target(
         print("tkarcade: cannot resolve Game ID", file=sys.stderr)
         return 10, "", None
     appid = dict(_migrate_ids()).get(appid, appid)
+    shortcut_of = ""
+    if steammod.is_steam_id(appid) and not cfgmod.game_file(appid).exists():
+        sid = steammod.steam_appid(appid)
+        local = cfgmod.local_id_for_executable(steammod.shortcut_exe(sid)) if sid else ""
+        if local:
+            shortcut_of, appid = appid, local
     setup_logging(appid, args.verbose)
+    if shortcut_of:
+        log.info("shortcut %s maps to %s", shortcut_of, appid)
     cfg = cfgmod.load_effective(appid)
     log.info("appid=%s config=%s game_cmd=%r", appid, cfgmod.game_file(appid), game_cmd)
     _log_gui_env()

@@ -1666,3 +1666,27 @@ def test_metadata_date_shapes():
         assert C.metadata_date_valid(text), text
     for text in ("26", "2026-13", "2026-00", "2026-02-29", "2026-1", "2026-01-1", "soon"):
         assert not C.metadata_date_valid(text), text
+
+
+def test_local_id_for_executable(xdg_env, tmp_path):
+    exe = tmp_path / "game.sh"
+    exe.write_text("#!/bin/sh\n")
+    one = C.GameConfig()
+    one.general.appid = "local-one"
+    one.general.custom_executable = str(exe)
+    C.save(one)
+    steam = C.GameConfig()
+    steam.general.appid = "steam-9"
+    steam.general.custom_executable = str(exe)
+    C.save(steam)
+    assert C.local_id_for_executable(str(exe)) == "local-one"
+    assert C.local_id_for_executable(f'"{exe}"') == "local-one"
+    assert C.local_id_for_executable(str(tmp_path / "missing")) == ""
+    other = tmp_path / "other.sh"
+    other.write_text("")
+    assert C.local_id_for_executable(str(other)) == ""
+    two = C.GameConfig()
+    two.general.appid = "local-two"
+    two.general.custom_executable = str(exe)
+    C.save(two)
+    assert C.local_id_for_executable(str(exe)) == ""

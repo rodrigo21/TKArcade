@@ -33,6 +33,10 @@ Breaking config changes are called out explicitly under `Changed`.
   `[general] installed_at` stamp written on the first save, or the
   game's `.toml` birth time for older configs). Session History shows
   the installed value too.
+- A non-Steam shortcut launched through Steam applies the matching local
+  game config: the launcher reads the shortcut's executable from Steam's
+  `shortcuts.vdf` and uses the `local-*` config with that executable when
+  no `steam-<n>` config exists.
 
 ### Changed
 - The library's default layout leads with Release Date, Origin,

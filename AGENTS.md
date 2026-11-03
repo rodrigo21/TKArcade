@@ -75,8 +75,10 @@ commit**; measure at the end with `opencode stats --project .`.
 
 The launcher (`launcher.py`, `config.py`, `backends/`, `proton.py`,
 `steam.py`, `xdg.py`, `nightlight_holder.py`, `winetricks.py`) stays
-**stdlib-only**: it runs on every game start. PySide6/vdf/jeepney are
-for GUI/helpers only.
+**stdlib-first**: it runs on every game start and may import `vdf`
+(pure Python, a runtime dependency of the package) to read Steam
+files. Any other third-party import on the launch path needs its own
+decision; PySide6/jeepney stay GUI/helper-only.
 
 ## Verify before finishing
 
