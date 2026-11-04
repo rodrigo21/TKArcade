@@ -104,9 +104,10 @@ Tests and GUI smoke checks run with temporary XDG/HOME dirs (the
 prefix or Steam library. Report any check that could not run or does
 not cover the change; never claim it passed.
 
-Refresh the local venv after the last change on the branch and again
-after the merge, so the maintainer can test the new build before and
-after landing it (the version comes from git describe):
+Refresh the local venv after the commit on the branch and again after
+the merge, so the maintainer can test the new build before and after
+landing it. The version comes from `git describe`, so a refresh taken
+before the commit carries the previous hash:
 
 ```bash
 uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .

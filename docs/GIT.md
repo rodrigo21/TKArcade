@@ -34,8 +34,9 @@ session has the rules in context.
   index must contain only the intended explicit paths.
 - Never commit secrets or machine-local data: `.env`, API keys
   (SteamGridDB), user XDG/Steam paths.
-- Refresh the venv before committing (version comes from
-  `git describe`):
+- Refresh the venv after committing, not before: the version comes from
+  `git describe`, so a refresh taken before the commit carries the
+  previous hash. Repeat it after any later change.
   `uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .`
 - Message: `type(scope): imperative summary` (Conventional Commits,
   summary under 70 characters), plus a body explaining the *why* when
