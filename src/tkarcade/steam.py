@@ -126,6 +126,10 @@ def _parse_libraryfolders_vdf(path: Path) -> list[Path]:
 
 
 def library_paths() -> list[Path]:
+    key = _roots_key()
+    hit = _LIBRARY_PATHS_CACHE.get(key)
+    if hit is not None:
+        return hit
     paths: list[Path] = []
     for root in steam_roots():
         paths.append(root / "steamapps")
@@ -140,6 +144,7 @@ def library_paths() -> list[Path]:
     for p in paths:
         if p not in seen:
             seen.append(p)
+    _LIBRARY_PATHS_CACHE[key] = seen
     return seen
 
 
@@ -159,6 +164,8 @@ def _parse_acf_name(path: Path) -> tuple[str, str]:
 
 
 _GAMES_CACHE: dict[tuple[str, str], list[tuple[str, str]]] = {}
+_LIBRARY_PATHS_CACHE: dict[tuple[str, str], list[Path]] = {}
+_LAUNCH_OPTIONS_CACHE: dict[tuple[str, int, int], tuple[str, str]] = {}
 
 
 def _parse_acf_installdir(path: Path) -> str:
@@ -312,8 +319,10 @@ def list_games() -> list[tuple[str, str]]:
 
 
 def clear_games_cache() -> None:
-    """Drop the list_games cache (e.g. the main-window Reload button)."""
+    """Drop the caches a Reload must refresh (games, libraries, options)."""
     _GAMES_CACHE.clear()
+    _LIBRARY_PATHS_CACHE.clear()
+    _LAUNCH_OPTIONS_CACHE.clear()
 
 
 def _preferred_names(landscape: bool, portrait: bool) -> tuple[str, ...]:
@@ -374,6 +383,7 @@ def launch_options_status(appid: str) -> tuple[str, str]:
     string for 'ok' and '' otherwise: the caller words the message.
     """
     found_any = False
+    numeric = steam_appid(appid)
     for root in steam_roots():
         userdir = root / "userdata"
         try:
@@ -383,13 +393,23 @@ def launch_options_status(appid: str) -> tuple[str, str]:
         for profile in profiles:
             localconfig = profile / "config" / "localconfig.vdf"
             try:
-                text = localconfig.read_text(encoding="utf-8", errors="replace")
-            except Exception:
+                st = localconfig.stat()
+            except OSError:
                 continue
+            key = (str(localconfig), st.st_mtime_ns, st.st_size, numeric)
+            cached = _LAUNCH_OPTIONS_CACHE.get(key)
+            if cached is None:
+                try:
+                    text = localconfig.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    continue
+                options = _launch_options_from_text(text, appid)
+                ok = options is not None and "tkarcade" in options.lower()
+                cached = ("ok", options) if ok else ("missing", "")
+                _LAUNCH_OPTIONS_CACHE[key] = cached
             found_any = True
-            options = _launch_options_from_text(text, appid)
-            if options is not None and "tkarcade" in options.lower():
-                return "ok", options
+            if cached[0] == "ok":
+                return cached
     if found_any:
         return "missing", ""
     return "unknown", ""

@@ -791,6 +791,42 @@ def test_settings_save_keeps_a_custom_winedebug(qgui_app, xdg_env):
     assert C.load("steam-99").debug.winedebug == "+d3d11"
 
 
+def test_steam_status_probe_runs_in_the_background(qgui_app, xdg_env, monkeypatch):
+    """A forced launch-options probe returns at once and reports later."""
+    from PySide6.QtTest import QSignalSpy
+
+    import tkarcade.gui.model as modelmod
+    from tkarcade import __version__ as gui_version
+    from tkarcade import steam as S
+    from tkarcade.gui.model import GameListModel
+
+    monkeypatch.delenv("TKARCADE_NO_BG_FETCH", raising=False)
+    cfg = C.GameConfig()
+    cfg.general.appid = "620"
+    C.save(cfg)
+    calls = []
+    monkeypatch.setattr(
+        S,
+        "launch_options_status",
+        lambda appid: calls.append(appid) or ("ok", "tkarcade %command%"),
+    )
+    monkeypatch.setattr(
+        modelmod, "_path_tkarcade_version", lambda: ("/usr/bin/tkarcade", gui_version)
+    )
+    model = GameListModel()
+    spy = QSignalSpy(model.steamStatusReady)
+    rows = model.dependencyStatus("620", {}, check_steam=True)
+    entry = next(row for row in rows if row["key"] == "steam-options")
+    assert entry["msg"] == "steam-unknown"
+    if not spy.count():
+        spy.wait(2000)
+    assert spy.count() >= 1
+    rows = model.dependencyStatus("620", {}, check_steam=False)
+    entry = next(row for row in rows if row["key"] == "steam-options")
+    assert entry["msg"] == "steam-ok"
+    assert calls == ["620"]
+
+
 def test_metadata_suffix_and_name_split(qgui_app, xdg_env):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 
@@ -2031,7 +2067,12 @@ def test_context_actions_follow_origin_and_runtime(qgui_app, xdg_env, tmp_path, 
     assert proton["prefix"] == ""  # compatdata not created yet
     assert proton["prefix_applicable"] is True
     assert proton["shader"] == os.fspath(shader)
-    assert proton["shader_size"] == "2.0 KB"
+    # The size is walked off the GUI thread; the context menu fills in.
+    assert proton["shader_size"] == ""
+    deadline = time.time() + 5
+    while "steam-77" not in model._shader_sizes and time.time() < deadline:
+        time.sleep(0.01)
+    assert model.shaderSize("steam-77") == "2.0 KB"
 
     native_steam = model.contextActions("steam-78")
     assert native_steam["install"] == os.fspath(steam_install)

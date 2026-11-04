@@ -1614,6 +1614,13 @@ Window {
                 showFetchResult(status, provider)
             }
         }
+        // The Steam launch-options probe finished in the background: the
+        // dialog re-renders the row from the cache.
+        function onSteamStatusReady(appid) {
+            if (appid === editAppid) {
+                refreshDependencyStatus(false)
+            }
+        }
         // Managed runtime versions changed (download or extraction): the
         // graphics pickers list what is actually installed.
         function onArchivesChanged() {

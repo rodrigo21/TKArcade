@@ -213,6 +213,13 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The context menu no longer walks the shader cache on the GUI thread:
+  the size is computed in the background and fills in when ready.
+- The game dialog's Steam launch-options probe runs in the background;
+  the dependency row updates when it lands, and the parsed result is
+  cached by file mtime for the next open.
+- Steam library paths are cached until Reload, so refreshing the list
+  no longer reparses `libraryfolders.vdf` once per game.
 - A hand-written `[debug] winedebug` value is kept in the Runtime combo
   and survives Save; the selector no longer resets it to Off.
 - Artwork cache lookups keep dots in a local game ID, and Clear no

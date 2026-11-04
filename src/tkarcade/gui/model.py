@@ -316,6 +316,10 @@ class GameListModel(QAbstractTableModel):
     archiveProgress = Signal(str, str)
     archiveFinished = Signal(str, str)
     archivesChanged = Signal()
+    # A background shader-cache walk finished (appid, human size).
+    shaderSizeReady = Signal(str, str)
+    # A background Steam launch-options probe finished (appid).
+    steamStatusReady = Signal(str)
 
     # How often the running records are re-read, and how long a
     # terminating launcher gets before its process group is SIGKILLed.
@@ -340,7 +344,12 @@ class GameListModel(QAbstractTableModel):
         # Last Steam launch-options probe: (appid, status, detail). The
         # scan reads every profile's localconfig.vdf, so the dependency
         # status reuses it between the dialog's explicit refreshes.
-        self._steam_status: tuple[str, str, str] | None = None
+        self._steam_status: dict[str, tuple[str, str]] = {}
+        self._steam_status_busy: set[str] = set()
+        # Shader-cache sizes are walked off the GUI thread (a large cache
+        # can take seconds); the context menu fills in when the walk ends.
+        self._shader_sizes: dict[str, str] = {}
+        self._shader_size_busy: set[str] = set()
         # Live running records by AppID (the launcher owns the files).
         self._running: dict[str, dict] = {}
         # Global log signature at the last refresh, so the poll notices a
@@ -2770,17 +2779,48 @@ class GameListModel(QAbstractTableModel):
         return rows
 
     def _steam_launch_options(self, appid: str, check_steam: bool) -> tuple[str, str]:
-        """(status, options) for the Steam launch options, cached per game."""
-        cached = self._steam_status
-        if not check_steam and cached is not None and cached[0] == appid:
-            return cached[1], cached[2]
+        """(status, options) for the Steam launch options, cached per game.
+
+        The probe reads and parses every profile's localconfig.vdf, so a
+        forced check runs off the GUI thread and reports back through
+        ``steamStatusReady``; the dialog re-renders with the cache. Tests
+        (and headless runs) keep the synchronous path.
+        """
+        cached = self._steam_status.get(appid)
+        if check_steam:
+            if not os.environ.get("TKARCADE_NO_BG_FETCH"):
+                self._request_steam_status(appid)
+                return cached if cached is not None else ("unknown", "")
+            return self._probe_steam_status(appid)
+        if cached is not None:
+            return cached
+        if os.environ.get("TKARCADE_NO_BG_FETCH"):
+            return self._probe_steam_status(appid)
+        self._request_steam_status(appid)
+        return "unknown", ""
+
+    def _request_steam_status(self, appid: str) -> None:
+        if appid in self._steam_status_busy:
+            return
+        self._steam_status_busy.add(appid)
+        threading.Thread(target=self._steam_status_worker, args=(appid,), daemon=True).start()
+
+    def _probe_steam_status(self, appid: str) -> tuple[str, str]:
         try:
             status, options = steammod.launch_options_status(appid)
         except Exception as e:
             log.warning("launch_options_status(%s) failed: %s", appid, e)
             status, options = "unknown", ""
-        self._steam_status = (appid, status, options)
+        self._steam_status[appid] = (status, options)
         return status, options
+
+    def _steam_status_worker(self, appid: str) -> None:
+        self._probe_steam_status(appid)
+        self._steam_status_busy.discard(appid)
+        try:
+            self.steamStatusReady.emit(appid)
+        except Exception:
+            pass
 
     @Slot(str, result=bool)
     def openProtonDB(self, appid: str) -> bool:
@@ -3106,17 +3146,35 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, result=str)
     def shaderSize(self, appid: str) -> str:
-        """Human shader cache size, or '' when unknown."""
+        """Cached shader-cache size; a miss walks it in the background.
+
+        ``dir_size`` can touch thousands of files, so the context menu must
+        never wait for it: the first call returns "" and the walk reports
+        through ``shaderSizeReady``.
+        """
+        if appid in self._shader_sizes:
+            return self._shader_sizes[appid]
+        self._request_shader_size(appid)
+        return ""
+
+    def _request_shader_size(self, appid: str) -> None:
+        if appid in self._shader_size_busy:
+            return
+        self._shader_size_busy.add(appid)
+        threading.Thread(target=self._shader_size_worker, args=(appid,), daemon=True).start()
+
+    def _shader_size_worker(self, appid: str) -> None:
         try:
             target = steammod.shader_dir(appid)
+            size = steammod.format_size(steammod.dir_size(target)) if target else ""
         except Exception:
-            return ""
-        if target is None:
-            return ""
+            size = ""
+        self._shader_sizes[appid] = size
+        self._shader_size_busy.discard(appid)
         try:
-            return steammod.format_size(steammod.dir_size(target))
+            self.shaderSizeReady.emit(appid, size)
         except Exception:
-            return ""
+            pass
 
     @Slot(str, result=bool)
     def openPath(self, path: str) -> bool:
@@ -3154,6 +3212,7 @@ class GameListModel(QAbstractTableModel):
             shutil.rmtree(target)
         except Exception as e:
             return f"{appid}: {e}"
+        self._shader_sizes.pop(appid, None)
         return f"Cleared {size} of Shader Cache."
 
     @Slot(str, result=list)

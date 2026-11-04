@@ -738,6 +738,13 @@ Kirigami.Page {
             }
             gamesPage.browsePurpose = ""
         }
+        // The shader-cache size is walked off the GUI thread; fill the
+        // open context menu in when it lands.
+        function onShaderSizeReady(appid, size) {
+            if (appid === gamesPage.menuGid) {
+                gamesPage.menuShaderSize = size
+            }
+        }
     }
 
     // Terminate feedback: the launcher stops the game and the indicator
