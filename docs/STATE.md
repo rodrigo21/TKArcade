@@ -10,12 +10,14 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: thirty-five batches. The latest makes the AI token rules
-  measurable: a working per-session query, a cost warning past ~60 steps
-  or ~100k re-sent per step, and `/handoff` reporting the numbers.
-- Verified: `tests/test_docs.py` (6 pass); docs-only, no code or test
-  touched. Session cost: 70 steps, 3.4M cache read, US$ 0.
+- Landed: seven batches. Prefix/config/winetricks guards, sanitized
+  paths, background GUI probes (no freezes), custom `WINEDEBUG`,
+  uppercase IDs, shared helpers and 9 redundant tests removed.
+- Verified: `scripts/check.sh` 598 passed; `--qml` 599 passed; venv
+  refreshed. Docs-only change since.
 - Next: the `TODO.md` design-review items — the runtime version
   manager, then name-based artwork for local games, then the deferred
   research/release items.
+- Open decisions: `docs/decisions/runtime-archives.md` is still a
+  proposal; the runtime version manager needs a design before code.
 - Nothing blocking.
