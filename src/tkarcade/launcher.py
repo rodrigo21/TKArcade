@@ -1451,6 +1451,9 @@ def _disarm_fresh_prefix(appid: str, prefix: str) -> None:
         log.warning("fresh_prefix: %s", w)
     if not wiped_ok:
         return
+    # The verbs lived in the prefix that was just wiped: drop the record
+    # or run_winetricks would skip them on this very launch.
+    protonmod.clear_winetricks_state(appid)
     try:
         live = cfgmod.load(appid)
         name = live.general.active_profile

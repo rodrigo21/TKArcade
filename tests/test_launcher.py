@@ -651,6 +651,28 @@ def test_fresh_prefix_disarms_after_wipe(xdg_env, monkeypatch, tmp_path):
     assert C.load("steam-77").runtime.fresh_prefix is False
 
 
+def test_fresh_prefix_reruns_winetricks(xdg_env, monkeypatch, tmp_path):
+    pfx = tmp_path / "compatdata" / "77"
+    (pfx / "pfx").mkdir(parents=True)
+    monkeypatch.setenv("STEAM_COMPAT_DATA_PATH", str(pfx))
+    state = xdg_env["state"] / "tkarcade" / "winetricks" / "steam-77.json"
+    state.parent.mkdir(parents=True)
+    state.write_text('{"verbs": ["corefonts"]}', encoding="utf-8")
+    marker = tmp_path / "protontricks-ran"
+    fake = tmp_path / "bin" / "protontricks"
+    fake.parent.mkdir()
+    fake.write_text(f"#!/bin/sh\ntouch {marker}\nexit 0\n")
+    fake.chmod(0o755)
+    env = _env(xdg_env)
+    env["PATH"] = f"{fake.parent}{os.pathsep}{env['PATH']}"
+    _save(
+        "steam-77",
+        runtime={"type": "proton", "fresh_prefix": True, "winetricks_verbs": ["corefonts"]},
+    )
+    assert _run(env, "--appid", "steam-77", "/bin/echo", "hi").returncode == 0
+    assert marker.exists()
+
+
 def test_fresh_prefix_is_proton_only(xdg_env, monkeypatch, tmp_path):
     pfx = tmp_path / "compatdata" / "78"
     (pfx / "pfx").mkdir(parents=True)

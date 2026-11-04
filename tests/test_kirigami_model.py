@@ -1851,6 +1851,104 @@ def test_ensure_and_clear_the_local_prefix(qgui_app, xdg_env, tmp_path):
     assert base.is_dir()
 
 
+def test_clear_prefix_refuses_a_non_prefix_directory(qgui_app, xdg_env, tmp_path):
+    from tkarcade.gui.model import GameListModel
+
+    prefs = C.load_preferences()
+    prefs.prefix_base = str(tmp_path / "prefixes")
+    C.save_preferences(prefs)
+    prefix = tmp_path / "prefixes" / "Doom"
+    prefix.mkdir(parents=True)
+    (prefix / "save.dat").write_text("saves", encoding="utf-8")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.runtime.type = "wine"
+    cfg.runtime.prefix_name = "Doom"
+    C.save(cfg)
+    model = GameListModel()
+    assert model.clearCustomPrefix("local-doom").startswith("Refusing to Delete")
+    assert (prefix / "save.dat").is_file()
+
+
+def test_clear_prefix_deletes_a_real_wine_prefix(qgui_app, xdg_env, tmp_path):
+    from tkarcade.gui.model import GameListModel
+
+    prefs = C.load_preferences()
+    prefs.prefix_base = str(tmp_path / "prefixes")
+    C.save_preferences(prefs)
+    prefix = tmp_path / "prefixes" / "Doom"
+    (prefix / "drive_c").mkdir(parents=True)
+    (prefix / "system.reg").write_text("", encoding="utf-8")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.runtime.type = "wine"
+    cfg.runtime.prefix_name = "Doom"
+    C.save(cfg)
+    model = GameListModel()
+    assert model.clearCustomPrefix("local-doom") == f"Cleared {prefix}."
+    assert not prefix.exists()
+
+
+def test_cleanup_keeps_a_non_prefix_directory(qgui_app, xdg_env, tmp_path):
+    from tkarcade.gui.model import GameListModel
+
+    base = tmp_path / "pfx"
+    prefix = base / "Doom"
+    prefix.mkdir(parents=True)
+    (prefix / "save.dat").write_text("saves", encoding="utf-8")
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.runtime.prefix = str(base)
+    C.save(cfg)
+    model = GameListModel()
+    model.removeGames(["local-doom"])
+    assert model.cleanLeftovers(["local-doom"], True) == 0
+    assert (prefix / "save.dat").is_file()
+
+
+def test_apply_wine_version_keeps_config_vdf_on_dump_failure(
+    qgui_app, xdg_env, monkeypatch, tmp_path
+):
+    import vdf
+
+    from tkarcade.gui.model import GameListModel
+
+    root = tmp_path / "steam"
+    (root / "config").mkdir(parents=True)
+    config_vdf = root / "config" / "config.vdf"
+    original = (
+        '"InstallConfigStore"\n'
+        "{\n"
+        '  "Software"\n'
+        "  {\n"
+        '    "Valve"\n'
+        "    {\n"
+        '      "Steam"\n'
+        "      {\n"
+        '        "CompatToolMapping"\n'
+        "        {\n"
+        "        }\n"
+        "      }\n"
+        "    }\n"
+        "  }\n"
+        "}\n"
+    )
+    config_vdf.write_text(original, encoding="utf-8")
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    model = GameListModel()
+    monkeypatch.setattr(model, "steamRunning", lambda: False)
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("dump failed")
+
+    monkeypatch.setattr(vdf, "dump", boom)
+    assert model.applyWineVersion("steam-570", "proton_9").startswith("Could Not Update")
+    assert config_vdf.read_text(encoding="utf-8") == original
+
+
 def test_context_actions_follow_origin_and_runtime(qgui_app, xdg_env, tmp_path, monkeypatch):
     import os
 

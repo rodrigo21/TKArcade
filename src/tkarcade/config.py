@@ -552,8 +552,8 @@ def _render_toml(data: dict) -> str:
     return "\n".join(lines)
 
 
-def _write_atomic(path: Path, text: str) -> None:
-    """Write via temp file + rename so a crash never truncates the config."""
+def write_atomic(path: Path, text: str) -> None:
+    """Write via temp file + rename so a crash never truncates the file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     for stale in path.parent.glob(f".{path.name}.*.tmp"):
         try:
@@ -611,7 +611,7 @@ def save_profile(appid: str, name: str, cfg: GameConfig) -> Path:
     data = to_toml_dict(cfg)
     data.setdefault("general", {})["gameid"] = appid
     data["general"]["active_profile"] = ""
-    _write_atomic(path, _render_toml(data))
+    write_atomic(path, _render_toml(data))
     return path
 
 
@@ -780,7 +780,7 @@ def save_defaults(cfg: GameConfig) -> Path:
         "notes",
     ):
         data.pop(section, None)
-    _write_atomic(path, _render_toml(data))
+    write_atomic(path, _render_toml(data))
     return path
 
 
@@ -1082,7 +1082,7 @@ def save_categories(entries: list[Category]) -> Path:
         seen.add(key)
         table[name] = str(entry.icon or "").strip() or "folder"
     path = categories_file()
-    _write_atomic(path, _render_toml({"categories": table}))
+    write_atomic(path, _render_toml({"categories": table}))
     return path
 
 
@@ -1318,7 +1318,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "drawer_collapsed": bool(prefs.drawer_collapsed),
         }
     }
-    _write_atomic(path, _render_toml(data))
+    write_atomic(path, _render_toml(data))
     return path
 
 
@@ -1477,7 +1477,7 @@ def save(cfg: GameConfig) -> Path:
         # Birth time before the atomic replace swaps the inode away.
         now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         general["installed_at"] = installed_stamp(path) or now
-    _write_atomic(path, _render_toml(data))
+    write_atomic(path, _render_toml(data))
     return path
 
 

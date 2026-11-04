@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import shlex
@@ -1653,8 +1654,11 @@ class GameListModel(QAbstractTableModel):
                 mapping[numeric] = {"name": tool}
                 backup = path.with_suffix(".vdf.tkarcade-bak")
                 backup.write_bytes(path.read_bytes())
-                with open(path, "w", encoding="utf-8") as handle:
-                    vdf.dump(data, handle, pretty=True)
+                buffer = io.StringIO()
+                vdf.dump(data, buffer, pretty=True)
+                # Dump to memory first: a failing dump must never truncate
+                # Steam's config.vdf.
+                cfgmod.write_atomic(path, buffer.getvalue())
             except Exception as e:
                 log.warning("applyWineVersion(%s) failed: %s", appid, e)
                 return f"Could Not Update {path}: {e}"
@@ -1725,13 +1729,13 @@ class GameListModel(QAbstractTableModel):
         """The dir Clear deletes: Steam's custom one, or the local prefix.
 
         A local prefix is a subfolder of the base: only it is deleted,
-        and never one another game still points at.
+        and never one another game still points at. A directory that is
+        not a Wine prefix is refused: a misconfigured path must never
+        turn Clear into a recursive delete of an unrelated folder.
         """
         target = cfgmod.prefix_target(appid, cfg)
         if target is None or not target.managed:
             return None, "No Custom Prefix Set."
-        if steammod.is_steam_id(appid):
-            return target.container, ""
         try:
             users = self._prefix_users(cfgmod.load_preferences()).get(
                 os.fspath(target.container), []
@@ -1741,7 +1745,27 @@ class GameListModel(QAbstractTableModel):
         others = [a for a in users if a != appid]
         if others:
             return None, f"Shared Prefix: Still Used by {', '.join(others)}."
+        if not self._deletable_prefix(target.container):
+            return None, f"Refusing to Delete {target.container}: Not a Wine Prefix."
         return target.container, ""
+
+    @staticmethod
+    def _deletable_prefix(target: Path) -> bool:
+        """True when deleting `target` cannot destroy an unrelated folder.
+
+        An empty directory is harmless; a real prefix has ``drive_c``
+        directly (local WINEPREFIX) or under ``pfx`` (Steam container).
+        Anything else is refused, so a wrong prefix path cannot wipe a
+        games or documents folder.
+        """
+        try:
+            if not target.is_dir():
+                return False
+            if not any(target.iterdir()):
+                return True
+            return (target / "drive_c").is_dir() or (target / "pfx" / "drive_c").is_dir()
+        except OSError:
+            return False
 
     @staticmethod
     def _steam_proton(cfg) -> object:
@@ -3408,6 +3432,9 @@ class GameListModel(QAbstractTableModel):
             found = self._resolved_prefix(appid)
             prefix = str(found) if found is not None else ""
         if not prefix or prefix in live_prefixes:
+            return False
+        if not self._deletable_prefix(Path(prefix)):
+            log.warning("cleanup: refusing to delete %s: not a Wine prefix", prefix)
             return False
         try:
             shutil.rmtree(prefix)

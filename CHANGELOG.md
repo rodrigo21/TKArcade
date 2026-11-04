@@ -213,6 +213,16 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Clear Prefix and the leftover cleanup refuse a directory that does not
+  hold a `drive_c` (a local WINEPREFIX, or the `pfx` inside a Steam
+  container): a wrong prefix path can no longer wipe an unrelated
+  folder. A shared custom prefix is refused for Steam games too.
+- Writing a Proton compat tool to Steam's `config.vdf` is atomic now: a
+  failed dump no longer truncates the file, and the backup stays as the
+  last resort.
+- `fresh_prefix` clears the recorded winetricks verbs after wiping the
+  prefix, so the verbs are reinstalled on that same launch instead of
+  being skipped by the stale state file.
 - The Configure Columns list follows the table order now: moving a
   column up or down there no longer leaves the dialog out of sync.
 - A session that finishes while the Session History window is open shows

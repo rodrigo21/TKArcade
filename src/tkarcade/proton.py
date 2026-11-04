@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import steam as steammod
+from . import xdg
 
 
 def compat_tool_name(appid: str) -> str | None:
@@ -179,6 +180,23 @@ def prepare_fresh_prefix(appid: str, prefix: str = "") -> tuple[bool, list[str]]
         return False, [f"could not delete prefix {compat}: {e}"]
 
 
+def winetricks_state_path(appid: str) -> Path:
+    """Where run_winetricks records the verbs it already installed."""
+    return xdg.app_state_dir() / "winetricks" / f"{appid}.json"
+
+
+def clear_winetricks_state(appid: str) -> None:
+    """Forget the recorded verbs, so the next launch installs them again.
+
+    A wiped prefix (fresh_prefix) lost the verbs with it: keeping the
+    record would skip protontricks and leave the new prefix bare.
+    """
+    try:
+        winetricks_state_path(appid).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def run_winetricks(appid: str, verbs: list[str]) -> list[str]:
     """Install winetricks verbs via protontricks (unattended). Skips when
     the recorded verb set already ran. Returns warnings; never raises."""
@@ -195,9 +213,8 @@ def run_winetricks(appid: str, verbs: list[str]) -> list[str]:
     exe = shutil.which("protontricks")
     if not exe:
         return ["winetricks skipped: protontricks not found in PATH"]
-    from . import xdg
 
-    state = xdg.app_state_dir() / "winetricks" / f"{appid}.json"
+    state = winetricks_state_path(appid)
     try:
         recorded = json.loads(state.read_text(encoding="utf-8")).get("verbs")
         if recorded == sorted(verbs):
