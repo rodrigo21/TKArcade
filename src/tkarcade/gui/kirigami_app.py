@@ -304,7 +304,7 @@ def _surface_handlers(root) -> dict:
 def open_surface(root, log, spec: str) -> bool:
     """Open the dialog named by a `TKARCADE_OPEN` value.
 
-    Diagnostic only (docs/plans/real-display-checks.md): it saves hunting
+    Diagnostic only (docs/runbooks/real-display-checks.md): it saves hunting
     through the menus on a real display. A bad name or a failure while
     opening logs and returns False, so the shell still comes up.
     """

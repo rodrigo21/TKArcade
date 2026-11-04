@@ -58,6 +58,20 @@ def parse_log(path: Path | str) -> list[Session]:
     return out
 
 
+def _rewrite_log(path: Path, text: str) -> None:
+    """Atomically rewrite the launcher log (temp file + replace)."""
+    fd, tmp = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent if path.parent.exists() else None
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
 def clear_appid(path: Path | str, appid: str) -> int:
     """Drop one game's lines from the launcher log. Returns lines removed.
 
@@ -74,16 +88,7 @@ def clear_appid(path: Path | str, appid: str) -> int:
     removed = len(text.splitlines()) - len(kept)
     if not removed:
         return 0
-    fd, tmp = tempfile.mkstemp(
-        prefix=f".{log.name}.", suffix=".tmp", dir=log.parent if log.parent.exists() else None
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.writelines(kept)
-        os.replace(tmp, log)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise
+    _rewrite_log(log, "".join(kept))
     return removed
 
 
@@ -102,16 +107,7 @@ def rename_appid(path: Path | str, old: str, new: str) -> int:
     updated, changed = token.subn(lambda m: f"{m.group('lead')}{new}", text)
     if not changed:
         return 0
-    fd, tmp = tempfile.mkstemp(
-        prefix=f".{log.name}.", suffix=".tmp", dir=log.parent if log.parent.exists() else None
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(updated)
-        os.replace(tmp, log)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise
+    _rewrite_log(log, updated)
     return changed
 
 

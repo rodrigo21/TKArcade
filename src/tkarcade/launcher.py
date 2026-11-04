@@ -1160,8 +1160,6 @@ def launch_local_detached(appid: str) -> None:
     """
     plant_menu_skip(appid)
     runner = [sys.executable, "-m", "tkarcade.launcher"]
-    if not runner[0]:
-        runner = [shutil.which("tkarcade") or sys.argv[0]]
     subprocess.Popen(
         [*runner, "--game-id", appid],
         start_new_session=True,

@@ -135,7 +135,7 @@ def list_compat_tools() -> list[str]:
                 continue
             for entry in entries:
                 try:
-                    if not entry.is_dir() or entry.is_symlink() and not entry.exists():
+                    if not entry.is_dir():
                         continue
                     has_launcher = (entry / "proton").is_file()
                 except OSError:

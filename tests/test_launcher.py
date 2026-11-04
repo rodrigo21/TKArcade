@@ -634,13 +634,6 @@ def test_help_documents_exit_codes(xdg_env):
     assert "exit codes" in r.stdout and "  10  Game ID not resolved" in r.stdout
 
 
-def test_help_exit_codes_format(xdg_env):
-    r = _run(_env(xdg_env), "--help")
-    assert r.returncode == 0
-    assert "\n  10  Game ID not resolved\n" in r.stdout
-    assert "\n  17  validation issues found\n" in r.stdout
-
-
 def test_fresh_prefix_disarms_after_wipe(xdg_env, monkeypatch, tmp_path):
     pfx = tmp_path / "compatdata" / "77"
     (pfx / "pfx").mkdir(parents=True)

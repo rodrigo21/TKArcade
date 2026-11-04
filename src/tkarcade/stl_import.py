@@ -112,7 +112,6 @@ def _is_set(value: str) -> bool:
 
 def _exists_on_disk(command: str) -> bool:
     """True for existing paths and PATH binaries (no false missing alarms)."""
-    import os
     import shutil
 
     text = (command or "").strip()

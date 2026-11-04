@@ -27,9 +27,6 @@ _BUILTIN = "d3d9,d3d10core,d3d11,d3d12,dxgi=b"
 _DXVK = "d3d9,d3d10core,d3d11,dxgi=n,b"
 _VKD3D = "d3d12=n,b"
 
-#: Marker layer key per installed layer.
-_LAYER_KIND = {"dxvk": "dxvk", "vkd3d": "vkd3d"}
-
 
 def overrides(dxvk: bool = False, vkd3d: str = "") -> str:
     """WINEDLLOVERRIDES value for the enabled layers.
@@ -111,7 +108,7 @@ def install(prefix: Path, layer: str, prefs: object, version: str = "") -> tuple
     Failure never aborts the launch: the launcher falls back to the builtin
     DLLs and reports the warning.
     """
-    kind = _LAYER_KIND.get(layer)
+    kind = layer if layer in runtimes.GRAPHICS_DLLS else ""
     if not kind:
         return True, []
     extra = layer_dirs(layer, prefs)

@@ -12,9 +12,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-KNOWN_DRIVERS = ("amd", "nvidia", "intel")
-KNOWN_PROTONS = ("valve", "ge", "cachyos", "dw")
-
 
 @dataclass(frozen=True)
 class Preset:

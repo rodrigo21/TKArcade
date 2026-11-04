@@ -1246,23 +1246,26 @@ def _clean_int_list(text: str) -> str:
     return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdecimal())
 
 
-def _clean_width_map(text: str) -> str:
-    """Normalize 'logical=px' pairs (logical 0-12, px 20-2000).
-
-    The upper bound must match the table width the model writes
-    (13 columns): a smaller one silently dropped every width for the
-    library columns past 'Source' on the next load.
-    """
-    out = []
-    for part in (x.strip() for x in text.split(",")):
+#: The upper bound must match the table width the model writes (13
+#: columns): a smaller one silently dropped every width for the library
+#: columns past 'Source' on the next load.
+def parse_width_map(text: object) -> dict[int, int]:
+    """Parsed 'logical=px' pairs (logical 0-12, px 20-2000)."""
+    out: dict[int, int] = {}
+    for part in (x.strip() for x in str(text or "").split(",")):
         if "=" not in part:
             continue
         left, _, right = part.partition("=")
         if left.strip().isdecimal() and right.strip().isdecimal():
             logical, width = int(left.strip()), int(right.strip())
             if 0 <= logical <= 12 and 20 <= width <= 2000:
-                out.append(f"{logical}={width}")
-    return ",".join(out)
+                out[logical] = width
+    return out
+
+
+def _clean_width_map(text: str) -> str:
+    """Normalize 'logical=px' pairs (logical 0-12, px 20-2000)."""
+    return ",".join(f"{logical}={width}" for logical, width in parse_width_map(text).items())
 
 
 def _clamp_quick_count(value: object) -> int:

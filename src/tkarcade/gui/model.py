@@ -2598,18 +2598,24 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return ""
 
+    def _draft_cfg(self, appid: str, values) -> object:
+        """Config for the dialog's unsaved state (raises on a load failure)."""
+        if appid and cfgmod.game_file(appid).is_file():
+            cfg = cfgmod.load(appid)
+        else:
+            cfg = cfgmod.load_defaults()
+            cfg.general.appid = appid
+        data = dict(values or {})
+        self._apply_map(cfg, data)
+        if not steammod.is_steam_id(appid):
+            cfg.general.name = str(data.get("name", "")).strip()
+        return cfg
+
     @Slot(str, "QVariantMap", result="QVariantMap")
     def previewCommand(self, appid: str, values) -> dict:
         """Launch command preview for dialog (unsaved) state."""
         try:
-            if appid and cfgmod.game_file(appid).is_file():
-                cfg = cfgmod.load(appid)
-            else:
-                cfg = cfgmod.load_defaults()
-                cfg.general.appid = appid
-            self._apply_map(cfg, dict(values or {}))
-            if not steammod.is_steam_id(appid):
-                cfg.general.name = str(dict(values or {}).get("name", "")).strip()
+            cfg = self._draft_cfg(appid, values)
             cmd, _env, warnings = launchermod.build_final_command(cfg, ["%command%"])
         except launchermod.RuntimeNotSetError:
             return {"command": "(Choose a Runtime to Preview)", "wrappers": "", "warnings": []}
@@ -2629,34 +2635,17 @@ class GameListModel(QAbstractTableModel):
     def diffDefaults(self, appid: str, values) -> str:
         """Unified diff of dialog state vs Global Defaults ('' when same)."""
         try:
-            if appid and cfgmod.game_file(appid).is_file():
-                cfg = cfgmod.load(appid)
-            else:
-                cfg = cfgmod.load_defaults()
-                cfg.general.appid = appid
-            self._apply_map(cfg, dict(values or {}))
-            if not steammod.is_steam_id(appid):
-                cfg.general.name = str(dict(values or {}).get("name", "")).strip()
-            return cfgmod.diff_vs_defaults(cfg)
+            return cfgmod.diff_vs_defaults(self._draft_cfg(appid, values))
         except Exception as e:
             return f"(Diff Unavailable: {e})"
 
     def _dep_draft(self, appid: str, values) -> object | None:
         """Config for the dialog (unsaved) state, or None on any failure."""
         try:
-            if appid and cfgmod.game_file(appid).is_file():
-                cfg = cfgmod.load(appid)
-            else:
-                cfg = cfgmod.load_defaults()
-                cfg.general.appid = appid
-            data = dict(values or {})
-            self._apply_map(cfg, data)
-            if not steammod.is_steam_id(appid):
-                cfg.general.name = str(data.get("name", "")).strip()
-        except Exception as e:  # never break the dialog on a status probe
+            return self._draft_cfg(appid, values)
+        except Exception as e:
             log.warning("dependencyStatus failed: %s", e)
             return None
-        return cfg
 
     @staticmethod
     def _dep_prefix_entry(cfg) -> dict:
@@ -4128,22 +4117,11 @@ class GameFilterModel(QSortFilterProxyModel):
     @staticmethod
     def _load_widths() -> dict[int, int]:
         """Fitted column widths from prefs (garbage means no overrides)."""
-        widths: dict[int, int] = {}
         try:
             raw = cfgmod.load_preferences().column_widths
         except Exception:
-            return widths
-        for part in str(raw or "").split(","):
-            if "=" not in part:
-                continue
-            left, _, right = part.partition("=")
-            try:
-                logical, width = int(left.strip()), int(right.strip())
-            except ValueError:
-                continue
-            if 0 <= logical <= 12 and 20 <= width <= 2000:
-                widths[logical] = width
-        return widths
+            return {}
+        return cfgmod.parse_width_map(raw)
 
     def _save_columns(self) -> None:
         try:

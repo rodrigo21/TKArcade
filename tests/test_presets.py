@@ -2,6 +2,9 @@
 
 from tkarcade import presets as pm
 
+KNOWN_DRIVERS = ("amd", "nvidia", "intel")
+KNOWN_PROTONS = ("valve", "ge", "cachyos", "dw")
+
 
 def test_apply_preset_merges_missing_only():
     env = {"WINE_FULLSCREEN_FSR": "0"}
@@ -18,8 +21,8 @@ def test_preset_catalog_schema():
     assert "DLSS Upgrade (NVIDIA)" in pm.PRESETS
     for name, preset in pm.PRESETS.items():
         assert preset.vars, name
-        assert set(preset.drivers) <= set(pm.KNOWN_DRIVERS), name
-        assert set(preset.proton) <= set(pm.KNOWN_PROTONS), name
+        assert set(preset.drivers) <= set(KNOWN_DRIVERS), name
+        assert set(preset.proton) <= set(KNOWN_PROTONS), name
     nvidia = pm.PRESETS["Disable VSync (NVIDIA)"]
     assert nvidia.drivers == ("nvidia",)
     assert pm.PRESETS["D7VK DDraw"].proton == ("cachyos", "dw")

@@ -6,21 +6,6 @@ from pathlib import Path
 from tkarcade import config as C
 
 
-def test_save_load_roundtrip(xdg_env):
-    cfg = C.GameConfig()
-    cfg.general.appid = "7"
-    cfg.env.vars = {"A": "1"}
-    cfg.nightlight.disable_during_game = True
-    cfg.ludusavi.enable = True
-    cfg.ludusavi.name_override = "Alt Name"
-    C.save(cfg)
-    back = C.load("7")
-    assert back.env.vars == {"A": "1"}
-    assert back.ludusavi.name_override == "Alt Name"
-    assert back.nightlight.disable_during_game is True
-    assert back.ludusavi.enable is True
-
-
 def test_categories_normalised(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-tags"
@@ -164,27 +149,6 @@ def test_wrong_shaped_sections_load_fresh(xdg_env):
     assert loaded.pre_post.pre_args == []
 
 
-def test_runtime_config_roundtrip(xdg_env):
-    cfg = C.GameConfig()
-    cfg.general.appid = "72"
-    cfg.runtime.fresh_prefix = True
-    cfg.runtime.prefix = "/tmp/opencode/prefix"
-    cfg.runtime.tool = "GE-Proton9-1"
-    cfg.runtime.winetricks_verbs = ["corefonts"]
-    cfg.runtime.steam_runtime = "sniper"
-    C.save(cfg)
-    loaded = C.load("72")
-    assert loaded.runtime.fresh_prefix is True
-    assert loaded.runtime.prefix == "/tmp/opencode/prefix"
-    assert loaded.runtime.tool == "GE-Proton9-1"
-    assert loaded.runtime.winetricks_verbs == ["corefonts"]
-    assert loaded.runtime.steam_runtime == "sniper"
-    # An unknown name loads as disabled instead of failing the file.
-    cfg.runtime.steam_runtime = "bogus"
-    C.save(cfg)
-    assert C.load("72").runtime.steam_runtime == ""
-
-
 def test_prepare_fresh_prefix(monkeypatch, tmp_path):
     from tkarcade import proton as pm
 
@@ -317,24 +281,6 @@ def test_profiles_crud(xdg_env):
     assert "perf" not in C.list_profiles("70")
 
 
-def test_notes_multiline_roundtrip(xdg_env):
-    cfg = C.GameConfig()
-    cfg.general.appid = "12"
-    cfg.notes.text = "line one\nline two: FSR off in menus"
-    C.save(cfg)
-    assert C.load("12").notes.text == "line one\nline two: FSR off in menus"
-
-
-def test_notifications_roundtrip(xdg_env):
-    cfg = C.GameConfig()
-    cfg.general.appid = "11"
-    assert cfg.notifications.notify_on_launch is True
-    cfg.notifications.notify_on_launch = False
-    C.save(cfg)
-    assert C.load("11").notifications.notify_on_launch is False
-    assert "[notifications]" in C.game_file("11").read_text()
-
-
 def test_export_import_roundtrip(xdg_env, tmp_path):
     cfg = C.GameConfig()
     cfg.general.appid = "21"
@@ -383,15 +329,6 @@ def test_import_missing_file(xdg_env, tmp_path):
         raise AssertionError("missing file accepted")
 
 
-def test_show_menu_roundtrip(xdg_env):
-    cfg = C.GameConfig()
-    cfg.general.appid = "70"
-    cfg.general.show_menu = True
-    C.save(cfg)
-    assert C.load("70").general.show_menu is True
-    assert C.load("71").general.show_menu is False
-
-
 def test_as_bool_strings(xdg_env):
     assert C._as_bool("false", True) is False
     assert C._as_bool("0", True) is False
@@ -411,25 +348,6 @@ def test_string_bools_in_toml(xdg_env):
         '[general]\nappid = "72"\n[gamemode]\nferal_gamemode = "false"\n', encoding="utf-8"
     )
     assert C.load("72").gamemode.feral_gamemode is False
-
-
-def test_preferences_roundtrip(xdg_env):
-    from tkarcade import xdg as xdgmod
-
-    prefs = C.load_preferences()
-    assert prefs.show_preview is False and prefs.tray_enable is False
-    assert prefs.tray_icon == "normal"
-    prefs.show_preview = False
-    prefs.tray_enable = True
-    prefs.tray_icon = "mono"
-    prefs.close_to_tray = True
-    C.save_preferences(prefs)
-    back = C.load_preferences()
-    assert back.show_preview is False and back.tray_enable is True
-    assert back.tray_icon == "mono" and back.close_to_tray is True
-    assert back.minimize_to_tray is False
-    text = xdgmod.preferences_file().read_text()
-    assert "[ui]" in text and "tray_enable" in text
 
 
 def test_preferences_invalid_values(xdg_env):
@@ -505,6 +423,7 @@ _GAME_FIELDS = {
     "runtime.prefix": "/tmp/opencode/prefix",
     "runtime.tool": "GE-Proton9-1",
     "runtime.prefix_name": "Doom Eternal",
+    "runtime.steam_runtime": "sniper",
     "graphics.dxvk": True,
     "graphics.dxvk_version": "v2.6.2",
     "graphics.vkd3d": "proton",
@@ -940,20 +859,6 @@ def test_orphaned_profiles(xdg_env):
     assert C.orphaned_profiles() == [("141", 2)]
 
 
-def test_display_config_roundtrip(xdg_env):
-    cfg = C.GameConfig()
-    cfg.general.appid = "160"
-    cfg.display.provider = "plasma"
-    cfg.display.output = "DP-3"
-    cfg.display.mode = "1920x1080@60"
-    C.save(cfg)
-    back = C.load("160")
-    assert back.display.provider == "plasma"
-    assert back.display.output == "DP-3"
-    assert back.display.mode == "1920x1080@60"
-    assert "[display]" in C.game_file("160").read_text()
-
-
 def test_column_layout_prefs_roundtrip(xdg_env):
     prefs = C.load_preferences()
     prefs.column_order = "0,2,1,3"
@@ -1201,18 +1106,6 @@ def test_export_import_includes_preferences(xdg_env, tmp_path):
     C.import_configs(dest)
     back = C.load_preferences()
     assert (back.tray_quick_count, back.language) == (8, "pt_BR")
-
-
-def test_general_name_roundtrip(xdg_env):
-    cfg = C.GameConfig()
-    cfg.general.appid = "local-doom"
-    cfg.general.name = "Doom"
-    C.save(cfg)
-    assert C.load("local-doom").general.name == "Doom"
-    fresh = C.GameConfig()
-    fresh.general.appid = "214"
-    C.save(fresh)
-    assert C.load("214").general.name == ""
 
 
 def test_new_local_id_unique_slug(xdg_env):

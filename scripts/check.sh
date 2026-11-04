@@ -54,6 +54,7 @@ elif [ "$changed" = 1 ]; then
             *.qml) qml=1 ;;
             tests/*.py) add "$f" ;;
             src/tkarcade/backends/*.py) add tests/test_backends.py; touched_src=1 ;;
+            src/tkarcade/gui/model.py) add tests/test_kirigami_model.py; touched_src=1 ;;
             src/tkarcade/*.py|src/tkarcade/gui/*.py)
                 touched_src=1
                 base=$(basename "$f" .py)
