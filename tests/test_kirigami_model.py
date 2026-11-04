@@ -410,7 +410,7 @@ def test_download_latest_graphics_runs_worker(qgui_app, xdg_env, monkeypatch):
     monkeypatch.setattr(
         M.archivesmod,
         "download_latest",
-        lambda kind, progress=None: (progress("Halfway."), "")[1],
+        lambda kind, progress=None, repo="": (progress("Halfway."), "")[1],
     )
     model = M.GameListModel()
     progress: list[tuple[str, str]] = []
@@ -439,7 +439,7 @@ def test_download_latest_reports_helper_errors(qgui_app, xdg_env, monkeypatch):
         def start(self):
             self._target(*self._args)
 
-    def fail(kind, progress=None):
+    def fail(kind, progress=None, repo=""):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(M.threading, "Thread", FakeThread)
@@ -2899,3 +2899,148 @@ def test_settings_winetricks_gui_reports_failure(qgui_app, xdg_env, fake_bin, tm
     log_path = xdg.games_log_dir() / "local-doom-winetricks.log"
     assert seen == [("failed", str(log_path))]
     assert "no such verb" in log_path.read_text(encoding="utf-8")
+
+
+def _fake_threads(monkeypatch):
+    from tkarcade.gui import model as M
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), **kwargs):
+            self._target = target
+            self._args = args
+
+        def start(self):
+            self._target(*self._args)
+
+    monkeypatch.setattr(M.threading, "Thread", FakeThread)
+
+
+def test_fetch_runtime_releases_emits_rows(qgui_app, xdg_env, monkeypatch):
+    from tkarcade.gui import model as M
+
+    _fake_threads(monkeypatch)
+    monkeypatch.setattr(
+        M.archivesmod,
+        "releases",
+        lambda kind, opener=None, repo="": [
+            {
+                "tag": "v2.7.1",
+                "name": "dxvk-2.7.1.tar.gz",
+                "url": "https://x/a.tar.gz",
+                "size": 5,
+                "digest": "sha256:aa",
+                "prerelease": False,
+            }
+        ],
+    )
+    model = M.GameListModel()
+    rows: list = []
+    errors: list[str] = []
+    model.runtimeReleases.connect(
+        lambda kind, items, message: (rows.append((kind, items)), errors.append(message))
+    )
+    model.fetchRuntimeReleases("dxvk")
+    assert rows[0][0] == "dxvk" and rows[0][1][0]["tag"] == "v2.7.1"
+    assert errors == [""]
+    model.fetchRuntimeReleases("wine")
+    assert rows[-1] == ("wine", []) and errors[-1] == "Unknown Runtime Layer."
+
+
+def test_fetch_runtime_releases_reports_api_errors(qgui_app, xdg_env, monkeypatch):
+    from tkarcade.gui import model as M
+
+    _fake_threads(monkeypatch)
+
+    def fail(kind, opener=None, repo=""):
+        raise M.archivesmod.ArchiveError("HTTP 403")
+
+    monkeypatch.setattr(M.archivesmod, "releases", fail)
+    model = M.GameListModel()
+    rows: list = []
+    errors: list[str] = []
+    model.runtimeReleases.connect(
+        lambda kind, items, message: (rows.append(items), errors.append(message))
+    )
+    model.fetchRuntimeReleases("vkd3d")
+    assert rows == [[]] and errors == ["HTTP 403"]
+
+
+def test_install_runtime_release_passes_the_asset(qgui_app, xdg_env, monkeypatch):
+    from tkarcade.gui import model as M
+
+    _fake_threads(monkeypatch)
+    seen: list[tuple] = []
+
+    def install(kind, asset, progress=None, repo=""):
+        seen.append((kind, dict(asset), repo))
+        return ""
+
+    monkeypatch.setattr(M.archivesmod, "download_release", install)
+    model = M.GameListModel()
+    finished: list[tuple[str, str]] = []
+    changed: list[bool] = []
+    model.archiveFinished.connect(lambda kind, text: finished.append((kind, text)))
+    model.archivesChanged.connect(lambda: changed.append(True))
+    asset = {
+        "name": "dxvk-2.6.0.tar.gz",
+        "url": "https://x/d.tar.gz",
+        "size": 5,
+        "digest": "",
+        "tag": "v2.6.0",
+    }
+    model.installRuntimeRelease("dxvk", asset)
+    assert seen[0][0] == "dxvk" and seen[0][1]["tag"] == "v2.6.0"
+    assert finished == [("dxvk", "")] and changed == [True]
+    model.installRuntimeRelease("dxvk", {"url": ""})
+    assert finished[-1] == ("dxvk", "Choose a Release First.")
+
+
+def test_install_runtime_from_url_rejects_an_empty_url(qgui_app, xdg_env, monkeypatch):
+    from tkarcade.gui import model as M
+
+    _fake_threads(monkeypatch)
+    seen: list[tuple] = []
+    monkeypatch.setattr(
+        M.archivesmod,
+        "install_from_url",
+        lambda kind, url, progress=None: (seen.append((kind, url)), "")[1],
+    )
+    model = M.GameListModel()
+    finished: list[tuple[str, str]] = []
+    model.archiveFinished.connect(lambda kind, text: finished.append((kind, text)))
+    model.installRuntimeFromUrl("vkd3d", "  ")
+    assert finished == [("vkd3d", "Enter an Archive URL First.")]
+    assert seen == []
+    model.installRuntimeFromUrl("vkd3d", "https://x/sarek.tar.gz")
+    assert seen == [("vkd3d", "https://x/sarek.tar.gz")]
+
+
+def test_runtime_versions_lists_managed_versions_with_sources(qgui_app, xdg_env):
+    from tkarcade import xdg
+    from tkarcade.gui import model as M
+
+    managed = xdg.runtimes_dir() / "dxvk" / "dxvk-sarek-2.4.1"
+    (managed / "x64").mkdir(parents=True)
+    (managed / "x64" / "d3d11.dll").write_bytes(b"dll")
+    M.archivesmod._record_source("dxvk", managed, "url", "", "", "https://x/sarek.tar.gz")
+    model = M.GameListModel()
+    rows = model.runtimeVersions("dxvk")
+    assert rows[0]["name"] == "dxvk-sarek-2.4.1"
+    assert rows[0]["origin"] == "url"
+    assert model.runtimeVersions("wine") == []
+
+
+def test_remove_runtime_version_reports_and_refreshes(qgui_app, xdg_env, monkeypatch):
+    from tkarcade import xdg
+    from tkarcade.gui import model as M
+
+    managed = xdg.runtimes_dir() / "vkd3d" / "vkd3d-proton-3.1"
+    (managed / "x64").mkdir(parents=True)
+    (managed / "x64" / "d3d12.dll").write_bytes(b"dll")
+    model = M.GameListModel()
+    changed: list[bool] = []
+    model.archivesChanged.connect(lambda: changed.append(True))
+    assert model.removeRuntimeVersion("vkd3d", "vkd3d-proton-3.1") == ""
+    assert changed == [True]
+    assert not managed.exists()
+    assert "not a managed version" in model.removeRuntimeVersion("vkd3d", "gone")

@@ -3600,6 +3600,54 @@ def test_prefs_runtime_download_rows(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_prefs_runtime_manager(qgui_app, xdg_env, monkeypatch):
+    """Manage Versions… lists managed builds, releases and deletes one."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import xdg
+    from tkarcade.gui import model as M
+
+    monkeypatch.setattr(
+        M.archivesmod,
+        "releases",
+        lambda kind, opener=None, repo="": [
+            {
+                "tag": "v2.7.1",
+                "name": "dxvk-2.7.1.tar.gz",
+                "url": "https://x/dxvk-2.7.1.tar.gz",
+                "size": 5,
+                "digest": "",
+                "prerelease": False,
+            }
+        ],
+    )
+    managed = xdg.runtimes_dir() / "dxvk" / "dxvk-sarek-2.4.1"
+    (managed / "x64").mkdir(parents=True)
+    (managed / "x64" / "d3d11.dll").write_bytes(b"dll")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "prefsDialog")
+    dialog.open()
+    swin = _modal_window(qgui_app, ("Preferences",))
+    assert swin.findChild(QQuickItem, "prefsDxvkRepo") is not None
+    _click(swin, "prefsManageDxvk")
+    mwin = _modal_window(qgui_app, ("DXVK Versions",))
+    # Repeater rows are invisible to findChild (docs/QML-NOTES.md): the
+    # dialog's own row array is the observable side.
+    rows = lambda: mwin.property("versions").toVariant()  # noqa: E731
+    assert _wait_for(lambda: len(rows()) == 1), "version row missing"
+    assert rows()[0]["name"] == "dxvk-sarek-2.4.1"
+    combo = mwin.findChild(QQuickItem, "runtimeReleaseCombo")
+    assert _wait_for(lambda: combo.property("count") == 1), "release list did not load"
+    _click(mwin, "dialogCancel")
+    assert _wait_for(lambda: mwin.property("visible") is False), "manager stayed open"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_prefs_enter_saves(qgui_app, xdg_env):
     """Enter saves the Preferences window (the widgets default button)."""
     from PySide6.QtCore import QObject, Qt

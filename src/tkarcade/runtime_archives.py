@@ -10,13 +10,16 @@ the fallback for older interpreters (marker dependency in pyproject).
 from __future__ import annotations
 
 import contextlib
+import datetime
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import tarfile
 import tempfile
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -62,11 +65,48 @@ def _archive_format(name: str) -> str:
     raise ArchiveError(f"unsupported archive: {name}")
 
 
-def latest_release(kind: str, opener=None) -> dict:
-    """Newest GitHub release asset for a layer (name, url, size, digest)."""
-    repo, suffixes = LAYERS.get(kind, ("", ()))
-    if not repo:
+def _repo(kind: str, repo: str = "") -> str:
+    """GitHub owner/repo for a layer: the configured one, else the official."""
+    default = LAYERS.get(kind, ("", ()))[0]
+    if not default:
         raise ArchiveError(f"unknown runtime kind: {kind!r}")
+    text = str(repo or "").strip().strip("/")
+    if not text:
+        return default
+    parts = text.split("/")
+    if len(parts) != 2 or not all(re.fullmatch(r"[A-Za-z0-9._-]+", p) for p in parts):
+        raise ArchiveError(f"invalid GitHub repository: {repo!r}")
+    return text
+
+
+def _source_for(kind: str, repo: str) -> tuple[str, str]:
+    """(origin label, repository) for the configured source of a layer."""
+    official = _repo(kind)
+    wanted = _repo(kind, repo)
+    return ("github" if wanted == official else "repo"), wanted
+
+
+def _pick_asset(assets, suffixes) -> dict | None:
+    """First asset whose name matches a preferred suffix (None = no match)."""
+    for suffix in suffixes:
+        for asset in assets or []:
+            if not isinstance(asset, dict):
+                continue
+            name = str(asset.get("name") or "")
+            url = str(asset.get("browser_download_url") or "")
+            if name.endswith(suffix) and url:
+                return {
+                    "name": name,
+                    "url": url,
+                    "size": int(asset.get("size") or 0),
+                    "digest": str(asset.get("digest") or ""),
+                }
+    return None
+
+
+def latest_release(kind: str, opener=None, repo: str = "") -> dict:
+    """Newest GitHub release asset for a layer (name, url, size, digest, tag)."""
+    repo = _repo(kind, repo)
     open_url = opener or _open_url
     request = urllib.request.Request(
         f"https://api.github.com/repos/{repo}/releases/latest",
@@ -80,18 +120,41 @@ def latest_release(kind: str, opener=None) -> dict:
     except Exception as e:
         raise ArchiveError(f"could not query the latest {kind} release: {e}") from e
     assets = data.get("assets") if isinstance(data, dict) else None
-    for suffix in suffixes:
-        for asset in assets or []:
-            name = str(asset.get("name") or "")
-            url = str(asset.get("browser_download_url") or "")
-            if name.endswith(suffix) and url:
-                return {
-                    "name": name,
-                    "url": url,
-                    "size": int(asset.get("size") or 0),
-                    "digest": str(asset.get("digest") or ""),
-                }
-    raise ArchiveError(f"no {kind} archive in the latest release")
+    asset = _pick_asset(assets, LAYERS[kind][1])
+    if asset is None:
+        raise ArchiveError(f"no {kind} archive in the latest release")
+    asset["tag"] = str(data.get("tag_name") or "")
+    return asset
+
+
+def releases(kind: str, opener=None, repo: str = "") -> list[dict]:
+    """GitHub releases for a layer, newest first (drafts skipped)."""
+    repo = _repo(kind, repo)
+    open_url = opener or _open_url
+    request = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/releases?per_page=30",
+        headers={"User-Agent": _USER_AGENT, "Accept": "application/vnd.github+json"},
+    )
+    try:
+        with open_url(request, timeout=_TIMEOUT) as response:
+            data = json.load(response)
+    except ArchiveError:
+        raise
+    except Exception as e:
+        raise ArchiveError(f"could not list {kind} releases: {e}") from e
+    if not isinstance(data, list):
+        raise ArchiveError(f"unexpected {kind} release list")
+    out = []
+    for entry in data:
+        if not isinstance(entry, dict) or entry.get("draft"):
+            continue
+        asset = _pick_asset(entry.get("assets"), LAYERS[kind][1])
+        if asset is None:
+            continue
+        asset["tag"] = str(entry.get("tag_name") or "")
+        asset["prerelease"] = bool(entry.get("prerelease"))
+        out.append(asset)
+    return out
 
 
 def _download(release: dict, part: Path, opener) -> str:
@@ -130,24 +193,78 @@ def _verify_digest(digest: str, actual: str) -> None:
         raise ArchiveError("downloaded archive does not match the release digest")
 
 
-def download_latest(kind: str, opener=None, progress=None) -> str:
-    """Download and install the latest release; "" on success, else a message."""
-    say = progress if callable(progress) else (lambda _message: None)
-    part = xdg.archives_cache_dir() / "pending"
+def _sources_path() -> Path:
+    return xdg.runtimes_dir() / ".sources.json"
+
+
+def sources() -> dict[str, dict]:
+    """Provenance per "<kind>/<name>", pruned to versions still installed.
+
+    GUI-only bookkeeping: the launcher never reads it, and a hand-deleted
+    version directory simply drops out here.
+    """
     try:
-        release = latest_release(kind, opener)
-        say(f"Downloading {release['name']}…")
-        cache = xdg.archives_cache_dir()
-        cache.mkdir(parents=True, exist_ok=True)
-        dest = cache / release["name"]
-        part = dest.with_name(dest.name + ".part")
-        digest = _download(release, part, opener)
-        _verify_digest(release.get("digest", ""), digest)
+        data = json.loads(_sources_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    root = xdg.runtimes_dir()
+    out: dict[str, dict] = {}
+    for key, value in data.items():
+        kind, _, name = str(key).partition("/")
+        if not name or not isinstance(value, dict):
+            continue
+        if (root / kind / name).is_dir():
+            out[str(key)] = dict(value)
+    return out
+
+
+def _write_sources(data: dict[str, dict]) -> None:
+    root = xdg.runtimes_dir()
+    root.mkdir(parents=True, exist_ok=True)
+    part = _sources_path().with_name(".sources.json.part")
+    part.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(part, _sources_path())
+
+
+def _record_source(
+    kind: str, version_dir: Path, origin: str, repo: str, tag: str, url: str
+) -> None:
+    data = sources()
+    data[f"{kind}/{version_dir.name}"] = {
+        "origin": origin,
+        "repo": repo,
+        "tag": tag,
+        "url": url,
+        "at": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    try:
+        _write_sources(data)
+    except OSError:
+        pass  # provenance is advisory: a read-only data dir must not fail a install
+
+
+def _install_asset(kind: str, asset: dict, opener, say, origin: str, repo: str = "") -> str:
+    """Download an archive asset, extract it and record where it came from."""
+    name = xdg.safe_stem(Path(str(asset.get("name") or "")).name)
+    _archive_format(name)
+    cache = xdg.archives_cache_dir()
+    cache.mkdir(parents=True, exist_ok=True)
+    dest = cache / name
+    part = cache / (name + ".part")
+    try:
+        say(f"Downloading {name}…")
+        digest = _download({**asset, "name": name}, part, opener)
+        _verify_digest(asset.get("digest", ""), digest)
         os.replace(part, dest)
-        say(f"Extracting {release['name']}…")
-        extracted = extract_archive(dest, kind)
+        say(f"Extracting {name}…")
+        installed = extract_archive(dest, kind)
+        _record_source(
+            kind, installed, origin, repo, str(asset.get("tag") or ""), str(asset.get("url") or "")
+        )
         _remove(dest)
-        say(f"Installed {extracted.name}.")
+        say(f"Installed {installed.name}.")
         return ""
     except ArchiveError as e:
         _remove(part)
@@ -155,6 +272,81 @@ def download_latest(kind: str, opener=None, progress=None) -> str:
     except Exception as e:
         _remove(part)
         return f"{kind} download failed: {e}"
+
+
+def download_latest(kind: str, opener=None, progress=None, repo: str = "") -> str:
+    """Download and install the latest release; "" on success, else a message."""
+    say = progress if callable(progress) else (lambda _message: None)
+    try:
+        origin, wanted = _source_for(kind, repo)
+        release = latest_release(kind, opener, wanted)
+        return _install_asset(kind, release, opener, say, origin, wanted)
+    except ArchiveError as e:
+        return str(e)
+    except Exception as e:
+        return f"{kind} download failed: {e}"
+
+
+def download_release(kind: str, asset: dict, opener=None, progress=None, repo: str = "") -> str:
+    """Install one release picked from `releases()`; "" on success."""
+    say = progress if callable(progress) else (lambda _message: None)
+    try:
+        origin, wanted = _source_for(kind, repo)
+        return _install_asset(kind, asset, opener, say, origin, wanted)
+    except ArchiveError as e:
+        return str(e)
+    except Exception as e:
+        return f"{kind} download failed: {e}"
+
+
+def install_from_url(kind: str, url: str, opener=None, progress=None) -> str:
+    """Install a layer from a direct archive URL; "" on success, else a message.
+
+    No release metadata: there is no digest to check, so HTTPS and the
+    archive checks (suffix, size caps, single version directory) are the
+    whole trust model.
+    """
+    say = progress if callable(progress) else (lambda _message: None)
+    try:
+        _repo(kind)  # validates the kind
+        parts = urllib.parse.urlsplit(str(url or ""))
+        if parts.scheme.lower() != "https":
+            raise ArchiveError("only https:// archive URLs are accepted")
+        name = Path(parts.path).name
+        if not name:
+            raise ArchiveError("the URL has no file name")
+        asset = {"name": name, "url": str(url), "size": 0, "digest": ""}
+        return _install_asset(kind, asset, opener, say, "url")
+    except ArchiveError as e:
+        return str(e)
+    except Exception as e:
+        return f"{kind} download failed: {e}"
+
+
+def remove_version(kind: str, name: str) -> str:
+    """Delete one managed version directory; "" on success, else a message."""
+    if kind not in runtimes.GRAPHICS_DLLS:
+        return f"Unknown runtime kind: {kind}"
+    root = xdg.runtimes_dir() / kind
+    target = root / str(name or "")
+    try:
+        root_real = root.resolve()
+    except OSError:
+        return f"{name} is not a managed version."
+    if target.is_symlink():
+        return f"{name} is not a managed version."
+    resolved = target.resolve()
+    if resolved.parent != root_real or not resolved.is_dir():
+        return f"{name} is not a managed version."
+    shutil.rmtree(resolved)
+    # sources() already pruned the deleted directory; writing it back also
+    # drops orphans left in the file by hand-deleted versions.
+    data = sources()
+    try:
+        _write_sources(data)
+    except OSError:
+        pass
+    return ""
 
 
 def _cleanup_staging(root: Path) -> None:

@@ -316,6 +316,8 @@ class GameListModel(QAbstractTableModel):
     archiveProgress = Signal(str, str)
     archiveFinished = Signal(str, str)
     archivesChanged = Signal()
+    # Releases the manager can install (kind, rows, "" or an error message).
+    runtimeReleases = Signal(str, "QVariantList", str)
     # A background shader-cache walk finished (appid, human size).
     shaderSizeReady = Signal(str, str)
     # A background Steam launch-options probe finished (appid).
@@ -3064,25 +3066,77 @@ class GameListModel(QAbstractTableModel):
             "cache": os.fspath(xdg.archives_cache_dir()),
         }
 
-    @Slot(str)
-    def downloadLatestGraphics(self, kind: str) -> None:
-        """Download and install the latest release off the GUI thread."""
+    @Slot(str, result="QVariantList")
+    def runtimeVersions(self, kind: str) -> list:
+        """Managed versions of one layer with their recorded source."""
         if kind not in runtimes.GRAPHICS_DLLS:
-            self.archiveFinished.emit(str(kind), "Unknown Runtime Layer.")
+            return []
+        known = archivesmod.sources()
+        out = []
+        for version in runtimes.graphics_versions(kind):
+            source = known.get(f"{kind}/{version.name}", {})
+            out.append(
+                {
+                    "name": version.name,
+                    "origin": str(source.get("origin") or ""),
+                    "repo": str(source.get("repo") or ""),
+                    "tag": str(source.get("tag") or ""),
+                    "url": str(source.get("url") or ""),
+                }
+            )
+        return out
+
+    def _runtime_repo(self, kind: str) -> str:
+        """GitHub owner/repo configured for a layer ("" = official)."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return ""
+        return str(prefs.dxvk_repo if kind == "dxvk" else prefs.vkd3d_repo)
+
+    @Slot(str)
+    def fetchRuntimeReleases(self, kind: str) -> None:
+        """List installable releases for a layer off the GUI thread."""
+        if kind not in runtimes.GRAPHICS_DLLS:
+            self.runtimeReleases.emit(str(kind), [], "Unknown Runtime Layer.")
             return
+        repo = self._runtime_repo(kind)
+        threading.Thread(target=self._releases_worker, args=(kind, repo), daemon=True).start()
+
+    def _releases_worker(self, kind: str, repo: str) -> None:
+        try:
+            rows = [
+                {
+                    "tag": str(item.get("tag") or ""),
+                    "name": str(item.get("name") or ""),
+                    "url": str(item.get("url") or ""),
+                    "size": int(item.get("size") or 0),
+                    "digest": str(item.get("digest") or ""),
+                    "prerelease": bool(item.get("prerelease")),
+                }
+                for item in archivesmod.releases(kind, repo=repo)
+            ]
+            message = ""
+        except Exception as e:
+            rows, message = [], str(e)
+        self.runtimeReleases.emit(kind, rows, message)
+
+    def _begin_archive(self, kind: str) -> bool:
+        """Claim the per-layer install slot (False = one is already running)."""
         with self._archive_lock:
             if kind in self._archive_busy:
-                return
+                return False
             self._archive_busy.add(kind)
-        self.archiveProgress.emit(kind, "Checking the Latest Release…")
-        threading.Thread(target=self._download_archive_worker, args=(kind,), daemon=True).start()
+        return True
 
-    def _download_archive_worker(self, kind: str) -> None:
+    def _run_archive(self, kind: str, work) -> None:
+        """Run one install worker off the GUI thread."""
+        threading.Thread(target=self._archive_worker, args=(kind, work), daemon=True).start()
+
+    def _archive_worker(self, kind: str, work) -> None:
         try:
             with self._archive_work_lock:
-                message = archivesmod.download_latest(
-                    kind, progress=lambda text: self.archiveProgress.emit(kind, text)
-                )
+                message = work(lambda text: self.archiveProgress.emit(kind, text))
         except Exception as e:  # never kill the signal path on a helper bug
             message = f"{kind} download failed: {e}"
         with self._archive_lock:
@@ -3090,6 +3144,65 @@ class GameListModel(QAbstractTableModel):
         self.archiveFinished.emit(kind, message)
         if not message:
             self.archivesChanged.emit()
+
+    @Slot(str)
+    def downloadLatestGraphics(self, kind: str) -> None:
+        """Download and install the latest release off the GUI thread."""
+        if kind not in runtimes.GRAPHICS_DLLS:
+            self.archiveFinished.emit(str(kind), "Unknown Runtime Layer.")
+            return
+        if not self._begin_archive(kind):
+            return
+        self.archiveProgress.emit(kind, "Checking the Latest Release…")
+        repo = self._runtime_repo(kind)
+        self._run_archive(
+            kind, lambda say: archivesmod.download_latest(kind, progress=say, repo=repo)
+        )
+
+    @Slot(str, "QVariantMap")
+    def installRuntimeRelease(self, kind: str, asset) -> None:
+        """Install one release the manager listed."""
+        if kind not in runtimes.GRAPHICS_DLLS:
+            self.archiveFinished.emit(str(kind), "Unknown Runtime Layer.")
+            return
+        release = (
+            {key: asset.get(key, "") for key in ("name", "url", "size", "digest", "tag")}
+            if hasattr(asset, "get")
+            else {}
+        )
+        if not str(release.get("url") or ""):
+            self.archiveFinished.emit(str(kind), "Choose a Release First.")
+            return
+        if not self._begin_archive(kind):
+            return
+        repo = self._runtime_repo(kind)
+        self._run_archive(
+            kind,
+            lambda say: archivesmod.download_release(kind, release, progress=say, repo=repo),
+        )
+
+    @Slot(str, str)
+    def installRuntimeFromUrl(self, kind: str, url: str) -> None:
+        """Install a layer from an archive URL the user pasted."""
+        text = str(url or "").strip()
+        if kind not in runtimes.GRAPHICS_DLLS:
+            self.archiveFinished.emit(str(kind), "Unknown Runtime Layer.")
+            return
+        if not text:
+            self.archiveFinished.emit(kind, "Enter an Archive URL First.")
+            return
+        if not self._begin_archive(kind):
+            return
+        self._run_archive(kind, lambda say: archivesmod.install_from_url(kind, text, progress=say))
+
+    @Slot(str, str, result=str)
+    def removeRuntimeVersion(self, kind: str, name: str) -> str:
+        """Delete one managed version; "" on success, else a message."""
+        message = archivesmod.remove_version(kind, name)
+        if not message:
+            log.info("runtime: removed %s/%s", kind, name)
+            self.archivesChanged.emit()
+        return message
 
     def _kick_archive_sync(self) -> None:
         """Extract pending cache archives in the background (once at a time)."""
@@ -3753,6 +3866,8 @@ class GameListModel(QAbstractTableModel):
             "protonDirs": str(prefs.proton_dirs),
             "dxvkDirs": str(prefs.dxvk_dirs),
             "vkd3dDirs": str(prefs.vkd3d_dirs),
+            "dxvkRepo": str(prefs.dxvk_repo),
+            "vkd3dRepo": str(prefs.vkd3d_repo),
         }
 
     @Slot("QVariantMap", result=bool)
@@ -3786,6 +3901,8 @@ class GameListModel(QAbstractTableModel):
             prefs.proton_dirs = str(get("protonDirs", prefs.proton_dirs)).strip()
             prefs.dxvk_dirs = str(get("dxvkDirs", prefs.dxvk_dirs)).strip()
             prefs.vkd3d_dirs = str(get("vkd3dDirs", prefs.vkd3d_dirs)).strip()
+            prefs.dxvk_repo = str(get("dxvkRepo", prefs.dxvk_repo)).strip()
+            prefs.vkd3d_repo = str(get("vkd3dRepo", prefs.vkd3d_repo)).strip()
             cfgmod.save_preferences(prefs)
         except Exception as e:
             log.warning("savePrefs failed: %s", e)

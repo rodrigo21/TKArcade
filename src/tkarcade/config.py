@@ -370,6 +370,8 @@ class Preferences:
     proton_dirs: str = ""  # extra Proton install dirs (version subdirs)
     dxvk_dirs: str = ""  # DXVK dirs (one version per subdir)
     vkd3d_dirs: str = ""  # vkd3d-proton dirs (one version per subdir)
+    dxvk_repo: str = ""  # GitHub owner/repo for DXVK releases ("" = official)
+    vkd3d_repo: str = ""  # GitHub owner/repo for vkd3d-proton releases
     main_window_size: str = ""  # "WxH", "" means the 1280x720 default
     main_window_maximized: bool = False  # restore maximized on open
     drawer_mode: str = "collapsible"  # overlay|collapsible (Kirigami drawer)
@@ -1229,6 +1231,8 @@ def load_preferences() -> Preferences:
     out.proton_dirs = _clean_path_list(ui.get("proton_dirs", ""))
     out.dxvk_dirs = _clean_path_list(ui.get("dxvk_dirs", ""))
     out.vkd3d_dirs = _clean_path_list(ui.get("vkd3d_dirs", ""))
+    out.dxvk_repo = _clean_repo(ui.get("dxvk_repo", ""))
+    out.vkd3d_repo = _clean_repo(ui.get("vkd3d_repo", ""))
     mode = str(ui.get("drawer_mode", "collapsible") or "collapsible").strip()
     out.drawer_mode = mode if mode in ("overlay", "collapsible") else "collapsible"
     out.drawer_collapsed = _as_bool(ui.get("drawer_collapsed", True), True)
@@ -1242,6 +1246,15 @@ def _clean_path_list(text: object) -> str:
     """Normalize a path-separator list: strip entries, drop empties."""
     parts = str(text or "").split(os.pathsep)
     return os.pathsep.join(p.strip() for p in parts if p.strip())
+
+
+def _clean_repo(text: object) -> str:
+    """Normalize a GitHub owner/repo, dropping anything else ("" = official)."""
+    value = str(text or "").strip().strip("/")
+    parts = value.split("/")
+    if len(parts) != 2 or not all(re.fullmatch(r"[A-Za-z0-9._-]+", p) for p in parts):
+        return ""
+    return "/".join(parts)
 
 
 def _clean_int_list(text: str) -> str:
@@ -1318,6 +1331,8 @@ def save_preferences(prefs: Preferences) -> Path:
             "proton_dirs": _clean_path_list(prefs.proton_dirs),
             "dxvk_dirs": _clean_path_list(prefs.dxvk_dirs),
             "vkd3d_dirs": _clean_path_list(prefs.vkd3d_dirs),
+            "dxvk_repo": _clean_repo(prefs.dxvk_repo),
+            "vkd3d_repo": _clean_repo(prefs.vkd3d_repo),
             "drawer_mode": (
                 prefs.drawer_mode
                 if prefs.drawer_mode in ("overlay", "collapsible")

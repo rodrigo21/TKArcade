@@ -462,6 +462,8 @@ _PREF_FIELDS = {
     "proton_dirs": "/tmp/opencode/proton-a:/tmp/opencode/proton-b",
     "dxvk_dirs": "/tmp/opencode/dxvk",
     "vkd3d_dirs": "/tmp/opencode/vkd3d",
+    "dxvk_repo": "Someone/dxvk-sarek",
+    "vkd3d_repo": "Someone/vkd3d-fork",
 }
 
 
@@ -1430,6 +1432,16 @@ def test_prefs_cleaners_drop_nondecimal_digits(xdg_env):
     back = C.load_preferences()
     assert back.column_order == "0,2"
     assert back.column_widths == "2=99"
+
+
+def test_prefs_repo_cleaner_keeps_only_owner_name(xdg_env):
+    prefs = C.load_preferences()
+    prefs.dxvk_repo = "not a repo"
+    prefs.vkd3d_repo = "/Someone/vkd3d-fork/"
+    C.save_preferences(prefs)
+    back = C.load_preferences()
+    assert back.dxvk_repo == ""
+    assert back.vkd3d_repo == "Someone/vkd3d-fork"
 
 
 def test_pre_post_timeout_clamped(xdg_env):

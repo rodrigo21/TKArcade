@@ -98,6 +98,7 @@ def test_latest_release_picks_preferred_asset(xdg_env):
         "url": "https://x/d.tar.gz",
         "size": 12,
         "digest": "sha256:abc",
+        "tag": "",
     }
     assert calls == [API_URLS["dxvk"]]
 
@@ -253,3 +254,163 @@ def test_zstd_needs_a_backend(xdg_env, tmp_path, monkeypatch):
         A._zstd_stream(tmp_path / "x.tar.zst"),
     ):
         pass
+
+
+def test_latest_release_reports_the_tag(xdg_env):
+    payload = json.dumps(
+        {
+            "tag_name": "v2.7.1",
+            "assets": [{"name": "dxvk-2.7.1.tar.gz", "browser_download_url": "https://x/d.tar.gz"}],
+        }
+    ).encode()
+    opener, _calls = _opener({API_URLS["dxvk"]: payload})
+    assert A.latest_release("dxvk", opener)["tag"] == "v2.7.1"
+
+
+def test_latest_release_uses_the_configured_repo(xdg_env):
+    url = "https://api.github.com/repos/Someone/dxvk-sarek/releases/latest"
+    opener, calls = _opener({url: b'{"assets": []}'})
+    with pytest.raises(A.ArchiveError, match="no dxvk archive"):
+        A.latest_release("dxvk", opener, repo="Someone/dxvk-sarek")
+    assert calls == [url]
+
+
+@pytest.mark.parametrize("repo", ["nope", "a/b/c", "../x/y", "doitsujin/dxvk?"])
+def test_repo_rejects_invalid_values(xdg_env, repo):
+    with pytest.raises(A.ArchiveError, match="invalid GitHub repository"):
+        A.latest_release("dxvk", repo=repo)
+
+
+def test_releases_skips_drafts_and_unmatched_assets(xdg_env):
+    url = "https://api.github.com/repos/doitsujin/dxvk/releases?per_page=30"
+    payload = json.dumps(
+        [
+            {
+                "tag_name": "v3.0",
+                "draft": False,
+                "prerelease": False,
+                "assets": [
+                    {"name": "dxvk-3.0.zip", "browser_download_url": "https://x/z.zip"},
+                    {
+                        "name": "dxvk-3.0.tar.gz",
+                        "browser_download_url": "https://x/a.tar.gz",
+                        "size": 5,
+                        "digest": "sha256:aa",
+                    },
+                ],
+            },
+            {
+                "tag_name": "v2.9",
+                "draft": True,
+                "assets": [
+                    {"name": "dxvk-2.9.tar.gz", "browser_download_url": "https://x/b.tar.gz"}
+                ],
+            },
+            {"tag_name": "notes", "draft": False, "assets": []},
+            {
+                "tag_name": "v3.1",
+                "prerelease": True,
+                "assets": [
+                    {"name": "dxvk-3.1.tar.gz", "browser_download_url": "https://x/c.tar.gz"}
+                ],
+            },
+        ]
+    ).encode()
+    opener, _calls = _opener({url: payload})
+    rows = A.releases("dxvk", opener)
+    assert [r["tag"] for r in rows] == ["v3.0", "v3.1"]
+    assert rows[0]["name"] == "dxvk-3.0.tar.gz" and rows[0]["digest"] == "sha256:aa"
+    assert rows[1]["prerelease"] is True
+
+
+def test_releases_surface_api_errors(xdg_env):
+    def opener(request, timeout=None):
+        raise OSError("HTTP 403")
+
+    with pytest.raises(A.ArchiveError, match="could not list dxvk releases"):
+        A.releases("dxvk", opener)
+
+
+def test_download_release_installs_the_picked_asset(xdg_env):
+    data = _tar_bytes("dxvk-2.6.0", {"x64/d3d11.dll": b"dll"})
+    asset = "https://x/dxvk-2.6.0.tar.gz"
+    opener, _calls = _opener({asset: data})
+    messages: list[str] = []
+    assert (
+        A.download_release(
+            "dxvk",
+            {
+                "name": "dxvk-2.6.0.tar.gz",
+                "url": asset,
+                "size": len(data),
+                "digest": "sha256:" + hashlib.sha256(data).hexdigest(),
+                "tag": "v2.6.0",
+            },
+            opener,
+            messages.append,
+        )
+        == ""
+    )
+    assert (_installed("dxvk", "dxvk-2.6.0") / "x64" / "d3d11.dll").read_bytes() == b"dll"
+    source = A.sources()["dxvk/dxvk-2.6.0"]
+    assert source["origin"] == "github" and source["tag"] == "v2.6.0"
+
+
+def test_install_from_url_names_the_archive_by_its_basename(xdg_env):
+    data = _tar_bytes("dxvk-sarek-2.4.1", {"x64/d3d11.dll": b"dll"})
+    asset = "https://x/builds/dxvk-sarek-2.4.1.tar.gz"
+    opener, _calls = _opener({asset: data})
+    assert A.install_from_url("dxvk", asset, opener) == ""
+    assert (_installed("dxvk", "dxvk-sarek-2.4.1") / "x64" / "d3d11.dll").is_file()
+    assert A.sources()["dxvk/dxvk-sarek-2.4.1"]["origin"] == "url"
+    assert list(xdg.archives_cache_dir().iterdir()) == []
+
+
+def test_install_from_url_rejects_a_missing_name_or_unsupported_suffix(xdg_env):
+    assert "only https://" in A.install_from_url("dxvk", "http://x/dxvk.tar.gz")
+    assert "no file name" in A.install_from_url("dxvk", "https://x/")
+    assert "unsupported archive" in A.install_from_url("dxvk", "https://x/dxvk.tar.xz")
+    assert "unknown runtime kind" in A.install_from_url("wine", "https://x/d.tar.gz")
+
+
+def test_remove_version_deletes_only_managed_versions(xdg_env, tmp_path):
+    managed = _installed("dxvk", "dxvk-2.7.1")
+    (managed / "x64").mkdir(parents=True)
+    (managed / "x64" / "d3d11.dll").write_bytes(b"dll")
+    A._record_source("dxvk", managed, "github", "doitsujin/dxvk", "v2.7.1", "https://x/d.tar.gz")
+    assert A.sources()["dxvk/dxvk-2.7.1"]["tag"] == "v2.7.1"
+    assert A.remove_version("dxvk", "dxvk-2.7.1") == ""
+    assert not managed.exists()
+    assert A.sources() == {}
+    assert "dxvk-2.7.1" not in A._sources_path().read_text(encoding="utf-8")
+
+    outside = tmp_path / "user-dxvk"
+    (outside / "x64").mkdir(parents=True)
+    assert "not a managed version" in A.remove_version("dxvk", str(outside))
+    assert outside.is_dir()
+    assert "not a managed version" in A.remove_version("dxvk", "../escape")
+    assert "Unknown runtime kind" in A.remove_version("wine", "dxvk-2.7.1")
+
+
+def test_remove_version_refuses_symlinks(xdg_env, tmp_path):
+    target = tmp_path / "real"
+    (target / "x64").mkdir(parents=True)
+    link = xdg.runtimes_dir() / "dxvk" / "linked"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target)
+    assert "not a managed version" in A.remove_version("dxvk", "linked")
+    assert target.is_dir()
+
+
+def test_sources_drops_orphans_and_survives_a_broken_file(xdg_env):
+    (xdg.runtimes_dir() / "dxvk" / "dxvk-2.7.1").mkdir(parents=True)
+    A._write_sources(
+        {
+            "dxvk/dxvk-2.7.1": {"origin": "github"},
+            "dxvk/gone": {"origin": "url"},
+            "junk": "not a dict",
+        }
+    )
+    assert set(A.sources()) == {"dxvk/dxvk-2.7.1"}
+    A._sources_path().write_text("{not json", encoding="utf-8")
+    assert A.sources() == {}

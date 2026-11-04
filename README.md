@@ -114,7 +114,11 @@ that directory and the ones set in Preferences are scanned, and
 TKArcade does not read another launcher's default layout. Preferences
 can download the latest DXVK/vkd3d-proton release, and archives dropped
 into `$XDG_CACHE_HOME/tkarcade/archives` are extracted on the next GUI
-scan. The launcher never downloads or unpacks anything. DXVK covers
+scan. **Manage Versions…** lists the managed builds with where each came
+from, installs any release (not only the latest) and a pasted archive URL,
+and deletes managed versions; `dxvk_repo` / `vkd3d_repo` point a layer at
+a GitHub fork such as DXVK-Sarek instead of the official repository. The
+launcher never downloads or unpacks anything. DXVK covers
 D3D9/10/11
 and vkd3d-proton covers D3D12, so the two combine (`dxvk = true` plus
 `vkd3d = "proton"`); `vkd3d = "wine"` keeps Wine's builtin vkd3d, which

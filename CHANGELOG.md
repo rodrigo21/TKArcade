@@ -6,6 +6,14 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- A runtime version manager in Preferences (Manage Versions… per layer):
+  it lists the managed DXVK/vkd3d-proton builds with their recorded
+  source, installs any GitHub release instead of only the latest, installs
+  a pasted archive URL, and deletes managed versions after a
+  confirmation. `[ui] dxvk_repo` / `vkd3d_repo` point a layer at a fork
+  (DXVK-Sarek); empty keeps the official repository. Per-game selection
+  is unchanged, so the new versions appear in the game dialog
+  immediately.
 - Preferences can download the latest DXVK and vkd3d-proton release;
   archives dropped into `$XDG_CACHE_HOME/tkarcade/archives` are extracted
   on the next GUI version scan into

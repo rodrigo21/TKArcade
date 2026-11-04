@@ -52,9 +52,7 @@ Window {
             prefsDialog.setArchiveState(kind, true, message)
         }
         function onArchiveFinished(kind, message) {
-            prefsDialog.setArchiveState(
-                kind, false,
-                message === "" ? qsTr("Installed the Latest Release.") : message)
+            prefsDialog.setArchiveState(kind, false, message === "" ? qsTr("Installed.") : message)
         }
     }
 
@@ -345,6 +343,34 @@ Window {
                                 Controls.ToolTip.text: qsTr("Directories Holding One vkd3d-proton Version per Subdirectory.")
                                 Controls.ToolTip.visible: hovered
                             }
+                            Controls.TextField {
+                                objectName: "prefsDxvkRepo"
+                                Layout.fillWidth: true
+                                placeholderText: qsTr("owner/repo (Empty = Official)")
+                                text: prefsDialog.values.dxvkRepo ?? ""
+                                onTextChanged: {
+                                    if (prefsDialog.values.dxvkRepo !== text) {
+                                        prefsDialog.setPref("dxvkRepo", text)
+                                    }
+                                }
+                                KirigamiLayouts.FormData.label: qsTr("DXVK Release Source:")
+                                Controls.ToolTip.text: qsTr("A GitHub Fork Whose Releases Provide the DXVK Build, Such as DXVK-Sarek. Empty Means the Official doitsujin/dxvk Repository.")
+                                Controls.ToolTip.visible: hovered
+                            }
+                            Controls.TextField {
+                                objectName: "prefsVkd3dRepo"
+                                Layout.fillWidth: true
+                                placeholderText: qsTr("owner/repo (Empty = Official)")
+                                text: prefsDialog.values.vkd3dRepo ?? ""
+                                onTextChanged: {
+                                    if (prefsDialog.values.vkd3dRepo !== text) {
+                                        prefsDialog.setPref("vkd3dRepo", text)
+                                    }
+                                }
+                                KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Release Source:")
+                                Controls.ToolTip.text: qsTr("A GitHub Fork Whose Releases Provide the vkd3d-proton Build. Empty Means the Official HansKristian-Work/vkd3d-proton Repository.")
+                                Controls.ToolTip.visible: hovered
+                            }
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: Kirigami.Units.smallSpacing
@@ -357,19 +383,24 @@ Window {
                                     Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
                                     Controls.ToolTip.visible: hovered
                                 }
+                                Controls.Button {
+                                    objectName: "prefsManageDxvk"
+                                    text: qsTr("Manage Versions…")
+                                    onClicked: runtimeManagerDialog.openFor(prefsDialog, "dxvk")
+                                }
                                 Controls.BusyIndicator {
                                     running: prefsDialog.archiveBusy["dxvk"]
                                     visible: running
                                     implicitWidth: Kirigami.Units.iconSizes.small
                                     implicitHeight: Kirigami.Units.iconSizes.small
                                 }
-                                Controls.Label {
-                                    objectName: "prefsDxvkDownloadStatus"
-                                    Layout.fillWidth: true
-                                    text: prefsDialog.archiveStatus["dxvk"] ?? ""
-                                    visible: text !== ""
-                                    elide: Text.ElideRight
-                                }
+                            }
+                            Controls.Label {
+                                objectName: "prefsDxvkDownloadStatus"
+                                Layout.fillWidth: true
+                                text: prefsDialog.archiveStatus["dxvk"] ?? ""
+                                visible: text !== ""
+                                elide: Text.ElideRight
                             }
                             RowLayout {
                                 Layout.fillWidth: true
@@ -383,19 +414,24 @@ Window {
                                     Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
                                     Controls.ToolTip.visible: hovered
                                 }
+                                Controls.Button {
+                                    objectName: "prefsManageVkd3d"
+                                    text: qsTr("Manage Versions…")
+                                    onClicked: runtimeManagerDialog.openFor(prefsDialog, "vkd3d")
+                                }
                                 Controls.BusyIndicator {
                                     running: prefsDialog.archiveBusy["vkd3d"]
                                     visible: running
                                     implicitWidth: Kirigami.Units.iconSizes.small
                                     implicitHeight: Kirigami.Units.iconSizes.small
                                 }
-                                Controls.Label {
-                                    objectName: "prefsVkd3dDownloadStatus"
-                                    Layout.fillWidth: true
-                                    text: prefsDialog.archiveStatus["vkd3d"] ?? ""
-                                    visible: text !== ""
-                                    elide: Text.ElideRight
-                                }
+                            }
+                            Controls.Label {
+                                objectName: "prefsVkd3dDownloadStatus"
+                                Layout.fillWidth: true
+                                text: prefsDialog.archiveStatus["vkd3d"] ?? ""
+                                visible: text !== ""
+                                elide: Text.ElideRight
                             }
                         }
                     }
@@ -427,5 +463,9 @@ Window {
                 onClicked: prefsDialog.close()
             }
         }
+    }
+
+    RuntimeManagerDialog {
+        id: runtimeManagerDialog
     }
 }
