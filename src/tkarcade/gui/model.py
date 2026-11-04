@@ -1228,8 +1228,7 @@ class GameListModel(QAbstractTableModel):
         cfg.runtime.winetricks_verbs = _split_args(str(data.get("winetricks_verbs", "")))
         cfg.audio.sink = str(data.get("audio_sink", "")).strip()
         cfg.debug.proton_log = bool(data.get("proton_log", False))
-        winedebug = str(data.get("winedebug", ""))
-        cfg.debug.winedebug = winedebug if winedebug in ("", "-all", "+err", "+warn,+err") else ""
+        cfg.debug.winedebug = str(data.get("winedebug", ""))
 
     @Slot(result=bool)
     def networkIsolationAvailable(self) -> bool:

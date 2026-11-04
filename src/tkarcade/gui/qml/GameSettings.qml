@@ -583,6 +583,21 @@ Window {
         return protonChoices[i].path || ""
     }
 
+    function setWineDebug(value) {
+        // Keep a hand-written WINEDEBUG value selectable: the combo has a
+        // fixed set of presets, but saving another field must not drop it.
+        var values = ptDebug.knownDebugValues.slice()
+        var labels = ptDebug.knownDebugLabels.slice()
+        var custom = String(value || "")
+        if (custom !== "" && values.indexOf(custom) < 0) {
+            values.push(custom)
+            labels.push(custom)
+        }
+        ptDebug.debugValues = values
+        ptDebug.model = labels
+        ptDebug.currentIndex = Math.max(0, values.indexOf(custom))
+    }
+
     function pushToControls() {
         var f = fields
         appidField.text = f.appid || ""
@@ -662,7 +677,7 @@ Window {
         rtVerbs.text = f.winetricks_verbs || ""
         refreshInstalledVerbs()
         ptLog.checked = !!f.proton_log
-        ptDebug.currentIndex = {"": 0, "-all": 1, "+err": 2, "+warn,+err": 3}[f.winedebug] ?? 0
+        setWineDebug(f.winedebug || "")
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
         var prefs = gameModel.loadPrefs()
         previewVisible = prefs.showPreview ?? false
@@ -752,7 +767,7 @@ Window {
             "audio_sink": audioSinkData(),
             "winetricks_verbs": rtVerbs.text,
             "proton_log": ptLog.checked,
-            "winedebug": ["", "-all", "+err", "+warn,+err"][ptDebug.currentIndex] || "",
+            "winedebug": ptDebug.debugValues[ptDebug.currentIndex] || "",
             // One prefix key and one tool key; the origin decides how the
             // launcher reads them (Steam compatdata/compat tool vs full
             // WINEPREFIX/wine binary/PROTONPATH).
@@ -2881,7 +2896,15 @@ Window {
                                     id: ptDebug
                                     objectName: "ptDebug"
                                     Layout.fillWidth: true
-                                    model: [qsTr("Off"), qsTr("Quiet (-all)"), qsTr("Errors (+err)"), qsTr("Warnings (+warn,+err)")]
+                                    readonly property var knownDebugValues: ["", "-all", "+err", "+warn,+err"]
+                                    readonly property var knownDebugLabels: [
+                                        qsTr("Off"),
+                                        qsTr("Quiet (-all)"),
+                                        qsTr("Errors (+err)"),
+                                        qsTr("Warnings (+warn,+err)")
+                                    ]
+                                    property var debugValues: knownDebugValues
+                                    model: knownDebugLabels
                                     Controls.ToolTip.text: qsTr("Sets WINEDEBUG for Wine/Proton Output.")
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("Wine Debug:")

@@ -773,6 +773,24 @@ def test_settings_load_save_roundtrip(qgui_app, xdg_env):
     assert model.saveGame("", {"name": "", "custom_executable": "/bin/true"}) == ""
 
 
+def test_settings_save_keeps_a_custom_winedebug(qgui_app, xdg_env):
+    """A hand-written WINEDEBUG value survives an unrelated dialog save."""
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-99"
+    cfg.runtime.type = "proton"
+    cfg.debug.winedebug = "+d3d11"
+    C.save(cfg)
+    model = GameListModel()
+    fields = model.loadGame("steam-99")
+    assert fields["winedebug"] == "+d3d11"
+    out = dict(fields)
+    out["notes"] = "changed"
+    assert model.saveGame("steam-99", out) == "steam-99"
+    assert C.load("steam-99").debug.winedebug == "+d3d11"
+
+
 def test_metadata_suffix_and_name_split(qgui_app, xdg_env):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 
@@ -1574,12 +1592,12 @@ def test_settings_wine_roundtrip(qgui_app, xdg_env):
     assert fields["winedebug"] == "+err"
     assert model.protonLogDir("steam-99").endswith("steam-99/proton")
     out = dict(fields)
-    out["winedebug"] = "bogus"
+    out["winedebug"] = "+d3d11"
     out["winetricks_verbs"] = "vcrun2022 dotnet48"
     out["runtime_tool"] = "wine-9.0"
     assert model.saveGame("steam-99", out) == "steam-99"
     reloaded = C.load("steam-99")
-    assert reloaded.debug.winedebug == ""
+    assert reloaded.debug.winedebug == "+d3d11"
     assert reloaded.runtime.winetricks_verbs == ["vcrun2022", "dotnet48"]
     assert reloaded.runtime.tool == "wine-9.0"
 

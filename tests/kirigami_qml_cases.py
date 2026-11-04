@@ -5699,6 +5699,35 @@ def test_settings_system_and_wine_flow(qgui_app, xdg_env, tmp_path):
     qgui_app.processEvents()
 
 
+def test_settings_winedebug_keeps_a_custom_value(qgui_app, xdg_env):
+    """A hand-written WINEDEBUG stays selectable and survives Save."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-99"
+    cfg.runtime.type = "proton"
+    cfg.debug.winedebug = "+d3d11"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("steam-99")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    _settings_tab(swin, TAB_RUNTIME)
+    combo = swin.findChild(QQuickItem, "ptDebug")
+    assert combo.property("currentIndex") == 4
+    assert combo.property("currentText") == "+d3d11"
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("steam-99").debug.winedebug == "+d3d11"
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_settings_ludusavi_open_button(qgui_app, xdg_env, monkeypatch):
     """The Saves section opens Ludusavi and reports a missing binary."""
     import shutil

@@ -213,6 +213,10 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- A hand-written `[debug] winedebug` value is kept in the Runtime combo
+  and survives Save; the selector no longer resets it to Off.
+- Artwork cache lookups keep dots in a local game ID, and Clear no
+  longer deletes another game's cached art when the ID contains one.
 - Export/import keeps the category store now (`categories.toml`), so
   category icons survive a migration; importing a tarball in the GUI
   also migrates legacy game IDs immediately.

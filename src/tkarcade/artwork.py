@@ -104,9 +104,10 @@ def grid_path(appid: str, kind: str = "cover") -> Path:
 
 def cached_path(appid: str, kind: str) -> Path | None:
     """The cached file for one kind, whatever its real suffix is."""
-    stem = grid_path(appid, kind).with_suffix("")
+    path = grid_path(appid, kind)
+    stem = path.stem  # removes only ".png": an AppID may contain dots
     for suffix in _CACHE_SUFFIXES:
-        cand = stem.with_suffix(suffix)
+        cand = path.with_name(stem + suffix)
         try:
             if cand.is_file():
                 return cand
@@ -191,9 +192,10 @@ def clear_fetched(appid: str) -> int:
     gid = _art_key(appid)
     removed = 0
     for kind in ART_KINDS:
-        stem = grid_path(gid, kind).with_suffix("")
+        path = grid_path(gid, kind)
+        stem = path.stem  # removes only ".png": an AppID may contain dots
         for suffix in _CACHE_SUFFIXES:
-            cand = stem.with_suffix(suffix)
+            cand = path.with_name(stem + suffix)
             try:
                 if cand.is_file():
                     cand.unlink()

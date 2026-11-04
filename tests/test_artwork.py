@@ -437,6 +437,19 @@ def test_clear_fetched_removes_files_and_marks(monkeypatch, xdg_env):
     assert art.is_cleared("620") is True
 
 
+def test_cache_paths_keep_dots_in_the_game_id(xdg_env):
+    """An AppID with a dot must not borrow another game's cache slot."""
+    own = art.grid_path("local-a.b", "cover")
+    other = art.grid_path("local-a", "cover")
+    own.parent.mkdir(parents=True, exist_ok=True)
+    own.write_bytes(b"own")
+    other.write_bytes(b"other")
+    assert art.cached_path("local-a.b", "cover") == own
+    assert art.clear_fetched("local-a.b") == 1
+    assert not own.exists()
+    assert other.is_file()
+
+
 def test_cleared_appid_is_not_refetched_in_the_background(monkeypatch, xdg_env):
     """The background fetch must not undo an explicit Clear."""
     _stub(monkeypatch, [(APP_INFO, _steam_apps("Portal 2", "abc"))])
