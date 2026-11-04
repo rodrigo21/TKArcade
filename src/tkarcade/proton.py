@@ -182,7 +182,7 @@ def prepare_fresh_prefix(appid: str, prefix: str = "") -> tuple[bool, list[str]]
 
 def winetricks_state_path(appid: str) -> Path:
     """Where run_winetricks records the verbs it already installed."""
-    return xdg.app_state_dir() / "winetricks" / f"{appid}.json"
+    return xdg.app_state_dir() / "winetricks" / f"{xdg.safe_stem(appid)}.json"
 
 
 def clear_winetricks_state(appid: str) -> None:

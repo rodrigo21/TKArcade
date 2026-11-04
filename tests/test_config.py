@@ -341,14 +341,17 @@ def test_export_import_roundtrip(xdg_env, tmp_path):
     cfg.env.vars = {"A": "1"}
     C.save(cfg)
     C.save_defaults(C.GameConfig())
+    C.save_categories([C.Category("Action", "applications-games")])
     dest = tmp_path / "backup.tar.gz"
     saved = C.export_configs(dest)
     assert saved.exists()
     (C.game_file("21")).unlink()
     C.xdg.defaults_file().unlink()
+    C.categories_file().unlink()
     imported = C.import_configs(dest)
     assert imported == ["21"]
     assert C.load("21").env.vars == {"A": "1"}
+    assert [(c.name, c.icon) for c in C.load_categories()] == [("Action", "applications-games")]
 
 
 def test_import_rejects_junk(xdg_env, tmp_path):
@@ -1147,6 +1150,7 @@ def test_export_skips_nested_profile_junk(xdg_env, tmp_path):
 
 
 def test_appid_paths_cannot_escape(xdg_env):
+    from tkarcade import artwork, winetricks
     from tkarcade import xdg as xdgmod
     from tkarcade.launcher import proton_log_dir
 
@@ -1154,6 +1158,8 @@ def test_appid_paths_cannot_escape(xdg_env):
         assert xdgmod.game_log_file(bad).parent == xdgmod.games_log_dir()
         assert ".." not in proton_log_dir(bad).parts[-3:]
         assert C.game_file(bad).parent == C.xdg.games_dir()
+        assert winetricks.state_path(bad).parent == xdgmod.app_state_dir() / "winetricks"
+        assert artwork.grid_path(bad, "cover").parent == xdgmod.app_cache_dir() / "grids"
 
 
 def test_language_prefs_roundtrip_and_clamp(xdg_env):

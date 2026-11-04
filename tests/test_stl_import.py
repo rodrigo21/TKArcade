@@ -114,6 +114,16 @@ def test_map_prunes_default_off_values():
     assert any("dropped" in note for note in report)
 
 
+def test_map_does_not_count_stl_internals_as_dropped():
+    cfg, report = sti.map_to_gameconfig(
+        "64",
+        {"USEGAMEMODERUN": "1", "USEMANGOHUD": "1", "DXVK_HUD": "0"},
+    )
+    assert cfg.gamemode.feral_gamemode is True
+    assert cfg.mangohud.enable is True
+    assert "1 default-off value(s) dropped" in " ".join(report)
+
+
 def test_map_warns_on_missing_hook_paths(tmp_path):
     real = tmp_path / "hook.sh"
     real.write_text("#!/bin/sh\n")

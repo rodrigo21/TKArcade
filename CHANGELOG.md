@@ -213,6 +213,19 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Export/import keeps the category store now (`categories.toml`), so
+  category icons survive a migration; importing a tarball in the GUI
+  also migrates legacy game IDs immediately.
+- A directory without the `proton` launcher is no longer accepted as a
+  Proton install: validation and the launch now agree, instead of
+  passing a broken `PROTONPATH` to umu.
+- The SteamTinkerLaunch import report no longer counts STL-only
+  settings (`USEGAMEMODE`, `USEMANGOHUD`, ...) as dropped default-off
+  environment values.
+- A failing `gsettings` call is reported when the GNOME night light is
+  disabled, instead of silently leaving it on.
+- Game state and cache paths (winetricks state, artwork, ProtonDB and
+  release-date caches) sanitize the game ID like the config paths do.
 - Clear Prefix and the leftover cleanup refuse a directory that does not
   hold a `drive_c` (a local WINEPREFIX, or the `pfx` inside a Steam
   container): a wrong prefix path can no longer wipe an unrelated

@@ -96,7 +96,7 @@ def grid_path(appid: str, kind: str = "cover") -> Path:
     existing caches and the rename migration still apply to it.
     """
     base = xdg.app_cache_dir() / "grids"
-    key = _art_key(appid)
+    key = xdg.safe_stem(_art_key(appid))
     if kind not in ("icon", "banner"):
         return base / f"{key}.png"
     return base / f"{key}-{kind}.png"
@@ -117,7 +117,7 @@ def cached_path(appid: str, kind: str) -> Path | None:
 
 def manifest_path(appid: str) -> Path:
     """Sidecar recording which provider produced each cached kind."""
-    return xdg.app_cache_dir() / "grids" / f"{_art_key(appid)}.json"
+    return xdg.app_cache_dir() / "grids" / f"{xdg.safe_stem(_art_key(appid))}.json"
 
 
 def read_manifest(appid: str) -> dict:

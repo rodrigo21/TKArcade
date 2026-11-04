@@ -37,7 +37,7 @@ _CATALOG: tuple[tuple[str, int] | None, list[dict]] | None = None
 
 
 def state_path(appid: str) -> Path:
-    return xdg.app_state_dir() / "winetricks" / f"{appid}.json"
+    return xdg.app_state_dir() / "winetricks" / f"{xdg.safe_stem(appid)}.json"
 
 
 def _log_path(prefix: Path) -> Path | None:

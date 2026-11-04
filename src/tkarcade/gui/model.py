@@ -2372,6 +2372,7 @@ class GameListModel(QAbstractTableModel):
             imported = cfgmod.import_configs(path)
         except (OSError, ValueError) as e:
             return f"Import Failed: {e}"
+        self._migrate_ids()
         self.refresh()
         return f"Imported {len(imported)} Game(s)"
 

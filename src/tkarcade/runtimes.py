@@ -129,7 +129,7 @@ def find_proton(value: str, extra: str = "") -> ProtonInstall | None:
         return None
     path = Path(text).expanduser()
     if path.is_dir():
-        return ProtonInstall(path.name, path.resolve())
+        return ProtonInstall(path.name, path.resolve()) if _looks_like_proton(path) else None
     low = text.casefold()
     for install in proton_installs(extra):
         if install.name.casefold() == low:

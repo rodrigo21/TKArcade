@@ -1841,19 +1841,20 @@ def migrate_ids() -> list[tuple[str, str]]:
 
 
 def export_configs(dest: str | Path) -> Path:
-    """Pack games/profiles/defaults/preferences TOML files for migration."""
+    """Pack games/profiles/defaults/preferences/categories TOML files for migration."""
     import tarfile
 
     dest = Path(dest)
     if dest.suffixes[-2:] != [".tar", ".gz"]:
         dest = dest.with_suffix(".tar.gz") if dest.suffix != ".gz" else dest
     with tarfile.open(dest, "w:gz") as tar:
-        defaults = xdg.defaults_file()
-        if defaults.exists():
-            tar.add(defaults, arcname="defaults.toml")
-        preferences = xdg.preferences_file()
-        if preferences.exists():
-            tar.add(preferences, arcname="preferences.toml")
+        for path, arcname in (
+            (xdg.defaults_file(), "defaults.toml"),
+            (xdg.preferences_file(), "preferences.toml"),
+            (categories_file(), "categories.toml"),
+        ):
+            if path.exists():
+                tar.add(path, arcname=arcname)
         games = xdg.games_dir()
         if games.exists():
             for path in sorted(games.glob("*.toml")):
@@ -1889,7 +1890,7 @@ def import_configs(src: str | Path) -> list[str]:
         for member in tar.getmembers():
             name = member.name
             if (
-                name in ("defaults.toml", "preferences.toml")
+                name in ("defaults.toml", "preferences.toml", "categories.toml")
                 or (
                     name.startswith("games/")
                     and name.endswith(".toml")

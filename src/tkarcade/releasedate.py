@@ -41,7 +41,7 @@ _MONTHS = {
 
 
 def cache_path(appid: str) -> Path:
-    return xdg.app_cache_dir() / "steam-release" / f"{appid}.json"
+    return xdg.app_cache_dir() / "steam-release" / f"{xdg.safe_stem(appid)}.json"
 
 
 def parse_date(text: object) -> str:

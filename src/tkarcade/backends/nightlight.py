@@ -84,7 +84,7 @@ class NightlightSession:
             return ["gsettings not found, skipping night light"]
         self._gnome_prev = _read_gnome()
         try:
-            subprocess.run(
+            proc = subprocess.run(
                 [
                     "gsettings",
                     "set",
@@ -92,10 +92,15 @@ class NightlightSession:
                     "night-light-enabled",
                     "false",
                 ],
+                capture_output=True,
+                text=True,
                 timeout=5,
             )
         except Exception as e:
             return [f"failed to disable GNOME night light: {e}"]
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout or "").strip()[:200]
+            return [f"failed to disable GNOME night light: {detail or proc.returncode}"]
         return []
 
     def _start_holder(self) -> list[str]:

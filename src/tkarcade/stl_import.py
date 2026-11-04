@@ -194,8 +194,15 @@ def _map_proton(get, cfg: cfgmod.GameConfig, report: list[str]) -> None:
 
 
 def _env_skip(key: str, value: str) -> str:
-    """Why an STL var is not imported as an env var: "" / "off" / "path"."""
-    if not value or key == "PROTON_LOG" or not key.startswith(_ENV_PREFIXES):
+    """Why an STL var is not imported as an env var.
+
+    "" imports it, "off" is a default-off value, "path" references an STL
+    path and "not-env" is an STL internal with no env equivalent (never
+    counted as a dropped value).
+    """
+    if not key.startswith(_ENV_PREFIXES):
+        return "not-env"
+    if not value or key == "PROTON_LOG":
         return "off"
     if "STLCFGDIR" in value:
         return "path"

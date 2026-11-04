@@ -1395,6 +1395,7 @@ def test_env_preset_checks_the_local_proton(qgui_app, xdg_env, tmp_path, monkeyp
 
     proton = tmp_path / "GE-Proton9-20"
     proton.mkdir()
+    (proton / "proton").write_text("#!/bin/sh\n")
     for appid, kind, tool in (
         ("local-umu", "umu", str(proton)),
         ("local-wine", "wine", ""),
@@ -1421,6 +1422,7 @@ def test_env_preset_checks_the_local_proton(qgui_app, xdg_env, tmp_path, monkeyp
 
     cachy = tmp_path / "proton-cachyos-slr"
     cachy.mkdir()
+    (cachy / "proton").write_text("#!/bin/sh\n")
     cfg = C.load("local-umu")
     cfg.runtime.tool = str(cachy)
     C.save(cfg)
@@ -1736,6 +1738,7 @@ def test_launch_runtime_label_names_the_runtime(qgui_app, xdg_env, tmp_path, mon
 
     proton = tmp_path / "GE-Proton9-20"
     proton.mkdir()
+    (proton / "proton").write_text("#!/bin/sh\n")
     wine = tmp_path / "wine"
     wine.write_text("#!/bin/sh\n")
     wine.chmod(0o755)
@@ -2746,6 +2749,7 @@ def test_settings_winetricks_gui_custom_prefix(qgui_app, xdg_env, fake_bin, tmp_
     fake_bin("winetricks", f'#!/bin/sh\necho "$WINEPREFIX|$WINE|$@" >> "{calls}"\n')
     proton = tmp_path / "GE-Proton9-1"
     (proton / "files" / "bin").mkdir(parents=True)
+    (proton / "proton").write_text("#!/bin/sh\n")
     wine = proton / "files" / "bin" / "wine"
     wine.write_text("#!/bin/sh\n")
     wine.chmod(0o755)

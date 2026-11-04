@@ -52,6 +52,7 @@ def test_find_proton_by_name_and_path(xdg_env, tmp_path):
     assert R.find_proton(path).name == "GE-Proton9-1"
     assert R.find_proton("nope") is None
     assert R.find_proton("") is None
+    assert R.find_proton(tmp_path) is None  # a directory without the launcher
 
 
 def test_wine_binary_override_and_path(fake_bin, monkeypatch, tmp_path):

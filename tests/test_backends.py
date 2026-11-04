@@ -623,6 +623,15 @@ def test_nightlight_start_idempotent(monkeypatch):
     assert len(calls) == 1
 
 
+def test_nightlight_gnome_reports_a_failed_set(fake_bin):
+    fake_bin("gsettings", "#!/bin/sh\necho boom >&2\nexit 1\n")
+    session = nl.NightlightSession("gnome")
+    warnings = session.start()
+    assert any("failed to disable" in warning for warning in warnings)
+    assert "boom" in warnings[0]
+    session.stop()
+
+
 def test_split_args_never_raises():
     from tkarcade.backends import split_args
 
