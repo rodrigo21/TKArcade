@@ -106,7 +106,9 @@ in use (from the versioned `.opencode-model` file, one model per line;
 several lines join into a single trailer for a batch a second model
 worked on); a local `commit-msg` hook (see `scripts/git-hooks/`,
 enabled via `git config core.hooksPath scripts/git-hooks`) adds both
-automatically. Agent instructions live in `AGENTS.md`.
+automatically. Agent instructions live in `AGENTS.md`. Token cost is
+measured per session from the OpenCode database: the commands sit under
+"Context hygiene" in `AGENTS.md`, and `/handoff` reports the numbers.
 
 The working state travels through `docs/STATE.md` and the git history,
 never through plan-mode scratch files: OpenCode writes those under

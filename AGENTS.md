@@ -36,20 +36,38 @@ outside the repo.
 
 ## Context hygiene
 
-Every request re-sends the whole session, so cost grows with the number
-of turns, not with the size of the project. Budget: **~25 tool calls per
-commit**; measure at the end with `opencode stats --project .`.
+Every request re-sends the whole session: ~90k tokens per step on
+average, 116-184k in the marathon sessions and 17-38k in the short
+ones. Cost grows with steps times context, not with the size of the
+project.
 
 - One theme per batch (normally one commit): `/handoff` after each
   landing/push; start a new session when the context budget calls for
   it (`docs/GIT.md`). A session that carries several features is the
   main way one reaches the context limit.
+- Watch the cost, do not cap it: past ~60 steps, or when a step
+  re-sends more than ~100k tokens, say so and prefer a new session for
+  the next theme.
+- Budget **~25 tool calls per commit**. Measure the newest session and
+  the project totals:
+
+  ```bash
+  sqlite3 -readonly "${XDG_DATA_HOME:-$HOME/.local/share}/opencode/opencode.db" \
+    "select round(tokens_cache_read/1e6,1) from session_v2
+     where directory like '%TKArcade%' order by time_updated desc limit 1"
+  opencode stats --project . --cost --standalone
+  ```
+
+  The stats command needs `--standalone`: without it, it fails unless a
+  server is running. `/handoff` reports the session numbers.
 - Batch independent calls in one turn. Never re-run a check that already
   passed without a code change since.
+- A file already read is in context: read it again only after it
+  changed on disk, otherwise edit the text you have.
 - Never dump a whole file, binary or large diff: `grep`, `sed -n`,
   `tail`, `git diff --stat`. `strings` on a binary is banned. Test files
-  are large: grep the case name. Broad searches go through the `explore`
-  subagent.
+  are large: grep the case name, and a test run ends in `tail -3`.
+  Broad searches go through the `explore` subagent.
 - Visual checks (offscreen screenshots) run in a subagent or a short
   session: a screenshot stays in context as base64.
 
