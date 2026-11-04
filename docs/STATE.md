@@ -9,8 +9,7 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
-  `packaging/arch/tkarcade-git/PKGBUILD`, never committed; `.qoder/`
-  is git-ignored.
+  `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
 - Landed: thirty-three batches. The latest adds runtime archives:
   Preferences downloads the latest official DXVK/vkd3d-proton release
   (sha256 verified when the API provides it), archives in the cache

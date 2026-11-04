@@ -22,9 +22,9 @@ session has the rules in context.
   short-lived branch off `main` (`git switch -c <theme> main`);
   `main` stays untouched until the change is approved. Trivial fixes
   and docs-only changes may commit on `main`.
-- One theme per batch. If the work moves to another area, stop, hand
-  it off and return to plan mode; start a new session when the context
-  budget calls for it (`AGENTS.md`).
+- One theme per batch. If the work moves to another area, stop and
+  hand it off; start a new session when the context budget calls for
+  it (`AGENTS.md`).
 
 ## 2. Commit
 
@@ -71,8 +71,7 @@ explicit approval before starting the steps below.
    history or tags, and never force-push.
 
 After the push, run `/handoff` (refresh and commit `docs/STATE.md`),
-then re-enter plan mode for the next theme (`AGENTS.md`); start a new
-session when the context budget calls for it.
+then start a new session when the context budget calls for it.
 
 ## 4. Tags and releases
 
