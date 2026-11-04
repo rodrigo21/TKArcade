@@ -10,14 +10,16 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: seven batches. Prefix/config/winetricks guards, sanitized
+- Landed: eight batches. Prefix/config/winetricks guards, sanitized
   paths, background GUI probes (no freezes), custom `WINEDEBUG`,
-  uppercase IDs, shared helpers and 9 redundant tests removed.
-- Verified: `scripts/check.sh` 598 passed; `--qml` 599 passed; venv
-  refreshed. Docs-only change since.
-- Next: the `TODO.md` design-review items — the runtime version
-  manager, then name-based artwork for local games, then the deferred
+  uppercase IDs, shared helpers and 9 redundant tests removed, and the
+  runtime version manager (`docs/decisions/runtime-manager.md`).
+- Verified: `scripts/check.sh` 620 passed; `--qml` 620 passed; two
+  offscreen screenshot rounds on the Preferences runtime rows and the
+  new manager dialog; venv refreshed after the merge.
+- Next: the `TODO.md` design-review items — a tabbed Preferences window,
+  then name-based artwork for local games, then the deferred
   research/release items.
-- Open decisions: `docs/decisions/runtime-archives.md` is still a
-  proposal; the runtime version manager needs a design before code.
+- Open decisions: none blocking; the runtime manager landed with its
+  decision record.
 - Nothing blocking.

@@ -19,6 +19,13 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred design review
 
+- [ ] **Preferences split into tabs.** The one scrolling Preferences
+  window now carries General, Artwork, Runtime and save/backup sections
+  and the maintainer finds it crowded; split it into tabs like the game
+  dialog (one page per area, an icon or a short label each) so every
+  section is reachable without scrolling past the others. Keep the
+  single-footer Save/Cancel and the per-section label column rule from
+  `docs/QML-NOTES.md`.
 - [ ] **Artwork by name for local games.** A local game has no Steam
   AppID to look up, so grid search needs a SteamGridDB name query, its
   own cache and a UI decision; the donor `[artwork] artwork_appid` keeps
