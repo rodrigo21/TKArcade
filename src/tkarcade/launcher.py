@@ -1193,10 +1193,11 @@ def _cmd_list() -> int:
     names = dict(steammod.list_games())
     names.update(steammod.local_names())
     configured = cfgmod.list_appids()
+    configured_set = set(configured)
     print("Configured:")
     for appid in configured:
         print(f"  {appid}\t{names.get(appid, '')}".rstrip())
-    extra = [(a, n) for a, n in names.items() if a not in set(configured)]
+    extra = [(a, n) for a, n in names.items() if a not in configured_set]
     if extra:
         print("Detected (not configured):")
         for appid, name in extra:

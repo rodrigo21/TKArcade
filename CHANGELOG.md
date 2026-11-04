@@ -213,6 +213,12 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Hand-typed uppercase `STEAM-<n>` IDs are recognized as Steam games and
+  canonicalized to `steam-<n>`.
+- A GUI that cannot open its single-instance socket exits with an error
+  instead of pretending another instance is running and closing silently.
+- Writing a config through a symlink updates the target and keeps the
+  link (dotfiles setups).
 - The context menu no longer walks the shader cache on the GUI thread:
   the size is computed in the background and fills in when ready.
 - The game dialog's Steam launch-options probe runs in the background;

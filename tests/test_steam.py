@@ -13,10 +13,12 @@ def test_origin_and_steam_appid():
     from tkarcade import steam as S
 
     assert S.origin("steam-213") == "steam"
+    assert S.origin("STEAM-213") == "steam"  # hand-typed prefix is Steam too
     assert S.origin("213") == "steam"  # legacy bare digits
     assert S.origin("local-doom") == "local"
     assert S.origin("") == "local"
     assert S.steam_appid("steam-213") == "213"
+    assert S.steam_appid("STEAM-213") == "213"
     assert S.steam_appid("213") == "213"
     assert S.steam_appid("local-doom") == ""
     assert S.steam_appid("steam-doom") == ""
@@ -27,9 +29,11 @@ def test_canonical_ids(xdg_env):
 
     assert S.canonical_id("213") == "steam-213"
     assert S.canonical_id("steam-213") == "steam-213"
+    assert S.canonical_id("STEAM-213") == "steam-213"
     assert S.canonical_id("local-doom") == "local-doom"
     assert S.canonical_new_id("213") == "steam-213"
     assert S.canonical_new_id("steam-213") == "steam-213"
+    assert S.canonical_new_id("STEAM-213") == "steam-213"
     assert S.canonical_new_id("local-doom") == "local-doom"
     assert S.canonical_new_id("steam-foo") == "steam-foo"
     assert S.canonical_new_id("Doom - Ep. 1") == "local-doom-ep-1"

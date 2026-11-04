@@ -76,6 +76,23 @@ def test_single_instance_listens_and_wakes_the_primary(qgui_app, monkeypatch, tm
         primary.close()
 
 
+def test_single_instance_reports_a_socket_it_cannot_open(qgui_app, monkeypatch, tmp_path):
+    """A listen failure is an error, not a silent 'another instance' exit."""
+    from PySide6.QtNetwork import QLocalServer, QLocalSocket
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    monkeypatch.setattr(QLocalServer, "listen", lambda self, name: False)
+    monkeypatch.setattr(QLocalSocket, "waitForConnected", lambda self, ms=0: False)
+    try:
+        kapp.single_instance(f"tkarcade-test-fail-{os.getpid()}")
+    except RuntimeError as e:
+        assert "cannot listen" in str(e)
+    else:
+        raise AssertionError("a failed listen was reported as a follower")
+
+
 def test_single_instance_recovers_a_stale_socket(qgui_app, monkeypatch, tmp_path):
     """A socket file left by a crash must not lock the user out for good."""
     import socket

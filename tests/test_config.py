@@ -710,6 +710,17 @@ def test_save_is_atomic_and_leaves_no_tmp(xdg_env, monkeypatch):
     assert not list(path.parent.glob(".*.tmp"))  # no temp litter
 
 
+def test_write_atomic_keeps_a_symlink(xdg_env, tmp_path):
+    """A dotfiles symlink keeps pointing at its target after a write."""
+    target = tmp_path / "real.toml"
+    target.write_text("old", encoding="utf-8")
+    link = tmp_path / "link.toml"
+    link.symlink_to(target)
+    C.write_atomic(link, "new")
+    assert link.is_symlink()
+    assert target.read_text(encoding="utf-8") == "new"
+
+
 def test_save_sweeps_stale_crash_tmps(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "93"

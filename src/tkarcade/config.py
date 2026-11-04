@@ -554,6 +554,11 @@ def _render_toml(data: dict) -> str:
 
 def write_atomic(path: Path, text: str) -> None:
     """Write via temp file + rename so a crash never truncates the file."""
+    path = Path(path)
+    if path.is_symlink():
+        # A dotfiles symlink must keep pointing at its target: replace the
+        # target atomically, not the link.
+        path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     for stale in path.parent.glob(f".{path.name}.*.tmp"):
         try:

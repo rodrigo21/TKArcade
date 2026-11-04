@@ -10,19 +10,27 @@ _ICON_HASH_RE = re.compile(r"^[0-9a-f]{40}\.jpg$")
 _STEAM_PREFIX = "steam-"
 
 
+def _steam_body(value: object) -> str:
+    """Numeric body of a Steam ID, prefix case-insensitive ("" otherwise)."""
+    text = str(value or "").strip()
+    if text.lower().startswith(_STEAM_PREFIX):
+        text = text[len(_STEAM_PREFIX) :]
+    return text if text.isdigit() else ""
+
+
 def origin(appid: str) -> str:
     """Game origin from the ID prefix: ``steam`` or ``local``.
 
     Bare digits are the legacy Steam form; new IDs are always
-    ``steam-<appid>`` or ``local-<slug>``.
+    ``steam-<appid>`` or ``local-<slug>``. The prefix is matched
+    case-insensitively, so a hand-typed ``STEAM-570`` stays a Steam game.
     """
-    return "steam" if str(appid or "").strip().removeprefix(_STEAM_PREFIX).isdigit() else "local"
+    return "steam" if _steam_body(appid) else "local"
 
 
 def steam_appid(appid: str) -> str:
     """Numeric Steam AppID behind a game ID ('' when not a Steam game)."""
-    value = str(appid or "").strip()
-    return value.removeprefix(_STEAM_PREFIX) if origin(value) == "steam" else ""
+    return _steam_body(appid)
 
 
 def is_steam_id(appid: str) -> bool:
@@ -33,7 +41,8 @@ def is_steam_id(appid: str) -> bool:
 def canonical_id(appid: str) -> str:
     """Canonicalize an input ID: bare digits become ``steam-<n>``."""
     value = str(appid or "").strip()
-    return f"{_STEAM_PREFIX}{value}" if value.isdigit() else value
+    body = _steam_body(value)
+    return f"{_STEAM_PREFIX}{body}" if body else value
 
 
 def canonical_new_id(raw: str) -> str:
@@ -41,7 +50,7 @@ def canonical_new_id(raw: str) -> str:
     from . import config as cfgmod
 
     value = str(raw or "").strip()
-    if value.isdigit() or value.startswith(_STEAM_PREFIX):
+    if value.isdigit() or value.lower().startswith(_STEAM_PREFIX):
         return canonical_id(value)
     if value.startswith("local-"):
         return value
@@ -148,39 +157,34 @@ def library_paths() -> list[Path]:
     return seen
 
 
-def _parse_acf_name(path: Path) -> tuple[str, str]:
-    """Return (appid, name) from appmanifest_<id>.acf."""
+def _parse_acf(path: Path) -> tuple[str, str, str]:
+    """(appid, name, installdir) from an appmanifest; empties when unreadable."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
-        return "", ""
+        return "", "", ""
     data = loads_kv1(text)
     if data is None:
-        return "", ""
+        return "", "", ""
     app = data.get("AppState", {})
     if isinstance(app, dict):
-        return str(app.get("appid", "")), str(app.get("name", ""))
-    return "", ""
+        return (
+            str(app.get("appid", "")),
+            str(app.get("name", "")),
+            str(app.get("installdir", "")),
+        )
+    return "", "", ""
+
+
+def _parse_acf_name(path: Path) -> tuple[str, str]:
+    """Return (appid, name) from appmanifest_<id>.acf."""
+    appid, name, _installdir = _parse_acf(path)
+    return appid, name
 
 
 _GAMES_CACHE: dict[tuple[str, str], list[tuple[str, str]]] = {}
 _LIBRARY_PATHS_CACHE: dict[tuple[str, str], list[Path]] = {}
 _LAUNCH_OPTIONS_CACHE: dict[tuple[str, int, int], tuple[str, str]] = {}
-
-
-def _parse_acf_installdir(path: Path) -> str:
-    """Return the installdir from appmanifest_<id>.acf ("" when unknown)."""
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except Exception:
-        return ""
-    data = loads_kv1(text)
-    if data is None:
-        return ""
-    app = data.get("AppState", {})
-    if isinstance(app, dict):
-        return str(app.get("installdir", ""))
-    return ""
 
 
 def local_names() -> dict[str, str]:
@@ -210,12 +214,10 @@ def install_dir(appid: str) -> Path | None:
     if not appid:
         return None
     for lib in library_paths():
-        if _parse_acf_name(lib / f"appmanifest_{appid}.acf")[0] != appid:
+        parsed_appid, _name, installdir = _parse_acf(lib / f"appmanifest_{appid}.acf")
+        if parsed_appid != appid or not installdir:
             continue
-        name = _parse_acf_installdir(lib / f"appmanifest_{appid}.acf")
-        if not name:
-            continue
-        cand = lib / "common" / name
+        cand = lib / "common" / installdir
         if cand.is_dir():
             return cand
     return None

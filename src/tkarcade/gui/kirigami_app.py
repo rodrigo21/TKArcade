@@ -134,7 +134,11 @@ def single_instance(name: str | None = None):
     # Nobody listening: stale socket left by a crash.
     QLocalServer.removeServer(name)
     server = QLocalServer()
-    return server if server.listen(name) else None
+    if server.listen(name):
+        return server
+    raise RuntimeError(
+        f"cannot listen on the single-instance socket {name!r}: {server.errorString()}"
+    )
 
 
 def show_requested(server, window) -> None:
@@ -360,7 +364,12 @@ def main(argv: list[str] | None = None) -> int:
         log.debug("interface language: %s", language)
     # Before the UI: a follower has nothing to build, it just wakes the
     # primary (which may be sitting in the tray) and exits 0.
-    server = single_instance()
+    try:
+        server = single_instance()
+    except RuntimeError as e:
+        log.error("%s", e)
+        print(f"tkarcade: {e}", file=sys.stderr)
+        return 1
     if server is None:
         log.info("another instance is already running; asked it to show itself")
         return 0
