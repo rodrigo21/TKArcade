@@ -24,6 +24,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from . import exeicon as exeiconmod
 from . import steam as steammod
 from . import xdg
 
@@ -95,6 +96,10 @@ _CACHE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".ico")
 #: must not fill it back until Fetch Artwork is pressed.
 CLEARED_KEY = "cleared"
 
+#: Sidecar key: the local executable an icon was extracted from, with its
+#: stat, so a changed executable is re-extracted and an unchanged one is not.
+EXE_ICON_KEY = "exe_icon"
+
 
 # --------------------------------------------------------------------
 # Cache paths
@@ -116,6 +121,16 @@ def grid_path(appid: str, kind: str = "cover") -> Path:
     if kind not in ("icon", "banner"):
         return base / f"{key}.png"
     return base / f"{key}-{kind}.png"
+
+
+def exe_icon_path(appid: str) -> Path:
+    """Cache path of the icon extracted from a local game's executable.
+
+    Deliberately not `<key>-icon.*`: that name belongs to downloaded
+    client icons, and Clear must not delete a file the game ships.
+    """
+    base = xdg.app_cache_dir() / "grids"
+    return base / f"{xdg.safe_stem(_art_key(appid))}-exe.ico"
 
 
 def cached_path(appid: str, kind: str) -> Path | None:
@@ -389,15 +404,19 @@ def _steam_art(appid: str, kind: str) -> Path | None:
         return None
 
 
-def resolve(appid: str, kind: str = "icon", source_appid: str = "") -> tuple[Path | None, str]:
+def resolve(
+    appid: str, kind: str = "icon", source_appid: str = "", exe: str = ""
+) -> tuple[Path | None, str]:
     """Where the art for one kind comes from, without touching the network.
 
     Order: the game's own manual slot, then the Artwork Source AppID
     (manual slot, downloaded cache, Steam's own cache), then the game's
-    downloaded cache and Steam art, with the cover as the icon's last
+    downloaded cache, Steam art and — for a local game's icon only — the
+    image embedded in its executable, with the cover as the icon's last
     resort. `source_appid` is a Steam AppID typed in the dialog: it wins
     over the game's own art, which is what the field means. Its sources
-    come back prefixed `appid-`. Returns `(path, source)`, or
+    come back prefixed `appid-`. `exe` is a local game's executable; it
+    is ignored for a Steam game. Returns `(path, source)`, or
     `(None, "")` when nothing answered.
 
     Downloading is the caller's job (see `fetch_best`): this runs for
@@ -413,7 +432,7 @@ def resolve(appid: str, kind: str = "icon", source_appid: str = "") -> tuple[Pat
         path, source = _local_art(source_appid, kind)
         if path is not None:
             return path, "appid-" + source
-    return _local_art(str(appid), kind)
+    return _local_art(str(appid), kind, exe)
 
 
 def _safe_manual(gid: str, kind: str) -> Path | None:
@@ -424,8 +443,8 @@ def _safe_manual(gid: str, kind: str) -> Path | None:
         return None
 
 
-def _local_art(gid: str, kind: str) -> tuple[Path | None, str]:
-    """(path, "manual"|"cache"|"steam") for one game, no network."""
+def _local_art(gid: str, kind: str, exe: str = "") -> tuple[Path | None, str]:
+    """(path, "manual"|"cache"|"steam"|"exe") for one game, no network."""
     manual = _safe_manual(gid, kind)
     if manual is not None:
         return manual, "manual"
@@ -441,7 +460,56 @@ def _local_art(gid: str, kind: str) -> tuple[Path | None, str]:
     art = _steam_art(gid, kind)
     if art is not None:
         return art, "steam"
+    if kind == "icon" and str(gid).startswith("local-"):
+        from_exe = exe_icon(gid, exe)
+        if from_exe is not None:
+            return from_exe, "exe"
     return None, ""
+
+
+def exe_icon(appid: str, exe: str = "") -> Path | None:
+    """The icon embedded in a local game's executable, extracted once.
+
+    The `.ico` copy is reused while the executable's path, size and mtime
+    stay the same, so a refresh only stats the file.
+    """
+    source = str(exe or "").strip()
+    if not source:
+        return None
+    try:
+        exe_path = Path(source).expanduser()
+        stat = exe_path.stat()
+    except OSError:
+        return None
+    dest = exe_icon_path(appid)
+    known = read_manifest(appid).get(EXE_ICON_KEY)
+    if (
+        isinstance(known, dict)
+        and dest.is_file()
+        and known.get("path") == str(exe_path)
+        and known.get("mtime_ns") == stat.st_mtime_ns
+        and known.get("size") == stat.st_size
+    ):
+        return dest
+    icon = exeiconmod.icon_bytes(exe_path)
+    if icon is None:
+        return None
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(icon)
+        data = read_manifest(appid)
+        data[EXE_ICON_KEY] = {
+            "path": str(exe_path),
+            "mtime_ns": stat.st_mtime_ns,
+            "size": stat.st_size,
+        }
+        manifest_path(appid).write_text(
+            json.dumps(data, indent=2, sort_keys=True), encoding="utf-8"
+        )
+    except Exception as e:
+        log.debug("artwork exe icon write failed: %s", e)
+        return None
+    return dest
 
 
 def resolve_icon(appid: str, landscape: bool = False) -> Path | None:

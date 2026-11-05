@@ -16,6 +16,9 @@ dependencies = [
   "PySide6>=6.12",
   "vdf",
   "jeepney",
+  # Icons embedded in a local game's .exe: pure Python, MIT. Imported
+  # lazily (artwork only), so a build without it simply shows no icon.
+  "icoextract>=0.3",
   # The stdlib compression.zstd module arrived in 3.14; older
   # interpreters use this fallback for vkd3d-proton archives.
   "zstandard; python_version < '3.14'",

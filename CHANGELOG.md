@@ -6,6 +6,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- A local game with no artwork shows the icon embedded in its executable:
+  the `.ico` is extracted once with `icoextract` (new dependency, MIT) and
+  cached next to the other art. Manual, downloaded and Steam art still win
+  over it, and Clear leaves it in place.
 - Per-game artwork source: `[artwork] provider` (`steam` or `sgdb`)
   overrides the global preference for Fetch Artwork and the background
   fetch; the Artwork tab exposes it as Download From (empty = global).

@@ -674,3 +674,58 @@ def test_manual_slot_survives_clear(xdg_env, tmp_path):
     manual = art.store_manual("620", "icon", str(_image(tmp_path, "m.png")))
     art.clear_fetched("620")
     assert manual is not None and manual.is_file()
+
+
+def _local_exe(tmp_path, name="game.exe"):
+    exe = tmp_path / name
+    exe.write_bytes(b"MZ")
+    return exe
+
+
+def test_exe_icon_fills_a_local_games_empty_icon(monkeypatch, xdg_env, tmp_path):
+    """A local game with no art shows the icon embedded in its executable."""
+    calls = []
+
+    def fake_icon(path):
+        calls.append(path)
+        return b"ICO"
+
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", fake_icon)
+    exe = _local_exe(tmp_path)
+    path, source = art.resolve("local-doom", "icon", "", str(exe))
+    assert source == "exe"
+    assert path == art.exe_icon_path("local-doom")
+    assert path.read_bytes() == b"ICO"
+    # Cached: the next refresh only stats the executable.
+    assert art.resolve("local-doom", "icon", "", str(exe)) == (path, "exe")
+    assert calls == [exe]
+
+
+def test_exe_icon_is_reextracted_when_the_executable_changes(monkeypatch, xdg_env, tmp_path):
+    versions = [b"OLD", b"NEW"]
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: versions.pop(0))
+    exe = _local_exe(tmp_path)
+    first = art.exe_icon("local-doom", str(exe))
+    assert first is not None and first.read_bytes() == b"OLD"
+    exe.write_bytes(b"MZ!")
+    second = art.exe_icon("local-doom", str(exe))
+    assert second is not None and second.read_bytes() == b"NEW"
+
+
+def test_exe_icon_never_beats_real_art(monkeypatch, xdg_env, tmp_path):
+    """Manual slots, downloaded art and Steam art all win over the exe icon."""
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"EXE")
+    exe = _local_exe(tmp_path)
+    manual = art.store_manual("local-doom", "icon", str(_image(tmp_path, "m.png")))
+    assert art.resolve("local-doom", "icon", "", str(exe)) == (manual, "manual")
+    art.clear_manual("local-doom", "icon")
+    cached = art.grid_path("local-doom", "icon")
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    cached.write_bytes(b"PNG")
+    assert art.resolve("local-doom", "icon", "", str(exe)) == (cached, "cache")
+
+
+def test_exe_icon_is_ignored_for_a_steam_game(monkeypatch, xdg_env, tmp_path):
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"EXE")
+    exe = _local_exe(tmp_path)
+    assert art.resolve("steam-480", "icon", "", str(exe)) == (None, "")

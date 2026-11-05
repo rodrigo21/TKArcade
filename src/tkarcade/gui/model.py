@@ -737,10 +737,21 @@ class GameListModel(QAbstractTableModel):
         if gcfg is not None:
             source = gcfg.artwork.artwork_appid.strip()
         try:
-            return artmod.resolve(appid, "icon", source)[0]
+            return artmod.resolve(appid, "icon", source, GameListModel._local_exe(appid, gcfg))[0]
         except Exception as e:
             log.warning("artwork resolve(%s) failed: %s", appid, e)
             return None
+
+    @staticmethod
+    def _local_exe(appid: str, gcfg=None) -> str:
+        """Executable whose embedded icon fills a local game's icon slot."""
+        if not str(appid).startswith("local-"):
+            return ""
+        try:
+            cfg = gcfg if gcfg is not None else cfgmod.load(str(appid))
+        except Exception:
+            return ""
+        return (cfg.general.custom_executable or "").strip() if cfg is not None else ""
 
     @staticmethod
     def _row_wine(appid: str, gcfg, is_steam: bool) -> str:
@@ -1939,10 +1950,13 @@ class GameListModel(QAbstractTableModel):
         """Path the views actually use for one kind ('' when none).
 
         Follows `artwork.resolve`: the game's manual slot, the Artwork
-        Source AppID (draft or saved), then the game's cache and Steam.
+        Source AppID (draft or saved), then the game's cache and Steam,
+        then the local executable's embedded icon.
         """
         try:
-            path, _source = artmod.resolve(appid, kind, self._art_source(appid, source))
+            path, _source = artmod.resolve(
+                appid, kind, self._art_source(appid, source), self._local_exe(appid)
+            )
             return str(path) if path else ""
         except Exception:
             return ""
@@ -1973,9 +1987,10 @@ class GameListModel(QAbstractTableModel):
         if artmod.is_cleared(source_appid or str(appid)):
             return "cleared"
         own = missing = 0
+        exe = self._local_exe(appid)
         for kind in artmod.ART_KINDS:
             try:
-                path = artmod.resolve(appid, kind, source_appid)[0]
+                path = artmod.resolve(appid, kind, source_appid, exe)[0]
             except Exception:
                 path = None
             if path is None:
