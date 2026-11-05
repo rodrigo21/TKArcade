@@ -198,14 +198,19 @@ DialogWindow {
             objectName: "runtimeReleaseCombo"
             Layout.fillWidth: true
             enabled: !manager.busy && count > 0
-            // The desktop style does not elide the closed field: a long
-            // pre-release tag ran under the arrow (measured offscreen).
-            contentItem: Controls.Label {
-                leftPadding: Kirigami.Units.smallSpacing
-                rightPadding: releaseCombo.indicator.width + Kirigami.Units.smallSpacing
-                text: releaseCombo.displayText
+            // The desktop style paints the closed field from displayText
+            // with the native style and does not elide it, so shorten the
+            // string here. A custom contentItem drew a second copy of the
+            // same text on top of it (doubled glyphs, docs/QML-NOTES.md).
+            displayText: releaseElide.elidedText
+            TextMetrics {
+                id: releaseElide
+                font: releaseCombo.font
                 elide: Text.ElideRight
-                verticalAlignment: Text.AlignVCenter
+                // Arrow room: the style draws it inside the field.
+                elideWidth: Math.max(0, releaseCombo.width - 2 * releaseCombo.leftPadding
+                                     - Kirigami.Units.gridUnit)
+                text: releaseCombo.currentIndex >= 0 ? releaseCombo.textAt(releaseCombo.currentIndex) : ""
             }
             Controls.ToolTip.text: releaseCombo.currentIndex >= 0 ? releaseCombo.currentText : ""
             Controls.ToolTip.visible: hovered && text !== ""

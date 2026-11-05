@@ -3649,8 +3649,61 @@ def test_prefs_runtime_manager(qgui_app, xdg_env, monkeypatch):
     rows = lambda: mwin.property("versions").toVariant()  # noqa: E731
     assert _wait_for(lambda: len(rows()) == 1), "version row missing"
     assert rows()[0]["name"] == "dxvk-sarek-2.4.1"
+    mwin.setProperty("width", mwin.property("minimumWidth"))
     combo = mwin.findChild(QQuickItem, "runtimeReleaseCombo")
     assert _wait_for(lambda: combo.property("count") == 1), "release list did not load"
+    _click(mwin, "dialogCancel")
+    assert _wait_for(lambda: mwin.property("visible") is False), "manager stayed open"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_prefs_runtime_release_combo_elides(qgui_app, xdg_env, monkeypatch):
+    """The release combo elides its own text instead of double-painting it."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade.gui import model as M
+
+    long_tag = "v3.1.1-rc1-long-prerelease-build-name-for-the-elision-check"
+    monkeypatch.setattr(
+        M.archivesmod,
+        "releases",
+        lambda kind, opener=None, repo="": [
+            {
+                "tag": long_tag,
+                "name": "dxvk-3.1.1.tar.gz",
+                "url": "https://x/dxvk-3.1.1.tar.gz",
+                "size": 5,
+                "digest": "",
+                "prerelease": True,
+            }
+        ],
+    )
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "prefsDialog")
+    dialog.open()
+    swin = _modal_window(qgui_app, ("Preferences",))
+    swin.findChild(QQuickItem, "prefsTabs").setProperty("currentIndex", 2)
+    qgui_app.processEvents()
+    _click(swin, "prefsManageDxvk")
+    mwin = _modal_window(qgui_app, ("DXVK Versions",))
+    mwin.setProperty("width", mwin.property("minimumWidth"))
+    combo = mwin.findChild(QQuickItem, "runtimeReleaseCombo")
+    assert _wait_for(lambda: combo.property("count") == 1), "release list did not load"
+    # No custom contentItem: the desktop style paints displayText itself.
+    assert combo.property("contentItem") is not None
+    full = combo.property("currentText")
+    assert full == long_tag + " (Pre-Release)"
+    assert _wait_for(lambda: combo.property("displayText").endswith("…")), "label not elided"
+    assert len(combo.property("displayText")) < len(full)
+    # Wide enough for the whole tag, the field shows all of it again.
+    mwin.setProperty("width", 1200)
+    qgui_app.processEvents()
+    assert _wait_for(lambda: combo.property("displayText") == full), "label stayed elided"
     _click(mwin, "dialogCancel")
     assert _wait_for(lambda: mwin.property("visible") is False), "manager stayed open"
     real = [w for w in warnings if "graphics scene" not in w]

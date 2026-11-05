@@ -226,6 +226,10 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The release picker in Preferences → Runtime → Manage Versions… shows
+  its label once: the desktop style already paints the closed field, so
+  the combo now elides that string instead of drawing a second copy on
+  top of it (the doubled glyphs) and the full tag stays in the tooltip.
 - Hand-typed uppercase `STEAM-<n>` IDs are recognized as Steam games and
   canonicalized to `steam-<n>`.
 - A GUI that cannot open its single-instance socket exits with an error

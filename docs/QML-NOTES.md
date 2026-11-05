@@ -54,6 +54,13 @@ failure. `AGENTS.md` links here.
   keeps the default empty role, while `{text, data}` rows use
   `textRole: "text"`. A role the model lacks blanks both the closed
   field and the popup rows (the Profile selector, measured offscreen).
+- Never give a non-editable `ComboBox` a custom `contentItem` in the
+  desktop style: its `background` is a `StyleItem` that already paints
+  `displayText` with the native style, so a `Label` in `contentItem`
+  draws the same string a second time a pixel off (the Manage Versions
+  release combo showed doubled glyphs). The style does not elide that
+  text either, so shorten `displayText` itself (a `TextMetrics` with
+  `elide: Text.ElideRight`) and keep the full value in the tooltip.
 - A drawer section is `Kirigami.Action { expandible: true }` carrying
   `children`: the GlobalDrawer paints the header plus the children
   inline when expanded and a popup when collapsed. Rebuild dynamic
