@@ -17,11 +17,16 @@ License: GPL-3.0-or-later.
 Never create, edit, delete, stage, commit or push without the
 maintainer's explicit approval. Investigate read-only, then present a
 plan (files, exact edits, verification, risks) and wait for approval.
-An approved plan covers the branch work, including its commit; landing
-is a second gate: after the branch commit and the venv refresh, stop
-and wait for the maintainer's approval before squash-merging into
-`main`, pushing or running `/handoff` (`docs/GIT.md`). If the scope
-changes mid-task, stop and ask again.
+
+Commit only after the maintainer approves the implemented diff:
+implement in the working tree, run the verification, show the diff and
+stop. The approval covers that one commit. Never amend a commit that is
+already there; a design change before the commit is a working-tree
+change, not a history rewrite. Landing is a second gate: after the
+branch commit and the venv refresh, stop and wait for the maintainer's
+approval before squash-merging into `main`, pushing or running
+`/handoff` (`docs/GIT.md`). If the scope changes mid-task, stop and ask
+again.
 
 ## Work state
 

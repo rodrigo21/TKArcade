@@ -28,6 +28,9 @@ session has the rules in context.
 
 ## 2. Commit
 
+- Commit only after the maintainer approves the implemented diff:
+  implement, verify, show the diff and wait. An unapproved design is a
+  working-tree edit, never a commit to amend later.
 - One commit per area/theme. A feature branch may carry several working
   commits; `main` receives exactly one squash commit when it lands.
 - Review `git diff` and `git diff --cached` before committing; the
@@ -54,10 +57,10 @@ session has the rules in context.
 
 ## 3. Land and push
 
-Landing is its own approval gate: the approved plan covers the branch
-work and its commit, not the merge. With the branch committed and the
-venv refreshed, hand the changes to the maintainer and wait for their
-explicit approval before starting the steps below.
+Landing is its own approval gate: the approved diff covers the branch
+commit, not the merge. With the branch committed and the venv refreshed,
+hand the changes to the maintainer and wait for their explicit approval
+before starting the steps below.
 
 1. `git switch main`.
 2. `git merge --squash <branch>` and commit the result as one commit.
