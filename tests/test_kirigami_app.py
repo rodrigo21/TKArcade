@@ -263,7 +263,13 @@ def test_toolbar_survives_translated_labels(tmp_path):
 
         remove = visible("titleRemove")
         assert remove is not None and remove.property("text") == "Remover"
-        for name in ("toolbarIcons", "columnsButton", "prefsButton", "hamburgerButton"):
+        for name in (
+            "toolbarIcons",
+            "columnsButton",
+            "prefsButton",
+            "defaultsButton",
+            "hamburgerButton",
+        ):
             item = visible(name)
             assert item is not None, name
             left = item.mapToScene(QPointF(0, 0)).x()

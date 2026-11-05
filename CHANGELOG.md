@@ -56,6 +56,15 @@ Breaking config changes are called out explicitly under `Changed`.
   single Save/Cancel footer. The header now carries a Preferences
   button (`preferences-system` icon) between Columns and the hamburger
   menu, so the hamburger entry is gone.
+- Global Defaults has its own header button next to Preferences, and the
+  hamburger menu is grouped by what each entry acts on: the library data
+  and history (Scan, Import, Export, History), the per-game tools
+  (Validate, Ludusavi, Logs), the library maintenance entries (Clean Up
+  Leftovers, Remove Uninstalled Games, Reload) and the app entries. The
+  issues filter is a checkbox beside the filter field, as the widgets
+  shell had it (the box drops its label in narrow windows and the filter
+  field grows with the window; the actions row no longer wraps out of
+  the header at 1280).
 - The library's default layout leads with Release Date, Origin,
   Platform, Played, Last Played and Installed; Runtime, Wine, ProtonDB,
   Game ID and Install Dir start hidden after them. **BREAKING**: saved

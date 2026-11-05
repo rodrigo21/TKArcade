@@ -4206,7 +4206,9 @@ def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
             continue
         if isinstance(text, str) and text:
             texts.add(text)
-    assert {"Scan Steam Library...", "Reload", "Quit"} <= texts
+    assert {"Scan Steam Library...", "History...", "Validate Game", "Reload", "Quit"} <= texts
+    # The issues filter is a checkbox beside the filter field now.
+    assert "With Issues Only" not in texts
     assert win.findChild(QObject, "drawerModeCollapsible") is None
     assert win.findChild(QObject, "drawerModeSidebar") is None
     assert win.findChild(QObject, "drawerModeOverlay") is None
@@ -4227,8 +4229,8 @@ def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_hamburger_global_defaults_entry(qgui_app, xdg_env):
-    """The hamburger menu opens the Global Defaults editor (widgets menu)."""
+def test_header_global_defaults_button(qgui_app, xdg_env):
+    """The header's Global Defaults button opens the editor (not the menu)."""
     from PySide6.QtCore import QObject, QPointF, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
@@ -4239,20 +4241,16 @@ def test_hamburger_global_defaults_entry(qgui_app, xdg_env):
     cfg.general.appid = "1"
     C.save(cfg)
     win, _engine, _proxy, warnings = _load_main(qgui_app)
-    burger = win.findChild(QQuickItem, "hamburgerButton")
+    button = win.findChild(QQuickItem, "defaultsButton")
+    assert button is not None
+    assert button.property("visible") is True
+    # The menu entry moved to the button.
     menu = win.findChild(QObject, "hamburgerMenu")
-    center = burger.mapToScene(
-        QPointF(burger.property("width") / 2, burger.property("height") / 2)
+    assert menu.findChild(QObject, "menuDefaults") is None
+    center = button.mapToScene(
+        QPointF(button.property("width") / 2, button.property("height") / 2)
     ).toPoint()
     QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, center)
-    for _ in range(20):
-        qgui_app.processEvents()
-        if menu.property("visible"):
-            break
-    entry = menu.findChild(QObject, "menuDefaults")
-    assert entry is not None
-    assert entry.property("text") == "Global Defaults..."
-    _fire(entry)
     qgui_app.processEvents()
     dlg = win.findChild(QObject, "gameSettings")
     assert dlg.property("defaultsMode") is True
@@ -7259,6 +7257,109 @@ def _click_item(item):
         Qt.KeyboardModifier.NoModifier,
         QPoint(int(center.x()), int(center.y())),
     )
+
+
+def test_title_row_fits_any_width(qgui_app, xdg_env):
+    """The title row never wraps the actions row out of the header."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtTest import QTest
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    # The shell opens at its minimum width; the row must hold below it too.
+    win.setProperty("minimumWidth", 400)
+    filters = []
+    for width in (700, 800, 900, 1100, 1280, 1440, 1600, 1920):
+        win.setProperty("width", width)
+        QTest.qWait(150)
+        burger = _visible_item(win, "hamburgerButton")
+        columns = _visible_item(win, "columnsButton")
+        search = _visible_item(win, "searchField")
+        check = _visible_item(win, "issuesOnlyCheck")
+        assert burger is not None and columns is not None, width
+        right = burger.mapToScene(QPointF(burger.property("width"), 0)).x()
+        assert right <= win.property("width"), (width, right)
+        # Same line as the other action buttons: not wrapped to a second row.
+        assert burger.mapToScene(QPointF(0, 0)).y() == columns.mapToScene(QPointF(0, 0)).y(), width
+        filters.append(search.property("implicitWidth"))
+        # The label costs room the narrow window does not have.
+        if width < 1000:
+            assert check.property("text") == "", width
+        else:
+            assert check.property("text") == "With Issues Only", width
+    assert filters == sorted(filters), filters
+    assert filters[0] >= 200
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_menu_and_issues_check(qgui_app, xdg_env, monkeypatch):
+    """The menu keeps scan and history; the issues filter is a checkbox."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    import tkarcade.steam as steammod
+
+    monkeypatch.setattr(steammod, "list_games", lambda: [("steam-99", "Doom 3")])
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    menu = win.findChild(QObject, "hamburgerMenu")
+    texts = [
+        item.property("text")
+        for item in menu.findChildren(QObject)
+        if item.property("text") is not None
+    ]
+    # Library data and history lead, then tools, maintenance, app entries.
+    order = [
+        "Scan Steam Library...",
+        "Import...",
+        "Export...",
+        "History...",
+        "Validate Game",
+        "Open Ludusavi...",
+        "Open Logs Folder",
+        "Clean Up Leftovers...",
+        "Remove Uninstalled Games...",
+        "Reload",
+        "About...",
+        "Quit",
+    ]
+    assert [texts.index(text) for text in order] == sorted(texts.index(text) for text in order)
+    for gone in ("With Issues Only", "Global Defaults..."):
+        assert gone not in texts, gone
+    # The sidebar holds filters only.
+    for gone in ("drawerScan", "drawerHistory", "drawerIssuesOnly"):
+        assert win.findChild(QObject, gone) is None, gone
+    # The issues checkbox sits beside the filter and drives the proxy.
+    check = win.findChild(QQuickItem, "issuesOnlyCheck")
+    assert check is not None
+    assert check.property("text") == "With Issues Only"
+    assert check.property("checked") is False
+    _click(win, "issuesOnlyCheck")
+    assert _wait_for(lambda: proxy.property("issuesOnly") is True), "checkbox ignored"
+    assert check.property("checked") is True
+    _click(win, "issuesOnlyCheck")
+    assert _wait_for(lambda: proxy.property("issuesOnly") is False), "checkbox stuck"
+    # The entries still open their dialogs.
+    _fire(win.findChild(QObject, "menuHistory"))
+    qgui_app.processEvents()
+    view = win.findChild(QObject, "historyView")
+    assert view.property("visible") is True
+    view.close()
+    qgui_app.processEvents()
+    _fire(win.findChild(QObject, "menuScan"))
+    qgui_app.processEvents()
+    dialog = win.findChild(QObject, "scanDialog")
+    assert dialog.property("visible") is True
+    assert dialog.property("candidates") == [["steam-99", "Doom 3"]]
+    dialog.close()
+    qgui_app.processEvents()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
 
 
 def test_library_category_filter_bulk(qgui_app, xdg_env):

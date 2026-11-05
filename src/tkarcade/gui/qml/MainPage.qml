@@ -41,7 +41,21 @@ Kirigami.Page {
         // actions row into overflow; the ids live in this Component,
         // so the page scope cannot measure them.
         property real buttonsWidth: btnPlay.implicitWidth + btnAdd.implicitWidth + btnEdit.implicitWidth + btnRemove.implicitWidth
-        property int filterWidth: Math.max(240, Math.min(gamesPage.titleFilterWant, gamesPage.width - gamesPage.titleReserve - 2 * buttonsWidth - 6 * Kirigami.Units.smallSpacing))
+        // The issues checkbox is a fixed item beside the filter. Its width
+        // comes from the Binding below the checkbox: a direct id reference
+        // here evaluates before the child exists and logs a ReferenceError.
+        property real issuesWidth: 0
+        // What the title slot has for this row: the window minus the room
+        // the actions row keeps and the gaps between the row's items.
+        // Everything below works from this one number, so the row can never
+        // grow past its slot (which wraps the actions row out of the header).
+        property real available: gamesPage.width - gamesPage.titleReserve - 6 * Kirigami.Units.smallSpacing
+        property real fixedWidth: buttonsWidth + issuesWidth
+        property int filterWidth: Math.max(200, Math.min(gamesPage.titleFilterWant, available - fixedWidth))
+        property real slack: Math.max(0, available - fixedWidth - filterWidth)
+        // The pair shares the slack; the left one also absorbs the buttons
+        // width, so the filter sits centered instead of pushed right.
+        readonly property real spacerAWidth: Math.max(0, (slack - buttonsWidth) / 2)
         Controls.ToolButton {
             id: btnPlay
             objectName: "titlePlay"
@@ -84,12 +98,11 @@ Kirigami.Page {
         }
         Item {
             objectName: "toolbarSpacerA"
-            // Smaller twin: equal elastics center the filter B/2 off
-            // (the buttons width pushes it right), so the left one
-            // absorbs the buttons width back out. Zeroed on tiny
-            // pages: fitting beats centering there.
-            implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - 2 * (titleRow.buttonsWidth
-                + 3 * Kirigami.Units.smallSpacing) - titleRow.filterWidth) / 2)
+            // Smaller twin: equal elastics center the filter B/2 off (the
+            // buttons width pushes it right), so the left one absorbs the
+            // buttons width back out. The pair shares the slack, so a
+            // narrow window simply has no slack to share.
+            implicitWidth: titleRow.spacerAWidth
         }
         Kirigami.SearchField {
             objectName: "searchField"
@@ -100,12 +113,28 @@ Kirigami.Page {
             placeholderText: qsTr("Filter by Name or ID…")
             onTextChanged: gameFilter.textQuery = text
         }
+        Controls.CheckBox {
+            id: issuesOnlyCheck
+            objectName: "issuesOnlyCheck"
+            // The label costs ~90px: below 1000 the box keeps the space for
+            // the filter and the tooltip names it.
+            text: gamesPage.width >= 1000 ? qsTr("With Issues Only") : ""
+            checked: gameFilter.issuesOnly
+            onToggled: gameFilter.issuesOnly = checked
+            Controls.ToolTip.text: qsTr("With Issues Only")
+            Controls.ToolTip.visible: hovered && text === ""
+        }
+        Binding {
+            target: titleRow
+            property: "issuesWidth"
+            value: issuesOnlyCheck.implicitWidth + Kirigami.Units.smallSpacing
+        }
         Item {
             objectName: "toolbarSpacerB"
             // Larger twin (see spacerA): with buttons+filter+title all
-            // fixed, the icons toolbar keeps a constant ~205px room.
+            // fixed, the icons toolbar keeps a constant ~235px room.
             // Zeroed on tiny pages with its twin.
-            implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - titleRow.filterWidth) / 2)
+            implicitWidth: Math.max(0, titleRow.slack - titleRow.spacerAWidth)
         }
     }
     // Flush against the window toolbar, like plasma-systemmonitor.
@@ -141,8 +170,8 @@ Kirigami.Page {
     // where the drawer button joins the header); the filter clamps to
     // [600, 1200] with a fit cap so the corner never overflows. The cap
     // itself lives on the title row, which can measure the buttons.
-    property int titleReserve: (gamesPage.appDrawer && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible) ? 251 : 203
-    property int titleFilterWant: Math.min(1200, Math.max(gamesPage.width < 1000 ? 240 : 600, gamesPage.width * 0.45))
+    property int titleReserve: (gamesPage.appDrawer && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible) ? 282 : 234
+    property int titleFilterWant: Math.min(1200, Math.max(300, gamesPage.width * 0.5))
 
     onViewModeChanged: {
         if (viewMode === "list") {
@@ -1173,6 +1202,12 @@ Kirigami.Page {
                         prefsDialog.open()
                     }
                 }
+                Controls.ToolButton {
+                    objectName: "defaultsButton"
+                    icon.name: gameModel.iconName(["settings-configure", "document-properties", "configure"])
+                    display: Controls.AbstractButton.IconOnly
+                    onClicked: gamesPage.openDefaultsSettings()
+                }
                 Controls.ToolSeparator {
                     orientation: Qt.Vertical
                 }
@@ -1184,32 +1219,32 @@ Kirigami.Page {
                     Controls.Menu {
                                     id: hamburgerMenu
                                     objectName: "hamburgerMenu"
+                                    // Library first: whole-library data and
+                                    // the launch history, then the per-game
+                                    // tools, the maintenance entries and the
+                                    // app entries.
                                     Controls.MenuItem {
+                                        objectName: "menuScan"
                                         text: qsTr("Scan Steam Library...")
+                                        onTriggered: gamesPage.openScanLibrary()
+                                    }
+                                    Controls.MenuItem {
+                                        objectName: "menuImport"
+                                        text: qsTr("Import...")
+                                        onTriggered: importDialog.open()
+                                    }
+                                    Controls.MenuItem {
+                                        objectName: "menuExport"
+                                        text: qsTr("Export...")
                                         onTriggered: {
-                                            var cands = gameModel.scanCandidates()
-                                            if (cands.length === 0) {
-                                                gamesPage.notify(
-                                                    qsTr("Every Steam Game Is Already Configured."))
-                                                return
-                                            }
-                                            scanDialog.candidates = cands
-                                            scanDialog.open()
+                                            gamesPage.browsePurpose = "exportSave"
+                                            gameModel.pickSavePath(qsTr("Export Configurations"), qsTr("Save"), "tkarcade-configs.tar.gz")
                                         }
                                     }
                                     Controls.MenuItem {
+                                        objectName: "menuHistory"
                                         text: qsTr("History...")
-                                        onTriggered: {
-                                            historyView.rows = gameModel.historySummary()
-                                            historyView.open()
-                                        }
-                                    }
-                                    Controls.MenuItem {
-                                        objectName: "issuesOnly"
-                                        text: qsTr("With Issues Only")
-                                        checkable: true
-                                        checked: gameFilter.issuesOnly
-                                        onTriggered: gameFilter.issuesOnly = checked
+                                        onTriggered: gamesPage.openHistory()
                                     }
                                     Controls.MenuSeparator {
                                     }
@@ -1243,6 +1278,10 @@ Kirigami.Page {
                                             }
                                         }
                                     }
+                                    Controls.MenuSeparator {
+                                    }
+                                    // Library maintenance: whole-library edits,
+                                    // not per-game tools.
                                     Controls.MenuItem {
                                         text: qsTr("Clean Up Leftovers...")
                                         onTriggered: {
@@ -1270,31 +1309,13 @@ Kirigami.Page {
                                         }
                                     }
                                     Controls.MenuItem {
-                                        objectName: "menuExport"
-                                        text: qsTr("Export...")
-                                        onTriggered: {
-                                            gamesPage.browsePurpose = "exportSave"
-                                            gameModel.pickSavePath(qsTr("Export Configurations"), qsTr("Save"), "tkarcade-configs.tar.gz")
-                                        }
-                                    }
-                                    Controls.MenuItem {
-                                        objectName: "menuImport"
-                                        text: qsTr("Import...")
-                                        onTriggered: importDialog.open()
-                                    }
-                                    Controls.MenuSeparator {
-                                    }
-                                    Controls.MenuItem {
                                         text: qsTr("Reload")
                                         onTriggered: {
                                             gameModel.reload()
                                             gamesPage.ensureSelection()
                                         }
                                     }
-                                    Controls.MenuItem {
-                                        objectName: "menuDefaults"
-                                        text: qsTr("Global Defaults...")
-                                        onTriggered: gamesPage.openDefaultsSettings()
+                                    Controls.MenuSeparator {
                                     }
                                     Controls.MenuItem {
                                         text: qsTr("About...")
@@ -2395,11 +2416,27 @@ Kirigami.Page {
     }
 
     // The Global Defaults editor (same window in defaults mode), reachable
-    // from the tray and the hamburger like the widgets Settings menu.
+    // from the tray and the header button like the widgets Settings menu.
     function openDefaultsSettings() {
         gameSettings.page = gamesPage
         gameSettings.transientParent = Controls.ApplicationWindow.window
         gameSettings.openDefaults()
+    }
+
+    // Library commands live in the sidebar drawer (main.qml actions).
+    function openScanLibrary() {
+        var cands = gameModel.scanCandidates()
+        if (cands.length === 0) {
+            gamesPage.notify(qsTr("Every Steam Game Is Already Configured."))
+            return
+        }
+        scanDialog.candidates = cands
+        scanDialog.open()
+    }
+
+    function openHistory() {
+        historyView.rows = gameModel.historySummary()
+        historyView.open()
     }
 
     function settingsOpen() {

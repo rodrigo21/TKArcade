@@ -61,6 +61,17 @@ failure. `AGENTS.md` links here.
   release combo showed doubled glyphs). The style does not elide that
   text either, so shorten `displayText` itself (a `TextMetrics` with
   `elide: Text.ElideRight`) and keep the full value in the tooltip.
+- The title row works from one budget (`available` = window width minus
+  `titleReserve` minus the row's gaps): `filterWidth` is capped at
+  `available - buttons - issues` and the two elastics share the rest, so
+  the row can never grow past its slot and wrap the actions row out of
+  the header. It did at 1280 once the issues checkbox landed: the old cap
+  (`width - reserve - 2 * buttons`) left the gaps out of the sum. A
+  control added beside the filter enters `fixedWidth`; read its width
+  through `Binding { target: titleRow; property: ... }` placed after it,
+  because a direct id reference in the row's own binding evaluates before
+  the child exists and logs a `ReferenceError`. The issues checkbox drops
+  its label below 1000 px: the label costs the filter ~90 px.
 - A drawer section is `Kirigami.Action { expandible: true }` carrying
   `children`: the GlobalDrawer paints the header plus the children
   inline when expanded and a popup when collapsed. Rebuild dynamic
