@@ -3,8 +3,9 @@
 Official art comes from Steam's public CDN and needs no key at all: the
 library capsule (portrait), the library hero (wide) and the client icon
 (the square one Steam itself shows). SteamGridDB is the community
-fallback and needs a key; a game can point at another AppID's art
-(`[artwork] artwork_appid`), installed or not.
+fallback and needs a key. A game can point at any Steam AppID's art
+(`[artwork] artwork_appid`), installed or not. A local game without one
+is looked up by name and the chosen SteamGridDB game id is remembered.
 
 Downloaded files live in our own cache and never touch Steam's files;
 the per-kind provider is recorded next to them so the dialog can say
@@ -17,7 +18,9 @@ import html
 import json
 import logging
 import struct
+import unicodedata
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -34,6 +37,8 @@ GRIDS_URL = (
 )
 HEROES_URL = "https://www.steamgriddb.com/api/v2/heroes/game/{game_id}?types=static"
 ICONS_URL = "https://www.steamgriddb.com/api/v2/icons/game/{game_id}"
+#: Name lookup for games without a Steam AppID (local games).
+SEARCH_URL = "https://www.steamgriddb.com/api/v2/search/autocomplete/{term}"
 
 #: Public Steam endpoints (official art; no key).
 APP_INFO_URL = "https://api.steampowered.com/ICommunityService/GetApps/v1/?appids[0]={appid}"
@@ -67,6 +72,17 @@ _OFFICIAL_FILES = {
     "cover": ("library_600x900_2x.jpg", "library_600x900.jpg", "header.jpg"),
     "banner": ("library_hero.jpg", "header.jpg"),
 }
+
+#: Sidecar key: the SteamGridDB entry a name lookup resolved and the user
+#: chose. Kept across Clear so Fetch restores the same game's art.
+SGDB_KEY = "sgdb"
+
+#: Version of the icon precedence. A numeric AppID's cached icon whose
+#: provider is "sgdb" and lacks this marker came from the old
+#: SteamGridDB-first chain; it is dropped once so the Steam client icon can
+#: replace it. Manual slots and the other kinds are never touched.
+ICON_CHAIN_KEY = "icon_chain"
+ICON_CHAIN = 2
 
 #: An entry within 15% of square counts as square (512x512, but also the
 #: odd 500x500 submission).
@@ -152,12 +168,16 @@ def _mark_cleared(appid: str) -> None:
     The background fetch fills every hole on each window open, so without
     the mark a "Clear" would be undone by the next launch and the button
     would be cosmetic. `fetch_best(force=True)` (the Fetch Artwork button)
-    is the way back.
+    is the way back. A name lookup's SGDB entry survives the Clear, so the
+    next Fetch restores the same game's art.
     """
     path = manifest_path(appid)
+    data = read_manifest(appid)
+    kept = {key: value for key, value in data.items() if key == SGDB_KEY}
+    kept[CLEARED_KEY] = True
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({CLEARED_KEY: True}, indent=2), encoding="utf-8")
+        path.write_text(json.dumps(kept, indent=2), encoding="utf-8")
     except Exception as e:
         log.warning("artwork: could not mark %s cleared: %s", appid, e)
 
@@ -214,6 +234,72 @@ def provider_for(appid: str, kind: str) -> str:
         if value in PROVIDERS:
             return value
     return ""
+
+
+def stored_sgdb_id(appid: str) -> str:
+    """SteamGridDB game id a name lookup resolved for this game ("" one)."""
+    entry = read_manifest(appid).get(SGDB_KEY)
+    if isinstance(entry, dict):
+        return str(entry.get("game_id", "")).strip()
+    return ""
+
+
+def store_sgdb_id(appid: str, game_id: str, name: str) -> None:
+    """Remember the resolved SteamGridDB entry for the next fetch."""
+    data = read_manifest(appid)
+    data[SGDB_KEY] = {"game_id": str(game_id), "name": str(name)}
+    data.pop(CLEARED_KEY, None)
+    path = manifest_path(appid)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    except Exception as e:
+        log.debug("artwork sgdb id write failed: %s", e)
+
+
+def _mark_icon_chain(appid: str) -> None:
+    """Record that this cache's icon came from the current chain."""
+    data = read_manifest(appid)
+    data[ICON_CHAIN_KEY] = ICON_CHAIN
+    path = manifest_path(appid)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    except Exception as e:
+        log.debug("artwork icon chain write failed: %s", e)
+
+
+def _drop_stale_sgdb_icon(appid: str) -> None:
+    """Drop an icon left by the old SteamGridDB-first chain, once.
+
+    A numeric AppID's real icon is Steam's; the marker tells a post-fix
+    download from an old one, and the next fetch replaces it. Manual slots,
+    covers and banners are untouched.
+    """
+    gid = str(appid)
+    if not gid.isdigit():
+        return
+    data = read_manifest(gid)
+    entry = data.get("icon")
+    if not isinstance(entry, dict) or entry.get("provider") != "sgdb":
+        return
+    if data.get(ICON_CHAIN_KEY) == ICON_CHAIN:
+        return
+    path = grid_path(gid, "icon")
+    for suffix in _CACHE_SUFFIXES:
+        try:
+            path.with_suffix(suffix).unlink()
+        except OSError:
+            pass
+    data.pop("icon", None)
+    manifest = manifest_path(gid)
+    try:
+        if data:
+            manifest.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        else:
+            manifest.unlink(missing_ok=True)
+    except Exception as e:
+        log.debug("artwork: stale icon cleanup failed: %s", e)
 
 
 # --------------------------------------------------------------------
@@ -303,43 +389,51 @@ def _steam_art(appid: str, kind: str) -> Path | None:
         return None
 
 
-def resolve(appid: str, kind: str = "icon", donor: str = "") -> tuple[Path | None, str]:
+def resolve(appid: str, kind: str = "icon", source_appid: str = "") -> tuple[Path | None, str]:
     """Where the art for one kind comes from, without touching the network.
 
-    Order: the game's manual slot, its downloaded cache, Steam's own
-    cache, then the same three for `donor` — the Artwork Source AppID a
-    local game borrows art from. Returns `(path, source)`, where source
-    is "manual", "cache", "steam", the `donor-` prefixed versions of
-    those, or "" when nothing answered.
+    Order: the game's own manual slot, then the Artwork Source AppID
+    (manual slot, downloaded cache, Steam's own cache), then the game's
+    downloaded cache and Steam art, with the cover as the icon's last
+    resort. `source_appid` is a Steam AppID typed in the dialog: it wins
+    over the game's own art, which is what the field means. Its sources
+    come back prefixed `appid-`. Returns `(path, source)`, or
+    `(None, "")` when nothing answered.
 
     Downloading is the caller's job (see `fetch_best`): this runs for
     every row on every refresh, so it must stay local and cheap.
     """
     if kind not in ART_KINDS:
         kind = "icon"
-    chain = [(str(appid), "")]
-    donor = str(donor or "").strip()
-    if donor and donor != str(appid):
-        chain.append((donor, "donor-"))
-    for gid, prefix in chain:
-        path, source = _local_art(gid, kind)
+    own_manual = _safe_manual(str(appid), kind)
+    if own_manual is not None:
+        return own_manual, "manual"
+    source_appid = str(source_appid or "").strip()
+    if source_appid and source_appid != str(appid):
+        path, source = _local_art(source_appid, kind)
         if path is not None:
-            return path, prefix + source
-    return None, ""
+            return path, "appid-" + source
+    return _local_art(str(appid), kind)
+
+
+def _safe_manual(gid: str, kind: str) -> Path | None:
+    """A game's manual slot, or None when the cache is unreadable."""
+    try:
+        return manual_path(gid, kind)
+    except Exception:
+        return None
 
 
 def _local_art(gid: str, kind: str) -> tuple[Path | None, str]:
     """(path, "manual"|"cache"|"steam") for one game, no network."""
-    try:
-        manual = manual_path(gid, kind)
-    except Exception:
-        manual = None
+    manual = _safe_manual(gid, kind)
     if manual is not None:
         return manual, "manual"
     # Before the per-kind cache existed, the downloaded cover was what the
-    # list and the cards showed as icon: keep those profiles looking the
-    # same until a square one is fetched.
-    names = ("cover", kind) if kind == "icon" else (kind,)
+    # list and the cards showed as icon. It now only fills the hole when
+    # no square icon was fetched: the icon a fetch just downloaded must
+    # not lose to the cover sitting next to it.
+    names = (kind, "cover") if kind == "icon" else (kind,)
     for name in names:
         cached = cached_path(gid, name)
         if cached is not None:
@@ -502,21 +596,27 @@ def _stored_suffix(url: str, body: bytes) -> str:
 
 
 def _official_candidates(appid: str, kind: str, info: dict | None) -> list[str]:
-    """Official Steam URLs to try for one kind, best first."""
-    urls = [STEAM_CDN.format(appid=appid, name=name) for name in _OFFICIAL_FILES.get(kind, ())]
+    """Official Steam URLs to try for one kind, best first.
+
+    The icon is the client icon: a multi-size .ico (up to 256x256) whose
+    PNG frame is the real one. A few apps only ship the 32x32 jpg, which
+    is still the real icon (Steam itself draws it), so it comes right
+    after the .ico and before any community submission.
+    """
     hash_ = (info or {}).get("icon", "")
-    if kind == "icon" and hash_:
-        # Steam's own client icon: a multi-size .ico (up to 256x256),
-        # with the 32x32 jpg as the fallback some apps ship alone.
-        urls = [
-            COMMUNITY_CDN.format(appid=appid, name=f"{hash_}.ico"),
-            COMMUNITY_CDN.format(appid=appid, name=f"{hash_}.jpg"),
-        ] + urls
-    return urls
+    if kind == "icon":
+        urls = [COMMUNITY_CDN.format(appid=appid, name=f"{hash_}.ico")] if hash_ else []
+        if hash_:
+            urls.append(COMMUNITY_CDN.format(appid=appid, name=f"{hash_}.jpg"))
+        return urls + [STEAM_CDN.format(appid=appid, name=name) for name in _OFFICIAL_FILES["icon"]]
+    return [STEAM_CDN.format(appid=appid, name=name) for name in _OFFICIAL_FILES.get(kind, ())]
 
 
 def fetch_official(
-    appid: str, kinds=ART_KINDS, info: dict | None = None, force: bool = False
+    appid: str,
+    kinds=ART_KINDS,
+    info: dict | None = None,
+    force: bool = False,
 ) -> dict[str, Path]:
     """Download the official Steam art of `appid` (no key needed).
 
@@ -540,20 +640,26 @@ def fetch_official(
             if path is not None:
                 out[kind] = path
                 _write_manifest(gid, kind, "steam", gid)
+                if kind == "icon":
+                    _mark_icon_chain(gid)
                 break
     return out
 
 
-def _sgdb_thumbs(appid: str, kind: str, api_key: str) -> list[dict]:
-    """SteamGridDB entries for one kind, official ones first."""
+def _sgdb_game_id(appid: str, api_key: str) -> str:
+    """SteamGridDB game id of a Steam AppID ("" when the site has none)."""
     game = _get_json(GAME_URL.format(appid=appid), api_key)
     entries = game.get("data", []) if isinstance(game, dict) else []
     if isinstance(entries, dict):
         # /games/steam/{appid} returns a single object, not a list.
         entries = [entries]
     if not entries or not isinstance(entries[0], dict):
-        return []
-    game_id = entries[0].get("id")
+        return ""
+    return str(entries[0].get("id") or "")
+
+
+def _sgdb_thumbs(game_id: str, kind: str, api_key: str) -> list[dict]:
+    """SteamGridDB entries for one kind, official ones first."""
     if kind == "icon":
         data = _get_json(ICONS_URL.format(game_id=game_id), api_key)
     elif kind == "banner":
@@ -595,30 +701,148 @@ def fetch_sgdb(
     gid = _art_key(appid)
     if not (api_key or "").strip() or not gid.isdigit():
         return {}, "no-key"
-    if not force and is_cleared(gid):
-        return {}, ""
-    wanted = [kind for kind in kinds if force or cached_path(gid, kind) is None]
-    if not wanted:
-        return {}, ""
-    if not _sgdb_game_exists(gid, api_key):
+    game_id = _sgdb_game_id(gid, api_key)
+    if not game_id:
         return {}, "not-found"
+    return fetch_sgdb_game(gid, game_id, api_key, kinds, force), ""
+
+
+def fetch_sgdb_game(
+    appid: str,
+    game_id: str,
+    api_key: str,
+    kinds=ART_KINDS,
+    force: bool = False,
+) -> dict[str, Path]:
+    """Download the SteamGridDB art of one game id into a game's cache.
+
+    `appid` only names the cache slot: the game id may come from a Steam
+    AppID lookup or from a name search.
+    """
+    gid = _art_key(appid)
+    if not force and is_cleared(gid):
+        return {}
+    wanted = [kind for kind in kinds if force or cached_path(gid, kind) is None]
     out: dict[str, Path] = {}
     for kind in wanted:
-        for entry in _sgdb_thumbs(gid, kind, api_key):
+        for entry in _sgdb_thumbs(game_id, kind, api_key):
             path = _store(gid, kind, str(entry["thumb"]))
             if path is not None:
                 out[kind] = path
                 _write_manifest(gid, kind, "sgdb", gid)
+                if kind == "icon":
+                    _mark_icon_chain(gid)
                 break
-    return out, ""
+    return out
 
 
-def _sgdb_game_exists(appid: str, api_key: str) -> bool:
-    data = _get_json(GAME_URL.format(appid=appid), api_key)
-    entries = data.get("data", []) if isinstance(data, dict) else []
-    if isinstance(entries, dict):
-        entries = [entries]
-    return bool(entries) and isinstance(entries[0], dict)
+# --------------------------------------------------------------------
+# Name lookup (local games)
+
+
+def normalize_name(text: str) -> str:
+    """Name folded for comparison: case, accents and punctuation ignored."""
+    folded = unicodedata.normalize("NFKD", str(text or ""))
+    folded = "".join(char for char in folded if not unicodedata.combining(char))
+    return " ".join("".join(char if char.isalnum() else " " for char in folded.casefold()).split())
+
+
+def search_sgdb(name: str, api_key: str) -> list[dict]:
+    """SteamGridDB games matching a name: [{"id", "name"}], best first."""
+    term = urllib.parse.quote(str(name or "").strip())
+    if not term or not (api_key or "").strip():
+        return []
+    data = _get_json(SEARCH_URL.format(term=term), api_key)
+    rows = data.get("data", []) if isinstance(data, dict) else []
+    out: list[dict] = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        game_id = row.get("id")
+        label = str(row.get("name") or "").strip()
+        if game_id is None or not label:
+            continue
+        out.append({"id": str(game_id), "name": html.unescape(label)})
+    return out
+
+
+def fetch_by_name(
+    appid: str,
+    names,
+    api_key: str,
+    kinds=ART_KINDS,
+    force: bool = False,
+) -> dict:
+    """Download a local game's art by name, trying each name in order.
+
+    An exact (normalized) name wins automatically. Otherwise the first
+    name's candidates come back in `candidates` so the dialog can ask,
+    and `game_id` stays empty. Returns {"art", "game_id", "name", "error",
+    "candidates"}; error tokens: "no-key", "no-match", "not-found",
+    "no-art".
+    """
+    gid = _art_key(appid)
+    result = {"art": {}, "game_id": "", "name": "", "error": "", "candidates": []}
+    names = [str(name).strip() for name in names if str(name or "").strip()]
+    if not (api_key or "").strip():
+        result["error"] = "no-key"
+        return result
+    if not force and is_cleared(gid):
+        return result
+    wanted = [kind for kind in kinds if force or cached_path(gid, kind) is None]
+    if not wanted:
+        result["game_id"] = stored_sgdb_id(gid)
+        return result
+    game_id = stored_sgdb_id(gid)
+    label = ""
+    if not game_id:
+        if not names:
+            result["error"] = "no-match"
+            return result
+        game_id, label, candidates = _resolve_sgdb_game(api_key, names)
+        if not game_id:
+            result["candidates"] = candidates
+            result["error"] = "no-match" if candidates else "not-found"
+            return result
+    art = fetch_sgdb_game(gid, game_id, api_key, wanted, force)
+    if not art:
+        result["error"] = "no-art"
+        return result
+    result["art"] = art
+    result["game_id"] = game_id
+    result["name"] = label
+    store_sgdb_id(gid, game_id, label)
+    return result
+
+
+def _empty_result() -> dict:
+    """The shape `fetch_best` returns for every game kind."""
+    return {
+        "art": {},
+        "provider": "",
+        "error": "",
+        "name": "",
+        "valid": False,
+        "game_id": "",
+        "candidates": [],
+    }
+
+
+def _resolve_sgdb_game(api_key: str, names) -> tuple[str, str, list[dict]]:
+    """(game_id, name, candidates) for the first exact name match.
+
+    The candidates of the first name that found anything come back when
+    no name matched exactly, so the dialog can ask.
+    """
+    candidates: list[dict] = []
+    for name in names:
+        rows = search_sgdb(name, api_key)
+        exact = [row for row in rows if normalize_name(row["name"]) == normalize_name(name)]
+        if exact:
+            return exact[0]["id"], exact[0]["name"], []
+        if rows and not candidates:
+            candidates = rows[:10]
+    return "", "", candidates
 
 
 def fetch_best(
@@ -627,23 +851,51 @@ def fetch_best(
     api_key: str = "",
     kinds=ART_KINDS,
     force: bool = False,
+    names=(),
 ) -> dict:
     """Download a game's art with the chosen provider first.
 
     Returns {"art": {kind: Path}, "provider": "steam"|"sgdb", "error":
     token, "name": Steam name or "", "valid": whether the AppID is a real
-    Steam app}. The first provider fills what it can; the second one only
-    covers the kinds still missing. Official Steam art never needs a key.
+    Steam app, "game_id": resolved SteamGridDB id, "candidates": name
+    matches when the user has to choose}. The first provider fills what
+    it can; the second one only covers the kinds still missing. Official
+    Steam art never needs a key.
+
+    A game without a Steam AppID is looked up by `names` (SteamGridDB
+    only, one name tried in order); the others are untouched.
     """
     gid = _art_key(appid)
-    result = {"art": {}, "provider": "", "error": "", "name": "", "valid": False}
-    if not gid.isdigit():
-        result["error"] = "no-appid"
-        return result
     if force:
         # Fetch Artwork is explicit: the user wants the art back, so the
         # marker that keeps the background fetch away goes.
         _unmark_cleared(gid)
+    if not gid.isdigit():
+        return _fetch_named(gid, names, api_key, kinds, force)
+    return _fetch_numeric(gid, provider, api_key, kinds, force)
+
+
+def _fetch_named(gid: str, names, api_key: str, kinds, force: bool) -> dict:
+    """`fetch_best` for a game without a Steam AppID."""
+    result = _empty_result()
+    looked = fetch_by_name(gid, names, api_key, kinds, force)
+    result.update(
+        art=looked["art"],
+        game_id=looked["game_id"],
+        name=looked["name"],
+        candidates=looked["candidates"],
+        error=looked["error"],
+    )
+    if looked["art"]:
+        result["provider"] = "sgdb"
+    return result
+
+
+def _fetch_numeric(gid: str, provider: str, api_key: str, kinds, force: bool) -> dict:
+    """`fetch_best` for a real Steam AppID."""
+    result = _empty_result()
+    if "icon" in kinds:
+        _drop_stale_sgdb_icon(gid)
     info = steam_app(gid)
     result["valid"] = info is not None
     result["name"] = (info or {}).get("name", "")
@@ -655,9 +907,8 @@ def fetch_best(
             break
         art, error = _fetch_from(source, gid, missing, info, api_key, force and first)
         first = False
-        for kind, path in art.items():
-            result["art"][kind] = path
-            missing = [item for item in missing if item != kind]
+        result["art"].update(art)
+        missing = [item for item in missing if item not in art]
         if art and not result["provider"]:
             result["provider"] = source
         if error and not result["error"]:
@@ -668,7 +919,12 @@ def fetch_best(
 
 
 def _fetch_from(
-    source: str, gid: str, kinds, info: dict | None, api_key: str, force: bool
+    source: str,
+    gid: str,
+    kinds,
+    info: dict | None,
+    api_key: str,
+    force: bool,
 ) -> tuple[dict[str, Path], str]:
     """One provider pass: (paths, error token)."""
     if source == "steam":

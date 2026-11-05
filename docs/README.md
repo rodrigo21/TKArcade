@@ -50,7 +50,11 @@ What each document is for and where the source of truth lives.
 - `decisions/running-indicator.md` — running records, signal forwarding
   and Terminate.
 - `decisions/artwork-provider.md` — why the artwork provider stays
-  global instead of gaining a per-game override.
+  global instead of gaining a per-game override (reversed 2026-11-05;
+  see `decisions/artwork-sources.md`).
+- `decisions/artwork-sources.md` — per-game artwork provider, the
+  Artwork Source AppID field, local name lookup and the icon fallback
+  chain.
 - `decisions/categories.md` — the persistent category store, the sidebar
   Categories section with icons and counts, the per-category editor, the
   checkable assignment dialog and category normalization.

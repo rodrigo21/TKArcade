@@ -2685,32 +2685,22 @@ def test_select_all_and_empty_click_clears(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_artwork_source_prompt_window(qgui_app, xdg_env, monkeypatch):
-    """Artwork Find… opens its prompt inside the settings window.
+def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
+    """Artwork tab: per-game provider, Fetch, name choices and Clear."""
+    from pathlib import Path
 
-    The prompt is a Kirigami.Dialog (Popup): with no explicit parent in a
-    plain Window it became a stray native window behind the modal
-    settings window, unusable, and its title fell through to the
-    Gamescope Preset branch.
-    """
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
+    from tkarcade import artwork
     from tkarcade import config as C
 
-    for appid, name in (("local-doom", "Doom"), ("local-quake", "Quake")):
-        cfg = C.GameConfig()
-        cfg.general.appid = appid
-        cfg.general.name = name
-        cfg.general.custom_executable = "/bin/true"
-        C.save(cfg)
-    # One installed Steam game, so the candidates mix both sources.
-    steamapps = xdg_env["home"] / ".local/share/Steam/steamapps"
-    steamapps.mkdir(parents=True)
-    (steamapps / "appmanifest_480.acf").write_text(
-        '"AppState"\n{\n\t"appid"\t\t"480"\n\t"name"\t\t"Spacewar"\n}\n',
-        encoding="utf-8",
-    )
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
@@ -2718,66 +2708,46 @@ def test_artwork_source_prompt_window(qgui_app, xdg_env, monkeypatch):
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
     qgui_app.processEvents()
 
-    _click(swin, "artSourceFind")
-    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
-    assert prompt.isVisible() is True
-    assert "Gamescope" not in prompt.title()
-    # The prompt is its own modal window on the settings one: it follows
-    # the settings window and stays clickable above the modal owner.
-    assert prompt.transientParent().objectName() == "gameSettings"
-    combo = prompt.findChild(QQuickItem, "settingsChoiceBox")
+    combo = swin.findChild(QQuickItem, "artProvider")
+    assert combo is not None
     assert combo.property("count") == 3, combo.property("count")
-    # A ComboBox needs a text role: bare {text, data} objects render as
-    # blank rows, which is what "the list was empty" looked like.
-    assert combo.property("currentText") == "Doom [local-doom]", combo.property("currentText")
-
-    # The typed AppID narrows the list instead of being ignored.
-    from PySide6.QtCore import QMetaObject
-
-    QMetaObject.invokeMethod(prompt, "close")
+    assert combo.property("currentIndex") == 0, combo.property("currentIndex")
+    # The first entry names the global preference it falls back to.
+    assert "(Steam)" in combo.property("currentText"), combo.property("currentText")
+    combo.setProperty("currentIndex", 2)
+    # A typed Artwork Source AppID is the fetch target.
+    swin.findChild(QQuickItem, "artSource").setProperty("text", "480")
     qgui_app.processEvents()
-    swin.findChild(QQuickItem, "artSource").setProperty("text", "space")
-    _click(swin, "artSourceFind")
-    assert combo.property("count") == 1, combo.property("count")
-    assert combo.property("currentText") == "Spacewar [480]", combo.property("currentText")
 
-    _click(prompt, "dialogOk")
-    picked = swin.findChild(QQuickItem, "artSource").property("text")
-    assert picked == "480", picked
-
-    # Fetch Artwork uses the typed AppID without a SteamGridDB key (the
-    # official Steam art needs none) and reports the outcome in the status
-    # row. The download itself is stubbed: the test stays offline.
-    from pathlib import Path
-
-    from PySide6.QtTest import QTest
-
-    from tkarcade import artwork
-
+    status = swin.findChild(QQuickItem, "artStatus")
+    assert status is not None
     fetched = []
 
-    def fake_best(appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False):
-        fetched.append((appid, provider, force))
+    def fake_best(
+        appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False, names=()
+    ):
+        fetched.append((appid, provider, force, tuple(names)))
         return {
-            "art": {"icon": Path("/tmp/x.png")},
-            "provider": "steam",
+            "art": {"cover": Path("/tmp/c.png")},
+            "provider": provider,
             "error": "",
-            "name": "Spacewar",
-            "valid": True,
+            "name": "",
+            "valid": False,
+            "game_id": "7",
+            "candidates": [],
         }
 
     monkeypatch.setattr(artwork, "fetch_best", fake_best)
-    status = swin.findChild(QQuickItem, "artStatus")
-    assert status is not None
     _click(swin, "artFetch")
     for _ in range(40):
         if "Downloaded" in status.property("text"):
             break
         qgui_app.processEvents()
         QTest.qWait(50)
-    assert fetched == [("480", "steam", True)], fetched
+    # The combo draft applies before Save, and the typed AppID is the target.
+    assert fetched == [("480", "sgdb", True, ())], fetched
     assert "Artwork Downloaded" in status.property("text"), status.property("text")
-    assert "Official Steam Artwork" in status.property("text"), status.property("text")
+    assert "SteamGridDB Artwork" in status.property("text"), status.property("text")
 
     # Every button in the section shares one width, so the fields and the
     # buttons line up in columns instead of each button hugging its text.
@@ -2786,28 +2756,40 @@ def test_artwork_source_prompt_window(qgui_app, xdg_env, monkeypatch):
         "artIconPick",
         "artIconClear",
         "artCoverPick",
-        "artSourceFind",
-        "artClear",
+        "artCoverClear",
+        "artBannerPick",
+        "artBannerClear",
         "artFetch",
+        "artClear",
     ):
         item = swin.findChild(QQuickItem, name)
         assert item is not None, name
         widths[name] = round(item.property("width"))
     assert len(set(widths.values())) == 1, widths
-    # The field column is the same width on the three-button rows and on
-    # the source row (which only has Find… plus a spacer).
+    # The field column is the same width on the pick/clear rows and on the
+    # AppID and provider rows (which only have a field plus two spacers).
     fields = [
         round(swin.findChild(QQuickItem, name).property("width"))
-        for name in ("artIcon", "artCover", "artBanner", "artSource")
+        for name in ("artIcon", "artCover", "artBanner", "artSource", "artProvider")
     ]
     assert len(set(fields)) == 1, fields
 
-    # Clear… asks first: it removes the source AppID's shared cache.
+    # Several name matches: the list asks, and the pick goes to the model.
+    model = engine.rootContext().contextProperty("gameModel")
+    picked = []
+    model.fetchArtworkGame = lambda appid, gid: picked.append((appid, gid)) or ""
+    model.artworkChoices.emit("local-doom", [{"id": "7", "name": "Doom"}])
+    qgui_app.processEvents()
+    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
+    assert prompt.isVisible() is True
+    box = prompt.findChild(QQuickItem, "settingsChoiceBox")
+    assert box.property("count") == 1, box.property("count")
+    _click(prompt, "dialogOk")
+    assert picked == [("local-doom", "7")], picked
+
+    # Clear… asks first; with a typed AppID it removes that AppID's cache.
     cleared = []
-    proxy_model = engine.rootContext().contextProperty("gameModel")
-    proxy_model.clearFetchedArtwork = lambda appid, source: (
-        cleared.append((appid, source)) or "done"
-    )
+    model.clearFetchedArtwork = lambda appid, source: cleared.append((appid, source)) or "done"
     _click(swin, "artClear")
     confirm = _confirm_window(qgui_app)
     _click(confirm, "confirmOk")
@@ -7128,6 +7110,7 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "artSource").setProperty("text", "480")
+    swin.findChild(QQuickItem, "artProvider").setProperty("currentIndex", 2)
     dlg.save()
     qgui_app.processEvents()
     back = C.load("local-doom")
@@ -7136,6 +7119,7 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     assert back.general.launch_cwd == "/tmp"
     assert back.mangohud.fps_limit == 60
     assert back.runtime.prefix == "/tmp/pfx"
+    assert back.artwork.provider == "sgdb"
     assert back.artwork.artwork_appid == "480"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []

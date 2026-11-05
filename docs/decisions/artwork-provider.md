@@ -1,10 +1,15 @@
 # Artwork provider stays global
 
-Status: rejected (2026-10-30). Decision record for the proposed per-game
-artwork provider override.
+Status: rejected (2026-10-30); reversed (2026-11-05). Decision record for
+the proposed per-game artwork provider override.
 
 Landing record: describes the state when it landed; current behaviour
 lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
+
+Reversed (2026-11-05): the maintainer asked for a per-game provider
+choice, so `[artwork] provider` now overrides the global preference. The
+manual `[artwork] artwork_appid` field stays: it names any Steam AppID
+whose art the game uses. See `docs/decisions/artwork-sources.md`.
 
 ## Problem
 

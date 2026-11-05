@@ -2610,8 +2610,8 @@ def test_refresh_emits_running_changed(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
 
 
-def test_row_icon_uses_the_artwork_source_appid(qgui_app, xdg_env):
-    """A local game's row icon is the source AppID's downloaded art."""
+def test_row_icon_uses_the_cached_artwork(qgui_app, xdg_env):
+    """A local game's row icon is its own cached icon."""
     from tkarcade import artwork
 
     local = C.GameConfig()
@@ -2619,26 +2619,49 @@ def test_row_icon_uses_the_artwork_source_appid(qgui_app, xdg_env):
     local.general.name = "Doom"
     local.general.custom_executable = "/bin/true"
     local.runtime.type = "native"
-    local.artwork.artwork_appid = "480"
     C.save(local)
-    donor_icon = artwork.grid_path("480", "icon")
-    donor_icon.parent.mkdir(parents=True, exist_ok=True)
-    donor_icon.write_bytes(b"I")
+    icon = artwork.grid_path("local-doom", "icon")
+    cover = artwork.grid_path("local-doom", "cover")
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    icon.write_bytes(b"I")
+    cover.write_bytes(b"C")
     model = _model(qgui_app)
     row = next(
         i
         for i in range(model.rowCount())
         if model.data(model.index(i, 0), model.IdRole) == "local-doom"
     )
-    assert model.data(model.index(row, 0), model.IconRole) == str(donor_icon)
-    assert model.effectiveArtwork("local-doom", "icon") == str(donor_icon)
-    # cover is not covered by the source: the status says so
-    assert model.artworkStatus("local-doom") == "donor"
+    assert model.data(model.index(row, 0), model.IconRole) == str(icon)
+    assert model.effectiveArtwork("local-doom", "icon") == str(icon)
+    assert model.artworkStatus("local-doom") == "partial"
     assert model.artworkStatus("local-missing") == "none"
 
 
-def test_row_cover_uses_the_artwork_source_appid(qgui_app, xdg_env):
-    """A local game's card cover is the source AppID's portrait art."""
+def test_row_cover_uses_the_cached_artwork(qgui_app, xdg_env):
+    """A local game's card cover is its own portrait art."""
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    cover = artwork.grid_path("local-doom", "cover")
+    cover.parent.mkdir(parents=True, exist_ok=True)
+    cover.write_bytes(b"C")
+    model = _model(qgui_app)
+    row = next(
+        i
+        for i in range(model.rowCount())
+        if model.data(model.index(i, 0), model.IdRole) == "local-doom"
+    )
+    assert model.data(model.index(row, 0), model.CoverRole) == str(cover)
+    assert model.rowData(row)["gameCover"] == str(cover)
+
+
+def test_row_icon_uses_the_artwork_source_appid(qgui_app, xdg_env):
+    """An Artwork Source AppID wins over the game's own cached art."""
     from tkarcade import artwork
 
     local = C.GameConfig()
@@ -2648,33 +2671,64 @@ def test_row_cover_uses_the_artwork_source_appid(qgui_app, xdg_env):
     local.runtime.type = "native"
     local.artwork.artwork_appid = "480"
     C.save(local)
-    donor_cover = artwork.grid_path("480", "cover")
-    donor_cover.parent.mkdir(parents=True, exist_ok=True)
-    donor_cover.write_bytes(b"C")
+    own = artwork.grid_path("local-doom", "icon")
+    own.parent.mkdir(parents=True, exist_ok=True)
+    own.write_bytes(b"OWN")
+    shared = artwork.grid_path("480", "icon")
+    shared.write_bytes(b"SHARED")
     model = _model(qgui_app)
     row = next(
         i
         for i in range(model.rowCount())
         if model.data(model.index(i, 0), model.IdRole) == "local-doom"
     )
-    assert model.data(model.index(row, 0), model.CoverRole) == str(donor_cover)
-    assert model.rowData(row)["gameCover"] == str(donor_cover)
+    assert model.data(model.index(row, 0), model.IconRole) == str(shared)
+    assert model.effectiveArtwork("local-doom", "icon") == str(shared)
+    assert model.effectiveArtwork("local-doom", "icon", "480") == str(shared)
 
 
-def test_fetch_artwork_needs_a_source_appid_not_a_key(qgui_app, xdg_env, monkeypatch):
-    """Official Steam art needs no key: only the source AppID is required."""
+def test_row_cover_uses_the_artwork_source_appid(qgui_app, xdg_env):
+    """The Artwork Source AppID's portrait art is the card cover."""
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    local.artwork.artwork_appid = "480"
+    C.save(local)
+    shared = artwork.grid_path("480", "cover")
+    shared.parent.mkdir(parents=True, exist_ok=True)
+    shared.write_bytes(b"C")
+    model = _model(qgui_app)
+    row = next(
+        i
+        for i in range(model.rowCount())
+        if model.data(model.index(i, 0), model.IdRole) == "local-doom"
+    )
+    assert model.data(model.index(row, 0), model.CoverRole) == str(shared)
+    assert model.rowData(row)["gameCover"] == str(shared)
+
+
+def test_fetch_artwork_uses_the_typed_source_appid(qgui_app, xdg_env, monkeypatch):
+    """A typed Artwork Source AppID is the fetch target, even before Save."""
     from tkarcade import artwork
 
     calls = []
 
-    def fake_best(appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False):
-        calls.append((appid, provider, api_key, force))
+    def fake_best(
+        appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False, names=()
+    ):
+        calls.append((appid, provider, force, tuple(names)))
         return {
-            "art": {"icon": __import__("pathlib").Path("/tmp/x.png")},
+            "art": {"cover": __import__("pathlib").Path("/tmp/x.png")},
             "provider": "steam",
             "error": "",
-            "name": "Spacewar",
+            "name": "",
             "valid": True,
+            "game_id": "",
+            "candidates": [],
         }
 
     monkeypatch.setattr(artwork, "fetch_best", fake_best)
@@ -2684,28 +2738,147 @@ def test_fetch_artwork_needs_a_source_appid_not_a_key(qgui_app, xdg_env, monkeyp
     local.general.custom_executable = "/bin/true"
     C.save(local)
     model = _model(qgui_app)
-    assert model.fetchArtwork("") == "no-game"
-    assert model.fetchArtwork("local-quake") == "no-appid"
-    local.artwork.artwork_appid = "480"
-    C.save(local)
-    # A Steam AppID is enough with no key at all: the thread starts.
     started = []
     model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
-    assert model.fetchArtwork("local-quake") == ""
+    # The draft value wins over the saved config, like the old field did.
+    assert model.fetchArtwork("local-quake", "", "480") == ""
     for _ in range(50):
         if started:
             break
         qgui_app.processEvents()
         time.sleep(0.05)
     assert started == ["ok"], started
-    # Forced, so a provider change in Preferences takes effect, and the
-    # official provider is tried with no key at all.
-    assert calls == [("480", "steam", "", True)]
-    assert model.artworkSourceName("local-quake") == "Spacewar"
+    assert calls == [("480", "steam", True, ())], calls
+    # A non-numeric value is reported, not sent to the name search.
+    assert model.fetchArtwork("local-quake", "", "not-a-number") == "no-appid"
 
 
-def test_clear_fetched_artwork_uses_the_source_appid(qgui_app, xdg_env):
-    """Clear removes the source AppID's cache, even before Save."""
+def test_fetch_artwork_uses_the_game_name_and_its_provider(qgui_app, xdg_env, monkeypatch):
+    """A local game fetches by name, with its own provider override."""
+    from tkarcade import artwork
+
+    calls = []
+
+    def fake_best(
+        appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False, names=()
+    ):
+        calls.append((appid, provider, api_key, force, tuple(names)))
+        return {
+            "art": {"cover": __import__("pathlib").Path("/tmp/x.png")},
+            "provider": "sgdb",
+            "error": "",
+            "name": "",
+            "valid": False,
+            "game_id": "7",
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    local = C.GameConfig()
+    local.general.appid = "local-quake"
+    local.general.name = "Quake [v1.0]"
+    local.general.custom_executable = "/bin/true"
+    local.artwork.provider = "sgdb"
+    C.save(local)
+    model = _model(qgui_app)
+    assert model.fetchArtwork("") == "no-game"
+    started = []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append((gid, status, prov)))
+    assert model.fetchArtwork("local-quake") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert started == [("local-quake", "ok", "sgdb")], started
+    # Forced (Fetch Artwork), and the name drops the version first.
+    assert calls == [("local-quake", "sgdb", "", True, ("Quake", "Quake [v1.0]"))]
+    # Without a name there is nothing to look up.
+    local.general.name = ""
+    C.save(local)
+    assert model.fetchArtwork("local-quake") == "no-appid"
+
+
+def test_fetch_artwork_reports_name_choices(qgui_app, xdg_env, monkeypatch):
+    """Several SteamGridDB entries: the dialog gets the list to ask."""
+    from tkarcade import artwork
+
+    def fake_best(
+        appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False, names=()
+    ):
+        return {
+            "art": {},
+            "provider": "",
+            "error": "no-match",
+            "name": "",
+            "valid": False,
+            "game_id": "",
+            "candidates": [{"id": "5", "name": "Doom 3"}],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    model = _model(qgui_app)
+    seen = []
+    model.artworkChoices.connect(lambda gid, rows: seen.append((gid, rows)))
+    model.fetchArtwork("local-doom")
+    for _ in range(50):
+        if seen:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert seen and seen[0][0] == "local-doom"
+    assert seen[0][1][0]["name"] == "Doom 3"
+
+
+def test_fetch_artwork_game_downloads_the_chosen_id(qgui_app, xdg_env, monkeypatch):
+    """Picking a SteamGridDB entry downloads it and remembers the id."""
+    from pathlib import Path
+
+    from tkarcade import artwork
+
+    calls = []
+    monkeypatch.setattr(
+        artwork,
+        "fetch_sgdb_game",
+        lambda appid, game_id, key, **kw: (
+            calls.append((appid, game_id, key)) or {"cover": Path("/tmp/c.png")}
+        ),
+    )
+    monkeypatch.setattr(
+        artwork,
+        "store_sgdb_id",
+        lambda appid, game_id, name="": calls.append(("id", appid, game_id)),
+    )
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    prefs = C.load_preferences()
+    prefs.sgdb_api_key = "KEY"
+    C.save_preferences(prefs)
+    model = _model(qgui_app)
+    started = []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    assert model.fetchArtworkGame("", "7") == "no-game"
+    assert model.fetchArtworkGame("local-doom", "7") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert started == ["ok"], started
+    assert calls[0] == ("local-doom", "7", "KEY")
+    assert calls[1] == ("id", "local-doom", "7")
+
+
+def test_clear_fetched_artwork_uses_the_game_id(qgui_app, xdg_env):
+    """Clear works on a local game: the cache sits under its own id."""
     from tkarcade import artwork
 
     local = C.GameConfig()
@@ -2713,18 +2886,34 @@ def test_clear_fetched_artwork_uses_the_source_appid(qgui_app, xdg_env):
     local.general.name = "Doom"
     local.general.custom_executable = "/bin/true"
     C.save(local)
-    model = _model(qgui_app)
-    assert model.clearFetchedArtwork("") == "no-game"
-    assert model.clearFetchedArtwork("local-doom") == "no-appid"
-    cover = artwork.grid_path("480", "cover")
+    cover = artwork.grid_path("local-doom", "cover")
     cover.parent.mkdir(parents=True, exist_ok=True)
     cover.write_bytes(b"P")
-    # The draft value wins over the saved config, like Fetch Artwork.
+    model = _model(qgui_app)
+    assert model.clearFetchedArtwork("") == "no-game"
+    assert model.clearFetchedArtwork("local-doom") == "done"
+    assert artwork.cached_path("local-doom", "cover") is None
+    assert artwork.is_cleared("local-doom") is True
+    assert model.artworkStatus("local-doom") == "cleared"
+
+
+def test_clear_fetched_artwork_uses_the_source_appid(qgui_app, xdg_env):
+    """Clear targets the typed AppID, whose cache other games may share."""
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    shared = artwork.grid_path("480", "cover")
+    shared.parent.mkdir(parents=True, exist_ok=True)
+    shared.write_bytes(b"P")
+    model = _model(qgui_app)
+    # The draft AppID wins over the saved (empty) config.
     assert model.clearFetchedArtwork("local-doom", "480") == "done"
     assert artwork.cached_path("480", "cover") is None
     assert artwork.is_cleared("480") is True
-    # The mark reaches the status row instead of looking like art that
-    # simply never arrived.
     assert model.artworkStatus("local-doom", "480") == "cleared"
 
 

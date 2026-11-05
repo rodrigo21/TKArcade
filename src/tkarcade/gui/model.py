@@ -357,9 +357,6 @@ class GameListModel(QAbstractTableModel):
         # Global log signature at the last refresh, so the poll notices a
         # session line written after the game (and its post-hook) ends.
         self._log_sig: tuple[int, int] | None = None
-        # Steam display names learned by an explicit artwork fetch, so the
-        # status row can name the Artwork Source AppID without a lookup.
-        self._art_names: dict[str, str] = {}
         # Runtime archive downloads/extraction (one of each at a time).
         self._archive_lock = threading.Lock()
         self._archive_work_lock = threading.Lock()
@@ -711,25 +708,36 @@ class GameListModel(QAbstractTableModel):
         )
 
     @staticmethod
-    def _row_cover(appid: str, gcfg) -> Path | None:
-        """Card cover: the Artwork Source AppID's portrait art when set."""
-        donor = ""
-        if gcfg is not None:
-            donor = gcfg.artwork.artwork_appid.strip()
+    def _art_source(appid: str, draft: str = "") -> str:
+        """Artwork Source AppID: the dialog draft when given, else the config."""
+        value = str(draft or "").strip()
+        if value:
+            return value
         try:
-            return artmod.resolve(appid, "cover", donor)[0]
+            return cfgmod.load(str(appid)).artwork.artwork_appid.strip()
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _row_cover(appid: str, gcfg) -> Path | None:
+        """Card cover: the Artwork Source AppID's art first, then the game's."""
+        source = ""
+        if gcfg is not None:
+            source = gcfg.artwork.artwork_appid.strip()
+        try:
+            return artmod.resolve(appid, "cover", source)[0]
         except Exception as e:
             log.warning("artwork resolve(%s, cover) failed: %s", appid, e)
             return None
 
     @staticmethod
     def _row_icon(appid: str, gcfg) -> Path | None:
-        """Row icon: the Artwork Source AppID's art when configured."""
-        donor = ""
+        """Row icon: the Artwork Source AppID's art first, then the game's."""
+        source = ""
         if gcfg is not None:
-            donor = gcfg.artwork.artwork_appid.strip()
+            source = gcfg.artwork.artwork_appid.strip()
         try:
-            return artmod.resolve(appid, "icon", donor)[0]
+            return artmod.resolve(appid, "icon", source)[0]
         except Exception as e:
             log.warning("artwork resolve(%s) failed: %s", appid, e)
             return None
@@ -901,6 +909,7 @@ class GameListModel(QAbstractTableModel):
             "art_cover": cfg.artwork.cover,
             "art_banner": cfg.artwork.banner,
             "art_source": cfg.artwork.artwork_appid,
+            "art_provider": cfg.artwork.provider,
             "notes": cfg.notes.text,
             "profiles": profiles,
             "is_steam": bool(steammod.is_steam_id(appid)),
@@ -1182,6 +1191,7 @@ class GameListModel(QAbstractTableModel):
         cfg.artwork.cover = str(data.get("art_cover", "")).strip()
         cfg.artwork.banner = str(data.get("art_banner", "")).strip()
         cfg.artwork.artwork_appid = str(data.get("art_source", "")).strip()
+        cfg.artwork.provider = cfgmod.normalize_artwork_provider(data.get("art_provider", ""))
         cfg.notes.text = str(data.get("notes", ""))
         env_vars = {}
         for row in data.get("env_vars", []) or []:
@@ -1337,21 +1347,6 @@ class GameListModel(QAbstractTableModel):
                 return ""
             path = artmod.resolve(appid, "banner", self._art_source(appid))[0]
             return str(path) if path else ""
-        except Exception:
-            return ""
-
-    @staticmethod
-    def _art_source(appid: str, draft: str = "") -> str:
-        """Artwork Source AppID: the dialog draft when given, else the config.
-
-        The field is editable before Save, so reading only the config made
-        "Fetch Artwork" refuse an AppID the user had just typed.
-        """
-        value = str(draft or "").strip()
-        if value:
-            return value
-        try:
-            return cfgmod.load(appid).artwork.artwork_appid.strip()
         except Exception:
             return ""
 
@@ -1593,20 +1588,6 @@ class GameListModel(QAbstractTableModel):
         artmod.clear_manual(appid, kind)
         self.refresh()
         return True
-
-    @Slot(str, result=list)
-    def donorCandidates(self, query: str) -> list:
-        """[[appid, name]] games matching a donor search, by name."""
-        q = str(query or "").strip().lower()
-        try:
-            # `artwork_appid` is a plain numeric Steam donor, never a game ID.
-            names = {steammod.steam_appid(a) or a: n for a, n in steammod.list_games()}
-            names.update(steammod.local_names())
-            rows = [[a, n] for a, n in names.items() if not q or q in n.lower() or q in a]
-        except Exception as e:
-            log.warning("donorCandidates(%r) failed: %s", query, e)
-            return []
-        return sorted(rows, key=lambda r: r[1].lower())[:50]
 
     @Slot(result=list)
     def wineTools(self) -> list:
@@ -1957,9 +1938,8 @@ class GameListModel(QAbstractTableModel):
     def effectiveArtwork(self, appid: str, kind: str, source: str = "") -> str:
         """Path the views actually use for one kind ('' when none).
 
-        Follows `artwork.resolve`: manual slot, cache, Steam, then the
-        Artwork Source AppID. Used to fill the read-only rows, so a typed
-        source AppID stops looking like "nothing happened".
+        Follows `artwork.resolve`: the game's manual slot, the Artwork
+        Source AppID (draft or saved), then the game's cache and Steam.
         """
         try:
             path, _source = artmod.resolve(appid, kind, self._art_source(appid, source))
@@ -1969,15 +1949,12 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, str, result=str)
     def artworkProvider(self, appid: str, source: str = "") -> str:
-        """Provider of the cached art: "steam", "sgdb" or "".
+        """Provider of the downloaded art: "steam", "sgdb" or "".
 
-        Read from the cache sidecar, preferring the game's own art and
-        falling back to the Artwork Source AppID's.
+        Read from the cache sidecar, preferring the Artwork Source AppID.
         """
-        donor = self._art_source(appid, source)
-        chain = [str(appid)]
-        if donor and donor != str(appid):
-            chain.append(donor)
+        source_appid = self._art_source(appid, source)
+        chain = [source_appid, str(appid)] if source_appid else [str(appid)]
         for gid in chain:
             for kind in ("cover", "icon", "banner"):
                 value = artmod.provider_for(gid, kind)
@@ -1986,56 +1963,62 @@ class GameListModel(QAbstractTableModel):
         return ""
 
     @Slot(str, str, result=str)
-    def artworkSourceName(self, appid: str, source: str = "") -> str:
-        """Steam name of the Artwork Source AppID ('' unless fetched)."""
-        donor = self._art_source(appid, source)
-        return self._art_names.get(donor or steammod.steam_appid(str(appid)) or str(appid), "")
-
-    @Slot(str, str, result=str)
     def artworkStatus(self, appid: str, source: str = "") -> str:
         """Where a game's three images come from: a token for the dialog.
 
-        "own" (all from the game), "donor" (all from the Artwork Source
-        AppID), "mixed" (both), "partial" (some missing), "none", or
-        "cleared" (the source AppID's downloaded art was removed on
-        purpose and the mark still stands).
+        "own" (all three present), "partial" (some missing), "none", or
+        "cleared" (the downloaded art was removed on purpose).
         """
-        donor = self._art_source(appid, source)
-        if artmod.is_cleared(donor or str(appid)):
+        source_appid = self._art_source(appid, source)
+        if artmod.is_cleared(source_appid or str(appid)):
             return "cleared"
-        own = borrowed = missing = 0
+        own = missing = 0
         for kind in artmod.ART_KINDS:
             try:
-                path, source = artmod.resolve(appid, kind, donor)
+                path = artmod.resolve(appid, kind, source_appid)[0]
             except Exception:
-                path, source = None, ""
+                path = None
             if path is None:
                 missing += 1
-            elif source.startswith("donor-"):
-                borrowed += 1
             else:
                 own += 1
-        if own and borrowed:
-            return "mixed"
-        if borrowed:
-            return "donor"
         if own and not missing:
             return "own"
         return "partial" if own else "none"
 
+    @staticmethod
+    def _game_provider(appid: str, default: str) -> str:
+        """Provider this game fetches with: its own key, else the global."""
+        try:
+            value = cfgmod.load(str(appid)).artwork.provider
+        except Exception:
+            value = ""
+        return value or default
+
+    @staticmethod
+    def _name_queries(appid: str) -> list[str]:
+        """Names to try on SteamGridDB for a game without a Steam AppID."""
+        try:
+            name = str(cfgmod.load(str(appid)).general.name or "").strip()
+        except Exception:
+            return []
+        if not name:
+            return []
+        short = cfgmod.split_name_version(name)[0].strip()
+        return [short, name] if short and short != name else [name]
+
     @Slot(str, str, result=str)
     def clearFetchedArtwork(self, appid: str, source: str = "") -> str:
-        """Delete the downloaded art of this game's source AppID.
+        """Delete the downloaded art this game points at ("no-game" if empty).
 
-        Returns "no-game", "no-appid" (nothing to clear: a local game
-        without a source AppID) or "done". The AppID is the one in the
-        field, saved or not, like Fetch Artwork.
+        With an Artwork Source AppID the cache belongs to that AppID, so
+        every game pointing there loses it; the confirmation says so.
         """
         if not appid:
             return "no-game"
-        target = self._art_source(appid, source) or steammod.steam_appid(appid)
-        if not str(target).isdigit():
-            return "no-appid"
+        target = self._art_source(appid, source)
+        if not target.isdigit():
+            target = steammod.steam_appid(str(appid)) or str(appid)
         try:
             artmod.clear_fetched(target)
         except Exception as e:
@@ -2044,39 +2027,97 @@ class GameListModel(QAbstractTableModel):
         self.refresh()
         return "done"
 
-    @Slot(str, str, result=str)
-    def fetchArtwork(self, appid: str, source: str = "") -> str:
-        """Re-download this game's art with the preferred provider. '' = ok.
+    def _art_target(self, appid: str, source: str = "") -> tuple[str, tuple]:
+        """(fetch target, name queries) for a game, or ("", ()) when none.
 
-        Returns "no-game" or "no-appid" otherwise. Explicit, so it forces
-        a refresh of the three kinds — that is what makes a provider
-        change in Preferences take effect. The outcome arrives as
-        `artworkFetched(appid, status)`; the dialog stays responsive.
+        The typed Artwork Source AppID wins; otherwise a Steam game uses
+        its own AppID and a local game its name. A typed value that is
+        not numeric is a user error, not a name to search.
+        """
+        source_appid = self._art_source(appid, source)
+        if source_appid and not source_appid.isdigit():
+            return "", ()
+        target = source_appid or steammod.steam_appid(str(appid)) or str(appid)
+        names = () if target.isdigit() else tuple(self._name_queries(appid))
+        if not target.isdigit() and not names:
+            return "", ()
+        return target, names
+
+    @Slot(str, str, str, result=str)
+    def fetchArtwork(self, appid: str, provider: str = "", source: str = "") -> str:
+        """Re-download this game's art with the chosen provider. '' = ok.
+
+        Target: the Artwork Source AppID typed in the dialog, then the
+        game's own Steam AppID, then the SteamGridDB name lookup for a
+        local game. `provider` is the dialog draft, so a just-changed
+        combo applies before Save; empty falls back to the game's key and
+        then to the global preference. Explicit, so it forces a refresh
+        of the three kinds. The outcome arrives as `artworkFetched(appid,
+        status, provider)` and, when the name matched several entries,
+        `artworkChoices(appid, rows)`; the dialog stays responsive.
         """
         if not appid:
             return "no-game"
         try:
             prefs = cfgmod.load_preferences()
             api_key = prefs.sgdb_api_key.strip()
-            provider = prefs.artwork_source
+            default = prefs.artwork_source
         except Exception:
-            api_key, provider = "", "steam"
-        donor = self._art_source(appid, source)
-        target = donor if donor.isdigit() else steammod.steam_appid(str(appid))
-        if not target.isdigit():
+            api_key, default = "", "steam"
+        provider = provider if provider in ("steam", "sgdb") else ""
+        provider = provider or self._game_provider(appid, default)
+        target, names = self._art_target(appid, source)
+        if not target:
             return "no-appid"
 
         def worker() -> None:
-            status, source = "network", ""
+            status, provider_used, choices = "network", "", []
             try:
-                result = artmod.fetch_best(target, provider, api_key, force=True)
+                result = artmod.fetch_best(target, provider, api_key, force=True, names=names)
                 status = "ok" if result["art"] else (result["error"] or "no-art")
-                source = result["provider"]
-                if result["name"]:
-                    self._art_names[target] = result["name"]
+                provider_used = result["provider"]
+                choices = result.get("candidates") or []
             except Exception as e:  # pragma: no cover - defensive
                 log.warning("fetchArtwork(%s) failed: %s", appid, e)
-            self.artworkFetched.emit(appid, status, source)
+            if choices:
+                try:
+                    self.artworkChoices.emit(appid, choices)
+                except Exception:
+                    pass
+            self.artworkFetched.emit(appid, status, provider_used)
+            try:
+                self.backgroundDone.emit()
+            except Exception:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+        return ""
+
+    @Slot(str, str, result=str)
+    def fetchArtworkGame(self, appid: str, game_id: str) -> str:
+        """Download the SteamGridDB entry the user picked from the list."""
+        if not appid or not str(game_id).strip():
+            return "no-game"
+        try:
+            api_key = cfgmod.load_preferences().sgdb_api_key.strip()
+        except Exception:
+            api_key = ""
+        if not api_key:
+            return "no-key"
+        target = steammod.steam_appid(str(appid)) or str(appid)
+
+        def worker() -> None:
+            status = "network"
+            try:
+                art = artmod.fetch_sgdb_game(target, str(game_id).strip(), api_key, force=True)
+                if art:
+                    artmod.store_sgdb_id(target, str(game_id).strip(), "")
+                    status = "ok"
+                else:
+                    status = "no-art"
+            except Exception as e:  # pragma: no cover - defensive
+                log.warning("fetchArtworkGame(%s) failed: %s", appid, e)
+            self.artworkFetched.emit(appid, status, "sgdb")
             try:
                 self.backgroundDone.emit()
             except Exception:
@@ -3622,9 +3663,12 @@ class GameListModel(QAbstractTableModel):
 
     backgroundDone = Signal()
     #: (appid, status, provider) after Fetch Artwork: status is "ok",
-    #: "not-a-steam-app", "not-found", "blocked", "network" or "no-art";
-    #: provider is "steam", "sgdb" or "".
+    #: "choose" (name matched several SteamGridDB entries), "no-key",
+    #: "no-match", "not-a-steam-app", "not-found", "blocked", "network" or
+    #: "no-art"; provider is "steam", "sgdb" or "".
     artworkFetched = Signal(str, str, str)
+    #: (appid, [[game_id, name], ...]) when a name lookup needs a choice.
+    artworkChoices = Signal(str, "QVariantList")
 
     @Slot()
     def fetchMissing(self) -> None:
@@ -3641,18 +3685,23 @@ class GameListModel(QAbstractTableModel):
         try:
             prefs = cfgmod.load_preferences()
             api_key = prefs.sgdb_api_key.strip()
-            provider = prefs.artwork_source
+            default = prefs.artwork_source
         except Exception:
-            api_key, provider = "", "steam"
+            api_key, default = "", "steam"
         for appid in cfgmod.list_appids():
-            donor = self._art_source(str(appid))
-            if steammod.is_steam_id(str(appid)):
+            provider = self._game_provider(str(appid), default)
+            source = self._art_source(str(appid))
+            if source.isdigit():
+                # The Artwork Source AppID is a plain Steam appid, never a
+                # configured one: download it on its own.
+                self._fetch_steam_art(source, api_key, provider)
+            elif steammod.is_steam_id(str(appid)):
                 self._fetch_one(appid, api_key, provider, steammod.steam_appid(str(appid)))
-            elif donor.isdigit():
-                # A local game borrowing a Steam AppID's art: the source is
-                # downloaded on its own (a plain Steam appid, never a
-                # configured one), so no row has to exist for it.
-                self._fetch_donor(donor, api_key, provider)
+            else:
+                # A local game without an AppID: its art comes from the name.
+                names = self._name_queries(str(appid))
+                if names:
+                    self._fetch_local(str(appid), names, api_key, provider)
         try:
             self.backgroundDone.emit()
         except Exception:
@@ -3673,9 +3722,9 @@ class GameListModel(QAbstractTableModel):
                     rdmod.refresh(appid)
         except Exception:
             pass
-        self._fetch_donor(target, api_key, provider)
+        self._fetch_steam_art(target, api_key, provider)
 
-    def _fetch_donor(self, target: str, api_key: str, provider: str) -> None:
+    def _fetch_steam_art(self, target: str, api_key: str, provider: str) -> None:
         """Download whatever art kinds are missing for one Steam AppID."""
         numeric = steammod.steam_appid(target)
         if not numeric:
@@ -3684,6 +3733,13 @@ class GameListModel(QAbstractTableModel):
             artmod.fetch_best(numeric, provider, api_key)
         except Exception as e:
             log.warning("artwork fetch(%s) failed: %s", target, e)
+
+    def _fetch_local(self, appid: str, names, api_key: str, provider: str) -> None:
+        """Download a local game's art by name (exact match only, no UI)."""
+        try:
+            artmod.fetch_best(appid, provider, api_key, names=tuple(names))
+        except Exception as e:
+            log.warning("artwork name fetch(%s) failed: %s", appid, e)
 
     @Slot(result=list)
     def scanCandidates(self) -> list:

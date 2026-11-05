@@ -629,6 +629,9 @@ Window {
         artCoverField.text = f.art_cover || ""
         artBannerField.text = f.art_banner || ""
         artSourceField.text = f.art_source || ""
+        var prefs = gameModel.loadPrefs()
+        artProviderCombo.model = providerOptions(prefs.artworkSource || "steam")
+        artProviderCombo.currentIndex = Math.max(0, artProviderCombo.indexOfValue(f.art_provider || ""))
         refreshArtStatus()
         menuCheck.checked = !!f.show_menu
         timeoutSpin.value = f.menu_timeout || 0
@@ -679,7 +682,6 @@ Window {
         ptLog.checked = !!f.proton_log
         setWineDebug(f.winedebug || "")
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
-        var prefs = gameModel.loadPrefs()
         previewVisible = prefs.showPreview ?? false
         depStatusVisible = prefs.showDependencyStatus ?? false
         setEnvRows(f.env_vars || [])
@@ -730,6 +732,7 @@ Window {
             "art_cover": artCoverField.text,
             "art_banner": artBannerField.text,
             "art_source": artSourceField.text,
+            "art_provider": String(artProviderCombo.currentValue || ""),
             "notes": notesArea.text,
             "profiles": profiles,
             "env_vars": collectEnv(),
@@ -1204,21 +1207,25 @@ Window {
         }
     }
 
+    // Provider combo entries: the first one names the global preference
+    // it falls back to, so "Use Global Preference" is never a mystery.
+    function providerOptions(globalSource) {
+        var globalLabel = globalSource === "sgdb" ? qsTr("SteamGridDB") : qsTr("Steam")
+        return [
+            { "text": qsTr("Use Global Preference (%1)").arg(globalLabel), "data": "" },
+            { "text": qsTr("Steam (Official)"), "data": "steam" },
+            { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" }
+        ]
+    }
+
     // Where the three images come from right now (token from the model),
-    // and which provider produced them, so a typed Artwork Source AppID
-    // stops looking like a no-op.
+    // and which provider produced them.
     function refreshArtStatus() {
         var draft = artSourceField.text
         var token = editAppid === "" ? "none" : gameModel.artworkStatus(editAppid, draft)
         var provider = editAppid === "" ? "" : gameModel.artworkProvider(editAppid, draft)
-        var name = editAppid === "" ? "" : gameModel.artworkSourceName(editAppid, draft)
-        var source = name !== ""
-            ? qsTr("AppID %1 (%2)").arg(artSourceField.text).arg(name)
-            : qsTr("AppID %1").arg(artSourceField.text)
         var messages = {
             "own": qsTr("Using This Game's Own Artwork."),
-            "donor": qsTr("Using Artwork From %1.").arg(source),
-            "mixed": qsTr("Some Artwork Comes From %1.").arg(source),
             "partial": qsTr("Some Images Are Missing."),
             "none": qsTr("No Artwork Yet. Save the Game First."),
             "cleared": qsTr("Artwork Cleared. Fetch Restores It.")
@@ -1238,12 +1245,14 @@ Window {
         return providers[provider] || ""
     }
 
-    // Clear… confirms first: the cached art belongs to the source AppID,
-    // so other games pointing there lose it too.
+    // Clear… confirms first: with an Artwork Source AppID the cache
+    // belongs to that AppID, so every game pointing there loses it.
     function requestClearFetched() {
-        setupConfirm("clearArtwork", qsTr("Remove Downloaded Artwork"),
-            qsTr("Remove the Downloaded Artwork of AppID %1? Any Other Game Using That AppID Falls Back to Steam's Own Art.").arg(artSourceField.text.trim()),
-            qsTr("Remove"))
+        var source = artSourceField.text.trim()
+        var text = source !== ""
+            ? qsTr("Remove the Downloaded Artwork of AppID %1? Any Other Game Using That AppID Falls Back to Steam's Own Art.").arg(source)
+            : qsTr("Remove the Downloaded Artwork of This Game? Fetch Artwork Restores It.")
+        setupConfirm("clearArtwork", qsTr("Remove Downloaded Artwork"), text, qsTr("Remove"))
         confirmDialog.open(gameSettings)
     }
 
@@ -1260,11 +1269,14 @@ Window {
 
     function fetchArtwork() {
         artResult = ""
-        var err = gameModel.fetchArtwork(editAppid, artSourceField.text)
+        var err = gameModel.fetchArtwork(
+            editAppid,
+            String(artProviderCombo.currentValue || ""),
+            artSourceField.text)
         var messages = {
             "": qsTr("Fetching Artwork…"),
             "no-game": qsTr("Save the Game First."),
-            "no-appid": qsTr("Enter a Steam AppID in Artwork Source AppID First.")
+            "no-appid": qsTr("Enter a Steam AppID or Save the Game With a Name First.")
         }
         artStatusLabel.text = messages[err] || err
     }
@@ -1273,13 +1285,16 @@ Window {
     function showFetchResult(status, provider) {
         var messages = {
             "ok": qsTr("Artwork Downloaded."),
+            "choose": qsTr("Pick the Matching Game Below."),
+            "no-key": qsTr("SteamGridDB Needs an API Key in Preferences."),
+            "no-match": qsTr("No Exact Name Match on SteamGridDB. Pick One From the List."),
             "not-a-steam-app": qsTr("That Number Is Not a Steam AppID (a SteamGridDB Page ID Looks Similar)."),
             "not-found": qsTr("SteamGridDB Has No Artwork for That AppID."),
             "blocked": qsTr("SteamGridDB Refused the Request (403). Try Again Later."),
             "network": qsTr("Could Not Reach the Artwork Servers."),
             "no-art": qsTr("No Artwork Found for That AppID.")
         }
-        var text = messages[status] || qsTr("No Artwork Found for That AppID.")
+        var text = messages[status] || qsTr("No Artwork Found for That Game.")
         if (status === "ok") {
             text += providerSuffix(provider)
         }
@@ -1329,13 +1344,19 @@ Window {
             if (!gameModel.openPath(path) && page !== null) {
                 page.notify(qsTr("Could Not Open the Config File."))
             }
-        } else if (pendingPrompt === "artSource") {
+        } else if (pendingPrompt === "artGame") {
             var pick = choiceBox.model[choiceBox.currentIndex]
-            if (pick !== undefined && pick.data !== "") {
-                artSourceField.text = pick.data
-                refreshArtStatus()
-            }
             choicePrompt.close()
+            if (pick !== undefined && pick.data !== "") {
+                artResult = ""
+                var err = gameModel.fetchArtworkGame(editAppid, String(pick.data))
+                var messages = {
+                    "": qsTr("Fetching Artwork…"),
+                    "no-game": qsTr("Save the Game First."),
+                    "no-key": qsTr("SteamGridDB Needs an API Key in Preferences.")
+                }
+                artStatusLabel.text = messages[err] || err
+            }
         }
     }
 
@@ -1612,6 +1633,19 @@ Window {
         function onArtworkFetched(appid, status, provider) {
             if (appid === editAppid) {
                 showFetchResult(status, provider)
+            }
+        }
+        // The name matched several SteamGridDB entries: ask which one.
+        function onArtworkChoices(appid, rows) {
+            if (appid !== editAppid) {
+                return
+            }
+            var items = []
+            for (var i = 0; i < rows.length; i++) {
+                items.push({"text": rows[i].name, "data": rows[i].id})
+            }
+            if (items.length > 0) {
+                gameSettings.askChoice("artGame", items, "")
             }
         }
         // The Steam launch-options probe finished in the background: the
@@ -3480,53 +3514,10 @@ Window {
                                     Controls.TextField {
                                         id: artSourceField
                                         objectName: "artSource"
-                                        placeholderText: qsTr("Steam AppID to Take Artwork From")
+                                        placeholderText: qsTr("Steam AppID (Optional)")
                                         Layout.fillWidth: true
-                                        Controls.ToolTip.text: qsTr("Steam AppID (installed or not) Whose Artwork This Game Uses. Downloaded From SteamGridDB When a Key Is Set.")
+                                        Controls.ToolTip.text: qsTr("Steam AppID (Installed or Not) Whose Artwork This Game Uses Instead of Its Own.")
                                         Controls.ToolTip.visible: hovered
-                                    }
-                                    Controls.Button {
-                                        objectName: "artSourceFind"
-                                        text: qsTr("Find…")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        // One button, left column: the spacer keeps the
-                                        // field the same width as the rows above.
-                                        onClicked: {
-                                            var rows = gameModel.donorCandidates(artSourceField.text)
-                                            if (rows.length === 0) {
-                                                if (page !== null) {
-                                                    page.notify(qsTr("No Games Match That AppID or Name."))
-                                                }
-                                                return
-                                            }
-                                            var items = []
-                                            for (var i = 0; i < rows.length; i++) {
-                                                items.push({"text": rows[i][1] + " [" + rows[i][0] + "]", "data": rows[i][0]})
-                                            }
-                                            gameSettings.askChoice("artSource", items, "")
-                                        }
-                                    }
-                                    Item {
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Status:")
-                                    Controls.Label {
-                                        id: artStatusLabel
-                                        objectName: "artStatus"
-                                        Layout.fillWidth: true
-                                        // Without a 0 preferred/minimum the
-                                        // RowLayout refuses to shrink below
-                                        // implicitWidth, the wrap never
-                                        // fires and the button is pushed
-                                        // past the section edge at 612 px.
-                                        Layout.preferredWidth: 0
-                                        Layout.minimumWidth: 0
-                                        wrapMode: Text.WordWrap
                                     }
                                     Controls.Button {
                                         objectName: "artFetch"
@@ -3542,10 +3533,42 @@ Window {
                                         Layout.preferredWidth: gameSettings.artButtonWidth
                                         Layout.minimumWidth: gameSettings.artButtonWidth
                                         enabled: editAppid !== ""
-                                            && artSourceField.text.trim() !== ""
                                         onClicked: gameSettings.requestClearFetched()
-                                        Controls.ToolTip.text: qsTr("Remove the Artwork Downloaded From the Artwork Source AppID")
+                                        Controls.ToolTip.text: qsTr("Remove the Artwork Downloaded for This Game or Its Artwork Source AppID")
                                         Controls.ToolTip.visible: hovered
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Download From:")
+                                    Controls.ComboBox {
+                                        id: artProviderCombo
+                                        objectName: "artProvider"
+                                        Layout.fillWidth: true
+                                        textRole: "text"
+                                        valueRole: "data"
+                                        Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB Is Community Artwork and Needs a Key. The Other Provider Fills the Missing Kinds.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Item {
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
+                                    }
+                                    Item {
+                                        Layout.preferredWidth: gameSettings.artButtonWidth
+                                        Layout.minimumWidth: gameSettings.artButtonWidth
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Status:")
+                                    Controls.Label {
+                                        id: artStatusLabel
+                                        objectName: "artStatus"
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        Layout.minimumWidth: 0
+                                        wrapMode: Text.WordWrap
                                     }
                                 }
                             }

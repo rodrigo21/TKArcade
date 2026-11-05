@@ -434,6 +434,7 @@ _GAME_FIELDS = {
     "artwork.icon": "/tmp/opencode/i.png",
     "artwork.cover": "/tmp/opencode/c.png",
     "artwork.banner": "/tmp/opencode/b.png",
+    "artwork.provider": "sgdb",
     "artwork.artwork_appid": "123",
 }
 
@@ -1190,10 +1191,9 @@ def test_migrate_ids_renames_every_store(xdg_env):
     new = "local-bad-hero-episode-1"
     _seed_legacy_game()
     prefix_old = C.prefix_dir(old, "", C.load_preferences().prefix_base, "", "Bad Hero - Episode 1")
-    donor = C.GameConfig()
-    donor.general.appid = "42"
-    donor.artwork.artwork_appid = old
-    C.save(donor)
+    legacy = C.GameConfig()
+    legacy.general.appid = "42"
+    C.save(legacy)
 
     renamed = dict(C.migrate_ids())
     assert renamed[old] == new
@@ -1206,7 +1206,6 @@ def test_migrate_ids_renames_every_store(xdg_env):
     assert artwork.grid_path(new).is_file()
     assert winetricks.state_path(new).is_file()
     assert xdg.game_log_file(new).is_file()
-    assert C.load("steam-42").artwork.artwork_appid == new
     assert f"appid={new}" in xdg.log_file().read_text()
     # The stem comes from the game name, so the AppID change leaves the
     # prefix exactly where it was.

@@ -213,22 +213,36 @@ def test_sgdb_icons_skip_the_ico_submissions(monkeypatch, xdg_env):
     assert out["icon"].read_bytes() == b"P"
 
 
-def test_resolve_falls_back_to_the_source_appid(monkeypatch, xdg_env):
-    """A local game borrows the source AppID's downloaded art."""
-    donor_cover = art.grid_path("480", "cover")
-    donor_cover.parent.mkdir(parents=True)
-    donor_cover.write_bytes(b"P")
-    assert art.resolve("local-doom", "icon", "480") == (donor_cover, "donor-cache")
+def test_cached_icon_beats_the_cached_cover(xdg_env):
+    """A fetched square icon must win over the cover sitting next to it."""
+    icon = art.grid_path("480", "icon")
+    cover = art.grid_path("480", "cover")
+    icon.parent.mkdir(parents=True)
+    icon.write_bytes(b"I")
+    cover.write_bytes(b"C")
+    assert art.resolve("480", "icon") == (icon, "cache")
+    assert art.resolve("480", "cover") == (cover, "cache")
+
+
+def test_source_appid_wins_over_the_game_own_art(xdg_env, tmp_path):
+    """The typed Artwork Source AppID overrides the game's own download."""
     own = art.grid_path("local-doom", "cover")
+    own.parent.mkdir(parents=True)
     own.write_bytes(b"O")
-    assert art.resolve("local-doom", "cover", "480") == (own, "cache")
-    assert art.resolve("local-doom", "banner", "480") == (None, "")
+    shared = art.grid_path("480", "cover")
+    shared.write_bytes(b"S")
+    assert art.resolve("local-doom", "cover", "480") == (shared, "appid-cache")
+    assert art.resolve("local-doom", "cover") == (own, "cache")
+    # The game's own manual slot still wins: it is the most specific
+    # choice the user can make.
+    manual = art.store_manual("local-doom", "icon", str(_image(tmp_path, "m.png")))
+    assert art.resolve("local-doom", "icon", "480") == (manual, "manual")
 
 
 def test_resolve_manual_slot_beats_everything(xdg_env, tmp_path):
     manual = art.store_manual("81", "icon", str(_image(tmp_path, "m.png")))
     assert manual is not None
-    assert art.resolve("81", "icon", "480") == (manual, "manual")
+    assert art.resolve("81", "icon") == (manual, "manual")
 
 
 def _image(tmp_path, name):
@@ -282,6 +296,190 @@ def test_official_icon_falls_back_to_the_small_jpg(monkeypatch, xdg_env):
     )
     out = art.fetch_official("2399420", ("icon",))
     assert out["icon"].read_bytes() == b"SMALL"
+
+
+def test_steam_client_icon_wins_over_the_sgdb_promo(monkeypatch, xdg_env):
+    """The real 32x32 client icon beats a SteamGridDB 'official' promo."""
+    _stub(
+        monkeypatch,
+        [
+            (APP_INFO, _steam_apps("Le Mans Ultimate", "def")),
+            ("def.ico", urllib_error_404()),
+            ("def.jpg", b"SMALL"),
+            ("games/steam", {"data": [{"id": 5406300}]}),
+            (
+                "icons/game",
+                {
+                    "data": [
+                        {
+                            **_grid_entry("https://cdn/big.png", 256, 256),
+                            "style": "official",
+                        }
+                    ]
+                },
+            ),
+            ("cdn/big.png", b"BIG"),
+        ],
+    )
+    result = art.fetch_best("2399420", "steam", "KEY", ("icon",))
+    assert result["art"]["icon"].read_bytes() == b"SMALL"
+    assert result["provider"] == "steam"
+
+
+def test_sgdb_icon_fills_when_steam_has_none(monkeypatch, xdg_env):
+    """Only a real absence of Steam art opens the door to SGDB icons."""
+    _stub(
+        monkeypatch,
+        [
+            (APP_INFO, _steam_apps("No Icon App", "")),
+            ("header.jpg", urllib_error_404()),
+            ("games/steam", {"data": [{"id": 78}]}),
+            (
+                "icons/game",
+                {
+                    "data": [
+                        {
+                            **_grid_entry("https://cdn/big.png", 256, 256),
+                            "style": "official",
+                        }
+                    ]
+                },
+            ),
+            ("cdn/big.png", b"BIG"),
+        ],
+    )
+    result = art.fetch_best("2399420", "steam", "KEY", ("icon",))
+    assert result["art"]["icon"].read_bytes() == b"BIG"
+    assert result["provider"] == "sgdb"
+
+
+def test_old_sgdb_icon_is_dropped_once(monkeypatch, xdg_env):
+    """An icon from the old SGDB-first chain is replaced by the Steam one."""
+    icon = art.grid_path("2399420", "icon")
+    icon.parent.mkdir(parents=True)
+    icon.write_bytes(b"PROMO")
+    art.manifest_path("2399420").write_text(
+        '{"icon": {"provider": "sgdb", "appid": "2399420"}}', encoding="utf-8"
+    )
+    _stub(
+        monkeypatch,
+        [
+            (APP_INFO, _steam_apps("Le Mans Ultimate", "def")),
+            ("def.ico", urllib_error_404()),
+            ("def.jpg", b"SMALL"),
+        ],
+    )
+    result = art.fetch_best("2399420", "steam", "", ("icon",))
+    assert result["art"]["icon"].read_bytes() == b"SMALL"
+    assert art.read_manifest("2399420").get("icon_chain") == art.ICON_CHAIN
+    # A post-fix SGDB fallback carries the marker and is left alone.
+    art.clear_fetched("2399420")
+    art.manifest_path("2399420").write_text(
+        '{"icon": {"provider": "sgdb", "appid": "2399420"}, "icon_chain": 2}',
+        encoding="utf-8",
+    )
+    icon.write_bytes(b"KEPT")
+    art._drop_stale_sgdb_icon("2399420")
+    assert icon.read_bytes() == b"KEPT"
+
+
+def test_icon_chain_falls_back_to_the_small_jpg_without_a_key(monkeypatch, xdg_env):
+    """No SteamGridDB key: the official 32x32 is the last resort."""
+    _stub(
+        monkeypatch,
+        [
+            (APP_INFO, _steam_apps("Le Mans Ultimate", "def")),
+            ("def.ico", urllib_error_404()),
+            ("def.jpg", b"SMALL"),
+        ],
+    )
+    result = art.fetch_best("2399420", "steam", "", ("icon",))
+    assert result["art"]["icon"].read_bytes() == b"SMALL"
+    assert result["provider"] == "steam"
+
+
+def test_name_search_matches_exactly_and_stores_the_id(monkeypatch, xdg_env):
+    """A local game resolves its name to one SteamGridDB entry, once."""
+    _stub(
+        monkeypatch,
+        [
+            (
+                "search/autocomplete",
+                {
+                    "data": [
+                        {"id": 99, "name": "Doom Eternal", "types": ["steam"]},
+                        {"id": 7, "name": "Doom", "types": ["steam"]},
+                    ]
+                },
+            ),
+            ("games/steam", {"data": []}),
+            ("grids/game", {"data": [_grid_entry("https://cdn/cover.png", 600, 900)]}),
+            ("cdn/cover.png", b"COVER"),
+        ],
+    )
+    result = art.fetch_best("local-doom", "steam", "KEY", ("cover",), names=("Doom",))
+    assert result["game_id"] == "7"
+    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert result["provider"] == "sgdb"
+    assert art.stored_sgdb_id("local-doom") == "7"
+    # A later fetch reuses the stored id and never searches again.
+    _stub(
+        monkeypatch,
+        [
+            ("games/steam", {"data": []}),
+            ("grids/game", {"data": [_grid_entry("https://cdn/cover2.png", 600, 900)]}),
+            ("cdn/cover2.png", b"NEW"),
+        ],
+    )
+    again = art.fetch_best("local-doom", "steam", "KEY", ("cover",), force=True)
+    assert again["game_id"] == "7"
+    assert again["art"]["cover"].read_bytes() == b"NEW"
+
+
+def test_name_search_returns_candidates_when_nothing_matches(monkeypatch, xdg_env):
+    """No exact name: the rows come back so the dialog can ask."""
+    _stub(
+        monkeypatch,
+        [
+            (
+                "search/autocomplete",
+                {"data": [{"id": 5, "name": "Doom 3", "types": ["steam"]}]},
+            )
+        ],
+    )
+    result = art.fetch_best("local-doom", "steam", "KEY", ("cover",), names=("Doom",))
+    assert result["art"] == {}
+    assert result["error"] == "no-match"
+    assert result["candidates"] == [{"id": "5", "name": "Doom 3"}]
+    assert art.stored_sgdb_id("local-doom") == ""
+
+
+def test_name_search_needs_a_key(monkeypatch, xdg_env):
+    assert (
+        art.fetch_best("local-doom", "steam", "", ("cover",), names=("Doom",))["error"] == "no-key"
+    )
+
+
+def test_clear_keeps_the_sgdb_choice(monkeypatch, xdg_env):
+    """Clear removes the files but remembers which game the name resolved to."""
+    _stub(
+        monkeypatch,
+        [
+            ("search/autocomplete", {"data": [{"id": 7, "name": "Doom"}]}),
+            ("games/steam", {"data": []}),
+            ("grids/game", {"data": [_grid_entry("https://cdn/cover.png", 600, 900)]}),
+            ("cdn/cover.png", b"COVER"),
+        ],
+    )
+    art.fetch_best("local-doom", "steam", "KEY", ("cover",), names=("Doom",))
+    art.clear_fetched("local-doom")
+    assert art.is_cleared("local-doom") is True
+    assert art.stored_sgdb_id("local-doom") == "7"
+
+
+def test_normalize_name_ignores_case_and_accents():
+    assert art.normalize_name("  Pokémon  [v1.2] ") == "pokemon v1 2"
+    assert art.normalize_name("Doom") == art.normalize_name("doom")
 
 
 def urllib_error_404():

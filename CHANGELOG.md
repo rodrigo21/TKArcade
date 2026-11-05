@@ -6,6 +6,18 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Per-game artwork source: `[artwork] provider` (`steam` or `sgdb`)
+  overrides the global preference for Fetch Artwork and the background
+  fetch; the Artwork tab exposes it as Download From (empty = global).
+- Local games download artwork by name: SteamGridDB is searched with the
+  display name (the `[version]` bracket dropped first, then the full
+  name); an exact match downloads automatically, otherwise the dialog
+  lists the candidates and remembers the pick in the cache sidecar.
+- The icon keeps Steam's real client icon: the multi-size `.ico` when
+  the app has one, otherwise the 32x32 jpg Steam itself draws. A
+  SteamGridDB icon only fills the gap when Steam has no icon at all,
+  and an icon left by the previous build is dropped once and
+  re-downloaded on the next fetch.
 - A runtime version manager in Preferences (Manage Versions… per layer):
   it lists the managed DXVK/vkd3d-proton builds with their recorded
   source, installs any GitHub release instead of only the latest, installs
@@ -51,6 +63,11 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- The Artwork Source AppID field stays and now wins over the game's own
+  artwork: type any Steam AppID (installed or not) whose art the game
+  should use. The Find… picker next to it is gone, and the per-game
+  provider combo names the global preference it falls back to. A local
+  game without an AppID is looked up by name on SteamGridDB.
 - Preferences opens as three tabs (Interface, Artwork, Runtime) instead
   of one scrolling page, with one label column per tab and the same
   single Save/Cancel footer. The header now carries a Preferences
@@ -235,6 +252,9 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The game's row icon no longer shows the cover after Fetch Artwork: the
+  cached icon is checked before the cached cover, which is now only the
+  fallback when no square icon exists.
 - The release picker in Preferences → Runtime → Manage Versions… shows
   its label once: the desktop style already paints the closed field, so
   the combo now elides that string instead of drawing a second copy on

@@ -9,6 +9,10 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred research
 
+- [ ] **Other artwork sources.** Steam's CDN and SteamGridDB are the only
+  providers today. A third source (IGDB, GiantBomb, a Playnite-style
+  metadata service) would need its own key, cache and provider entry in
+  the Download From list, plus a decision record.
 - [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) for the local
   library import of Lutris/Playnite/Faugus file formats. The format
   import itself is still pending (only tarball, SteamTinkerLaunch and
@@ -16,13 +20,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   top of it.
 - [ ] Online sources à la Playnite for categories/tags (the per-game
   categories and the drawer filter shipped without them).
-
-## Deferred design review
-
-- [ ] **Artwork by name for local games.** A local game has no Steam
-  AppID to look up, so grid search needs a SteamGridDB name query, its
-  own cache and a UI decision; the donor `[artwork] artwork_appid` keeps
-  working meanwhile. A feature, not an audit fix.
 
 ## Deferred release
 

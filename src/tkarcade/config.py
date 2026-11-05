@@ -329,6 +329,13 @@ class ArtworkConfig:
     cover: str = ""  # explicit per-game cover/portrait image (file path)
     banner: str = ""  # explicit per-game banner/landscape image (file path)
     artwork_appid: str = ""  # Steam AppID whose art this game uses
+    provider: str = ""  # "" = global preference, else steam|sgdb
+
+
+def normalize_artwork_provider(value: object) -> str:
+    """Per-game artwork provider: "" (global), "steam" or "sgdb"."""
+    text = str(value or "").strip().lower()
+    return text if text in ("steam", "sgdb") else ""
 
 
 @dataclass
@@ -947,7 +954,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "graphics": {"dxvk", "dxvk_version", "vkd3d", "vkd3d_version"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
-    "artwork": {"icon", "cover", "banner", "artwork_appid"},
+    "artwork": {"icon", "cover", "banner", "artwork_appid", "provider"},
 }
 
 
@@ -1187,6 +1194,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.artwork.cover = str(art.get("cover", ""))
     cfg.artwork.banner = str(art.get("banner", ""))
     cfg.artwork.artwork_appid = str(art.get("artwork_appid", "")).strip()
+    cfg.artwork.provider = normalize_artwork_provider(art.get("provider", ""))
     rt = _section(data, "rtupscale")
     cfg.rtupscale.enable = _as_bool(rt.get("enable", False), False)
     cfg.rtupscale.args = str(rt.get("args", ""))
@@ -1744,18 +1752,6 @@ def _move_storage(appid: str, new: str, cfg: GameConfig) -> None:
     _move_path(xdg.game_log_file(appid), xdg.game_log_file(new))
 
 
-def _rewrite_artwork_appids(mapping: dict[str, str]) -> None:
-    """Repoint `[artwork] artwork_appid` entries at renamed games."""
-    for appid in list_appids():
-        try:
-            cfg = load(appid)
-        except Exception:
-            continue
-        if cfg.artwork.artwork_appid.strip() in mapping:
-            cfg.artwork.artwork_appid = mapping[cfg.artwork.artwork_appid.strip()]
-            save(cfg)
-
-
 #: Canonical local AppID body: lowercase words joined by single dashes.
 _CLEAN_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
@@ -1850,11 +1846,6 @@ def migrate_ids() -> list[tuple[str, str]]:
 
     if not renamed:
         return []
-    # `artwork_appid` is a numeric Steam donor, never a game ID: only
-    # local renames may repoint it.
-    local_renamed = {old: new for old, new in renamed if not old.isdigit()}
-    if local_renamed:
-        _rewrite_artwork_appids(local_renamed)
     for old, new in renamed:
         try:
             history.rename_appid(xdg.log_file(), old, new)

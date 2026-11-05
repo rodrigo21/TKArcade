@@ -205,8 +205,13 @@ confirmation, while Open never creates one — DXVK and vkd3d layers,
 Proton debug switches), Performance
 (GameMode, MangoHud, RT upscaler), Display (Gamescope, monitor mode),
 System (notifications, idle suspend, network, night light, audio,
-Ludusavi saves) and Artwork/Notes. The footer shows the live wrapper
-summary and a launch-command preview.
+Ludusavi saves) and Artwork/Notes. The Artwork section picks the manual
+icon/cover/banner files, an optional Artwork Source AppID (any Steam
+AppID whose art overrides the game's own), the per-game download
+provider (Steam first by default, SteamGridDB as fallback) and
+Fetch/Clear; a local game without an AppID is looked up by name on
+SteamGridDB and a stored choice keeps the same art across fetches. The
+footer shows the live wrapper summary and a launch-command preview.
 
 **Profiles** — named snapshots per game. Selecting one changes what
 launches; saving with a profile active writes the profile (Game
