@@ -103,7 +103,7 @@ Kirigami.Page {
         Item {
             objectName: "toolbarSpacerB"
             // Larger twin (see spacerA): with buttons+filter+title all
-            // fixed, the icons toolbar keeps a constant ~170px room.
+            // fixed, the icons toolbar keeps a constant ~205px room.
             // Zeroed on tiny pages with its twin.
             implicitWidth: gamesPage.width < 800 ? 0 : Math.max(0, (gamesPage.width - titleReserve - titleRow.filterWidth) / 2)
         }
@@ -141,7 +141,7 @@ Kirigami.Page {
     // where the drawer button joins the header); the filter clamps to
     // [600, 1200] with a fit cap so the corner never overflows. The cap
     // itself lives on the title row, which can measure the buttons.
-    property int titleReserve: (gamesPage.appDrawer && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible) ? 218 : 170
+    property int titleReserve: (gamesPage.appDrawer && gamesPage.appDrawer.modal && !gamesPage.appDrawer.collapsible) ? 251 : 203
     property int titleFilterWant: Math.min(1200, Math.max(gamesPage.width < 1000 ? 240 : 600, gamesPage.width * 0.45))
 
     onViewModeChanged: {
@@ -1161,6 +1161,21 @@ Kirigami.Page {
                     display: Controls.AbstractButton.IconOnly
                     onClicked: gamesPage.openDialog(columnsDialog)
                 }
+                Controls.ToolSeparator {
+                    orientation: Qt.Vertical
+                }
+                Controls.ToolButton {
+                    objectName: "prefsButton"
+                    icon.name: gameModel.iconName(["preferences-system", "configure", "settings-configure"])
+                    display: Controls.AbstractButton.IconOnly
+                    onClicked: {
+                        prefsDialog.load()
+                        prefsDialog.open()
+                    }
+                }
+                Controls.ToolSeparator {
+                    orientation: Qt.Vertical
+                }
                 Controls.ToolButton {
                     objectName: "hamburgerButton"
                     icon.name: gameModel.iconName(["overflow-menu", "application-menu"])
@@ -1274,13 +1289,6 @@ Kirigami.Page {
                                         onTriggered: {
                                             gameModel.reload()
                                             gamesPage.ensureSelection()
-                                        }
-                                    }
-                                    Controls.MenuItem {
-                                        text: qsTr("Preferences...")
-                                        onTriggered: {
-                                            prefsDialog.load()
-                                            prefsDialog.open()
                                         }
                                     }
                                     Controls.MenuItem {

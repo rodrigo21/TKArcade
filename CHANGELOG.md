@@ -51,6 +51,11 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- Preferences opens as three tabs (Interface, Artwork, Runtime) instead
+  of one scrolling page, with one label column per tab and the same
+  single Save/Cancel footer. The header now carries a Preferences
+  button (`preferences-system` icon) between Columns and the hamburger
+  menu, so the hamburger entry is gone.
 - The library's default layout leads with Release Date, Origin,
   Platform, Played, Last Played and Installed; Runtime, Wine, ProtonDB,
   Game ID and Install Dir start hidden after them. **BREAKING**: saved

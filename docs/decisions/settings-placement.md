@@ -59,9 +59,9 @@ Settings have three homes, and a field keeps the one it already had:
 
 ## Behaviour today
 
-- The Preferences window is four `SectionBox`es in one scroll area with
-  one shared label column; the tray rows already disable when the tray
-  is off.
+- The Preferences window is three tabs (Interface, Artwork, Runtime)
+  with one label column per tab and one shared Save/Cancel footer; the
+  Tray rows live on the Interface page and disable when the tray is off.
 - The Global Defaults dialog disables the Runtime tab with a one-line
   note (tab indices stay stable, so the other tabs do not move) and
   hides the General `Game` and System `Audio` sections, which hold only
@@ -88,7 +88,9 @@ Settings have three homes, and a field keeps the one it already had:
   per-game fields.
 - **Tabs in the Preferences window.** Four sections keep the single
   scroll and the content-driven window height; tabs would add clicks
-  for twelve rows.
+  for twelve rows. Reversed (2026-11-05): the maintainer found the one
+  scrolling page crowded, so the window now opens three tabs with a
+  fixed height (see `CHANGELOG.md`).
 - **Keep the template carrying the fields but ignore them at launch.**
   A config that stores a value it never uses is a trap for anyone
   editing the file by hand.

@@ -18,9 +18,12 @@ Window {
     // (cut content). The form keeps its label column at any width, so the
     // window opens wide enough for the widest row and the fields.
     minimumWidth: Kirigami.Units.gridUnit * 30
-    minimumHeight: Kirigami.Units.gridUnit * 16
+    // One page per area (Interface, Artwork, Runtime). The height is
+    // fixed like the game dialog: a StackLayout reports its tallest page,
+    // so a content-driven height would jump on every tab switch.
+    minimumHeight: Kirigami.Units.gridUnit * 24
     width: Kirigami.Units.gridUnit * 34
-    height: body.implicitHeight + body.anchors.margins * 2
+    height: Kirigami.Units.gridUnit * 30
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -109,329 +112,385 @@ Window {
             event.accepted = true
             gameModel.pressDefault(prefsDialog, ["prefsSave"])
         }
-        Controls.ScrollView {
-            clip: true
-            objectName: "prefsScroll"
+        Controls.TabBar {
+            id: tabBar
+            objectName: "prefsTabs"
+            Layout.fillWidth: true
+            Controls.TabButton {
+                text: qsTr("Interface")
+            }
+            Controls.TabButton {
+                text: qsTr("Artwork")
+            }
+            Controls.TabButton {
+                text: qsTr("Runtime")
+            }
+        }
+        StackLayout {
+            objectName: "prefsStack"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Item {
-                width: parent.width
-                implicitHeight: prefsColumn.implicitHeight
-                ColumnLayout {
-                    id: prefsColumn
-                    objectName: "prefsForm"
+            currentIndex: tabBar.currentIndex
+            Controls.ScrollView {
+                clip: true
+                objectName: "prefsInterfaceScroll"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                // ScrollView takes its scrollable size from the content's
+                // implicitHeight; a plain Item has none, so sizing the
+                // wrapper with `height:` leaves contentHeight at -1 and the
+                // content is squeezed into the viewport (nothing scrolls).
+                Item {
                     width: parent.width
-                    spacing: Kirigami.Units.largeSpacing
-                    // One label column across the sections, so the fields
-                    // start at one x inside every frame (GameSettings).
-                    property real labelWidth: Math.max(
-                        prefsInterfaceForm.naturalLabelWidth,
-                        prefsTrayForm.naturalLabelWidth,
-                        prefsArtworkForm.naturalLabelWidth,
-                        prefsRuntimeForm.naturalLabelWidth)
-                    SectionBox {
-                        title: qsTr("Interface")
-                        Layout.fillWidth: true
-                        WidgetsFormLayout {
-                            id: prefsInterfaceForm
-                            labelWidth: prefsColumn.labelWidth
+                    implicitHeight: interfaceColumn.implicitHeight
+                    ColumnLayout {
+                        id: interfaceColumn
+                        objectName: "prefsInterfaceColumn"
+                        width: parent.width
+                        spacing: Kirigami.Units.largeSpacing
+                        // One label column per tab, so the fields of every
+                        // frame start at one x inside it (GameSettings).
+                        property real labelWidth: Math.max(
+                            prefsInterfaceForm.naturalLabelWidth,
+                            prefsTrayForm.naturalLabelWidth)
+                        SectionBox {
+                            title: qsTr("Interface")
                             Layout.fillWidth: true
-                            Controls.CheckBox {
-                                objectName: "prefsShowPreview"
-                                text: qsTr("Show Launch Command Preview")
-                                checked: prefsDialog.values.showPreview ?? true
-                                onClicked: prefsDialog.setPref("showPreview", checked)
-                                Controls.ToolTip.text: qsTr("Live Preview Box at the Bottom of Game Dialogs.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.ComboBox {
-                                id: langCombo
-                                objectName: "prefsLanguage"
+                            WidgetsFormLayout {
+                                id: prefsInterfaceForm
+                                labelWidth: interfaceColumn.labelWidth
                                 Layout.fillWidth: true
-                                KirigamiLayouts.FormData.label: qsTr("Language:")
-                                onActivated: (index) => prefsDialog.setPref(
-                                    "language", prefsDialog.langCodes[index] || "system")
-                                Controls.ToolTip.text: qsTr("Takes Effect on Restart.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                        }
-                    }
-                    SectionBox {
-                        title: qsTr("Tray")
-                        Layout.fillWidth: true
-                        WidgetsFormLayout {
-                            id: prefsTrayForm
-                            labelWidth: prefsColumn.labelWidth
-                            Layout.fillWidth: true
-                            Controls.CheckBox {
-                                id: trayCheck
-                                objectName: "prefsTray"
-                                text: qsTr("Enable Status Bar Icon")
-                                checked: prefsDialog.values.trayEnable ?? false
-                                onClicked: prefsDialog.setPref("trayEnable", checked)
-                                Controls.ToolTip.text: qsTr("Keep TKArcade in the System Tray.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.ComboBox {
-                                objectName: "prefsTrayIcon"
-                                Layout.fillWidth: true
-                                enabled: trayCheck.checked
-                                model: [qsTr("Normal"), qsTr("Monochrome")]
-                                KirigamiLayouts.FormData.label: qsTr("Tray Icon Style:")
-                                currentIndex: prefsDialog.values.trayIcon === "mono" ? 1 : 0
-                                onActivated: (index) => prefsDialog.setPref(
-                                    "trayIcon", index === 1 ? "mono" : "normal")
-                            }
-                            Controls.CheckBox {
-                                text: qsTr("Minimize to Tray")
-                                enabled: trayCheck.checked
-                                checked: prefsDialog.values.minimizeToTray ?? false
-                                onClicked: prefsDialog.setPref("minimizeToTray", checked)
-                            }
-                            Controls.CheckBox {
-                                text: qsTr("Close to Tray")
-                                enabled: trayCheck.checked
-                                checked: prefsDialog.values.closeToTray ?? false
-                                onClicked: prefsDialog.setPref("closeToTray", checked)
-                            }
-                            Controls.CheckBox {
-                                id: quickCheck
-                                text: qsTr("Show Recent Games in Tray Menu")
-                                enabled: trayCheck.checked
-                                checked: prefsDialog.values.trayQuickLaunch ?? false
-                                onClicked: prefsDialog.setPref("trayQuickLaunch", checked)
-                                Controls.ToolTip.text: qsTr("Launch Recent Games Through Steam (steam:// URL).")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.SpinBox {
-                                id: quickSpin
-                                objectName: "prefsQuickCount"
-                                from: 1
-                                to: 10
-                                enabled: trayCheck.checked && quickCheck.checked
-                                onValueModified: prefsDialog.setPref("trayQuickCount", value)
-                                Controls.ToolTip.text: qsTr("How Many Recent Games to List.")
-                                Controls.ToolTip.visible: hovered
-                                KirigamiLayouts.FormData.label: qsTr("Recent Games:")
-                            }
-                        }
-                    }
-                    SectionBox {
-                        title: qsTr("Artwork")
-                        Layout.fillWidth: true
-                        WidgetsFormLayout {
-                            id: prefsArtworkForm
-                            labelWidth: prefsColumn.labelWidth
-                            Layout.fillWidth: true
-                            Controls.TextField {
-                                objectName: "prefsSgdb"
-                                Layout.fillWidth: true
-                                echoMode: Controls.TextField.Password
-                                placeholderText: qsTr("Free Key from steamgriddb.com")
-                                text: prefsDialog.values.sgdbApiKey ?? ""
-                                onTextChanged: {
-                                    if (prefsDialog.values.sgdbApiKey !== text) {
-                                        prefsDialog.setPref("sgdbApiKey", text)
-                                    }
-                                }
-                                Controls.ToolTip.text: qsTr("SteamGridDB API Key for Missing Artwork Fallback.")
-                                Controls.ToolTip.visible: hovered
-                                KirigamiLayouts.FormData.label: qsTr("SteamGridDB Key:")
-                            }
-                            Controls.ComboBox {
-                                id: artSourceCombo
-                                objectName: "prefsArtworkSource"
-                                Layout.fillWidth: true
-                                model: [
-                                    { "text": qsTr("Steam (Official)"), "data": "steam" },
-                                    { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" }
-                                ]
-                                textRole: "text"
-                                valueRole: "data"
-                                onActivated: (index) => prefsDialog.setPref(
-                                    "artworkSource", model[index].data)
-                                // The form is filled from a property, not by the
-                                // combo itself: a binding keeps the row in step
-                                // with the stored value (and restores itself after
-                                // the user picks another entry).
-                                Binding {
-                                    target: artSourceCombo
-                                    property: "currentIndex"
-                                    value: (prefsDialog.values.artworkSource ?? "steam") === "sgdb" ? 1 : 0
-                                }
-                                Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB Is Community Artwork (Needs a Key). Fetch Artwork Re-Downloads With the Chosen Source.")
-                                Controls.ToolTip.visible: hovered
-                                KirigamiLayouts.FormData.label: qsTr("Artwork Source:")
-                            }
-                        }
-                    }
-                    SectionBox {
-                        title: qsTr("Runtime")
-                        Layout.fillWidth: true
-                        WidgetsFormLayout {
-                            id: prefsRuntimeForm
-                            objectName: "prefsRuntimeForm"
-                            labelWidth: prefsColumn.labelWidth
-                            Layout.fillWidth: true
-                            Controls.TextField {
-                                objectName: "prefsPrefixBase"
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("Default: $XDG_DATA_HOME/tkarcade/prefixes")
-                                text: prefsDialog.values.prefixBase ?? ""
-                                onTextChanged: {
-                                    if (prefsDialog.values.prefixBase !== text) {
-                                        prefsDialog.setPref("prefixBase", text)
-                                    }
-                                }
-                                KirigamiLayouts.FormData.label: qsTr("Prefix Base:")
-                                Controls.ToolTip.text: qsTr("Local Games Use <base>/<Game ID> Unless the Game Overrides the Path.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.TextField {
-                                objectName: "prefsWineBinary"
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("Default: wine from PATH")
-                                text: prefsDialog.values.wineBinary ?? ""
-                                onTextChanged: {
-                                    if (prefsDialog.values.wineBinary !== text) {
-                                        prefsDialog.setPref("wineBinary", text)
-                                    }
-                                }
-                                KirigamiLayouts.FormData.label: qsTr("Wine Binary:")
-                                Controls.ToolTip.text: qsTr("Wine Executable (Path or Name) for Non-Steam Games.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.TextField {
-                                objectName: "prefsProtonDirs"
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("One Directory per Entry (: Separated)")
-                                text: prefsDialog.values.protonDirs ?? ""
-                                onTextChanged: {
-                                    if (prefsDialog.values.protonDirs !== text) {
-                                        prefsDialog.setPref("protonDirs", text)
-                                    }
-                                }
-                                KirigamiLayouts.FormData.label: qsTr("Proton Directories:")
-                                Controls.ToolTip.text: qsTr("Extra Proton Installs, on Top of Steam's compatibilitytools.d.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.TextField {
-                                objectName: "prefsDxvkDirs"
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("One Directory per Entry (: Separated)")
-                                text: prefsDialog.values.dxvkDirs ?? ""
-                                onTextChanged: {
-                                    if (prefsDialog.values.dxvkDirs !== text) {
-                                        prefsDialog.setPref("dxvkDirs", text)
-                                    }
-                                }
-                                KirigamiLayouts.FormData.label: qsTr("DXVK Directories:")
-                                Controls.ToolTip.text: qsTr("Directories Holding One DXVK Version per Subdirectory.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.TextField {
-                                objectName: "prefsVkd3dDirs"
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("One Directory per Entry (: Separated)")
-                                text: prefsDialog.values.vkd3dDirs ?? ""
-                                onTextChanged: {
-                                    if (prefsDialog.values.vkd3dDirs !== text) {
-                                        prefsDialog.setPref("vkd3dDirs", text)
-                                    }
-                                }
-                                KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Directories:")
-                                Controls.ToolTip.text: qsTr("Directories Holding One vkd3d-proton Version per Subdirectory.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.TextField {
-                                objectName: "prefsDxvkRepo"
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("owner/repo (Empty = Official)")
-                                text: prefsDialog.values.dxvkRepo ?? ""
-                                onTextChanged: {
-                                    if (prefsDialog.values.dxvkRepo !== text) {
-                                        prefsDialog.setPref("dxvkRepo", text)
-                                    }
-                                }
-                                KirigamiLayouts.FormData.label: qsTr("DXVK Release Source:")
-                                Controls.ToolTip.text: qsTr("A GitHub Fork Whose Releases Provide the DXVK Build, Such as DXVK-Sarek. Empty Means the Official doitsujin/dxvk Repository.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            Controls.TextField {
-                                objectName: "prefsVkd3dRepo"
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("owner/repo (Empty = Official)")
-                                text: prefsDialog.values.vkd3dRepo ?? ""
-                                onTextChanged: {
-                                    if (prefsDialog.values.vkd3dRepo !== text) {
-                                        prefsDialog.setPref("vkd3dRepo", text)
-                                    }
-                                }
-                                KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Release Source:")
-                                Controls.ToolTip.text: qsTr("A GitHub Fork Whose Releases Provide the vkd3d-proton Build. Empty Means the Official HansKristian-Work/vkd3d-proton Repository.")
-                                Controls.ToolTip.visible: hovered
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Kirigami.Units.smallSpacing
-                                KirigamiLayouts.FormData.label: qsTr("DXVK Install:")
-                                Controls.Button {
-                                    objectName: "prefsDownloadDxvk"
-                                    text: qsTr("Download Latest…")
-                                    enabled: !prefsDialog.archiveBusy["dxvk"]
-                                    onClicked: gameModel.downloadLatestGraphics("dxvk")
-                                    Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
+                                Controls.CheckBox {
+                                    objectName: "prefsShowPreview"
+                                    text: qsTr("Show Launch Command Preview")
+                                    checked: prefsDialog.values.showPreview ?? true
+                                    onClicked: prefsDialog.setPref("showPreview", checked)
+                                    Controls.ToolTip.text: qsTr("Live Preview Box at the Bottom of Game Dialogs.")
                                     Controls.ToolTip.visible: hovered
                                 }
-                                Controls.Button {
-                                    objectName: "prefsManageDxvk"
-                                    text: qsTr("Manage Versions…")
-                                    onClicked: runtimeManagerDialog.openFor(prefsDialog, "dxvk")
-                                }
-                                Controls.BusyIndicator {
-                                    running: prefsDialog.archiveBusy["dxvk"]
-                                    visible: running
-                                    implicitWidth: Kirigami.Units.iconSizes.small
-                                    implicitHeight: Kirigami.Units.iconSizes.small
-                                }
-                            }
-                            Controls.Label {
-                                objectName: "prefsDxvkDownloadStatus"
-                                Layout.fillWidth: true
-                                text: prefsDialog.archiveStatus["dxvk"] ?? ""
-                                visible: text !== ""
-                                elide: Text.ElideRight
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Kirigami.Units.smallSpacing
-                                KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Install:")
-                                Controls.Button {
-                                    objectName: "prefsDownloadVkd3d"
-                                    text: qsTr("Download Latest…")
-                                    enabled: !prefsDialog.archiveBusy["vkd3d"]
-                                    onClicked: gameModel.downloadLatestGraphics("vkd3d")
-                                    Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
+                                Controls.ComboBox {
+                                    id: langCombo
+                                    objectName: "prefsLanguage"
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Language:")
+                                    onActivated: (index) => prefsDialog.setPref(
+                                        "language", prefsDialog.langCodes[index] || "system")
+                                    Controls.ToolTip.text: qsTr("Takes Effect on Restart.")
                                     Controls.ToolTip.visible: hovered
                                 }
-                                Controls.Button {
-                                    objectName: "prefsManageVkd3d"
-                                    text: qsTr("Manage Versions…")
-                                    onClicked: runtimeManagerDialog.openFor(prefsDialog, "vkd3d")
+                            }
+                        }
+                        SectionBox {
+                            title: qsTr("Tray")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: prefsTrayForm
+                                labelWidth: interfaceColumn.labelWidth
+                                Layout.fillWidth: true
+                                Controls.CheckBox {
+                                    id: trayCheck
+                                    objectName: "prefsTray"
+                                    text: qsTr("Enable Status Bar Icon")
+                                    checked: prefsDialog.values.trayEnable ?? false
+                                    onClicked: prefsDialog.setPref("trayEnable", checked)
+                                    Controls.ToolTip.text: qsTr("Keep TKArcade in the System Tray.")
+                                    Controls.ToolTip.visible: hovered
                                 }
-                                Controls.BusyIndicator {
-                                    running: prefsDialog.archiveBusy["vkd3d"]
-                                    visible: running
-                                    implicitWidth: Kirigami.Units.iconSizes.small
-                                    implicitHeight: Kirigami.Units.iconSizes.small
+                                Controls.ComboBox {
+                                    objectName: "prefsTrayIcon"
+                                    Layout.fillWidth: true
+                                    enabled: trayCheck.checked
+                                    model: [qsTr("Normal"), qsTr("Monochrome")]
+                                    KirigamiLayouts.FormData.label: qsTr("Tray Icon Style:")
+                                    currentIndex: prefsDialog.values.trayIcon === "mono" ? 1 : 0
+                                    onActivated: (index) => prefsDialog.setPref(
+                                        "trayIcon", index === 1 ? "mono" : "normal")
+                                }
+                                Controls.CheckBox {
+                                    text: qsTr("Minimize to Tray")
+                                    enabled: trayCheck.checked
+                                    checked: prefsDialog.values.minimizeToTray ?? false
+                                    onClicked: prefsDialog.setPref("minimizeToTray", checked)
+                                }
+                                Controls.CheckBox {
+                                    text: qsTr("Close to Tray")
+                                    enabled: trayCheck.checked
+                                    checked: prefsDialog.values.closeToTray ?? false
+                                    onClicked: prefsDialog.setPref("closeToTray", checked)
+                                }
+                                Controls.CheckBox {
+                                    id: quickCheck
+                                    text: qsTr("Show Recent Games in Tray Menu")
+                                    enabled: trayCheck.checked
+                                    checked: prefsDialog.values.trayQuickLaunch ?? false
+                                    onClicked: prefsDialog.setPref("trayQuickLaunch", checked)
+                                    Controls.ToolTip.text: qsTr("Launch Recent Games Through Steam (steam:// URL).")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.SpinBox {
+                                    id: quickSpin
+                                    objectName: "prefsQuickCount"
+                                    from: 1
+                                    to: 10
+                                    enabled: trayCheck.checked && quickCheck.checked
+                                    onValueModified: prefsDialog.setPref("trayQuickCount", value)
+                                    Controls.ToolTip.text: qsTr("How Many Recent Games to List.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("Recent Games:")
                                 }
                             }
-                            Controls.Label {
-                                objectName: "prefsVkd3dDownloadStatus"
+                        }
+                    }
+                }
+            }
+            Controls.ScrollView {
+                clip: true
+                objectName: "prefsArtworkScroll"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Item {
+                    width: parent.width
+                    implicitHeight: artworkColumn.implicitHeight
+                    ColumnLayout {
+                        id: artworkColumn
+                        objectName: "prefsArtworkColumn"
+                        width: parent.width
+                        spacing: Kirigami.Units.largeSpacing
+                        property real labelWidth: prefsArtworkForm.naturalLabelWidth
+                        SectionBox {
+                            title: qsTr("Artwork")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: prefsArtworkForm
+                                labelWidth: artworkColumn.labelWidth
                                 Layout.fillWidth: true
-                                text: prefsDialog.archiveStatus["vkd3d"] ?? ""
-                                visible: text !== ""
-                                elide: Text.ElideRight
+                                Controls.TextField {
+                                    objectName: "prefsSgdb"
+                                    Layout.fillWidth: true
+                                    echoMode: Controls.TextField.Password
+                                    placeholderText: qsTr("Free Key from steamgriddb.com")
+                                    text: prefsDialog.values.sgdbApiKey ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.sgdbApiKey !== text) {
+                                            prefsDialog.setPref("sgdbApiKey", text)
+                                        }
+                                    }
+                                    Controls.ToolTip.text: qsTr("SteamGridDB API Key for Missing Artwork Fallback.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("SteamGridDB Key:")
+                                }
+                                Controls.ComboBox {
+                                    id: artSourceCombo
+                                    objectName: "prefsArtworkSource"
+                                    Layout.fillWidth: true
+                                    model: [
+                                        { "text": qsTr("Steam (Official)"), "data": "steam" },
+                                        { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" }
+                                    ]
+                                    textRole: "text"
+                                    valueRole: "data"
+                                    onActivated: (index) => prefsDialog.setPref(
+                                        "artworkSource", model[index].data)
+                                    // The form is filled from a property, not by the
+                                    // combo itself: a binding keeps the row in step
+                                    // with the stored value (and restores itself after
+                                    // the user picks another entry).
+                                    Binding {
+                                        target: artSourceCombo
+                                        property: "currentIndex"
+                                        value: (prefsDialog.values.artworkSource ?? "steam") === "sgdb" ? 1 : 0
+                                    }
+                                    Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB Is Community Artwork (Needs a Key). Fetch Artwork Re-Downloads With the Chosen Source.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("Artwork Source:")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Controls.ScrollView {
+                clip: true
+                objectName: "prefsRuntimeScroll"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Item {
+                    width: parent.width
+                    implicitHeight: runtimeColumn.implicitHeight
+                    ColumnLayout {
+                        id: runtimeColumn
+                        objectName: "prefsRuntimeColumn"
+                        width: parent.width
+                        spacing: Kirigami.Units.largeSpacing
+                        property real labelWidth: prefsRuntimeForm.naturalLabelWidth
+                        SectionBox {
+                            title: qsTr("Runtime")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: prefsRuntimeForm
+                                objectName: "prefsRuntimeForm"
+                                labelWidth: runtimeColumn.labelWidth
+                                Layout.fillWidth: true
+                                Controls.TextField {
+                                    objectName: "prefsPrefixBase"
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("Default: $XDG_DATA_HOME/tkarcade/prefixes")
+                                    text: prefsDialog.values.prefixBase ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.prefixBase !== text) {
+                                            prefsDialog.setPref("prefixBase", text)
+                                        }
+                                    }
+                                    KirigamiLayouts.FormData.label: qsTr("Prefix Base:")
+                                    Controls.ToolTip.text: qsTr("Local Games Use <base>/<Game ID> Unless the Game Overrides the Path.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.TextField {
+                                    objectName: "prefsWineBinary"
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("Default: wine from PATH")
+                                    text: prefsDialog.values.wineBinary ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.wineBinary !== text) {
+                                            prefsDialog.setPref("wineBinary", text)
+                                        }
+                                    }
+                                    KirigamiLayouts.FormData.label: qsTr("Wine Binary:")
+                                    Controls.ToolTip.text: qsTr("Wine Executable (Path or Name) for Non-Steam Games.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.TextField {
+                                    objectName: "prefsProtonDirs"
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("One Directory per Entry (: Separated)")
+                                    text: prefsDialog.values.protonDirs ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.protonDirs !== text) {
+                                            prefsDialog.setPref("protonDirs", text)
+                                        }
+                                    }
+                                    KirigamiLayouts.FormData.label: qsTr("Proton Directories:")
+                                    Controls.ToolTip.text: qsTr("Extra Proton Installs, on Top of Steam's compatibilitytools.d.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.TextField {
+                                    objectName: "prefsDxvkDirs"
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("One Directory per Entry (: Separated)")
+                                    text: prefsDialog.values.dxvkDirs ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.dxvkDirs !== text) {
+                                            prefsDialog.setPref("dxvkDirs", text)
+                                        }
+                                    }
+                                    KirigamiLayouts.FormData.label: qsTr("DXVK Directories:")
+                                    Controls.ToolTip.text: qsTr("Directories Holding One DXVK Version per Subdirectory.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.TextField {
+                                    objectName: "prefsVkd3dDirs"
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("One Directory per Entry (: Separated)")
+                                    text: prefsDialog.values.vkd3dDirs ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.vkd3dDirs !== text) {
+                                            prefsDialog.setPref("vkd3dDirs", text)
+                                        }
+                                    }
+                                    KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Directories:")
+                                    Controls.ToolTip.text: qsTr("Directories Holding One vkd3d-proton Version per Subdirectory.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.TextField {
+                                    objectName: "prefsDxvkRepo"
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("owner/repo (Empty = Official)")
+                                    text: prefsDialog.values.dxvkRepo ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.dxvkRepo !== text) {
+                                            prefsDialog.setPref("dxvkRepo", text)
+                                        }
+                                    }
+                                    KirigamiLayouts.FormData.label: qsTr("DXVK Release Source:")
+                                    Controls.ToolTip.text: qsTr("A GitHub Fork Whose Releases Provide the DXVK Build, Such as DXVK-Sarek. Empty Means the Official doitsujin/dxvk Repository.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.TextField {
+                                    objectName: "prefsVkd3dRepo"
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("owner/repo (Empty = Official)")
+                                    text: prefsDialog.values.vkd3dRepo ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.vkd3dRepo !== text) {
+                                            prefsDialog.setPref("vkd3dRepo", text)
+                                        }
+                                    }
+                                    KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Release Source:")
+                                    Controls.ToolTip.text: qsTr("A GitHub Fork Whose Releases Provide the vkd3d-proton Build. Empty Means the Official HansKristian-Work/vkd3d-proton Repository.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Kirigami.Units.smallSpacing
+                                    KirigamiLayouts.FormData.label: qsTr("DXVK Install:")
+                                    Controls.Button {
+                                        objectName: "prefsDownloadDxvk"
+                                        text: qsTr("Download Latest…")
+                                        enabled: !prefsDialog.archiveBusy["dxvk"]
+                                        onClicked: gameModel.downloadLatestGraphics("dxvk")
+                                        Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Button {
+                                        objectName: "prefsManageDxvk"
+                                        text: qsTr("Manage Versions…")
+                                        onClicked: runtimeManagerDialog.openFor(prefsDialog, "dxvk")
+                                    }
+                                    Controls.BusyIndicator {
+                                        running: prefsDialog.archiveBusy["dxvk"]
+                                        visible: running
+                                        implicitWidth: Kirigami.Units.iconSizes.small
+                                        implicitHeight: Kirigami.Units.iconSizes.small
+                                    }
+                                }
+                                Controls.Label {
+                                    objectName: "prefsDxvkDownloadStatus"
+                                    Layout.fillWidth: true
+                                    text: prefsDialog.archiveStatus["dxvk"] ?? ""
+                                    visible: text !== ""
+                                    elide: Text.ElideRight
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Kirigami.Units.smallSpacing
+                                    KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Install:")
+                                    Controls.Button {
+                                        objectName: "prefsDownloadVkd3d"
+                                        text: qsTr("Download Latest…")
+                                        enabled: !prefsDialog.archiveBusy["vkd3d"]
+                                        onClicked: gameModel.downloadLatestGraphics("vkd3d")
+                                        Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Button {
+                                        objectName: "prefsManageVkd3d"
+                                        text: qsTr("Manage Versions…")
+                                        onClicked: runtimeManagerDialog.openFor(prefsDialog, "vkd3d")
+                                    }
+                                    Controls.BusyIndicator {
+                                        running: prefsDialog.archiveBusy["vkd3d"]
+                                        visible: running
+                                        implicitWidth: Kirigami.Units.iconSizes.small
+                                        implicitHeight: Kirigami.Units.iconSizes.small
+                                    }
+                                }
+                                Controls.Label {
+                                    objectName: "prefsVkd3dDownloadStatus"
+                                    Layout.fillWidth: true
+                                    text: prefsDialog.archiveStatus["vkd3d"] ?? ""
+                                    visible: text !== ""
+                                    elide: Text.ElideRight
+                                }
                             }
                         }
                     }

@@ -249,9 +249,10 @@ failure. `AGENTS.md` links here.
   field column's preferred width is the form width minus the label
   column, so QGridLayout's surplus sharing cannot grow the label column
   past its maximum; `onWidthChanged` reapplies it on resize.
-  `PrefsDialog` and the Commands tab's Pre/Post form have a single form
-  and keep their natural column; the tab's environment table builds one
-  row per variable dynamically.
+  The Commands tab's Pre/Post form has a single form and keeps its
+  natural column; each Preferences tab (Interface, Artwork, Runtime)
+  takes the maximum over its own forms; the tab's environment table
+  builds one row per variable dynamically.
 
 - Pushed pages slide in: QML tests must `QTest.qWait` for the PageRow
   transition before synthetic clicks, or clicks land mid-slide.
@@ -268,8 +269,13 @@ failure. `AGENTS.md` links here.
   `titleDelegate` is a `Component`, so its button ids are invisible at
   page scope — the measurement belongs inside the row. Pre-fix, pt_BR at
   the maximized 1440p/1.5 width (~1700px) hid the whole actions row
-  (view, Columns, hamburger) in Kirigami's overflow; the subprocess case
-  in `test_kirigami_app.py` pins the desktop style and a larger font.
+  (view, Columns, Preferences, hamburger) in Kirigami's overflow; the
+  subprocess case in `test_kirigami_app.py` pins the desktop style and a
+  larger font.
+- The actions row's separators are `ToolSeparator`s with
+  `orientation: Qt.Vertical`. In Qt 6.12 `horizontal` and `vertical` are
+  read-only mirrors, so assigning either fails at load; `MenuSeparator`
+  is a horizontal line and does not work inside a `RowLayout`.
 - Content windows (settings and friends) are separate modal `Window`s
   (`WindowModal`, transient on the main window): resizable, no PageRow
   tiling surprises. Tests drive them through `topLevelWindows()` by

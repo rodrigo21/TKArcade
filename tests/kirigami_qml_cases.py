@@ -3534,16 +3534,22 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Preferences",))
     assert swin.property("width") >= 540
+    # Three tabs, one page per area; the interface page is the first.
+    tabs = swin.findChild(QQuickItem, "prefsTabs")
+    assert tabs.property("count") == 3
     # The form scrolls: its wrapper advertises the form's implicit size
     # (an explicit `height:` alone leaves contentHeight at -1).
-    scroller = swin.findChild(QQuickItem, "prefsScroll")
+    scroller = swin.findChild(QQuickItem, "prefsInterfaceScroll")
     assert scroller.property("contentHeight") > 0
     # The section forms keep their label column at every allowed width
     # (WidgetsFormLayout pins wideMode), so the window minimum must fit
     # them: shrink to the minimum and check that no row runs past the edge.
+    # The Runtime page holds the widest form.
     swin.setProperty("width", swin.property("minimumWidth"))
     QTest.qWait(200)
-    form = swin.findChild(QQuickItem, "prefsForm")
+    tabs.setProperty("currentIndex", 2)
+    QTest.qWait(200)
+    form = swin.findChild(QQuickItem, "prefsRuntimeColumn")
     section_form = swin.findChild(QQuickItem, "prefsRuntimeForm")
     assert section_form.property("wideMode") is True
     form_width = form.property("width")
@@ -3583,6 +3589,9 @@ def test_prefs_runtime_download_rows(qgui_app, xdg_env):
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Preferences",))
+    # The download rows live on the Runtime page.
+    swin.findChild(QQuickItem, "prefsTabs").setProperty("currentIndex", 2)
+    qgui_app.processEvents()
     for name in ("prefsDownloadDxvk", "prefsDownloadVkd3d"):
         button = swin.findChild(QQuickItem, name)
         assert button is not None, f"missing {name}"
@@ -3629,6 +3638,9 @@ def test_prefs_runtime_manager(qgui_app, xdg_env, monkeypatch):
     dialog = win.findChild(QObject, "prefsDialog")
     dialog.open()
     swin = _modal_window(qgui_app, ("Preferences",))
+    # The runtime rows live on the Runtime page.
+    swin.findChild(QQuickItem, "prefsTabs").setProperty("currentIndex", 2)
+    qgui_app.processEvents()
     assert swin.findChild(QQuickItem, "prefsDxvkRepo") is not None
     _click(swin, "prefsManageDxvk")
     mwin = _modal_window(qgui_app, ("DXVK Versions",))
@@ -3677,6 +3689,40 @@ def test_prefs_enter_saves(qgui_app, xdg_env):
     QTest.keyClick(swin, Qt.Key.Key_Return)
     assert _wait_for(lambda: C.load_preferences().sgdb_api_key == "secret"), "Enter ignored"
     assert _wait_for(lambda: dialog.property("visible") is False), "Save left the window open"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_prefs_toolbar_button_opens(qgui_app, xdg_env):
+    """The header's Preferences button opens the dialog, not the menu."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    button = win.findChild(QQuickItem, "prefsButton")
+    assert button is not None
+    assert button.property("visible") is True
+    center = button.mapToScene(
+        QPointF(button.property("width") / 2, button.property("height") / 2)
+    ).toPoint()
+    QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, center)
+    dialog = win.findChild(QObject, "prefsDialog")
+    assert _wait_for(lambda: dialog.property("visible") is True), "Preferences did not open"
+    _modal_window(qgui_app, ("Preferences",))
+    # The hamburger menu no longer carries the entry.
+    menu = win.findChild(QObject, "hamburgerMenu")
+    texts = [
+        item.property("text")
+        for item in menu.findChildren(QObject)
+        if item.property("text") is not None
+    ]
+    assert "Preferences..." not in texts
+    dialog.close()
+    qgui_app.processEvents()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
