@@ -10,20 +10,22 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: nine batches. Prefix/config/winetricks guards, sanitized
+- Landed: eleven batches. Prefix/config/winetricks guards, sanitized
   paths, background GUI probes (no freezes), custom `WINEDEBUG`,
   uppercase IDs, shared helpers and 9 redundant tests removed, the
-  runtime version manager (`docs/decisions/runtime-manager.md`), and
-  the tabbed Preferences window with its header button.
-- Verified: `scripts/check.sh` 620 passed; `--qml` 620 passed; the five
-  Preferences QML cases run in isolation; an offscreen screenshot round
-  on the three tabs, the minimum width and the header row; venv
-  refreshed after the merge.
-- Next: fix the Manage Versions release combo (the desktop style paints
-  `displayText` in its background, so the custom `contentItem` label
-  double-paints it), then the hamburger rework that moves the library
-  actions out of the menu, then name-based artwork for local games and
-  the deferred research/release items.
-- Open decisions: none blocking; the runtime manager landed with its
-  decision record.
+  runtime version manager (`docs/decisions/runtime-manager.md`), the
+  tabbed Preferences window with its header button, the Manage Versions
+  release combo fix, and the hamburger rework (grouped menu, Global
+  Defaults header button, issues checkbox beside the filter, title row
+  on one width budget).
+- Verified: `scripts/check.sh` 619 passed (the QML node deselected) and
+  the full QML suite passed on the rebased branch before the landing;
+  offscreen screenshot rounds on the header at 800/1280/1600/1920, the
+  Preferences tabs and the release combo; venv refreshed after the
+  merge.
+- Next: name-based artwork for local games (`TODO.md`), then the
+  deferred research and release items.
+- Open decisions: none blocking; the runtime manager and the settings
+  placement records cover the recent work, the Preferences tabs carry a
+  **Reversed** note in `docs/decisions/settings-placement.md`.
 - Nothing blocking.
