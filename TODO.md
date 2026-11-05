@@ -25,6 +25,11 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 Only when the maintainer opens the subject.
 
+- [ ] **1.0 packaging: the new Python deps.** Confirm `icoextract` and
+  `pefile` actually ship in the AppImage (the bundle must pick them up
+  from the project dependencies) and depend on them in every package
+  recipe before the release build. Same pass checks `zstandard` on 3.14.
+
 - [ ] **1.0: drop every compatibility shim.** 1.0 should read only the
   current format; the compatibility promise starts after it. Remove
   `--migrate-ids` and the automatic rename plus numeric lookups for bare
