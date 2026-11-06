@@ -10,24 +10,29 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: eighteen batches. The latest one: QML suite cost — an audit
-  found no duplicated cases; the four source-only wiring checks moved to
-  `tests/test_qml_static.py` (fast suite) and the Preferences Enter case
-  folded into the save roundtrip (145 QML cases), the driver batches 10
-  cases with up to four workers and recovers an aborted batch as a group,
-  isolating only the crasher (2–2.5 min to ~1:45 on four cores). Before
-  it: QML suite isolation (nothing wraps a `Controls.Menu` in Python; the
-  shell's Escape filter reads the popup's `QQuickPopupItem`), and a Steam
-  game's Runtime preselected from Steam's compat mapping. Earlier: the
-  ProtonDB tier, release date and artwork fetch for a newly added game,
-  the executable icon for local games (`icoextract`), the Artwork tab
-  previews, and the test policy (full suite once per approval round).
-- Verified: `scripts/check.sh` 656 passed and the QML driver 145 cases in
-  102s on that diff; venv refreshed after the merge.
-- Next: the fourth artwork kind (background/fanart, `TODO.md`); its
-  arrival is when the preview sizes get revisited. Then the other game
-  sources (Epic, GOG) with a per-source batch import, and the 1.0
-  packaging check (AppImage and recipes must ship `icoextract`/`pefile`).
+- Landed: nineteen batches. The latest one: the running marker in the
+  list view — a positive wash over the row plus a green outline from the
+  row number to the end of the name (drawn above the icon, the name cell
+  raised while it shows), and the toolbar Play turning into Stop with the
+  game's name in the tooltip for the selected running game, through the
+  same terminate path as the context menu. Before it: QML suite cost (no
+  duplicated cases; the four source-only wiring checks moved to
+  `tests/test_qml_static.py`, the driver batches 10 cases with up to four
+  workers and recovers an aborted batch as a group, ~1:45 on four cores),
+  QML suite isolation, and a Steam game's Runtime preselected from Steam's
+  compat mapping.
+- Verified: **nothing yet on the latest batch**. The QML case
+  (`test_running_badge_updates_in_table`) gained asserts for
+  `rowRunningFrame` and the Play/Stop text, and neither the fast suite nor
+  the QML driver ran on it; the maintainer tested the visuals by hand.
+  First task on the verify machine: that case, `scripts/check.sh
+  --changed`, the full suite, then the driver. The previous batch held
+  656 passed and 145 QML cases in 102s.
+- Next: verify the landed batch (above). Then the fourth artwork kind
+  (background/fanart, `TODO.md`); its arrival is when the preview sizes
+  get revisited. Then the other game sources (Epic, GOG) with a
+  per-source batch import, and the 1.0 packaging check (AppImage and
+  recipes must ship `icoextract`/`pefile`).
 - Open decisions: none blocking; `docs/decisions/artwork-sources.md`
   and `docs/decisions/exe-icon.md` cover the artwork work.
 - Nothing blocking.
