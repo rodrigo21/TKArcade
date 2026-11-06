@@ -73,6 +73,9 @@ Window {
     property var fields: ({})
     // Local Windows runtime (wine/umu) choices and graphics-layer status.
     property var protonChoices: []
+    // Test-facing state: tests never wrap a Controls.Menu in Python (see
+    // docs/QML-NOTES.md), so the profile menu reports itself here.
+    readonly property bool profileMenuOpen: profileMenu.visible
     // Friendly prefix-name picker (local Windows games).
     property var prefixChoices: []
     property string prefixHint: ""

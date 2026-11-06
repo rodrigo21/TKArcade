@@ -195,7 +195,6 @@ def _check_page_header_height(win):
     """Drawer "Library" bar matches the page header so separators align."""
     import pathlib
 
-    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade.gui import kirigami_app as kapp
@@ -203,7 +202,10 @@ def _check_page_header_height(win):
     drawer_bar = win.findChild(QQuickItem, "drawerHeaderBar")
     assert drawer_bar is not None
     page_headers = []
-    for child in win.findChildren(QObject):
+    # Typed walk: a QObject walk would wrap the window's Controls.Menu
+    # objects, which poisons PySide for the rest of the process
+    # (docs/QML-NOTES.md).
+    for child in win.findChildren(QQuickItem):
         try:
             class_name = child.metaObject().className()
         except Exception:
@@ -739,6 +741,11 @@ def test_library_columns_render_and_autofit(qgui_app, xdg_env):
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
+
+
+def _qml_list(value):
+    """A QML JS array as a plain Python list (PySide may wrap it)."""
+    return value.toVariant() if hasattr(value, "toVariant") else list(value)
 
 
 def _delegate_rows(view):
@@ -1559,8 +1566,6 @@ def test_card_mouse_gestures(qgui_app, xdg_env):
     # Both cards sit on the same row (same y), so pick by AppID.
     card = next(c for c in cards if c.property("gameId") == "local-doom")
     _settle_cards(qgui_app, card)
-    menu = win.findChild(QObject, "gameMenu")
-    assert menu is not None
 
     def selected():
         value = page.property("selectedIds")
@@ -1594,8 +1599,8 @@ def test_card_mouse_gestures(qgui_app, xdg_env):
     qgui_app.processEvents()
     click(Qt.RightButton)
     assert page.property("menuGid") == "local-doom"
-    assert menu.property("visible") is True
-    menu.setProperty("visible", False)
+    assert page.property("gameMenuOpen") is True
+    QTest.keyClick(win, Qt.Key.Key_Escape)
     qgui_app.processEvents()
 
     # Middle-click opens the settings (widgets eventFilter parity).
@@ -2997,8 +3002,7 @@ def test_context_menu_opens_for_row(qgui_app, xdg_env):
     qgui_app.processEvents()
     page.openGameMenu("b-game")
     qgui_app.processEvents()
-    menu = win.findChild(QObject, "gameMenu")
-    assert menu.property("visible") is True
+    assert page.property("gameMenuOpen") is True
     assert page.property("menuGid") == "b-game"
     # Multi-selection preserved: a-game stays selected.
     assert sorted(_selected_ids(table, _proxy)) == ["a-game", "b-game"]
@@ -3242,6 +3246,7 @@ def test_escape_closes_shell_dialogs(qgui_app, xdg_env):
 def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env, monkeypatch):
     """Escape closes the open popup, then the dialog itself (QDialog order)."""
     from PySide6.QtCore import QObject, Qt
+    from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
 
     import tkarcade.steam as steammod
@@ -3263,10 +3268,11 @@ def test_escape_dismisses_topmost_popup_first(qgui_app, xdg_env, monkeypatch):
     assert dialog.property("visible") is True
     # A combo popup (a QQC2 Menu in the desktop style) comes first too.
     _settings_tab(swin, TAB_RUNTIME)
+    combo = swin.findChild(QQuickItem, "settingsRuntimeType")
     _click(swin, "settingsRuntimeType")
-    assert _wait_for(lambda: _opened_popups(dialog) != []), "combo popup did not open"
+    assert _wait_for(lambda: combo.property("down") is True), "combo popup did not open"
     QTest.keyClick(swin, Qt.Key.Key_Escape)
-    assert _wait_for(lambda: _opened_popups(dialog) == []), "Escape left the combo popup open"
+    assert _wait_for(lambda: combo.property("down") is False), "Escape left the combo popup open"
     assert dialog.property("visible") is True
     # Nothing left to dismiss: the window itself cancels.
     QTest.keyClick(swin, Qt.Key.Key_Escape)
@@ -3793,12 +3799,8 @@ def test_prefs_toolbar_button_opens(qgui_app, xdg_env):
     assert _wait_for(lambda: dialog.property("visible") is True), "Preferences did not open"
     _modal_window(qgui_app, ("Preferences",))
     # The hamburger menu no longer carries the entry.
-    menu = win.findChild(QObject, "hamburgerMenu")
-    texts = [
-        item.property("text")
-        for item in menu.findChildren(QObject)
-        if item.property("text") is not None
-    ]
+    burger = win.findChild(QQuickItem, "hamburgerButton")
+    texts = _qml_list(burger.property("menuEntryTexts"))
     assert "Preferences..." not in texts
     dialog.close()
     qgui_app.processEvents()
@@ -4210,28 +4212,12 @@ def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
     win, _engine, _proxy, warnings = _load_main(qgui_app)
     burger = win.findChild(QQuickItem, "hamburgerButton")
     assert burger is not None
-    menu = win.findChild(QObject, "hamburgerMenu")
-    assert menu is not None
     center = burger.mapToScene(
         QPointF(burger.property("width") / 2, burger.property("height") / 2)
     ).toPoint()
     QTest.mouseClick(win, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, center)
-    for _ in range(20):
-        qgui_app.processEvents()
-        try:
-            if menu.property("visible"):
-                break
-        except Exception:
-            break
-    assert menu.property("visible") is True
-    texts = set()
-    for obj in menu.findChildren(QObject):
-        try:
-            text = obj.property("text")
-        except Exception:
-            continue
-        if isinstance(text, str) and text:
-            texts.add(text)
+    assert _wait_for(lambda: burger.property("menuOpen") is True), "hamburger did not open"
+    texts = set(_qml_list(burger.property("menuEntryTexts")))
     assert {"History...", "Validate Game", "Reload", "Quit"} <= texts
     # Scan is gone: Add Game is the only way to add a Steam game.
     assert "Scan Steam Library..." not in texts
@@ -4273,8 +4259,7 @@ def test_header_global_defaults_button(qgui_app, xdg_env):
     assert button is not None
     assert button.property("visible") is True
     # The menu entry moved to the button.
-    menu = win.findChild(QObject, "hamburgerMenu")
-    assert menu.findChild(QObject, "menuDefaults") is None
+    assert win.findChild(QObject, "menuDefaults") is None
     center = button.mapToScene(
         QPointF(button.property("width") / 2, button.property("height") / 2)
     ).toPoint()
@@ -4335,8 +4320,7 @@ def test_hamburger_removes_uninstalled_games(qgui_app, xdg_env):
         C.save(cfg)
     win, engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    menu = win.findChild(QObject, "hamburgerMenu")
-    entry = menu.findChild(QObject, "menuRemoveUninstalled")
+    entry = win.findChild(QObject, "menuRemoveUninstalled")
     assert entry.property("text") == "Remove Uninstalled Games..."
     _fire(entry)
     dlg = _confirm_window(qgui_app, "removeMissingDialog")
@@ -4495,13 +4479,13 @@ def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     cfg.general.appid = "1"
     C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
     header = win.findChild(QQuickItem, "tableHeader")
     assert header is not None
     head = header.mapToScene(QPointF(header.property("width") / 2, 5)).toPoint()
     QTest.mouseClick(win, Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, head)
     qgui_app.processEvents()
-    header_menu = win.findChild(QObject, "headerMenu")
-    assert header_menu.property("visible") is True
+    assert page.property("headerMenuOpen") is True
     QTest.keyClick(win, Qt.Key.Key_Escape)
     qgui_app.processEvents()
     gear = None
@@ -4762,7 +4746,9 @@ def test_header_divider_drag_resizes_and_persists(qgui_app, xdg_env):
     # Synthetic moves compress (positions lag), so assert direction,
     # live preview without saving, then persistence on release.
     grown = proxy.columnWidth(11)
-    assert w0 < grown <= w0 + 40
+    # One device pixel of rounding fits the 40 px drag: synthetic moves
+    # land on fractional positions and the clamp rounds up.
+    assert w0 < grown <= w0 + 41
     assert f"11={grown}" in C.load_preferences().column_widths.split(",")
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -5041,23 +5027,6 @@ def _visual_item(root, name):
     return found[0] if found else None
 
 
-def _opened_popups(parent):
-    """Class names of the opened popups under `parent` (anything with `opened`)."""
-    from PySide6.QtCore import QObject
-
-    names = []
-    for child in parent.findChildren(QObject):
-        meta = child.metaObject()
-        if meta.indexOfProperty("opened") < 0:
-            continue
-        try:
-            if child.property("opened"):
-                names.append(meta.className())
-        except Exception:
-            continue
-    return names
-
-
 def _settle_focus(window):
     """Wait for a dialog window to take focus (its body owns Return).
 
@@ -5072,12 +5041,12 @@ def _settle_focus(window):
 
 def _settings_forms(window):
     """WidgetsFormLayout instances of the settings dialog, hidden or not."""
-    from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
-    for obj in window.findChildren(QObject):
-        if not isinstance(obj, QQuickItem):
-            continue
+    # Typed walk: a QObject walk would wrap the window's Controls.Menu
+    # objects, which poisons PySide for the rest of the process
+    # (docs/QML-NOTES.md).
+    for obj in window.findChildren(QQuickItem):
         if obj.metaObject().indexOfProperty("naturalLabelWidth") >= 0:
             yield obj
 
@@ -6978,13 +6947,8 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     box = swin.findChild(QQuickItem, "settingsProfiles")
     box.setProperty("currentIndex", 1)
     _click(swin, "settingsProfileMenuButton")
-    menu = swin.findChild(QObject, "settingsProfileMenu")
-    for _ in range(20):
-        qgui_app.processEvents()
-        if menu.property("visible"):
-            break
-    assert menu.property("visible") is True
-    entry = menu.findChild(QObject, "settingsProfileDelete")
+    assert _wait_for(lambda: swin.property("profileMenuOpen") is True), "menu did not open"
+    entry = swin.findChild(QObject, "settingsProfileDelete")
     assert entry is not None
     _fire(entry)
     qgui_app.processEvents()
@@ -7329,12 +7293,8 @@ def test_menu_and_issues_check(qgui_app, xdg_env, monkeypatch):
     from PySide6.QtQuick import QQuickItem
 
     win, engine, proxy, warnings = _load_main(qgui_app)
-    menu = win.findChild(QObject, "hamburgerMenu")
-    texts = [
-        item.property("text")
-        for item in menu.findChildren(QObject)
-        if item.property("text") is not None
-    ]
+    burger = win.findChild(QQuickItem, "hamburgerButton")
+    texts = _qml_list(burger.property("menuEntryTexts"))
     # Library data and history lead, then tools, maintenance, app entries.
     order = [
         "Import...",

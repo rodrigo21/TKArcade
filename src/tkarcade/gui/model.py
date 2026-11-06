@@ -23,6 +23,7 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
+from PySide6.QtQuick import QQuickItem
 
 from .. import artwork as artmod
 from .. import config as cfgmod
@@ -154,15 +155,14 @@ class _QuitFilter(QObject):
 
 
 class _DialogKeyFilter(QObject):
-    """Escape closes a watched dialog; Enter takes its open popup's default.
+    """Escape closes a watched dialog; Enter stays with the dialog body.
 
     A QML `Window` is not a `QDialog`: nothing maps Escape to reject() for
     it, and with no field focused its focus item is the window root, so the
-    key never reaches a QML `Keys` handler on the body. The popups go
-    first, and they own the focus chain while they are open: a prompt's own
-    CloseOnEscape never sees an Escape and the body's
-    `Keys.onReturnPressed` never sees an Enter. Both are routed to the
-    popup here (a widgets modal's default button took Enter first).
+    key never reaches a QML `Keys` handler on the body. An open popup (a
+    combo list, a menu) handles Escape itself, so the filter only closes
+    the window when none is open. Enter is left to the body's
+    `Keys.onReturnPressed` (it knows the window's default buttons).
     """
 
     def eventFilter(self, watched, event):
@@ -170,72 +170,33 @@ class _DialogKeyFilter(QObject):
             if (
                 event.type() == QEvent.Type.KeyPress
                 and not event.isAutoRepeat()
-                and event.key() in (Qt.Key.Key_Escape, Qt.Key.Key_Return, Qt.Key.Key_Enter)
+                and event.key() == Qt.Key.Key_Escape
             ):
-                if event.key() == Qt.Key.Key_Escape:
-                    if not self._close_popup(watched):
-                        watched.close()
-                    return True
-                # Enter: with no popup open the body's own Keys handler runs
-                # (it knows the window's default buttons); with one open,
-                # press its accept button and swallow the key.
-                opened = _opened_popups(watched)
-                target = _highlighted_button(opened[-1]) if opened else None
-                if target is None:
+                if _popup_open(watched):
+                    # Let the popup take it; Qt closes the list itself.
                     return False
-                QMetaObject.invokeMethod(target, "clicked")
+                watched.close()
                 return True
         except Exception:
             pass
         return False
 
-    @staticmethod
-    def _close_popup(window) -> bool:
-        """Close the last opened popup under `window` (False when none)."""
-        try:
-            opened = _opened_popups(window)
-            return bool(opened) and QMetaObject.invokeMethod(opened[-1], "close")
-        except Exception:
-            return False
 
+def _popup_open(window) -> bool:
+    """Whether a popup (menu, combo list) is open in `window`.
 
-def _opened_popups(window) -> list:
-    """The opened popups under `window`, in tree order (never raises).
-
-    Everything that can be dismissed or accepted exposes `opened` (Popup,
-    Kirigami.Dialog, Menu); the last one is the innermost of the open ones.
+    Walks the popup's visual items, never the `Controls.Menu` object: a
+    Python wrapper of a Menu damages PySide's wrapper cache for the rest
+    of the process (docs/QML-NOTES.md). `QQuickPopupItem` exists for every
+    declared popup and is visible only while it is open.
     """
-    opened = []
     try:
-        for child in window.findChildren(QObject):
-            if child.metaObject().indexOfProperty("opened") < 0:
-                continue
-            if child.property("opened"):
-                opened.append(child)
+        for item in window.findChildren(QQuickItem):
+            if item.metaObject().className() == "QQuickPopupItem" and item.property("visible"):
+                return True
     except Exception:
         pass
-    return opened
-
-
-def _highlighted_button(popup):
-    """The popup's clickable accept button: its highlighted one, or None.
-
-    Our dialog button rows keep the accept button `highlighted` (see
-    AGENTS.md), which is what Enter has to hit inside an open popup.
-    """
-    for child in popup.findChildren(QObject):
-        try:
-            if child.metaObject().indexOfProperty("highlighted") < 0:
-                continue
-            if (
-                child.property("highlighted")
-                and child.property("visible")
-                and child.property("enabled")
-            ):
-                return child
-        except Exception:
-            continue
-    return None
+    return False
 
 
 class GameListModel(QAbstractTableModel):
@@ -4186,30 +4147,25 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(QObject, list)
     def pressDefault(self, window, names) -> None:
-        """Enter in a dialog: the popup's accept button, else the named one.
+        """Enter in a dialog: press the first visible, named button.
 
-        The widgets QDialogs sent Enter to their default button, and an
-        open modal QMessageBox took it first. QML buttons ignore Enter, so
-        each dialog body calls this from its `Keys.onReturnPressed` (a
-        window `Shortcut` would steal the key from an editable TextArea,
-        which has to keep it). `names` lists the dialog's default buttons
-        in priority order; the first visible, enabled one fires — the
-        settings window uses that to make Save & Launch the default in
-        launch mode, while a combo page keeps Enter on its own Import.
+        The widgets QDialogs sent Enter to their default button. QML
+        buttons ignore Enter, so each dialog body calls this from its
+        `Keys.onReturnPressed` (a window `Shortcut` would steal the key
+        from an editable TextArea, which has to keep it). `names` lists
+        the dialog's default buttons in priority order; the first visible,
+        enabled one fires — the settings window uses that to make
+        Save & Launch the default in launch mode, while a combo page keeps
+        Enter on its own Import.
         """
         try:
-            opened = _opened_popups(window)
-            target = _highlighted_button(opened[-1]) if opened else None
-            if target is None:
-                for name in names or ():
-                    candidate = window.findChild(QObject, str(name))
-                    if candidate is None:
-                        continue
-                    if candidate.property("visible") and candidate.property("enabled"):
-                        target = candidate
-                        break
-            if target is not None:
-                QMetaObject.invokeMethod(target, "clicked")
+            for name in names or ():
+                candidate = window.findChild(QObject, str(name))
+                if candidate is None:
+                    continue
+                if candidate.property("visible") and candidate.property("enabled"):
+                    QMetaObject.invokeMethod(candidate, "clicked")
+                    return
         except Exception as e:
             log.warning("pressDefault failed: %s", e)
 

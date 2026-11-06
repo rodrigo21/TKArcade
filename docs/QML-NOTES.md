@@ -353,6 +353,23 @@ isolation, and a case counts as passed once its `PASSED` line printed
   marker covers exactly one node, `test_qml_suite_isolated`, so a check
   run ends with "1 deselected" — expected, not a skipped case: that node
   is the driver that runs every QML case in subprocesses.
+- Never wrap a `Controls.Menu` from Python: not the object itself
+  (`findChild(QObject, "hamburgerMenu")`, `children()`), and not through
+  a `findChildren(QObject)` walk over a window that contains one. The
+  wrapper poisons PySide 6.12 for the rest of the process: once that
+  engine is destroyed, the next engine's items cannot all be wrapped, so
+  `findChild` returns None (measured: `test_prefs_toolbar_button_opens`
+  then `test_issue_badge_shows_severity` in one process, where the table
+  delegate lost `runningIndicator` and `issueBadge`; the driver used to
+  hide it by re-running the failed case alone). Read popup state from
+  QML instead — `gameMenuOpen`/`headerMenuOpen` on the page,
+  `menuOpen`/`menuEntryTexts` on the burger, `profileMenuOpen` on the
+  settings window — and MenuItem objects by objectName. Walk a window
+  with `findChildren(QQuickItem)`, never `findChildren(QObject)`: a
+  Menu is a QObject, not an Item, so the typed walk skips it. The
+  shell's own key routing follows the same rule: `model.py`'s Escape
+  filter looks for a visible `QQuickPopupItem` instead of scanning the
+  popup objects.
 - Knobs: `TKARCADE_QML_BATCH` (cases per subprocess; default 8 serial,
   4 up to four workers, 2 above) and `TKARCADE_QML_WORKERS` (default one
   per CPU, capped at 8). Parallel runs can flake timing-sensitive cases

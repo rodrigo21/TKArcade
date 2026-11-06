@@ -621,6 +621,10 @@ Kirigami.Page {
     property string menuShader: ""
     property string menuShaderSize: ""
     property bool menuIsSteam: false
+    // Test-facing state: tests never wrap a Controls.Menu in Python (see
+    // docs/QML-NOTES.md), so the open state is reported here.
+    readonly property bool gameMenuOpen: gameMenu.visible
+    readonly property bool headerMenuOpen: headerMenu.visible
 
     function openGameMenu(gid) {
         if (selectedIds.indexOf(gid) < 0) {
@@ -1214,6 +1218,18 @@ Kirigami.Page {
                 Controls.ToolButton {
                     objectName: "hamburgerButton"
                     icon.name: gameModel.iconName(["overflow-menu", "application-menu"])
+                    // Test-facing state: tests never wrap the Menu in
+                    // Python (docs/QML-NOTES.md), so the popup reports
+                    // itself and its entries here.
+                    readonly property bool menuOpen: hamburgerMenu.visible
+                    readonly property var menuEntryTexts: {
+                        var texts = []
+                        for (var i = 0; i < hamburgerMenu.count; ++i) {
+                            var entry = hamburgerMenu.itemAt(i)
+                            texts.push(entry ? entry.text : "")
+                        }
+                        return texts
+                    }
                     // Same release-dismiss race as above.
                     onClicked: Qt.callLater(hamburgerMenu.popup)
                     Controls.Menu {
