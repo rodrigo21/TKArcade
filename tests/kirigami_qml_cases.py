@@ -2460,7 +2460,7 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
         "luOpen",
     ]
     _settings_tab(swin, TAB_ART)
-    assert shown("artIcon", "settingsNotes") == ["artIcon", "settingsNotes"]
+    assert shown("artPreviewIcon", "settingsNotes") == ["artPreviewIcon", "settingsNotes"]
     assert shown("luEnable") == []
 
     real = [w for w in warnings if "graphics scene" not in w]
@@ -2749,30 +2749,23 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     assert "Artwork Downloaded" in status.property("text"), status.property("text")
     assert "SteamGridDB Artwork" in status.property("text"), status.property("text")
 
-    # Every button in the section shares one width, so the fields and the
-    # buttons line up in columns instead of each button hugging its text.
+    # The buttons in the section share one width and the fields line up in
+    # one column (the provider row carries two spacers).
     widths = {}
-    for name in (
-        "artIconPick",
-        "artIconClear",
-        "artCoverPick",
-        "artCoverClear",
-        "artBannerPick",
-        "artBannerClear",
-        "artFetch",
-        "artClear",
-    ):
+    for name in ("artFetch", "artClear"):
         item = swin.findChild(QQuickItem, name)
         assert item is not None, name
         widths[name] = round(item.property("width"))
     assert len(set(widths.values())) == 1, widths
-    # The field column is the same width on the pick/clear rows and on the
-    # AppID and provider rows (which only have a field plus two spacers).
     fields = [
         round(swin.findChild(QQuickItem, name).property("width"))
-        for name in ("artIcon", "artCover", "artBanner", "artSource", "artProvider")
+        for name in ("artSource", "artProvider")
     ]
     assert len(set(fields)) == 1, fields
+    # The path fields and their Clear buttons are gone: the preview tile is
+    # the picker and carries its own clear button.
+    for gone in ("artIcon", "artCover", "artBanner", "artIconClear"):
+        assert swin.findChild(QQuickItem, gone) is None, gone
 
     # Several name matches: the list asks, and the pick goes to the model.
     model = engine.rootContext().contextProperty("gameModel")
@@ -2795,6 +2788,154 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     _click(confirm, "confirmOk")
     assert cleared == [("local-doom", "480")], cleared
     assert "Removed" in status.property("text"), status.property("text")
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_artwork_previews_show_the_effective_art(qgui_app, xdg_env):
+    """Artwork tab: ordering, sizes, origin, pick/clear/URL on the tile."""
+    from PySide6.QtCore import QObject, QPointF, Qt
+    from PySide6.QtGui import QImage
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import artwork
+    from tkarcade import config as C
+
+    def click_item(tile, name):
+        target = tile.findChild(QQuickItem, name)
+        assert target is not None, name
+        centre = QPointF(target.property("width") / 2, target.property("height") / 2)
+        QTest.mouseClick(
+            swin,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            target.mapToScene(centre).toPoint(),
+        )
+        QTest.qWait(30)
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    icon = artwork.grid_path("local-doom", "icon")
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    picture = QImage(16, 16, QImage.Format_ARGB32)
+    picture.fill(0xFF336699)
+    assert picture.save(str(icon))
+    wide = artwork.grid_path("local-doom", "banner")
+    wide_image = QImage(460, 215, QImage.Format_ARGB32)
+    wide_image.fill(0xFF993366)
+    assert wide_image.save(str(wide))
+    tall = artwork.grid_path("local-doom", "cover")
+    tall_image = QImage(600, 900, QImage.Format_ARGB32)
+    tall_image.fill(0xFF663399)
+    assert tall_image.save(str(tall))
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
+    qgui_app.processEvents()
+
+    icon_tile = swin.findChild(QQuickItem, "artPreviewIcon")
+    banner = swin.findChild(QQuickItem, "artPreviewBanner")
+    cover = swin.findChild(QQuickItem, "artPreviewCover")
+    assert icon_tile is not None and banner is not None and cover is not None
+    url = icon_tile.property("artUrl")
+    assert url.startswith("file://") and str(icon) in url and "?v=" in url, url
+    # Shortest to tallest: icon, banner, cover.
+    assert icon_tile.property("x") < banner.property("x") < cover.property("x")
+    # Frames keep the kind's box; a tiny picture is not stretched inside.
+    frame = icon_tile.findChild(QQuickItem, "artPreviewFrame")
+    icon_image = icon_tile.findChild(QQuickItem, "artPreviewImage")
+    assert round(frame.property("width")) == round(icon_tile.property("width"))
+    assert 48 <= round(frame.property("width")) <= 50
+    assert round(icon_image.property("width")) == 16
+    assert round(icon_image.property("height")) == 16
+    # Banner 12x~5.6 and cover 6x9 grid units.
+    banner_frame = banner.findChild(QQuickItem, "artPreviewFrame")
+    assert round(banner_frame.property("width")) == 216
+    cover_frame = cover.findChild(QQuickItem, "artPreviewFrame")
+    assert round(cover_frame.property("width")) == 108
+    assert round(cover_frame.property("height")) == 162
+    assert cover.property("height") > cover_frame.property("height")
+    # Equal gaps: every column is exactly its frame, so the spacing is
+    # the same between all three previews.
+    gap_one = banner.property("x") - (icon_tile.property("x") + icon_tile.property("width"))
+    gap_two = cover.property("x") - (banner.property("x") + banner.property("width"))
+    assert abs(gap_one - gap_two) <= 1, (gap_one, gap_two)
+    assert gap_one >= 8, gap_one
+
+    # Origin travels with the preview (the cache here has no provider
+    # sidecar, so it is plain downloaded art).
+    assert icon_tile.property("artOrigin") == "cache"
+    assert banner.property("artOrigin") == "cache"
+
+    # Clicking a tile is the picker; the clear X only exists when filled.
+    picked = []
+    cleared = []
+    model = engine.rootContext().contextProperty("gameModel")
+    model.pickPath = lambda title, accept: picked.append(title)
+    model.clearArtwork = lambda appid, kind: cleared.append((appid, kind)) or True
+    _click(swin, "artPreviewCover")
+    assert picked == ["Cover Image"], picked
+    assert swin.property("pendingBrowse") == "art:cover"
+    assert icon_tile.findChild(QQuickItem, "artPreviewClear").property("opacity") == 1
+    cleared.clear()
+    click_item(icon_tile, "artPreviewClear")
+    assert cleared == [("local-doom", "icon")], cleared
+
+    # The link button opens the URL prompt for that kind.
+    urls = []
+    model.storeArtworkUrl = lambda appid, kind, link: urls.append((appid, kind, link)) or ""
+    click_item(banner, "artPreviewUrl")
+    prompt = _confirm_window(qgui_app, "settingsUrlPrompt")
+    field = prompt.findChild(QQuickItem, "settingsUrlField")
+    assert field is not None
+    field.setProperty("text", "https://example.com/art.png")
+    _click(prompt, "dialogOk")
+    assert urls == [("local-doom", "banner", "https://example.com/art.png")], urls
+    assert "Downloading" in swin.findChild(QQuickItem, "artStatus").property("text")
+
+    # The tooltip carries the art's origin under the zoom.
+    QTest.mouseMove(swin, frame.mapToScene(QPointF(4, 4)).toPoint())
+    for _ in range(20):
+        if icon_tile.findChild(QObject, "artPreviewTip").property("visible") is True:
+            break
+        qgui_app.processEvents()
+        QTest.qWait(20)
+    assert icon_tile.findChild(QObject, "artPreviewTip").property("visible") is True
+
+    # The banner's zoom keeps its 460:215 shape (it used to be forced into
+    # a fixed box and looked cropped).
+    banner_frame = banner.findChild(QQuickItem, "artPreviewFrame")
+    QTest.mouseMove(
+        swin,
+        banner_frame.mapToScene(QPointF(banner_frame.property("width") / 2, 4)).toPoint(),
+    )
+    for _ in range(20):
+        if banner.findChild(QObject, "artPreviewTip").property("visible") is True:
+            break
+        qgui_app.processEvents()
+        QTest.qWait(20)
+    zoom = banner.findChild(QQuickItem, "artPreviewZoom")
+    box = banner.findChild(QQuickItem, "artPreviewZoomBox")
+    ratio = zoom.property("width") / zoom.property("height")
+    assert abs(ratio - 460 / 215) < 0.03, ratio
+    # The layout gets the drawn size, not the source size: no huge popup
+    # with the picture lost in the middle and the labels pushed out.
+    assert round(box.property("implicitWidth")) == round(zoom.property("width"))
+    assert round(box.property("implicitHeight")) == round(zoom.property("height"))
+    tip = banner.findChild(QObject, "artPreviewTip")
+    assert zoom.property("height") < tip.property("height") < zoom.property("height") + 100
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []

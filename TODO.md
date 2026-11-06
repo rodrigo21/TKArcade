@@ -9,6 +9,10 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred research
 
+- [ ] **Fourth artwork kind (background/fanart).** A wide backdrop for
+  the game dialog/page: new entry in `artwork.ART_KINDS`, its cache name,
+  provider fetch, manual slot and one more preview tile in the Artwork
+  tab (the row already sizes each kind by its own box).
 - [ ] **Other artwork sources.** Steam's CDN and SteamGridDB are the only
   providers today. A third source (IGDB, GiantBomb, a Playnite-style
   metadata service) would need its own key, cache and provider entry in

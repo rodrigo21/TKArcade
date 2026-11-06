@@ -1585,6 +1585,47 @@ class GameListModel(QAbstractTableModel):
         self.refresh()
         return ""
 
+    @Slot(str, str, str, result=str)
+    def storeArtworkUrl(self, appid: str, kind: str, url: str) -> str:
+        """Download an image from a pasted URL into a manual slot.
+
+        Validation is synchronous (the token comes back at once); the
+        download runs in a worker and reports through `artworkStored`.
+        """
+        if not appid:
+            return "no-game"
+        if kind not in artmod.MANUAL_KINDS:
+            return "no-kind"
+        link = str(url or "").strip()
+        if not link.startswith(("http://", "https://")):
+            return "bad-url"
+
+        def worker() -> None:
+            token = ""
+            try:
+                data, error = artmod.fetch_image(link)
+                if data is None:
+                    token = error or "network"
+                else:
+                    dest = artmod.store_manual_bytes(appid, kind, data)
+                    if dest is None:
+                        token = "not-image"
+                    else:
+                        cfg = cfgmod.load(appid)
+                        setattr(cfg.artwork, kind, os.fspath(dest))
+                        cfgmod.save(cfg)
+            except Exception as e:
+                log.warning("storeArtworkUrl(%s) failed: %s", appid, e)
+                token = "network"
+            self.artworkStored.emit(str(appid), kind, token)
+            try:
+                self.refresh()
+            except Exception:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
+        return ""
+
     @Slot(str, str, result=bool)
     def clearArtwork(self, appid: str, kind: str) -> bool:
         """Remove a manual artwork slot and clear the config path."""
@@ -1960,6 +2001,52 @@ class GameListModel(QAbstractTableModel):
             return str(path) if path else ""
         except Exception:
             return ""
+
+    @Slot(str, str, str, result=str)
+    def artworkPreview(self, appid: str, kind: str, source: str = "") -> str:
+        """`file://` URL of the art the views use, versioned by its mtime.
+
+        QML caches an image by URL, so a file Fetch or Clear replaced
+        would keep showing the previous picture without the `?v=` stamp.
+        Empty when the slot has nothing to show.
+        """
+        try:
+            path, _source = artmod.resolve(
+                appid, kind, self._art_source(appid, source), self._local_exe(appid)
+            )
+            if path is None:
+                return ""
+            return f"file://{path}?v={path.stat().st_mtime_ns}"
+        except Exception:
+            return ""
+
+    @Slot(str, str, str, result=str)
+    def artworkOrigin(self, appid: str, kind: str, source: str = "") -> str:
+        """Token naming where one kind's art comes from ("" when empty).
+
+        `manual`, `steam`, `exe`, `cache:<provider>` (`cache:steam`,
+        `cache:sgdb`) or plain `cache` when the sidecar does not say.
+        """
+        try:
+            path, origin = artmod.resolve(
+                appid, kind, self._art_source(appid, source), self._local_exe(appid)
+            )
+        except Exception:
+            return ""
+        if path is None:
+            return ""
+        if origin in ("manual", "steam", "exe"):
+            return origin
+        gid = str(appid)
+        provider = artmod.provider_for(gid, kind)
+        if not provider and origin.startswith("appid-") and source:
+            gid = self._art_source(appid, source)
+            provider = artmod.provider_for(gid, kind)
+        if not provider:
+            # The icon falls back to the cached cover, whose provider is
+            # recorded under its own kind.
+            provider = artmod.provider_for(gid, "cover") if kind == "icon" else ""
+        return f"cache:{provider}" if provider in artmod.PROVIDERS else "cache"
 
     @Slot(str, str, result=str)
     def artworkProvider(self, appid: str, source: str = "") -> str:
@@ -3684,6 +3771,9 @@ class GameListModel(QAbstractTableModel):
     artworkFetched = Signal(str, str, str)
     #: (appid, [[game_id, name], ...]) when a name lookup needs a choice.
     artworkChoices = Signal(str, "QVariantList")
+    #: (appid, kind, error) after an image downloaded from a pasted URL;
+    #: error is "", "network", "not-image", "too-large" or "save".
+    artworkStored = Signal(str, str, str)
 
     @Slot()
     def fetchMissing(self) -> None:

@@ -100,6 +100,10 @@ CLEARED_KEY = "cleared"
 #: stat, so a changed executable is re-extracted and an unchanged one is not.
 EXE_ICON_KEY = "exe_icon"
 
+#: Largest image a pasted URL may deliver; anything bigger is refused
+#: before it reaches the disk.
+URL_IMAGE_LIMIT = 20 * 1024 * 1024
+
 
 # --------------------------------------------------------------------
 # Cache paths
@@ -339,6 +343,24 @@ def manual_path(appid: str, kind: str) -> Path | None:
     return None
 
 
+def _manual_dest(appid: str, kind: str, suffix: str) -> Path:
+    """Destination for one manual slot, dropping its other suffix variants.
+
+    The other kinds are left untouched.
+    """
+    dest_dir = manual_dir(appid)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / f"{kind}{suffix}"
+    for other in (".png", ".jpg", ".jpeg", ".webp"):
+        old = dest_dir / f"{kind}{other}"
+        if old != dest:
+            try:
+                old.unlink()
+            except OSError:
+                pass
+    return dest
+
+
 def store_manual(appid: str, kind: str, src: str) -> Path | None:
     """Copy an image into the manual slot. None on any failure."""
     if kind not in MANUAL_KINDS:
@@ -352,18 +374,7 @@ def store_manual(appid: str, kind: str, src: str) -> Path | None:
             ".webp",
         ):
             return None
-        dest_dir = manual_dir(appid)
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / f"{kind}{origin.suffix.lower()}"
-        # Drop the other suffix variants of this same slot so it keeps
-        # exactly one file; the other kinds are left untouched.
-        for suffix in (".png", ".jpg", ".jpeg", ".webp"):
-            old = dest_dir / f"{kind}{suffix}"
-            if old != dest:
-                try:
-                    old.unlink()
-                except OSError:
-                    pass
+        dest = _manual_dest(appid, kind, origin.suffix.lower())
         import shutil
 
         shutil.copyfile(origin, dest)
@@ -371,6 +382,45 @@ def store_manual(appid: str, kind: str, src: str) -> Path | None:
     except Exception as e:
         log.debug("store_manual failed: %s", e)
         return None
+
+
+def image_suffix(data: bytes) -> str:
+    """Suffix for the detected image type ("" when the bytes are not one)."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp"
+    return ""
+
+
+def store_manual_bytes(appid: str, kind: str, data: bytes) -> Path | None:
+    """Store an image already in memory into the manual slot."""
+    if kind not in MANUAL_KINDS:
+        return None
+    suffix = image_suffix(data)
+    if not suffix:
+        return None
+    try:
+        dest = _manual_dest(appid, kind, suffix)
+        dest.write_bytes(data)
+        return dest
+    except Exception as e:
+        log.debug("store_manual_bytes failed: %s", e)
+        return None
+
+
+def fetch_image(url: str, limit: int = URL_IMAGE_LIMIT) -> tuple[bytes | None, str]:
+    """Download one image from a pasted URL: (bytes, error token)."""
+    body, error = _get(url)
+    if body is None:
+        return None, error or "network"
+    if len(body) > limit:
+        return None, "too-large"
+    if not image_suffix(body):
+        return None, "not-image"
+    return body, ""
 
 
 def clear_manual(appid: str, kind: str) -> bool:

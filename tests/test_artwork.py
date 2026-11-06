@@ -729,3 +729,24 @@ def test_exe_icon_is_ignored_for_a_steam_game(monkeypatch, xdg_env, tmp_path):
     monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"EXE")
     exe = _local_exe(tmp_path)
     assert art.resolve("steam-480", "icon", "", str(exe)) == (None, "")
+
+
+def test_fetch_image_accepts_png_and_rejects_junk(monkeypatch, xdg_env):
+    """A pasted URL is downloaded and sniffed, not trusted by extension."""
+    payload = b"\x89PNG\r\n\x1a\n" + b"0" * 8
+    _stub(monkeypatch, [("cdn/a.png", payload)])
+    body, error = art.fetch_image("https://cdn/a.png")
+    assert error == "" and body == payload
+    _stub(monkeypatch, [("cdn/a.txt", b"not an image")])
+    assert art.fetch_image("https://cdn/a.txt") == (None, "not-image")
+    _stub(monkeypatch, [("cdn/big.png", payload)])
+    assert art.fetch_image("https://cdn/big.png", limit=4) == (None, "too-large")
+
+
+def test_store_manual_bytes_writes_the_slot(xdg_env):
+    png = b"\x89PNG\r\n\x1a\n" + b"1" * 4
+    dest = art.store_manual_bytes("local-doom", "icon", png)
+    assert dest is not None and dest.read_bytes() == png
+    assert art.resolve("local-doom", "icon") == (dest, "manual")
+    assert art.store_manual_bytes("local-doom", "icon", b"junk") is None
+    assert art.store_manual_bytes("local-doom", "nope", png) is None

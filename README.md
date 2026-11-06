@@ -212,7 +212,12 @@ provider (Steam first by default, SteamGridDB as fallback) and
 Fetch/Clear; a local game without an AppID is looked up by name on
 SteamGridDB and a stored choice keeps the same art across fetches. A
 local game whose icon slot is still empty shows the icon embedded in its
-executable, extracted once into the cache. The
+executable, extracted once into the cache. Above the AppID row, framed
+thumbnails (icon, banner, cover, shortest first) show what the list and
+the cards draw, at the image's own size; clicking one picks that file and
+the buttons under it download an image from a URL or clear the slot,
+while the hover tooltip shows the picture larger with its origin. The
+dialog opens at half the screen width and the full usable height. The
 footer shows the live wrapper summary and a launch-command preview.
 
 **Profiles** — named snapshots per game. Selecting one changes what

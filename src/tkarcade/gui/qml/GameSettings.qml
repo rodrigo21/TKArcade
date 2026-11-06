@@ -23,6 +23,8 @@ Window {
     modality: Qt.WindowModal
     minimumWidth: Kirigami.Units.gridUnit * 34
     minimumHeight: Kirigami.Units.gridUnit * 30
+    // Fallback size until `fitToScreen` runs on open (a Window has no
+    // screen when its bindings are first evaluated).
     width: Kirigami.Units.gridUnit * 42
     height: Kirigami.Units.gridUnit * 44
     visible: false
@@ -101,6 +103,17 @@ Window {
     // and would otherwise replace "Artwork Downloaded" with the disk
     // state of the moment before the download.
     property string artResult: ""
+    // The art the views actually use for each kind, as a file:// URL, and
+    // the token naming where it came from. Refreshed with the status line
+    // below them (open, pick, fetch, clear).
+    property string artPreviewIcon: ""
+    property string artPreviewCover: ""
+    property string artPreviewBanner: ""
+    property string artOriginIcon: ""
+    property string artOriginCover: ""
+    property string artOriginBanner: ""
+    // Kind of the URL prompt currently open.
+    property string artUrlKind: ""
     // One width for every button in the Artwork section (and the matching
     // spacer on the rows with fewer buttons), so the fields line up in a
     // column instead of each button taking its own text width.
@@ -131,6 +144,24 @@ Window {
         }
     }
 
+    // Half the usable screen wide, the whole usable height tall (the
+    // panel/taskbar is out), centered: seven tabs and the artwork previews
+    // no longer fit a small fixed window. Called on open, when the window
+    // knows its screen.
+    function fitToScreen() {
+        // The Screen attached property, not gameSettings.screen: the
+        // window has no screen yet when the open path runs, and the
+        // work area (panel/taskbar excluded) only exists there.
+        var aw = Screen.availableWidth > 0 ? Screen.availableWidth : Screen.width
+        var ah = Screen.availableHeight > 0 ? Screen.availableHeight : Screen.height
+        var w = Math.max(minimumWidth, Math.round(aw / 2))
+        var h = Math.max(minimumHeight, ah)
+        width = w
+        height = h
+        x = Screen.virtualX + Math.round((aw - w) / 2)
+        y = Screen.virtualY + Math.round((ah - h) / 2)
+    }
+
     function openFor(appid) {
         editAppid = appid
         defaultsMode = false
@@ -138,7 +169,11 @@ Window {
         errorText = ""
         tabBar.currentIndex = initialTab
         gameModel.watchDialogKeys(gameSettings)
+        fitToScreen()
         visible = true
+        // Re-run once mapped: the work area is only known after the
+        // window lands on a screen.
+        Qt.callLater(fitToScreen)
     }
 
     function openNew(runtimeType) {
@@ -154,7 +189,11 @@ Window {
         errorText = ""
         tabBar.currentIndex = 0
         gameModel.watchDialogKeys(gameSettings)
+        fitToScreen()
         visible = true
+        // Re-run once mapped: the work area is only known after the
+        // window lands on a screen.
+        Qt.callLater(fitToScreen)
     }
 
     function openDefaults() {
@@ -166,7 +205,11 @@ Window {
         errorText = ""
         tabBar.currentIndex = 0
         gameModel.watchDialogKeys(gameSettings)
+        fitToScreen()
         visible = true
+        // Re-run once mapped: the work area is only known after the
+        // window lands on a screen.
+        Qt.callLater(fitToScreen)
     }
 
     // Close reporting a user outcome, for the standalone editor (gui/edit.py):
@@ -625,9 +668,6 @@ Window {
         versionField.text = f.version || ""
         dateField.text = f.date || ""
         tagField.text = f.tag || ""
-        artIconField.text = f.art_icon || ""
-        artCoverField.text = f.art_cover || ""
-        artBannerField.text = f.art_banner || ""
         artSourceField.text = f.art_source || ""
         var prefs = gameModel.loadPrefs()
         artProviderCombo.model = providerOptions(prefs.artworkSource || "steam")
@@ -728,9 +768,11 @@ Window {
             "version": versionField.text,
             "date": dateField.text,
             "tag": tagField.text,
-            "art_icon": artIconField.text,
-            "art_cover": artCoverField.text,
-            "art_banner": artBannerField.text,
+            // The slots have no path field any more: read what the store
+            // holds, or a Save would clear a file picked earlier.
+            "art_icon": gameModel.artworkPath(editAppid, "icon"),
+            "art_cover": gameModel.artworkPath(editAppid, "cover"),
+            "art_banner": gameModel.artworkPath(editAppid, "banner"),
             "art_source": artSourceField.text,
             "art_provider": String(artProviderCombo.currentValue || ""),
             "notes": notesArea.text,
@@ -1194,17 +1236,52 @@ Window {
         return item !== undefined ? item.data : ""
     }
 
+    // The preview tile is this section's picker: clicking it opens the
+    // file dialog for that kind (the executable row's Browse handler
+    // stores the pick and refreshes the thumbnails).
+    function pickArtwork(kind) {
+        var titles = {
+            "icon": qsTr("Icon Image"),
+            "cover": qsTr("Cover Image"),
+            "banner": qsTr("Banner Image")
+        }
+        pendingBrowse = "art:" + kind
+        gameModel.pickPath(titles[kind], qsTr("Select"))
+    }
+
     function clearArtwork(kind) {
         if (gameModel.clearArtwork(editAppid, kind)) {
-            if (kind === "icon") {
-                artIconField.text = ""
-            } else if (kind === "cover") {
-                artCoverField.text = ""
-            } else {
-                artBannerField.text = ""
-            }
             refreshArtStatus()
         }
+    }
+
+    // The tile's link button: paste an image URL instead of picking a file.
+    function openArtworkUrl(kind) {
+        artUrlKind = kind
+        urlError.text = ""
+        urlField.text = ""
+        urlPrompt.open(gameSettings)
+        urlField.forceActiveFocus()
+    }
+
+    function acceptArtworkUrl() {
+        var link = urlField.text.trim()
+        if (link === "") {
+            urlError.text = qsTr("Paste the URL of an Image.")
+            return
+        }
+        var err = gameModel.storeArtworkUrl(editAppid, artUrlKind, link)
+        var messages = {
+            "no-game": qsTr("Save the Game First."),
+            "bad-url": qsTr("That Is Not a Complete http(s) URL.")
+        }
+        if (err !== "") {
+            urlError.text = messages[err] || err
+            return
+        }
+        urlPrompt.close()
+        artResult = qsTr("Downloading the Image…")
+        artStatusLabel.text = artResult
     }
 
     // Provider combo entries: the first one names the global preference
@@ -1221,6 +1298,7 @@ Window {
     // Where the three images come from right now (token from the model),
     // and which provider produced them.
     function refreshArtStatus() {
+        refreshArtPreviews()
         var draft = artSourceField.text
         var token = editAppid === "" ? "none" : gameModel.artworkStatus(editAppid, draft)
         var provider = editAppid === "" ? "" : gameModel.artworkProvider(editAppid, draft)
@@ -1235,6 +1313,28 @@ Window {
             return
         }
         artStatusLabel.text = (messages[token] || "") + providerSuffix(provider)
+    }
+
+    // Thumbnails of the three slots as the list and the cards will draw
+    // them: the manual file, the downloaded cache, Steam's own art or the
+    // local executable's icon. Nothing to show for an unsaved game.
+    function refreshArtPreviews() {
+        if (editAppid === "") {
+            artPreviewIcon = ""
+            artPreviewCover = ""
+            artPreviewBanner = ""
+            artOriginIcon = ""
+            artOriginCover = ""
+            artOriginBanner = ""
+            return
+        }
+        var draft = artSourceField.text
+        artPreviewIcon = gameModel.artworkPreview(editAppid, "icon", draft)
+        artPreviewCover = gameModel.artworkPreview(editAppid, "cover", draft)
+        artPreviewBanner = gameModel.artworkPreview(editAppid, "banner", draft)
+        artOriginIcon = gameModel.artworkOrigin(editAppid, "icon", draft)
+        artOriginCover = gameModel.artworkOrigin(editAppid, "cover", draft)
+        artOriginBanner = gameModel.artworkOrigin(editAppid, "banner", draft)
     }
 
     function providerSuffix(provider) {
@@ -1994,13 +2094,10 @@ Window {
                                                     editAppid, kind, picked)
                                                 if (msg !== "") {
                                                     settingsError.text = msg
-                                                } else if (kind === "icon") {
-                                                    artIconField.text = gameModel.artworkPath(editAppid, kind)
-                                                } else if (kind === "cover") {
-                                                    artCoverField.text = gameModel.artworkPath(editAppid, kind)
-                                                } else {
-                                                    artBannerField.text = gameModel.artworkPath(editAppid, kind)
                                                 }
+                                                // Picking stores a manual slot:
+                                                // thumbnail and status follow.
+                                                gameSettings.refreshArtStatus()
                                             } else {
                                                 exeField.text = picked
                                                 if (nameField.visible && nameField.text === "") {
@@ -3427,85 +3524,48 @@ Window {
                                 labelWidth: artColumn.labelWidth
                                 id: artForm
                                 Layout.fillWidth: true
+                                // What the list, the cards and the menu
+                                // actually draw, shortest to tallest: the
+                                // tile is also the picker.
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Icon Override:")
-                                    Controls.TextField {
-                                        id: artIconField
-                                        objectName: "artIcon"
-                                        readOnly: true
+                                    spacing: Kirigami.Units.largeSpacing
+                                    KirigamiLayouts.FormData.label: qsTr("Previews:")
+                                    ArtworkPreview {
+                                        objectName: "artPreviewIcon"
+                                        artUrl: gameSettings.artPreviewIcon
+                                        artOrigin: gameSettings.artOriginIcon
+                                        artRatio: 1
+                                        maxWidth: Kirigami.Units.gridUnit * 2.7
+                                        Layout.alignment: Qt.AlignBottom
+                                        onPicked: gameSettings.pickArtwork("icon")
+                                        onUrlRequested: gameSettings.openArtworkUrl("icon")
+                                        onClearRequested: gameSettings.clearArtwork("icon")
+                                    }
+                                    ArtworkPreview {
+                                        objectName: "artPreviewBanner"
+                                        artUrl: gameSettings.artPreviewBanner
+                                        artOrigin: gameSettings.artOriginBanner
+                                        artRatio: 460 / 215
+                                        maxWidth: Kirigami.Units.gridUnit * 12
+                                        Layout.alignment: Qt.AlignBottom
+                                        onPicked: gameSettings.pickArtwork("banner")
+                                        onUrlRequested: gameSettings.openArtworkUrl("banner")
+                                        onClearRequested: gameSettings.clearArtwork("banner")
+                                    }
+                                    ArtworkPreview {
+                                        objectName: "artPreviewCover"
+                                        artUrl: gameSettings.artPreviewCover
+                                        artOrigin: gameSettings.artOriginCover
+                                        artRatio: 2 / 3
+                                        maxWidth: Kirigami.Units.gridUnit * 6
+                                        Layout.alignment: Qt.AlignBottom
+                                        onPicked: gameSettings.pickArtwork("cover")
+                                        onUrlRequested: gameSettings.openArtworkUrl("cover")
+                                        onClearRequested: gameSettings.clearArtwork("cover")
+                                    }
+                                    Item {
                                         Layout.fillWidth: true
-                                    }
-                                    Controls.Button {
-                                        objectName: "artIconPick"
-                                        text: qsTr("Pick…")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        onClicked: {
-                                            gameSettings.pendingBrowse = "art:icon"
-                                            gameModel.pickPath(qsTr("Icon Image"), qsTr("Select"))
-                                        }
-                                    }
-                                    Controls.Button {
-                                        objectName: "artIconClear"
-                                        text: qsTr("Clear")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        onClicked: gameSettings.clearArtwork("icon")
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Cover Image:")
-                                    Controls.TextField {
-                                        id: artCoverField
-                                        objectName: "artCover"
-                                        readOnly: true
-                                        Layout.fillWidth: true
-                                    }
-                                    Controls.Button {
-                                        objectName: "artCoverPick"
-                                        text: qsTr("Pick…")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        onClicked: {
-                                            gameSettings.pendingBrowse = "art:cover"
-                                            gameModel.pickPath(qsTr("Cover Image"), qsTr("Select"))
-                                        }
-                                    }
-                                    Controls.Button {
-                                        objectName: "artCoverClear"
-                                        text: qsTr("Clear")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        onClicked: gameSettings.clearArtwork("cover")
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Banner Image:")
-                                    Controls.TextField {
-                                        id: artBannerField
-                                        objectName: "artBanner"
-                                        readOnly: true
-                                        Layout.fillWidth: true
-                                    }
-                                    Controls.Button {
-                                        objectName: "artBannerPick"
-                                        text: qsTr("Pick…")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        onClicked: {
-                                            gameSettings.pendingBrowse = "art:banner"
-                                            gameModel.pickPath(qsTr("Banner Image"), qsTr("Select"))
-                                        }
-                                    }
-                                    Controls.Button {
-                                        objectName: "artBannerClear"
-                                        text: qsTr("Clear")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        onClicked: gameSettings.clearArtwork("banner")
                                     }
                                 }
                                 RowLayout {
@@ -3516,6 +3576,10 @@ Window {
                                         objectName: "artSource"
                                         placeholderText: qsTr("Steam AppID (Optional)")
                                         Layout.fillWidth: true
+                                        // Another app's art changes the
+                                        // thumbnails as soon as the field is
+                                        // done, like the fetch would.
+                                        onEditingFinished: gameSettings.refreshArtStatus()
                                         Controls.ToolTip.text: qsTr("Steam AppID (Installed or Not) Whose Artwork This Game Uses Instead of Its Own.")
                                         Controls.ToolTip.visible: hovered
                                     }
@@ -3761,6 +3825,44 @@ Window {
             id: promptError
             visible: text !== ""
             color: Kirigami.Theme.negativeTextColor
+        }
+    }
+
+    DialogWindow {
+        id: urlPrompt
+        objectName: "settingsUrlPrompt"
+        title: qsTr("Image From URL")
+        onAccepted: gameSettings.acceptArtworkUrl()
+        Controls.TextField {
+            id: urlField
+            objectName: "settingsUrlField"
+            placeholderText: qsTr("https://…/image.png")
+            Layout.fillWidth: true
+            onAccepted: gameSettings.acceptArtworkUrl()
+        }
+        Controls.Label {
+            id: urlError
+            visible: text !== ""
+            color: Kirigami.Theme.negativeTextColor
+        }
+    }
+
+    // Outcome of the worker behind the URL download.
+    Connections {
+        target: gameModel
+        function onArtworkStored(appid, kind, error) {
+            if (!gameSettings.visible || appid !== editAppid) {
+                return
+            }
+            var messages = {
+                "network": qsTr("Could Not Download the Image."),
+                "not-image": qsTr("That URL Is Not an Image."),
+                "too-large": qsTr("The Image Is Too Large (20 MB Max).")
+            }
+            artResult = error === ""
+                ? qsTr("Image Downloaded.")
+                : (messages[error] || qsTr("Could Not Save the Image."))
+            refreshArtStatus()
         }
     }
 

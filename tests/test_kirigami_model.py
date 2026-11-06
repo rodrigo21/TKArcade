@@ -1,6 +1,7 @@
 """Kirigami game list model (QtCore only, no widgets)."""
 
 import time
+from pathlib import Path
 
 from tkarcade import config as C
 
@@ -2635,6 +2636,96 @@ def test_row_icon_uses_the_cached_artwork(qgui_app, xdg_env):
     assert model.effectiveArtwork("local-doom", "icon") == str(icon)
     assert model.artworkStatus("local-doom") == "partial"
     assert model.artworkStatus("local-missing") == "none"
+
+
+def test_artwork_preview_url_is_versioned_and_empty_when_missing(qgui_app, xdg_env):
+    """The dialog previews the art the views use, stamped for QML caching."""
+    import os
+
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    icon = artwork.grid_path("local-doom", "icon")
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    icon.write_bytes(b"I")
+    model = _model(qgui_app)
+    url = model.artworkPreview("local-doom", "icon")
+    assert url == f"file://{icon}?v={icon.stat().st_mtime_ns}", url
+    # A replaced file gets a new URL, so QML drops the cached picture.
+    os.utime(icon, ns=(1, 1))
+    assert model.artworkPreview("local-doom", "icon") != url
+    assert model.artworkPreview("local-doom", "banner") == ""
+    assert model.artworkPreview("local-missing", "icon") == ""
+
+
+def test_artwork_origin_names_the_source(qgui_app, xdg_env, tmp_path):
+    """The dialog's tooltip can say where each kind came from."""
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    model = _model(qgui_app)
+    assert model.artworkOrigin("local-doom", "icon") == ""
+    picked = tmp_path / "m.png"
+    picked.write_bytes(b"P")
+    manual = artwork.store_manual("local-doom", "icon", str(picked))
+    assert manual is not None
+    assert model.artworkOrigin("local-doom", "icon") == "manual"
+    # A downloaded file carries its provider in the sidecar.
+    cached = artwork.grid_path("local-doom", "cover")
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    cached.write_bytes(b"C")
+    artwork._write_manifest("local-doom", "cover", "sgdb", "123")
+    assert model.artworkOrigin("local-doom", "cover") == "cache:sgdb"
+    # No sidecar: plain downloaded art.
+    other = artwork.grid_path("local-doom", "banner")
+    other.write_bytes(b"B")
+    assert model.artworkOrigin("local-doom", "banner") == "cache"
+
+
+def test_artwork_from_url_stores_the_manual_slot(qgui_app, xdg_env, monkeypatch):
+    """A pasted URL downloads off-thread into the game's manual slot."""
+    from tkarcade import artwork
+    from tkarcade import config as C
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    payload = b"\x89PNG\r\n\x1a\n" + b"0" * 8
+    monkeypatch.setattr(artwork, "fetch_image", lambda url, limit=None: (payload, ""))
+    model = _model(qgui_app)
+    done = []
+    model.artworkStored.connect(lambda appid, kind, error: done.append((appid, kind, error)))
+    assert model.storeArtworkUrl("local-doom", "cover", "https://x/y.png") == ""
+    # The signal crosses threads, so it needs the event loop to arrive.
+    for _ in range(100):
+        if done:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.02)
+    assert done == [("local-doom", "cover", "")], done
+    stored = C.load("local-doom").artwork.cover
+    assert stored.endswith("cover.png")
+    assert Path(stored).read_bytes() == payload
+
+
+def test_artwork_url_is_validated_before_downloading(qgui_app, xdg_env):
+    model = _model(qgui_app)
+    assert model.storeArtworkUrl("", "icon", "https://x/y.png") == "no-game"
+    assert model.storeArtworkUrl("local-doom", "nope", "https://x/y.png") == "no-kind"
+    assert model.storeArtworkUrl("local-doom", "icon", "file:///etc/passwd") == "bad-url"
 
 
 def test_row_cover_uses_the_cached_artwork(qgui_app, xdg_env):

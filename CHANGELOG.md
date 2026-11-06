@@ -6,6 +6,17 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- The Artwork tab previews the icon, cover and banner the views actually
+  draw (manual file, downloaded art, Steam art or the local executable's
+  icon), smallest to tallest, framed and never upscaled past the source
+  image. Clicking a preview picks a file; the two buttons under it open
+  the URL prompt (PNG/JPEG/WebP, 20 MB cap) and clear that slot. Hovering
+  shows the picture with its origin (manual, downloaded from Steam or
+  SteamGridDB, Steam art, the executable) above the pick hint. The path
+  fields and the per-kind Clear buttons are gone.
+- The game dialog opens at half the screen width and the whole usable
+  height; the old fixed size no longer fits the seven tabs and the
+  artwork previews.
 - A local game with no artwork shows the icon embedded in its executable:
   the `.ico` is extracted once with `icoextract` (new dependency, MIT) and
   cached next to the other art. Manual, downloaded and Steam art still win
