@@ -10,25 +10,21 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: twelve batches. Prefix/config/winetricks guards, sanitized
-  paths, background GUI probes (no freezes), custom `WINEDEBUG`,
-  uppercase IDs, shared helpers and 9 redundant tests removed, the
-  runtime version manager (`docs/decisions/runtime-manager.md`), the
-  tabbed Preferences window with its header button, the Manage Versions
-  release combo fix, the hamburger rework, and the artwork sources batch
-  (per-game `[artwork] provider`, hand-typed Artwork Source AppID that
-  wins over the game's own art, SteamGridDB name lookup for local games,
-  Steam-first icon chain with a one-time stale-icon drop, Fetch/Clear on
-  the AppID row). The commit rule is now "commit only after the diff is
-  approved" (`docs/GIT.md`).
-- Verified: `scripts/check.sh` 635 passed and `scripts/check.sh --qml`
-  636 passed; real API checks (2399420 keeps the 32x32 Steam client
-  icon, 3321460 keeps the 256 PNG) and offscreen screenshots of the
-  Artwork tab at 800/1280; venv refreshed after the merge.
-- Next: the icon from the game executable for local Windows games, then
-  the artwork preview thumbnails, then the deferred research and release
-  items (`TODO.md`).
+- Landed: thirteen batches. The latest ones: the executable icon for
+  local games (`icoextract`, last icon fallback), the Artwork tab
+  previews (framed icon/banner/cover tiles at the image's own size,
+  click to pick, URL download to a manual slot, per-kind Clear, origin
+  and zoom in the tooltip), the dialog opening at half the screen width
+  and full usable height, and the test policy (full suite once per
+  approval round, targeted runs while iterating).
+- Verified: `scripts/check.sh` 649 passed and `scripts/check.sh --qml`
+  650 passed; offscreen screenshots of the Artwork tab at 100% and
+  150% (tooltips of cover and banner included); venv refreshed after
+  the merge.
+- Next: the fourth artwork kind (background/fanart, `TODO.md`); its
+  arrival is when the preview sizes get revisited. After that, the
+  remaining deferred research and the 1.0 packaging check (AppImage and
+  recipes must ship `icoextract`/`pefile`).
 - Open decisions: none blocking; `docs/decisions/artwork-sources.md`
-  covers the artwork work and `docs/decisions/artwork-provider.md`
-  carries a **Reversed** note.
+  and `docs/decisions/exe-icon.md` cover the artwork work.
 - Nothing blocking.
