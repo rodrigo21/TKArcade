@@ -344,15 +344,25 @@ failure. `AGENTS.md` links here.
 
 `tests/test_kirigami_qml.py` runs `kirigami_qml_cases.py` in short-lived
 `pytest` subprocesses (the whole file aborts in one process on Qt 6.12
-GC teardown); a batch that aborts re-runs its swallowed cases in
-isolation, and a case counts as passed once its `PASSED` line printed
-(a teardown segfault after it is expected).
+GC teardown); a batch that aborts re-runs its swallowed cases as a
+group, isolating the one case that stops the group, and a case counts as
+passed once its `PASSED` line printed (a teardown segfault after it is
+expected).
 
-- Fast loop without QML (~17s): `pytest tests/ -q -m "not qml"`, which
-  `scripts/check.sh` runs. Full run (~90s): `pytest tests/ -q`. The
+- Fast loop without QML (~30s): `pytest tests/ -q -m "not qml"`, which
+  `scripts/check.sh` runs. Full run (~2 min on 4 cores): `pytest
+  tests/ -q`. The
   marker covers exactly one node, `test_qml_suite_isolated`, so a check
   run ends with "1 deselected" — expected, not a skipped case: that node
   is the driver that runs every QML case in subprocesses.
+- QML source wiring checks (Ctrl+Q, Escape and Enter in every dialog)
+  live in `tests/test_qml_static.py`, in the fast suite: they only read
+  the `.qml` files and need no Qt instance, so they cost milliseconds.
+- Fast QML loop while iterating:
+  `pytest tests/kirigami_qml_cases.py -o python_files="*.py" -k <keyword>`
+  runs the matching cases in one process, in seconds (e.g.
+  `-k "settings or prefs"`). Run the full driver once, on the diff that
+  goes to approval.
 - Never wrap a `Controls.Menu` from Python: not the object itself
   (`findChild(QObject, "hamburgerMenu")`, `children()`), and not through
   a `findChildren(QObject)` walk over a window that contains one. The
@@ -371,7 +381,7 @@ isolation, and a case counts as passed once its `PASSED` line printed
   filter looks for a visible `QQuickPopupItem` instead of scanning the
   popup objects.
 - Knobs: `TKARCADE_QML_BATCH` (cases per subprocess; default 8 serial,
-  4 up to four workers, 2 above) and `TKARCADE_QML_WORKERS` (default one
+  10 up to four workers, 2 above) and `TKARCADE_QML_WORKERS` (default one
   per CPU, capped at 8). Parallel runs can flake timing-sensitive cases
   under load: set `TKARCADE_QML_WORKERS=1` to force serial.
 - `pytest -v -rP tests/test_kirigami_qml.py` prints one line per

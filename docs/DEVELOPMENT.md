@@ -15,7 +15,7 @@ switch: a synced/copied `.venv` keeps the other machine's path.
 tests. It takes a mode, then optional pytest targets:
 
 ```bash
-scripts/check.sh                       # fast suite, no QML driver (~20s)
+scripts/check.sh                       # fast suite, no QML driver (~30s)
 scripts/check.sh --changed             # only what git shows as touched
 scripts/check.sh --qml                 # full suite, QML driver included
 scripts/check.sh tests/test_config.py  # the given targets only
@@ -36,7 +36,7 @@ What bootstrap runs, and the raw commands:
 ```bash
 uv venv --system-site-packages .venv
 uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
-.venv/bin/python -m pytest tests/ -q          # full suite, ~90s
+.venv/bin/python -m pytest tests/ -q          # full suite, ~2 min on 4 cores
 ruff check src/ tests/
 ruff format --check src/ tests/  # line-length 100, see pyproject.toml
 QT_QPA_PLATFORM=offscreen PYTHONPATH=src .venv/bin/python -c "..."  # GUI smoke

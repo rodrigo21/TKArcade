@@ -90,8 +90,8 @@ decision; PySide6/jeepney stay GUI/helper-only.
 ```bash
 pytest tests/test_<module>.py -k <case>   # the case being fixed
 scripts/check.sh --changed               # the modules git shows as touched
-scripts/check.sh                         # whole fast suite (~15s), before approval
-scripts/check.sh --qml                   # + QML driver (~60s), once per task
+scripts/check.sh                         # whole fast suite (~30s), before approval
+scripts/check.sh --qml                   # + QML driver (~2 min), once per task
 ```
 
 Run the smallest check that covers the edit while iterating — single

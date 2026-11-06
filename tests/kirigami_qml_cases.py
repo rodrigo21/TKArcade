@@ -3540,7 +3540,7 @@ def test_history_view_follows_a_finished_session(qgui_app, xdg_env):
 
 def test_prefs_save_roundtrip(qgui_app, xdg_env):
     """Preferences dialog writes through to the prefs file."""
-    from PySide6.QtCore import QObject
+    from PySide6.QtCore import QObject, Qt
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
 
@@ -3562,7 +3562,7 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
             "artworkSource": "sgdb",
         },
     )
-    dialog.setProperty("visible", True)
+    dialog.open()
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Preferences",))
     assert swin.property("width") >= 540
@@ -3590,7 +3590,12 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
             continue
         right = item.property("x") + item.property("width")
         assert right <= form_width + 1, f"{item.metaObject().className()} runs past the form edge"
-    _click(swin, "prefsSave")
+    # Enter is the Save path (the widgets QDialog default button); the
+    # dialog's Enter routing goes through the model's key filter.
+    _settle_focus(swin)
+    QTest.keyClick(swin, Qt.Key.Key_Return)
+    assert _wait_for(lambda: C.load_preferences().sgdb_api_key == "secret"), "Enter ignored"
+    assert _wait_for(lambda: dialog.property("visible") is False), "Save left the window open"
     qgui_app.processEvents()
     prefs = C.load_preferences()
     assert prefs.tray_icon == "mono"
@@ -3738,42 +3743,6 @@ def test_prefs_runtime_release_combo_elides(qgui_app, xdg_env, monkeypatch):
     assert _wait_for(lambda: combo.property("displayText") == full), "label stayed elided"
     _click(mwin, "dialogCancel")
     assert _wait_for(lambda: mwin.property("visible") is False), "manager stayed open"
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_prefs_enter_saves(qgui_app, xdg_env):
-    """Enter saves the Preferences window (the widgets default button)."""
-    from PySide6.QtCore import QObject, Qt
-    from PySide6.QtTest import QTest
-
-    from tkarcade import config as C
-
-    win, engine, _proxy, warnings = _load_main(qgui_app)
-    dialog = win.findChild(QObject, "prefsDialog")
-    dialog.open()
-    swin = _modal_window(qgui_app, ("Preferences",))
-    dialog.setProperty(
-        "values",
-        {
-            "showPreview": True,
-            "trayEnable": False,
-            "trayIcon": "mono",
-            "minimizeToTray": False,
-            "closeToTray": False,
-            "trayQuickLaunch": False,
-            "trayQuickCount": 3,
-            "sgdbApiKey": "secret",
-            "artworkSource": "sgdb",
-        },
-    )
-    _settle_focus(swin)
-    QTest.keyClick(swin, Qt.Key.Key_Return)
-    assert _wait_for(lambda: C.load_preferences().sgdb_api_key == "secret"), "Enter ignored"
-    assert _wait_for(lambda: dialog.property("visible") is False), "Save left the window open"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -5627,88 +5596,6 @@ def test_import_enter_imports_the_current_page(qgui_app, xdg_env, tmp_path):
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
-
-
-def test_quit_keys_on_every_window(qgui_app, xdg_env):
-    """Every window handles Ctrl+Q through the focus chain (Shortcut backup)."""
-    import pathlib
-
-    from tkarcade.gui import kirigami_app as kapp
-
-    qml = pathlib.Path(kapp.__file__).parent / "qml"
-    for name in (
-        "MainPage.qml",
-        "GameSettings.qml",
-        "HistoryView.qml",
-        "PrefsDialog.qml",
-        "ImportDialog.qml",
-        "AboutDialog.qml",
-    ):
-        src = (qml / name).read_text()
-        assert "Keys.onPressed" in src, name
-        assert "Qt.Key_Q" in src, name
-
-
-def test_every_dialog_watches_escape(qgui_app, xdg_env):
-    """Every separate dialog Window registers the Escape filter.
-
-    A QML Window has no QDialog reject(): the model filter is what turns
-    Escape into a cancel (and dismisses an open popup first).
-    """
-    import pathlib
-
-    from tkarcade.gui import kirigami_app as kapp
-
-    qml = pathlib.Path(kapp.__file__).parent / "qml"
-    for name in (
-        "AboutDialog.qml",
-        "AddDialog.qml",
-        "EditorPicker.qml",
-        "GameSettings.qml",
-        "HistoryView.qml",
-        "ImportDialog.qml",
-        "PrefsDialog.qml",
-        "PrelaunchMenu.qml",
-    ):
-        src = (qml / name).read_text()
-        assert "watchDialogKeys" in src, name
-
-
-def test_every_dialog_has_a_default_button(qgui_app, xdg_env):
-    """Every dialog body routes Enter to its default button.
-
-    QQC2 buttons ignore Enter, so `Keys.onReturnPressed` on the body is
-    what reproduces the widgets QDialog default button (a window
-    `Shortcut` would steal the key from an editable TextArea).
-    """
-    import pathlib
-
-    from tkarcade.gui import kirigami_app as kapp
-
-    qml = pathlib.Path(kapp.__file__).parent / "qml"
-    for name in (
-        "AboutDialog.qml",
-        "AddDialog.qml",
-        "EditorPicker.qml",
-        "GameSettings.qml",
-        "HistoryView.qml",
-        "ImportDialog.qml",
-        "PrefsDialog.qml",
-        "PrelaunchMenu.qml",
-    ):
-        src = (qml / name).read_text()
-        assert "Keys.onReturnPressed" in src, name
-        assert "gameModel.pressDefault" in src, name
-
-
-def test_kirigami_quit_action_neutered():
-    """Kirigami's built-in Quit (close()) must not own Ctrl+Q."""
-    import pathlib
-
-    from tkarcade.gui import kirigami_app as kapp
-
-    src = (pathlib.Path(kapp.__file__).parent / "qml" / "main.qml").read_text()
-    assert 'quitAction.shortcut = ""' in src
 
 
 def test_settings_system_and_wine_flow(qgui_app, xdg_env, tmp_path):

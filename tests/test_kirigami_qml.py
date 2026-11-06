@@ -11,14 +11,16 @@ So the driver collects the case ids and runs them in **batches** of
 default. A case counts as passed when its PASSED line printed, which
 pytest flushes per write, so the lines before an abort survive. A batch
 whose abort swallowed cases (its PASSED lines are incomplete) is not
-trusted: the missing cases are re-run individually, and only those still
-lacking a PASSED line fail — real regressions fail assertions before
-PASSED, so nothing is masked.
+trusted: the missing cases are re-run as a group, and a group that stops
+making progress isolates its first case, so a crasher costs one
+subprocess instead of one per case. Only cases still lacking a PASSED
+line fail — real regressions fail assertions before PASSED, so nothing
+is masked.
 
 Tuning knobs, all optional:
 
     TKARCADE_QML_BATCH      cases per subprocess (default follows the
-                            worker count: 8 serial, 4 up to four, 2
+                            worker count: 8 serial, 10 up to four, 2
                             above -- smaller batches lose less to an
                             abort and balance better across workers)
     TKARCADE_QML_WORKERS    parallel subprocesses (default: one per CPU,
@@ -67,20 +69,21 @@ WORKERS = max(1, int(os.environ.get("TKARCADE_QML_WORKERS") or _default_workers(
 def _default_batch(workers: int) -> int:
     """Cases per subprocess, scaled down as workers go up.
 
-    Serial, a big batch amortizes the ~0.7s pytest start; with several
-    workers the tail latency and the cases lost to an abort dominate, so
-    four and then two pay off (measured on 4 cores: 8 -> 70s, 6 -> 59s,
-    4 -> 59s, 2 -> 62s with zero aborts).
+    Measured on a 4-core machine (~150 cases): serial 8 -> 325s,
+    4 workers x 4 -> 129s, x 8 -> 110s, x 10 -> 107s, x 12 -> 176s
+    (the last wave's tail dominates). Serial pays for the engines each
+    subprocess accumulates; above four workers a batch of two loses less
+    to a mid-batch abort and balances better.
     """
     if workers <= 2:
         return 8
     if workers <= 4:
-        return 4
+        return 10
     return 2
 
 
 # Sized well under the ~20-case abort threshold so a batch normally
-# finishes; anything it does lose is re-run individually.
+# finishes; anything it does lose is recovered in `_recover`.
 BATCH = max(1, int(os.environ.get("TKARCADE_QML_BATCH") or _default_batch(WORKERS)))
 CASE_TIMEOUT = 240  # seconds a single case may take before we call it hung
 BATCH_SECONDS_PER_CASE = 30  # headroom per case before a batch gives up
@@ -193,8 +196,32 @@ def _failure_tail(entries: list[tuple[str, int, str]], limit: int) -> str:
     return text
 
 
+def _recover(lost: list[str]) -> list[tuple[str, int, str]]:
+    """Re-run the lost cases, bisecting the group so a crasher isolates fast.
+
+    A teardown abort kills the rest of its batch, and the crasher is
+    usually one case: replaying the whole group re-passes everything
+    before it. Only when a group makes no progress is its first case run
+    alone, so every iteration removes at least one case and a real
+    failure is still reported with its own output.
+    """
+    failures: list[tuple[str, int, str]] = []
+    pending = list(lost)
+    while pending:
+        passed, _rc, _out = _run_batch(pending)
+        missing = [n for n in pending if n not in passed]
+        if len(missing) == len(pending):
+            nodeid, ok, rc, case_out = _run_one(pending[0])
+            if not ok:
+                failures.append((nodeid, rc, case_out))
+            pending = pending[1:]
+        else:
+            pending = missing
+    return failures
+
+
 def _run_unit(nodeids: list[str]) -> tuple[str, bool, int, str, float]:
-    """One unit of work: a batch, with lost cases re-run one by one.
+    """One unit of work: a batch, with lost cases recovered in smaller batches.
 
     Returns the same tuple shape as `_run_one` plus the wall time. A failed
     unit reports only its failed cases: a bounded tail in the assertion and a
@@ -208,14 +235,10 @@ def _run_unit(nodeids: list[str]) -> tuple[str, bool, int, str, float]:
 
     warnings.warn(
         f"QML batch aborted (rc={rc}), re-ran {len(lost)} of {len(nodeids)} "
-        f"case(s) in isolation: {', '.join(n.split('::')[-1] for n in lost)}",
+        f"case(s): {', '.join(n.split('::')[-1] for n in lost)}",
         stacklevel=1,
     )
-    failures: list[tuple[str, int, str]] = []
-    for nodeid in lost:
-        nodeid, ok, rc, case_out = _run_one(nodeid)
-        if not ok:
-            failures.append((nodeid, rc, case_out))
+    failures = _recover(lost)
     if failures:
         nodeid, rc, _ = failures[0]
         log = _write_failure_log(failures)
