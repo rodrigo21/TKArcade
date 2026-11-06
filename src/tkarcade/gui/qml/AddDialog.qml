@@ -17,7 +17,7 @@ Window {
     // button box; the Steam list scrolls once it would pass 20 gridUnits.
     readonly property real steamListCap: Kirigami.Units.gridUnit * 20
     // Width follows the widest "name [appid]" so nothing is clipped,
-    // capped to 90% of the screen (ScanDialog); Local keeps the dialog
+    // capped to 90% of the screen; Local keeps the dialog
     // width the widgets used.
     readonly property real screenCap: screen ? screen.width * 0.9
                                              : Kirigami.Units.gridUnit * 80

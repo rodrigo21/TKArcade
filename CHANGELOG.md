@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- A Steam game's Runtime is preselected from Steam's own compat mapping:
+  the game's entry, else Steam's default tool (a Steam Linux Runtime
+  entry means Native). The dialog only asks when Steam has no answer.
 - The Artwork tab previews the icon, cover and banner the views actually
   draw (manual file, downloaded art, Steam art or the local executable's
   icon), smallest to tallest, framed and never upscaled past the source
@@ -267,7 +270,10 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
-- A Steam game added from Scan or the game dialog looks up its ProtonDB
+- A Steam game with no per-game compatibility tool shows the default
+  tool and its version in Detected Runtime (and in the launch
+  notification) instead of a bare "Proton".
+- A Steam game added from the game dialog looks up its ProtonDB
   tier, release date and artwork immediately: the background fetch used
   to run only at start, so the ProtonDB column stayed empty until the
   next launch. A new local game gets its name-based art lookup the same
@@ -882,6 +888,10 @@ Breaking config changes are called out explicitly under `Changed`.
   the variables did nothing here).
 
 ### Removed
+- Scan Steam Library… (the batch add of unconfigured Steam games) and
+  its dialog: Add Game already lists the same games and opens the full
+  settings dialog for the one picked. A per-source batch import returns
+  with the Epic/GOG sources (`TODO.md`).
 - The parked QtWidgets implementation (`src/tkarcade/widgets/` and its
   test module): the Kirigami QML shell replaced it, the launcher already
   opened the QML app, and the tray menu was the last piece to move.

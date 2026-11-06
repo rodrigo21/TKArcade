@@ -889,6 +889,24 @@ def test_tool_mapping_cached_by_mtime(monkeypatch, tmp_path, xdg_env):
     pm.clear_tool_cache()
 
 
+def test_tool_display_falls_back_to_steam_default(monkeypatch, tmp_path, xdg_env):
+    """A game without its own mapping shows Steam's default compat tool."""
+    from tkarcade import proton as pm
+
+    pm.clear_tool_cache()
+    root = tmp_path / "steam"
+    (root / "config").mkdir(parents=True)
+    (root / "config" / "config.vdf").write_text(
+        '"InstallConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n{\n'
+        '"CompatToolMapping"\n{\n"0"\n{\n"name" "proton_9"\n}\n}\n}\n}\n}\n}\n'
+    )
+    monkeypatch.setenv("STEAM_ROOT", str(root))
+    assert pm.compat_tool_name("43") is None
+    assert pm.default_compat_tool() == "proton_9"
+    assert pm.tool_display("43") == "proton_9"
+    pm.clear_tool_cache()
+
+
 def test_list_compat_tools_keeps_only_proton_builds(monkeypatch, tmp_path, xdg_env):
     from tkarcade import proton as pm
 

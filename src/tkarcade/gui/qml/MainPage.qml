@@ -1224,11 +1224,6 @@ Kirigami.Page {
                                     // tools, the maintenance entries and the
                                     // app entries.
                                     Controls.MenuItem {
-                                        objectName: "menuScan"
-                                        text: qsTr("Scan Steam Library...")
-                                        onTriggered: gamesPage.openScanLibrary()
-                                    }
-                                    Controls.MenuItem {
                                         objectName: "menuImport"
                                         text: qsTr("Import...")
                                         onTriggered: importDialog.open()
@@ -2423,17 +2418,6 @@ Kirigami.Page {
         gameSettings.openDefaults()
     }
 
-    // Library commands live in the sidebar drawer (main.qml actions).
-    function openScanLibrary() {
-        var cands = gameModel.scanCandidates()
-        if (cands.length === 0) {
-            gamesPage.notify(qsTr("Every Steam Game Is Already Configured."))
-            return
-        }
-        scanDialog.candidates = cands
-        scanDialog.open()
-    }
-
     function openHistory() {
         historyView.rows = gameModel.historySummary()
         historyView.open()
@@ -2685,11 +2669,6 @@ Kirigami.Page {
             gamesPage.notify(gameModel.resetGames(gamesPage.resetRows))
             resetDialog.close()
         }
-    }
-
-    ScanDialog {
-        id: scanDialog
-        page: gamesPage
     }
 
     HistoryView {

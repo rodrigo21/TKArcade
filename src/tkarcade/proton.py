@@ -69,6 +69,15 @@ def _parse_tool_mapping(text: str) -> dict[str, str]:
     }
 
 
+def default_compat_tool() -> str | None:
+    """Steam's default compat tool (the ``CompatToolMapping`` "0" entry)."""
+    for root in steammod.steam_roots():
+        name = _tool_mapping(root / "config" / "config.vdf").get("0", "")
+        if name:
+            return name
+    return None
+
+
 def tool_version(tool: str) -> str | None:
     """Return the first line of a compat tool's `version` file, if found."""
     tool = (tool or "").strip()
@@ -91,10 +100,13 @@ def tool_version(tool: str) -> str | None:
 
 def tool_display(appid: str) -> str:
     """Display string for the Proton tool: 'tool (version)', 'tool', or 'Proton'.
-    Same rule everywhere (dialog, notifications) so both agree even when
-    only the tool mapping exists without a readable version file.
+
+    A game without its own mapping runs Steam's default tool, so that entry
+    answers instead of a bare "Proton". Same rule everywhere (dialog,
+    notifications) so both agree even when only the tool mapping exists
+    without a readable version file.
     """
-    tool = compat_tool_name(appid)
+    tool = compat_tool_name(appid) or default_compat_tool()
     if not tool:
         return "Proton"
     version = tool_version(tool)

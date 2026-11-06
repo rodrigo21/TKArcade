@@ -660,6 +660,14 @@ Window {
                 runtimeTypeBox.currentIndex = preselected
             }
         }
+        // Steam already knows how it runs the game (its compat mapping):
+        // preselect that unless the launch command inferred something.
+        if (runtimeTypeBox.currentIndex < 0 && !defaultsMode && (f.is_steam || false)) {
+            var detected = types.indexOf(gameModel.detectedRuntimeKind(editAppid))
+            if (detected >= 0) {
+                runtimeTypeBox.currentIndex = detected
+            }
+        }
         runtimeField.text = runtimeText()
         prefixField.text = f.custom_prefix || ""
         argsField.text = f.launch_args || ""

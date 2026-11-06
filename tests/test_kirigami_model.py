@@ -423,7 +423,7 @@ def test_added_steam_game_fetches_its_tier_at_once(qgui_app, xdg_env, monkeypatc
     monkeypatch.setattr(pdb, "refresh", lambda appid: fetched.append(appid) or {})
     model = GameListModel()
 
-    assert model.addScanned(["steam-620"]) == 1
+    assert model.saveGame("steam-620", {"name": "Portal 2"}) == "steam-620"
     assert fetched == ["steam-620"]
 
     fetched.clear()
@@ -439,6 +439,25 @@ def test_added_steam_game_fetches_its_tier_at_once(qgui_app, xdg_env, monkeypatc
     local = model.addLocal("Zebra", "/bin/true")
     assert local.startswith("local-")
     assert art_calls[-1] == local
+
+
+def test_detected_runtime_kind_follows_steam_mapping(qgui_app, xdg_env, monkeypatch):
+    """The Runtime kind comes from Steam's own compat mapping."""
+    from tkarcade import proton as P
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    monkeypatch.setattr(P, "default_compat_tool", lambda: "proton_experimental")
+    monkeypatch.setattr(P, "compat_tool_name", lambda appid: "proton_9")
+    assert model.detectedRuntimeKind("steam-620") == "proton"
+    monkeypatch.setattr(P, "compat_tool_name", lambda appid: "steamlinuxruntime_sniper")
+    assert model.detectedRuntimeKind("steam-620") == "native"
+    # No per-game entry: Steam applies its default tool.
+    monkeypatch.setattr(P, "compat_tool_name", lambda appid: None)
+    assert model.detectedRuntimeKind("steam-620") == "proton"
+    monkeypatch.setattr(P, "default_compat_tool", lambda: None)
+    assert model.detectedRuntimeKind("steam-620") == ""
+    assert model.detectedRuntimeKind("local-zebra") == ""
 
 
 def test_download_latest_graphics_runs_worker(qgui_app, xdg_env, monkeypatch):

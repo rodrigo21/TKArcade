@@ -3393,103 +3393,6 @@ def test_quit_shortcut_is_application_modal_proof(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_scan_flow_adds_steam_game(qgui_app, xdg_env, monkeypatch):
-    """Scan lists unconfigured Steam games; Add Selected writes configs."""
-    from PySide6.QtCore import QObject
-
-    import tkarcade.steam as steammod
-    from tkarcade import config as C
-
-    monkeypatch.setattr(
-        steammod, "list_games", lambda: [("steam-99", "Doom 3"), ("steam-100", "Quake 4")]
-    )
-    win, engine, proxy, warnings = _load_main(qgui_app)
-    model = engine.rootContext().contextProperty("gameModel")
-    assert model.scanCandidates() == [["steam-99", "Doom 3"], ["steam-100", "Quake 4"]]
-    dialog = win.findChild(QObject, "scanDialog")
-    dialog.setProperty("candidates", [["steam-99", "Doom 3"], ["steam-100", "Quake 4"]])
-    qgui_app.processEvents()
-    dialog.setProperty("visible", True)
-    qgui_app.processEvents()
-    swin = _modal_window(qgui_app, ("Add Games",))
-    _click(swin, "scanConfirm")
-    qgui_app.processEvents()
-    assert C.game_file("steam-99").exists()
-    assert C.game_file("steam-100").exists()
-    assert proxy.rowCount() == 2
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_scan_enter_adds_selected(qgui_app, xdg_env, monkeypatch):
-    """Enter on the scan window adds the selected games (its default button)."""
-    from PySide6.QtCore import QObject, Qt
-    from PySide6.QtTest import QTest
-
-    import tkarcade.steam as steammod
-    from tkarcade import config as C
-
-    monkeypatch.setattr(
-        steammod, "list_games", lambda: [("steam-99", "Doom 3"), ("steam-100", "Quake 4")]
-    )
-    win, engine, proxy, warnings = _load_main(qgui_app)
-    dialog = win.findChild(QObject, "scanDialog")
-    dialog.setProperty("candidates", [["steam-99", "Doom 3"], ["steam-100", "Quake 4"]])
-    dialog.open()
-    swin = _modal_window(qgui_app, ("Add Games",))
-    _settle_focus(swin)
-    QTest.keyClick(swin, Qt.Key.Key_Return)
-    assert _wait_for(lambda: C.game_file("steam-100").exists()), "Enter added nothing"
-    assert C.game_file("steam-99").exists()
-    assert proxy.rowCount() == 2
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
-
-
-def test_scan_window_fits_long_game_names(qgui_app, xdg_env):
-    """The scan window widens to the longest name instead of clipping it."""
-    from PySide6.QtCore import QObject
-
-    long_name = (
-        "The Legend of the Extremely Long Game Title: Definitive Remastered "
-        "Deluxe Collector's Edition With Extra Content And A Season Pass"
-    )
-    win, engine, _proxy, warnings = _load_main(qgui_app)
-    dialog = win.findChild(QObject, "scanDialog")
-    dialog.setProperty("candidates", [["220", long_name]])
-    dialog.open()
-    qgui_app.processEvents()
-    swin = _modal_window(qgui_app, ("Add Games",))
-    assert swin.property("width") > 600
-    checkbox = None
-    stack = [swin.contentItem()]
-    while stack:
-        item = stack.pop()
-        try:
-            if item.property("text") == f"{long_name} [220]":
-                checkbox = item
-                break
-        except Exception:
-            pass
-        try:
-            stack.extend(item.childItems())
-        except Exception:
-            pass
-    assert checkbox is not None
-    assert checkbox.property("width") >= checkbox.property("implicitWidth")
-    real = [w for w in warnings if "graphics scene" not in w]
-    assert real == []
-    win.close()
-    engine.deleteLater()
-    qgui_app.processEvents()
-
-
 def test_history_view_clears_row(qgui_app, xdg_env):
     """History viewer lists aggregates; per-row Clear drops one game."""
     from PySide6.QtCore import QObject
@@ -4329,7 +4232,9 @@ def test_hamburger_holds_tools_and_persisted_drawer_modes(qgui_app, xdg_env):
             continue
         if isinstance(text, str) and text:
             texts.add(text)
-    assert {"Scan Steam Library...", "History...", "Validate Game", "Reload", "Quit"} <= texts
+    assert {"History...", "Validate Game", "Reload", "Quit"} <= texts
+    # Scan is gone: Add Game is the only way to add a Steam game.
+    assert "Scan Steam Library..." not in texts
     # The issues filter is a checkbox beside the filter field now.
     assert "With Issues Only" not in texts
     assert win.findChild(QObject, "drawerModeCollapsible") is None
@@ -5765,7 +5670,6 @@ def test_quit_keys_on_every_window(qgui_app, xdg_env):
     for name in (
         "MainPage.qml",
         "GameSettings.qml",
-        "ScanDialog.qml",
         "HistoryView.qml",
         "PrefsDialog.qml",
         "ImportDialog.qml",
@@ -5796,7 +5700,6 @@ def test_every_dialog_watches_escape(qgui_app, xdg_env):
         "ImportDialog.qml",
         "PrefsDialog.qml",
         "PrelaunchMenu.qml",
-        "ScanDialog.qml",
     ):
         src = (qml / name).read_text()
         assert "watchDialogKeys" in src, name
@@ -5823,7 +5726,6 @@ def test_every_dialog_has_a_default_button(qgui_app, xdg_env):
         "ImportDialog.qml",
         "PrefsDialog.qml",
         "PrelaunchMenu.qml",
-        "ScanDialog.qml",
     ):
         src = (qml / name).read_text()
         assert "Keys.onReturnPressed" in src, name
@@ -7421,13 +7323,11 @@ def test_title_row_fits_any_width(qgui_app, xdg_env):
 
 
 def test_menu_and_issues_check(qgui_app, xdg_env, monkeypatch):
-    """The menu keeps scan and history; the issues filter is a checkbox."""
+    """The menu keeps import, history and the maintenance entries; the
+    issues filter is a checkbox."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
-    import tkarcade.steam as steammod
-
-    monkeypatch.setattr(steammod, "list_games", lambda: [("steam-99", "Doom 3")])
     win, engine, proxy, warnings = _load_main(qgui_app)
     menu = win.findChild(QObject, "hamburgerMenu")
     texts = [
@@ -7437,7 +7337,6 @@ def test_menu_and_issues_check(qgui_app, xdg_env, monkeypatch):
     ]
     # Library data and history lead, then tools, maintenance, app entries.
     order = [
-        "Scan Steam Library...",
         "Import...",
         "Export...",
         "History...",
@@ -7473,13 +7372,8 @@ def test_menu_and_issues_check(qgui_app, xdg_env, monkeypatch):
     assert view.property("visible") is True
     view.close()
     qgui_app.processEvents()
-    _fire(win.findChild(QObject, "menuScan"))
-    qgui_app.processEvents()
-    dialog = win.findChild(QObject, "scanDialog")
-    assert dialog.property("visible") is True
-    assert dialog.property("candidates") == [["steam-99", "Doom 3"]]
-    dialog.close()
-    qgui_app.processEvents()
+    # Scan is gone: Add Game is the only way to add a Steam game.
+    assert win.findChild(QObject, "menuScan") is None
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -8278,6 +8172,31 @@ def test_editor_first_run_configure_opens_runtime_tab(qgui_app, xdg_env):
         _click_editor_button(qgui_app, swin, "settingsCancel")
         assert decided == [("launch", "39")]
         _editor_finish(qgui_app, engine, [swin, prompt])
+
+
+def test_editor_steam_default_tool_preselects_runtime(qgui_app, xdg_env, monkeypatch, tmp_path):
+    """A Steam game without its own mapping opens with Steam's default tool."""
+    from PySide6.QtQuick import QQuickItem
+
+    steam = tmp_path / "steam"
+    (steam / "config").mkdir(parents=True)
+    (steam / "config" / "config.vdf").write_text(
+        '"InstallConfigStore"\n{\n"Software"\n{\n"Valve"\n{\n"Steam"\n{\n'
+        '"CompatToolMapping"\n{\n"0"\n{\n"name" "proton_9"\n}\n}\n}\n}\n}\n}\n'
+    )
+    tool = steam / "steamapps" / "common" / "proton_9"
+    tool.mkdir(parents=True)
+    (tool / "version").write_text("9.0-4\n")
+    monkeypatch.setenv("STEAM_ROOT", str(steam))
+    _root, engine, _model, _decided, _warnings = _load_editor(
+        qgui_app, mode="edit", appid="620", name="Portal 2"
+    )
+    swin = _editor_window(qgui_app, "Game Settings")
+    assert swin.findChild(QQuickItem, "settingsRuntimeType").property("currentIndex") == 0
+    detected = swin.findChild(QQuickItem, "settingsRuntime")
+    assert "proton_9 (9.0-4)" in detected.property("text")
+    _click_editor_button(qgui_app, swin, "settingsCancel")
+    _editor_finish(qgui_app, engine, [swin])
 
 
 def test_prelaunch_menu_opens_settings_and_launches(qgui_app, xdg_env):

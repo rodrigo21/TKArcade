@@ -1360,6 +1360,25 @@ class GameListModel(QAbstractTableModel):
             return ""
 
     @Slot(str, result=str)
+    def detectedRuntimeKind(self, appid: str) -> str:
+        """Runtime Steam will use for a game: "proton", "native" or "".
+
+        Reads Steam's compat mapping: the game's own entry, else the
+        default one. A Steam Linux Runtime tool means a native game.
+        """
+        try:
+            if not appid or not steammod.is_steam_id(appid):
+                return ""
+            from .. import proton as protonmod
+
+            tool = protonmod.compat_tool_name(appid) or protonmod.default_compat_tool()
+            if not tool:
+                return ""
+            return "native" if protonmod.is_steam_runtime_tool(tool) else "proton"
+        except Exception:
+            return ""
+
+    @Slot(str, result=str)
     def landscapeArt(self, appid: str) -> str:
         """Landscape artwork path for the pre-launch menu ('' when none)."""
         try:
@@ -3868,29 +3887,6 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return []
         return [[str(a), str(n)] for a, n in cands]
-
-    @Slot(list, result=int)
-    def addScanned(self, appids: list) -> int:
-        """Batch-add Steam games from the defaults template."""
-        added = 0
-        new_ids = []
-        for appid in [str(a) for a in appids]:
-            try:
-                if cfgmod.game_file(appid).exists():
-                    continue
-                cfg = cfgmod.load_defaults()
-                cfg.general.appid = appid
-                cfgmod.save(cfg)
-                new_ids.append(appid)
-                added += 1
-            except Exception as e:
-                log.warning("addScanned(%s) failed: %s", appid, e)
-        self.refresh()
-        if new_ids:
-            # Scanned games look up their tier, release date and art now
-            # instead of waiting for the next start.
-            self._fetch_async(new_ids)
-        return added
 
     @Slot(result=list)
     def orphanedProfiles(self) -> list:
