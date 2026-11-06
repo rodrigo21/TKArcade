@@ -21,18 +21,18 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   workers and recovers an aborted batch as a group, ~1:45 on four cores),
   QML suite isolation, and a Steam game's Runtime preselected from Steam's
   compat mapping.
-- Verified: **nothing yet on the latest batch**. The QML case
-  (`test_running_badge_updates_in_table`) gained asserts for
-  `rowRunningFrame` and the Play/Stop text, and neither the fast suite nor
-  the QML driver ran on it; the maintainer tested the visuals by hand.
-  First task on the verify machine: that case, `scripts/check.sh
-  --changed`, the full suite, then the driver. The previous batch held
-  656 passed and 145 QML cases in 102s.
-- Next: verify the landed batch (above). Then the fourth artwork kind
-  (background/fanart, `TODO.md`); its arrival is when the preview sizes
-  get revisited. Then the other game sources (Epic, GOG) with a
-  per-source batch import, and the 1.0 packaging check (AppImage and
-  recipes must ship `icoextract`/`pefile`).
+- Verified: the latest batch, on the verify machine.
+  `test_running_badge_updates_in_table` (the new `rowRunningFrame` and
+  Play/Stop asserts) passed alone; the fast suite held 656 passed and the
+  driver ran its 145 cases 657 passed in 64.69s with no aborted batch.
+  `scripts/check.sh --changed` only reached `tests/test_packaging.py`,
+  because the tree is clean against the commit that carries the batch and
+  only the PKGBUILD is dirty, so the full suite and the driver are what
+  covered it.
+- Next: the fourth artwork kind (background/fanart, `TODO.md`); its
+  arrival is when the preview sizes get revisited. Then the other game
+  sources (Epic, GOG) with a per-source batch import, and the 1.0
+  packaging check (AppImage and recipes must ship `icoextract`/`pefile`).
 - Open decisions: none blocking; `docs/decisions/artwork-sources.md`
   and `docs/decisions/exe-icon.md` cover the artwork work.
 - Nothing blocking.
