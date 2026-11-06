@@ -9,6 +9,11 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Deferred research
 
+- [ ] **QML batch isolation.** On some machines the suite batches make
+  one case lose its delegate: `test_prefs_toolbar_button_opens` followed
+  by `test_issue_badge_shows_severity` in the same process fails, while
+  each passes alone. The re-run driver hides it, but the case order
+  depends on the machine's batch size.
 - [ ] **Other game sources (Epic, GOG).** The Add Game dialog picks the
   source (Steam, Local); a second store needs its own scan, a per-source
   import flow for a whole library and a decision record. The removed
