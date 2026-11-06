@@ -395,6 +395,52 @@ def test_fetch_missing_killswitch(qgui_app, xdg_env, monkeypatch):
     assert len(calls) == 1
 
 
+def test_added_steam_game_fetches_its_tier_at_once(qgui_app, xdg_env, monkeypatch):
+    """Adding a Steam game looks up ProtonDB now, not on the next start."""
+    import tkarcade.gui.model as modelmod
+    from tkarcade import protondb as pdb
+    from tkarcade.gui.model import GameListModel
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), **kwargs):
+            self._target, self._args = target, args
+
+        def start(self):
+            self._target(*self._args)
+
+    monkeypatch.delenv("TKARCADE_NO_BG_FETCH", raising=False)
+    monkeypatch.setattr(modelmod.threading, "Thread", FakeThread)
+    monkeypatch.setattr(modelmod.rdmod, "refresh", lambda appid: {})
+    art_calls = []
+    monkeypatch.setattr(
+        modelmod.artmod,
+        "fetch_best",
+        lambda target, *a, **k: (
+            art_calls.append(target) or {"art": {}, "provider": "", "error": ""}
+        ),
+    )
+    fetched = []
+    monkeypatch.setattr(pdb, "refresh", lambda appid: fetched.append(appid) or {})
+    model = GameListModel()
+
+    assert model.addScanned(["steam-620"]) == 1
+    assert fetched == ["steam-620"]
+
+    fetched.clear()
+    assert model.saveGame("steam-440", {"name": "Team Fortress 2"}) == "steam-440"
+    assert fetched == ["steam-440"]
+
+    # An existing game is not looked up again on every save.
+    fetched.clear()
+    assert model.saveGame("steam-620", {}) == "steam-620"
+    assert fetched == []
+
+    # A new local game gets its name-based art lookup as well.
+    local = model.addLocal("Zebra", "/bin/true")
+    assert local.startswith("local-")
+    assert art_calls[-1] == local
+
+
 def test_download_latest_graphics_runs_worker(qgui_app, xdg_env, monkeypatch):
 
     from tkarcade.gui import model as M

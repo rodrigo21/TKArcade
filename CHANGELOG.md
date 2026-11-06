@@ -267,6 +267,11 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- A Steam game added from Scan or the game dialog looks up its ProtonDB
+  tier, release date and artwork immediately: the background fetch used
+  to run only at start, so the ProtonDB column stayed empty until the
+  next launch. A new local game gets its name-based art lookup the same
+  way.
 - The game's row icon no longer shows the cover after Fetch Artwork: the
   cached icon is checked before the cached cover, which is now only the
   fallback when no square icon exists.

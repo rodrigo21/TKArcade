@@ -827,6 +827,8 @@ class GameListModel(QAbstractTableModel):
         cfg.runtime.type = "native"
         cfgmod.save(cfg)
         self.refresh()
+        # The new game's art comes from a name lookup now, not at next start.
+        self._fetch_async([appid])
         return appid
 
     @Slot()
@@ -1081,6 +1083,7 @@ class GameListModel(QAbstractTableModel):
         active = str(data.get("active_profile", "")).strip()
         if appid and active:
             return self._save_profile(appid, active, data)
+        is_new = not cfgmod.game_file(appid).is_file()
         self._apply_map(cfg, data)
         try:
             cfgmod.save(cfg)
@@ -1088,7 +1091,13 @@ class GameListModel(QAbstractTableModel):
             log.warning("saveGame(%s) failed: %s", appid, e)
             return ""
         self.refresh()
+        self._fetch_on_first_save(appid, is_new)
         return appid
+
+    def _fetch_on_first_save(self, appid: str, is_new: bool) -> None:
+        """A game added here looks up its tier, date and art at once."""
+        if is_new:
+            self._fetch_async([appid])
 
     @staticmethod
     def _new_local_game(data: dict):
@@ -3782,18 +3791,22 @@ class GameListModel(QAbstractTableModel):
         Only explicit UI entry calls this (never refresh() itself), so
         headless tests stay offline. Emits backgroundDone -> refresh.
         """
+        self._fetch_async()
+
+    def _fetch_async(self, appids=None) -> None:
+        """Start the stale-data fetch off-thread: every game, or a subset."""
         if os.environ.get("TKARCADE_NO_BG_FETCH"):
             return
-        threading.Thread(target=self._fetch_worker, daemon=True).start()
+        threading.Thread(target=self._fetch_worker, args=(appids,), daemon=True).start()
 
-    def _fetch_worker(self) -> None:
+    def _fetch_worker(self, appids=None) -> None:
         try:
             prefs = cfgmod.load_preferences()
             api_key = prefs.sgdb_api_key.strip()
             default = prefs.artwork_source
         except Exception:
             api_key, default = "", "steam"
-        for appid in cfgmod.list_appids():
+        for appid in list(appids) if appids is not None else cfgmod.list_appids():
             provider = self._game_provider(str(appid), default)
             source = self._art_source(str(appid))
             if source.isdigit():
@@ -3860,6 +3873,7 @@ class GameListModel(QAbstractTableModel):
     def addScanned(self, appids: list) -> int:
         """Batch-add Steam games from the defaults template."""
         added = 0
+        new_ids = []
         for appid in [str(a) for a in appids]:
             try:
                 if cfgmod.game_file(appid).exists():
@@ -3867,10 +3881,15 @@ class GameListModel(QAbstractTableModel):
                 cfg = cfgmod.load_defaults()
                 cfg.general.appid = appid
                 cfgmod.save(cfg)
+                new_ids.append(appid)
                 added += 1
             except Exception as e:
                 log.warning("addScanned(%s) failed: %s", appid, e)
         self.refresh()
+        if new_ids:
+            # Scanned games look up their tier, release date and art now
+            # instead of waiting for the next start.
+            self._fetch_async(new_ids)
         return added
 
     @Slot(result=list)
