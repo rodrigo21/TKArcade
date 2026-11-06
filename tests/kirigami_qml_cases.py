@@ -3919,6 +3919,10 @@ def test_running_badge_updates_in_table(qgui_app, xdg_env):
         cell = _table_delegate(table, proxy, 0, 1)
         return cell.findChild(QQuickItem, "runningIndicator").property("visible")
 
+    def frame_visible():
+        cell = _table_delegate(table, proxy, 0, 1)
+        return cell.findChild(QQuickItem, "rowRunningFrame").property("visible")
+
     assert badge_visible() is False
     child = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
@@ -3939,10 +3943,19 @@ def test_running_badge_updates_in_table(qgui_app, xdg_env):
         model._refresh_running()
         qgui_app.processEvents()
         assert badge_visible() is True
+        assert frame_visible() is True
+        # The toolbar Play becomes Stop for the selected running game.
+        page = win.findChild(QQuickItem, "gamesPage")
+        page.setProperty("selectedIds", ["local-run"])
+        qgui_app.processEvents()
+        play = win.findChild(QQuickItem, "titlePlay")
+        assert play.property("text") == "Stop"
         R.record_path("local-run").unlink()
         model._refresh_running()
         qgui_app.processEvents()
         assert badge_visible() is False
+        assert frame_visible() is False
+        assert play.property("text") == "Play"
         real = [w for w in warnings if "graphics scene" not in w]
         assert real == []
     finally:

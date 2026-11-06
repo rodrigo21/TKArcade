@@ -6,6 +6,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- A running game is marked in the list view: a positive wash over the row
+  plus a green outline from the row number to the end of the name. The
+  toolbar Play turns into Stop while the selected game runs, with the
+  game's name in the tooltip, and stops it.
 - A Steam game's Runtime is preselected from Steam's own compat mapping:
   the game's entry, else Steam's default tool (a Steam Linux Runtime
   entry means Native). The dialog only asks when Steam has no answer.

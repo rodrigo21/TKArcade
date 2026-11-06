@@ -59,12 +59,14 @@ Kirigami.Page {
         Controls.ToolButton {
             id: btnPlay
             objectName: "titlePlay"
-            text: actionPlay.text
-            icon.name: actionPlay.icon.name
+            // Play becomes Stop while the selected game's launcher runs,
+            // and the tooltip names that game.
+            text: gamesPage.primaryRunning ? qsTr("Stop") : actionPlay.text
+            icon.name: gamesPage.primaryRunning ? gameModel.iconName(["media-playback-stop", "process-stop"]) : actionPlay.icon.name
             display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
-            Controls.ToolTip.text: gamesPage.compactToolbar ? text : ""
-            Controls.ToolTip.visible: hovered && gamesPage.compactToolbar
-            onClicked: gamesPage.playSelected()
+            Controls.ToolTip.text: gamesPage.primaryRunning ? qsTr("Stop %1").arg(gamesPage.primaryRunningName) : (gamesPage.compactToolbar ? text : "")
+            Controls.ToolTip.visible: hovered && (gamesPage.primaryRunning || gamesPage.compactToolbar)
+            onClicked: gamesPage.primaryRunning ? gameModel.terminate(gamesPage.primarySelected) : gamesPage.playSelected()
         }
         Controls.ToolButton {
             id: btnAdd
@@ -621,6 +623,12 @@ Kirigami.Page {
     property string menuShader: ""
     property string menuShaderSize: ""
     property bool menuIsSteam: false
+    // Toolbar Stop target: the first selected game while its launcher is
+    // still running. runningIds is the notifying half of isRunning(), so
+    // the button repaints as soon as the record appears or goes.
+    readonly property string primarySelected: selectedIds.length > 0 ? selectedIds[0] : ""
+    readonly property bool primaryRunning: primarySelected !== "" && gameModel.runningIds.indexOf(primarySelected) >= 0
+    readonly property string primaryRunningName: primaryRunning ? (gameModel.gameNames([primarySelected])[0] || primarySelected) : ""
     // Test-facing state: tests never wrap a Controls.Menu in Python (see
     // docs/QML-NOTES.md), so the open state is reported here.
     readonly property bool gameMenuOpen: gameMenu.visible
@@ -1862,6 +1870,16 @@ Kirigami.Page {
                 // selectedIds is the single source of truth and stays
                 // reactive without any row index.
                 property bool isSelected: gamesPage.selectedIds.indexOf(model?.gameId ?? "") >= 0
+                // Running row: positive wash, so it reads on a dark theme.
+                // Declared first so the selection and hover washes paint
+                // over it; the outline lives in the name column.
+                Rectangle {
+                    objectName: "rowRunningTint"
+                    anchors.fill: parent
+                    visible: model?.gameRunning ?? false
+                    color: Kirigami.Theme.positiveBackgroundColor
+                    opacity: 0.55
+                }
                 Rectangle {
                     anchors.fill: parent
                     visible: isSelected
@@ -1900,6 +1918,15 @@ Kirigami.Page {
                         color: Kirigami.Theme.highlightColor
                         opacity: 0.25
                     }
+                    // The gutter paints its own opaque background, so the
+                    // running wash needs a copy here.
+                    Rectangle {
+                        objectName: "rowRunningTintCell"
+                        anchors.fill: parent
+                        visible: !isSelected && (model?.gameRunning ?? false)
+                        color: Kirigami.Theme.positiveBackgroundColor
+                        opacity: 0.55
+                    }
                     Controls.Label {
                         anchors.fill: parent
                         horizontalAlignment: Text.AlignHCenter
@@ -1917,9 +1944,29 @@ Kirigami.Page {
                 Item {
                     visible: logical === 1
                     anchors.fill: parent
+                    // The running frame overhangs into the gutter column,
+                    // whose delegate is a sibling painted later: raise this
+                    // cell while it shows, or the frame reads as a bracket.
+                    z: (model?.gameRunning ?? false) ? 1 : 0
                     RowClickHandler {
                         page: gamesPage
                         gid: model?.gameId ?? ""
+                    }
+                    // Running frame: one outline from before the number to
+                    // the end of the name column. The gutter is 36px wide,
+                    // so x: -35 starts just inside it. It paints above the
+                    // icon, so the outline stays unbroken.
+                    Rectangle {
+                        objectName: "rowRunningFrame"
+                        visible: model?.gameRunning ?? false
+                        z: 1
+                        x: -35
+                        width: parent.width + 35
+                        height: parent.height - 4
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: "transparent"
+                        border.width: 2
+                        border.color: Kirigami.Theme.positiveTextColor
                     }
                     RowLayout {
                         anchors.fill: parent
