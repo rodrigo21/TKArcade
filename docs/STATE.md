@@ -10,18 +10,21 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: sixteen batches. The latest one: a Steam game's Runtime is
-  preselected from Steam's compat mapping (the game's own entry, else
-  the default tool) and Detected Runtime names that tool with its
-  version instead of a bare "Proton"; the Scan dialog is gone, Add Game
-  is the only way to add a Steam game. Before it: the ProtonDB tier,
-  release date and artwork fetch for a newly added game, and the
-  `commit-msg` hook naming the model in both trailers. Earlier: the
-  executable icon for local games (`icoextract`), the Artwork tab
-  previews, the dialog opening at half the screen width and full usable
-  height, and the test policy (full suite once per approval round).
-- Verified: `scripts/check.sh` 652 passed and `scripts/check.sh --qml`
-  653 passed on that diff; venv refreshed after the merge.
+- Landed: seventeen batches. The latest one: QML suite isolation —
+  nothing wraps a `Controls.Menu` in Python any more (the tests read
+  popup state from QML; the shell's Escape filter reads the popup's
+  `QQuickPopupItem` instead of walking the window's QObjects), so a
+  batch no longer loses a delegate after a menu or dialog-key case; the
+  divider drag case also allows its one pixel of rounding. Before it:
+  a Steam game's Runtime preselected from Steam's compat mapping, and
+  the ProtonDB tier, release date and artwork fetch for a newly added
+  game. Earlier: the executable icon for local games (`icoextract`),
+  the Artwork tab previews, the dialog opening at half the screen width
+  and full usable height, and the test policy (full suite once per
+  approval round).
+- Verified: `scripts/check.sh --changed` 653 passed (the QML driver
+  included) on that diff, its only warning the documented teardown
+  abort; venv refreshed after the merge.
 - Next: the fourth artwork kind (background/fanart, `TODO.md`); its
   arrival is when the preview sizes get revisited. Then the other game
   sources (Epic, GOG) with a per-source batch import, and the 1.0
