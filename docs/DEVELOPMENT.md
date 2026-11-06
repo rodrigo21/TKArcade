@@ -27,9 +27,9 @@ always when source changed, `pyproject.toml`/`packaging/` to
 `tests/test_packaging.py`, any `*.md`/`opencode.json` to
 `tests/test_docs.py`). A touched file without that pair, or any
 `.qml` change, widens the run to the whole suite: the gate never skips a
-change silently. Use it while working; run the fast suite whole once
-before finishing, and `--qml` only when QML or the tests themselves
-changed.
+change silently. Use it while working; run the fast suite whole once per
+approval round, before handing the diff over (plus `--qml` when QML or
+the tests themselves changed), not on every small correction.
 
 What bootstrap runs, and the raw commands:
 

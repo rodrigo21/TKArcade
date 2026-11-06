@@ -88,14 +88,21 @@ decision; PySide6/jeepney stay GUI/helper-only.
 ## Verify before finishing
 
 ```bash
-scripts/check.sh --changed   # the modules git shows as touched
-scripts/check.sh             # whole fast suite (~20s), before closing
+pytest tests/test_<module>.py -k <case>   # the case being fixed
+scripts/check.sh --changed               # the modules git shows as touched
+scripts/check.sh                         # whole fast suite (~15s), before approval
+scripts/check.sh --qml                   # + QML driver (~60s), once per task
 ```
 
+Run the smallest check that covers the edit while iterating — single
+case, then `--changed` — and the full suite **once per approval round**,
+on the diff that goes to the maintainer. The maintainer approves a
+verified diff; do not spend the whole suite on every small correction,
+and never commit or claim a pass without having run the check yourself.
 `--changed` widens to the whole fast suite when a touched file has no
 test module of its own, so it never skips a change silently. The full
-suite with the QML driver (`scripts/check.sh --qml`, ~90s) runs once per
-task and whenever QML or the tests changed; a single case runs with
+suite with the QML driver runs once per task and whenever QML or the
+tests changed; a single case runs with
 `pytest "tests/kirigami_qml_cases.py::<name>" -o python_files="*.py"`,
 plus `--tb=long` when a fixture hides the frame. The suite must pass with
 and without `pytest-qt`; never monkeypatch Qt globals at fixture scope
