@@ -144,10 +144,10 @@ and push rules. Non-negotiables:
   `git add -A` or `git add .`.
 - Review the full diff before each commit; never discard uncommitted
   work or commit secrets/machine-local data (`docs/GIT.md`).
-- Commits carry `Co-Authored-By` + `AI-Model` through the local hook;
-  keep `opencode.json` and `.opencode-model` in sync. User-facing
-  changes get a `CHANGELOG.md` entry under Unreleased, with explicit
-  **BREAKING** notes.
+- Commits carry `Co-Authored-By` + `AI-Model`, both naming the models
+  in `.opencode-model`; keep `opencode.json` and `.opencode-model` in
+  sync. User-facing changes get a `CHANGELOG.md` entry under Unreleased,
+  with explicit **BREAKING** notes.
 
 ## Document routing
 

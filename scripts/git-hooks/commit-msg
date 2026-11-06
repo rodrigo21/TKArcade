@@ -1,7 +1,7 @@
 #!/bin/sh
 # Ensures every commit carries AI attribution trailers.
 # Activated via: git config core.hooksPath scripts/git-hooks
-# Optional repo-local model names in .opencode-model (gitignored), one per
+# The contributing models live in .opencode-model (versioned), one per
 # line: several models can contribute to a batch and all are recorded.
 file="$1"
 [ -z "$file" ] && exit 0
@@ -9,11 +9,16 @@ head -n 1 "$file" | grep -q "^Merge " && exit 0
 add_trailer() {
     grep -q "^$1" "$file" || printf '\n%s\n' "$2" >> "$file"
 }
-add_trailer "Co-Authored-By: OpenCode " "Co-Authored-By: OpenCode <noreply@opencode.ai>"
 top=$(git rev-parse --show-toplevel 2>/dev/null)
+model=""
 if [ -n "$top" ] && [ -f "$top/.opencode-model" ]; then
     # Non-empty lines only, trailing CR stripped, joined into one trailer.
     model=$(awk 'NF { sub(/\r$/, ""); printf "%s%s", sep, $0; sep = ", " }' \
         "$top/.opencode-model")
-    [ -n "$model" ] && add_trailer "AI-Model:" "AI-Model: $model"
+fi
+if [ -n "$model" ]; then
+    add_trailer "Co-Authored-By: " "Co-Authored-By: $model <noreply@opencode.ai>"
+    add_trailer "AI-Model:" "AI-Model: $model"
+else
+    add_trailer "Co-Authored-By: " "Co-Authored-By: OpenCode <noreply@opencode.ai>"
 fi

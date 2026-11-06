@@ -44,9 +44,10 @@ session has the rules in context.
 - Message: `type(scope): imperative summary` (Conventional Commits,
   summary under 70 characters), plus a body explaining the *why* when
   it is not obvious.
-- The local `commit-msg` hook adds `Co-Authored-By: OpenCode` and
-  `AI-Model:` from `.opencode-model`; keep `opencode.json` and
-  `.opencode-model` in sync with the models actually used.
+- The local `commit-msg` hook adds `Co-Authored-By` and `AI-Model:`,
+  both naming the models in `.opencode-model` (the tool's name only
+  when the file is empty); keep `opencode.json` and `.opencode-model`
+  in sync with the models actually used.
 - Sign with GPG when pinentry answers (`git commit -S`). Never bypass a
   failing hook or signing check (`--no-verify`, `--no-gpg-sign`).
 - User-facing changes get a `CHANGELOG.md` entry under Unreleased, with
