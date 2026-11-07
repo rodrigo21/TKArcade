@@ -127,7 +127,7 @@ DialogWindow {
                                 manager.reload()
                                 manager.listChanged()
                             }
-                            Controls.ToolTip.text: qsTr("Use This Build by Default")
+                            Controls.ToolTip.text: qsTr("Preselect This Build")
                             Controls.ToolTip.visible: hovered
                         }
                         Controls.Label {

@@ -114,7 +114,8 @@ Breaking config changes are called out explicitly under `Changed`.
   from `libraryfolders.vdf` (`compatibilitytools.d` and
   `steamapps/common/Proton*`), which also picks up builds in secondary
   libraries that the old scan missed. The Runtime tab shows the list,
-  marks one build as the default for local games, and opens ProtonPlus
+  marks one build as the preselection for the game dialog (Steam games
+  keep Steam's own compat choice), and opens ProtonPlus
   (ProtonUp-Qt when that is the only one installed). A Proton installed
   outside every Steam library is no longer visible.
 - **BREAKING**: `[ui] wine_binary` is replaced by a managed Wine list.

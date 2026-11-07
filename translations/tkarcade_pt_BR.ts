@@ -3442,32 +3442,32 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Versões do Proton</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="14"/>
+        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="16"/>
         <source>Close</source>
         <translation>Fechar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="42"/>
+        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="81"/>
         <source>Installed Builds:</source>
         <translation>Builds Instaladas:</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="48"/>
+        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="87"/>
         <source>The Radio Marks the Build Local Games Preselect. Steam Games Keep Steam&apos;s Own Choice.</source>
         <translation>O Rádio Marca a Build Que os Jogos Locais Preselecionam. Jogos Steam Mantêm a Escolha do Steam.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="53"/>
+        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="92"/>
         <source>No Proton Install Found.</source>
         <translation>Nenhuma Instalação do Proton Encontrada.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="92"/>
-        <source>Use This Build by Default</source>
-        <translation>Usar Esta Build Como Padrão</translation>
+        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="130"/>
+        <source>Preselect This Build</source>
+        <translation>Preselecionar Esta Build</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="123"/>
+        <location filename="../src/tkarcade/gui/qml/ProtonVersionsDialog.qml" line="160"/>
         <source>Open Proton Manager</source>
         <translation>Abrir Gerenciador do Proton</translation>
     </message>
@@ -3720,73 +3720,75 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Versões do Wine</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="15"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="17"/>
         <source>Close</source>
         <translation>Fechar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="72"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="127"/>
         <source>Installed Builds:</source>
         <translation>Builds Instaladas:</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="78"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="133"/>
         <source>The Radio Marks the Build New Games Use and the One They Fall Back To. The First Row Is Always the Wine From PATH.</source>
         <translation>O Rádio Marca a Build Que Jogos Novos Usam e a Que Serve de Reserva. A Primeira Linha É Sempre o Wine do PATH.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="107"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="161"/>
         <source>Use This Build by Default</source>
         <translation>Usar Esta Build Como Padrão</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="130"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="60"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="181"/>
         <source>Wine From PATH</source>
         <translation>Wine do PATH</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="137"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="43"/>
         <source>No Version Reported</source>
         <translation>Nenhuma Versão Informada</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="138"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="44"/>
         <source>Not Found</source>
         <translation>Não Encontrado</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="147"/>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="187"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="92"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="197"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="237"/>
         <source>Remove</source>
         <translation>Remover</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="163"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="213"/>
         <source>Add Wine Binary…</source>
         <translation>Adicionar Binário do Wine…</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="166"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="216"/>
         <source>Wine Binary</source>
         <translation>Binário do Wine</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="166"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="216"/>
         <source>Select</source>
         <translation>Selecionar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="184"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="234"/>
         <source>Remove Wine Build</source>
         <translation>Remover Build do Wine</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="185"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="235"/>
         <source>Remove %1 From the List?</source>
         <translation>Remover %1 da Lista?</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="186"/>
+        <location filename="../src/tkarcade/gui/qml/WineVersionsDialog.qml" line="236"/>
         <source>The Build Stays on Disk; Games That Select It Warn at Launch.</source>
         <translation>A Build Permanece no Disco; Jogos Que a Selecionam Avisam ao Iniciar.</translation>
     </message>

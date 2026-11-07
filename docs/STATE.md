@@ -36,13 +36,8 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   not started. After it: the fourth artwork kind (background/fanart,
   `TODO.md`), the other game sources (Epic, GOG) and the 1.0 packaging
   check.
-- Known gaps from the redesign: the Proton default only preselects the
-  game dialog (the launcher does not inject it); a `protonup-qt` Flatpak
-  is not found by the manager button; `vkd3d-proton-git` on Arch ships
-  only native `.so` files, so there is no system vkd3d-proton for the
-  layer list (Wine's builtin `d3d12.dll` is the `vkd3d = "wine"` path);
-  the path column leaves a wider gap after short names, and a path wider
-  than 90 gridUnits elides in the middle.
+- The Proton default is a dialog preselection only: a Steam game
+  launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
   checks while iterating, one verification pass on the approved diff.
 - Open decisions: none blocking; `docs/decisions/artwork-sources.md`

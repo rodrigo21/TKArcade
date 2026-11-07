@@ -3089,7 +3089,7 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, result=str)
     def setProtonDefault(self, name: str) -> str:
-        """Mark one discovered build as the default ("" = the first one)."""
+        """Mark one discovered build as the preselected one ("" = the first)."""
         wanted = str(name or "").strip()
         if wanted:
             names = {install.name.casefold() for install in runtimes.proton_installs()}

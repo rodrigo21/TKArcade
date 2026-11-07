@@ -378,7 +378,7 @@ class Preferences:
     # platform path separator. The default names one of them ("" = PATH).
     wine_versions: str = ""
     wine_default: str = ""
-    proton_default: str = ""  # discovered install name ("" = first found)
+    proton_default: str = ""  # dialog preselection ("" = first found)
     # Graphics layers: extra version roots live in
     # <runtimes>/.external.json (see external_dirs), not in this file.
     dxvk_default: str = ""  # version name ("" = newest installed)
