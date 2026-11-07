@@ -316,6 +316,10 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- A Proton build packaged by the distro in `/usr/share/steam` (such as
+  `proton-cachyos-slr`) is listed in the game dialog's Compat Tool combo
+  with its version. The list now reads the same roots as the Proton
+  manager: the distro tree first, then every Steam library.
 - A Steam game with no per-game compatibility tool shows the default
   tool and its version in Detected Runtime (and in the launch
   notification) instead of a bare "Proton".

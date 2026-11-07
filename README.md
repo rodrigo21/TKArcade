@@ -71,7 +71,8 @@ discovered, never configured: the distro tree
 library listed in `libraryfolders.vdf` (its `compatibilitytools.d` and
 `steamapps/common/Proton*`). Preferences lists what was found and one
 button opens ProtonPlus (or ProtonUp-Qt); one build can be marked as
-the default for local games. TKArcade only reads what is on disk:
+the preselection for the game dialog (a Steam game keeps Steam's own
+compat choice). TKArcade only reads what is on disk:
 install and update Proton with ProtonPlus/ProtonUp-Qt, Wine with the
 distro.
 

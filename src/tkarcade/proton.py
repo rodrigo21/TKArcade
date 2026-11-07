@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from . import runtimes, xdg
 from . import steam as steammod
-from . import xdg
 
 
 def compat_tool_name(appid: str) -> str | None:
@@ -83,18 +83,15 @@ def tool_version(tool: str) -> str | None:
     tool = (tool or "").strip()
     if not tool:
         return None
-    for root in steammod.steam_roots():
-        for cand in (
-            root / "compatibilitytools.d" / tool / "version",
-            root / "steamapps" / "common" / tool / "version",
-        ):
-            try:
-                if cand.is_file():
-                    line = cand.read_text(encoding="utf-8", errors="replace").splitlines()
-                    if line and line[0].strip():
-                        return line[0].strip()[:40]
-            except Exception:
-                continue
+    for base in runtimes.proton_base_dirs():
+        try:
+            cand = base / tool / "version"
+            if cand.is_file():
+                line = cand.read_text(encoding="utf-8", errors="replace").splitlines()
+                if line and line[0].strip():
+                    return line[0].strip()[:40]
+        except Exception:
+            continue
     return None
 
 
@@ -134,26 +131,25 @@ def flavor(tool: str) -> str:
 def list_compat_tools() -> list[str]:
     """Installed Proton builds: compatibilitytools.d entries plus Steam's.
 
-    Sorted, deduplicated tool directory names, each holding the `proton`
-    launcher Steam invokes. Steam's anti-cheat runtime tools ship no
-    launcher and are not usable compat tools.
+    Reads the same roots as the Proton manager
+    (:func:`runtimes.proton_base_dirs`: the distro tree first, then every
+    Steam library), so a distro-packaged build shows up in both. Sorted,
+    deduplicated tool directory names, each holding the `proton` launcher
+    Steam invokes. Steam's anti-cheat runtime tools ship no launcher and
+    are not usable compat tools.
     """
     found: set[str] = set()
-    for root in steammod.steam_roots():
-        for base in (root / "compatibilitytools.d", root / "steamapps" / "common"):
+    for base in runtimes.proton_base_dirs():
+        try:
+            entries = list(base.iterdir())
+        except OSError:
+            continue
+        for entry in entries:
             try:
-                entries = list(base.iterdir())
+                if entry.is_dir() and (entry / "proton").is_file():
+                    found.add(entry.name)
             except OSError:
                 continue
-            for entry in entries:
-                try:
-                    if not entry.is_dir():
-                        continue
-                    has_launcher = (entry / "proton").is_file()
-                except OSError:
-                    continue
-                if has_launcher:
-                    found.add(entry.name)
     return sorted(found)
 
 

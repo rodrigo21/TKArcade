@@ -927,6 +927,20 @@ def test_list_compat_tools_keeps_only_proton_builds(monkeypatch, tmp_path, xdg_e
     assert pm.list_compat_tools() == ["GE-Proton9-20", "Proton - Experimental"]
 
 
+def test_list_compat_tools_reads_the_system_tree(monkeypatch, tmp_path, xdg_env):
+    from tkarcade import proton as pm
+    from tkarcade import runtimes as rm
+
+    system = tmp_path / "usr-share-steam"
+    tool = system / "compatibilitytools.d" / "proton-cachyos-slr"
+    tool.mkdir(parents=True)
+    (tool / "proton").write_text("")
+    (tool / "version").write_text("cachyos-11.0-slr\n")
+    monkeypatch.setattr(rm, "SYSTEM_STEAM_ROOT", system)
+    assert pm.list_compat_tools() == ["proton-cachyos-slr"]
+    assert pm.tool_version("proton-cachyos-slr") == "cachyos-11.0-slr"
+
+
 def test_audio_session_switches_and_restores(monkeypatch):
     calls = []
 
