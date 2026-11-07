@@ -85,6 +85,48 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- The graphics list picks up the distro build on its own: `/usr/share/dxvk`
+  and the `vkd3d-proton` equivalent are scanned read-only and shown as
+  "System Version". Delete stays limited to the builds TKArcade installed.
+  Choosing a different download source reloads the release list instead of
+  leaving the previous repository's entries, the redundant "Download
+  Release…" button is gone (the list loads when the dialog opens and when
+  the source changes), and the manager explains what the default radio and
+  Delete do. The Wine and Proton managers now show each build's path under
+  its name at a narrower width, so the rows no longer clip and long Proton
+  paths are no longer cut.
+- **BREAKING**: `[ui] dxvk_dirs`, `vkd3d_dirs`, `dxvk_repo` and
+  `vkd3d_repo` are gone. Extra version folders are registered in
+  `$XDG_DATA_HOME/tkarcade/runtimes/.external.json` through the manager
+  (Add Folder…, removed again without touching the files), and the
+  migration reads the old directory keys once and drops them on save.
+  The download source is a picker inside Manage Versions…: official,
+  DXVK-Sarek, the discontinued DXVK-GPLAsync (with a warning) or a custom
+  `owner/repo`, stored as `[ui] dxvk_source` / `vkd3d_source`. The layer
+  default (`dxvk_default` / `vkd3d_default`) is marked in the same list
+  and preselects new games; a launch whose game version is empty uses it,
+  falling back to the newest installed build when it vanished, while a
+  version pinned by the game still warns. The "Download Latest…" buttons
+  leave the Runtime tab.
+- **BREAKING**: `[ui] proton_dirs` is gone. Proton installs are
+  discovered instead: the distro tree first
+  (`/usr/share/steam/compatibilitytools.d`), then every Steam library
+  from `libraryfolders.vdf` (`compatibilitytools.d` and
+  `steamapps/common/Proton*`), which also picks up builds in secondary
+  libraries that the old scan missed. The Runtime tab shows the list,
+  marks one build as the default for local games, and opens ProtonPlus
+  (ProtonUp-Qt when that is the only one installed). A Proton installed
+  outside every Steam library is no longer visible.
+- **BREAKING**: `[ui] wine_binary` is replaced by a managed Wine list.
+  Preferences keeps `wine_versions` (`name=path` entries joined by the
+  path separator) and `wine_default` (an entry name, empty = `PATH`), and
+  the Runtime tab opens a Wine manager with the builds, their
+  `wine --version`, a default marker, Add, Rename and Remove. The builds
+  stay where the system keeps them; nothing is copied or symlinked. A
+  local game stores the entry name in `[runtime] tool` and picks from a
+  combo (global default, the list, Custom path), so a raw path written by
+  an older build still launches. The old value is migrated on the first
+  load and dropped on save. The Prefix Base field gains a folder picker.
 - The Artwork Source AppID field stays and now wins over the game's own
   artwork: type any Steam AppID (installed or not) whose art the game
   should use. The Find… picker next to it is gone, and the per-game

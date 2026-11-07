@@ -73,6 +73,10 @@ Window {
     property var fields: ({})
     // Local Windows runtime (wine/umu) choices and graphics-layer status.
     property var protonChoices: []
+    // Wine manager list: index 0 is the global default, the last is Custom.
+    property var wineVersionNames: []
+    property var wineVersionLabels: []
+    property string wineDefaultName: ""
     // Test-facing state: tests never wrap a Controls.Menu in Python (see
     // docs/QML-NOTES.md), so the profile menu reports itself here.
     readonly property bool profileMenuOpen: profileMenu.visible
@@ -299,6 +303,19 @@ Window {
             : qsTr("%1 Is Not Installed: umu Downloads It On First Launch.").arg(state.label)
     }
 
+    // Stored [runtime] tool for wine: "" (the global default), a managed
+    // entry name, or the raw path typed in the Custom row.
+    function wineChoiceValue() {
+        var i = wineVersionBox.currentIndex
+        if (i <= 0) {
+            return ""
+        }
+        if (i === wineVersionBox.count - 1) {
+            return localWineField.text.trim()
+        }
+        return wineVersionBox.textAt(i)
+    }
+
     function runtimeText() {
         if (defaultsMode || editAppid === "") {
             return ""
@@ -306,8 +323,17 @@ Window {
         var kind = runtimeKind()
         if (!(fields.is_steam || false)) {
             if (kind === "wine") {
-                var wine = localWineField.text.trim()
-                return wine !== "" ? wine : qsTr("Wine from PATH")
+                var i = wineVersionBox.currentIndex
+                if (i <= 0) {
+                    return gameSettings.wineDefaultName !== ""
+                        ? qsTr("Default: %1").arg(gameSettings.wineDefaultName)
+                        : qsTr("Default: Wine From PATH")
+                }
+                if (i === wineVersionBox.count - 1) {
+                    var custom = localWineField.text.trim()
+                    return custom !== "" ? custom : qsTr("Custom Wine Path")
+                }
+                return wineVersionBox.textAt(i)
             }
             if (kind === "umu") {
                 var i = protonBox.currentIndex
@@ -330,10 +356,19 @@ Window {
     // Discovered Proton installs and the global Wine/prefix defaults.
     function refreshRuntime() {
         var opts = gameModel.runtimeOptions(editAppid)
-        var wine = opts.wine || ""
-        localWineField.placeholderText = wine !== ""
-            ? qsTr("Empty = %1").arg(wine)
-            : qsTr("Empty = wine from PATH")
+        gameSettings.wineDefaultName = opts.wine_default || ""
+        var wineEntries = opts.wine_versions || []
+        var names = []
+        var labels = [gameSettings.wineDefaultName !== ""
+            ? qsTr("Default (%1)").arg(gameSettings.wineDefaultName)
+            : qsTr("Default (Wine From PATH)")]
+        for (var w = 0; w < wineEntries.length; w++) {
+            names.push(wineEntries[w].name)
+            labels.push(wineEntries[w].name)
+        }
+        labels.push(qsTr("Custom Path…"))
+        gameSettings.wineVersionNames = names
+        gameSettings.wineVersionLabels = labels
         rtPrefixField.placeholderText = gameSettings.wineAvailable
             ? qsTr("Empty = Steam Default")
             : ((opts.default_prefix || "") !== ""
@@ -342,9 +377,14 @@ Window {
         protonChoices = opts.protons || []
         protonBox.model = protonChoices.map(function(p) { return p.name })
         var savedKind = fields.runtime_type || ""
-        if (!gameSettings.wineAvailable) {
-            localWineField.text = savedKind === "wine" ? (fields.runtime_tool || "") : ""
+        var savedWine = savedKind === "wine" ? (fields.runtime_tool || "") : ""
+        var wineIndex = 0
+        if (savedWine !== "") {
+            var at = names.indexOf(savedWine)
+            wineIndex = at >= 0 ? at + 1 : labels.length - 1
         }
+        wineVersionBox.currentIndex = wineIndex
+        localWineField.text = wineIndex === labels.length - 1 ? savedWine : ""
         rtPrefixField.text = fields.runtime_prefix || ""
         localPrefixNameField.text = fields.runtime_prefix_name || ""
         var srIndex = gameSettings.steamRuntimeCodes().indexOf(fields.runtime_steam_runtime || "")
@@ -358,6 +398,18 @@ Window {
             if (protonChoices[i].path === chosen) {
                 idx = i
                 break
+            }
+        }
+        if (idx < 0 && chosen === "" && protonChoices.length > 0) {
+            var wanted = opts.proton_default || protonChoices[0].name
+            for (var d = 0; d < protonChoices.length; d++) {
+                if (protonChoices[d].name === wanted) {
+                    idx = d
+                    break
+                }
+            }
+            if (idx < 0) {
+                idx = 0
             }
         }
         protonBox.currentIndex = idx
@@ -517,7 +569,13 @@ Window {
 
     function gfxVersionRows(kind, selected) {
         var versions = (gfxInfo.versions || {})[kind] || []
-        var rows = [{"text": qsTr("Newest Installed"), "version": ""}]
+        var fallback = (gfxInfo.defaults || {})[kind] || ""
+        var rows = [{
+            "text": fallback !== ""
+                ? qsTr("Default (%1)").arg(fallback)
+                : qsTr("Newest Installed"),
+            "version": ""
+        }]
         if (selected !== "" && versions.indexOf(selected) < 0) {
             rows.push({
                 "text": qsTr("%1 (Not Installed)").arg(selected),
@@ -603,7 +661,7 @@ Window {
         var dxvkChoice = gfxDxvkVersionValue()
         if (gfxDxvk.checked) {
             if (!available.dxvk) {
-                text += " " + qsTr("No DXVK Version Found in the Configured Directories.")
+                text += " " + qsTr("No DXVK Version Is Installed.")
             } else if (!gfxVersionAvailable("dxvk", dxvkChoice)) {
                 text += " " + qsTr("Selected %1 Version %2 Is Not Installed.")
                     .arg("DXVK").arg(dxvkChoice)
@@ -612,7 +670,7 @@ Window {
         var vkd3dChoice = gfxVkd3dVersionValue()
         if (gfxVkd3dValue() === "proton") {
             if (!available.vkd3d) {
-                text += " " + qsTr("No vkd3d-proton Version Found in the Configured Directories.")
+                text += " " + qsTr("No vkd3d-proton Version Is Installed.")
             } else if (!gfxVersionAvailable("vkd3d", vkd3dChoice)) {
                 text += " " + qsTr("Selected %1 Version %2 Is Not Installed.")
                     .arg("vkd3d-proton").arg(vkd3dChoice)
@@ -831,7 +889,7 @@ Window {
             "runtime_prefix_name": localPrefixNameField.text,
             "runtime_tool": gameSettings.wineAvailable
                 ? wineToolData()
-                : (gameSettings.runtimeKind() === "umu" ? protonChoicePath() : localWineField.text),
+                : (gameSettings.runtimeKind() === "umu" ? protonChoicePath() : gameSettings.wineChoiceValue()),
             "runtime_steam_runtime": gameSettings.wineAvailable
                 ? ""
                 : (gameSettings.runtimeKind() === "native"
@@ -2512,7 +2570,23 @@ Window {
                                     Layout.fillWidth: true
                                     visible: !gameSettings.wineAvailable
                                         && gameSettings.runtimeKind() === "wine"
-                                    KirigamiLayouts.FormData.label: qsTr("Wine Binary:")
+                                    KirigamiLayouts.FormData.label: qsTr("Wine Version:")
+                                    Controls.ComboBox {
+                                        id: wineVersionBox
+                                        objectName: "settingsLocalWineVersion"
+                                        Layout.fillWidth: true
+                                        model: gameSettings.wineVersionLabels
+                                        onActivated: runtimeField.text = gameSettings.runtimeText()
+                                        Controls.ToolTip.text: qsTr("Default Uses the Build Marked in Preferences; Custom Path Takes Any Other Executable.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: !gameSettings.wineAvailable
+                                        && gameSettings.runtimeKind() === "wine"
+                                        && wineVersionBox.currentIndex === wineVersionBox.count - 1
+                                    KirigamiLayouts.FormData.label: qsTr("Custom Path:")
                                     Controls.TextField {
                                         id: localWineField
                                         objectName: "settingsLocalWine"
@@ -2931,6 +3005,8 @@ Window {
                                         Layout.fillWidth: true
                                         textRole: "text"
                                         valueRole: "version"
+                                        Controls.ToolTip.text: qsTr("Default Uses the Version Marked in Preferences, Else the Newest Installed.")
+                                        Controls.ToolTip.visible: hovered
                                         onCurrentIndexChanged: {
                                             gfxDxvkChoice = currentValue || ""
                                             gfxStatus = gameSettings.gfxStatusText()
@@ -2975,6 +3051,8 @@ Window {
                                         Layout.fillWidth: true
                                         textRole: "text"
                                         valueRole: "version"
+                                        Controls.ToolTip.text: qsTr("Default Follows the Version Marked in Preferences.")
+                                        Controls.ToolTip.visible: hovered
                                         onCurrentIndexChanged: {
                                             gfxVkd3dChoice = currentValue || ""
                                             gfxStatus = gameSettings.gfxStatusText()

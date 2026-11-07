@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import datetime
 import hashlib
+import json
 import logging
 import os
 import re
@@ -373,12 +374,17 @@ class Preferences:
     # Runtime paths (empty = built-in default). Directory lists use the
     # platform path separator (":") so paths with commas survive.
     prefix_base: str = ""  # "" = $XDG_DATA_HOME/tkarcade/prefixes
-    wine_binary: str = ""  # "" = wine from PATH
-    proton_dirs: str = ""  # extra Proton install dirs (version subdirs)
-    dxvk_dirs: str = ""  # DXVK dirs (one version per subdir)
-    vkd3d_dirs: str = ""  # vkd3d-proton dirs (one version per subdir)
-    dxvk_repo: str = ""  # GitHub owner/repo for DXVK releases ("" = official)
-    vkd3d_repo: str = ""  # GitHub owner/repo for vkd3d-proton releases
+    # Wine builds stay where they are: "name=path" entries joined by the
+    # platform path separator. The default names one of them ("" = PATH).
+    wine_versions: str = ""
+    wine_default: str = ""
+    proton_default: str = ""  # discovered install name ("" = first found)
+    # Graphics layers: extra version roots live in
+    # <runtimes>/.external.json (see external_dirs), not in this file.
+    dxvk_default: str = ""  # version name ("" = newest installed)
+    vkd3d_default: str = ""
+    dxvk_source: str = "official"  # official|sarek|gplasync|custom:owner/repo
+    vkd3d_source: str = "official"
     main_window_size: str = ""  # "WxH", "" means the 1280x720 default
     main_window_maximized: bool = False  # restore maximized on open
     drawer_mode: str = "collapsible"  # overlay|collapsible (Kirigami drawer)
@@ -1235,12 +1241,18 @@ def load_preferences() -> Preferences:
     out.main_window_size = _clean_window_size(ui.get("main_window_size", ""))
     out.main_window_maximized = _as_bool(ui.get("main_window_maximized", False), False)
     out.prefix_base = str(ui.get("prefix_base", "") or "").strip()
-    out.wine_binary = str(ui.get("wine_binary", "") or "").strip()
-    out.proton_dirs = _clean_path_list(ui.get("proton_dirs", ""))
-    out.dxvk_dirs = _clean_path_list(ui.get("dxvk_dirs", ""))
-    out.vkd3d_dirs = _clean_path_list(ui.get("vkd3d_dirs", ""))
-    out.dxvk_repo = _clean_repo(ui.get("dxvk_repo", ""))
-    out.vkd3d_repo = _clean_repo(ui.get("vkd3d_repo", ""))
+    out.wine_versions = clean_wine_versions(ui.get("wine_versions", ""))
+    out.wine_default = str(ui.get("wine_default", "") or "").strip()
+    # One-way migration: a pre-list wine_binary becomes the first entry. A
+    # bare command (not a path) keeps its name, so resolution still works.
+    legacy_wine = str(ui.get("wine_binary") or "").strip()
+    if legacy_wine and not out.wine_versions:
+        out.wine_versions = format_wine_versions([(wine_entry_name(legacy_wine), legacy_wine)])
+    names = {name.casefold() for name, _ in parse_wine_versions(out.wine_versions)}
+    if out.wine_default.casefold() not in names:
+        out.wine_default = ""
+    out.proton_default = str(ui.get("proton_default", "") or "").strip()
+    _load_graphics_prefs(ui, out)
     mode = str(ui.get("drawer_mode", "collapsible") or "collapsible").strip()
     out.drawer_mode = mode if mode in ("overlay", "collapsible") else "collapsible"
     out.drawer_collapsed = _as_bool(ui.get("drawer_collapsed", True), True)
@@ -1250,10 +1262,157 @@ def load_preferences() -> Preferences:
     return out
 
 
+def _load_graphics_prefs(ui: dict, out: Preferences) -> None:
+    """Defaults, source picker and the one-way directory migration."""
+    out.dxvk_default = str(ui.get("dxvk_default", "") or "").strip()
+    out.vkd3d_default = str(ui.get("vkd3d_default", "") or "").strip()
+    out.dxvk_source = clean_graphics_source("dxvk", ui.get("dxvk_source", ""))
+    out.vkd3d_source = clean_graphics_source("vkd3d", ui.get("vkd3d_source", ""))
+    # The retired per-layer directory lists become external roots the
+    # manager can list and remove.
+    for kind, key in (("dxvk", "dxvk_dirs"), ("vkd3d", "vkd3d_dirs")):
+        for path in str(ui.get(key, "") or "").split(os.pathsep):
+            if path.strip():
+                add_external_dir(kind, path.strip())
+
+
 def _clean_path_list(text: object) -> str:
     """Normalize a path-separator list: strip entries, drop empties."""
     parts = str(text or "").split(os.pathsep)
     return os.pathsep.join(p.strip() for p in parts if p.strip())
+
+
+def parse_wine_versions(text: object) -> list[tuple[str, str]]:
+    """``[ui] wine_versions`` -> (name, path) pairs; malformed ones dropped."""
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for raw in str(text or "").split(os.pathsep):
+        raw = raw.strip()
+        if "=" not in raw:
+            continue
+        name, path = (part.strip() for part in raw.split("=", 1))
+        if not name or not path or "/" in name or "\\" in name or name.casefold() in seen:
+            continue
+        seen.add(name.casefold())
+        out.append((name, path))
+    return out
+
+
+def format_wine_versions(pairs) -> str:
+    """(name, path) pairs -> the stored ``[ui] wine_versions`` string."""
+    return os.pathsep.join(f"{name}={path}" for name, path in pairs)
+
+
+def clean_wine_versions(text: object) -> str:
+    return format_wine_versions(parse_wine_versions(text))
+
+
+def wine_entry_name(path: object, taken=()) -> str:
+    """A stable, unique label for a Wine binary.
+
+    ``/opt/wine-cachyos/bin/wine`` -> ``wine-cachyos``; a bare command keeps
+    its name. ``taken`` holds the labels already in use (case-insensitive).
+    """
+    parts = [part for part in Path(str(path or "")).expanduser().parts if part not in ("/", "")]
+    if parts and parts[-1] in ("wine", "wine64"):
+        parts.pop()
+    if parts and parts[-1] in ("bin", "sbin"):
+        parts.pop()
+    base = parts[-1] if parts else "wine"
+    if base in ("usr", "usr/local", "opt", "home"):
+        base = "wine"
+    base = re.sub(r"[^A-Za-z0-9._+-]+", "-", base).strip("-._") or "wine"
+    lowered = {str(item).casefold() for item in taken}
+    name = base
+    index = 2
+    while name.casefold() in lowered:
+        name = f"{base}-{index}"
+        index += 1
+    return name
+
+
+_DXVK_SOURCES = ("official", "sarek", "gplasync")
+_VKD3D_SOURCES = ("official",)
+_EXTERNAL_FILE = ".external.json"
+
+
+def _source_allowed(kind: str) -> tuple[str, ...]:
+    return _DXVK_SOURCES if kind == "dxvk" else _VKD3D_SOURCES
+
+
+def clean_graphics_source(kind: str, text: object) -> str:
+    """Preset id or ``custom:owner/repo``; anything else falls back to official."""
+    allowed = _source_allowed(kind)
+    value = str(text or "").strip()
+    if value in allowed:
+        return value
+    if value.startswith("custom:"):
+        repo = _clean_repo(value.split(":", 1)[1])
+        return f"custom:{repo}" if repo else "official"
+    return "official"
+
+
+def graphics_source_value(kind: str, source: object, repo: object = "") -> str:
+    """Stored value for the manager picker ("custom" plus a repo field)."""
+    text = str(source or "").strip()
+    if text == "custom":
+        clean = _clean_repo(repo)
+        return f"custom:{clean}" if clean else "official"
+    return text if text in _source_allowed(kind) else "official"
+
+
+def _external_file() -> Path:
+    return xdg.runtimes_dir() / _EXTERNAL_FILE
+
+
+def external_dirs(kind: str) -> list[str]:
+    """Version roots registered for one graphics layer (missing file = none)."""
+    if kind not in ("dxvk", "vkd3d"):
+        return []
+    try:
+        data = json.loads(_external_file().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    raw = data.get(kind) if isinstance(data, dict) else None
+    if not isinstance(raw, list):
+        return []
+    return [str(item).strip() for item in raw if str(item).strip()]
+
+
+def _write_external(data: dict[str, list[str]]) -> None:
+    path = _external_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_atomic(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def add_external_dir(kind: str, path: object) -> str:
+    """Register one extra version root for a layer ("" = saved)."""
+    if kind not in ("dxvk", "vkd3d"):
+        return "Unknown Runtime Layer."
+    text = str(path or "").strip()
+    if not text or not Path(text).expanduser().is_dir():
+        return "Not a Directory."
+    data = {k: external_dirs(k) for k in ("dxvk", "vkd3d")}
+    real = os.path.realpath(os.path.expanduser(text))
+    if any(os.path.realpath(os.path.expanduser(item)) == real for item in data[kind]):
+        return "Already in the List."
+    data[kind].append(text)
+    _write_external(data)
+    return ""
+
+
+def remove_external_dir(kind: str, path: object) -> str:
+    """Drop one registered root (the files stay on disk; "" = saved)."""
+    wanted = os.path.realpath(os.path.expanduser(str(path or "").strip()))
+    data = {k: external_dirs(k) for k in ("dxvk", "vkd3d")}
+    kept = [
+        item for item in data.get(kind, []) if os.path.realpath(os.path.expanduser(item)) != wanted
+    ]
+    if len(kept) == len(data.get(kind, [])):
+        return "Not in the List."
+    data[kind] = kept
+    _write_external(data)
+    return ""
 
 
 def _clean_repo(text: object) -> str:
@@ -1335,12 +1494,13 @@ def save_preferences(prefs: Preferences) -> Path:
             "main_window_size": _clean_window_size(prefs.main_window_size),
             "main_window_maximized": bool(prefs.main_window_maximized),
             "prefix_base": str(prefs.prefix_base or "").strip(),
-            "wine_binary": str(prefs.wine_binary or "").strip(),
-            "proton_dirs": _clean_path_list(prefs.proton_dirs),
-            "dxvk_dirs": _clean_path_list(prefs.dxvk_dirs),
-            "vkd3d_dirs": _clean_path_list(prefs.vkd3d_dirs),
-            "dxvk_repo": _clean_repo(prefs.dxvk_repo),
-            "vkd3d_repo": _clean_repo(prefs.vkd3d_repo),
+            "wine_versions": clean_wine_versions(prefs.wine_versions),
+            "wine_default": str(prefs.wine_default or "").strip(),
+            "proton_default": str(prefs.proton_default or "").strip(),
+            "dxvk_default": str(prefs.dxvk_default or "").strip(),
+            "vkd3d_default": str(prefs.vkd3d_default or "").strip(),
+            "dxvk_source": clean_graphics_source("dxvk", prefs.dxvk_source),
+            "vkd3d_source": clean_graphics_source("vkd3d", prefs.vkd3d_source),
             "drawer_mode": (
                 prefs.drawer_mode
                 if prefs.drawer_mode in ("overlay", "collapsible")

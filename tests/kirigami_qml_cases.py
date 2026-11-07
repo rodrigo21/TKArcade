@@ -3615,8 +3615,8 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_prefs_runtime_download_rows(qgui_app, xdg_env):
-    """The Runtime section offers one download row per graphics layer."""
+def test_prefs_runtime_graphics_rows(qgui_app, xdg_env):
+    """The Runtime page points at the manager, with no download buttons."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
@@ -3626,19 +3626,18 @@ def test_prefs_runtime_download_rows(qgui_app, xdg_env):
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Preferences",))
-    # The download rows live on the Runtime page.
     swin.findChild(QQuickItem, "prefsTabs").setProperty("currentIndex", 2)
     qgui_app.processEvents()
-    for name in ("prefsDownloadDxvk", "prefsDownloadVkd3d"):
+    for name in ("prefsDxvkDefault", "prefsVkd3dDefault"):
+        label = swin.findChild(QQuickItem, name)
+        assert label is not None, f"missing {name}"
+        assert label.property("text") == "Newest Installed"
+    for name in ("prefsManageDxvk", "prefsManageVkd3d"):
         button = swin.findChild(QQuickItem, name)
         assert button is not None, f"missing {name}"
         assert button.property("visible") is True
-        assert button.property("enabled") is True
-        assert button.property("text").startswith("Download Latest")
-    for name in ("prefsDxvkDownloadStatus", "prefsVkd3dDownloadStatus"):
-        status = swin.findChild(QQuickItem, name)
-        assert status is not None, f"missing {name}"
-        assert status.property("visible") is False
+    assert swin.findChild(QQuickItem, "prefsDownloadDxvk") is None
+    assert swin.findChild(QQuickItem, "prefsDxvkDirs") is None
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -3678,7 +3677,7 @@ def test_prefs_runtime_manager(qgui_app, xdg_env, monkeypatch):
     # The runtime rows live on the Runtime page.
     swin.findChild(QQuickItem, "prefsTabs").setProperty("currentIndex", 2)
     qgui_app.processEvents()
-    assert swin.findChild(QQuickItem, "prefsDxvkRepo") is not None
+    assert swin.findChild(QQuickItem, "prefsDxvkDefault") is not None
     _click(swin, "prefsManageDxvk")
     mwin = _modal_window(qgui_app, ("DXVK Versions",))
     # Repeater rows are invisible to findChild (docs/QML-NOTES.md): the
@@ -3686,6 +3685,26 @@ def test_prefs_runtime_manager(qgui_app, xdg_env, monkeypatch):
     rows = lambda: mwin.property("versions").toVariant()  # noqa: E731
     assert _wait_for(lambda: len(rows()) == 1), "version row missing"
     assert rows()[0]["name"] == "dxvk-sarek-2.4.1"
+    # Source picker: four DXVK presets, the custom repo field hidden again.
+    source = mwin.findChild(QQuickItem, "runtimeSourceCombo")
+    assert source.property("count") == 4
+    assert mwin.findChild(QQuickItem, "runtimeSourceRepo").property("visible") is False
+    # A registered folder joins the list as an external version, with no
+    # Delete button and a Remove row of its own.
+    extra = xdg_env["data"] / "dxvk-extra"
+    version = extra / "dxvk-2.6.2"
+    (version / "x64").mkdir(parents=True)
+    (version / "x64" / "d3d11.dll").write_bytes(b"dll")
+    from tkarcade import config as C
+
+    assert C.add_external_dir("dxvk", str(extra)) == ""
+    from PySide6.QtCore import QMetaObject
+
+    assert QMetaObject.invokeMethod(mwin, "reload") is True
+    assert _wait_for(lambda: len(rows()) == 2), "external version missing"
+    external_rows = [r for r in rows() if r["external"] is True]
+    assert [r["name"] for r in external_rows] == ["dxvk-2.6.2"]
+    assert list(mwin.property("folders")) == [str(extra)]
     mwin.setProperty("width", mwin.property("minimumWidth"))
     combo = mwin.findChild(QQuickItem, "runtimeReleaseCombo")
     assert _wait_for(lambda: combo.property("count") == 1), "release list did not load"
@@ -3705,7 +3724,7 @@ def test_prefs_runtime_release_combo_elides(qgui_app, xdg_env, monkeypatch):
 
     from tkarcade.gui import model as M
 
-    long_tag = "v3.1.1-rc1-long-prerelease-build-name-for-the-elision-check"
+    long_tag = "v3.1.1-rc1-long-prerelease-build-name-for-the-elision-check-and-more-text"
     monkeypatch.setattr(
         M.archivesmod,
         "releases",
@@ -5864,9 +5883,9 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     version = vkd3d_base / "v2.13"
     (version / "x64").mkdir(parents=True)
     (version / "x64" / "d3d12.dll").write_bytes(b"fake dll")
+    assert C.add_external_dir("dxvk", str(dxvk_base)) == ""
+    assert C.add_external_dir("vkd3d", str(vkd3d_base)) == ""
     prefs = C.load_preferences()
-    prefs.dxvk_dirs = str(dxvk_base)
-    prefs.vkd3d_dirs = str(vkd3d_base)
     C.save_preferences(prefs)
     prefix = C.prefix_dir(
         "local-doom", "", C.load_preferences().prefix_base, "Friendly Doom", "Doom"
@@ -5887,6 +5906,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
 
     type_box = swin.findChild(QQuickItem, "settingsRuntimeType")
     wine_field = swin.findChild(QQuickItem, "settingsLocalWine")
+    wine_combo = swin.findChild(QQuickItem, "settingsLocalWineVersion")
     proton_box = swin.findChild(QQuickItem, "settingsLocalProton")
     runtime_field = swin.findChild(QQuickItem, "settingsRuntime")
     prefix_field = swin.findChild(QQuickItem, "winePrefix")
@@ -5910,8 +5930,12 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
         "Wine",
     ]
     assert type_box.property("currentIndex") == 2
-    assert wine_field.property("visible") is True
-    assert wine_field.property("text") == ""
+    # One list row: the global default plus Custom; the path field only
+    # shows for Custom.
+    assert wine_combo.property("visible") is True
+    assert wine_combo.property("count") == 2
+    assert wine_combo.property("currentIndex") == 0
+    assert wine_field.property("visible") is False
     assert proton_box.property("visible") is False
     # Wine names its binary in the field above: no duplicate check row.
     assert runtime_field.property("visible") is False
@@ -5938,6 +5962,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     type_box.setProperty("currentIndex", 1)
     QTest.qWait(80)
     assert wine_field.property("visible") is False
+    assert wine_combo.property("visible") is False
     assert proton_box.property("visible") is True
     assert proton_box.property("count") == 1
     assert runtime_field.property("visible") is True
@@ -5947,10 +5972,14 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     QTest.qWait(80)
     # Wine has its own field, and the Proton path must not leak into it.
     assert gfx_dxvk.property("visible") is True
-    assert wine_field.property("text") == ""
+    assert wine_combo.property("currentIndex") == 0
+    assert wine_field.property("visible") is False
     assert runtime_field.property("visible") is False
 
-    # Wine path and prefix dir round-trip through Save.
+    # A typed path is the Custom row; it round-trips through Save.
+    wine_combo.setProperty("currentIndex", wine_combo.property("count") - 1)
+    QTest.qWait(50)
+    assert wine_field.property("visible") is True
     wine_field.setProperty("text", "/opt/wine/bin/wine")
     gfx_dxvk.setProperty("checked", False)
     assert gfx_dxvk_version.property("visible") is False
@@ -8130,3 +8159,99 @@ def test_prelaunch_menu_disables_launch_without_a_command(qgui_app, xdg_env):
     _click_editor_button(qgui_app, menu, "prelaunchCancel")
     assert decided == [("cancelled", "local-doom")]
     _editor_finish(qgui_app, engine, [menu])
+
+
+def test_prefs_wine_versions_manager(qgui_app, xdg_env, tmp_path):
+    """Runtime tab: the Wine list shows the builds and their default."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    wine = tmp_path / "wine-dev"
+    wine.write_text("#!/bin/sh\necho wine-9.0\n")
+    wine.chmod(0o755)
+    prefs = C.Preferences()
+    prefs.wine_versions = C.format_wine_versions([("dev", str(wine))])
+    prefs.wine_default = "dev"
+    C.save_preferences(prefs)
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "prefsDialog")
+    dialog.setProperty(
+        "values",
+        {
+            "wineVersions": prefs.wine_versions,
+            "wineDefault": "dev",
+            "prefixBase": "",
+        },
+    )
+    dialog.open()
+    swin = _modal_window(qgui_app, ("Preferences",))
+    swin.findChild(QQuickItem, "prefsTabs").setProperty("currentIndex", 2)
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "prefsWineDefault").property("text") == "dev"
+    assert swin.findChild(QQuickItem, "prefsPrefixBaseBrowse") is not None
+    _click(swin, "prefsWineManage")
+    mwin = _modal_window(qgui_app, ("Wine Versions",))
+    # Repeater rows are invisible to findChild: the dialog's own row array
+    # is the observable side.
+    rows = lambda: mwin.property("rows").toVariant()  # noqa: E731
+    assert _wait_for(lambda: len(rows()) == 2), "wine rows missing"
+    assert mwin.findChild(QQuickItem, "wineVersionAdd") is not None
+    assert [r["name"] for r in rows()] == ["", "dev"]
+    assert [r["default"] for r in rows()] == [False, True]
+    assert rows()[1]["version"] == "wine-9.0"
+    _click(mwin, "dialogCancel")
+    assert _wait_for(lambda: mwin.property("visible") is False), "manager stayed open"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_prefs_proton_manager(qgui_app, xdg_env, fake_bin, monkeypatch):
+    """Runtime tab: the Proton list is read-only and opens the manager tool."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+    from tkarcade import runtimes as R
+    from tkarcade.gui import model as M
+
+    system = xdg_env["home"] / "system-steam"
+    for name in ("proton-cachyos-slr", "GE-Proton9-1"):
+        (system / "compatibilitytools.d" / name).mkdir(parents=True)
+        (system / "compatibilitytools.d" / name / "proton").write_text("x\n")
+    monkeypatch.setattr(R, "SYSTEM_STEAM_ROOT", system)
+    prefs = C.Preferences()
+    prefs.proton_default = "GE-Proton9-1"
+    C.save_preferences(prefs)
+    launched: list[list[str]] = []
+    monkeypatch.setattr(M.subprocess, "Popen", lambda cmd, **kw: launched.append(cmd))
+    fake_bin("protonplus")
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dialog = win.findChild(QObject, "prefsDialog")
+    dialog.setProperty("values", {"protonDefault": "GE-Proton9-1"})
+    dialog.open()
+    swin = _modal_window(qgui_app, ("Preferences",))
+    swin.findChild(QQuickItem, "prefsTabs").setProperty("currentIndex", 2)
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "prefsProtonDefault").property("text") == "GE-Proton9-1"
+    _click(swin, "prefsManageProton")
+    mwin = _modal_window(qgui_app, ("Proton Versions",))
+    rows = lambda: mwin.property("rows").toVariant()  # noqa: E731
+    assert _wait_for(lambda: len(rows()) == 2), "proton rows missing"
+    assert [r["name"] for r in rows()] == ["GE-Proton9-1", "proton-cachyos-slr"]
+    assert [r["default"] for r in rows()] == [True, False]
+    _click(mwin, "protonOpenManager")
+    assert launched and launched[0][0].endswith("protonplus")
+    _click(mwin, "dialogCancel")
+    assert _wait_for(lambda: mwin.property("visible") is False), "manager stayed open"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()

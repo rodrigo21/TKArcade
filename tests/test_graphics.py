@@ -8,10 +8,7 @@ from tkarcade import graphics as G
 
 def _prefs(tmp_path, kind="dxvk", extra=None):
     prefs = C.load_preferences()
-    if kind == "dxvk":
-        prefs.dxvk_dirs = str(extra or tmp_path / "dxvk")
-    elif kind == "vkd3d":
-        prefs.vkd3d_dirs = str(extra or tmp_path / "vkd3d")
+    C.add_external_dir(kind, str(extra or tmp_path / kind))
     return prefs
 
 
@@ -93,7 +90,7 @@ def test_switch_layers_then_uninstall_all(xdg_env, tmp_path):
     _version(dxvk, "v2.6.2", "d3d11.dll")
     _version(vkd3d, "v2.13", "d3d12.dll")
     prefs = _prefs(tmp_path, "dxvk", dxvk)
-    prefs.vkd3d_dirs = str(vkd3d)
+    C.add_external_dir("vkd3d", str(vkd3d))
     prefix = tmp_path / "prefix"
     assert G.install(prefix, "dxvk", prefs)[0]
     assert G.install(prefix, "vkd3d", prefs)[0]
@@ -184,7 +181,7 @@ def test_launch_env_installs_both_layers(xdg_env, tmp_path):
     _version(dxvk, "v2.6.2", "d3d11.dll")
     _version(vkd3d, "v2.13", "d3d12.dll")
     prefs = _prefs(tmp_path, "dxvk", dxvk)
-    prefs.vkd3d_dirs = str(vkd3d)
+    C.add_external_dir("vkd3d", str(vkd3d))
     prefix = tmp_path / "prefix"
     env, warnings = G.launch_env(prefix, True, "proton", prefs)
     assert warnings == []
@@ -200,7 +197,7 @@ def test_launch_env_uses_selected_versions(xdg_env, tmp_path):
     _version(vkd3d, "v2.13", "d3d12.dll")
     _version(vkd3d, "v2.14", "d3d12.dll")
     prefs = _prefs(tmp_path, "dxvk", dxvk)
-    prefs.vkd3d_dirs = str(vkd3d)
+    C.add_external_dir("vkd3d", str(vkd3d))
     prefix = tmp_path / "prefix"
     env, warnings = G.launch_env(prefix, True, "proton", prefs, "v2.6.2", "v2.13")
     assert warnings == []
@@ -235,7 +232,7 @@ def test_launcher_installs_the_layer(xdg_env, fake_bin):
     _version(base, "v2.6.2", "d3d11.dll")
     _version(base, "v2.14", "d3d11.dll")
     prefs = C.load_preferences()
-    prefs.dxvk_dirs = str(base)
+    C.add_external_dir("dxvk", str(base))
     C.save_preferences(prefs)
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
@@ -258,7 +255,7 @@ def test_launcher_respects_a_game_override(xdg_env, fake_bin):
     base = xdg_env["data"] / "dxvk"
     _version(base, "v2.6.2", "d3d11.dll")
     prefs = C.load_preferences()
-    prefs.dxvk_dirs = str(base)
+    C.add_external_dir("dxvk", str(base))
     C.save_preferences(prefs)
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
@@ -290,7 +287,7 @@ def test_validate_flags_missing_selected_graphics_version(xdg_env):
     base = xdg_env["data"] / "dxvk"
     _version(base, "v2.6.2", "d3d11.dll")
     prefs = C.load_preferences()
-    prefs.dxvk_dirs = str(base)
+    C.add_external_dir("dxvk", str(base))
     C.save_preferences(prefs)
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
@@ -314,7 +311,7 @@ def test_umu_ignores_the_graphics_layers(xdg_env, fake_bin, tmp_path):
     dxvk = tmp_path / "dxvk"
     _version(dxvk, "v2.6.2", "d3d11.dll")
     prefs = C.load_preferences()
-    prefs.dxvk_dirs = str(dxvk)
+    C.add_external_dir("dxvk", str(dxvk))
     C.save_preferences(prefs)
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"

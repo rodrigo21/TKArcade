@@ -63,12 +63,23 @@ still refused for local games (exit 18): pick the runtime in the
 settings dialog. The old `[general] environment` key is ignored.
 
 Local Windows games never borrow Steam's Proton. `wine` runs the game
-with the configured wine binary (or `wine` from PATH); `umu` runs
-`umu-run` with `PROTONPATH` set to an installed Proton build. Proton
-installs are discovered in Steam's `compatibilitytools.d` and
-`steamapps/common` plus the extra directories in Preferences.
-TKArcade only reads what is on disk: install and update Proton with
-ProtonPlus/ProtonUp-Qt, Wine with the distro.
+with the Wine build the game selects, else the default build from
+Preferences, else `wine` from PATH; `umu` runs `umu-run` with
+`PROTONPATH` set to an installed Proton build. Proton installs are
+discovered, never configured: the distro tree
+(`/usr/share/steam/compatibilitytools.d`, first), then every Steam
+library listed in `libraryfolders.vdf` (its `compatibilitytools.d` and
+`steamapps/common/Proton*`). Preferences lists what was found and one
+button opens ProtonPlus (or ProtonUp-Qt); one build can be marked as
+the default for local games. TKArcade only reads what is on disk:
+install and update Proton with ProtonPlus/ProtonUp-Qt, Wine with the
+distro.
+
+Preferences keeps the Wine builds in one list (`[ui] wine_versions`,
+`name=path` entries) with one marked as the default (`wine_default`,
+empty = PATH). The builds stay in their system location: nothing is
+copied or symlinked, and the first row of the manager is always `wine`
+from PATH. The game dialog picks from that list.
 
 Prefixes live in `$XDG_DATA_HOME/tkarcade/prefixes/<name>` by default.
 Preferences moves the base and a per-game `[runtime] prefix` overrides
@@ -78,8 +89,9 @@ set (the GUI pins it from the game name on save, so renaming the game
 never moves the prefix), else the normalised game name (`TK's
 good-game_1` → `TKsGoodGame1`), else the AppID.
 `[runtime] tool` overrides the global choice per game, and its meaning
-follows `[runtime] type`: a Steam compat tool for `proton`, the
-Wine binary for `wine`, the `PROTONPATH` install for `umu`. The same
+follows `[runtime] type`: a Steam compat tool for `proton`, the Wine
+build name from Preferences (a raw path still resolves) for `wine`, the
+`PROTONPATH` install for `umu`. The same
 applies to `[runtime] prefix`: Steam's compatdata dir for `proton` (used
 as-is, no subfolder), the WINEPREFIX *base* for local games.
 `[runtime] winetricks_verbs` runs the host
@@ -105,19 +117,23 @@ their runtime) and for Wine/umu games. Runtimes live in
 launch that asks for it — the dialog says so and `--validate` prints a
 `(note)`, never an issue; only a missing `umu-run` refuses (exit 14).
 
-`[graphics] dxvk` and `[graphics] vkd3d` copy a matching build found in
-the configured DXVK/vkd3d directories into the prefix at launch and
-select it through `WINEDLLOVERRIDES`. The version is per game:
-`dxvk_version` / `vkd3d_version`, with empty meaning the newest installed
-version. Managed downloads land in `$XDG_DATA_HOME/tkarcade/runtimes`;
-that directory and the ones set in Preferences are scanned, and
-TKArcade does not read another launcher's default layout. Preferences
-can download the latest DXVK/vkd3d-proton release, and archives dropped
-into `$XDG_CACHE_HOME/tkarcade/archives` are extracted on the next GUI
-scan. **Manage Versions…** lists the managed builds with where each came
-from, installs any release (not only the latest) and a pasted archive URL,
-and deletes managed versions; `dxvk_repo` / `vkd3d_repo` point a layer at
-a GitHub fork such as DXVK-Sarek instead of the official repository. The
+`[graphics] dxvk` and `[graphics] vkd3d` copy a matching build into the
+prefix at launch and select it through `WINEDLLOVERRIDES`. The version is
+per game: `dxvk_version` / `vkd3d_version`, with empty meaning the layer
+default (`dxvk_default` / `vkd3d_default` in the preferences, itself
+empty = newest installed). Builds live in
+`$XDG_DATA_HOME/tkarcade/runtimes/<layer>`, one directory per version,
+plus the distro trees when they exist (`/usr/share/dxvk` and the
+`vkd3d-proton` equivalent, read-only and labelled "System Version") and
+any folder registered with **Manage Versions… → Add Folder…** (stored in
+`runtimes/.external.json`; the files stay where they are).
+Archives dropped into `$XDG_CACHE_HOME/tkarcade/archives` are extracted
+on the next GUI scan. The manager lists every build with where each came
+from, marks one as the default, installs any release of the chosen
+source and a pasted archive URL, and deletes managed versions. The
+source is a preset per layer — official (the default), DXVK-Sarek or the
+discontinued DXVK-GPLAsync for DXVK — or a custom `owner/repo`.
+TKArcade does not read another launcher's default layout, and the
 launcher never downloads or unpacks anything. DXVK covers
 D3D9/10/11
 and vkd3d-proton covers D3D12, so the two combine (`dxvk = true` plus

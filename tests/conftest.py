@@ -69,6 +69,11 @@ def xdg_env(monkeypatch, tmp_path):
         "STEAM_ROOT",
     ):
         monkeypatch.delenv(var, raising=False)
+    # Never scan the machine's own /usr/share/steam tree.
+    from tkarcade import runtimes as runtimesmod
+
+    monkeypatch.setattr(runtimesmod, "SYSTEM_STEAM_ROOT", tmp_path / "no-system-steam")
+    monkeypatch.setattr(runtimesmod, "SYSTEM_GRAPHICS_DIRS", {})
     return {"home": home, "config": cfg, "state": state, "data": data}
 
 

@@ -3389,3 +3389,124 @@ def test_remove_runtime_version_reports_and_refreshes(qgui_app, xdg_env, monkeyp
     assert changed == [True]
     assert not managed.exists()
     assert "not a managed version" in model.removeRuntimeVersion("vkd3d", "gone")
+
+
+def test_wine_manager_slots(qgui_app, xdg_env, fake_bin):
+    from tkarcade import config as C
+    from tkarcade.gui import model as M
+
+    wine_a = fake_bin("wine-a")
+    wine_b = fake_bin("wine-b")
+    model = M.GameListModel()
+    assert [(r["name"], r["default"]) for r in model.wineVersionRows()] == [("", True)]
+
+    assert model.addWineVersion(str(wine_a)) == ""
+    assert "Already" in model.addWineVersion(str(wine_a))
+    assert model.addWineVersion("/does/not/exist") != ""
+    assert [r["name"] for r in model.wineVersionRows()] == ["", "wine-a"]
+
+    assert model.setWineDefault("wine-a") == ""
+    assert [r["default"] for r in model.wineVersionRows()] == [False, True]
+    assert model.setWineDefault("gone") != ""
+
+    cfg = C.load("local-wine")
+    cfg.general.appid = "local-wine"
+    cfg.general.name = "Local Wine"
+    cfg.runtime.type = "wine"
+    cfg.runtime.tool = "wine-a"
+    C.save(cfg)
+    assert model.renameWineVersion("wine-a", "dev") == ""
+    assert C.load("local-wine").runtime.tool == "dev"
+    assert C.load_preferences().wine_default == "dev"
+
+    assert model.addWineVersion(str(wine_b)) == ""
+    assert C.load_preferences().wine_default == "dev"
+    assert model.removeWineVersion("dev") == ""
+    assert C.load_preferences().wine_default == ""
+    assert [r["name"] for r in model.wineVersionRows()] == ["", "wine-b"]
+
+
+def test_proton_manager_slots(qgui_app, xdg_env, fake_bin, monkeypatch):
+    from tkarcade import config as C
+    from tkarcade import runtimes as R
+    from tkarcade.gui import model as M
+
+    system = xdg_env["home"] / "system-steam"
+    for name in ("proton-cachyos-slr", "GE-Proton9-1"):
+        (system / "compatibilitytools.d" / name).mkdir(parents=True)
+        (system / "compatibilitytools.d" / name / "proton").write_text("x\n")
+    monkeypatch.setattr(R, "SYSTEM_STEAM_ROOT", system)
+    model = M.GameListModel()
+    rows = model.protonVersionRows()
+    # The system tree comes first; inside it the scanner sorts by name.
+    assert [r["name"] for r in rows] == ["GE-Proton9-1", "proton-cachyos-slr"]
+    assert [r["default"] for r in rows] == [True, False]
+
+    assert model.setProtonDefault("proton-cachyos-slr") == ""
+    assert C.load_preferences().proton_default == "proton-cachyos-slr"
+    assert [r["default"] for r in model.protonVersionRows()] == [False, True]
+    assert model.setProtonDefault("gone") != ""
+    assert model.setProtonDefault("") == ""
+    assert [r["default"] for r in model.protonVersionRows()] == [True, False]
+
+    launched: list[list[str]] = []
+    monkeypatch.setattr(M.subprocess, "Popen", lambda cmd, **kw: launched.append(cmd))
+    fake_bin("protonplus")
+    fake_bin("protonup-qt")
+    assert model.openProtonManager() == ""
+    assert launched and launched[0][0].endswith("protonplus")
+    monkeypatch.setattr(M.shutil, "which", lambda name: None)
+    assert "Not Found" in model.openProtonManager()
+
+
+def test_graphics_manager_slots(qgui_app, xdg_env, tmp_path):
+    from tkarcade import config as C
+    from tkarcade import xdg
+    from tkarcade.gui import model as M
+
+    managed = xdg.runtimes_dir() / "dxvk" / "dxvk-2.7.1"
+    (managed / "x64").mkdir(parents=True)
+    (managed / "x64" / "d3d11.dll").write_bytes(b"dll")
+    root = tmp_path / "dxvk-old"
+    external = root / "dxvk-2.6.2"
+    (external / "x64").mkdir(parents=True)
+    (external / "x64" / "d3d11.dll").write_bytes(b"dll")
+    model = M.GameListModel()
+    assert model.addGraphicsFolder("dxvk", str(root)) == ""
+    assert model.addGraphicsFolder("dxvk", str(root)) != ""
+    rows = model.runtimeVersions("dxvk")
+    assert [r["name"] for r in rows] == ["dxvk-2.7.1", "dxvk-2.6.2"]
+    assert [r["external"] for r in rows] == [False, True]
+
+    assert model.setGraphicsDefault("dxvk", "dxvk-2.6.2") == ""
+    assert C.load_preferences().dxvk_default == "dxvk-2.6.2"
+    assert [r["default"] for r in model.runtimeVersions("dxvk")] == [False, True]
+    assert model.setGraphicsDefault("dxvk", "gone") != ""
+    assert model.setGraphicsDefault("dxvk", "") == ""
+
+    assert model.graphicsSource("dxvk") == "official"
+    assert model.setGraphicsSource("dxvk", "sarek") == ""
+    assert model.graphicsSource("dxvk") == "sarek"
+    assert model.setGraphicsSource("dxvk", "custom", "not a repo") != ""
+    assert model.setGraphicsSource("dxvk", "custom", "Someone/DXVK") == ""
+    assert model.graphicsSource("dxvk") == "custom:Someone/DXVK"
+    assert model.setGraphicsSource("nope", "official") != ""
+
+    assert model.graphicsFolders("dxvk") == [str(root)]
+    assert model.removeGraphicsFolder("dxvk", str(root)) == ""
+    assert model.graphicsFolders("dxvk") == []
+    assert [r["name"] for r in model.runtimeVersions("dxvk")] == ["dxvk-2.7.1"]
+
+
+def test_graphics_rows_flag_system_builds(qgui_app, xdg_env, monkeypatch):
+    from tkarcade import runtimes as R
+    from tkarcade.gui import model as M
+
+    system = xdg_env["home"] / "usr-dxvk"
+    (system / "x64").mkdir(parents=True)
+    (system / "x64" / "d3d11.dll").write_bytes(b"dll")
+    monkeypatch.setattr(R, "SYSTEM_GRAPHICS_DIRS", {"dxvk": (system,)})
+    rows = M.GameListModel().runtimeVersions("dxvk")
+    assert [(r["name"], r["origin"], r["system"], r["external"]) for r in rows] == [
+        ("usr-dxvk", "system", True, True)
+    ]

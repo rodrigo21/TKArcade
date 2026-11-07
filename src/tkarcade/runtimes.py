@@ -16,6 +16,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import config as cfgmod
 from . import steam as steammod
 from . import xdg
 
@@ -74,11 +75,26 @@ def _looks_like_proton(path: Path) -> bool:
         return False
 
 
+#: Distro-packaged Steam tree (Arch, Debian): its Proton is the system one.
+SYSTEM_STEAM_ROOT = Path("/usr/share/steam")
+
+
 def proton_base_dirs() -> list[Path]:
-    """Steam's compat install roots (compatibilitytools.d + steamapps/common)."""
+    """Proton install roots: the system tree first, then every Steam library."""
     out: list[Path] = []
+    system = SYSTEM_STEAM_ROOT
+    if system.is_dir():
+        out += [system / "compatibilitytools.d", system / "steamapps" / "common"]
     for root in steammod.steam_roots():
-        out += [root / "compatibilitytools.d", root / "steamapps" / "common"]
+        out.append(root / "compatibilitytools.d")
+    for library in steammod.library_paths():
+        # library_paths() hands back <library>/steamapps; compat tools are
+        # read from both spellings Steam uses.
+        out += [
+            library / "compatibilitytools.d",
+            library.parent / "compatibilitytools.d",
+            library / "common",
+        ]
     return out
 
 
@@ -103,26 +119,30 @@ def _scan_proton_base(found: dict[Path, ProtonInstall], base: Path) -> None:
             continue
 
 
-def proton_installs(extra: str = "") -> list[ProtonInstall]:
-    """Installed Proton builds: Steam roots plus the configured extra dirs.
+def proton_installs() -> list[ProtonInstall]:
+    """Installed Proton builds, system first, then every Steam library.
 
-    Each extra entry is either an install directory itself or a directory
-    holding one install per subdirectory. Sorted by name, deduplicated by
-    real path.
+    The order is the discovery order (``proton_base_dirs``), so the first
+    entry is the build a game with no explicit choice should use.
+    Deduplicated by real path.
     """
     found: dict[Path, ProtonInstall] = {}
-    bases = proton_base_dirs()
-    for entry in _split_dirs(extra):
-        if _looks_like_proton(entry):
-            _add_proton(found, entry)
-        else:
-            bases.append(entry)
-    for base in bases:
+    for base in proton_base_dirs():
         _scan_proton_base(found, base)
-    return sorted(found.values(), key=lambda p: p.name.casefold())
+    return list(found.values())
 
 
-def find_proton(value: str, extra: str = "") -> ProtonInstall | None:
+def pick_proton(installs: list[ProtonInstall], name: str = "") -> ProtonInstall | None:
+    """The named install, else the first discovered (None = none at all)."""
+    text = str(name or "").strip().casefold()
+    if text:
+        for install in installs:
+            if install.name.casefold() == text:
+                return install
+    return installs[0] if installs else None
+
+
+def find_proton(value: str) -> ProtonInstall | None:
     """Resolve a configured Proton path or compatibilitytools name."""
     text = str(value or "").strip()
     if not text:
@@ -131,25 +151,57 @@ def find_proton(value: str, extra: str = "") -> ProtonInstall | None:
     if path.is_dir():
         return ProtonInstall(path.name, path.resolve()) if _looks_like_proton(path) else None
     low = text.casefold()
-    for install in proton_installs(extra):
+    for install in proton_installs():
         if install.name.casefold() == low:
             return install
     return None
 
 
-def wine_binary(override: str = "") -> str:
-    """Wine executable: explicit path/name first, else PATH ('' = none)."""
-    text = str(override or "").strip()
-    if text:
-        path = Path(text).expanduser()
-        if path.is_file() and os.access(path, os.X_OK):
-            return os.fspath(path)
-        return shutil.which(text) or ""
+def wine_path() -> str:
+    """The Wine found on PATH ("" = none)."""
     for name in ("wine", "wine64"):
         found = shutil.which(name)
         if found:
             return found
     return ""
+
+
+def wine_executable(path: str) -> str:
+    """Executable for a stored path or a bare command name ("" = missing)."""
+    text = str(path or "").strip()
+    if not text:
+        return ""
+    candidate = Path(text).expanduser()
+    if candidate.is_file() and os.access(candidate, os.X_OK):
+        return os.fspath(candidate)
+    return shutil.which(text) or ""
+
+
+@dataclass
+class WineVersion:
+    name: str
+    path: str  # resolved executable, or the stored path when missing
+    ok: bool
+
+
+def wine_versions(text: str = "") -> list[WineVersion]:
+    """Configured Wine entries in stored order (PATH excluded)."""
+    out: list[WineVersion] = []
+    for name, path in cfgmod.parse_wine_versions(text):
+        found = wine_executable(path)
+        out.append(WineVersion(name, found or path, bool(found)))
+    return out
+
+
+def wine_binary(override: str = "", versions: str = "") -> str:
+    """Wine executable: a managed entry name, a path/name, else PATH."""
+    text = str(override or "").strip()
+    if text:
+        for entry in cfgmod.parse_wine_versions(versions):
+            if entry[0].casefold() == text.casefold():
+                return wine_executable(entry[1])
+        return wine_executable(text)
+    return wine_path()
 
 
 #: Steam Linux Runtime name -> directory umu keeps under <data>/umu. scout is
@@ -181,21 +233,55 @@ def _version_key(name: str) -> tuple:
     return (tuple(int(p) for p in re.findall(r"\d+", name)), name.casefold())
 
 
-def _graphics_roots(kind: str, extra: str) -> list[Path]:
-    """Managed installs first, then the configured directories."""
-    return [xdg.runtimes_dir() / kind, *_split_dirs(extra)]
+#: Preset ids the Runtime manager offers per layer -> GitHub owner/repo.
+GRAPHICS_FORKS = {
+    "sarek": "zeyadadev/DXVK-Sarek",
+    "gplasync": "Waim908/dxvk-gplasync-mirror",
+}
 
 
-def graphics_versions(kind: str, extra: str = "") -> list[GraphicsVersion]:
+def graphics_repo(source: str = "") -> str:
+    """GitHub owner/repo behind a ``[ui] dxvk_source``/``vkd3d_source`` ("" = official)."""
+    text = str(source or "").strip()
+    if text.startswith("custom:"):
+        return text.split(":", 1)[1].strip()
+    return GRAPHICS_FORKS.get(text, "")
+
+
+#: Distro builds of a graphics layer (one version per tree, read-only).
+SYSTEM_GRAPHICS_DIRS = {
+    "dxvk": (Path("/usr/share/dxvk"), Path("/usr/local/share/dxvk")),
+    "vkd3d": (
+        Path("/usr/share/vkd3d-proton"),
+        Path("/usr/local/share/vkd3d-proton"),
+    ),
+}
+
+
+def system_graphics_roots(kind: str) -> list[Path]:
+    """System-wide trees that hold version DLLs (existing ones only)."""
+    return [path for path in SYSTEM_GRAPHICS_DIRS.get(kind, ()) if path.is_dir()]
+
+
+def _graphics_roots(kind: str) -> list[Path]:
+    """Managed installs, the system trees, then the registered folders."""
+    return [
+        xdg.runtimes_dir() / kind,
+        *system_graphics_roots(kind),
+        *[Path(item).expanduser() for item in cfgmod.external_dirs(kind)],
+    ]
+
+
+def graphics_versions(kind: str) -> list[GraphicsVersion]:
     """Installed versions for one layer, newest first.
 
-    The managed directory comes first, then the configured ones. A
+    The managed directory comes first, then the registered ones. A
     directory counts as a version when it holds x64/<dll> (or x32/x86);
     a directory without the DLL is treated as a parent of version dirs.
     Deduplicated by real path.
     """
     found: dict[Path, GraphicsVersion] = {}
-    for root in _graphics_roots(kind, extra):
+    for root in _graphics_roots(kind):
         try:
             if not root.is_dir():
                 continue
@@ -212,9 +298,9 @@ def graphics_versions(kind: str, extra: str = "") -> list[GraphicsVersion]:
     return sorted(found.values(), key=lambda v: _version_key(v.name), reverse=True)
 
 
-def pick_graphics(kind: str, extra: str = "", name: str = "") -> GraphicsVersion | None:
+def pick_graphics(kind: str, name: str = "") -> GraphicsVersion | None:
     """Newest installed version, the one named `name`, or None."""
-    versions = graphics_versions(kind, extra)
+    versions = graphics_versions(kind)
     wanted = str(name or "").strip()
     if wanted:
         return next((v for v in versions if v.name == wanted), None)

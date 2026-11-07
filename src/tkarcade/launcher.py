@@ -291,9 +291,9 @@ def _runtime_paths(cfg: cfgmod.GameConfig, environment: str = "") -> dict:
     wine = None
     proton = None
     if environment == "wine":
-        wine = runtimes.wine_binary(tool or prefs.wine_binary)
+        wine = runtimes.wine_binary(tool or prefs.wine_default, prefs.wine_versions)
     elif environment == "umu":
-        proton = runtimes.find_proton(tool, prefs.proton_dirs)
+        proton = runtimes.find_proton(tool)
     return {
         "prefix": cfgmod.prefix_target(appid, cfg, prefs).container,
         "wine": wine,
@@ -729,12 +729,12 @@ def _runtime_issues(appid: str, eff: cfgmod.GameConfig) -> list[tuple[str, str]]
         return []
     prefs = cfgmod.load_preferences()
     if environment == "wine":
-        wine = runtimes.wine_binary(eff.runtime.tool or prefs.wine_binary)
+        wine = runtimes.wine_binary(eff.runtime.tool or prefs.wine_default, prefs.wine_versions)
         return [] if wine else [("error", f"{appid}: wine binary not found (see Preferences)")]
     issues = []
     if not shutil.which("umu-run"):
         issues.append(("error", f"{appid}: umu-run not found in PATH (install umu-launcher)"))
-    if runtimes.find_proton(eff.runtime.tool, prefs.proton_dirs) is None:
+    if runtimes.find_proton(eff.runtime.tool) is None:
         issues.append(
             ("error", f"{appid}: umu needs a Proton install (set it in the game settings)")
         )
@@ -753,8 +753,12 @@ def _graphics_issue(appid: str, eff: cfgmod.GameConfig) -> list[tuple[str, str]]
     prefs = cfgmod.load_preferences()
     issues = []
     for kind in kinds:
-        selected = eff.graphics.dxvk_version if kind == "dxvk" else eff.graphics.vkd3d_version
-        if runtimes.pick_graphics(kind, graphicsmod.layer_dirs(kind, prefs), selected) is None:
+        game_version = eff.graphics.dxvk_version if kind == "dxvk" else eff.graphics.vkd3d_version
+        selected = graphicsmod.selected_version(kind, prefs, game_version)
+        if not str(game_version or "").strip() and runtimes.pick_graphics(kind, selected) is None:
+            # The layer default vanished: the launch uses the newest one.
+            selected = ""
+        if runtimes.pick_graphics(kind, selected) is None:
             if selected:
                 issues.append(
                     (
@@ -1519,8 +1523,8 @@ def _winetricks_step(
         cfg.runtime.prefix_name,
         cfg.general.name,
     )
-    wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_binary)
-    proton = runtimes.find_proton(cfg.runtime.tool, prefs.proton_dirs)
+    wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_default, prefs.wine_versions)
+    proton = runtimes.find_proton(cfg.runtime.tool)
     return wtmod.run_local(appid, prefix, environment, wine, proton, cfg.runtime.winetricks_verbs)
 
 

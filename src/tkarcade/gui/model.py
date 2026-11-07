@@ -5,8 +5,10 @@ from __future__ import annotations
 import io
 import logging
 import os
+import re
 import shlex
 import shutil
+import subprocess
 import threading
 from pathlib import Path
 
@@ -41,6 +43,10 @@ from ..backends import network as net_backend
 from ..backends.notify import format_duration
 
 log = logging.getLogger("tkarcade.kirigami")
+
+#: `wine --version` per (binary, mtime): the manager probes on open, never
+#: on the launch path.
+_WINE_VERSION_CACHE: dict[tuple[str, float], str] = {}
 
 # `tkarcade --version` of the binary Steam resolves from PATH, cached by
 # path plus mtime: the launch-options row compares it with this build.
@@ -1808,18 +1814,17 @@ class GameListModel(QAbstractTableModel):
         """
         from .. import proton as protonmod
 
-        prefs = cfgmod.load_preferences()
         tool = cfg.runtime.tool.strip() or protonmod.compat_tool_name(cfg.general.appid) or ""
         if not tool:
             return None
-        return runtimes.find_proton(tool, prefs.proton_dirs)
+        return runtimes.find_proton(tool)
 
     def _wine_env(self, cfg) -> tuple[Path, str, object]:
         """(prefix dir, wine binary, Proton install) for a local game."""
         prefs = cfgmod.load_preferences()
         prefix = cfgmod.prefix_target(cfg.general.appid, cfg, prefs).wineprefix
-        wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_binary)
-        proton = runtimes.find_proton(cfg.runtime.tool, prefs.proton_dirs)
+        wine = runtimes.wine_binary(cfg.runtime.tool or prefs.wine_default, prefs.wine_versions)
+        proton = runtimes.find_proton(cfg.runtime.tool)
         return prefix, wine, proton
 
     @Slot(str, result="QVariantMap")
@@ -3034,7 +3039,8 @@ class GameListModel(QAbstractTableModel):
     def runtimeOptions(self, appid: str) -> dict:
         """Global runtime choices and discovered Proton installs for the dialog."""
         prefs = cfgmod.load_preferences()
-        protons = runtimes.proton_installs(prefs.proton_dirs)
+        protons = runtimes.proton_installs()
+        default_proton = runtimes.pick_proton(protons, prefs.proton_default)
         default_prefix = ""
         if appid:
             try:
@@ -3051,11 +3057,219 @@ class GameListModel(QAbstractTableModel):
             except Exception:
                 default_prefix = ""
         return {
-            "wine": str(prefs.wine_binary or ""),
+            "wine": runtimes.wine_binary(prefs.wine_default, prefs.wine_versions),
+            "wine_default": str(prefs.wine_default or ""),
+            "wine_versions": [
+                {"name": entry.name, "path": entry.path, "ok": entry.ok}
+                for entry in runtimes.wine_versions(prefs.wine_versions)
+            ],
             "prefix_base": str(prefs.prefix_base or ""),
             "default_prefix": default_prefix,
             "protons": [{"name": p.name, "path": os.fspath(p.path)} for p in protons],
+            "proton_default": default_proton.name if default_proton is not None else "",
         }
+
+    @Slot(result=list)
+    def protonVersionRows(self) -> list:
+        """Proton manager rows: discovered builds, system first."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return []
+        installed = runtimes.proton_installs()
+        chosen = runtimes.pick_proton(installed, prefs.proton_default)
+        return [
+            {
+                "name": install.name,
+                "path": os.fspath(install.path),
+                "default": bool(chosen is not None and install.path == chosen.path),
+            }
+            for install in installed
+        ]
+
+    @Slot(str, result=str)
+    def setProtonDefault(self, name: str) -> str:
+        """Mark one discovered build as the default ("" = the first one)."""
+        wanted = str(name or "").strip()
+        if wanted:
+            names = {install.name.casefold() for install in runtimes.proton_installs()}
+            if wanted.casefold() not in names:
+                return "Not Installed."
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return "Could Not Load Preferences."
+        prefs.proton_default = wanted
+        cfgmod.save_preferences(prefs)
+        return ""
+
+    @Slot(result=str)
+    def openProtonManager(self) -> str:
+        """Open ProtonPlus, else ProtonUp-Qt, detached from the GUI."""
+        for exe in ("protonplus", "protonup-qt"):
+            found = shutil.which(exe)
+            if not found:
+                continue
+            try:
+                subprocess.Popen(
+                    [found],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+            except OSError as e:
+                log.warning("proton manager launch failed: %s", e)
+                return f"Could Not Start {os.path.basename(found)}."
+            return ""
+        return "ProtonPlus or ProtonUp-Qt Was Not Found."
+
+    @staticmethod
+    def _wine_version(path: str) -> str:
+        """`wine --version` for one manager row (cached by binary + mtime)."""
+        if not path:
+            return ""
+        try:
+            stamp = os.stat(path).st_mtime
+        except OSError:
+            return ""
+        key = (path, stamp)
+        if key in _WINE_VERSION_CACHE:
+            return _WINE_VERSION_CACHE[key]
+        text = ""
+        try:
+            done = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=1.5)
+            lines = (done.stdout or done.stderr or "").strip().splitlines()
+            text = lines[0].strip() if lines else ""
+        except (OSError, subprocess.SubprocessError):
+            text = ""
+        _WINE_VERSION_CACHE[key] = text
+        return text
+
+    @Slot(result=list)
+    def wineVersionRows(self) -> list:
+        """Wine manager rows: PATH first, then the configured entries."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return []
+        path = runtimes.wine_path()
+        rows = [
+            {
+                "name": "",
+                "path": path,
+                "version": self._wine_version(path),
+                "ok": bool(path),
+                "default": not str(prefs.wine_default or "").strip(),
+            }
+        ]
+        default = str(prefs.wine_default or "").strip().casefold()
+        rows += [
+            {
+                "name": entry.name,
+                "path": entry.path,
+                "version": self._wine_version(entry.path) if entry.ok else "",
+                "ok": entry.ok,
+                "default": entry.name.casefold() == default,
+            }
+            for entry in runtimes.wine_versions(prefs.wine_versions)
+        ]
+        return rows
+
+    @Slot(str, result=str)
+    def addWineVersion(self, path: str) -> str:
+        """Append a Wine binary to the managed list ("" = saved)."""
+        resolved = runtimes.wine_executable(str(path or "").strip())
+        if not resolved:
+            return "Not an Executable Wine Binary."
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return "Could Not Load Preferences."
+        pairs = cfgmod.parse_wine_versions(prefs.wine_versions)
+        real = os.path.realpath(resolved)
+        for name, stored in pairs:
+            if os.path.realpath(runtimes.wine_executable(stored) or stored) == real:
+                return f"{name} Is Already in the List."
+        pairs.append((cfgmod.wine_entry_name(resolved, [n for n, _ in pairs]), resolved))
+        prefs.wine_versions = cfgmod.format_wine_versions(pairs)
+        cfgmod.save_preferences(prefs)
+        return ""
+
+    @Slot(str, result=str)
+    def removeWineVersion(self, name: str) -> str:
+        """Drop one entry ("" = saved); the default falls back to PATH."""
+        wanted = str(name or "").strip().casefold()
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return "Could Not Load Preferences."
+        pairs = cfgmod.parse_wine_versions(prefs.wine_versions)
+        kept = [(n, p) for n, p in pairs if n.casefold() != wanted]
+        if len(kept) == len(pairs):
+            return "Not in the List."
+        prefs.wine_versions = cfgmod.format_wine_versions(kept)
+        if str(prefs.wine_default or "").strip().casefold() == wanted:
+            prefs.wine_default = ""
+        cfgmod.save_preferences(prefs)
+        return ""
+
+    @Slot(str, str, result=str)
+    def renameWineVersion(self, name: str, new_name: str) -> str:
+        """Rename one entry and every game that selects it ("" = saved)."""
+        old = str(name or "").strip()
+        clean = re.sub(r"[=:]", "-", str(new_name or "").strip()).strip()
+        if not old or not clean:
+            return "The Name Cannot Be Empty."
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return "Could Not Load Preferences."
+        pairs = cfgmod.parse_wine_versions(prefs.wine_versions)
+        if not any(n.casefold() == old.casefold() for n, _ in pairs):
+            return "Not in the List."
+        if any(
+            n.casefold() == clean.casefold() and n.casefold() != old.casefold() for n, _ in pairs
+        ):
+            return f"{clean} Is Already in the List."
+        prefs.wine_versions = cfgmod.format_wine_versions(
+            [(clean, path) if n.casefold() == old.casefold() else (n, path) for n, path in pairs]
+        )
+        if str(prefs.wine_default or "").strip().casefold() == old.casefold():
+            prefs.wine_default = clean
+        cfgmod.save_preferences(prefs)
+        self._rename_wine_in_games(old, clean)
+        return ""
+
+    @staticmethod
+    def _rename_wine_in_games(old: str, new: str) -> None:
+        """Keep [runtime] tool pointing at the entry after a rename."""
+        for appid in cfgmod.list_appids():
+            try:
+                cfg = cfgmod.load(appid)
+            except Exception:
+                continue
+            if cfg.runtime.type != "wine":
+                continue
+            if cfg.runtime.tool.strip().casefold() != old.casefold():
+                continue
+            cfg.runtime.tool = new
+            cfgmod.save(cfg)
+
+    @Slot(str, result=str)
+    def setWineDefault(self, name: str) -> str:
+        """Mark one entry as the default ("" = Wine from PATH)."""
+        wanted = str(name or "").strip()
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return "Could Not Load Preferences."
+        if wanted:
+            names = {n.casefold() for n, _ in cfgmod.parse_wine_versions(prefs.wine_versions)}
+            if wanted.casefold() not in names:
+                return "Not in the List."
+        prefs.wine_default = wanted
+        cfgmod.save_preferences(prefs)
+        return ""
 
     @staticmethod
     def _prefix_users(prefs: cfgmod.Preferences) -> dict[str, list[str]]:
@@ -3157,14 +3371,22 @@ class GameListModel(QAbstractTableModel):
                 prefix = None
         available = {}
         versions = {}
+        defaults = {}
         for kind in ("dxvk", "vkd3d"):
-            found = runtimes.graphics_versions(kind, graphicsmod.layer_dirs(kind, prefs))
+            found = runtimes.graphics_versions(kind)
             versions[kind] = [v.name for v in found]
-            available[kind] = versions[kind][0] if versions[kind] else ""
+            chosen = graphicsmod.selected_version(kind, prefs)
+            defaults[kind] = chosen if chosen in versions[kind] else ""
+            available[kind] = (
+                chosen
+                if chosen in versions[kind]
+                else (versions[kind][0] if versions[kind] else "")
+            )
         return {
             "prefix": os.fspath(prefix) if prefix is not None else "",
             "installed": graphicsmod.installed(prefix) if prefix is not None else {},
             "available": available,
+            "defaults": defaults,
             "versions": versions,
         }
 
@@ -3203,28 +3425,104 @@ class GameListModel(QAbstractTableModel):
         """Managed versions of one layer with their recorded source."""
         if kind not in runtimes.GRAPHICS_DLLS:
             return []
+        prefs = cfgmod.load_preferences()
+        default = str(prefs.dxvk_default if kind == "dxvk" else prefs.vkd3d_default).strip()
+        managed = xdg.runtimes_dir() / kind
+        system_roots = {path.resolve() for path in runtimes.system_graphics_roots(kind)}
         known = archivesmod.sources()
         out = []
         for version in runtimes.graphics_versions(kind):
             source = known.get(f"{kind}/{version.name}", {})
+            root = version.root.resolve()
+            system = root in system_roots or root.parent in system_roots
+            external = system or managed.resolve() not in root.parents
+            origin = "system" if system else ("external" if external else "")
             out.append(
                 {
                     "name": version.name,
-                    "origin": str(source.get("origin") or ""),
+                    "origin": origin or str(source.get("origin") or ""),
                     "repo": str(source.get("repo") or ""),
                     "tag": str(source.get("tag") or ""),
                     "url": str(source.get("url") or ""),
+                    "external": external,
+                    "system": system,
+                    "default": version.name == default,
                 }
             )
         return out
 
+    @Slot(str, result=str)
+    def graphicsSource(self, kind: str) -> str:
+        """Stored source id for a layer (preset id or custom:owner/repo)."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return "official"
+        return str(prefs.dxvk_source if kind == "dxvk" else prefs.vkd3d_source)
+
+    @Slot(str, str, str, result=str)
+    def setGraphicsSource(self, kind: str, source: str, repo: str = "") -> str:
+        """Store the manager's source picker ("" = saved)."""
+        if kind not in runtimes.GRAPHICS_DLLS:
+            return "Unknown Runtime Layer."
+        value = cfgmod.graphics_source_value(kind, source, repo)
+        if str(source or "").strip() == "custom" and not value.startswith("custom:"):
+            return "Enter a GitHub owner/repo."
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return "Could Not Load Preferences."
+        if kind == "dxvk":
+            prefs.dxvk_source = value
+        else:
+            prefs.vkd3d_source = value
+        cfgmod.save_preferences(prefs)
+        return ""
+
+    @Slot(str, str, result=str)
+    def setGraphicsDefault(self, kind: str, name: str) -> str:
+        """Mark one installed version as the layer default ("" = newest)."""
+        if kind not in runtimes.GRAPHICS_DLLS:
+            return "Unknown Runtime Layer."
+        wanted = str(name or "").strip()
+        if wanted:
+            names = {v.name for v in runtimes.graphics_versions(kind)}
+            if wanted not in names:
+                return "Not Installed."
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            return "Could Not Load Preferences."
+        if kind == "dxvk":
+            prefs.dxvk_default = wanted
+        else:
+            prefs.vkd3d_default = wanted
+        cfgmod.save_preferences(prefs)
+        return ""
+
+    @Slot(str, result=list)
+    def graphicsFolders(self, kind: str) -> list:
+        """Extra version roots registered for a layer."""
+        return cfgmod.external_dirs(kind)
+
+    @Slot(str, str, result=str)
+    def addGraphicsFolder(self, kind: str, path: str) -> str:
+        """Register a directory holding versions TKArcade did not install."""
+        return cfgmod.add_external_dir(kind, path)
+
+    @Slot(str, str, result=str)
+    def removeGraphicsFolder(self, kind: str, path: str) -> str:
+        """Forget a registered root; the files stay where they are."""
+        return cfgmod.remove_external_dir(kind, path)
+
     def _runtime_repo(self, kind: str) -> str:
-        """GitHub owner/repo configured for a layer ("" = official)."""
+        """GitHub owner/repo behind the layer's source picker ("" = official)."""
         try:
             prefs = cfgmod.load_preferences()
         except Exception:
             return ""
-        return str(prefs.dxvk_repo if kind == "dxvk" else prefs.vkd3d_repo)
+        source = prefs.dxvk_source if kind == "dxvk" else prefs.vkd3d_source
+        return runtimes.graphics_repo(source)
 
     @Slot(str)
     def fetchRuntimeReleases(self, kind: str) -> None:
@@ -3999,12 +4297,13 @@ class GameListModel(QAbstractTableModel):
             "artworkSource": str(prefs.artwork_source),
             "language": str(prefs.language),
             "prefixBase": str(prefs.prefix_base),
-            "wineBinary": str(prefs.wine_binary),
-            "protonDirs": str(prefs.proton_dirs),
-            "dxvkDirs": str(prefs.dxvk_dirs),
-            "vkd3dDirs": str(prefs.vkd3d_dirs),
-            "dxvkRepo": str(prefs.dxvk_repo),
-            "vkd3dRepo": str(prefs.vkd3d_repo),
+            "wineVersions": str(prefs.wine_versions),
+            "wineDefault": str(prefs.wine_default),
+            "protonDefault": str(prefs.proton_default),
+            "dxvkDefault": str(prefs.dxvk_default),
+            "vkd3dDefault": str(prefs.vkd3d_default),
+            "dxvkSource": str(prefs.dxvk_source),
+            "vkd3dSource": str(prefs.vkd3d_source),
         }
 
     @Slot("QVariantMap", result=bool)
@@ -4034,12 +4333,15 @@ class GameListModel(QAbstractTableModel):
             lang = str(get("language", prefs.language)).strip() or "system"
             prefs.language = lang
             prefs.prefix_base = str(get("prefixBase", prefs.prefix_base)).strip()
-            prefs.wine_binary = str(get("wineBinary", prefs.wine_binary)).strip()
-            prefs.proton_dirs = str(get("protonDirs", prefs.proton_dirs)).strip()
-            prefs.dxvk_dirs = str(get("dxvkDirs", prefs.dxvk_dirs)).strip()
-            prefs.vkd3d_dirs = str(get("vkd3dDirs", prefs.vkd3d_dirs)).strip()
-            prefs.dxvk_repo = str(get("dxvkRepo", prefs.dxvk_repo)).strip()
-            prefs.vkd3d_repo = str(get("vkd3dRepo", prefs.vkd3d_repo)).strip()
+            prefs.wine_versions = cfgmod.clean_wine_versions(
+                get("wineVersions", prefs.wine_versions)
+            )
+            prefs.wine_default = str(get("wineDefault", prefs.wine_default)).strip()
+            prefs.proton_default = str(get("protonDefault", prefs.proton_default)).strip()
+            prefs.dxvk_default = str(get("dxvkDefault", prefs.dxvk_default)).strip()
+            prefs.vkd3d_default = str(get("vkd3dDefault", prefs.vkd3d_default)).strip()
+            prefs.dxvk_source = str(get("dxvkSource", prefs.dxvk_source)).strip()
+            prefs.vkd3d_source = str(get("vkd3dSource", prefs.vkd3d_source)).strip()
             cfgmod.save_preferences(prefs)
         except Exception as e:
             log.warning("savePrefs failed: %s", e)

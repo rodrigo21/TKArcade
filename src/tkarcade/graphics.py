@@ -80,13 +80,12 @@ def _safe_dest(prefix: Path, rel: str) -> Path | None:
     return Path(prefix) / rel
 
 
-def layer_dirs(layer: str, prefs: object) -> str:
-    """Configured version directories for a graphics layer ("" = none)."""
-    if layer == "dxvk":
-        return str(getattr(prefs, "dxvk_dirs", "") or "")
-    if layer == "vkd3d":
-        return str(getattr(prefs, "vkd3d_dirs", "") or "")
-    return ""
+def selected_version(layer: str, prefs: object, version: str = "") -> str:
+    """The game's version, else the layer default ("" = newest installed)."""
+    text = str(version or "").strip()
+    if text:
+        return text
+    return str(getattr(prefs, f"{layer}_default", "") or "").strip()
 
 
 def installed(prefix: Path) -> dict[str, str]:
@@ -101,6 +100,19 @@ def installed(prefix: Path) -> dict[str, str]:
     return out
 
 
+def _find_version(kind: str, prefs: object, version: str) -> tuple[str, object]:
+    """(name tried, version found); only the layer default falls back."""
+    game = str(version or "").strip()
+    selected = game or selected_version(kind, prefs)
+    found = runtimes.pick_graphics(kind, selected)
+    if found is None and not game and selected:
+        # The layer default vanished: fall back to the newest installed. A
+        # version the game pinned stays missing and warns.
+        selected = ""
+        found = runtimes.pick_graphics(kind)
+    return selected, found
+
+
 def install(prefix: Path, layer: str, prefs: object, version: str = "") -> tuple[bool, list[str]]:
     """Copy the selected version of `layer` into the prefix (idempotent).
 
@@ -111,17 +123,15 @@ def install(prefix: Path, layer: str, prefs: object, version: str = "") -> tuple
     kind = layer if layer in runtimes.GRAPHICS_DLLS else ""
     if not kind:
         return True, []
-    extra = layer_dirs(layer, prefs)
-    selected = str(version or "").strip()
-    found = runtimes.pick_graphics(kind, extra, selected)
+    selected, found = _find_version(kind, prefs, version)
     if found is None:
         label = "DXVK" if kind == "dxvk" else "vkd3d-proton"
         if selected:
             return False, [
-                f"{label} version {selected!r} not found; check the {label} directories in Preferences"
+                f"{label} version {selected!r} not found; check the {label} versions in Preferences"
             ]
         return False, [
-            f"{label} layer enabled but no version found; check the {label} directories in Preferences"
+            f"{label} layer enabled but no version found; manage the {label} versions in Preferences"
         ]
     files = found.files()
     if not files:

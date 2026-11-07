@@ -3,27 +3,72 @@ import QtQuick.Layouts
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-// Managed DXVK/vkd3d-proton versions: any release of the official repo (or
-// the configured fork) and any pasted archive URL install here, and old
-// versions are deleted here. Per-game selection stays in Game Settings.
+// Managed DXVK/vkd3d-proton versions: any release of the chosen source
+// (official, a preset fork or a custom repository) and any pasted archive
+// URL install here, a directory outside the managed root can be registered
+// as an extra source, and old versions are deleted here. Per-game selection
+// stays in Game Settings.
 DialogWindow {
     id: manager
     title: manager.kind === "vkd3d" ? qsTr("vkd3d-proton Versions") : qsTr("DXVK Versions")
-    width: Kirigami.Units.gridUnit * 32
-    minimumWidth: Kirigami.Units.gridUnit * 30
+    width: Kirigami.Units.gridUnit * 36
+    minimumWidth: Kirigami.Units.gridUnit * 32
     acceptVisible: false
     rejectText: qsTr("Close")
     bodyFillHeight: true
 
     property string kind: "dxvk"
     property var versions: []
+    property var folders: []
     property var releases: []
     property string status: ""
+    property string source: "official"
     property bool busy: false
     property bool loadingReleases: false
+    property bool browsing: false
     property string pendingName: ""
+    property string pendingFolder: ""
+
+    // Presets per layer: id -> label. "custom" reveals the repo field.
+    function sourceIds() {
+        return manager.kind === "dxvk"
+            ? ["official", "sarek", "gplasync", "custom"]
+            : ["official", "custom"]
+    }
+
+    function sourceLabels() {
+        return manager.kind === "dxvk"
+            ? [qsTr("Official"), qsTr("DXVK-Sarek"),
+               qsTr("DXVK-GPLAsync (Legacy)"), qsTr("Custom Repository")]
+            : [qsTr("Official"), qsTr("Custom Repository")]
+    }
+
+    function applySource(index) {
+        var ids = sourceIds()
+        if (index < 0 || index >= ids.length) {
+            return
+        }
+        var message = gameModel.setGraphicsSource(manager.kind, ids[index], repoField.text)
+        if (message !== "") {
+            manager.status = message
+            return
+        }
+        manager.status = ""
+        manager.reload()
+        // A new source means a new release list.
+        manager.releases = []
+        releaseCombo.model = []
+        manager.loadingReleases = true
+        gameModel.fetchRuntimeReleases(manager.kind)
+    }
 
     function sourceLabel(entry) {
+        if (entry.origin === "system") {
+            return qsTr("System Version")
+        }
+        if (entry.origin === "external") {
+            return qsTr("External")
+        }
         if (entry.origin === "github") {
             return qsTr("Official Release")
         }
@@ -47,10 +92,20 @@ DialogWindow {
                 "origin": raw[i].origin,
                 "repo": raw[i].repo,
                 "tag": raw[i].tag,
-                "url": raw[i].url
+                "url": raw[i].url,
+                "external": raw[i].external === true,
+                "default": raw[i].default === true
             })
         }
         versions = rows
+        folders = gameModel.graphicsFolders(kind)
+        var stored = gameModel.graphicsSource(kind)
+        var sourcePart = stored.indexOf("custom:") === 0 ? "custom" : stored
+        var ids = sourceIds()
+        var at = ids.indexOf(sourcePart)
+        source = ids[at >= 0 ? at : 0]
+        sourceBox.currentIndex = at >= 0 ? at : 0
+        repoField.text = stored.indexOf("custom:") === 0 ? stored.slice(7) : ""
     }
 
     function setReleases(rows) {
@@ -77,8 +132,10 @@ DialogWindow {
     function openFor(parentWindow, layer) {
         kind = layer
         pendingName = ""
+        pendingFolder = ""
         status = ""
         busy = false
+        browsing = false
         loadingReleases = true
         releases = []
         releaseCombo.model = []
@@ -117,16 +174,71 @@ DialogWindow {
             manager.status = message === "" ? qsTr("Installed.") : message
             manager.reload()
         }
+        function onBrowseFinished(picked) {
+            if (!manager.browsing) {
+                return
+            }
+            manager.browsing = false
+            if (picked !== "") {
+                manager.status = gameModel.addGraphicsFolder(manager.kind, picked)
+                manager.reload()
+            }
+        }
     }
 
+    Controls.Label {
+        Layout.fillWidth: true
+        text: qsTr("Download From:")
+    }
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: Kirigami.Units.smallSpacing
+        Controls.ComboBox {
+            id: sourceBox
+            objectName: "runtimeSourceCombo"
+            Layout.fillWidth: true
+            model: manager.sourceLabels()
+            onActivated: manager.applySource(currentIndex)
+        }
+        Controls.TextField {
+            id: repoField
+            objectName: "runtimeSourceRepo"
+            Layout.fillWidth: true
+            visible: manager.source === "custom"
+            placeholderText: qsTr("owner/repo")
+            Controls.ToolTip.text: qsTr("A GitHub Repository Whose Releases Provide This Layer.")
+            Controls.ToolTip.visible: hovered
+        }
+        Controls.Button {
+            objectName: "runtimeSourceApply"
+            visible: manager.source === "custom"
+            text: qsTr("Apply")
+            enabled: repoField.text.trim() !== ""
+            onClicked: manager.applySource(sourceBox.currentIndex)
+        }
+    }
+    Controls.Label {
+        objectName: "runtimeSourceWarning"
+        Layout.fillWidth: true
+        visible: manager.source === "gplasync"
+        wrapMode: Text.WordWrap
+        color: Kirigami.Theme.neutralTextColor
+        text: qsTr("DXVK-GPLAsync Is Discontinued Upstream: Only Mirrors Remain, and Compatibility Is Not Guaranteed.")
+    }
     Controls.Label {
         Layout.fillWidth: true
         text: qsTr("Installed Versions:")
     }
     Controls.Label {
         Layout.fillWidth: true
+        wrapMode: Text.WordWrap
+        color: Kirigami.Theme.disabledTextColor
+        text: qsTr("The Radio Marks the Version New Games Use and the One They Fall Back To. Delete Removes Only the Builds TKArcade Installed.")
+    }
+    Controls.Label {
+        Layout.fillWidth: true
         visible: manager.versions.length === 0
-        text: qsTr("No Managed Version Is Installed.")
+        text: qsTr("No Version Is Installed.")
         color: Kirigami.Theme.disabledTextColor
     }
     Controls.ScrollView {
@@ -138,7 +250,9 @@ DialogWindow {
         Layout.preferredHeight: Math.min(list.implicitHeight, Kirigami.Units.gridUnit * 10)
         clip: true
         Item {
-            width: parent.width
+            // The vertical scroll bar overlays the viewport: reserve its
+            // width so the rightmost button stays clickable.
+            width: parent.width - Kirigami.Units.smallSpacing * 3
             implicitHeight: list.implicitHeight
             ColumnLayout {
                 id: list
@@ -150,19 +264,40 @@ DialogWindow {
                         required property var modelData
                         Layout.fillWidth: true
                         spacing: Kirigami.Units.smallSpacing
-                        Controls.Label {
-                            Layout.fillWidth: true
-                            text: modelData.name
-                            font.bold: true
-                            elide: Text.ElideRight
+                        Controls.RadioButton {
+                            objectName: "runtimeDefault_" + modelData.name
+                            Layout.alignment: Qt.AlignTop
+                            checked: modelData.default
+                            onClicked: {
+                                manager.status = gameModel.setGraphicsDefault(
+                                    manager.kind, modelData.name)
+                                manager.reload()
+                            }
+                            Controls.ToolTip.text: qsTr("Use This Version by Default")
+                            Controls.ToolTip.visible: hovered
                         }
-                        Controls.Label {
-                            text: manager.sourceLabel(modelData)
-                            color: Kirigami.Theme.disabledTextColor
-                            elide: Text.ElideRight
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+                            Controls.Label {
+                                Layout.fillWidth: true
+                                text: modelData.name
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
+                            Controls.Label {
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                                color: Kirigami.Theme.disabledTextColor
+                                text: modelData.repo !== ""
+                                    ? qsTr("%1 · %2").arg(manager.sourceLabel(modelData)).arg(modelData.repo)
+                                    : manager.sourceLabel(modelData)
+                            }
                         }
                         Controls.Button {
                             objectName: "runtimeRemove_" + modelData.name
+                            visible: !modelData.external
+                            Layout.alignment: Qt.AlignTop
                             text: qsTr("Delete")
                             onClicked: {
                                 manager.pendingName = modelData.name
@@ -174,19 +309,56 @@ DialogWindow {
             }
         }
     }
+    Controls.Label {
+        Layout.fillWidth: true
+        text: qsTr("Extra Folders:")
+    }
     RowLayout {
         Layout.fillWidth: true
         spacing: Kirigami.Units.smallSpacing
+        Controls.Label {
+            Layout.fillWidth: true
+            visible: manager.folders.length === 0
+            text: qsTr("None: Add a Directory Holding Versions TKArcade Did Not Install.")
+            color: Kirigami.Theme.disabledTextColor
+            elide: Text.ElideRight
+        }
         Controls.Button {
-            objectName: "runtimeRefreshReleases"
-            text: qsTr("Download Release…")
-            enabled: !manager.busy && !manager.loadingReleases
+            objectName: "runtimeAddFolder"
+            text: qsTr("Add Folder…")
             onClicked: {
-                manager.loadingReleases = true
-                manager.status = ""
-                gameModel.fetchRuntimeReleases(manager.kind)
+                manager.browsing = true
+                gameModel.pickDir(qsTr("Versions Folder"), qsTr("Select"))
             }
         }
+    }
+    Repeater {
+        model: manager.folders
+        delegate: RowLayout {
+            required property string modelData
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.smallSpacing
+            Controls.Label {
+                Layout.fillWidth: true
+                text: modelData
+                elide: Text.ElideMiddle
+                color: Kirigami.Theme.disabledTextColor
+                Controls.ToolTip.text: modelData
+                Controls.ToolTip.visible: hovered
+            }
+            Controls.Button {
+                objectName: "runtimeFolderRemove_" + modelData
+                text: qsTr("Remove")
+                onClicked: {
+                    manager.pendingFolder = modelData
+                    folderDialog.open(manager)
+                }
+            }
+        }
+    }
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: Kirigami.Units.smallSpacing
         Controls.BusyIndicator {
             running: manager.loadingReleases || manager.busy
             visible: running
@@ -261,6 +433,19 @@ DialogWindow {
                 manager.status = message
             }
             removeDialog.close()
+        }
+    }
+
+    ConfirmDialog {
+        id: folderDialog
+        title: qsTr("Remove Versions Folder")
+        question: qsTr("Stop Using %1?").arg(manager.pendingFolder)
+        warning: qsTr("The Files Stay on Disk.")
+        acceptText: qsTr("Remove")
+        onAccepted: {
+            manager.status = gameModel.removeGraphicsFolder(manager.kind, manager.pendingFolder)
+            manager.reload()
+            folderDialog.close()
         }
     }
 }

@@ -10,6 +10,13 @@ def _install(base, name, marker="proton"):
     return path
 
 
+def _register(kind, base):
+    from tkarcade import config as C
+
+    assert C.add_external_dir(kind, str(base)) == ""
+    return base
+
+
 def _graphics(base, name, dll, arch=None):
     root = base / name
     for sub in arch or ("x64", "x32"):
@@ -35,14 +42,35 @@ def test_proton_installs_require_the_launcher(xdg_env):
     assert [i.name for i in R.proton_installs()] == ["GE-Proton9-1"]
 
 
-def test_proton_installs_extra_dirs(xdg_env, tmp_path):
-    extra = tmp_path / "extra"
-    _install(extra, "GE-Proton10-1")
-    installs = R.proton_installs(str(extra))
-    assert [i.name for i in installs] == ["GE-Proton10-1"]
-    # A single install directory (not a parent) also counts.
-    direct = _install(tmp_path / "direct", "Proton-CachyOS")
-    assert [i.name for i in R.proton_installs(str(direct))] == ["Proton-CachyOS"]
+def test_proton_installs_system_first_then_libraries(xdg_env, tmp_path, monkeypatch):
+    system = tmp_path / "usr-share-steam"
+    _install(system / "compatibilitytools.d", "proton-cachyos-slr")
+    monkeypatch.setattr(R, "SYSTEM_STEAM_ROOT", system)
+    library = tmp_path / "library2"
+    tools = library / "steamapps" / "common"
+    _install(tools, "Proton - Experimental")
+    _install(library / "steamapps" / "compatibilitytools.d", "GE-Proton10-1")
+    root = xdg_env["home"] / ".local/share/Steam"
+    (root / "steamapps").mkdir(parents=True, exist_ok=True)
+    (root / "steamapps" / "libraryfolders.vdf").write_text(
+        f'"libraryfolders"\n{{\n\t"0"\n\t{{\n\t\t"path"\t\t"{library}"\n\t}}\n}}\n'
+    )
+    assert [i.name for i in R.proton_installs()] == [
+        "proton-cachyos-slr",
+        "GE-Proton10-1",
+        "Proton - Experimental",
+    ]
+
+
+def test_pick_proton_prefers_the_name_else_the_first(xdg_env):
+    tools = xdg_env["home"] / ".local/share/Steam/compatibilitytools.d"
+    _install(tools, "GE-Proton9-1")
+    _install(tools, "DW-Proton Latest")
+    installs = R.proton_installs()
+    assert R.pick_proton(installs, "ge-proton9-1").name == "GE-Proton9-1"
+    assert R.pick_proton(installs, "gone").name == installs[0].name
+    assert R.pick_proton(installs, "").name == installs[0].name
+    assert R.pick_proton([], "x") is None
 
 
 def test_find_proton_by_name_and_path(xdg_env, tmp_path):
@@ -72,12 +100,13 @@ def test_graphics_versions_newest_first(xdg_env):
     _graphics(base, "v2.6.2", "d3d11.dll")
     _graphics(base, "v2.14", "d3d11.dll")
     (base / "empty").mkdir()
-    versions = R.graphics_versions("dxvk", str(base))
+    _register("dxvk", base)
+    versions = R.graphics_versions("dxvk")
     assert [v.name for v in versions] == ["v2.14", "v2.6.2"]
     assert versions[0].complete()
-    assert R.pick_graphics("dxvk", str(base)).name == "v2.14"
-    assert R.pick_graphics("dxvk", str(base), "v2.6.2").name == "v2.6.2"
-    assert R.pick_graphics("dxvk", str(base), "v9.9") is None
+    assert R.pick_graphics("dxvk").name == "v2.14"
+    assert R.pick_graphics("dxvk", "v2.6.2").name == "v2.6.2"
+    assert R.pick_graphics("dxvk", "v9.9") is None
     assert R.pick_graphics("vkd3d") is None
 
 
@@ -86,10 +115,9 @@ def test_graphics_versions_include_managed_dir(xdg_env):
     _graphics(managed, "dxvk-2.7.1", "d3d11.dll")
     extra = xdg_env["data"] / "dxvk"
     _graphics(extra, "dxvk-2.14.0", "d3d11.dll")
-    versions = R.graphics_versions("dxvk", str(extra))
-    assert [v.name for v in versions] == ["dxvk-2.14.0", "dxvk-2.7.1"]
-    # Managed installs show up with no configured directory at all.
     assert [v.name for v in R.graphics_versions("dxvk")] == ["dxvk-2.7.1"]
+    _register("dxvk", extra)
+    assert [v.name for v in R.graphics_versions("dxvk")] == ["dxvk-2.14.0", "dxvk-2.7.1"]
 
 
 def test_graphics_versions_managed_wins_on_equal_names(xdg_env, tmp_path):
@@ -97,7 +125,8 @@ def test_graphics_versions_managed_wins_on_equal_names(xdg_env, tmp_path):
     configured = tmp_path / "dxvk"
     _graphics(managed, "dxvk-2.7.1", "d3d11.dll")
     _graphics(configured, "dxvk-2.7.1", "d3d11.dll")
-    versions = [v for v in R.graphics_versions("dxvk", str(configured)) if v.name == "dxvk-2.7.1"]
+    _register("dxvk", configured)
+    versions = [v for v in R.graphics_versions("dxvk") if v.name == "dxvk-2.7.1"]
     assert [v.root for v in versions] == [managed / "dxvk-2.7.1", configured / "dxvk-2.7.1"]
 
 
@@ -112,7 +141,8 @@ def test_graphics_version_files_and_extra_dirs(xdg_env, tmp_path):
     root = _graphics(base, "v2.13", "d3d12.dll")
     (root / "x64" / "d3d12core.dll").write_text("dll")
     (root / "x64" / "notes.txt").write_text("ignore me")
-    versions = R.graphics_versions("vkd3d", str(base))
+    _register("vkd3d", base)
+    versions = R.graphics_versions("vkd3d")
     assert [v.name for v in versions] == ["v2.13"]
     files = versions[0].files()
     assert {(src.name, target) for src, target in files} == {
@@ -124,6 +154,39 @@ def test_graphics_version_files_and_extra_dirs(xdg_env, tmp_path):
 
 def test_graphics_direct_version_dir(xdg_env, tmp_path):
     root = _graphics(tmp_path / "single", "v2.6.2", "d3d11.dll")
-    versions = R.graphics_versions("dxvk", str(root))
+    _register("dxvk", root)
+    versions = R.graphics_versions("dxvk")
     assert [v.name for v in versions] == ["v2.6.2"]
     assert versions[0].complete()
+
+
+def test_wine_binary_resolves_managed_names(fake_bin):
+    from tkarcade import config as C
+
+    first = fake_bin("wine")
+    second = fake_bin("wine-cachyos")
+    versions = C.format_wine_versions([("wine", str(first)), ("cachy", str(second))])
+    assert R.wine_binary("cachy", versions) == str(second)
+    assert R.wine_binary("CACHY", versions) == str(second)
+    assert R.wine_binary("wine", versions) == str(first)
+    assert R.wine_binary("", versions) == str(first)
+    # Unknown names and legacy paths keep the old behaviour.
+    assert R.wine_binary("gone", versions) == ""
+    assert R.wine_binary(str(second), versions) == str(second)
+
+
+def test_wine_versions_report_missing_paths():
+    from tkarcade import config as C
+
+    versions = C.format_wine_versions([("gone", "/does/not/exist")])
+    rows = R.wine_versions(versions)
+    assert [(r.name, r.path, r.ok) for r in rows] == [("gone", "/does/not/exist", False)]
+    assert R.wine_binary("gone", versions) == ""
+
+
+def test_graphics_repo_presets():
+    assert R.graphics_repo("") == ""
+    assert R.graphics_repo("official") == ""
+    assert R.graphics_repo("sarek") == "zeyadadev/DXVK-Sarek"
+    assert R.graphics_repo("gplasync").startswith("Waim908/")
+    assert R.graphics_repo("custom:Owner/Repo") == "Owner/Repo"

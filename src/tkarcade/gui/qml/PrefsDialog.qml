@@ -35,6 +35,22 @@ Window {
     property var archiveBusy: ({"dxvk": false, "vkd3d": false})
     property var archiveStatus: ({"dxvk": "", "vkd3d": ""})
     property var archiveDirs: gameModel.runtimeArchiveDirs()
+    // Which row asked the native picker, so its result lands in one place.
+    property string pendingPick: ""
+
+    Connections {
+        target: gameModel
+        function onBrowseFinished(picked) {
+            if (prefsDialog.pendingPick === "") {
+                return
+            }
+            if (prefsDialog.pendingPick === "prefixBase" && picked !== "") {
+                prefixBaseField.text = picked
+                prefsDialog.setPref("prefixBase", picked)
+            }
+            prefsDialog.pendingPick = ""
+        }
+    }
 
     function setArchiveState(kind, busy, message) {
         var busyCopy = {}
@@ -331,114 +347,85 @@ Window {
                                 objectName: "prefsRuntimeForm"
                                 labelWidth: runtimeColumn.labelWidth
                                 Layout.fillWidth: true
-                                Controls.TextField {
-                                    objectName: "prefsPrefixBase"
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    placeholderText: qsTr("Default: $XDG_DATA_HOME/tkarcade/prefixes")
-                                    text: prefsDialog.values.prefixBase ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.prefixBase !== text) {
-                                            prefsDialog.setPref("prefixBase", text)
-                                        }
-                                    }
+                                    spacing: Kirigami.Units.smallSpacing
                                     KirigamiLayouts.FormData.label: qsTr("Prefix Base:")
-                                    Controls.ToolTip.text: qsTr("Local Games Use <base>/<Game ID> Unless the Game Overrides the Path.")
-                                    Controls.ToolTip.visible: hovered
-                                }
-                                Controls.TextField {
-                                    objectName: "prefsWineBinary"
-                                    Layout.fillWidth: true
-                                    placeholderText: qsTr("Default: wine from PATH")
-                                    text: prefsDialog.values.wineBinary ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.wineBinary !== text) {
-                                            prefsDialog.setPref("wineBinary", text)
+                                    Controls.TextField {
+                                        id: prefixBaseField
+                                        objectName: "prefsPrefixBase"
+                                        Layout.fillWidth: true
+                                        placeholderText: qsTr("Default: $XDG_DATA_HOME/tkarcade/prefixes")
+                                        text: prefsDialog.values.prefixBase ?? ""
+                                        onTextChanged: {
+                                            if (prefsDialog.values.prefixBase !== text) {
+                                                prefsDialog.setPref("prefixBase", text)
+                                            }
+                                        }
+                                        Controls.ToolTip.text: qsTr("Local Games Use <base>/<Game ID> Unless the Game Overrides the Path.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Button {
+                                        objectName: "prefsPrefixBaseBrowse"
+                                        text: qsTr("Browse…")
+                                        onClicked: {
+                                            prefsDialog.pendingPick = "prefixBase"
+                                            gameModel.pickDir(qsTr("Prefix Base"), qsTr("Select"))
                                         }
                                     }
-                                    KirigamiLayouts.FormData.label: qsTr("Wine Binary:")
-                                    Controls.ToolTip.text: qsTr("Wine Executable (Path or Name) for Non-Steam Games.")
-                                    Controls.ToolTip.visible: hovered
-                                }
-                                Controls.TextField {
-                                    objectName: "prefsProtonDirs"
-                                    Layout.fillWidth: true
-                                    placeholderText: qsTr("One Directory per Entry (: Separated)")
-                                    text: prefsDialog.values.protonDirs ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.protonDirs !== text) {
-                                            prefsDialog.setPref("protonDirs", text)
-                                        }
-                                    }
-                                    KirigamiLayouts.FormData.label: qsTr("Proton Directories:")
-                                    Controls.ToolTip.text: qsTr("Extra Proton Installs, on Top of Steam's compatibilitytools.d.")
-                                    Controls.ToolTip.visible: hovered
-                                }
-                                Controls.TextField {
-                                    objectName: "prefsDxvkDirs"
-                                    Layout.fillWidth: true
-                                    placeholderText: qsTr("One Directory per Entry (: Separated)")
-                                    text: prefsDialog.values.dxvkDirs ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.dxvkDirs !== text) {
-                                            prefsDialog.setPref("dxvkDirs", text)
-                                        }
-                                    }
-                                    KirigamiLayouts.FormData.label: qsTr("DXVK Directories:")
-                                    Controls.ToolTip.text: qsTr("Directories Holding One DXVK Version per Subdirectory.")
-                                    Controls.ToolTip.visible: hovered
-                                }
-                                Controls.TextField {
-                                    objectName: "prefsVkd3dDirs"
-                                    Layout.fillWidth: true
-                                    placeholderText: qsTr("One Directory per Entry (: Separated)")
-                                    text: prefsDialog.values.vkd3dDirs ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.vkd3dDirs !== text) {
-                                            prefsDialog.setPref("vkd3dDirs", text)
-                                        }
-                                    }
-                                    KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Directories:")
-                                    Controls.ToolTip.text: qsTr("Directories Holding One vkd3d-proton Version per Subdirectory.")
-                                    Controls.ToolTip.visible: hovered
-                                }
-                                Controls.TextField {
-                                    objectName: "prefsDxvkRepo"
-                                    Layout.fillWidth: true
-                                    placeholderText: qsTr("owner/repo (Empty = Official)")
-                                    text: prefsDialog.values.dxvkRepo ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.dxvkRepo !== text) {
-                                            prefsDialog.setPref("dxvkRepo", text)
-                                        }
-                                    }
-                                    KirigamiLayouts.FormData.label: qsTr("DXVK Release Source:")
-                                    Controls.ToolTip.text: qsTr("A GitHub Fork Whose Releases Provide the DXVK Build, Such as DXVK-Sarek. Empty Means the Official doitsujin/dxvk Repository.")
-                                    Controls.ToolTip.visible: hovered
-                                }
-                                Controls.TextField {
-                                    objectName: "prefsVkd3dRepo"
-                                    Layout.fillWidth: true
-                                    placeholderText: qsTr("owner/repo (Empty = Official)")
-                                    text: prefsDialog.values.vkd3dRepo ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.vkd3dRepo !== text) {
-                                            prefsDialog.setPref("vkd3dRepo", text)
-                                        }
-                                    }
-                                    KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Release Source:")
-                                    Controls.ToolTip.text: qsTr("A GitHub Fork Whose Releases Provide the vkd3d-proton Build. Empty Means the Official HansKristian-Work/vkd3d-proton Repository.")
-                                    Controls.ToolTip.visible: hovered
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: Kirigami.Units.smallSpacing
-                                    KirigamiLayouts.FormData.label: qsTr("DXVK Install:")
+                                    KirigamiLayouts.FormData.label: qsTr("Wine Versions:")
+                                    Controls.Label {
+                                        objectName: "prefsWineDefault"
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: (prefsDialog.values.wineDefault ?? "") === ""
+                                            ? qsTr("Wine From PATH")
+                                            : prefsDialog.values.wineDefault
+                                        Controls.ToolTip.text: qsTr("New Local Games Use This Build. Manage the List to Add or Remove Installs.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
                                     Controls.Button {
-                                        objectName: "prefsDownloadDxvk"
-                                        text: qsTr("Download Latest…")
-                                        enabled: !prefsDialog.archiveBusy["dxvk"]
-                                        onClicked: gameModel.downloadLatestGraphics("dxvk")
-                                        Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
+                                        objectName: "prefsWineManage"
+                                        text: qsTr("Manage…")
+                                        onClicked: wineVersionsDialog.openFor(prefsDialog)
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Kirigami.Units.smallSpacing
+                                    KirigamiLayouts.FormData.label: qsTr("Proton:")
+                                    Controls.Label {
+                                        objectName: "prefsProtonDefault"
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: (prefsDialog.values.protonDefault ?? "") === ""
+                                            ? qsTr("First Installed")
+                                            : prefsDialog.values.protonDefault
+                                        Controls.ToolTip.text: qsTr("Local Games Preselect This Build. Steam Games Keep Steam's Own Choice.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Button {
+                                        objectName: "prefsManageProton"
+                                        text: qsTr("Manage…")
+                                        onClicked: protonVersionsDialog.openFor(prefsDialog)
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Kirigami.Units.smallSpacing
+                                    KirigamiLayouts.FormData.label: qsTr("DXVK:")
+                                    Controls.Label {
+                                        objectName: "prefsDxvkDefault"
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: (prefsDialog.values.dxvkDefault ?? "") === ""
+                                            ? qsTr("Newest Installed")
+                                            : prefsDialog.values.dxvkDefault
+                                        Controls.ToolTip.text: qsTr("New Games Preselect This Version. Manage the List to Download or Remove Builds.")
                                         Controls.ToolTip.visible: hovered
                                     }
                                     Controls.Button {
@@ -446,30 +433,19 @@ Window {
                                         text: qsTr("Manage Versions…")
                                         onClicked: runtimeManagerDialog.openFor(prefsDialog, "dxvk")
                                     }
-                                    Controls.BusyIndicator {
-                                        running: prefsDialog.archiveBusy["dxvk"]
-                                        visible: running
-                                        implicitWidth: Kirigami.Units.iconSizes.small
-                                        implicitHeight: Kirigami.Units.iconSizes.small
-                                    }
-                                }
-                                Controls.Label {
-                                    objectName: "prefsDxvkDownloadStatus"
-                                    Layout.fillWidth: true
-                                    text: prefsDialog.archiveStatus["dxvk"] ?? ""
-                                    visible: text !== ""
-                                    elide: Text.ElideRight
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: Kirigami.Units.smallSpacing
-                                    KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Install:")
-                                    Controls.Button {
-                                        objectName: "prefsDownloadVkd3d"
-                                        text: qsTr("Download Latest…")
-                                        enabled: !prefsDialog.archiveBusy["vkd3d"]
-                                        onClicked: gameModel.downloadLatestGraphics("vkd3d")
-                                        Controls.ToolTip.text: qsTr("Downloads the Latest Release Into %1; Archives Dropped Into %2 Are Extracted Automatically.").arg(prefsDialog.archiveDirs.managed ?? "").arg(prefsDialog.archiveDirs.cache ?? "")
+                                    KirigamiLayouts.FormData.label: qsTr("vkd3d-proton:")
+                                    Controls.Label {
+                                        objectName: "prefsVkd3dDefault"
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: (prefsDialog.values.vkd3dDefault ?? "") === ""
+                                            ? qsTr("Newest Installed")
+                                            : prefsDialog.values.vkd3dDefault
+                                        Controls.ToolTip.text: qsTr("New Games Preselect This Version. Manage the List to Download or Remove Builds.")
                                         Controls.ToolTip.visible: hovered
                                     }
                                     Controls.Button {
@@ -477,19 +453,6 @@ Window {
                                         text: qsTr("Manage Versions…")
                                         onClicked: runtimeManagerDialog.openFor(prefsDialog, "vkd3d")
                                     }
-                                    Controls.BusyIndicator {
-                                        running: prefsDialog.archiveBusy["vkd3d"]
-                                        visible: running
-                                        implicitWidth: Kirigami.Units.iconSizes.small
-                                        implicitHeight: Kirigami.Units.iconSizes.small
-                                    }
-                                }
-                                Controls.Label {
-                                    objectName: "prefsVkd3dDownloadStatus"
-                                    Layout.fillWidth: true
-                                    text: prefsDialog.archiveStatus["vkd3d"] ?? ""
-                                    visible: text !== ""
-                                    elide: Text.ElideRight
                                 }
                             }
                         }
@@ -509,6 +472,12 @@ Window {
                 // QDialogButtonBox(Save | Cancel): accept first, default.
                 highlighted: true
                 onClicked: {
+                    // The Wine manager saves its list on every action; take
+                    // those two keys fresh so Save cannot write stale ones.
+                    var fresh = gameModel.loadPrefs()
+                    prefsDialog.setPref("wineVersions", fresh.wineVersions ?? "")
+                    prefsDialog.setPref("wineDefault", fresh.wineDefault ?? "")
+                    prefsDialog.setPref("protonDefault", fresh.protonDefault ?? "")
                     if (gameModel.savePrefs(prefsDialog.values)) {
                         prefsDialog.close()
                     } else if (page !== null) {
@@ -526,5 +495,22 @@ Window {
 
     RuntimeManagerDialog {
         id: runtimeManagerDialog
+    }
+
+    ProtonVersionsDialog {
+        id: protonVersionsDialog
+        onListChanged: {
+            var fresh = gameModel.loadPrefs()
+            prefsDialog.setPref("protonDefault", fresh.protonDefault ?? "")
+        }
+    }
+
+    WineVersionsDialog {
+        id: wineVersionsDialog
+        onListChanged: {
+            var fresh = gameModel.loadPrefs()
+            prefsDialog.setPref("wineVersions", fresh.wineVersions ?? "")
+            prefsDialog.setPref("wineDefault", fresh.wineDefault ?? "")
+        }
     }
 }

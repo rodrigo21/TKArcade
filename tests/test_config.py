@@ -459,12 +459,13 @@ _PREF_FIELDS = {
     "drawer_mode": "overlay",
     "drawer_collapsed": False,
     "prefix_base": "/tmp/opencode/prefixes",
-    "wine_binary": "/tmp/opencode/wine",
-    "proton_dirs": "/tmp/opencode/proton-a:/tmp/opencode/proton-b",
-    "dxvk_dirs": "/tmp/opencode/dxvk",
-    "vkd3d_dirs": "/tmp/opencode/vkd3d",
-    "dxvk_repo": "Someone/dxvk-sarek",
-    "vkd3d_repo": "Someone/vkd3d-fork",
+    "wine_versions": "wine-a=/tmp/opencode/wine:wine-b=/tmp/opencode/wine-b",
+    "wine_default": "wine-a",
+    "proton_default": "GE-Proton9-1",
+    "dxvk_default": "dxvk-2.7.1",
+    "vkd3d_default": "",
+    "dxvk_source": "sarek",
+    "vkd3d_source": "custom:Someone/vkd3d-fork",
 }
 
 
@@ -1435,12 +1436,12 @@ def test_prefs_cleaners_drop_nondecimal_digits(xdg_env):
 
 def test_prefs_repo_cleaner_keeps_only_owner_name(xdg_env):
     prefs = C.load_preferences()
-    prefs.dxvk_repo = "not a repo"
-    prefs.vkd3d_repo = "/Someone/vkd3d-fork/"
+    prefs.dxvk_source = "not a source"
+    prefs.vkd3d_source = "custom:Someone/vkd3d-fork"
     C.save_preferences(prefs)
     back = C.load_preferences()
-    assert back.dxvk_repo == ""
-    assert back.vkd3d_repo == "Someone/vkd3d-fork"
+    assert back.dxvk_source == "official"
+    assert back.vkd3d_source == "custom:Someone/vkd3d-fork"
 
 
 def test_pre_post_timeout_clamped(xdg_env):
@@ -1640,3 +1641,84 @@ def test_local_id_for_executable(xdg_env, tmp_path):
     two.general.custom_executable = str(exe)
     C.save(two)
     assert C.local_id_for_executable(str(exe)) == ""
+
+
+def test_wine_versions_parse_and_format():
+    text = C.format_wine_versions([("wine", "/opt/wine/bin/wine"), ("dev", "/srv/dev/bin/wine")])
+    assert C.parse_wine_versions(text) == [
+        ("wine", "/opt/wine/bin/wine"),
+        ("dev", "/srv/dev/bin/wine"),
+    ]
+    assert C.clean_wine_versions("  ") == ""
+    assert C.parse_wine_versions("bare:/x=y") == []
+    # Duplicate names are dropped case-insensitively, the first one wins.
+    assert C.parse_wine_versions("A=/x:a=/y") == [("A", "/x")]
+
+
+def test_wine_entry_name():
+    assert C.wine_entry_name("/opt/wine-cachyos/bin/wine") == "wine-cachyos"
+    assert C.wine_entry_name("/usr/bin/wine") == "wine"
+    assert C.wine_entry_name("wine-staging") == "wine-staging"
+    assert C.wine_entry_name("/opt/custom/bin/wine", taken=["custom"]) == "custom-2"
+    assert C.wine_entry_name("") == "wine"
+
+
+def test_wine_binary_pref_migrates_to_the_list(xdg_env):
+    path = xdg_env["config"] / "tkarcade" / "preferences.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('[ui]\nwine_binary = "/opt/wine-cachyos/bin/wine"\n')
+    prefs = C.load_preferences()
+    assert C.parse_wine_versions(prefs.wine_versions) == [
+        ("wine-cachyos", "/opt/wine-cachyos/bin/wine")
+    ]
+    assert prefs.wine_default == ""
+    C.save_preferences(prefs)
+    assert "wine_binary" not in path.read_text()
+
+
+def test_wine_default_resets_when_the_entry_is_gone(xdg_env):
+    prefs = C.Preferences()
+    prefs.wine_versions = "dev=/opt/dev/bin/wine"
+    prefs.wine_default = "gone"
+    C.save_preferences(prefs)
+    assert C.load_preferences().wine_default == ""
+
+
+def test_external_dirs_roundtrip(xdg_env, tmp_path):
+    base = tmp_path / "dxvk"
+    base.mkdir()
+    assert C.add_external_dir("dxvk", str(base)) == ""
+    assert C.external_dirs("dxvk") == [str(base)]
+    assert "Already" in C.add_external_dir("dxvk", str(base))
+    assert C.add_external_dir("dxvk", "/does/not/exist") == "Not a Directory."
+    assert C.add_external_dir("nope", str(base)) == "Unknown Runtime Layer."
+    assert C.external_dirs("vkd3d") == []
+    assert C.remove_external_dir("dxvk", str(base)) == ""
+    assert C.external_dirs("dxvk") == []
+    assert C.remove_external_dir("dxvk", str(base)) == "Not in the List."
+
+
+def test_legacy_graphics_dirs_become_external_roots(xdg_env, tmp_path):
+    dxvk = tmp_path / "old-dxvk"
+    vkd3d = tmp_path / "old-vkd3d"
+    dxvk.mkdir()
+    vkd3d.mkdir()
+    path = xdg_env["config"] / "tkarcade" / "preferences.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f'[ui]\ndxvk_dirs = "{dxvk}"\nvkd3d_dirs = "{vkd3d}"\n')
+    prefs = C.load_preferences()
+    assert C.external_dirs("dxvk") == [str(dxvk)]
+    assert C.external_dirs("vkd3d") == [str(vkd3d)]
+    C.save_preferences(prefs)
+    text = path.read_text()
+    assert "dxvk_dirs" not in text
+    assert "vkd3d_dirs" not in text
+
+
+def test_graphics_source_values():
+    assert C.graphics_source_value("dxvk", "sarek") == "sarek"
+    assert C.graphics_source_value("dxvk", "custom", "Someone/DXVK") == "custom:Someone/DXVK"
+    assert C.graphics_source_value("dxvk", "custom", "not a repo") == "official"
+    assert C.graphics_source_value("vkd3d", "sarek") == "official"
+    assert C.clean_graphics_source("dxvk", "custom:/Someone/x/") == "custom:Someone/x"
+    assert C.clean_graphics_source("vkd3d", "gplasync") == "official"

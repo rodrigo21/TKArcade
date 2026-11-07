@@ -75,3 +75,5 @@ What each document is for and where the source of truth lives.
   per-kind fork repository and manual version deletion.
 - `decisions/runtime-archives.md` — latest-release download and safe
   archive extraction for DXVK/vkd3d-proton into the cache dir.
+- `decisions/runtime-sources.md` — one list and one default per runtime
+  kind, the Wine build list, Proton discovery and the graphics sources.
