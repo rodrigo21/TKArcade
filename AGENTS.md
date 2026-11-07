@@ -90,7 +90,7 @@ decision; PySide6/jeepney stay GUI/helper-only.
 ```bash
 pytest tests/test_<module>.py -k <case>   # the case being fixed
 scripts/check.sh --changed               # the modules git shows as touched
-scripts/check.sh                         # whole fast suite (~30s), before approval
+scripts/check.sh                         # whole fast suite (~30s), on the approved diff
 scripts/check.sh --qml                   # + QML driver (~2 min), once per task
 ```
 
@@ -99,6 +99,15 @@ case, then `--changed` — and the full suite **once per approval round**,
 on the diff that goes to the maintainer. The maintainer approves a
 verified diff; do not spend the whole suite on every small correction,
 and never commit or claim a pass without having run the check yourself.
+
+The maintainer's rule (2026-11-06): **iterate on the diff without running
+any check, and run the suite once the maintainer approves the change**.
+Small layout or wording corrections are reworked several times per round;
+re-verifying each iteration wastes the session budget. The approval
+covers "implemented, verified, ready to commit", so the checks below run
+on the approved diff, before the commit, and before any claim that it
+passes.
+
 `--changed` widens to the whole fast suite when a touched file has no
 test module of its own, so it never skips a change silently. The full
 suite with the QML driver runs once per task and whenever QML or the
