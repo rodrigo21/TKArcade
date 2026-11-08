@@ -1722,3 +1722,13 @@ def test_graphics_source_values():
     assert C.graphics_source_value("vkd3d", "sarek") == "official"
     assert C.clean_graphics_source("dxvk", "custom:/Someone/x/") == "custom:Someone/x"
     assert C.clean_graphics_source("vkd3d", "gplasync") == "official"
+
+
+def test_download_mirror_requires_https(xdg_env):
+    assert C.clean_download_mirror("https://mirror.test/") == "https://mirror.test/"
+    assert C.clean_download_mirror(" http://mirror.test ") == ""
+    assert C.clean_download_mirror("") == ""
+    prefs = C.load_preferences()
+    prefs.download_mirror = "http://insecure"
+    C.save_preferences(prefs)
+    assert C.load_preferences().download_mirror == ""

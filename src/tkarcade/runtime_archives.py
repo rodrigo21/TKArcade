@@ -157,12 +157,30 @@ def releases(kind: str, opener=None, repo: str = "") -> list[dict]:
     return out
 
 
-def _download(release: dict, part: Path, opener) -> str:
+def _mirror_url(url: str) -> str:
+    """Prepend the configured mirror prefix to a GitHub asset URL.
+
+    An empty or non-https preference downloads direct; a mirror follows
+    the ghproxy convention, `https://mirror/https://github.com/...`.
+    """
+    from . import config as cfgmod
+
+    try:
+        mirror = cfgmod.load_preferences().download_mirror.strip()
+    except Exception:
+        return url
+    if not mirror:
+        return url
+    return f"{mirror.rstrip('/')}/{url}"
+
+
+def _download(release: dict, part: Path, opener, mirror: bool = True) -> str:
     """Stream the asset to `part`, returning the SHA-256 hex digest."""
     if int(release.get("size") or 0) > MAX_DOWNLOAD_BYTES:
         raise ArchiveError("archive exceeds the download size cap")
     open_url = opener or _open_url
-    request = urllib.request.Request(release["url"], headers={"User-Agent": _USER_AGENT})
+    url = _mirror_url(release["url"]) if mirror else release["url"]
+    request = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
     hasher = hashlib.sha256()
     written = 0
     try:
@@ -245,7 +263,9 @@ def _record_source(
         pass  # provenance is advisory: a read-only data dir must not fail a install
 
 
-def _install_asset(kind: str, asset: dict, opener, say, origin: str, repo: str = "") -> str:
+def _install_asset(
+    kind: str, asset: dict, opener, say, origin: str, repo: str = "", mirror: bool = True
+) -> str:
     """Download an archive asset, extract it and record where it came from."""
     name = xdg.safe_stem(Path(str(asset.get("name") or "")).name)
     _archive_format(name)
@@ -255,7 +275,7 @@ def _install_asset(kind: str, asset: dict, opener, say, origin: str, repo: str =
     part = cache / (name + ".part")
     try:
         say(f"Downloading {name}…")
-        digest = _download({**asset, "name": name}, part, opener)
+        digest = _download({**asset, "name": name}, part, opener, mirror)
         _verify_digest(asset.get("digest", ""), digest)
         os.replace(part, dest)
         say(f"Extracting {name}…")
@@ -321,7 +341,7 @@ def install_from_url(kind: str, url: str, opener=None, progress=None) -> str:
         if not name:
             raise ArchiveError("the URL has no file name")
         asset = {"name": name, "url": str(url), "size": 0, "digest": ""}
-        return _install_asset(kind, asset, opener, say, "url")
+        return _install_asset(kind, asset, opener, say, "url", mirror=False)
     except ArchiveError as e:
         return str(e)
     except Exception as e:

@@ -3649,6 +3649,9 @@ def test_prefs_runtime_graphics_rows(qgui_app, xdg_env):
         button = swin.findChild(QQuickItem, name)
         assert button is not None, f"missing {name}"
         assert button.property("visible") is True
+    mirror = swin.findChild(QQuickItem, "prefsDownloadMirror")
+    assert mirror is not None
+    assert mirror.property("text") == ""
     assert swin.findChild(QQuickItem, "prefsDownloadDxvk") is None
     assert swin.findChild(QQuickItem, "prefsDxvkDirs") is None
     real = [w for w in warnings if "graphics scene" not in w]

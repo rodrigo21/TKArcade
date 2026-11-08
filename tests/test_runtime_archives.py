@@ -483,3 +483,43 @@ def test_prune_disabled_with_zero(xdg_env):
     _managed("vkd3d", ["vkd3d-1", "vkd3d-2", "vkd3d-3", "vkd3d-4"])
     assert A.prune_versions(0) == []
     assert len(list((xdg.runtimes_dir() / "vkd3d").iterdir())) == 4
+
+
+def test_download_uses_the_configured_mirror(xdg_env):
+    from tkarcade import config as C
+
+    prefs = C.load_preferences()
+    prefs.download_mirror = "https://mirror.test/"
+    C.save_preferences(prefs)
+    data = _tar_bytes("dxvk-2.7.0", {"x64/d3d11.dll": b"dll"})
+    original = "https://github.com/doitsujin/dxvk/releases/download/v2.7.0/dxvk-2.7.0.tar.gz"
+    mirrored = "https://mirror.test/" + original
+    opener, _calls = _opener({mirrored: data})
+    assert (
+        A.download_release(
+            "dxvk",
+            {
+                "name": "dxvk-2.7.0.tar.gz",
+                "url": original,
+                "size": len(data),
+                "digest": "",
+                "tag": "v2.7.0",
+            },
+            opener,
+        )
+        == ""
+    )
+    assert (_installed("dxvk", "dxvk-2.7.0") / "x64" / "d3d11.dll").is_file()
+
+
+def test_pasted_url_ignores_the_mirror(xdg_env):
+    from tkarcade import config as C
+
+    prefs = C.load_preferences()
+    prefs.download_mirror = "https://mirror.test"
+    C.save_preferences(prefs)
+    data = _tar_bytes("dxvk-sarek-2.4.2", {"x64/d3d11.dll": b"dll"})
+    original = "https://example.test/builds/dxvk-sarek-2.4.2.tar.gz"
+    opener, _calls = _opener({original: data})
+    assert A.install_from_url("dxvk", original, opener) == ""
+    assert (_installed("dxvk", "dxvk-sarek-2.4.2") / "x64" / "d3d11.dll").is_file()

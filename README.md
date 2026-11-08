@@ -135,7 +135,10 @@ source and a pasted archive URL, and deletes managed versions. After an
 install, and on every scan, it keeps the three newest builds it installed
 per layer: the default build and any version pinned by a game are never
 pruned, and a build dropped into the archive cache, an external folder or
-the distro tree is left alone. The
+the distro tree is left alone. An `[ui] download_mirror`
+(Preferences → Runtime → Download Mirror) is an `https://` prefix
+prepended to the GitHub asset URLs, ghproxy style; empty downloads
+direct, and a pasted archive URL is never rewritten. The
 source is a preset per layer — official (the default), DXVK-Sarek or the
 discontinued DXVK-GPLAsync for DXVK — or a custom `owner/repo`.
 TKArcade does not read another launcher's default layout, and the

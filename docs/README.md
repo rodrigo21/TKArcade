@@ -79,5 +79,7 @@ What each document is for and where the source of truth lives.
   archive extraction for DXVK/vkd3d-proton into the cache dir.
 - `decisions/runtime-retention.md` — the three-newest-builds prune, the
   protected builds and why no signature check exists.
+- `decisions/download-mirror.md` — the `[ui] download_mirror` prefix, the
+  ghproxy URL shape and the digest check through a proxy.
 - `decisions/runtime-sources.md` — one list and one default per runtime
   kind, the Wine build list, Proton discovery and the graphics sources.

@@ -4354,6 +4354,7 @@ class GameListModel(QAbstractTableModel):
             "vkd3dDefault": str(prefs.vkd3d_default),
             "dxvkSource": str(prefs.dxvk_source),
             "vkd3dSource": str(prefs.vkd3d_source),
+            "downloadMirror": str(prefs.download_mirror),
         }
 
     @Slot("QVariantMap", result=bool)
@@ -4392,6 +4393,9 @@ class GameListModel(QAbstractTableModel):
             prefs.vkd3d_default = str(get("vkd3dDefault", prefs.vkd3d_default)).strip()
             prefs.dxvk_source = str(get("dxvkSource", prefs.dxvk_source)).strip()
             prefs.vkd3d_source = str(get("vkd3dSource", prefs.vkd3d_source)).strip()
+            prefs.download_mirror = cfgmod.clean_download_mirror(
+                get("downloadMirror", prefs.download_mirror)
+            )
             cfgmod.save_preferences(prefs)
         except Exception as e:
             log.warning("savePrefs failed: %s", e)

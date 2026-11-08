@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- A Download Mirror field in Preferences → Runtime: an `https://` prefix
+  prepended to GitHub download URLs, ghproxy style. Empty downloads
+  direct, the release list still comes from the GitHub API, a pasted
+  archive URL is never rewritten, and the SHA-256 digest is checked
+  against what the mirror returns.
 - A running game is marked in the list view: a positive wash over the row
   plus a green outline from the row number to the end of the name. The
   toolbar Play turns into Stop while the selected game runs, with the

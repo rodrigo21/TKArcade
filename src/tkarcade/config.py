@@ -385,6 +385,7 @@ class Preferences:
     vkd3d_default: str = ""
     dxvk_source: str = "official"  # official|sarek|gplasync|custom:owner/repo
     vkd3d_source: str = "official"
+    download_mirror: str = ""  # https:// prefix for GitHub asset downloads
     main_window_size: str = ""  # "WxH", "" means the 1280x720 default
     main_window_maximized: bool = False  # restore maximized on open
     drawer_mode: str = "collapsible"  # overlay|collapsible (Kirigami drawer)
@@ -1262,12 +1263,19 @@ def load_preferences() -> Preferences:
     return out
 
 
+def clean_download_mirror(value: object) -> str:
+    """An https:// prefix for GitHub asset URLs; "" means download direct."""
+    text = str(value or "").strip()
+    return text if text.lower().startswith("https://") else ""
+
+
 def _load_graphics_prefs(ui: dict, out: Preferences) -> None:
     """Defaults, source picker and the one-way directory migration."""
     out.dxvk_default = str(ui.get("dxvk_default", "") or "").strip()
     out.vkd3d_default = str(ui.get("vkd3d_default", "") or "").strip()
     out.dxvk_source = clean_graphics_source("dxvk", ui.get("dxvk_source", ""))
     out.vkd3d_source = clean_graphics_source("vkd3d", ui.get("vkd3d_source", ""))
+    out.download_mirror = clean_download_mirror(ui.get("download_mirror", ""))
     # The retired per-layer directory lists become external roots the
     # manager can list and remove.
     for kind, key in (("dxvk", "dxvk_dirs"), ("vkd3d", "vkd3d_dirs")):
@@ -1501,6 +1509,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "vkd3d_default": str(prefs.vkd3d_default or "").strip(),
             "dxvk_source": clean_graphics_source("dxvk", prefs.dxvk_source),
             "vkd3d_source": clean_graphics_source("vkd3d", prefs.vkd3d_source),
+            "download_mirror": clean_download_mirror(prefs.download_mirror),
             "drawer_mode": (
                 prefs.drawer_mode
                 if prefs.drawer_mode in ("overlay", "collapsible")

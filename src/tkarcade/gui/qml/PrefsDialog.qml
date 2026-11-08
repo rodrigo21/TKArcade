@@ -454,6 +454,24 @@ Window {
                                         onClicked: runtimeManagerDialog.openFor(prefsDialog, "vkd3d")
                                     }
                                 }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Kirigami.Units.smallSpacing
+                                    KirigamiLayouts.FormData.label: qsTr("Download Mirror:")
+                                    Controls.TextField {
+                                        objectName: "prefsDownloadMirror"
+                                        Layout.fillWidth: true
+                                        placeholderText: qsTr("Empty Uses GitHub Directly")
+                                        text: prefsDialog.values.downloadMirror ?? ""
+                                        onTextChanged: {
+                                            if (prefsDialog.values.downloadMirror !== text) {
+                                                prefsDialog.setPref("downloadMirror", text)
+                                            }
+                                        }
+                                        Controls.ToolTip.text: qsTr("https:// Prefix Prepended to GitHub Download URLs.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                }
                             }
                         }
                     }

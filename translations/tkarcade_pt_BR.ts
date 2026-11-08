@@ -3386,17 +3386,32 @@ Adicione Entrada Custom no Ludusavi para Backups.</translation>
         <translation>Gerenciar Versões…</translation>
     </message>
     <message>
+        <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="460"/>
+        <source>Download Mirror:</source>
+        <translation>Espelho de Download:</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="464"/>
+        <source>Empty Uses GitHub Directly</source>
+        <translation>Vazio Usa o GitHub Diretamente</translation>
+    </message>
+    <message>
         <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="471"/>
+        <source>https:// Prefix Prepended to GitHub Download URLs.</source>
+        <translation>Prefixo https:// Colocado Antes das URLs de Download do GitHub.</translation>
+    </message>
+    <message>
+        <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="489"/>
         <source>Save</source>
         <translation>Salvar</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="484"/>
+        <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="502"/>
         <source>Could Not Save Preferences.</source>
         <translation>Não Foi Possível Salvar as Preferências.</translation>
     </message>
     <message>
-        <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="490"/>
+        <location filename="../src/tkarcade/gui/qml/PrefsDialog.qml" line="508"/>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>
