@@ -10,32 +10,23 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: twenty-three batches. The latest landed the runtime-source
-  redesign as one squash (`docs/decisions/runtime-sources.md`): the Wine
-  builds are a managed list with one default and a PATH row, Proton
-  installs are discovered (system tree first, then every Steam library
-  from `libraryfolders.vdf`) with a read-only list and a
-  ProtonPlus/ProtonUp-Qt button, DXVK and vkd3d-proton download from a
-  preset or custom source inside the manager, register outside folders in
-  `runtimes/.external.json`, pick up the distro trees
-  (`/usr/share/dxvk`) and mark one default. The six old `[ui]` path keys
-  are migrated and dropped on save. The follow-up fixed the source
-  change not reloading releases, removed the redundant "Download
-  Release…" button, added the system builds and gave the managers a
-  name column measured from the longest label with the window sized to
-  fit the paths. Before it: the running marker, the QML suite cost and
-  isolation work, and the Steam compat mapping preselection.
-- Verified: the approved diff. 671 passed for the fast suite and 672
-  with the QML driver (149 cases, 60s). The Wine, Proton and DXVK
-  managers went through several offscreen screenshot passes; the last
-  one measured the path column x (identical per dialog), the gaps, the
-  scroll-bar clearance and the widths. Images in `/tmp/opencode/`
-  (`col2-*.png` is the final layout).
-- Next: the maintainer wants a **visual pass over the whole program
-  before 1.0** ("ainda feio, mas ok"); that is the standing next theme,
-  not started. After it: the fourth artwork kind (background/fanart,
-  `TODO.md`), the other game sources (Epic, GOG) and the 1.0 packaging
-  check.
+- Landed: twenty-eight batches. The latest three: artwork cache files
+  keyed by the canonical game ID (`steam-<appid>`, `local-<slug>`) with
+  the numeric-name migration, and the Removed games cleanup now covering
+  cached art, ProtonDB and release date; the runtime manager keeps the
+  three newest builds it installed per layer (default and game pins
+  survive); and `[ui] download_mirror` prepends an https prefix to GitHub
+  asset downloads. Before them: the Compat Tool list reads the system
+  Steam tree (`proton-cachyos-slr`) and the Proton default became a
+  dialog preselection.
+- Verified: the approved diff. 685 passed for the fast suite and 686
+  with the QML driver (149 cases). The new Preferences mirror row is
+  covered by the runtime-graphics QML case; the earlier Wine, Proton and
+  DXVK manager screenshot passes still apply (images in `/tmp/opencode/`).
+- Next: the fourth artwork kind (background/fanart, `TODO.md`), then the
+  other game sources (Epic, GOG). The 1.0 visual pass, the packaging
+  check, the compatibility-shim removal and the release pass wait for
+  the maintainer's release call.
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
