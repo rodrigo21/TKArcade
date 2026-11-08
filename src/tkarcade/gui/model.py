@@ -737,7 +737,7 @@ class GameListModel(QAbstractTableModel):
                 tool = protonmod.compat_tool_name(appid)
                 if tool and protonmod.is_steam_runtime_tool(tool):
                     return "—"
-                return protonmod.tool_display(appid)
+                return protonmod.tool_display(appid, with_version=False)
             except Exception:
                 return "—"
         tool = (gcfg.runtime.tool or "").strip() if gcfg is not None else ""

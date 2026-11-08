@@ -903,7 +903,11 @@ def test_tool_display_falls_back_to_steam_default(monkeypatch, tmp_path, xdg_env
     monkeypatch.setenv("STEAM_ROOT", str(root))
     assert pm.compat_tool_name("43") is None
     assert pm.default_compat_tool() == "proton_9"
-    assert pm.tool_display("43") == "proton_9"
+    tool = root / "compatibilitytools.d" / "proton_9"
+    tool.mkdir(parents=True)
+    (tool / "version").write_text("1792530497 cachyos-11.0-20261015-slr\n")
+    assert pm.tool_display("43") == "proton_9 (1792530497 cachyos-11.0-20261015-slr)"
+    assert pm.tool_display("43", with_version=False) == "proton_9"
     pm.clear_tool_cache()
 
 

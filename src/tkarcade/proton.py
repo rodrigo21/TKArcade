@@ -95,17 +95,21 @@ def tool_version(tool: str) -> str | None:
     return None
 
 
-def tool_display(appid: str) -> str:
+def tool_display(appid: str, with_version: bool = True) -> str:
     """Display string for the Proton tool: 'tool (version)', 'tool', or 'Proton'.
 
     A game without its own mapping runs Steam's default tool, so that entry
     answers instead of a bare "Proton". Same rule everywhere (dialog,
     notifications) so both agree even when only the tool mapping exists
-    without a readable version file.
+    without a readable version file. The library list passes
+    ``with_version=False``: its column shows the build name, and the
+    version stays in the dialog and the pre-launch menu.
     """
     tool = compat_tool_name(appid) or default_compat_tool()
     if not tool:
         return "Proton"
+    if not with_version:
+        return tool
     version = tool_version(tool)
     return f"{tool} ({version})" if version else tool
 

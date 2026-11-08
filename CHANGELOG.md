@@ -333,6 +333,10 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The library's Wine column shows the compat tool name only. A
+  distro-packaged build reports an epoch-prefixed version line
+  (`1792530497 cachyos-11.0-…`), which stretched the column; the version
+  stays in the game dialog, the pre-launch menu and notifications.
 - A Proton build packaged by the distro in `/usr/share/steam` (such as
   `proton-cachyos-slr`) is listed in the game dialog's Compat Tool combo
   with its version. The list now reads the same roots as the Proton
