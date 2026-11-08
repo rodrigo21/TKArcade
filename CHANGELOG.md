@@ -85,6 +85,13 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- Artwork cache files are named after the canonical game ID
+  (`steam-<appid>`, `local-<slug>`), like every other per-game store. The
+  startup migration renames the numeric Steam names once, never
+  overwriting an existing file. The Removed games cleanup now also sees
+  games that left nothing but cached art, lists their file count and
+  deletes the grids, sidecar, executable icon, manual artwork, ProtonDB
+  and release-date entries.
 - The graphics list picks up the distro build on its own: `/usr/share/dxvk`
   and the `vkd3d-proton` equivalent are scanned read-only and shown as
   "System Version". Delete stays limited to the builds TKArcade installed.

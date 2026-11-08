@@ -362,6 +362,11 @@ class GameListModel(QAbstractTableModel):
                 log.info("migrated AppID %s -> %s", old, new)
         except Exception as e:
             log.warning("AppID migration failed: %s", e)
+        try:
+            for old, new in artmod.migrate_cache_keys():
+                log.info("migrated cache key %s -> %s", old, new)
+        except Exception as e:
+            log.warning("cache key migration failed: %s", e)
 
     def _count_total(self) -> int:
         return len(self._rows)
@@ -3881,13 +3886,21 @@ class GameListModel(QAbstractTableModel):
         proton_log = (xdg.games_log_dir() / xdg.safe_stem(appid)).is_dir()
         game_stats = stats.get(appid)
         history = int(game_stats.runs) if game_stats is not None else 0
+        try:
+            artwork = len(artmod.cache_files(appid)) + sum(
+                1
+                for name in ("protondb", "steam-release")
+                if (xdg.app_cache_dir() / name / f"{xdg.safe_stem(appid)}.json").is_file()
+            )
+        except Exception:
+            artwork = 0
         prefix = self._removed_prefixes.get(appid, "")
         if not prefix:
             found = self._resolved_prefix(appid)
             prefix = str(found) if found is not None else ""
         if prefix and prefix in live_prefixes:
             prefix = ""
-        if not (profiles or session_log or proton_log or history or prefix):
+        if not (profiles or session_log or proton_log or history or prefix or artwork):
             return None
         return {
             "appid": appid,
@@ -3896,6 +3909,7 @@ class GameListModel(QAbstractTableModel):
             "session_log": session_log,
             "proton_log": proton_log,
             "history": history,
+            "artwork": artwork,
             "prefix": prefix,
         }
 
@@ -3923,6 +3937,15 @@ class GameListModel(QAbstractTableModel):
                 elif entry.is_dir():
                     candidates.add(entry.name)
         candidates.update(stats)
+        try:
+            candidates.update(artmod.cache_keys())
+        except Exception:
+            pass
+        for name in ("protondb", "steam-release"):
+            try:
+                candidates.update(p.stem for p in (xdg.app_cache_dir() / name).glob("*.json"))
+            except OSError:
+                pass
         return candidates
 
     def _leftover_rows(self, appids=None) -> list:
@@ -3989,8 +4012,8 @@ class GameListModel(QAbstractTableModel):
         return cleaned
 
     @staticmethod
-    def _clean_game_leftovers(appid: str) -> bool:
-        """Delete profiles, session log, Proton logs and history lines."""
+    def _clean_game_files(appid: str) -> bool:
+        """Delete profiles, the per-game session log and the Proton logs."""
         touched = False
         for target in (cfgmod.profiles_dir(appid), xdg.game_log_file(appid)):
             try:
@@ -4009,6 +4032,33 @@ class GameListModel(QAbstractTableModel):
                 touched = True
         except Exception as e:
             log.warning("cleanLeftovers(%s) logs: %s", appid, e)
+        return touched
+
+    @staticmethod
+    def _clean_game_cache(appid: str) -> bool:
+        """Delete cached artwork, ProtonDB and release-date entries."""
+        touched = False
+        try:
+            if artmod.clear_cache(appid):
+                touched = True
+        except Exception as e:
+            log.warning("cleanLeftovers(%s) artwork: %s", appid, e)
+        for name in ("protondb", "steam-release"):
+            try:
+                cached = xdg.app_cache_dir() / name / f"{xdg.safe_stem(appid)}.json"
+                if cached.is_file():
+                    cached.unlink()
+                    touched = True
+            except Exception as e:
+                log.warning("cleanLeftovers(%s) %s cache: %s", appid, name, e)
+        return touched
+
+    @staticmethod
+    def _clean_game_leftovers(appid: str) -> bool:
+        """Delete profiles, session log, Proton logs, history and cached art."""
+        touched = GameListModel._clean_game_files(appid)
+        if GameListModel._clean_game_cache(appid):
+            touched = True
         try:
             if histmod.clear_appid(xdg.log_file(), appid):
                 touched = True

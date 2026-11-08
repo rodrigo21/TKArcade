@@ -136,9 +136,9 @@ def test_fetch_sgdb_picks_the_shape_per_kind(monkeypatch, xdg_env):
     assert out["icon"].read_bytes() == b"S"
     assert out["cover"].read_bytes() == b"T"
     assert out["banner"].read_bytes() == b"W"
-    assert out["icon"].name == "86-icon.png"
-    assert out["cover"].name == "86.png"
-    assert out["banner"].name == "86-banner.jpg"
+    assert out["icon"].name == "steam-86-icon.png"
+    assert out["cover"].name == "steam-86.png"
+    assert out["banner"].name == "steam-86-banner.jpg"
 
 
 def test_fetch_sgdb_prefers_official_style(monkeypatch, xdg_env):
@@ -276,10 +276,10 @@ def test_fetch_official_needs_no_key(monkeypatch, xdg_env):
     assert result["error"] == ""
     # The client .ico is unwrapped to its 256x256 PNG frame: Qt would
     # otherwise read the 16x16 one, and the file keeps the right suffix.
-    assert result["art"]["icon"].name == "620-icon.png"
+    assert result["art"]["icon"].name == "steam-620-icon.png"
     assert result["art"]["icon"].read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
-    assert result["art"]["cover"].name == "620.jpg"
-    assert result["art"]["banner"].name == "620-banner.jpg"
+    assert result["art"]["cover"].name == "steam-620.jpg"
+    assert result["art"]["banner"].name == "steam-620-banner.jpg"
     assert art.provider_for("620", "cover") == "steam"
     assert art.resolve("620", "cover")[1] == "cache"
 
@@ -586,7 +586,7 @@ def test_ico_client_icon_is_unwrapped_to_its_png_frame(monkeypatch, xdg_env):
         ],
     )
     out = art.fetch_official("620", ("icon",))
-    assert out["icon"].name == "620-icon.png"
+    assert out["icon"].name == "steam-620-icon.png"
     assert out["icon"].read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
 
@@ -750,3 +750,72 @@ def test_store_manual_bytes_writes_the_slot(xdg_env):
     assert art.resolve("local-doom", "icon") == (dest, "manual")
     assert art.store_manual_bytes("local-doom", "icon", b"junk") is None
     assert art.store_manual_bytes("local-doom", "nope", png) is None
+
+
+def test_steam_cache_uses_the_canonical_key(xdg_env):
+    assert art.grid_path("steam-480").name == "steam-480.png"
+    assert art.grid_path("480").name == "steam-480.png"
+    assert art.manifest_path("480").name == "steam-480.json"
+    assert art.manual_dir("480").name == "steam-480"
+    assert art.grid_path("local-doom").name == "local-doom.png"
+
+
+def test_migrate_cache_keys_renames_numeric_names(xdg_env):
+    from tkarcade import xdg as X
+
+    grids = X.app_cache_dir() / "grids"
+    grids.mkdir(parents=True)
+    for name in ("620.png", "620-icon.png", "620.json"):
+        (grids / name).write_bytes(b"x")
+    (grids / "local-doom.png").write_bytes(b"x")
+    manual = X.app_cache_dir() / "artwork" / "620"
+    manual.mkdir(parents=True)
+    protondb = X.app_cache_dir() / "protondb"
+    protondb.mkdir()
+    (protondb / "620.json").write_text("{}")
+
+    renamed = art.migrate_cache_keys()
+    assert len(renamed) == 5
+    assert (grids / "steam-620.png").is_file()
+    assert (grids / "steam-620-icon.png").is_file()
+    assert (grids / "steam-620.json").is_file()
+    assert (protondb / "steam-620.json").is_file()
+    assert (X.app_cache_dir() / "artwork" / "steam-620").is_dir()
+    assert art.cached_path("620", "cover") is not None
+    assert art.migrate_cache_keys() == []
+
+
+def test_migrate_cache_keys_never_overwrites(xdg_env):
+    from tkarcade import xdg as X
+
+    grids = X.app_cache_dir() / "grids"
+    grids.mkdir(parents=True)
+    (grids / "620.png").write_bytes(b"old")
+    (grids / "steam-620.png").write_bytes(b"new")
+    assert art.migrate_cache_keys() == []
+    assert (grids / "620.png").read_bytes() == b"old"
+    assert (grids / "steam-620.png").read_bytes() == b"new"
+
+
+def test_cache_files_and_clear_cover_every_artifact(xdg_env):
+    grid = art.grid_path("620", "cover")
+    grid.parent.mkdir(parents=True)
+    grid.write_bytes(b"x")
+    art.grid_path("620", "banner").write_bytes(b"x")
+    art.manifest_path("620").write_text("{}")
+    manual = art.manual_dir("620")
+    manual.mkdir(parents=True)
+    (manual / "cover.png").write_bytes(b"x")
+
+    assert len(art.cache_files("620")) == 4
+    assert art.clear_cache("620") is True
+    assert art.cache_files("620") == []
+    assert not manual.exists()
+
+
+def test_cache_keys_lists_games_with_art(xdg_env):
+    grid = art.grid_path("620", "cover")
+    grid.parent.mkdir(parents=True)
+    grid.write_bytes(b"x")
+    art.grid_path("local-doom", "icon").write_bytes(b"x")
+    assert art.cache_keys() == {"steam-620", "local-doom"}

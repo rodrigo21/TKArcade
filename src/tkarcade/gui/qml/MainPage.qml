@@ -2528,7 +2528,7 @@ Kirigami.Page {
         id: cleanupDialog
         objectName: "cleanupDialog"
         title: qsTr("Clean Up Leftovers")
-        question: qsTr("These Games Were Removed but Still Have Profiles or Logs:")
+        question: qsTr("These Games Were Removed but Still Have Profiles, Logs or Artwork:")
         acceptText: qsTr("Clean Selected")
         rejectText: qsTr("Keep All")
         property var rows: []
@@ -2552,6 +2552,9 @@ Kirigami.Page {
             }
             if (row.history > 0) {
                 parts.push(qsTr("%1 Session(s)").arg(row.history))
+            }
+            if ((row.artwork ?? 0) > 0) {
+                parts.push(qsTr("%1 Artwork File(s)").arg(row.artwork))
             }
             if (row.prefix !== "") {
                 parts.push(qsTr("Prefix"))

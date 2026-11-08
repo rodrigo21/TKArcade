@@ -114,6 +114,12 @@ def _art_key(appid: str) -> str:
     return steammod.steam_appid(appid) or str(appid)
 
 
+def _cache_key(appid: str) -> str:
+    """Cache name: `steam-<appid>` for Steam, the local ID otherwise."""
+    numeric = steammod.steam_appid(appid)
+    return f"steam-{numeric}" if numeric else str(appid)
+
+
 def grid_path(appid: str, kind: str = "cover") -> Path:
     """Canonical cache path for one kind (always the .png name).
 
@@ -121,7 +127,7 @@ def grid_path(appid: str, kind: str = "cover") -> Path:
     existing caches and the rename migration still apply to it.
     """
     base = xdg.app_cache_dir() / "grids"
-    key = xdg.safe_stem(_art_key(appid))
+    key = xdg.safe_stem(_cache_key(appid))
     if kind not in ("icon", "banner"):
         return base / f"{key}.png"
     return base / f"{key}-{kind}.png"
@@ -134,7 +140,7 @@ def exe_icon_path(appid: str) -> Path:
     client icons, and Clear must not delete a file the game ships.
     """
     base = xdg.app_cache_dir() / "grids"
-    return base / f"{xdg.safe_stem(_art_key(appid))}-exe.ico"
+    return base / f"{xdg.safe_stem(_cache_key(appid))}-exe.ico"
 
 
 def cached_path(appid: str, kind: str) -> Path | None:
@@ -153,7 +159,7 @@ def cached_path(appid: str, kind: str) -> Path | None:
 
 def manifest_path(appid: str) -> Path:
     """Sidecar recording which provider produced each cached kind."""
-    return xdg.app_cache_dir() / "grids" / f"{xdg.safe_stem(_art_key(appid))}.json"
+    return xdg.app_cache_dir() / "grids" / f"{xdg.safe_stem(_cache_key(appid))}.json"
 
 
 def read_manifest(appid: str) -> dict:
@@ -326,7 +332,7 @@ def _drop_stale_sgdb_icon(appid: str) -> None:
 
 
 def manual_dir(appid: str) -> Path:
-    return xdg.app_cache_dir() / "artwork" / xdg.safe_stem(_art_key(appid))
+    return xdg.app_cache_dir() / "artwork" / xdg.safe_stem(_cache_key(appid))
 
 
 def manual_path(appid: str, kind: str) -> Path | None:
@@ -436,6 +442,103 @@ def clear_manual(appid: str, kind: str) -> bool:
         return True
     except OSError:
         return False
+
+
+def cache_files(appid: str) -> list[Path]:
+    """Every cached artifact for one game: grids, sidecar, exe icon, manual art."""
+    base = xdg.app_cache_dir() / "grids"
+    key = xdg.safe_stem(_cache_key(appid))
+    candidates = [base / f"{key}{ext}" for ext in _CACHE_SUFFIXES]
+    candidates += [
+        base / f"{key}-{kind}{ext}" for kind in ("icon", "banner") for ext in _CACHE_SUFFIXES
+    ]
+    candidates.append(base / f"{key}-exe.ico")
+    candidates.append(base / f"{key}.json")
+    out: list[Path] = []
+    for cand in candidates:
+        try:
+            if cand.is_file():
+                out.append(cand)
+        except OSError:
+            continue
+    try:
+        out.extend(p for p in manual_dir(appid).iterdir() if p.is_file())
+    except OSError:
+        pass
+    return out
+
+
+def clear_cache(appid: str) -> bool:
+    """Delete every cached artifact for one game. True when something went."""
+    removed = False
+    for path in cache_files(appid):
+        try:
+            path.unlink()
+            removed = True
+        except OSError as e:
+            log.debug("artwork: cannot remove %s: %s", path, e)
+    try:
+        manual_dir(appid).rmdir()
+    except OSError:
+        pass
+    return removed
+
+
+def cache_keys() -> set[str]:
+    """Game IDs that still have artwork in the cache (grids or manual slots)."""
+    keys: set[str] = set()
+    try:
+        names = [p.name for p in (xdg.app_cache_dir() / "grids").iterdir() if p.is_file()]
+    except OSError:
+        names = []
+    for name in names:
+        for ext in (".json", *_CACHE_SUFFIXES):
+            if not name.endswith(ext):
+                continue
+            stem = name[: -len(ext)]
+            for suffix in ("-icon", "-banner", "-exe"):
+                if stem.endswith(suffix):
+                    stem = stem[: -len(suffix)]
+                    break
+            keys.add(stem)
+            break
+    try:
+        keys.update(p.name for p in (xdg.app_cache_dir() / "artwork").iterdir() if p.is_dir())
+    except OSError:
+        pass
+    return keys
+
+
+def migrate_cache_keys() -> list[tuple[str, str]]:
+    """Rename numeric Steam cache names to `steam-<appid>` (idempotent).
+
+    Steam art used to be keyed by the bare AppID. Every cache directory
+    that still carries the old name is renamed in place; an existing
+    target is left alone, never overwritten.
+    """
+    renamed: list[tuple[str, str]] = []
+    cache = xdg.app_cache_dir()
+    for base in ("grids", "artwork", "protondb", "steam-release"):
+        try:
+            entries = list((cache / base).iterdir())
+        except OSError:
+            continue
+        for entry in entries:
+            digits = len(entry.name) - len(entry.name.lstrip("0123456789"))
+            if not digits:
+                continue
+            rest = entry.name[digits:]
+            if rest and not rest.startswith(("-", ".")):
+                continue
+            dest = entry.with_name(f"steam-{entry.name}")
+            try:
+                if dest.exists():
+                    continue
+                entry.rename(dest)
+                renamed.append((entry.name, dest.name))
+            except OSError as e:
+                log.debug("artwork: cannot rename %s: %s", entry, e)
+    return renamed
 
 
 # --------------------------------------------------------------------

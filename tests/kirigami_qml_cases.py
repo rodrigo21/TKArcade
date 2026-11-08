@@ -1,5 +1,7 @@
 """QML smoke: main.qml loads warning-free with a live model (offscreen)."""
 
+import base64
+
 import PySide6.QtQuickControls2  # noqa: F401 (registers QQC2 wrappers)
 
 OFFSCREEN_NOISE = ("was not placed in the graphics scene",)
@@ -3104,6 +3106,15 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     xdg.games_log_dir().mkdir(parents=True, exist_ok=True)
     session_log = xdg.game_log_file("local-doom")
     session_log.write_text("log\n", encoding="utf-8")
+    from tkarcade import artwork as A
+
+    grid = A.grid_path("local-doom", "cover")
+    grid.parent.mkdir(parents=True, exist_ok=True)
+    grid.write_bytes(
+        base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
+    )
     assert C.game_file("local-doom").exists()
     win, _engine, proxy, warnings = _load_main(qgui_app)
     table = win.findChild(QQuickItem, "gameTable")
@@ -3131,6 +3142,7 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     assert [row["appid"] for row in rows] == ["local-doom"]
     assert rows[0]["profiles"] == 1
     assert rows[0]["session_log"] is True
+    assert rows[0]["artwork"] == 1
     checklist = cleanup.findChild(QQuickItem, "cleanupList")
     assert checklist is not None
     assert _wait_for(lambda: _visual_item(checklist, "cleanupItemlocal-doom") is not None), (
@@ -3142,6 +3154,7 @@ def test_remove_flow_with_profiles(qgui_app, xdg_env):
     _click(cleanup, "confirmOk")
     assert not profiles.exists()
     assert not session_log.exists()
+    assert not grid.exists()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

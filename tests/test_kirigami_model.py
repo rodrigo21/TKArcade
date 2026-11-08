@@ -3510,3 +3510,27 @@ def test_graphics_rows_flag_system_builds(qgui_app, xdg_env, monkeypatch):
     assert [(r["name"], r["origin"], r["system"], r["external"]) for r in rows] == [
         ("usr-dxvk", "system", True, True)
     ]
+
+
+def test_orphaned_leftovers_finds_cached_artwork(qgui_app, xdg_env):
+    from tkarcade import artwork as A
+    from tkarcade import xdg
+    from tkarcade.gui.model import GameListModel
+
+    grid = A.grid_path("steam-620", "cover")
+    grid.parent.mkdir(parents=True)
+    grid.write_bytes(b"png")
+    A.manifest_path("steam-620").write_text("{}")
+    proton = xdg.app_cache_dir() / "protondb"
+    proton.mkdir(parents=True)
+    (proton / "steam-620.json").write_text("{}")
+
+    model = GameListModel()
+    rows = model.orphanedLeftovers()
+    assert len(rows) == 1
+    assert rows[0]["appid"] == "steam-620"
+    assert rows[0]["artwork"] == 3
+    assert model.cleanLeftovers(["steam-620"], False) == 1
+    assert A.cache_files("steam-620") == []
+    assert not (proton / "steam-620.json").exists()
+    assert model.orphanedLeftovers() == []
