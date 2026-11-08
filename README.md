@@ -131,7 +131,11 @@ any folder registered with **Manage Versions… → Add Folder…** (stored in
 Archives dropped into `$XDG_CACHE_HOME/tkarcade/archives` are extracted
 on the next GUI scan. The manager lists every build with where each came
 from, marks one as the default, installs any release of the chosen
-source and a pasted archive URL, and deletes managed versions. The
+source and a pasted archive URL, and deletes managed versions. After an
+install, and on every scan, it keeps the three newest builds it installed
+per layer: the default build and any version pinned by a game are never
+pruned, and a build dropped into the archive cache, an external folder or
+the distro tree is left alone. The
 source is a preset per layer — official (the default), DXVK-Sarek or the
 discontinued DXVK-GPLAsync for DXVK — or a custom `owner/repo`.
 TKArcade does not read another launcher's default layout, and the

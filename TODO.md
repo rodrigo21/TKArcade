@@ -28,13 +28,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   top of it.
 - [ ] Online sources à la Playnite for categories/tags (the per-game
   categories and the drawer filter shipped without them).
-- [ ] **Runtime downloads: retention and mirrors.** Nothing prunes the
-  managed `<runtimes>` directory or `$XDG_CACHE_HOME/tkarcade/archives`,
-  and the downloader verifies no signature and uses no mirror.
-  `decisions/runtime-archives.md` left retention/cleanup, signature
-  verification and mirrors out of scope, and the several-builds and
-  DXVK-Sarek half already landed in `decisions/runtime-manager.md`: this
-  is the leftover policy, not a new dialog.
 
 ## Deferred release
 

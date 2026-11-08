@@ -85,6 +85,10 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- The runtime manager keeps the three newest builds it installed per
+  layer: each install and every scan prunes the rest, except a build
+  marked as default or pinned by a game. Builds dropped into the archive
+  cache, an external folder or the distro tree are never touched.
 - Artwork cache files are named after the canonical game ID
   (`steam-<appid>`, `local-<slug>`), like every other per-game store. The
   startup migration renames the numeric Steam names once, never

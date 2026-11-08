@@ -414,3 +414,72 @@ def test_sources_drops_orphans_and_survives_a_broken_file(xdg_env):
     assert set(A.sources()) == {"dxvk/dxvk-2.7.1"}
     A._sources_path().write_text("{not json", encoding="utf-8")
     assert A.sources() == {}
+
+
+def _managed(kind: str, names: list[str]) -> dict[str, dict]:
+    """Create managed version dirs and a .sources.json with ordered dates."""
+    root = xdg.runtimes_dir() / kind
+    data = {}
+    for index, name in enumerate(names):
+        (root / name).mkdir(parents=True)
+        data[f"{kind}/{name}"] = {
+            "origin": "github",
+            "repo": "doitsujin/dxvk",
+            "tag": name,
+            "url": "",
+            "at": f"2026-01-{index + 1:02d}T00:00:00Z",
+        }
+    A._write_sources(A.sources() | data)
+    return data
+
+
+def test_prune_keeps_the_newest_three(xdg_env):
+    _managed("dxvk", ["dxvk-1", "dxvk-2", "dxvk-3", "dxvk-4"])
+    removed = A.prune_versions()
+    assert removed == ["dxvk/dxvk-1"]
+    root = xdg.runtimes_dir() / "dxvk"
+    assert sorted(p.name for p in root.iterdir()) == ["dxvk-2", "dxvk-3", "dxvk-4"]
+    assert set(A.sources()) == {"dxvk/dxvk-2", "dxvk/dxvk-3", "dxvk/dxvk-4"}
+
+
+def test_prune_never_deletes_the_default_or_a_game_pin(xdg_env):
+    from tkarcade import config as C
+
+    _managed("dxvk", ["dxvk-1", "dxvk-2", "dxvk-3", "dxvk-4"])
+    prefs = C.load_preferences()
+    prefs.dxvk_default = "dxvk-1"
+    C.save_preferences(prefs)
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.graphics.dxvk_version = "dxvk-2"
+    C.save(cfg)
+    removed = A.prune_versions()
+    assert removed == []
+    root = xdg.runtimes_dir() / "dxvk"
+    assert sorted(p.name for p in root.iterdir()) == ["dxvk-1", "dxvk-2", "dxvk-3", "dxvk-4"]
+
+
+def test_prune_ignores_unrecorded_versions(xdg_env):
+    root = xdg.runtimes_dir() / "dxvk"
+    for name in ("dxvk-1", "dxvk-2", "dxvk-3", "dxvk-4", "dropped"):
+        (root / name).mkdir(parents=True)
+    _managed("dxvk", ["dxvk-5", "dxvk-6", "dxvk-7", "dxvk-8"])
+    removed = A.prune_versions()
+    assert removed == ["dxvk/dxvk-5"]
+    assert (root / "dropped").is_dir()
+    assert sorted(p.name for p in root.iterdir()) == [
+        "dropped",
+        "dxvk-1",
+        "dxvk-2",
+        "dxvk-3",
+        "dxvk-4",
+        "dxvk-6",
+        "dxvk-7",
+        "dxvk-8",
+    ]
+
+
+def test_prune_disabled_with_zero(xdg_env):
+    _managed("vkd3d", ["vkd3d-1", "vkd3d-2", "vkd3d-3", "vkd3d-4"])
+    assert A.prune_versions(0) == []
+    assert len(list((xdg.runtimes_dir() / "vkd3d").iterdir())) == 4

@@ -264,6 +264,11 @@ def _install_asset(kind: str, asset: dict, opener, say, origin: str, repo: str =
             kind, installed, origin, repo, str(asset.get("tag") or ""), str(asset.get("url") or "")
         )
         _remove(dest)
+        try:
+            for gone in prune_versions():
+                say(f"Removed {gone}.")
+        except Exception as e:  # pruning is housekeeping: never fail the install
+            say(f"Old builds not pruned: {e}")
         say(f"Installed {installed.name}.")
         return ""
     except ArchiveError as e:
@@ -347,6 +352,65 @@ def remove_version(kind: str, name: str) -> str:
     except OSError:
         pass
     return ""
+
+
+#: Managed builds kept per layer; the newest installs win.
+KEEP_VERSIONS = 3
+
+
+def _protected_versions() -> dict[str, set[str]]:
+    """Version names a prune must never delete: the defaults and game pins."""
+    from . import config as cfgmod
+
+    protected: dict[str, set[str]] = {"dxvk": set(), "vkd3d": set()}
+    try:
+        prefs = cfgmod.load_preferences()
+        protected["dxvk"].add(prefs.dxvk_default)
+        protected["vkd3d"].add(prefs.vkd3d_default)
+    except Exception:
+        pass
+    try:
+        appids = cfgmod.list_appids()
+    except Exception:
+        appids = []
+    for appid in appids:
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception:
+            continue
+        protected["dxvk"].add(cfg.graphics.dxvk_version)
+        protected["vkd3d"].add(cfg.graphics.vkd3d_version)
+    return {kind: {name for name in names if name} for kind, names in protected.items()}
+
+
+def prune_versions(keep: int = KEEP_VERSIONS) -> list[str]:
+    """Delete managed builds beyond the newest `keep` per kind; return names.
+
+    Only builds recorded in `.sources.json` are eligible, so a version the
+    user dropped into the archive cache, an external folder or the distro
+    tree is never touched. The default build and any version pinned by a
+    game survive even when they are older than the cut.
+    """
+    if keep <= 0:
+        return []
+    protected = _protected_versions()
+    entries = sources()
+    removed: list[str] = []
+    for kind in runtimes.GRAPHICS_DLLS:
+        rows = sorted(
+            (str(value.get("at", "")), key.split("/", 1)[1])
+            for key, value in entries.items()
+            if key.startswith(f"{kind}/") and key.split("/", 1)[1]
+        )
+        for _at, name in reversed(rows[: max(0, len(rows) - keep)]):
+            if name in protected.get(kind, set()):
+                continue
+            try:
+                if remove_version(kind, name) == "":
+                    removed.append(f"{kind}/{name}")
+            except OSError:
+                continue
+    return removed
 
 
 def _cleanup_staging(root: Path) -> None:
@@ -514,4 +578,8 @@ def sync_archives(progress=None) -> list[str]:
             extract_archive(archive)
         except Exception as e:
             say(f"{archive.name}: {e}")
+    try:
+        prune_versions()
+    except Exception as e:  # housekeeping must not break the scan
+        say(f"Old builds not pruned: {e}")
     return sorted({Path(path).name for path in installed() - before})
