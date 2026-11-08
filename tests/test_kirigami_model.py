@@ -460,6 +460,18 @@ def test_detected_runtime_kind_follows_steam_mapping(qgui_app, xdg_env, monkeypa
     assert model.detectedRuntimeKind("local-zebra") == ""
 
 
+def test_detected_runtime_keeps_the_tool_version(qgui_app, xdg_env, monkeypatch):
+    """The game dialog shows the compat tool and its version."""
+    from tkarcade import proton as P
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    monkeypatch.setattr(P, "default_compat_tool", lambda: "proton_9")
+    monkeypatch.setattr(P, "compat_tool_name", lambda appid: None)
+    monkeypatch.setattr(P, "tool_version", lambda tool: "9.0-4")
+    assert model.detectedRuntime("steam-620") == "proton_9 (9.0-4)"
+
+
 def test_download_latest_graphics_runs_worker(qgui_app, xdg_env, monkeypatch):
 
     from tkarcade.gui import model as M

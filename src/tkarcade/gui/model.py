@@ -726,7 +726,7 @@ class GameListModel(QAbstractTableModel):
         return (cfg.general.custom_executable or "").strip() if cfg is not None else ""
 
     @staticmethod
-    def _row_wine(appid: str, gcfg, is_steam: bool) -> str:
+    def _row_wine(appid: str, gcfg, is_steam: bool, with_version: bool = False) -> str:
         """Wine/Proton label; a dash when the game runs natively."""
         if is_steam:
             from .. import proton as protonmod
@@ -737,7 +737,7 @@ class GameListModel(QAbstractTableModel):
                 tool = protonmod.compat_tool_name(appid)
                 if tool and protonmod.is_steam_runtime_tool(tool):
                     return "—"
-                return protonmod.tool_display(appid, with_version=False)
+                return protonmod.tool_display(appid, with_version=with_version)
             except Exception:
                 return "—"
         tool = (gcfg.runtime.tool or "").strip() if gcfg is not None else ""
@@ -1327,7 +1327,7 @@ class GameListModel(QAbstractTableModel):
         try:
             if not appid or not steammod.is_steam_id(appid):
                 return ""
-            return self._row_wine(appid, None, True)
+            return self._row_wine(appid, None, True, with_version=True)
         except Exception:
             return ""
 
