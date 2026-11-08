@@ -10,19 +10,23 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: twenty-eight batches. The latest three: artwork cache files
-  keyed by the canonical game ID (`steam-<appid>`, `local-<slug>`) with
-  the numeric-name migration, and the Removed games cleanup now covering
-  cached art, ProtonDB and release date; the runtime manager keeps the
-  three newest builds it installed per layer (default and game pins
-  survive); and `[ui] download_mirror` prepends an https prefix to GitHub
-  asset downloads. Before them: the Compat Tool list reads the system
-  Steam tree (`proton-cachyos-slr`) and the Proton default became a
-  dialog preselection.
-- Verified: the approved diff. 685 passed for the fast suite and 686
-  with the QML driver (149 cases). The new Preferences mirror row is
-  covered by the runtime-graphics QML case; the earlier Wine, Proton and
-  DXVK manager screenshot passes still apply (images in `/tmp/opencode/`).
+- Landed: twenty-nine batches. The latest: the library's Wine column
+  shows the compat tool name only, so a distro build's epoch-prefixed
+  version line no longer stretches it; the version stays in the game
+  dialog, the pre-launch menu and notifications. Before it: artwork cache
+  files keyed by the canonical game ID (`steam-<appid>`, `local-<slug>`)
+  with the numeric-name migration, and the Removed games cleanup now
+  covering cached art, ProtonDB and release date; the runtime manager
+  keeps the three newest builds it installed per layer (default and game
+  pins survive); `[ui] download_mirror` prepends an https prefix to
+  GitHub asset downloads; the Compat Tool list reads the system Steam
+  tree (`proton-cachyos-slr`); and the Proton default became a dialog
+  preselection.
+- Verified: the approved diff. 685 passed for the fast suite; the QML
+  driver last ran on the three-batch diff (686, 149 cases). The new
+  Preferences mirror row is covered by the runtime-graphics QML case; the
+  earlier Wine, Proton and DXVK manager screenshot passes still apply
+  (images in `/tmp/opencode/`).
 - Next: the fourth artwork kind (background/fanart, `TODO.md`), then the
   other game sources (Epic, GOG). The 1.0 visual pass, the packaging
   check, the compatibility-shim removal and the release pass wait for
