@@ -10,10 +10,12 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: twenty-nine batches. The latest: the library's Wine column
+- Landed: thirty batches. The latest: a fix for the regression the Wine
+  column change caused — the game dialog's Runtime field shows the compat
+  tool name and its version again (`_row_wine` now takes `with_version`);
+  the library column keeps the bare name. Before it: that Wine column
   shows the compat tool name only, so a distro build's epoch-prefixed
-  version line no longer stretches it; the version stays in the game
-  dialog, the pre-launch menu and notifications. Before it: artwork cache
+  version line no longer stretches it; artwork cache
   files keyed by the canonical game ID (`steam-<appid>`, `local-<slug>`)
   with the numeric-name migration, and the Removed games cleanup now
   covering cached art, ProtonDB and release date; the runtime manager
@@ -22,11 +24,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   GitHub asset downloads; the Compat Tool list reads the system Steam
   tree (`proton-cachyos-slr`); and the Proton default became a dialog
   preselection.
-- Verified: the approved diff. 685 passed for the fast suite; the QML
-  driver last ran on the three-batch diff (686, 149 cases). The new
-  Preferences mirror row is covered by the runtime-graphics QML case; the
-  earlier Wine, Proton and DXVK manager screenshot passes still apply
-  (images in `/tmp/opencode/`).
+- Verified: the approved diff. 687 passed with the QML driver
+  (`scripts/check.sh --qml`); the earlier Wine, Proton and DXVK manager
+  screenshot passes still apply (images in `/tmp/opencode/`).
 - Next: the fourth artwork kind (background/fanart, `TODO.md`), then the
   other game sources (Epic, GOG). The 1.0 visual pass, the packaging
   check, the compatibility-shim removal and the release pass wait for
