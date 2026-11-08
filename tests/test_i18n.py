@@ -4,6 +4,8 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 TS = ROOT / "translations" / "tkarcade_pt_BR.ts"
 QML = ROOT / "src" / "tkarcade" / "gui" / "qml"
@@ -56,6 +58,7 @@ def _catalog() -> dict[tuple[str, str], str]:
     return out
 
 
+@pytest.mark.skip(reason="translations suspended until 1.0")
 def test_ts_has_no_unfinished():
     """No empty text and no leftover lupdate flag: lrelease would carry both."""
     empty = [key for key, text in _catalog().items() if not text.strip()]
@@ -68,6 +71,7 @@ def test_ts_has_no_unfinished():
     assert unfinished == []
 
 
+@pytest.mark.skip(reason="translations suspended until 1.0")
 def test_ts_covers_qml_literals():
     catalog = _catalog()
     missing = [
@@ -79,6 +83,7 @@ def test_ts_covers_qml_literals():
     assert missing == []
 
 
+@pytest.mark.skip(reason="translations suspended until 1.0")
 def test_ts_covers_python_translate_literals():
     """The tray menu is the one Python-translatable spot: keep it covered."""
     catalog = _catalog()

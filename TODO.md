@@ -47,6 +47,12 @@ Only when the maintainer opens the subject.
   drops, and `move_legacy_prefix`. Keep the `config_version` newer-file
   warning and the third-party importers (they read other tools, not old
   TKArcade builds).
+- [ ] **1.0: restore translations.** Translations are suspended until
+  1.0 (2026-11-08): new QML strings ship in English,
+  `tests/test_i18n.py` catalog tests are skipped and
+  `scripts/refresh-translations.sh` is not run. At 1.0, run the script,
+  translate every message, remove the skips and update
+  `docs/DEVELOPMENT.md`.
 - [ ] Release pass: group the `Unreleased` entries, update the `-git`
   PKGBUILD, `diff -r` against TKSteamLaunch, check package versions and
   run `scripts/display-check.sh`. Numbering/tag and signing are the

@@ -141,6 +141,12 @@ use `QCoreApplication.translate()` in a `TrayMenu` context. Display text
 and saved data stay split in combos so translations never break config
 round-trips. CLI/launcher text stays English by design.
 
+Translations are suspended until 1.0 (2026-11-08). Do not run the
+refresh script or translate new strings: they ship in English and fall
+back to the source text under pt_BR, and the catalog tests in
+`tests/test_i18n.py` are skipped. At 1.0, run the script, translate
+every message, remove the skips and update this section.
+
 ```bash
 bash scripts/refresh-translations.sh  # lupdate + the untranslated/unfinished report
 # translate leftovers, then rerun it to recompile the .qm
