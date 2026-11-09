@@ -193,7 +193,7 @@ DialogWindow {
     RowLayout {
         Layout.fillWidth: true
         spacing: Kirigami.Units.smallSpacing
-        Controls.ComboBox {
+        AppComboBox {
             id: sourceBox
             objectName: "runtimeSourceCombo"
             Layout.fillWidth: true
@@ -365,7 +365,7 @@ DialogWindow {
             implicitWidth: Kirigami.Units.iconSizes.small
             implicitHeight: Kirigami.Units.iconSizes.small
         }
-        Controls.ComboBox {
+        AppComboBox {
             id: releaseCombo
             objectName: "runtimeReleaseCombo"
             Layout.fillWidth: true

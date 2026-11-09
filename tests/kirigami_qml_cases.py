@@ -7123,6 +7123,37 @@ def test_age_rating_picker_default_boards(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_app_combobox_popup_matches_field(qgui_app, xdg_env):
+    """Every combo popup is as wide as its field, not the longest item."""
+    from PySide6.QtCore import QMetaObject, QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    combo = swin.findChild(QQuickItem, "settingsRegion")
+    assert combo is not None
+    assert QMetaObject.invokeMethod(combo, "openPopup") is True
+    QTest.qWait(150)
+    assert combo.property("popupVisible") is True
+    assert combo.property("popupWidth") == combo.property("width")
+    assert QMetaObject.invokeMethod(combo, "closePopup") is True
+    QTest.qWait(100)
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_settings_general_formlayout_wide(qgui_app, xdg_env):
     """General tab uses FormLayout side-by-side labels when wide."""
     from PySide6.QtCore import QObject

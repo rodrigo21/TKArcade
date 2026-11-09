@@ -54,6 +54,10 @@ failure. `AGENTS.md` links here.
   keeps the default empty role, while `{text, data}` rows use
   `textRole: "text"`. A role the model lacks blanks both the closed
   field and the popup rows (the Profile selector, measured offscreen).
+- The desktop `ComboBox` sizes its popup from the longest item, not from
+  the field (`org.kde.desktop` sets `Menu.implicitWidth` in a loop), so a
+  narrow list opens a narrow popup. Use `AppComboBox`, which pins
+  `popup.width` to the control width; every combo in the app uses it.
 - Never give a non-editable `ComboBox` a custom `contentItem` in the
   desktop style: its `background` is a `StyleItem` that already paints
   `displayText` with the native style, so a `Label` in `contentItem`

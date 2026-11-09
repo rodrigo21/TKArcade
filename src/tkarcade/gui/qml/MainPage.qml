@@ -2746,7 +2746,7 @@ Kirigami.Page {
             wrapMode: Text.WordWrap
             text: qsTr("Clone into Game:")
         }
-        Controls.ComboBox {
+        AppComboBox {
             id: cloneBox
             objectName: "cloneBox"
             editable: true

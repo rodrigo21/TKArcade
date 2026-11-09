@@ -349,6 +349,8 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Combo box popups are as wide as their field instead of shrinking to the
+  longest item, so the list lines up with the control on every dialog.
 - The library's Wine column shows the compat tool name only. A
   distro-packaged build reports an epoch-prefixed version line
   (`1792530497 cachyos-11.0-…`), which stretched the column; the version

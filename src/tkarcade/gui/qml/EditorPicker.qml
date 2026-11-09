@@ -69,7 +69,7 @@ Window {
             text: qsTr("Game:")
             Layout.fillWidth: true
         }
-        Controls.ComboBox {
+        AppComboBox {
             id: pickBox
             objectName: "editorPickBox"
             Layout.fillWidth: true

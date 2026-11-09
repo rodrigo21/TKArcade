@@ -184,7 +184,7 @@ Window {
                                     Controls.ToolTip.text: qsTr("Live Preview Box at the Bottom of Game Dialogs.")
                                     Controls.ToolTip.visible: hovered
                                 }
-                                Controls.ComboBox {
+                                AppComboBox {
                                     id: langCombo
                                     objectName: "prefsLanguage"
                                     Layout.fillWidth: true
@@ -212,7 +212,7 @@ Window {
                                     Controls.ToolTip.text: qsTr("Keep TKArcade in the System Tray.")
                                     Controls.ToolTip.visible: hovered
                                 }
-                                Controls.ComboBox {
+                                AppComboBox {
                                     objectName: "prefsTrayIcon"
                                     Layout.fillWidth: true
                                     enabled: trayCheck.checked
@@ -295,7 +295,7 @@ Window {
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("SteamGridDB Key:")
                                 }
-                                Controls.ComboBox {
+                                AppComboBox {
                                     id: artSourceCombo
                                     objectName: "prefsArtworkSource"
                                     Layout.fillWidth: true

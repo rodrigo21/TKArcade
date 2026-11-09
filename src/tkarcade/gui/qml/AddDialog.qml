@@ -115,7 +115,7 @@ Window {
         Controls.Label {
             text: qsTr("What Kind of Game Is This?")
         }
-        Controls.ComboBox {
+        AppComboBox {
             id: sourceBox
             objectName: "addSource"
             Layout.fillWidth: true
@@ -125,7 +125,7 @@ Window {
             text: qsTr("Runtime")
             visible: sourceBox.currentIndex === 1
         }
-        Controls.ComboBox {
+        AppComboBox {
             id: runtimeTypeBox
             objectName: "addRuntime"
             visible: sourceBox.currentIndex === 1

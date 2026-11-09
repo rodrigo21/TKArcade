@@ -1992,7 +1992,7 @@ Window {
             Controls.Label {
                 text: qsTr("Profile")
             }
-            Controls.ComboBox {
+            AppComboBox {
                 id: profileBox
                 objectName: "settingsProfiles"
                 Layout.fillWidth: true
@@ -2256,7 +2256,7 @@ Window {
                                         onClicked: gameSettings.openAgeRatings()
                                     }
                                 }
-                                Controls.ComboBox {
+                                AppComboBox {
                                     id: regionBox
                                     objectName: "settingsRegion"
                                     Layout.fillWidth: true
@@ -2271,7 +2271,7 @@ Window {
                                     ]
                                     KirigamiLayouts.FormData.label: qsTr("Region:")
                                 }
-                                Controls.ComboBox {
+                                AppComboBox {
                                     id: gameStatusBox
                                     objectName: "settingsStatus"
                                     Layout.fillWidth: true
@@ -2520,7 +2520,7 @@ Window {
                                 id: runtimeForm
                                 labelWidth: executionColumn.labelWidth
                                 Layout.fillWidth: true
-                                Controls.ComboBox {
+                                AppComboBox {
                                     id: runtimeTypeBox
                                     objectName: "settingsRuntimeType"
                                     Layout.fillWidth: true
@@ -2567,7 +2567,7 @@ Window {
                                     visible: !gameSettings.wineAvailable
                                         && gameSettings.runtimeKind() === "wine"
                                     KirigamiLayouts.FormData.label: qsTr("Wine Version:")
-                                    Controls.ComboBox {
+                                    AppComboBox {
                                         id: wineVersionBox
                                         objectName: "settingsLocalWineVersion"
                                         Layout.fillWidth: true
@@ -2605,7 +2605,7 @@ Window {
                                     visible: !gameSettings.wineAvailable
                                         && gameSettings.runtimeKind() === "umu"
                                     KirigamiLayouts.FormData.label: qsTr("Proton:")
-                                    Controls.ComboBox {
+                                    AppComboBox {
                                         id: protonBox
                                         objectName: "settingsLocalProton"
                                         Layout.fillWidth: true
@@ -2617,7 +2617,7 @@ Window {
                                     Layout.fillWidth: true
                                     visible: gameSettings.wineAvailable
                                     KirigamiLayouts.FormData.label: qsTr("Compat Tool:")
-                                    Controls.ComboBox {
+                                    AppComboBox {
                                         id: wineToolBox
                                         objectName: "wineTool"
                                         textRole: "text"
@@ -2646,7 +2646,7 @@ Window {
                                     visible: !defaultsMode && !(fields.is_steam || false)
                                         && gameSettings.runtimeKind() === "native"
                                     KirigamiLayouts.FormData.label: qsTr("Steam Runtime:")
-                                    Controls.ComboBox {
+                                    AppComboBox {
                                         id: srBox
                                         objectName: "settingsSteamRuntime"
                                         Layout.fillWidth: true
@@ -2995,7 +2995,7 @@ Window {
                                     Layout.fillWidth: true
                                     visible: gfxDxvk.checked
                                     KirigamiLayouts.FormData.label: qsTr("DXVK Version:")
-                                    Controls.ComboBox {
+                                    AppComboBox {
                                         id: gfxDxvkVersion
                                         objectName: "settingsDxvkVersion"
                                         Layout.fillWidth: true
@@ -3041,7 +3041,7 @@ Window {
                                     Layout.fillWidth: true
                                     visible: gfxVkd3dProton.checked
                                     KirigamiLayouts.FormData.label: qsTr("vkd3d-proton Version:")
-                                    Controls.ComboBox {
+                                    AppComboBox {
                                         id: gfxVkd3dVersion
                                         objectName: "settingsVkd3dVersion"
                                         Layout.fillWidth: true
@@ -3115,7 +3115,7 @@ Window {
                                         }
                                     }
                                 }
-                                Controls.ComboBox {
+                                AppComboBox {
                                     id: ptDebug
                                     objectName: "ptDebug"
                                     Layout.fillWidth: true
@@ -3406,7 +3406,7 @@ Window {
                                     RowLayout {
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("MangoHud Configuration:")
-                                        Controls.ComboBox {
+                                        AppComboBox {
                                             id: mhConf
                                             objectName: "mhConf"
                                             textRole: "text"
@@ -3481,7 +3481,7 @@ Window {
                                     RowLayout {
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("Mode:")
-                                        Controls.ComboBox {
+                                        AppComboBox {
                                             id: dmodeBox
                                             objectName: "dmodeBox"
                                             editable: true
@@ -3501,7 +3501,7 @@ Window {
                                     RowLayout {
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("Provider:")
-                                        Controls.ComboBox {
+                                        AppComboBox {
                                             id: dispProv
                                             objectName: "dispProv"
                                             model: [qsTr("Automatic"), qsTr("Plasma"), qsTr("GNOME"), qsTr("wlroots"), qsTr("X11"), qsTr("Disabled")]
@@ -3634,7 +3634,7 @@ Window {
                                         objectName: "nlDisable"
                                         text: qsTr("Disable Night Light While the Game Is Running (Restored on Exit)")
                                     }
-                                    Controls.ComboBox {
+                                    AppComboBox {
                                         id: nlProv
                                         objectName: "nlProv"
                                         Layout.fillWidth: true
@@ -3681,7 +3681,7 @@ Window {
                                     RowLayout {
                                         Layout.fillWidth: true
                                         KirigamiLayouts.FormData.label: qsTr("Output Sink:")
-                                        Controls.ComboBox {
+                                        AppComboBox {
                                             id: auSinkBox
                                             objectName: "auSink"
                                             textRole: "text"
@@ -3877,7 +3877,7 @@ Window {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Download From:")
-                                    Controls.ComboBox {
+                                    AppComboBox {
                                         id: artProviderCombo
                                         objectName: "artProvider"
                                         Layout.fillWidth: true
@@ -4157,7 +4157,7 @@ Window {
                 ? qsTr("Start From:")
                 : qsTr("Take Artwork From…"))
         onAccepted: gameSettings.acceptChoice()
-        Controls.ComboBox {
+        AppComboBox {
             id: choiceBox
             objectName: "settingsChoiceBox"
             Layout.fillWidth: true
@@ -4196,7 +4196,7 @@ Window {
         objectName: "envPresetDialog"
         title: qsTr("Add Env Preset")
         onAccepted: gameSettings.acceptEnvPreset()
-        Controls.ComboBox {
+        AppComboBox {
             id: presetBox
             objectName: "envPresetBox"
             Layout.fillWidth: true
