@@ -10,23 +10,17 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: thirty batches. The latest: a fix for the regression the Wine
-  column change caused — the game dialog's Runtime field shows the compat
-  tool name and its version again (`_row_wine` now takes `with_version`);
-  the library column keeps the bare name. Before it: that Wine column
-  shows the compat tool name only, so a distro build's epoch-prefixed
-  version line no longer stretches it; artwork cache
-  files keyed by the canonical game ID (`steam-<appid>`, `local-<slug>`)
-  with the numeric-name migration, and the Removed games cleanup now
-  covering cached art, ProtonDB and release date; the runtime manager
-  keeps the three newest builds it installed per layer (default and game
-  pins survive); `[ui] download_mirror` prepends an https prefix to
-  GitHub asset downloads; the Compat Tool list reads the system Steam
-  tree (`proton-cachyos-slr`); and the Proton default became a dialog
-  preselection.
-- Verified: the approved diff. 687 passed with the QML driver
-  (`scripts/check.sh --qml`); the earlier Wine, Proton and DXVK manager
-  screenshot passes still apply (images in `/tmp/opencode/`).
+- Landed: thirty-three batches. The latest: the game dialog rework —
+  Details and Execution tabs, Launch moved into Execution (still editable
+  in Global Defaults), the profile-bar switch, manual `[metadata]`
+  fields with the grouped age-ratings picker, status badges in the three
+  views, and the ProtonDB row. The combo box popups now match the field
+  width on every dialog. Before it: translations were suspended until
+  1.0 (`tests/test_i18n.py` catalog tests are skipped), and the Wine
+  column/Compat Tool work landed.
+- Verified: the approved diff. 687 passed, 3 skipped with the QML driver
+  (`scripts/check.sh --qml`); the dialog, status, age-picker and combo
+  screenshots are in `/tmp/opencode/`.
 - Next: the fourth artwork kind (background/fanart, `TODO.md`), then the
   other game sources (Epic, GOG). The 1.0 visual pass, the packaging
   check, the compatibility-shim removal and the release pass wait for
@@ -35,6 +29,8 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
   checks while iterating, one verification pass on the approved diff.
+  Translations stay suspended (English-only new strings) until the 1.0
+  pass restores the catalog.
 - Open decisions: none blocking; `docs/decisions/artwork-sources.md`
   and `docs/decisions/exe-icon.md` cover the artwork work.
 - Nothing blocking.
