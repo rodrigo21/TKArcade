@@ -350,6 +350,24 @@ def test_string_bools_in_toml(xdg_env):
     assert C.load("72").gamemode.feral_gamemode is False
 
 
+def test_metadata_region_and_status_are_normalized(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.metadata.region = "asia"
+    cfg.metadata.status = "finished"
+    C.save(cfg)
+    assert C.load("local-doom").metadata.region == ""
+    assert C.load("local-doom").metadata.status == ""
+
+    back = C.load("local-doom")
+    back.metadata.region = "eu"
+    back.metadata.status = "playing"
+    C.save(back)
+    back = C.load("local-doom")
+    assert back.metadata.region == "eu"
+    assert back.metadata.status == "playing"
+
+
 def test_preferences_invalid_values(xdg_env):
     from tkarcade import xdg as xdgmod
 
@@ -386,6 +404,14 @@ _GAME_FIELDS = {
     "metadata.version": "v0.3.5",
     "metadata.date": "2026-10-29",
     "metadata.tag": "Beta",
+    "metadata.description": "A synopsis.",
+    "metadata.developer": "id Software",
+    "metadata.publisher": "Bethesda",
+    "metadata.genre": "Action, Shooter",
+    "metadata.series": "Doom",
+    "metadata.age_ratings": ["PEGI 12", "ESRB T"],
+    "metadata.region": "world",
+    "metadata.status": "completed",
     "env.vars": {"A": "1", "B": "two words"},
     "pre_post.pre_command": "prescript",
     "pre_post.pre_args": ["a", "b"],
@@ -441,6 +467,7 @@ _GAME_FIELDS = {
 _PREF_FIELDS = {
     "show_preview": False,
     "show_dependency_status": False,
+    "show_profile_bar": False,
     "tray_enable": True,
     "tray_icon": "mono",
     "minimize_to_tray": True,

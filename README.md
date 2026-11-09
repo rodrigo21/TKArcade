@@ -54,7 +54,7 @@ compact runtime label (`Native`, `Wine`, `UMU`, `Steam Proton`, plus
 `SLR` and `SLR 1.0`–`SLR 4.0` for the Steam Linux Runtimes); there is
 no separate platform label. A Steam game with no configured
 runtime prompts on launch to configure it: the settings open on the
-Runtime tab with the type inferred from `%command%` preselected
+Execution tab with the type inferred from `%command%` preselected
 (`proton` with Proton's `waitforexitandrun` or a `proton` binary,
 `native` otherwise). Not now launches with that inferred type and saves
 nothing, so the prompt returns next launch; the inference is also the
@@ -216,16 +216,18 @@ uses the `[general] installed_at` stamp written on the first save, or
 the game's `.toml` birth time for older configs. Session History shows
 the same installed value.
 
-**Game dialog** — tabs for General (the game, optional `version`/`date`/
-`tag` metadata shown as name suffixes, categories and launch settings),
-Commands (variables, curated presets and the pre/post commands),
-Runtime
-(the runtime selector and tool, the Steam Linux Runtime of a local
-native game, prefix with its installed and pending winetricks verbs plus
-the interactive protontricks/winetricks window, Create for a missing
-prefix — the Steam custom dir or a local WINEPREFIX, made only after a
-confirmation, while Open never creates one — DXVK and vkd3d layers,
-Proton debug switches), Performance
+**Game dialog** — tabs for Details (the game, optional `version`/`date`/
+`tag` metadata shown as name suffixes, categories, developer, publisher,
+genre, series, age ratings (CERO/ClassInd/ESRB/PEGI first, the other
+boards behind a divider and switch), region, status, description and a Steam
+game's ProtonDB rating linking to its page), Execution (launch
+settings first, then the runtime selector and tool, the Steam Linux
+Runtime of a local native game, prefix with its installed and pending
+winetricks verbs plus the interactive protontricks/winetricks window,
+Create for a missing prefix — the Steam custom dir or a local WINEPREFIX,
+made only after a confirmation, while Open never creates one — DXVK and
+vkd3d layers, Proton debug switches), Commands (variables, curated
+presets and the pre/post commands), Performance
 (GameMode, MangoHud, RT upscaler), Display (Gamescope, monitor mode),
 System (notifications, idle suspend, network, night light, audio,
 Ludusavi saves) and Artwork/Notes. The Artwork section picks the manual
@@ -241,11 +243,15 @@ the cards draw, at the image's own size; clicking one picks that file and
 the buttons under it download an image from a URL or clear the slot,
 while the hover tooltip shows the picture larger with its origin. The
 dialog opens at half the screen width and the full usable height. The
-footer shows the live wrapper summary and a launch-command preview.
+footer shows the live wrapper summary and a launch-command preview. The
+chosen status also appears as a colored disc in the list and icons and a
+pill on cards.
 
 **Profiles** — named snapshots per game. Selecting one changes what
 launches; saving with a profile active writes the profile (Game
-Defaults stays pristine). `Save As...`/`Clone...` manage profiles.
+Defaults stays pristine). `Save As...`/`Clone...` manage profiles. The
+game dialog footer switch hides the profile bar; the choice persists in
+`[ui] show_profile_bar`.
 
 **Global Defaults...** — template copied into new games and by
 per-game `Reset to Global Defaults` (persists immediately, with

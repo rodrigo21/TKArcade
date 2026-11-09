@@ -210,6 +210,38 @@ Kirigami.Page {
         noticeTimer.restart()
     }
 
+    // Completion status is stored as a stable code; the views own the
+    // translated label and the color, like the other display strings.
+    function statusLabel(code) {
+        switch (code) {
+        case "abandoned": return qsTr("Abandoned")
+        case "beaten": return qsTr("Beaten")
+        case "completed": return qsTr("Completed")
+        case "not_played": return qsTr("Not Played")
+        case "on_hold": return qsTr("On Hold")
+        case "plan_to_play": return qsTr("Plan to Play")
+        case "played": return qsTr("Played")
+        case "playing": return qsTr("Playing")
+        default: return ""
+        }
+    }
+
+    function statusGlyph(code) {
+        switch (code) {
+        case "abandoned": return "✕"
+        case "beaten": return "✓"
+        case "completed": return "★"
+        case "not_played": return "○"
+        case "on_hold": return "Ⅱ"
+        case "plan_to_play": return "◷"
+        case "played": return "◐"
+        case "playing": return "▶"
+        default: return ""
+        }
+    }
+
+
+
     Timer {
         id: noticeTimer
         interval: 5000
@@ -2001,6 +2033,32 @@ Kirigami.Page {
                             text: model?.gameName ?? ""
                             color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                             elide: Text.ElideRight
+                        }
+                        // Completion status: the same colored disc and
+                        // glyph as the icon view. Empty status hides it;
+                        // the label lives in the tooltip.
+                        Rectangle {
+                            objectName: "statusBadge"
+                            visible: (model?.gameStatus ?? "") !== ""
+                            Layout.alignment: Qt.AlignVCenter
+                            width: Kirigami.Units.iconSizes.small
+                            height: width
+                            radius: width / 2
+                            color: model?.gameStatusBg ?? "transparent"
+                            StatusGlyph {
+                                objectName: "statusGlyph"
+                                anchors.fill: parent
+                                glyph: gamesPage.statusGlyph(model?.gameStatus ?? "")
+                                color: model?.gameStatusFg ?? Kirigami.Theme.textColor
+                            }
+                            HoverHandler {
+                                id: statusBadgeHover
+                            }
+                            Controls.ToolTip {
+                                objectName: "statusBadgeTip"
+                                visible: statusBadgeHover.hovered
+                                text: gamesPage.statusLabel(model?.gameStatus ?? "")
+                            }
                         }
                         // Running indicator: a small play glyph, so the
                         // name column keeps its width for the name.

@@ -167,6 +167,45 @@ class GeneralConfig:
     installed_at: str = ""  # ISO instant of the first save ("" = old config, use file birth)
 
 
+#: Manual game metadata: provider-filled values use the same keys later.
+REGIONS = ("eu", "jp", "us", "world")
+GAME_STATUSES = (
+    "abandoned",
+    "beaten",
+    "completed",
+    "not_played",
+    "on_hold",
+    "plan_to_play",
+    "played",
+    "playing",
+)
+#: Board -> ratings, in the picker order. Stored as the display strings.
+AGE_RATING_GROUPS = (
+    ("PEGI", ("PEGI 3", "PEGI 7", "PEGI 12", "PEGI 16", "PEGI 18")),
+    ("ESRB", ("ESRB E", "ESRB E10+", "ESRB T", "ESRB M", "ESRB AO", "ESRB RP")),
+    ("USK", ("USK 0", "USK 6", "USK 12", "USK 16", "USK 18")),
+    ("CERO", ("CERO A", "CERO B", "CERO C", "CERO D", "CERO Z")),
+    ("ACB", ("ACB G", "ACB PG", "ACB M", "ACB MA15+", "ACB R18+")),
+    ("IARC", ("IARC 3", "IARC 7", "IARC 12", "IARC 16", "IARC 18")),
+    ("GRAC", ("GRAC All", "GRAC 12", "GRAC 15", "GRAC 18")),
+    (
+        "ClassInd",
+        (
+            "ClassInd L",
+            "ClassInd 10",
+            "ClassInd 12",
+            "ClassInd 14",
+            "ClassInd 16",
+            "ClassInd 18",
+        ),
+    ),
+)
+#: Boards shown without expanding the picker; the rest stay available in
+#: the secondary section. Ordering is alphabetical at display time.
+DEFAULT_AGE_RATING_BOARDS = ("PEGI", "ESRB", "CERO", "ClassInd")
+AGE_RATINGS = tuple(rating for _board, ratings in AGE_RATING_GROUPS for rating in ratings)
+
+
 @dataclass
 class MetadataConfig:
     """Optional per-game identity extras, shown as name suffixes."""
@@ -174,6 +213,14 @@ class MetadataConfig:
     version: str = ""  # free-form, shown as "Name [version]"
     date: str = ""  # YYYY-MM-DD, YYYY-MM or YYYY ("" = unset)
     tag: str = ""  # free-form state label, shown as "Name (TAG)"
+    description: str = ""  # synopsis; distinct from the personal notes
+    developer: str = ""
+    publisher: str = ""
+    genre: str = ""  # free-form, comma-separated for several
+    series: str = ""
+    age_ratings: list[str] = field(default_factory=list)  # AGE_RATINGS values
+    region: str = ""  # eu|jp|us|world ("" = unset)
+    status: str = ""  # one of GAME_STATUSES ("" = unset)
 
 
 @dataclass
@@ -358,6 +405,7 @@ class Preferences:
     # cost every tab a third of its height.
     show_preview: bool = False
     show_dependency_status: bool = False
+    show_profile_bar: bool = True
     tray_enable: bool = False
     tray_icon: str = "normal"  # normal|mono
     minimize_to_tray: bool = False
@@ -935,7 +983,19 @@ SECTION_KEYS: dict[str, set[str]] = {
         "launch_cwd",
         "installed_at",
     },
-    "metadata": {"version", "date", "tag"},
+    "metadata": {
+        "version",
+        "date",
+        "tag",
+        "description",
+        "developer",
+        "publisher",
+        "genre",
+        "series",
+        "age_ratings",
+        "region",
+        "status",
+    },
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
     "gamemode": {"feral_gamemode", "cachyos_game_performance"},
@@ -1140,6 +1200,26 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.metadata.version = str(md.get("version", "")).strip()
     cfg.metadata.date = str(md.get("date", "")).strip()
     cfg.metadata.tag = str(md.get("tag", "")).strip()
+    cfg.metadata.description = str(md.get("description", "")).strip()
+    cfg.metadata.developer = str(md.get("developer", "")).strip()
+    cfg.metadata.publisher = str(md.get("publisher", "")).strip()
+    cfg.metadata.genre = str(md.get("genre", "")).strip()
+    cfg.metadata.series = str(md.get("series", "")).strip()
+    raw_ratings = md.get("age_ratings", [])
+    if isinstance(raw_ratings, str):
+        raw_ratings = [part.strip() for part in raw_ratings.split(",")]
+    elif not isinstance(raw_ratings, (list, tuple)):
+        raw_ratings = []
+    ratings = []
+    for value in raw_ratings:
+        rating = str(value).strip()
+        if rating in AGE_RATINGS and rating not in ratings:
+            ratings.append(rating)
+    cfg.metadata.age_ratings = ratings
+    region = str(md.get("region", "")).strip().lower()
+    cfg.metadata.region = region if region in REGIONS else ""
+    status = str(md.get("status", "")).strip().lower()
+    cfg.metadata.status = status if status in GAME_STATUSES else ""
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}
@@ -1217,6 +1297,7 @@ def load_preferences() -> Preferences:
         return out
     out.show_preview = _as_bool(ui.get("show_preview", False), False)
     out.show_dependency_status = _as_bool(ui.get("show_dependency_status", False), False)
+    out.show_profile_bar = _as_bool(ui.get("show_profile_bar", True), True)
     out.tray_enable = _as_bool(ui.get("tray_enable", False), False)
     out.tray_icon = str(ui.get("tray_icon", "normal") or "normal")
     if out.tray_icon not in ("normal", "mono"):
@@ -1484,6 +1565,7 @@ def save_preferences(prefs: Preferences) -> Path:
         "ui": {
             "show_preview": bool(prefs.show_preview),
             "show_dependency_status": bool(prefs.show_dependency_status),
+            "show_profile_bar": bool(prefs.show_profile_bar),
             "tray_enable": bool(prefs.tray_enable),
             "tray_icon": prefs.tray_icon if prefs.tray_icon in ("normal", "mono") else "normal",
             "minimize_to_tray": bool(prefs.minimize_to_tray),

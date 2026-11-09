@@ -14,8 +14,9 @@ Window {
     modality: Qt.WindowModal
     minimumWidth: Kirigami.Units.gridUnit * 20
     width: Kirigami.Units.gridUnit * 24
-    // The height follows the content, so the box hugs its body.
-    height: body.implicitHeight + body.anchors.margins * 2
+    // The height follows the content, so the box hugs its body; a caller
+    // may cap it (the age-rating picker uses the screen work area).
+    height: Math.min(body.implicitHeight + body.anchors.margins * 2, maximumHeight)
     visible: false
     color: Kirigami.Theme.backgroundColor
 

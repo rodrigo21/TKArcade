@@ -144,6 +144,9 @@ def test_model_role_names_are_game_prefixed(qgui_app):
         b"gameReleaseDate",
         b"gameRunning",
         b"gameRuntime",
+        b"gameStatus",
+        b"gameStatusBg",
+        b"gameStatusFg",
         b"gameTier",
         b"gameTierBg",
         b"gameTierFg",
@@ -926,6 +929,89 @@ def test_metadata_suffix_and_name_split(qgui_app, xdg_env):
     assert proxy.rowData(0)["gameName"] == "Doom [v1.2] (Beta)"
     assert model.metadataDateValid("2026-10") is True
     assert model.metadataDateValid("2026-13") is False
+
+
+def test_metadata_fields_and_status_role(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.description = "A synopsis."
+    cfg.metadata.developer = "id Software"
+    cfg.metadata.publisher = "Bethesda"
+    cfg.metadata.genre = "Action, Shooter"
+    cfg.metadata.series = "Doom"
+    cfg.metadata.age_ratings = ["PEGI 12", "ESRB T"]
+    cfg.metadata.region = "world"
+    cfg.metadata.status = "completed"
+    C.save(cfg)
+    model = GameListModel()
+    fields = model.loadGame("local-doom")
+    assert fields["description"] == "A synopsis."
+    assert fields["developer"] == "id Software"
+    assert fields["age_ratings"] == ["PEGI 12", "ESRB T"]
+    assert fields["region"] == "world"
+    assert fields["status"] == "completed"
+    out = dict(fields)
+    out["status"] = "playing"
+    assert model.saveGame("local-doom", out) == "local-doom"
+    assert C.load("local-doom").metadata.status == "playing"
+    model.refresh()
+    proxy = GameFilterModel()
+    proxy.setSourceModel(model)
+    assert proxy.rowData(0)["gameStatus"] == "playing"
+    assert proxy.rowData(0)["gameStatusBg"] == "#81C784"
+    assert proxy.rowData(0)["gameStatusFg"] == "#000000"
+    assert model.data(model.index(0, 0), GameListModel.StatusRole) == "playing"
+    groups = model.ageRatingGroups()
+    assert [group["name"] for group in groups] == [
+        "ACB",
+        "CERO",
+        "ClassInd",
+        "ESRB",
+        "GRAC",
+        "IARC",
+        "PEGI",
+        "USK",
+    ]
+    assert [group["default"] for group in groups] == [
+        False,
+        True,
+        True,
+        True,
+        False,
+        False,
+        True,
+        False,
+    ]
+    assert "PEGI 12" in groups[6]["ratings"]
+    assert isinstance(model.symbolFontFamily(), str)
+
+
+def test_protondb_info_reads_the_cache(qgui_app, xdg_env):
+    import json
+    import time
+
+    from tkarcade import protondb as P
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "620"
+    C.save(cfg)
+    path = P.cache_path("steam-620")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"saved": int(time.time()), "data": {"tier": "gold"}}),
+        encoding="utf-8",
+    )
+    model = GameListModel()
+    info = model.protonDBInfo("steam-620")
+    assert info["tier"] == "Gold"
+    assert info["bg"] == "#FFC107"
+    assert model.protonDBInfo("local-doom") == {}
 
 
 def test_settings_create_and_profiles(qgui_app, xdg_env):

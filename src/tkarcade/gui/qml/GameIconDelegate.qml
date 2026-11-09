@@ -19,8 +19,39 @@ Item {
     required property bool gameRunning
     required property string gameIssueLevel
     required property string gameIssuesTip
+    required property string gameStatus
+    required property string gameStatusBg
+    required property string gameStatusFg
     property int cellSize: 96
     property bool selected: false
+
+    function statusLabel(code) {
+        switch (code) {
+        case "abandoned": return qsTr("Abandoned")
+        case "beaten": return qsTr("Beaten")
+        case "completed": return qsTr("Completed")
+        case "not_played": return qsTr("Not Played")
+        case "on_hold": return qsTr("On Hold")
+        case "plan_to_play": return qsTr("Plan to Play")
+        case "played": return qsTr("Played")
+        case "playing": return qsTr("Playing")
+        default: return ""
+        }
+    }
+
+    function statusGlyph(code) {
+        switch (code) {
+        case "abandoned": return "✕"
+        case "beaten": return "✓"
+        case "completed": return "★"
+        case "not_played": return "○"
+        case "on_hold": return "Ⅱ"
+        case "plan_to_play": return "◷"
+        case "played": return "◐"
+        case "playing": return "▶"
+        default: return ""
+        }
+    }
 
     signal playRequested(string gid)
     signal rowTapped(string gid, int modifiers)
@@ -74,6 +105,33 @@ Item {
                 source: gameModel.iconName(["input-gamepad", "applications-games"])
                 width: Math.min(parent.width, parent.height, iconCell.cellSize) * 0.6
                 height: width
+            }
+            // Completion status, top-left so the validation badge keeps
+            // the opposite corner. A solid disc keeps the glyph legible
+            // on either theme, like the pills in the other views.
+            Rectangle {
+                objectName: "iconStatusBadge"
+                anchors.top: parent.top
+                anchors.left: parent.left
+                visible: iconCell.gameStatus !== ""
+                width: Kirigami.Units.iconSizes.small
+                height: width
+                radius: width / 2
+                color: iconCell.gameStatusBg
+                StatusGlyph {
+                    objectName: "iconStatusGlyph"
+                    anchors.fill: parent
+                    glyph: iconCell.statusGlyph(iconCell.gameStatus)
+                    color: iconCell.gameStatusFg
+                }
+                HoverHandler {
+                    id: iconStatusHover
+                }
+                Controls.ToolTip {
+                    objectName: "iconStatusBadgeTip"
+                    visible: iconStatusHover.hovered
+                    text: iconCell.statusLabel(iconCell.gameStatus)
+                }
             }
             // Validation badge, same glyph/colors as the table.
             Kirigami.Icon {

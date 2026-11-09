@@ -23,7 +23,26 @@ Kirigami.Card {
     required property bool gameRunning
     required property string gameIssueLevel
     required property string gameIssuesTip
+    required property string gameStatus
+    required property string gameStatusBg
+    required property string gameStatusFg
     property bool selected: false
+
+    function statusLabel(code) {
+        switch (code) {
+        case "abandoned": return qsTr("Abandoned")
+        case "beaten": return qsTr("Beaten")
+        case "completed": return qsTr("Completed")
+        case "not_played": return qsTr("Not Played")
+        case "on_hold": return qsTr("On Hold")
+        case "plan_to_play": return qsTr("Plan to Play")
+        case "played": return qsTr("Played")
+        case "playing": return qsTr("Playing")
+        default: return ""
+        }
+    }
+
+
 
     signal playRequested(string gid)
     signal rowTapped(string gid, int modifiers)
@@ -152,6 +171,28 @@ Kirigami.Card {
             objectName: "cardIssueBadgeTip"
             visible: cardIssueHover.hovered
             text: gameCard.gameIssuesTip
+        }
+    }
+
+    // Completion status, top-left so the validation badge keeps the
+    // opposite corner.
+    Rectangle {
+        objectName: "cardStatusBadge"
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.margins: Kirigami.Units.smallSpacing
+        visible: gameCard.gameStatus !== ""
+        width: cardStatusLabel.implicitWidth + Kirigami.Units.largeSpacing
+        height: cardStatusLabel.implicitHeight + Kirigami.Units.smallSpacing
+        radius: 4
+        color: gameCard.gameStatusBg
+        Controls.Label {
+            id: cardStatusLabel
+            objectName: "cardStatusBadgeLabel"
+            anchors.centerIn: parent
+            font.bold: true
+            text: gameCard.statusLabel(gameCard.gameStatus)
+            color: gameCard.gameStatusFg
         }
     }
 

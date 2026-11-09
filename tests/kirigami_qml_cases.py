@@ -11,28 +11,30 @@ OFFSCREEN_NOISE = ("was not placed in the graphics scene",)
 # QQC2 reads `&` in a button text as a mnemonic, so titles carry no spaces
 # (the slash in Artwork/Notes is fine) to avoid eliding in seven tabs.
 SETTINGS_TAB_TITLES = (
-    "General",
+    "Details",
+    "Execution",
     "Commands",
-    "Runtime",
     "Performance",
     "Display",
     "System",
     "Artwork/Notes",
 )
 (
-    TAB_GENERAL,
+    TAB_DETAILS,
+    TAB_EXECUTION,
     TAB_COMMANDS,
-    TAB_RUNTIME,
     TAB_PERF,
     TAB_DISPLAY,
     TAB_SYSTEM,
     TAB_ART,
 ) = range(len(SETTINGS_TAB_TITLES))
 
-# The Launch section now lives on General and Compatibility became Runtime;
-# keep the old names as aliases so the cases read by section, not index.
-TAB_LAUNCH = TAB_GENERAL
-TAB_COMPAT = TAB_RUNTIME
+# Launch moved into Execution, which took Runtime's slot; the old names
+# stay as aliases so the cases read by section, not index.
+TAB_GENERAL = TAB_DETAILS
+TAB_RUNTIME = TAB_EXECUTION
+TAB_LAUNCH = TAB_EXECUTION
+TAB_COMPAT = TAB_EXECUTION
 
 SETTINGS_TAB_BODIES = {
     TAB_GENERAL: "settingsGeneralScroll",
@@ -1730,6 +1732,10 @@ def _standalone_component(qgui_app, filename, props):
             names = [str(n) for n in candidates or [] if n]
             return names[0] if names else ""
 
+        @Slot(result=str)
+        def symbolFontFamily(self):
+            return "DejaVu Sans"
+
     engine = QQmlEngine()
     warnings: list[str] = []
     engine.warnings.connect(lambda ws: warnings.extend(w.toString() for w in ws))
@@ -1761,6 +1767,9 @@ def test_game_card_binds_roles(qgui_app):
             "gameRunning": False,
             "gameIssueLevel": "",
             "gameIssuesTip": "",
+            "gameStatus": "",
+            "gameStatusBg": "",
+            "gameStatusFg": "",
         },
     )
     real = [w for w in warnings if "graphics scene" not in w]
@@ -1782,6 +1791,9 @@ def test_game_icon_delegate_binds_roles(qgui_app):
             "gameRunning": False,
             "gameIssueLevel": "",
             "gameIssuesTip": "",
+            "gameStatus": "",
+            "gameStatusBg": "",
+            "gameStatusFg": "",
         },
     )
     real = [w for w in warnings if "graphics scene" not in w]
@@ -2035,13 +2047,13 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
     # Every desktop-integration group draws the widgets QGroupBox look:
     # centered title above a framed panel (the QQC2 GroupBox painted the
     # title inside the frame at the top-left).
-    assert visible_titles(TAB_GENERAL) == ["Game", "Launch"]
+    assert visible_titles(TAB_GENERAL) == ["Game", "Information"]
     # Env vars and the pre/post hooks share the Commands tab.
     assert visible_titles(TAB_COMMANDS) == ["Environment Variables", "Pre/Post Commands"]
-    # A local game picks its Wine/umu runtime here; the prefix, the
-    # graphics layers and the Steam-only debug box only appear once a
-    # runtime that has a prefix is chosen.
-    assert visible_titles(TAB_RUNTIME) == ["Runtime"]
+    # Launch leads Execution; a local game picks its Wine/umu runtime
+    # here, and the prefix, graphics layers and Steam-only debug box only
+    # appear once a runtime that has a prefix is chosen.
+    assert visible_titles(TAB_RUNTIME) == ["Launch", "Runtime"]
     assert visible_titles(TAB_PERF) == ["Game Mode", "MangoHud", "RT Upscaler"]
     assert visible_titles(TAB_DISPLAY) == ["Display Mode", "Gamescope"]
     assert visible_titles(TAB_SYSTEM) == [
@@ -2442,19 +2454,19 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
     runtime = ("settingsRuntimeType", "settingsRuntime")
     _settings_tab(swin, TAB_GENERAL)
     assert shown(*general) == list(general)
-    assert shown(*launch) == list(launch)
+    assert shown(*launch) == []
     assert shown(*hooks) == []
     assert shown(*runtime) == []
     _settings_tab(swin, TAB_COMMANDS)
     assert shown(*hooks) == list(hooks)
     assert shown(*launch) == []
-    # Profiles are a whole-config preset, not a General field: the bar
+    # Profiles are a whole-config preset, not a Details field: the bar
     # above the tabs stays visible on every page.
     assert shown("settingsProfiles") == ["settingsProfiles"]
     _settings_tab(swin, TAB_RUNTIME)
     assert shown(*runtime) == list(runtime)
+    assert shown(*launch) == list(launch)
     assert shown(*general) == []
-    assert shown(*launch) == []
     _settings_tab(swin, TAB_PERF)
     assert shown("perfFeral", "mhEnable", "rtEnable") == ["perfFeral", "mhEnable", "rtEnable"]
     _settings_tab(swin, TAB_DISPLAY)
@@ -3928,6 +3940,64 @@ def test_issue_badge_shows_severity(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_status_badge_in_views(qgui_app, xdg_env):
+    """The completion status pill/glyph appears in list, cards and icons."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid, name, status in (
+        ("local-alpha", "Alpha", "completed"),
+        ("local-beta", "Beta", "abandoned"),
+        ("local-gamma", "Gamma", ""),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = "/bin/true"
+        cfg.runtime.type = "native"
+        cfg.metadata.status = status
+        C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    table = win.findChild(QQuickItem, "gameTable")
+    assert _rendered_names(table, proxy) == ["Alpha", "Beta", "Gamma"]
+    cells = [_table_delegate(table, proxy, row, 1) for row in range(3)]
+    badges = [cell.findChild(QQuickItem, "statusBadge") for cell in cells]
+    assert [badge.property("visible") for badge in badges] == [True, True, False]
+    assert badges[0].property("width") == badges[0].property("height")
+    tips = [cell.findChild(QObject, "statusBadgeTip") for cell in cells]
+    assert tips[0].property("text") == "Completed"
+    assert tips[1].property("text") == "Abandoned"
+    glyph = cells[0].findChild(QQuickItem, "statusGlyph")
+    assert abs(glyph.property("inkCenterX") - glyph.property("width") / 2) <= 1.5
+    assert abs(glyph.property("inkCenterY") - glyph.property("height") / 2) <= 1.5
+    page = win.findChild(QObject, "gamesPage")
+    layout = win.findChild(QQuickItem, "cardLayout")
+    page.setProperty("viewMode", "cards")
+    qgui_app.processEvents()
+    cards = {card.property("gameId"): card for card in _delegate_rows(layout)}
+    order = ("local-alpha", "local-beta", "local-gamma")
+    card_badges = [cards[appid].findChild(QQuickItem, "cardStatusBadge") for appid in order]
+    assert [badge.property("visible") for badge in card_badges] == [True, True, False]
+    card_labels = [cards[appid].findChild(QObject, "cardStatusBadgeLabel") for appid in order]
+    assert card_labels[0].property("text") == "Completed"
+    grid = win.findChild(QQuickItem, "iconGrid")
+    page.setProperty("viewMode", "icons")
+    qgui_app.processEvents()
+    cells = {cell.property("gameId"): cell for cell in _delegate_rows(grid)}
+    icon_badges = [cells[appid].findChild(QQuickItem, "iconStatusBadge") for appid in order]
+    assert [badge.property("visible") for badge in icon_badges] == [True, True, False]
+    icon_glyph = cells["local-alpha"].findChild(QQuickItem, "iconStatusGlyph")
+    assert abs(icon_glyph.property("inkCenterX") - icon_glyph.property("width") / 2) <= 1.5
+    assert abs(icon_glyph.property("inkCenterY") - icon_glyph.property("height") / 2) <= 1.5
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_running_badge_updates_in_table(qgui_app, xdg_env):
     """The Table view repaints the running glyph when a record appears/goes."""
     import json
@@ -4289,20 +4359,23 @@ def test_header_global_defaults_button(qgui_app, xdg_env):
     assert (
         dswin.findChild(QQuickItem, "settingsReset").property("text") == "Reset to Factory Defaults"
     )
-    # Per-game fields leave the template: the Runtime tab is disabled with
-    # the explanatory note, and the Game and Audio sections hide.
-    assert dswin.findChild(QQuickItem, "settingsTabRuntime").property("enabled") is False
+    # Per-game fields leave the template: Execution stays reachable for
+    # the Launch behaviour, hides the executable/cwd/log rows and the
+    # runtime sections, and the Game and Audio sections hide.
+    assert dswin.findChild(QQuickItem, "settingsTabRuntime").property("enabled") is True
     assert dswin.findChild(QQuickItem, "settingsCats").isVisible() is False
     tabs = dswin.findChild(QQuickItem, "settingsTabs")
-    tabs.setProperty("currentIndex", 5)
+    tabs.setProperty("currentIndex", TAB_SYSTEM)
     qgui_app.processEvents()
     assert dswin.findChild(QQuickItem, "auSink").isVisible() is False
-    # The note lives on the Runtime page; the disabled tab only blocks the
-    # user, so select it directly and check it replaces the form.
-    tabs.setProperty("currentIndex", 2)
+    tabs.setProperty("currentIndex", TAB_RUNTIME)
     qgui_app.processEvents()
     note = dswin.findChild(QQuickItem, "settingsDefaultsRuntimeNote")
     assert note.property("visible") is True
+    assert dswin.findChild(QQuickItem, "settingsMenu").isVisible() is True
+    assert dswin.findChild(QQuickItem, "settingsTimeout").isVisible() is True
+    assert dswin.findChild(QQuickItem, "settingsExe").isVisible() is False
+    assert dswin.findChild(QQuickItem, "settingsCwd").isVisible() is False
     assert dswin.findChild(QQuickItem, "settingsRuntimeType").isVisible() is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -6915,6 +6988,141 @@ def test_settings_profile_semantics_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_settings_metadata_and_protondb(qgui_app, xdg_env):
+    """Details saves the metadata fields and shows the cached ProtonDB tier."""
+    import json
+    import time
+
+    from PySide6.QtCore import QMetaObject, QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+    from tkarcade import protondb as P
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "620"
+    cfg.general.name = "Portal 2"
+    cfg.runtime.type = "proton"
+    cfg.metadata.status = "played"
+    C.save(cfg)
+    path = P.cache_path("steam-620")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"saved": int(time.time()), "data": {"tier": "platinum"}}),
+        encoding="utf-8",
+    )
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("steam-620")
+    swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsInformation") is not None
+    pdb = swin.findChild(QQuickItem, "settingsProtonDB")
+    assert pdb.isVisible() is True
+    assert pdb.property("text") == "Platinum"
+    swin.findChild(QQuickItem, "settingsDeveloper").setProperty("text", "Valve")
+    swin.findChild(QQuickItem, "settingsPublisher").setProperty("text", "Valve")
+    swin.findChild(QQuickItem, "settingsGenre").setProperty("text", "Puzzle")
+    swin.findChild(QQuickItem, "settingsSeries").setProperty("text", "Portal")
+    _click(swin, "settingsAgeRating")
+    picker = win.findChild(QObject, "settingsAgeRatingPicker")
+    assert picker.property("visible") is True
+    boxes = {
+        item.objectName(): item
+        for item in _visual_items(picker.property("contentItem"))
+        if item.objectName().startswith("ageRatingPick_")
+    }
+    assert "ageRatingPick_CERO_A" in boxes, sorted(boxes)
+    assert "ageRatingPick_ESRB_T" in boxes, sorted(boxes)
+    _click_item(boxes["ageRatingPick_CERO_A"])
+    assert picker.property("selected").toVariant() == ["CERO A"]
+    picker.setProperty("selected", ["PEGI 12", "ESRB T"])
+    assert QMetaObject.invokeMethod(picker, "accepted") is True
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "settingsAgeRating").property("text") == "PEGI 12, ESRB T"
+    swin.findChild(QQuickItem, "settingsRegion").setProperty("currentIndex", 3)
+    swin.findChild(QQuickItem, "settingsStatus").setProperty("currentIndex", 3)
+    swin.findChild(QQuickItem, "settingsDescription").setProperty("text", "Aperture.")
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.save()
+    qgui_app.processEvents()
+    saved = C.load("steam-620")
+    assert saved.metadata.developer == "Valve"
+    assert saved.metadata.publisher == "Valve"
+    assert saved.metadata.genre == "Puzzle"
+    assert saved.metadata.series == "Portal"
+    assert saved.metadata.age_ratings == ["PEGI 12", "ESRB T"]
+    assert saved.metadata.region == "us"
+    assert saved.metadata.status == "completed"
+    assert saved.metadata.description == "Aperture."
+    page.openGameSettings("steam-620")
+    swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Valve"
+    assert swin.findChild(QQuickItem, "settingsStatus").property("currentIndex") == 3
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_age_rating_picker_default_boards(qgui_app, xdg_env):
+    """Primary boards stay alphabetical; the rest hide behind one row."""
+    from PySide6.QtCore import QMetaObject, QObject, QPointF
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.age_ratings = ["USK 12"]
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsAgeRating").property("text") == "USK 12"
+    _click(swin, "settingsAgeRating")
+    picker = win.findChild(QObject, "settingsAgeRatingPicker")
+    rows = picker.property("rows").toVariant()
+    assert [row["text"] for row in rows if row.get("header")] == [
+        "CERO",
+        "ClassInd",
+        "ESRB",
+        "PEGI",
+        "ACB",
+        "GRAC",
+        "IARC",
+        "USK",
+    ]
+    items = {item.objectName(): item for item in _visual_items(picker.property("contentItem"))}
+    usk = items["ageRatingPick_USK_12"]
+    assert usk.isVisible() is False
+    toggle = items["ageRatingsShowOthers"]
+    scroll = picker.findChild(QQuickItem, "ageRatingsScroll")
+    content = scroll.property("contentItem")
+    toggle_pos = toggle.mapToItem(content, QPointF(0, 0))
+    content.setProperty("contentY", max(0, toggle_pos.y() - 100))
+    QTest.qWait(150)
+    assert toggle.isVisible() is True
+    _click_item(toggle)
+    qgui_app.processEvents()
+    assert picker.property("showOthers") is True
+    assert usk.isVisible() is True
+    assert usk.property("checked") is True
+    _click_item(toggle)
+    qgui_app.processEvents()
+    assert usk.isVisible() is False
+    assert QMetaObject.invokeMethod(picker, "accepted") is True
+    qgui_app.processEvents()
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_settings_general_formlayout_wide(qgui_app, xdg_env):
     """General tab uses FormLayout side-by-side labels when wide."""
     from PySide6.QtCore import QObject
@@ -6945,6 +7153,38 @@ def test_settings_general_formlayout_wide(qgui_app, xdg_env):
     assert abs(name.property("x") + name.property("width") - form.property("width")) <= 24
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_profile_bar_toggle(qgui_app, xdg_env):
+    """The footer switch hides the profile bar and persists the choice."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    toggle = swin.findChild(QQuickItem, "settingsProfileBarToggle")
+    bar = swin.findChild(QQuickItem, "settingsProfileBar")
+    assert toggle.isVisible() is True
+    assert toggle.property("checked") is True
+    assert bar.isVisible() is True
+    _click(swin, "settingsProfileBarToggle")
+    assert bar.isVisible() is False
+    assert C.load_preferences().show_profile_bar is False
+    _click(swin, "settingsProfileBarToggle")
+    assert bar.isVisible() is True
+    assert C.load_preferences().show_profile_bar is True
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()

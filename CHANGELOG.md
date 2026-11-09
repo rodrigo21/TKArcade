@@ -6,6 +6,18 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- The game dialog's Details tab carries manual metadata in
+  `[metadata]`: description, developer, publisher, genre, series, age
+  ratings, region and status. Age ratings are a checklist: CERO, ClassInd,
+  ESRB and PEGI show first, while ACB, GRAC, IARC and USK sit behind a
+  divider and the `Other Rating Boards` switch; the picker opens tall
+  enough for the primary boards and caps at the screen height. Region and
+  status store stable codes with
+  translated labels, and a Steam game also shows its cached ProtonDB tier
+  as a compact link to the ProtonDB page.
+- The completion status appears in all three library views: a colored
+  disc with a Unicode glyph and a tooltip in the list and icon views,
+  and a pill with the label over the card banner.
 - A Download Mirror field in Preferences → Runtime: an `https://` prefix
   prepended to GitHub download URLs, ghproxy style. Empty downloads
   direct, the release list still comes from the GitHub API, a pasted
@@ -90,6 +102,10 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- The game dialog tabs are now Details and Execution: Launch moved to the
+  top of Execution and stays editable in Global Defaults, while the
+  runtime, prefix, layers and debug switches remain per game. A footer
+  switch hides the profile bar, persisted as `[ui] show_profile_bar`.
 - The runtime manager keeps the three newest builds it installed per
   layer: each install and every scan prunes the rest, except a build
   marked as default or pinned by a game. Builds dropped into the archive

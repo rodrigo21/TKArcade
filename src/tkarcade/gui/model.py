@@ -44,6 +44,59 @@ from ..backends.notify import format_duration
 
 log = logging.getLogger("tkarcade.kirigami")
 
+
+def _apply_metadata(cfg, data: dict) -> None:
+    """Write the Details metadata fields into a config (helper keeps lint sane)."""
+    md = cfg.metadata
+    md.version = str(data.get("version", "")).strip()
+    md.date = str(data.get("date", "")).strip()
+    md.tag = str(data.get("tag", "")).strip()
+    md.description = str(data.get("description", "")).strip()
+    md.developer = str(data.get("developer", "")).strip()
+    md.publisher = str(data.get("publisher", "")).strip()
+    md.genre = str(data.get("genre", "")).strip()
+    md.series = str(data.get("series", "")).strip()
+    raw_ratings = data.get("age_ratings", [])
+    if isinstance(raw_ratings, str):
+        raw_ratings = [part.strip() for part in raw_ratings.split(",")]
+    elif not isinstance(raw_ratings, (list, tuple)):
+        raw_ratings = []
+    ratings = []
+    for value in raw_ratings:
+        rating = str(value).strip()
+        if rating in cfgmod.AGE_RATINGS and rating not in ratings:
+            ratings.append(rating)
+    md.age_ratings = ratings
+    region = str(data.get("region", "")).strip().lower()
+    md.region = region if region in cfgmod.REGIONS else ""
+    status = str(data.get("status", "")).strip().lower()
+    md.status = status if status in cfgmod.GAME_STATUSES else ""
+
+
+#: Solid status badge colors (background, text). The text is always black:
+#: every background is light enough for WCAG AA at badge size.
+STATUS_STYLE: dict[str, tuple[str, str]] = {
+    "abandoned": ("#F44336", "#000000"),
+    "beaten": ("#9CCC65", "#000000"),
+    "completed": ("#66BB6A", "#000000"),
+    "not_played": ("#BDBDBD", "#000000"),
+    "on_hold": ("#FFC107", "#000000"),
+    "plan_to_play": ("#4FC3F7", "#000000"),
+    "played": ("#4DD0E1", "#000000"),
+    "playing": ("#81C784", "#000000"),
+}
+
+#: Preferred symbol fonts for the Unicode status glyphs, in fallback order.
+SYMBOL_FONTS = (
+    "Noto Sans Symbols 2",
+    "Noto Sans Symbols",
+    "DejaVu Sans",
+    "Segoe UI Symbol",
+    "Apple Symbols",
+    "Symbola",
+)
+_SYMBOL_FONT_FAMILY: str | None = None
+
 #: `wine --version` per (binary, mtime): the manager probes on open, never
 #: on the launch path.
 _WINE_VERSION_CACHE: dict[tuple[str, float], str] = {}
@@ -231,6 +284,9 @@ class GameListModel(QAbstractTableModel):
     IssuesTipRole = Qt.ItemDataRole.UserRole + 21
     ReleaseDateRole = Qt.ItemDataRole.UserRole + 22
     InstalledAtRole = Qt.ItemDataRole.UserRole + 23
+    StatusRole = Qt.ItemDataRole.UserRole + 24
+    StatusBgRole = Qt.ItemDataRole.UserRole + 25
+    StatusFgRole = Qt.ItemDataRole.UserRole + 26
 
     ROLE_NAMES = (
         "gameId",
@@ -254,6 +310,9 @@ class GameListModel(QAbstractTableModel):
         "gameCover",
         "gameReleaseDate",
         "gameInstalledAt",
+        "gameStatus",
+        "gameStatusBg",
+        "gameStatusFg",
     )
 
     refreshed = Signal()
@@ -412,6 +471,9 @@ class GameListModel(QAbstractTableModel):
             GameListModel.IssuesTipRole: b"gameIssuesTip",
             GameListModel.ReleaseDateRole: b"gameReleaseDate",
             GameListModel.InstalledAtRole: b"gameInstalledAt",
+            GameListModel.StatusRole: b"gameStatus",
+            GameListModel.StatusBgRole: b"gameStatusBg",
+            GameListModel.StatusFgRole: b"gameStatusFg",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -460,6 +522,9 @@ class GameListModel(QAbstractTableModel):
             GameListModel.CoverRole: 17,
             GameListModel.ReleaseDateRole: 18,
             GameListModel.InstalledAtRole: 19,
+            GameListModel.StatusRole: 20,
+            GameListModel.StatusBgRole: 21,
+            GameListModel.StatusFgRole: 22,
         }
         return row[cols[role]] if role in cols else None
 
@@ -487,6 +552,9 @@ class GameListModel(QAbstractTableModel):
             "gameCover",
             "gameReleaseDate",
             "gameInstalledAt",
+            "gameStatus",
+            "gameStatusBg",
+            "gameStatusFg",
         )
         if not 0 <= row < len(self._rows):
             return {}
@@ -651,6 +719,8 @@ class GameListModel(QAbstractTableModel):
         icon = self._row_icon(appid, gcfg)
         cover = self._row_cover(appid, gcfg)
         label = cfgmod.game_display_name(names.get(appid, appid), gcfg)
+        status = gcfg.metadata.status if gcfg is not None else ""
+        status_bg, status_fg = STATUS_STYLE.get(status, ("", ""))
         return (
             appid,
             label,
@@ -677,6 +747,9 @@ class GameListModel(QAbstractTableModel):
             str(cover) if cover else "",
             self._row_release_date(appid, gcfg, is_steam),
             self._row_installed(appid, gcfg),
+            status,
+            status_bg,
+            status_fg,
         )
 
     @staticmethod
@@ -881,6 +954,14 @@ class GameListModel(QAbstractTableModel):
             "version": cfg.metadata.version,
             "date": cfg.metadata.date,
             "tag": cfg.metadata.tag,
+            "description": cfg.metadata.description,
+            "developer": cfg.metadata.developer,
+            "publisher": cfg.metadata.publisher,
+            "genre": cfg.metadata.genre,
+            "series": cfg.metadata.series,
+            "age_ratings": list(cfg.metadata.age_ratings),
+            "region": cfg.metadata.region,
+            "status": cfg.metadata.status,
             "custom_executable": g.custom_executable,
             "runtime_type": cfgmod.normalize_runtime(cfg.runtime.type),
             "show_menu": bool(g.show_menu),
@@ -1176,9 +1257,7 @@ class GameListModel(QAbstractTableModel):
         cfg.general.categories = cfgmod.normalize_categories(cats)
         cfg.general.launch_args = str(data.get("launch_args", "")).strip()
         cfg.general.launch_cwd = str(data.get("launch_cwd", "")).strip()
-        cfg.metadata.version = str(data.get("version", "")).strip()
-        cfg.metadata.date = str(data.get("date", "")).strip()
-        cfg.metadata.tag = str(data.get("tag", "")).strip()
+        _apply_metadata(cfg, data)
         cfg.artwork.icon = str(data.get("art_icon", "")).strip()
         cfg.artwork.cover = str(data.get("art_cover", "")).strip()
         cfg.artwork.banner = str(data.get("art_banner", "")).strip()
@@ -2955,6 +3034,19 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             pass
 
+    @Slot(str, result="QVariantMap")
+    def protonDBInfo(self, appid: str) -> dict:
+        """Cached ProtonDB tier for the settings dialog ({} outside Steam)."""
+        if not steammod.steam_appid(appid):
+            return {}
+        try:
+            data, _fresh = pdbmod.cached(appid)
+        except Exception:
+            data = None
+        tier = str((data or {}).get("tier", "") or "").lower()
+        bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
+        return {"tier": tier.title(), "bg": bg, "fg": fg}
+
     @Slot(str, result=bool)
     def openProtonDB(self, appid: str) -> bool:
         """Open the ProtonDB page for a Steam game in the browser."""
@@ -4327,6 +4419,29 @@ class GameListModel(QAbstractTableModel):
         """Cached validation issues (powers the issues-only filter)."""
         return [message for _severity, message in self._issue_report(appid)]
 
+    @Slot(result="QVariantList")
+    def ageRatingGroups(self) -> list:
+        """Picker groups as [{name, ratings}], same source as the loader."""
+        return [
+            {
+                "name": board,
+                "ratings": list(ratings),
+                "default": board in cfgmod.DEFAULT_AGE_RATING_BOARDS,
+            }
+            for board, ratings in sorted(cfgmod.AGE_RATING_GROUPS, key=lambda item: item[0].lower())
+        ]
+
+    @Slot(result=str)
+    def symbolFontFamily(self) -> str:
+        """First installed symbol font for the Unicode status glyphs."""
+        global _SYMBOL_FONT_FAMILY
+        if _SYMBOL_FONT_FAMILY is None:
+            from PySide6.QtGui import QFontDatabase
+
+            installed = set(QFontDatabase.families())
+            _SYMBOL_FONT_FAMILY = next((name for name in SYMBOL_FONTS if name in installed), "")
+        return _SYMBOL_FONT_FAMILY
+
     @Slot(result="QVariantMap")
     def loadPrefs(self) -> dict:
         """App preferences for the QML form."""
@@ -4337,6 +4452,7 @@ class GameListModel(QAbstractTableModel):
         return {
             "showPreview": bool(prefs.show_preview),
             "showDependencyStatus": bool(prefs.show_dependency_status),
+            "showProfileBar": bool(prefs.show_profile_bar),
             "trayEnable": bool(prefs.tray_enable),
             "trayIcon": str(prefs.tray_icon),
             "minimizeToTray": bool(prefs.minimize_to_tray),
@@ -4370,6 +4486,7 @@ class GameListModel(QAbstractTableModel):
             prefs.show_dependency_status = bool(
                 get("showDependencyStatus", prefs.show_dependency_status)
             )
+            prefs.show_profile_bar = bool(get("showProfileBar", prefs.show_profile_bar))
             prefs.tray_enable = bool(get("trayEnable", prefs.tray_enable))
             prefs.tray_icon = str(get("trayIcon", prefs.tray_icon))
             prefs.minimize_to_tray = bool(get("minimizeToTray", prefs.minimize_to_tray))

@@ -113,7 +113,7 @@ Window {
         }
         firstrun.accepted.connect(function () {
             firstrun.visible = false
-            openSettings(appid, null, 2, runtime)
+            openSettings(appid, null, 1, runtime)
         })
         firstrun.closing.connect(function () {
             decided("launch", appid)

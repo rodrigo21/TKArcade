@@ -48,6 +48,16 @@ Window {
     // start collapsed: reference material, not editing space.
     property bool previewVisible: false
     property bool depStatusVisible: false
+    // The profile bar is a whole-config preset strip; a game may hide it
+    // from the footer, and the choice persists like the two blocks above.
+    property bool profileBarVisible: true
+    // ProtonDB is a read-only, Steam-only badge on Details; the cache is
+    // global, so nothing enters the game config.
+    property string protonDBTier: ""
+    property string protonDBBg: ""
+    property string protonDBFg: ""
+    // Age ratings are a fixed-board checklist, stored as a list.
+    property var ageRatings: []
     // Wine/Proton only mean something for a Steam id (or the defaults
     // template): a local game has no compatdata prefix to edit.
     readonly property bool wineAvailable: defaultsMode || ((fields.is_steam || false) && editAppid !== "")
@@ -567,6 +577,13 @@ Window {
         catsPicker.open(gameSettings)
     }
 
+    function openAgeRatings() {
+        agePicker.groups = gameModel.ageRatingGroups()
+        agePicker.selected = ageRatings.slice()
+        agePicker.showOthers = false
+        agePicker.open(gameSettings)
+    }
+
     function gfxVersionRows(kind, selected) {
         var versions = (gfxInfo.versions || {})[kind] || []
         var fallback = (gfxInfo.defaults || {})[kind] || ""
@@ -737,6 +754,15 @@ Window {
         versionField.text = f.version || ""
         dateField.text = f.date || ""
         tagField.text = f.tag || ""
+        descriptionArea.text = f.description || ""
+        developerField.text = f.developer || ""
+        publisherField.text = f.publisher || ""
+        genreField.text = f.genre || ""
+        seriesField.text = f.series || ""
+        ageRatings = (f.age_ratings || []).slice()
+        regionBox.currentIndex = Math.max(0, regionBox.indexOfValue(f.region || ""))
+        gameStatusBox.currentIndex = Math.max(0, gameStatusBox.indexOfValue(f.status || ""))
+        refreshProtonDB()
         artSourceField.text = f.art_source || ""
         var prefs = gameModel.loadPrefs()
         artProviderCombo.model = providerOptions(prefs.artworkSource || "steam")
@@ -793,6 +819,7 @@ Window {
         ptLogDir = editAppid !== "" ? gameModel.protonLogDir(editAppid) : ""
         previewVisible = prefs.showPreview ?? false
         depStatusVisible = prefs.showDependencyStatus ?? false
+        profileBarVisible = prefs.showProfileBar ?? true
         setEnvRows(f.env_vars || [])
         applyToolCheck(perfFeral, "gamemoderun")
         applyToolCheck(perfCachy, "game-performance")
@@ -837,6 +864,14 @@ Window {
             "version": versionField.text,
             "date": dateField.text,
             "tag": tagField.text,
+            "description": descriptionArea.text,
+            "developer": developerField.text,
+            "publisher": publisherField.text,
+            "genre": genreField.text,
+            "series": seriesField.text,
+            "age_ratings": ageRatings,
+            "region": String(regionBox.currentValue || ""),
+            "status": String(gameStatusBox.currentValue || ""),
             // The slots have no path field any more: read what the store
             // holds, or a Save would clear a file picked earlier.
             "art_icon": gameModel.artworkPath(editAppid, "icon"),
@@ -1548,6 +1583,21 @@ Window {
         gameModel.savePrefs({"showDependencyStatus": on})
     }
 
+    function setProfileBarVisible(on) {
+        if (profileBarVisible === on) {
+            return
+        }
+        profileBarVisible = on
+        gameModel.savePrefs({"showProfileBar": on})
+    }
+
+    function refreshProtonDB() {
+        var info = editAppid !== "" ? gameModel.protonDBInfo(editAppid) : ({})
+        protonDBTier = info.tier || ""
+        protonDBBg = info.bg || ""
+        protonDBFg = info.fg || ""
+    }
+
     function refreshPreview() {
         var res = gameModel.previewCommand(editAppid, collect())
         var lines = [res.command]
@@ -1938,7 +1988,7 @@ Window {
         RowLayout {
             objectName: "settingsProfileBar"
             Layout.fillWidth: true
-            visible: editAppid !== ""
+            visible: editAppid !== "" && gameSettings.profileBarVisible
             Controls.Label {
                 text: qsTr("Profile")
             }
@@ -1990,15 +2040,14 @@ Window {
             Layout.fillWidth: true
             onCurrentIndexChanged: gameSettings.refreshPreview()
             Controls.TabButton {
-                text: qsTr("General")
-            }
-            Controls.TabButton {
-                text: qsTr("Commands")
+                text: qsTr("Details")
             }
             Controls.TabButton {
                 objectName: "settingsTabRuntime"
-                text: qsTr("Runtime")
-                enabled: !defaultsMode
+                text: qsTr("Execution")
+            }
+            Controls.TabButton {
+                text: qsTr("Commands")
             }
             Controls.TabButton {
                 text: qsTr("Performance")
@@ -2035,7 +2084,7 @@ Window {
                         // One label column for the tab, so the fields of every
                         // section start at the same x.
                         property real labelWidth: Math.max(generalForm.naturalLabelWidth,
-                                                           launchForm.naturalLabelWidth)
+                                                           infoForm.naturalLabelWidth)
                         width: parent.width
                         spacing: Kirigami.Units.smallSpacing
                         SectionBox {
@@ -2115,20 +2164,185 @@ Window {
                                         onClicked: gameSettings.openCatsPicker()
                                     }
                                 }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: fields.is_steam || false
+                                    KirigamiLayouts.FormData.label: qsTr("ProtonDB:")
+                                    Controls.Button {
+                                        objectName: "settingsProtonDB"
+                                        Layout.alignment: Qt.AlignLeft
+                                        Layout.minimumWidth: Kirigami.Units.gridUnit * 7
+                                        Layout.maximumWidth: Kirigami.Units.gridUnit * 10
+                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
+                                        text: gameSettings.protonDBTier !== ""
+                                            ? gameSettings.protonDBTier : qsTr("Not Rated")
+                                        font.bold: gameSettings.protonDBTier !== ""
+                                        background: Rectangle {
+                                            radius: 4
+                                            color: gameSettings.protonDBBg !== ""
+                                                ? gameSettings.protonDBBg : "transparent"
+                                            border.width: gameSettings.protonDBBg !== "" ? 0 : 1
+                                            border.color: Kirigami.Theme.disabledTextColor
+                                        }
+                                        contentItem: Controls.Label {
+                                            horizontalAlignment: Text.AlignHCenter
+                                            verticalAlignment: Text.AlignVCenter
+                                            elide: Text.ElideRight
+                                            text: gameSettings.protonDBTier !== ""
+                                                ? gameSettings.protonDBTier : qsTr("Not Rated")
+                                            color: gameSettings.protonDBFg !== ""
+                                                ? gameSettings.protonDBFg : Kirigami.Theme.textColor
+                                        }
+                                        onClicked: {
+                                            if (!gameModel.openProtonDB(editAppid)) {
+                                                settingsError.text = qsTr("Could Not Open the ProtonDB Page.")
+                                            }
+                                        }
+                                        Controls.ToolTip.text: qsTr("Open ProtonDB Page")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                }
                             }
                         }
+                        SectionBox {
+                            objectName: "settingsInformation"
+                            title: qsTr("Information")
+                            Layout.fillWidth: true
+                            visible: !defaultsMode
+                            WidgetsFormLayout {
+                                id: infoForm
+                                labelWidth: generalColumn.labelWidth
+                                Layout.fillWidth: true
+                                Controls.TextField {
+                                    id: developerField
+                                    objectName: "settingsDeveloper"
+                                    placeholderText: qsTr("Studio or Team")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Developer:")
+                                }
+                                Controls.TextField {
+                                    id: publisherField
+                                    objectName: "settingsPublisher"
+                                    placeholderText: qsTr("Publisher")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Publisher:")
+                                }
+                                Controls.TextField {
+                                    id: genreField
+                                    objectName: "settingsGenre"
+                                    placeholderText: qsTr("Action, Adventure (Comma-Separated)")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Genre:")
+                                }
+                                Controls.TextField {
+                                    id: seriesField
+                                    objectName: "settingsSeries"
+                                    placeholderText: qsTr("Series")
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Series:")
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Age Ratings:")
+                                    Controls.Button {
+                                        objectName: "settingsAgeRating"
+                                        Layout.fillWidth: true
+                                        icon.name: gameModel.iconName(
+                                            ["arrow-down-symbolic", "arrow-down", "pan-down-symbolic"])
+                                        text: gameSettings.ageRatings.length > 0
+                                            ? gameSettings.ageRatings.join(", ") : qsTr("Not Set")
+                                        Controls.ToolTip.text: qsTr("Choose Age Ratings")
+                                        Controls.ToolTip.visible: hovered
+                                        onClicked: gameSettings.openAgeRatings()
+                                    }
+                                }
+                                Controls.ComboBox {
+                                    id: regionBox
+                                    objectName: "settingsRegion"
+                                    Layout.fillWidth: true
+                                    textRole: "text"
+                                    valueRole: "data"
+                                    model: [
+                                        {"text": qsTr("Not Set"), "data": ""},
+                                        {"text": qsTr("Europe"), "data": "eu"},
+                                        {"text": qsTr("Japan"), "data": "jp"},
+                                        {"text": qsTr("USA"), "data": "us"},
+                                        {"text": qsTr("World"), "data": "world"}
+                                    ]
+                                    KirigamiLayouts.FormData.label: qsTr("Region:")
+                                }
+                                Controls.ComboBox {
+                                    id: gameStatusBox
+                                    objectName: "settingsStatus"
+                                    Layout.fillWidth: true
+                                    textRole: "text"
+                                    valueRole: "data"
+                                    model: [
+                                        {"text": qsTr("Not Set"), "data": ""},
+                                        {"text": qsTr("Abandoned"), "data": "abandoned"},
+                                        {"text": qsTr("Beaten"), "data": "beaten"},
+                                        {"text": qsTr("Completed"), "data": "completed"},
+                                        {"text": qsTr("Not Played"), "data": "not_played"},
+                                        {"text": qsTr("On Hold"), "data": "on_hold"},
+                                        {"text": qsTr("Plan to Play"), "data": "plan_to_play"},
+                                        {"text": qsTr("Played"), "data": "played"},
+                                        {"text": qsTr("Playing"), "data": "playing"}
+                                    ]
+                                    KirigamiLayouts.FormData.label: qsTr("Status:")
+                                }
+                                Controls.TextArea {
+                                    id: descriptionArea
+                                    objectName: "settingsDescription"
+                                    placeholderText: qsTr("Synopsis or Description…")
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                    implicitHeight: Kirigami.Units.gridUnit * 6
+                                    KirigamiLayouts.FormData.label: qsTr("Description:")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Controls.ScrollView {
+                clip: true
+                objectName: "settingsWineScroll"
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                // ScrollView takes its scrollable size from the content's
+                // implicitHeight; a plain Item has none, so sizing the
+                // wrapper with `height:` leaves contentHeight at -1 and the
+                // content is squeezed into the viewport (nothing scrolls).
+                Item {
+                    width: parent.width
+                    implicitHeight: executionColumn.implicitHeight
+                    ColumnLayout {
+                        id: executionColumn
+                        width: parent.width
+                        spacing: Kirigami.Units.smallSpacing
+                        // One label column for the tab, so the fields of
+                        // every section start at the same x.
+                        property real labelWidth: Math.max(launchForm.naturalLabelWidth,
+                                                           runtimeForm.naturalLabelWidth,
+                                                           prefixForm.naturalLabelWidth,
+                                                           graphicsForm.naturalLabelWidth,
+                                                           debugForm.naturalLabelWidth)
+                        // The Launch fields are the only template fields on
+                        // this tab: the runtime, prefix, layers and verbs
+                        // below stay per game, and the note says so.
                         SectionBox {
                             title: qsTr("Launch")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
                                 id: launchForm
-                                labelWidth: generalColumn.labelWidth
+                                labelWidth: executionColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
                                     // Local games keep their only executable
                                     // here; Steam games use it to launch an
                                     // alternate one.
+                                    visible: !defaultsMode
                                     KirigamiLayouts.FormData.label: (fields.is_steam || false)
                                         ? qsTr("Custom Executable (Override):")
                                         : qsTr("Game Executable:")
@@ -2235,6 +2449,7 @@ Window {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
+                                    visible: !defaultsMode
                                     KirigamiLayouts.FormData.label: qsTr("Working Directory:")
                                     Controls.TextField {
                                         id: cwdField
@@ -2285,244 +2500,25 @@ Window {
                                 }
                             }
                         }
-                    }
-                }
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                SectionBox {
-                    title: qsTr("Environment Variables")
-                    fillHeight: true
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    RowLayout {
-                        // Widgets QTableWidget header; it lines up with the rows
-                        // below, whose third column holds the per-row remove
-                        // button (Kirigami only, hence the matching gap).
-                        Layout.fillWidth: true
-                        spacing: Kirigami.Units.smallSpacing
                         Controls.Label {
-                            objectName: "envHeaderVariable"
+                            id: defaultsRuntimeNote
+                            objectName: "settingsDefaultsRuntimeNote"
                             Layout.fillWidth: true
-                            // QtQuick.Layouts splits the extra space proportionally
-                            // to the preferred widths, so both header cells ask for
-                            // the same hint to land on the row columns below.
-                            Layout.preferredWidth: Kirigami.Units.gridUnit
+                            Layout.leftMargin: Kirigami.Units.largeSpacing * 2
+                            Layout.rightMargin: Kirigami.Units.largeSpacing * 2
+                            Layout.topMargin: Kirigami.Units.largeSpacing
+                            visible: defaultsMode
+                            wrapMode: Text.WordWrap
                             horizontalAlignment: Text.AlignHCenter
-                            font.bold: true
-                            text: qsTr("Variable")
+                            text: qsTr("Runtime, Prefix and Graphics Switches Are Per Game; Set Them in the Game's Settings.")
                         }
-                        Controls.Label {
-                            objectName: "envHeaderValue"
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: Kirigami.Units.gridUnit
-                            horizontalAlignment: Text.AlignHCenter
-                            font.bold: true
-                            text: qsTr("Value")
-                        }
-                        Item {
-                            Layout.preferredWidth: envRemoveProto.implicitWidth
-                        }
-                    }
-                    Controls.ScrollView {
-                        clip: true
-                        objectName: "settingsEnvRowsScroll"
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Item {
-                            width: parent.width
-                            implicitHeight: envForm.implicitHeight
-                            ColumnLayout {
-                                id: envForm
-                                objectName: "envForm"
-                                width: parent.width
-                                spacing: Kirigami.Units.smallSpacing
-                                property int currentRow: -1
-                                ListModel {
-                                    id: envModel
-                                }
-                                Controls.ToolButton {
-                                    id: envRemoveProto
-                                    visible: false
-                                    icon.name: "list-remove"
-                                    display: Controls.AbstractButton.IconOnly
-                                }
-                                Repeater {
-                                    model: envModel
-                                    delegate: RowLayout {
-                                        objectName: "envRow"
-                                        width: envForm.width
-                                        spacing: Kirigami.Units.smallSpacing
-                                        Controls.TextField {
-                                            Layout.fillWidth: true
-                                            placeholderText: qsTr("Variable")
-                                            text: key
-                                            onTextChanged: envModel.setProperty(index, "key", text)
-                                            onActiveFocusChanged: {
-                                                if (activeFocus) {
-                                                    envForm.currentRow = index
-                                                }
-                                            }
-                                        }
-                                        Controls.TextField {
-                                            Layout.fillWidth: true
-                                            placeholderText: qsTr("Value")
-                                            text: value
-                                            onTextChanged: envModel.setProperty(index, "value", text)
-                                            onActiveFocusChanged: {
-                                                if (activeFocus) {
-                                                    envForm.currentRow = index
-                                                }
-                                            }
-                                        }
-                                        Controls.ToolButton {
-                                            icon.name: "list-remove"
-                                            display: Controls.AbstractButton.IconOnly
-                                            onClicked: {
-                                                envModel.remove(index)
-                                                envForm.currentRow = -1
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                RowLayout {
-                    // Centered, in the widgets order: Add, Bulk Edit...,
-                    // Add Preset..., then the destructive Remove last.
-                    Layout.fillWidth: true
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                    Controls.Button {
-                        objectName: "envAdd"
-                        text: qsTr("Add")
-                        onClicked: {
-                            envModel.append({"key": "", "value": ""})
-                            envForm.currentRow = envModel.count - 1
-                        }
-                    }
-                    Controls.Button {
-                        objectName: "envBulk"
-                        text: qsTr("Bulk Edit...")
-                        onClicked: gameSettings.openBulk()
-                    }
-                    Controls.Button {
-                        objectName: "envPreset"
-                        text: qsTr("Add Preset...")
-                        onClicked: gameSettings.openPreset()
-                    }
-                    Controls.Button {
-                        objectName: "envRemove"
-                        text: qsTr("Remove")
-                        // Widgets: removes the table's selected row. Here the
-                        // last row whose field took focus plays that role.
-                        enabled: envForm.currentRow >= 0 && envForm.currentRow < envModel.count
-                        onClicked: {
-                            envModel.remove(envForm.currentRow)
-                            envForm.currentRow = -1
-                        }
-                    }
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                }
-                SectionBox {
-                    title: qsTr("Pre/Post Commands")
-                    Layout.fillWidth: true
-                    WidgetsFormLayout {
-                        id: ppForm
-                        Layout.fillWidth: true
-                        Controls.TextField {
-                            id: ppPre
-                            objectName: "ppPre"
-                            Layout.fillWidth: true
-                            KirigamiLayouts.FormData.label: qsTr("Pre-Launch Command:")
-                        }
-                        Controls.TextField {
-                            id: ppPreArgs
-                            objectName: "ppPreArgs"
-                            Layout.fillWidth: true
-                            KirigamiLayouts.FormData.label: qsTr("Pre-Launch Arguments:")
-                        }
-                        Controls.TextField {
-                            id: ppPost
-                            objectName: "ppPost"
-                            Layout.fillWidth: true
-                            KirigamiLayouts.FormData.label: qsTr("Post-Exit Command:")
-                        }
-                        Controls.TextField {
-                            id: ppPostArgs
-                            objectName: "ppPostArgs"
-                            Layout.fillWidth: true
-                            KirigamiLayouts.FormData.label: qsTr("Post-Exit Arguments:")
-                        }
-                        Controls.SpinBox {
-                            id: ppTimeout
-                            objectName: "ppTimeout"
-                            from: 1
-                            to: 3600
-                            KirigamiLayouts.FormData.label: qsTr("Timeout (Seconds):")
-                        }
-                        Controls.CheckBox {
-                            id: ppShell
-                            objectName: "ppShell"
-                            text: qsTr("Run in Shell (bash -c)")
-                        }
-                    }
-                }
-            }
-            Controls.ScrollView {
-                clip: true
-                objectName: "settingsWineScroll"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                // ScrollView takes its scrollable size from the content's
-                // implicitHeight; a plain Item has none, so sizing the
-                // wrapper with `height:` leaves contentHeight at -1 and the
-                // content is squeezed into the viewport (nothing scrolls).
-                Item {
-                    width: parent.width
-                    implicitHeight: defaultsMode
-                        ? defaultsRuntimeNote.implicitHeight + Kirigami.Units.largeSpacing * 4
-                        : compatColumn.implicitHeight
-                    // The whole tab is per game (runtime, prefix, layers,
-                    // verbs); a defaults template only carries launch
-                    // behaviour, so the page explains where they live.
-                    Controls.Label {
-                        id: defaultsRuntimeNote
-                        objectName: "settingsDefaultsRuntimeNote"
-                        anchors.top: parent.top
-                        anchors.topMargin: Kirigami.Units.largeSpacing * 2
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: Kirigami.Units.largeSpacing * 2
-                        anchors.rightMargin: Kirigami.Units.largeSpacing * 2
-                        visible: defaultsMode
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignHCenter
-                        text: qsTr("Runtime, Prefix and Graphics Switches Are Per Game; Set Them in the Game's Settings.")
-                    }
-                    ColumnLayout {
-                        id: compatColumn
-                        width: parent.width
-                        visible: !defaultsMode
-                        spacing: Kirigami.Units.smallSpacing
-                        // One label column for the tab, so the fields of
-                        // every section start at the same x.
-                        property real labelWidth: Math.max(runtimeForm.naturalLabelWidth,
-                                                           prefixForm.naturalLabelWidth,
-                                                           graphicsForm.naturalLabelWidth,
-                                                           debugForm.naturalLabelWidth)
                         SectionBox {
                             title: qsTr("Runtime")
+                            visible: !defaultsMode
                             Layout.fillWidth: true
                             WidgetsFormLayout {
                                 id: runtimeForm
-                                labelWidth: compatColumn.labelWidth
+                                labelWidth: executionColumn.labelWidth
                                 Layout.fillWidth: true
                                 Controls.ComboBox {
                                     id: runtimeTypeBox
@@ -2717,11 +2713,11 @@ Window {
                             Layout.fillWidth: true
                             // Steam always has a compatdata dir; local games
                             // only once a Wine/umu runtime is chosen.
-                            visible: gameSettings.wineAvailable
-                                || gameSettings.runtimeKind() !== "native"
+                            visible: !defaultsMode && (gameSettings.wineAvailable
+                                || gameSettings.runtimeKind() !== "native")
                             WidgetsFormLayout {
                                 id: prefixForm
-                                labelWidth: compatColumn.labelWidth
+                                labelWidth: executionColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2979,11 +2975,11 @@ Window {
                             Layout.fillWidth: true
                             // Only a plain Wine prefix takes the layers: umu
                             // and Proton ship their own DXVK/vkd3d.
-                            visible: !gameSettings.wineAvailable
+                            visible: !defaultsMode && !gameSettings.wineAvailable
                                 && gameSettings.runtimeKind() === "wine"
                             WidgetsFormLayout {
                                 id: graphicsForm
-                                labelWidth: compatColumn.labelWidth
+                                labelWidth: executionColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -3091,10 +3087,10 @@ Window {
                         SectionBox {
                             title: qsTr("Debug")
                             Layout.fillWidth: true
-                            visible: gameSettings.wineAvailable
+                            visible: !defaultsMode && gameSettings.wineAvailable
                             WidgetsFormLayout {
                                 id: debugForm
-                                labelWidth: compatColumn.labelWidth
+                                labelWidth: executionColumn.labelWidth
                                 Layout.fillWidth: true
                                 RowLayout {
                                     visible: editAppid !== ""
@@ -3137,6 +3133,193 @@ Window {
                                     KirigamiLayouts.FormData.label: qsTr("Wine Debug:")
                                 }
                             }
+                        }
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                SectionBox {
+                    title: qsTr("Environment Variables")
+                    fillHeight: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    RowLayout {
+                        // Widgets QTableWidget header; it lines up with the rows
+                        // below, whose third column holds the per-row remove
+                        // button (Kirigami only, hence the matching gap).
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+                        Controls.Label {
+                            objectName: "envHeaderVariable"
+                            Layout.fillWidth: true
+                            // QtQuick.Layouts splits the extra space proportionally
+                            // to the preferred widths, so both header cells ask for
+                            // the same hint to land on the row columns below.
+                            Layout.preferredWidth: Kirigami.Units.gridUnit
+                            horizontalAlignment: Text.AlignHCenter
+                            font.bold: true
+                            text: qsTr("Variable")
+                        }
+                        Controls.Label {
+                            objectName: "envHeaderValue"
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: Kirigami.Units.gridUnit
+                            horizontalAlignment: Text.AlignHCenter
+                            font.bold: true
+                            text: qsTr("Value")
+                        }
+                        Item {
+                            Layout.preferredWidth: envRemoveProto.implicitWidth
+                        }
+                    }
+                    Controls.ScrollView {
+                        clip: true
+                        objectName: "settingsEnvRowsScroll"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Item {
+                            width: parent.width
+                            implicitHeight: envForm.implicitHeight
+                            ColumnLayout {
+                                id: envForm
+                                objectName: "envForm"
+                                width: parent.width
+                                spacing: Kirigami.Units.smallSpacing
+                                property int currentRow: -1
+                                ListModel {
+                                    id: envModel
+                                }
+                                Controls.ToolButton {
+                                    id: envRemoveProto
+                                    visible: false
+                                    icon.name: "list-remove"
+                                    display: Controls.AbstractButton.IconOnly
+                                }
+                                Repeater {
+                                    model: envModel
+                                    delegate: RowLayout {
+                                        objectName: "envRow"
+                                        width: envForm.width
+                                        spacing: Kirigami.Units.smallSpacing
+                                        Controls.TextField {
+                                            Layout.fillWidth: true
+                                            placeholderText: qsTr("Variable")
+                                            text: key
+                                            onTextChanged: envModel.setProperty(index, "key", text)
+                                            onActiveFocusChanged: {
+                                                if (activeFocus) {
+                                                    envForm.currentRow = index
+                                                }
+                                            }
+                                        }
+                                        Controls.TextField {
+                                            Layout.fillWidth: true
+                                            placeholderText: qsTr("Value")
+                                            text: value
+                                            onTextChanged: envModel.setProperty(index, "value", text)
+                                            onActiveFocusChanged: {
+                                                if (activeFocus) {
+                                                    envForm.currentRow = index
+                                                }
+                                            }
+                                        }
+                                        Controls.ToolButton {
+                                            icon.name: "list-remove"
+                                            display: Controls.AbstractButton.IconOnly
+                                            onClicked: {
+                                                envModel.remove(index)
+                                                envForm.currentRow = -1
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                RowLayout {
+                    // Centered, in the widgets order: Add, Bulk Edit...,
+                    // Add Preset..., then the destructive Remove last.
+                    Layout.fillWidth: true
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                    Controls.Button {
+                        objectName: "envAdd"
+                        text: qsTr("Add")
+                        onClicked: {
+                            envModel.append({"key": "", "value": ""})
+                            envForm.currentRow = envModel.count - 1
+                        }
+                    }
+                    Controls.Button {
+                        objectName: "envBulk"
+                        text: qsTr("Bulk Edit...")
+                        onClicked: gameSettings.openBulk()
+                    }
+                    Controls.Button {
+                        objectName: "envPreset"
+                        text: qsTr("Add Preset...")
+                        onClicked: gameSettings.openPreset()
+                    }
+                    Controls.Button {
+                        objectName: "envRemove"
+                        text: qsTr("Remove")
+                        // Widgets: removes the table's selected row. Here the
+                        // last row whose field took focus plays that role.
+                        enabled: envForm.currentRow >= 0 && envForm.currentRow < envModel.count
+                        onClicked: {
+                            envModel.remove(envForm.currentRow)
+                            envForm.currentRow = -1
+                        }
+                    }
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                }
+                SectionBox {
+                    title: qsTr("Pre/Post Commands")
+                    Layout.fillWidth: true
+                    WidgetsFormLayout {
+                        id: ppForm
+                        Layout.fillWidth: true
+                        Controls.TextField {
+                            id: ppPre
+                            objectName: "ppPre"
+                            Layout.fillWidth: true
+                            KirigamiLayouts.FormData.label: qsTr("Pre-Launch Command:")
+                        }
+                        Controls.TextField {
+                            id: ppPreArgs
+                            objectName: "ppPreArgs"
+                            Layout.fillWidth: true
+                            KirigamiLayouts.FormData.label: qsTr("Pre-Launch Arguments:")
+                        }
+                        Controls.TextField {
+                            id: ppPost
+                            objectName: "ppPost"
+                            Layout.fillWidth: true
+                            KirigamiLayouts.FormData.label: qsTr("Post-Exit Command:")
+                        }
+                        Controls.TextField {
+                            id: ppPostArgs
+                            objectName: "ppPostArgs"
+                            Layout.fillWidth: true
+                            KirigamiLayouts.FormData.label: qsTr("Post-Exit Arguments:")
+                        }
+                        Controls.SpinBox {
+                            id: ppTimeout
+                            objectName: "ppTimeout"
+                            from: 1
+                            to: 3600
+                            KirigamiLayouts.FormData.label: qsTr("Timeout (Seconds):")
+                        }
+                        Controls.CheckBox {
+                            id: ppShell
+                            objectName: "ppShell"
+                            text: qsTr("Run in Shell (bash -c)")
                         }
                     }
                 }
@@ -3837,6 +4020,16 @@ Window {
             // Widgets QDialogButtonBox (GNOME/Breeze layout): the reset and
             // diff actions lead, the accept/cancel pair closes the row.
             Layout.fillWidth: true
+            Controls.Switch {
+                objectName: "settingsProfileBarToggle"
+                // The bar itself only exists per game; the template has no
+                // profiles, so the switch joins the Diff button's condition.
+                visible: !gameSettings.defaultsMode && gameSettings.editAppid !== ""
+                text: qsTr("Show Profile Bar")
+                checked: gameSettings.profileBarVisible
+                onToggled: gameSettings.setProfileBarVisible(checked)
+                Layout.alignment: Qt.AlignVCenter
+            }
             Controls.Button {
                 objectName: "diffButton"
                 // Widgets offered Diff vs Defaults for a game only: the
@@ -4142,6 +4335,14 @@ Window {
         title: qsTr("Add Categories")
         onPicked: function(names) {
             catsField.text = names.join(", ")
+        }
+    }
+
+    AgeRatingPicker {
+        id: agePicker
+        objectName: "settingsAgeRatingPicker"
+        onPicked: function(ratings) {
+            gameSettings.ageRatings = ratings
         }
     }
 

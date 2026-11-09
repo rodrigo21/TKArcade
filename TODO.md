@@ -21,6 +21,17 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   providers today. A third source (IGDB, GiantBomb, a Playnite-style
   metadata service) would need its own key, cache and provider entry in
   the Download From list, plus a decision record.
+- [ ] **Metadata download.** Fill description, developer, publisher,
+  genre, series and age rating from a provider. Steam's store
+  `appdetails` already supplies most fields for Steam games (the
+  release-date lookup uses the same API); local games need an IGDB-style
+  service and key. Needs a decision for the provider, cache and the
+  per-game Download Metadata action.
+- [ ] **ProtonDB for local games.** A local game may also exist on
+  Steam. A per-game Steam AppID (separate from the Artwork Source AppID,
+  which is art-only) would let the ProtonDB cache and the Details/table
+  badge work; needs a decision and a cache key that does not collide
+  with `local-<slug>`.
 - [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) for the local
   library import of Lutris/Playnite/Faugus file formats. The format
   import itself is still pending (only tarball, SteamTinkerLaunch and
