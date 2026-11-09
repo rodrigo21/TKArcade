@@ -53,8 +53,14 @@ COMMUNITY_CDN = (
 USER_AGENT = "tkarcade (+https://github.com/rodrigo21/TKArcade)"
 
 #: Artwork the dialog and the views ask for. `icon` is the small/square
-#: art, `cover` the portrait one, `banner` the wide one.
-ART_KINDS = ("icon", "cover", "banner")
+#: art, `cover` the portrait one, `banner` the wide one and `background`
+#: the wide backdrop, which falls back to the banner.
+ART_KINDS = ("icon", "cover", "banner", "background")
+
+#: Kinds the providers download. `background` has no asset of its own:
+#: both providers only serve the hero the banner already takes, so its
+#: resolution falls back to the banner instead of a second download.
+FETCH_KINDS = ("icon", "cover", "banner")
 
 #: Manual artwork slots per game (user-picked files, copied in).
 MANUAL_KINDS = ART_KINDS
@@ -128,7 +134,7 @@ def grid_path(appid: str, kind: str = "cover") -> Path:
     """
     base = xdg.app_cache_dir() / "grids"
     key = xdg.safe_stem(_cache_key(appid))
-    if kind not in ("icon", "banner"):
+    if kind not in ("icon", "banner", "background"):
         return base / f"{key}.png"
     return base / f"{key}-{kind}.png"
 
@@ -450,7 +456,9 @@ def cache_files(appid: str) -> list[Path]:
     key = xdg.safe_stem(_cache_key(appid))
     candidates = [base / f"{key}{ext}" for ext in _CACHE_SUFFIXES]
     candidates += [
-        base / f"{key}-{kind}{ext}" for kind in ("icon", "banner") for ext in _CACHE_SUFFIXES
+        base / f"{key}-{kind}{ext}"
+        for kind in ("icon", "banner", "background")
+        for ext in _CACHE_SUFFIXES
     ]
     candidates.append(base / f"{key}-exe.ico")
     candidates.append(base / f"{key}.json")
@@ -496,7 +504,7 @@ def cache_keys() -> set[str]:
             if not name.endswith(ext):
                 continue
             stem = name[: -len(ext)]
-            for suffix in ("-icon", "-banner", "-exe"):
+            for suffix in ("-icon", "-banner", "-background", "-exe"):
                 if stem.endswith(suffix):
                     stem = stem[: -len(suffix)]
                     break
@@ -548,7 +556,7 @@ def migrate_cache_keys() -> list[tuple[str, str]]:
 def _steam_art(appid: str, kind: str) -> Path | None:
     """Steam's locally cached art for one kind (installed games only)."""
     try:
-        if kind == "banner":
+        if kind in ("banner", "background"):
             return steammod.find_game_icon(appid, landscape=True)
         if kind == "cover":
             return steammod.find_game_icon(appid, portrait=True)
@@ -604,8 +612,14 @@ def _local_art(gid: str, kind: str, exe: str = "") -> tuple[Path | None, str]:
     # Before the per-kind cache existed, the downloaded cover was what the
     # list and the cards showed as icon. It now only fills the hole when
     # no square icon was fetched: the icon a fetch just downloaded must
-    # not lose to the cover sitting next to it.
-    names = (kind, "cover") if kind == "icon" else (kind,)
+    # not lose to the cover sitting next to it. `background` defaults to
+    # the banner art, since no provider serves a separate wide asset.
+    if kind == "icon":
+        names = (kind, "cover")
+    elif kind == "background":
+        names = (kind, "banner")
+    else:
+        names = (kind,)
     for name in names:
         cached = cached_path(gid, name)
         if cached is not None:
@@ -835,7 +849,7 @@ def _official_candidates(appid: str, kind: str, info: dict | None) -> list[str]:
 
 def fetch_official(
     appid: str,
-    kinds=ART_KINDS,
+    kinds=FETCH_KINDS,
     info: dict | None = None,
     force: bool = False,
 ) -> dict[str, Path]:
@@ -915,7 +929,7 @@ def _is_image(entry: dict) -> bool:
 def fetch_sgdb(
     appid: str,
     api_key: str,
-    kinds=ART_KINDS,
+    kinds=FETCH_KINDS,
     force: bool = False,
 ) -> tuple[dict[str, Path], str]:
     """Download community art from SteamGridDB. (paths, error token)."""
@@ -932,7 +946,7 @@ def fetch_sgdb_game(
     appid: str,
     game_id: str,
     api_key: str,
-    kinds=ART_KINDS,
+    kinds=FETCH_KINDS,
     force: bool = False,
 ) -> dict[str, Path]:
     """Download the SteamGridDB art of one game id into a game's cache.
@@ -991,7 +1005,7 @@ def fetch_by_name(
     appid: str,
     names,
     api_key: str,
-    kinds=ART_KINDS,
+    kinds=FETCH_KINDS,
     force: bool = False,
 ) -> dict:
     """Download a local game's art by name, trying each name in order.
@@ -1070,7 +1084,7 @@ def fetch_best(
     appid: str,
     provider: str = "steam",
     api_key: str = "",
-    kinds=ART_KINDS,
+    kinds=FETCH_KINDS,
     force: bool = False,
     names=(),
 ) -> dict:

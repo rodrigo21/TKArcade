@@ -231,17 +231,23 @@ presets and the pre/post commands), Performance
 (GameMode, MangoHud, RT upscaler), Display (Gamescope, monitor mode),
 System (notifications, idle suspend, network, night light, audio,
 Ludusavi saves) and Artwork/Notes. The Artwork section picks the manual
-icon/cover/banner files, an optional Artwork Source AppID (any Steam
-AppID whose art overrides the game's own), the per-game download
+icon/cover/banner/background files, an optional Artwork Source AppID (any
+Steam AppID whose art overrides the game's own), the per-game download
 provider (Steam first by default, SteamGridDB as fallback) and
 Fetch/Clear; a local game without an AppID is looked up by name on
-SteamGridDB and a stored choice keeps the same art across fetches. A
-local game whose icon slot is still empty shows the icon embedded in its
-executable, extracted once into the cache. Above the AppID row, framed
-thumbnails (icon, banner, cover, shortest first) show what the list and
-the cards draw, at the image's own size; clicking one picks that file and
-the buttons under it download an image from a URL or clear the slot,
-while the hover tooltip shows the picture larger with its origin. The
+SteamGridDB and a stored choice keeps the same art across fetches. The
+`background` slot is a wide backdrop with no download of its own: it
+falls back to the banner art when empty, and clearing it never removes
+the banner. A local game whose icon slot is still empty shows the icon
+embedded in its executable, extracted once into the cache. Above the
+AppID row, framed thumbnails (icon, banner, background, cover) show what
+the list and the cards draw, at the image's own size; a filled frame
+hugs the loaded picture with an equal margin on every side, so the art
+never touches the rounded corner, and the backdrop's preview matches the
+banner's while it has no art of its own. Clicking one picks that file
+and the buttons under it download an image from a URL or clear the slot,
+while the hover tooltip names the kind and shows the picture larger with
+its origin. The
 dialog opens at half the screen width and the full usable height. The
 footer shows the live wrapper summary and a launch-command preview. The
 chosen status also appears as a colored disc in the list and icons and a

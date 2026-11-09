@@ -376,6 +376,7 @@ class ArtworkConfig:
     icon: str = ""  # explicit per-game icon override (file path)
     cover: str = ""  # explicit per-game cover/portrait image (file path)
     banner: str = ""  # explicit per-game banner/landscape image (file path)
+    background: str = ""  # explicit per-game wide backdrop (falls back to banner)
     artwork_appid: str = ""  # Steam AppID whose art this game uses
     provider: str = ""  # "" = global preference, else steam|sgdb
 
@@ -1021,7 +1022,7 @@ SECTION_KEYS: dict[str, set[str]] = {
     "graphics": {"dxvk", "dxvk_version", "vkd3d", "vkd3d_version"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
-    "artwork": {"icon", "cover", "banner", "artwork_appid", "provider"},
+    "artwork": {"icon", "cover", "banner", "background", "artwork_appid", "provider"},
 }
 
 
@@ -1280,6 +1281,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.artwork.icon = str(art.get("icon", ""))
     cfg.artwork.cover = str(art.get("cover", ""))
     cfg.artwork.banner = str(art.get("banner", ""))
+    cfg.artwork.background = str(art.get("background", ""))
     cfg.artwork.artwork_appid = str(art.get("artwork_appid", "")).strip()
     cfg.artwork.provider = normalize_artwork_provider(art.get("provider", ""))
     rt = _section(data, "rtupscale")

@@ -139,6 +139,8 @@ def test_fetch_sgdb_picks_the_shape_per_kind(monkeypatch, xdg_env):
     assert out["icon"].name == "steam-86-icon.png"
     assert out["cover"].name == "steam-86.png"
     assert out["banner"].name == "steam-86-banner.jpg"
+    # The backdrop has no provider asset of its own: no second download.
+    assert "background" not in out
 
 
 def test_fetch_sgdb_prefers_official_style(monkeypatch, xdg_env):
@@ -243,6 +245,29 @@ def test_resolve_manual_slot_beats_everything(xdg_env, tmp_path):
     manual = art.store_manual("81", "icon", str(_image(tmp_path, "m.png")))
     assert manual is not None
     assert art.resolve("81", "icon") == (manual, "manual")
+
+
+def test_background_defaults_to_the_banner(xdg_env):
+    """No provider serves a separate wide asset: the banner answers."""
+    banner = art.grid_path("480", "banner")
+    banner.parent.mkdir(parents=True)
+    banner.write_bytes(b"B")
+    assert art.resolve("480", "background") == (banner, "cache")
+    # Its own slot is a separate cache file and wins once filled.
+    own = art.grid_path("480", "background")
+    assert own.name == "steam-480-background.png"
+    assert own not in (banner, art.grid_path("480", "cover"))
+    own.write_bytes(b"G")
+    assert art.resolve("480", "background") == (own, "cache")
+    assert own in art.cache_files("480")
+
+
+def test_background_manual_slot_is_cleared_alone(xdg_env, tmp_path):
+    manual = art.store_manual("81", "background", str(_image(tmp_path, "b.png")))
+    assert manual is not None and manual.name == "background.png"
+    assert art.resolve("81", "background") == (manual, "manual")
+    assert art.clear_manual("81", "background")
+    assert art.manual_path("81", "background") is None
 
 
 def _image(tmp_path, name):

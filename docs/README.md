@@ -55,6 +55,8 @@ What each document is for and where the source of truth lives.
 - `decisions/artwork-sources.md` — per-game artwork provider, the
   Artwork Source AppID field, local name lookup and the icon fallback
   chain.
+- `decisions/artwork-background.md` — the wide backdrop kind, its
+  banner fallback and the no-own-download rule.
 - `decisions/exe-icon.md` — the icon embedded in a local game's
   executable as the last icon fallback, extracted with `icoextract`.
 - `decisions/categories.md` — the persistent category store, the sidebar

@@ -974,6 +974,7 @@ class GameListModel(QAbstractTableModel):
             "art_icon": cfg.artwork.icon,
             "art_cover": cfg.artwork.cover,
             "art_banner": cfg.artwork.banner,
+            "art_background": cfg.artwork.background,
             "art_source": cfg.artwork.artwork_appid,
             "art_provider": cfg.artwork.provider,
             "notes": cfg.notes.text,
@@ -1261,6 +1262,7 @@ class GameListModel(QAbstractTableModel):
         cfg.artwork.icon = str(data.get("art_icon", "")).strip()
         cfg.artwork.cover = str(data.get("art_cover", "")).strip()
         cfg.artwork.banner = str(data.get("art_banner", "")).strip()
+        cfg.artwork.background = str(data.get("art_background", "")).strip()
         cfg.artwork.artwork_appid = str(data.get("art_source", "")).strip()
         cfg.artwork.provider = cfgmod.normalize_artwork_provider(data.get("art_provider", ""))
         cfg.notes.text = str(data.get("notes", ""))
@@ -2122,8 +2124,12 @@ class GameListModel(QAbstractTableModel):
             provider = artmod.provider_for(gid, kind)
         if not provider:
             # The icon falls back to the cached cover, whose provider is
-            # recorded under its own kind.
-            provider = artmod.provider_for(gid, "cover") if kind == "icon" else ""
+            # recorded under its own kind; the background falls back to
+            # the banner the same way.
+            if kind == "icon":
+                provider = artmod.provider_for(gid, "cover")
+            elif kind == "background":
+                provider = artmod.provider_for(gid, "banner")
         return f"cache:{provider}" if provider in artmod.PROVIDERS else "cache"
 
     @Slot(str, str, result=str)

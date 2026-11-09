@@ -21,7 +21,7 @@ Window {
                 ? qsTr("Game Settings — %1 (%2)").arg(loadedName).arg(editAppid)
                 : qsTr("Game Settings (%1)").arg(editAppid)))
     modality: Qt.WindowModal
-    minimumWidth: Kirigami.Units.gridUnit * 34
+    minimumWidth: Kirigami.Units.gridUnit * 37
     minimumHeight: Kirigami.Units.gridUnit * 30
     // Fallback size until `fitToScreen` runs on open (a Window has no
     // screen when its bindings are first evaluated).
@@ -126,9 +126,11 @@ Window {
     property string artPreviewIcon: ""
     property string artPreviewCover: ""
     property string artPreviewBanner: ""
+    property string artPreviewBackground: ""
     property string artOriginIcon: ""
     property string artOriginCover: ""
     property string artOriginBanner: ""
+    property string artOriginBackground: ""
     // Kind of the URL prompt currently open.
     property string artUrlKind: ""
     // One width for every button in the Artwork section (and the matching
@@ -877,6 +879,7 @@ Window {
             "art_icon": gameModel.artworkPath(editAppid, "icon"),
             "art_cover": gameModel.artworkPath(editAppid, "cover"),
             "art_banner": gameModel.artworkPath(editAppid, "banner"),
+            "art_background": gameModel.artworkPath(editAppid, "background"),
             "art_source": artSourceField.text,
             "art_provider": String(artProviderCombo.currentValue || ""),
             "notes": notesArea.text,
@@ -1347,7 +1350,8 @@ Window {
         var titles = {
             "icon": qsTr("Icon Image"),
             "cover": qsTr("Cover Image"),
-            "banner": qsTr("Banner Image")
+            "banner": qsTr("Banner Image"),
+            "background": qsTr("Background Image")
         }
         pendingBrowse = "art:" + kind
         gameModel.pickPath(titles[kind], qsTr("Select"))
@@ -1419,7 +1423,7 @@ Window {
         artStatusLabel.text = (messages[token] || "") + providerSuffix(provider)
     }
 
-    // Thumbnails of the three slots as the list and the cards will draw
+    // Thumbnails of the four slots as the list and the cards will draw
     // them: the manual file, the downloaded cache, Steam's own art or the
     // local executable's icon. Nothing to show for an unsaved game.
     function refreshArtPreviews() {
@@ -1427,18 +1431,22 @@ Window {
             artPreviewIcon = ""
             artPreviewCover = ""
             artPreviewBanner = ""
+            artPreviewBackground = ""
             artOriginIcon = ""
             artOriginCover = ""
             artOriginBanner = ""
+            artOriginBackground = ""
             return
         }
         var draft = artSourceField.text
         artPreviewIcon = gameModel.artworkPreview(editAppid, "icon", draft)
         artPreviewCover = gameModel.artworkPreview(editAppid, "cover", draft)
         artPreviewBanner = gameModel.artworkPreview(editAppid, "banner", draft)
+        artPreviewBackground = gameModel.artworkPreview(editAppid, "background", draft)
         artOriginIcon = gameModel.artworkOrigin(editAppid, "icon", draft)
         artOriginCover = gameModel.artworkOrigin(editAppid, "cover", draft)
         artOriginBanner = gameModel.artworkOrigin(editAppid, "banner", draft)
+        artOriginBackground = gameModel.artworkOrigin(editAppid, "background", draft)
     }
 
     function providerSuffix(provider) {
@@ -3792,23 +3800,30 @@ Window {
                         SectionBox {
                             title: qsTr("Artwork")
                             Layout.fillWidth: true
-                            WidgetsFormLayout {
-                                labelWidth: artColumn.labelWidth
-                                id: artForm
+                            // The preview strip spans the section, outside
+                            // the form's label column: four boxes need the
+                            // whole width. The tile is also the picker; the
+                            // group is centered between two spacers.
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                // What the list, the cards and the menu
-                                // actually draw, shortest to tallest: the
-                                // tile is also the picker.
+                                spacing: Kirigami.Units.smallSpacing
+                                Controls.Label {
+                                    text: qsTr("Previews:")
+                                }
                                 RowLayout {
+                                    objectName: "artPreviewStrip"
                                     Layout.fillWidth: true
                                     spacing: Kirigami.Units.largeSpacing
-                                    KirigamiLayouts.FormData.label: qsTr("Previews:")
+                                    Item {
+                                        Layout.fillWidth: true
+                                    }
                                     ArtworkPreview {
                                         objectName: "artPreviewIcon"
+                                        artLabel: qsTr("Icon")
                                         artUrl: gameSettings.artPreviewIcon
                                         artOrigin: gameSettings.artOriginIcon
                                         artRatio: 1
-                                        maxWidth: Kirigami.Units.gridUnit * 2.7
+                                        maxWidth: Kirigami.Units.gridUnit * 2.5
                                         Layout.alignment: Qt.AlignBottom
                                         onPicked: gameSettings.pickArtwork("icon")
                                         onUrlRequested: gameSettings.openArtworkUrl("icon")
@@ -3816,6 +3831,7 @@ Window {
                                     }
                                     ArtworkPreview {
                                         objectName: "artPreviewBanner"
+                                        artLabel: qsTr("Banner")
                                         artUrl: gameSettings.artPreviewBanner
                                         artOrigin: gameSettings.artOriginBanner
                                         artRatio: 460 / 215
@@ -3826,11 +3842,26 @@ Window {
                                         onClearRequested: gameSettings.clearArtwork("banner")
                                     }
                                     ArtworkPreview {
+                                        objectName: "artPreviewBackground"
+                                        artLabel: qsTr("Background")
+                                        artUrl: gameSettings.artPreviewBackground
+                                        artOrigin: gameSettings.artOriginBackground
+                                        // The backdrop starts as a copy of
+                                        // the banner: same preview box.
+                                        artRatio: 460 / 215
+                                        maxWidth: Kirigami.Units.gridUnit * 12
+                                        Layout.alignment: Qt.AlignBottom
+                                        onPicked: gameSettings.pickArtwork("background")
+                                        onUrlRequested: gameSettings.openArtworkUrl("background")
+                                        onClearRequested: gameSettings.clearArtwork("background")
+                                    }
+                                    ArtworkPreview {
                                         objectName: "artPreviewCover"
+                                        artLabel: qsTr("Cover")
                                         artUrl: gameSettings.artPreviewCover
                                         artOrigin: gameSettings.artOriginCover
                                         artRatio: 2 / 3
-                                        maxWidth: Kirigami.Units.gridUnit * 6
+                                        maxWidth: Kirigami.Units.gridUnit * 5
                                         Layout.alignment: Qt.AlignBottom
                                         onPicked: gameSettings.pickArtwork("cover")
                                         onUrlRequested: gameSettings.openArtworkUrl("cover")
@@ -3840,6 +3871,11 @@ Window {
                                         Layout.fillWidth: true
                                     }
                                 }
+                            }
+                            WidgetsFormLayout {
+                                labelWidth: artColumn.labelWidth
+                                id: artForm
+                                Layout.fillWidth: true
                                 RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Artwork Source AppID:")

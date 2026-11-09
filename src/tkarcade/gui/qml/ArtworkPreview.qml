@@ -1,9 +1,9 @@
 // One artwork thumbnail in the game dialog: what the views draw for that
-// slot, inside a fixed frame of the kind's shape so the gaps between the
-// previews stay equal. The picture is drawn at its own size (never
-// upscaled, never cropped). Clicking it picks a file; the two buttons
-// below open the URL prompt and clear the slot; hovering shows the whole
-// picture with its origin.
+// slot, inside a frame that hugs the loaded picture with an equal margin
+// on every side, so the art never touches the rounded corner. The picture
+// is drawn at its own size (never upscaled, never cropped). Clicking it
+// picks a file; the two buttons below open the URL prompt and clear the
+// slot; hovering shows the whole picture with its origin.
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
@@ -15,12 +15,47 @@ ColumnLayout {
     property string artUrl: ""
     // Token from gameModel.artworkOrigin: manual, steam, exe, cache:…
     property string artOrigin: ""
-    // Shapes the views use: 1 icon, 2/3 cover, ~2.14 banner.
+    // What the slot draws ("Icon", "Banner"…): names the tooltip's art.
+    property string artLabel: ""
+    // Slot shape, used while the slot is empty: 1 icon, 2/3 cover,
+    // ~2.14 banner, ~3.1 background.
     property real artRatio: 1
-    // Frame size for this kind; the picture never grows past it.
+    // Box this kind allows; the frame never grows past it.
     property real maxWidth: Kirigami.Units.gridUnit * 2.7
     readonly property real maxHeight: maxWidth / artRatio
     readonly property bool filled: artUrl !== ""
+
+    // Aspect of the loaded picture: the slot shape while empty or before
+    // the asynchronous load reports its size, the picture's own after.
+    readonly property real sourceRatio: {
+        var w = picture.implicitWidth
+        var h = picture.implicitHeight
+        return w > 0 && h > 0 ? w / h : artRatio
+    }
+    // Small margin between the art and the frame edge, on every side.
+    readonly property real framePadding: Kirigami.Units.smallSpacing
+    // Filled: the picture plus an equal margin all around, capped by the
+    // kind's box. Empty: the kind's shape.
+    readonly property real frameWidth: {
+        if (!filled) {
+            return Math.round(maxWidth)
+        }
+        var pad = framePadding * 2
+        var ratio = sourceRatio > 0 ? sourceRatio : 1
+        var w = Math.max(1, maxWidth - pad)
+        if (w / ratio > maxHeight - pad) {
+            w = Math.max(1, (maxHeight - pad) * ratio)
+        }
+        return Math.round(w + pad)
+    }
+    readonly property real frameHeight: {
+        if (!filled) {
+            return Math.round(maxHeight)
+        }
+        var pad = framePadding * 2
+        var ratio = sourceRatio > 0 ? sourceRatio : 1
+        return Math.round((frameWidth - pad) / ratio + pad)
+    }
 
     signal picked()
     signal urlRequested()
@@ -28,15 +63,19 @@ ColumnLayout {
 
     spacing: Kirigami.Units.smallSpacing
 
-    // The picture keeps its own pixels, capped by the frame: a 16x16
-    // icon stays 16x16 inside the frame instead of being stretched.
+    // The picture keeps its own pixels, capped by the frame inside an
+    // equal margin: a 16x16 icon stays 16x16 instead of being stretched.
     readonly property size pictureSize: {
         var w = preview.filled ? picture.implicitWidth : 0
         var h = preview.filled ? picture.implicitHeight : 0
         if (w <= 0 || h <= 0) {
             return Qt.size(0, 0)
         }
-        var scale = Math.min(1, (maxWidth - 4) / w, (maxHeight - 4) / h)
+        var pad = framePadding * 2
+        var scale = Math.min(
+            1,
+            Math.max(0, frameWidth - pad) / w,
+            Math.max(0, frameHeight - pad) / h)
         return Qt.size(Math.round(w * scale), Math.round(h * scale))
     }
 
@@ -57,16 +96,14 @@ ColumnLayout {
     Item {
         id: frame
         objectName: "artPreviewFrame"
-        implicitWidth: Math.round(preview.maxWidth)
-        implicitHeight: Math.round(preview.maxHeight)
+        implicitWidth: preview.frameWidth
+        implicitHeight: preview.frameHeight
         Layout.alignment: Qt.AlignHCenter
 
         Rectangle {
             anchors.fill: parent
             radius: Kirigami.Units.smallSpacing
             color: Kirigami.Theme.alternateBackgroundColor
-            border.width: 1
-            border.color: Kirigami.Theme.disabledTextColor
         }
         Image {
             id: picture
@@ -77,6 +114,14 @@ ColumnLayout {
             source: preview.artUrl
             fillMode: Image.PreserveAspectFit
             asynchronous: true
+        }
+        // The picture fills the frame now, so the outline is drawn over it.
+        Rectangle {
+            anchors.fill: parent
+            radius: Kirigami.Units.smallSpacing
+            color: "transparent"
+            border.width: 1
+            border.color: Kirigami.Theme.disabledTextColor
         }
         HoverHandler {
             id: hover
@@ -143,6 +188,15 @@ ColumnLayout {
         visible: hover.hovered
         contentItem: ColumnLayout {
             spacing: Kirigami.Units.smallSpacing
+            // Names the kind at the tooltip's top-left corner: the picture
+            // alone does not say which slot it belongs to.
+            Controls.Label {
+                objectName: "artPreviewKind"
+                Layout.fillWidth: true
+                font: Kirigami.Theme.smallFont
+                opacity: 0.8
+                text: preview.artLabel
+            }
             // The Image reports its source size as implicit size, which
             // would size the popup to the full artwork; the wrapper gives
             // the layout the size the picture is really drawn at.

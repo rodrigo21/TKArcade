@@ -6,6 +6,12 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- A fourth artwork kind, `background` (`[artwork] background`): a wide
+  backdrop with its own picker, cache file and Artwork-tab preview
+  (icon, banner, background, cover). It downloads nothing of its own and
+  falls back to the banner art, so both previews match until it has art
+  of its own; a filled frame hugs the loaded picture with an equal margin
+  on every side. Clearing it never removes the banner.
 - The game dialog's Details tab carries manual metadata in
   `[metadata]`: description, developer, publisher, genre, series, age
   ratings, region and status. Age ratings are a checklist: CERO, ClassInd,

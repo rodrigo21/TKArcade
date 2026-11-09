@@ -13,10 +13,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   source (Steam, Local); a second store needs its own scan, a per-source
   import flow for a whole library and a decision record. The removed
   Scan dialog is the shape a per-source batch import can come back in.
-- [ ] **Fourth artwork kind (background/fanart).** A wide backdrop for
-  the game dialog/page: new entry in `artwork.ART_KINDS`, its cache name,
-  provider fetch, manual slot and one more preview tile in the Artwork
-  tab (the row already sizes each kind by its own box).
 - [ ] **Other artwork sources.** Steam's CDN and SteamGridDB are the only
   providers today. A third source (IGDB, GiantBomb, a Playnite-style
   metadata service) would need its own key, cache and provider entry in

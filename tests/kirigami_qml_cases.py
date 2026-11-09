@@ -2866,37 +2866,77 @@ def test_artwork_previews_show_the_effective_art(qgui_app, xdg_env):
 
     icon_tile = swin.findChild(QQuickItem, "artPreviewIcon")
     banner = swin.findChild(QQuickItem, "artPreviewBanner")
+    background = swin.findChild(QQuickItem, "artPreviewBackground")
     cover = swin.findChild(QQuickItem, "artPreviewCover")
-    assert icon_tile is not None and banner is not None and cover is not None
+    assert (
+        icon_tile is not None
+        and banner is not None
+        and background is not None
+        and cover is not None
+    )
     url = icon_tile.property("artUrl")
     assert url.startswith("file://") and str(icon) in url and "?v=" in url, url
-    # Shortest to tallest: icon, banner, cover.
-    assert icon_tile.property("x") < banner.property("x") < cover.property("x")
+    # The backdrop defaults to the banner art.
+    assert background.property("artUrl") == banner.property("artUrl")
+    # Left to right: icon, banner, background, cover.
+    assert (
+        icon_tile.property("x")
+        < banner.property("x")
+        < background.property("x")
+        < cover.property("x")
+    )
     # Frames keep the kind's box; a tiny picture is not stretched inside.
     frame = icon_tile.findChild(QQuickItem, "artPreviewFrame")
     icon_image = icon_tile.findChild(QQuickItem, "artPreviewImage")
     assert round(frame.property("width")) == round(icon_tile.property("width"))
-    assert 48 <= round(frame.property("width")) <= 50
+    assert 44 <= round(frame.property("width")) <= 46
     assert round(icon_image.property("width")) == 16
     assert round(icon_image.property("height")) == 16
-    # Banner 12x~5.6 and cover 6x9 grid units.
+    # Filled frames hug the picture with an equal margin all around: the
+    # banner box shrinks a little from its 12-grid-unit cap.
     banner_frame = banner.findChild(QQuickItem, "artPreviewFrame")
-    assert round(banner_frame.property("width")) == 216
+    assert 200 <= round(banner_frame.property("width")) <= 216
+    assert round(banner_frame.property("height")) == 101
+    background_frame = background.findChild(QQuickItem, "artPreviewFrame")
+    assert round(background_frame.property("width")) == round(banner_frame.property("width"))
+    assert round(background_frame.property("height")) == round(banner_frame.property("height"))
     cover_frame = cover.findChild(QQuickItem, "artPreviewFrame")
-    assert round(cover_frame.property("width")) == 108
-    assert round(cover_frame.property("height")) == 162
+    assert round(cover_frame.property("width")) == 90
+    assert 128 <= round(cover_frame.property("height")) <= 133
     assert cover.property("height") > cover_frame.property("height")
+
+    def art_margins(tile, frame_item):
+        image = tile.findChild(QQuickItem, "artPreviewImage")
+        return (
+            (frame_item.property("width") - image.property("width")) / 2,
+            (frame_item.property("height") - image.property("height")) / 2,
+        )
+
+    margin_x, margin_y = art_margins(banner, banner_frame)
+    assert abs(margin_x - margin_y) <= 1, (margin_x, margin_y)
+    assert margin_x >= 2, margin_x
     # Equal gaps: every column is exactly its frame, so the spacing is
-    # the same between all three previews.
+    # the same between all four previews.
     gap_one = banner.property("x") - (icon_tile.property("x") + icon_tile.property("width"))
-    gap_two = cover.property("x") - (banner.property("x") + banner.property("width"))
-    assert abs(gap_one - gap_two) <= 1, (gap_one, gap_two)
+    gap_two = background.property("x") - (banner.property("x") + banner.property("width"))
+    gap_three = cover.property("x") - (background.property("x") + background.property("width"))
+    assert abs(gap_one - gap_two) <= 1 and abs(gap_two - gap_three) <= 1, (
+        gap_one,
+        gap_two,
+        gap_three,
+    )
     assert gap_one >= 8, gap_one
+    # The group is centered: equal room before the icon and after the cover.
+    strip = swin.findChild(QQuickItem, "artPreviewStrip")
+    left_room = icon_tile.property("x")
+    right_room = strip.property("width") - (cover.property("x") + cover.property("width"))
+    assert abs(left_room - right_room) <= 2, (left_room, right_room)
 
     # Origin travels with the preview (the cache here has no provider
     # sidecar, so it is plain downloaded art).
     assert icon_tile.property("artOrigin") == "cache"
     assert banner.property("artOrigin") == "cache"
+    assert background.property("artOrigin") == "cache"
 
     # Clicking a tile is the picker; the clear X only exists when filled.
     picked = []
@@ -2955,6 +2995,25 @@ def test_artwork_previews_show_the_effective_art(qgui_app, xdg_env):
     assert round(box.property("implicitHeight")) == round(zoom.property("height"))
     tip = banner.findChild(QObject, "artPreviewTip")
     assert zoom.property("height") < tip.property("height") < zoom.property("height") + 100
+    # The tooltip names the kind at its top-left corner.
+    kind = banner.findChild(QObject, "artPreviewKind")
+    assert kind.property("text") == "Banner", kind.property("text")
+
+    # A backdrop of its own keeps the kind box but hugs the picture: the
+    # 3.1:1 file drops the frame to its aspect plus the margin.
+    own = artwork.grid_path("local-doom", "background")
+    own_image = QImage(620, 200, QImage.Format_ARGB32)
+    own_image.fill(0xFF339966)
+    assert own_image.save(str(own))
+    swin.refreshArtPreviews()
+    QTest.qWait(50)
+    assert background.property("artUrl") != banner.property("artUrl")
+    assert round(background_frame.property("width")) == 216
+    assert 73 <= round(background_frame.property("height")) <= 77
+    assert round(banner_frame.property("height")) == 101
+    own_margin_x, own_margin_y = art_margins(background, background_frame)
+    assert abs(own_margin_x - own_margin_y) <= 1, (own_margin_x, own_margin_y)
+    assert own_margin_x >= 2, own_margin_x
 
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
