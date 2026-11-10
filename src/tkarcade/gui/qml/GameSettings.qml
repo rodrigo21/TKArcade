@@ -2080,24 +2080,34 @@ Window {
             objectName: "settingsStack"
             currentIndex: tabBar.currentIndex
             Controls.ScrollView {
+                id: generalScroll
                 clip: true
                 objectName: "settingsGeneralScroll"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                // The page must not size the tab from its content: the
+                // viewport height below would then feed back into the
+                // layout that allocates it.
+                implicitHeight: 0
                 // ScrollView takes its scrollable size from the content's
                 // implicitHeight; a plain Item has none, so sizing the
                 // wrapper with `height:` leaves contentHeight at -1 and the
                 // content is squeezed into the viewport (nothing scrolls).
                 Item {
                     width: parent.width
-                    implicitHeight: generalColumn.implicitHeight
+                    // At least the viewport, so the Description field can
+                    // stretch and shrink with the window instead of leaving
+                    // an empty band below the sections.
+                    implicitHeight: Math.max(generalColumn.implicitHeight, generalScroll.height)
                     ColumnLayout {
                         id: generalColumn
                         // One label column for the tab, so the fields of every
                         // section start at the same x.
                         property real labelWidth: Math.max(generalForm.naturalLabelWidth,
-                                                           infoForm.naturalLabelWidth)
+                                                           infoForm.naturalLabelWidth,
+                                                           Math.ceil(descriptionLabel.implicitWidth))
                         width: parent.width
+                        height: parent.height
                         spacing: Kirigami.Units.smallSpacing
                         SectionBox {
                             title: qsTr("Game")
@@ -2233,6 +2243,10 @@ Window {
                             objectName: "settingsInformation"
                             title: qsTr("Information")
                             Layout.fillWidth: true
+                            // The Description field takes the space the other
+                            // sections leave, so it stretches with the window.
+                            Layout.fillHeight: true
+                            fillHeight: true
                             visible: !defaultsMode
                             WidgetsFormLayout {
                                 id: infoForm
@@ -2315,14 +2329,43 @@ Window {
                                     ]
                                     KirigamiLayouts.FormData.label: qsTr("Status:")
                                 }
-                                Controls.TextArea {
-                                    id: descriptionArea
-                                    objectName: "settingsDescription"
-                                    placeholderText: qsTr("Synopsis or Description…")
-                                    wrapMode: Text.WordWrap
+                            }
+                            // Same label column and gap as the form rows; the
+                            // FormLayout cannot stretch one of its rows, so the
+                            // description lives beside the form instead.
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: Kirigami.Units.largeSpacing
+                                Kirigami.Heading {
+                                    id: descriptionLabel
+                                    Layout.preferredWidth: generalColumn.labelWidth
+                                    Layout.alignment: Qt.AlignTop
+                                    horizontalAlignment: Text.AlignRight
+                                    type: Kirigami.Heading.Type.Normal
+                                    level: 5
+                                    text: qsTr("Description:")
+                                }
+                                Controls.ScrollView {
+                                    id: descriptionScroll
+                                    objectName: "settingsDescriptionScroll"
                                     Layout.fillWidth: true
-                                    implicitHeight: Kirigami.Units.gridUnit * 6
-                                    KirigamiLayouts.FormData.label: qsTr("Description:")
+                                    Layout.fillHeight: true
+                                    // Five lines is the floor: the box takes the
+                                    // rest of the tab and shrinks back to it.
+                                    Layout.preferredHeight: Kirigami.Units.gridUnit * 5
+                                    Layout.minimumHeight: Kirigami.Units.gridUnit * 5
+                                    // The wrapped text is never the box's
+                                    // implicit height: that would feed the
+                                    // tab's own content height back in.
+                                    implicitHeight: 0
+                                    clip: true
+                                    Controls.TextArea {
+                                        id: descriptionArea
+                                        objectName: "settingsDescription"
+                                        placeholderText: qsTr("Synopsis or Description…")
+                                        wrapMode: Text.WordWrap
+                                    }
                                 }
                             }
                         }

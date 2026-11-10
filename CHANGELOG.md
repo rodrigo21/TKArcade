@@ -362,6 +362,9 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The Description box on the Details tab no longer clips long text: it
+  fills the space the other sections leave, shrinks to five lines with
+  the window and scrolls the rest inside its own frame.
 - Combo box popups are as wide as their field instead of shrinking to the
   longest item, so the list lines up with the control on every dialog.
 - The library's Wine column shows the compat tool name only. A

@@ -231,7 +231,10 @@ vkd3d layers, Proton debug switches), Commands (variables, curated
 presets and the pre/post commands), Performance
 (GameMode, MangoHud, RT upscaler), Display (Gamescope, monitor mode),
 System (notifications, idle suspend, network, night light, audio,
-Ludusavi saves) and Artwork/Notes. The Artwork section picks the manual
+Ludusavi saves) and Artwork/Notes. The Description box on Details
+fills the space the other sections leave, shrinks to five lines with
+the window and scrolls longer text inside its frame. The Artwork
+section picks the manual
 icon/cover/banner/background files, an optional Artwork Source AppID (any
 Steam AppID whose art overrides the game's own), the per-game download
 provider (Steam first by default, SteamGridDB as fallback) and

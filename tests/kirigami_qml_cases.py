@@ -7180,6 +7180,49 @@ def test_settings_local_steam_appid_and_protondb(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_description_box_stretches_with_the_window(qgui_app, xdg_env):
+    """Details keeps Description in Information: elastic, scrolls inside."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    _save_one_game("local-doom", "Doom")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    area = swin.findChild(QQuickItem, "settingsDescription")
+    scroll = swin.findChild(QQuickItem, "settingsDescriptionScroll")
+    tab = swin.findChild(QQuickItem, "settingsGeneralScroll")
+    developer = swin.findChild(QQuickItem, "settingsDeveloper")
+    assert area is not None and scroll is not None and tab is not None
+    assert area.property("width") <= scroll.property("availableWidth") + 1
+    # The field starts in the form's field column, not before the labels.
+    root = swin.contentItem()
+    assert abs(area.mapToItem(root, 0, 0).x() - developer.mapToItem(root, 0, 0).x()) <= 1
+    # Long text scrolls inside the field and never grows the tab.
+    area.setProperty("text", "\n".join(f"Line {i}" for i in range(60)))
+    QTest.qWait(150)
+    assert scroll.property("contentHeight") > scroll.property("height")
+    assert tab.property("contentHeight") <= tab.property("height") + 1
+    # The box follows the window height, down to a five-line floor
+    # (the dialog is 30 grid units tall at its minimum).
+    minimum = int(swin.property("minimumHeight"))
+    unit = minimum / 30.0
+    swin.setProperty("height", minimum + 20)
+    QTest.qWait(150)
+    short = scroll.property("height")
+    assert short + 1 >= 5 * unit
+    swin.setProperty("height", minimum + 500)
+    QTest.qWait(150)
+    assert scroll.property("height") > short + 100
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_age_rating_picker_default_boards(qgui_app, xdg_env):
     """Primary boards stay alphabetical; the rest hide behind one row."""
     from PySide6.QtCore import QMetaObject, QObject, QPointF
