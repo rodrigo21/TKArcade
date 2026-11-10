@@ -57,6 +57,9 @@ Window {
     property string protonDBTier: ""
     property string protonDBBg: ""
     property string protonDBFg: ""
+    // Download Metadata runs off-thread; the status line reports the result.
+    property bool metadataBusy: false
+    property string metadataStatus: ""
     // Age ratings are a fixed-board checklist, stored as a list.
     property var ageRatings: []
     // Wine/Proton only mean something for a Steam id (or the defaults
@@ -766,6 +769,8 @@ Window {
         regionBox.currentIndex = Math.max(0, regionBox.indexOfValue(f.region || ""))
         gameStatusBox.currentIndex = Math.max(0, gameStatusBox.indexOfValue(f.status || ""))
         steamAppIdField.text = f.steam_appid || ""
+        metadataBusy = false
+        metadataStatus = ""
         refreshProtonDB()
         artSourceField.text = f.art_source || ""
         var prefs = gameModel.loadPrefs()
@@ -1610,6 +1615,58 @@ Window {
         protonDBFg = info.fg || ""
     }
 
+    function downloadMetadata() {
+        if (metadataBusy || editAppid === "") {
+            return
+        }
+        metadataBusy = true
+        metadataStatus = qsTr("Downloading…")
+        gameModel.fetchMetadata(editAppid, steamAppIdField.text)
+    }
+
+    // Download Metadata only completes empty fields, so a typed synopsis or
+    // studio name is never replaced by the store answer.
+    function applyMetadata(data) {
+        metadataBusy = false
+        var fieldsByKey = {
+            "description": descriptionArea,
+            "developer": developerField,
+            "publisher": publisherField,
+            "genre": genreField,
+            "series": seriesField
+        }
+        var provided = 0
+        var filled = 0
+        for (var key in fieldsByKey) {
+            var text = String(data[key] || "")
+            if (text === "") {
+                continue
+            }
+            provided++
+            if (fieldsByKey[key].text === "") {
+                fieldsByKey[key].text = text
+                filled++
+            }
+        }
+        var ratings = data.age_ratings || []
+        if (ratings.length > 0) {
+            provided++
+            if (ageRatings.length === 0) {
+                ageRatings = ratings.slice()
+                filled++
+            }
+        }
+        if (provided === 0) {
+            metadataStatus = qsTr("No Metadata Found.")
+        } else if (filled === 0) {
+            metadataStatus = qsTr("Nothing to Fill.")
+        } else if (filled < provided) {
+            metadataStatus = qsTr("Loaded; Typed Fields Kept.")
+        } else {
+            metadataStatus = qsTr("Metadata Loaded.")
+        }
+    }
+
     function refreshPreview() {
         var res = gameModel.previewCommand(editAppid, collect())
         var lines = [res.command]
@@ -1864,6 +1921,11 @@ Window {
         function onArtworkFetched(appid, status, provider) {
             if (appid === editAppid) {
                 showFetchResult(status, provider)
+            }
+        }
+        function onMetadataFetched(appid, data) {
+            if (appid === editAppid) {
+                applyMetadata(data || {})
             }
         }
         // The name matched several SteamGridDB entries: ask which one.
@@ -2186,16 +2248,29 @@ Window {
                                         onClicked: gameSettings.openCatsPicker()
                                     }
                                 }
+                                Controls.TextField {
+                                    id: steamAppIdField
+                                    objectName: "settingsSteamAppId"
+                                    // Store link of a local game that also
+                                    // exists on Steam; a Steam ID derives
+                                    // its own AppID.
+                                    visible: !(fields.is_steam || false)
+                                    placeholderText: qsTr("Steam AppID (Optional)")
+                                    Layout.fillWidth: true
+                                    onEditingFinished: gameSettings.refreshProtonDB()
+                                    Controls.ToolTip.text: qsTr("Steam AppID of This Game on the Steam Store. Used by the ProtonDB Rating and Download Metadata; Artwork Keeps Its Own Source AppID.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("Steam AppID:")
+                                }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("ProtonDB:")
                                     Controls.Button {
                                         objectName: "settingsProtonDB"
                                         enabled: (fields.is_steam || false) || steamAppIdField.text !== ""
-                                        Layout.alignment: Qt.AlignLeft
+                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
                                         Layout.minimumWidth: Kirigami.Units.gridUnit * 7
                                         Layout.maximumWidth: Kirigami.Units.gridUnit * 10
-                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
                                         text: gameSettings.protonDBTier !== ""
                                             ? gameSettings.protonDBTier : qsTr("Not Rated")
                                         font.bold: gameSettings.protonDBTier !== ""
@@ -2223,18 +2298,25 @@ Window {
                                         Controls.ToolTip.text: qsTr("Open ProtonDB Page")
                                         Controls.ToolTip.visible: hovered
                                     }
-                                    Controls.TextField {
-                                        id: steamAppIdField
-                                        objectName: "settingsSteamAppId"
-                                        // Store link of a local game that also
-                                        // exists on Steam; a Steam ID derives
-                                        // its own AppID.
-                                        visible: !defaultsMode && !(fields.is_steam || false)
-                                        placeholderText: qsTr("Steam AppID (Optional)")
-                                        Layout.fillWidth: true
-                                        onEditingFinished: gameSettings.refreshProtonDB()
-                                        Controls.ToolTip.text: qsTr("Steam AppID of This Game on the Steam Store. Used by the ProtonDB Badge; Artwork Keeps Its Own Source AppID.")
+                                    Controls.Button {
+                                        objectName: "settingsMetadataFetch"
+                                        text: qsTr("Download Metadata")
+                                        enabled: !gameSettings.metadataBusy
+                                            && ((fields.is_steam || false) || steamAppIdField.text !== "")
+                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
+                                        onClicked: gameSettings.downloadMetadata()
+                                        Controls.ToolTip.text: qsTr("Fill Empty Fields from the Steam Store")
                                         Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Label {
+                                        objectName: "settingsMetadataStatus"
+                                        Layout.fillWidth: true
+                                        opacity: 0.7
+                                        elide: Text.ElideRight
+                                        text: gameSettings.metadataStatus !== ""
+                                            ? gameSettings.metadataStatus
+                                            : ((!(fields.is_steam || false) && steamAppIdField.text === "")
+                                                ? qsTr("Needs a Steam AppID.") : "")
                                     }
                                 }
                             }

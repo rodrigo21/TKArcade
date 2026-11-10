@@ -1046,6 +1046,35 @@ def test_local_steam_link_reaches_the_tier_and_the_page(qgui_app, xdg_env, monke
     assert model.contextActions("local-doom")["protondb_appid"] == "620"
 
 
+def test_fetch_metadata_targets_the_store_link(qgui_app, xdg_env, monkeypatch):
+    from tkarcade.gui import model as M
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.metadata.steam_appid = "620"
+    C.save(cfg)
+    model = M.GameListModel()
+    got = []
+    model.metadataFetched.connect(lambda appid, data: got.append((appid, data)))
+    calls = []
+    monkeypatch.setattr(
+        M.metamod, "cached", lambda appid, target="": calls.append((appid, target)) or (None, False)
+    )
+    monkeypatch.setattr(
+        M.metamod,
+        "refresh",
+        lambda appid, target="": {"description": "Portal", "developer": "Valve"},
+    )
+    model._metadata_worker("local-doom", model._steam_target("local-doom"))
+    assert calls == [("local-doom", "620")]
+    assert got == [("local-doom", {"description": "Portal", "developer": "Valve"})]
+
+    # No Steam AppID: the dialog is told at once, without a worker.
+    got.clear()
+    model.fetchMetadata("local-other", "")
+    assert got == [("local-other", {})]
+
+
 def test_settings_create_and_profiles(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

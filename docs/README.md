@@ -90,3 +90,5 @@ What each document is for and where the source of truth lives.
 - `decisions/protondb-local-games.md` — a local game's optional Steam
   store AppID for the ProtonDB rating, and the per-game cache key with
   its recorded target.
+- `decisions/metadata-download.md` — the Download Metadata action, the
+  fill-empty-only rule, the Steam field mapping and its cache.

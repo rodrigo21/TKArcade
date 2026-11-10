@@ -7200,11 +7200,13 @@ def test_description_box_stretches_with_the_window(qgui_app, xdg_env):
     # The field starts in the form's field column, not before the labels.
     root = swin.contentItem()
     assert abs(area.mapToItem(root, 0, 0).x() - developer.mapToItem(root, 0, 0).x()) <= 1
-    # Long text scrolls inside the field and never grows the tab.
+    # Long text scrolls inside the field and never grows the tab (the page
+    # may already need a few pixels for the form itself).
+    baseline = tab.property("contentHeight")
     area.setProperty("text", "\n".join(f"Line {i}" for i in range(60)))
     QTest.qWait(150)
     assert scroll.property("contentHeight") > scroll.property("height")
-    assert tab.property("contentHeight") <= tab.property("height") + 1
+    assert tab.property("contentHeight") <= baseline + 1
     # The box follows the window height, down to a five-line floor
     # (the dialog is 30 grid units tall at its minimum).
     minimum = int(swin.property("minimumHeight"))
@@ -7216,6 +7218,64 @@ def test_description_box_stretches_with_the_window(qgui_app, xdg_env):
     swin.setProperty("height", minimum + 500)
     QTest.qWait(150)
     assert scroll.property("height") > short + 100
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_download_fills_only_empty_fields(qgui_app, xdg_env):
+    """Details fills empty metadata from the store and keeps typed values."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    cfg.metadata.developer = "Typed Studio"
+    C.save(cfg)
+    _save_one_game("local-blank", "Blank")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    button = swin.findChild(QQuickItem, "settingsMetadataFetch")
+    assert button.property("enabled") is True
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit(
+        "local-doom",
+        {
+            "description": "Store synopsis.",
+            "developer": "Store Studio",
+            "publisher": "Store Publisher",
+            "genre": "Action, Adventure",
+            "series": "",
+            "age_ratings": ["PEGI 12"],
+        },
+    )
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Store synopsis."
+    assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Typed Studio"
+    assert swin.findChild(QQuickItem, "settingsPublisher").property("text") == "Store Publisher"
+    assert swin.findChild(QQuickItem, "settingsAgeRating").property("text") == "PEGI 12"
+    status = swin.findChild(QQuickItem, "settingsMetadataStatus").property("text")
+    assert status == "Loaded; Typed Fields Kept."
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.save()
+    qgui_app.processEvents()
+    saved = C.load("local-doom")
+    assert saved.metadata.developer == "Typed Studio"
+    assert saved.metadata.publisher == "Store Publisher"
+    assert saved.metadata.age_ratings == ["PEGI 12"]
+    page.openGameSettings("local-blank")
+    swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsMetadataFetch").property("enabled") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

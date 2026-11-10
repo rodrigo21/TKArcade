@@ -38,6 +38,7 @@ from .. import running as runningmod
 from .. import runtime_archives as archivesmod
 from .. import runtimes, xdg
 from .. import steam as steammod
+from .. import storemeta as metamod
 from .. import winetricks as wtmod
 from ..backends import network as net_backend
 from ..backends.notify import format_duration
@@ -714,7 +715,7 @@ class GameListModel(QAbstractTableModel):
         origin = steammod.origin(appid)
         is_steam = origin == "steam"
         # ProtonDB needs a Steam AppID: the game's own or its store link.
-        target = self._pdb_target(appid, gcfg)
+        target = self._steam_target(appid, gcfg)
         data, _fresh = pdbmod.cached(appid, target) if target else (None, False)
         tier = str(((data or {}).get("tier", "")) or "").lower()
         bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
@@ -755,12 +756,13 @@ class GameListModel(QAbstractTableModel):
         )
 
     @staticmethod
-    def _pdb_target(appid: str, gcfg=None, draft: str = "") -> str:
-        """Numeric Steam AppID for ProtonDB ("" when the game has none).
+    def _steam_target(appid: str, gcfg=None, draft: str = "") -> str:
+        """Numeric Steam AppID for store lookups ("" when the game has none).
 
         A Steam ID derives its AppID. A local game uses the Steam store
         link typed in the dialog (``draft``), else ``[metadata]
-        steam_appid``; the Artwork Source AppID is art-only and never
+        steam_appid``; ProtonDB, the store metadata and the release date
+        share this target. The Artwork Source AppID is art-only and never
         used here.
         """
         numeric = steammod.steam_appid(appid)
@@ -3078,7 +3080,7 @@ class GameListModel(QAbstractTableModel):
         ``target`` is the unsaved Steam AppID field, so the badge follows
         the dialog before Save.
         """
-        numeric = self._pdb_target(appid, None, target)
+        numeric = self._steam_target(appid, None, target)
         if not numeric:
             return {}
         try:
@@ -3094,7 +3096,7 @@ class GameListModel(QAbstractTableModel):
     def openProtonDB(self, appid: str, target: str = "") -> bool:
         """Open the ProtonDB page for a game with a Steam AppID."""
         try:
-            numeric = self._pdb_target(appid, None, target)
+            numeric = self._steam_target(appid, None, target)
             if not numeric:
                 return False
             from PySide6.QtCore import QUrl
@@ -3165,7 +3167,7 @@ class GameListModel(QAbstractTableModel):
         return {
             "is_steam": is_steam,
             "steam_appid": steammod.steam_appid(appid) if is_steam else "",
-            "protondb_appid": self._pdb_target(appid),
+            "protondb_appid": self._steam_target(appid),
             "install": self.installDir(appid),
             "prefix": prefix,
             "prefix_applicable": prefix_applicable,
@@ -4022,7 +4024,7 @@ class GameListModel(QAbstractTableModel):
         try:
             artwork = len(artmod.cache_files(appid)) + sum(
                 1
-                for name in ("protondb", "steam-release")
+                for name in ("protondb", "steam-release", "steam-meta")
                 if (xdg.app_cache_dir() / name / f"{xdg.safe_stem(appid)}.json").is_file()
             )
         except Exception:
@@ -4074,7 +4076,7 @@ class GameListModel(QAbstractTableModel):
             candidates.update(artmod.cache_keys())
         except Exception:
             pass
-        for name in ("protondb", "steam-release"):
+        for name in ("protondb", "steam-release", "steam-meta"):
             try:
                 candidates.update(p.stem for p in (xdg.app_cache_dir() / name).glob("*.json"))
             except OSError:
@@ -4176,7 +4178,7 @@ class GameListModel(QAbstractTableModel):
                 touched = True
         except Exception as e:
             log.warning("cleanLeftovers(%s) artwork: %s", appid, e)
-        for name in ("protondb", "steam-release"):
+        for name in ("protondb", "steam-release", "steam-meta"):
             try:
                 cached = xdg.app_cache_dir() / name / f"{xdg.safe_stem(appid)}.json"
                 if cached.is_file():
@@ -4244,6 +4246,9 @@ class GameListModel(QAbstractTableModel):
     #: (appid, kind, error) after an image downloaded from a pasted URL;
     #: error is "", "network", "not-image", "too-large" or "save".
     artworkStored = Signal(str, str, str)
+    #: (appid, fields) after Download Metadata; fields is the empty map
+    #: when the game has no Steam AppID or the store answered nothing.
+    metadataFetched = Signal(str, "QVariantMap")
 
     @Slot()
     def fetchMissing(self) -> None:
@@ -4269,7 +4274,7 @@ class GameListModel(QAbstractTableModel):
             api_key, default = "", "steam"
         for appid in list(appids) if appids is not None else cfgmod.list_appids():
             if not steammod.is_steam_id(str(appid)):
-                target = self._pdb_target(str(appid))
+                target = self._steam_target(str(appid))
                 if target:
                     self._refresh_protondb(str(appid), target)
             provider = self._game_provider(str(appid), default)
@@ -4310,6 +4315,25 @@ class GameListModel(QAbstractTableModel):
                 pdbmod.refresh(appid, target)
         except Exception:
             pass
+
+    @Slot(str, str)
+    def fetchMetadata(self, appid: str, target: str = "") -> None:
+        """Download store metadata off-thread for the dialog to fill."""
+        numeric = self._steam_target(appid, None, target)
+        if not numeric:
+            self.metadataFetched.emit(appid, {})
+            return
+        threading.Thread(target=self._metadata_worker, args=(appid, numeric), daemon=True).start()
+
+    def _metadata_worker(self, appid: str, numeric: str) -> None:
+        """Use the fresh cache first; the store call only when stale/missing."""
+        try:
+            data, fresh = metamod.cached(appid, numeric)
+            if not fresh:
+                data = metamod.refresh(appid, numeric)
+        except Exception:
+            data = None
+        self.metadataFetched.emit(appid, data or {})
 
     def _fetch_steam_art(self, target: str, api_key: str, provider: str) -> None:
         """Download whatever art kinds are missing for one Steam AppID."""
