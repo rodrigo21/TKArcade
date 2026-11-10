@@ -649,6 +649,7 @@ Kirigami.Page {
 
     property string menuGid: ""
     property string menuSteamAppId: ""
+    property string menuProtonDBAppId: ""
     property string menuInstall: ""
     property string menuPrefix: ""
     property bool menuPrefixApplicable: false
@@ -674,6 +675,7 @@ Kirigami.Page {
         var actions = gameModel.contextActions(gid)
         menuIsSteam = actions.is_steam
         menuSteamAppId = actions.steam_appid
+        menuProtonDBAppId = actions.protondb_appid
         menuInstall = actions.install
         menuPrefix = actions.prefix
         menuPrefixApplicable = actions.prefix_applicable
@@ -1579,7 +1581,8 @@ Kirigami.Page {
         }
         Controls.MenuItem {
             objectName: "menuProtonDB"
-            visible: gamesPage.menuIsSteam && gamesPage.selectedIds.length <= 1
+            visible: gamesPage.menuProtonDBAppId !== ""
+                && gamesPage.selectedIds.length <= 1
             text: qsTr("Open ProtonDB Page")
             onTriggered: gameModel.openProtonDB(gamesPage.menuGid)
         }

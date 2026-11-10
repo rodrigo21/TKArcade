@@ -368,6 +368,19 @@ def test_metadata_region_and_status_are_normalized(xdg_env):
     assert back.metadata.status == "playing"
 
 
+def test_metadata_steam_appid_is_digits_only(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.metadata.steam_appid = "steam-620"
+    C.save(cfg)
+    assert C.load("local-doom").metadata.steam_appid == ""
+
+    cfg = C.load("local-doom")
+    cfg.metadata.steam_appid = " 620 "
+    C.save(cfg)
+    assert C.load("local-doom").metadata.steam_appid == "620"
+
+
 def test_preferences_invalid_values(xdg_env):
     from tkarcade import xdg as xdgmod
 
@@ -412,6 +425,7 @@ _GAME_FIELDS = {
     "metadata.age_ratings": ["PEGI 12", "ESRB T"],
     "metadata.region": "world",
     "metadata.status": "completed",
+    "metadata.steam_appid": "620",
     "env.vars": {"A": "1", "B": "two words"},
     "pre_post.pre_command": "prescript",
     "pre_post.pre_args": ["a", "b"],

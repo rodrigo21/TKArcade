@@ -423,7 +423,7 @@ def test_added_steam_game_fetches_its_tier_at_once(qgui_app, xdg_env, monkeypatc
         ),
     )
     fetched = []
-    monkeypatch.setattr(pdb, "refresh", lambda appid: fetched.append(appid) or {})
+    monkeypatch.setattr(pdb, "refresh", lambda appid, target="": fetched.append(appid) or {})
     model = GameListModel()
 
     assert model.saveGame("steam-620", {"name": "Portal 2"}) == "steam-620"
@@ -1012,6 +1012,38 @@ def test_protondb_info_reads_the_cache(qgui_app, xdg_env):
     assert info["tier"] == "Gold"
     assert info["bg"] == "#FFC107"
     assert model.protonDBInfo("local-doom") == {}
+
+
+def test_local_steam_link_reaches_the_tier_and_the_page(qgui_app, xdg_env, monkeypatch):
+    import json
+    import time
+
+    from PySide6.QtGui import QDesktopServices
+
+    from tkarcade import protondb as P
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.metadata.steam_appid = "620"
+    C.save(cfg)
+    path = P.cache_path("local-doom")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"saved": int(time.time()), "target": "620", "data": {"tier": "platinum"}}),
+        encoding="utf-8",
+    )
+    model = GameListModel()
+    assert model.protonDBInfo("local-doom")["tier"] == "Platinum"
+    # A draft whose link has no data yet is not rated.
+    assert model.protonDBInfo("local-doom", "621")["tier"] == ""
+    opened = []
+    monkeypatch.setattr(
+        QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True
+    )
+    assert model.openProtonDB("local-doom") is True
+    assert opened == ["https://www.protondb.com/app/620"]
+    assert model.contextActions("local-doom")["protondb_appid"] == "620"
 
 
 def test_settings_create_and_profiles(qgui_app, xdg_env):
@@ -1993,7 +2025,7 @@ def test_launch_runtime_label_names_the_runtime(qgui_app, xdg_env, tmp_path, mon
 
 
 def test_row_skips_protondb_for_local_games(qgui_app, xdg_env, monkeypatch):
-    """ProtonDB tiers are Steam-only; the local row keeps the column blank."""
+    """A local game without a Steam store link keeps the column blank."""
     from tkarcade.gui import model as M
 
     for appid in ("local-doom", "steam-620"):
@@ -2002,13 +2034,36 @@ def test_row_skips_protondb_for_local_games(qgui_app, xdg_env, monkeypatch):
         C.save(cfg)
     model = M.GameListModel()
     calls = []
-    monkeypatch.setattr(M.pdbmod, "cached", lambda appid: calls.append(appid) or ({}, False))
+    monkeypatch.setattr(
+        M.pdbmod, "cached", lambda appid, target="": calls.append(appid) or ({}, False)
+    )
     local = model._row("local-doom", {}, {})
     assert calls == []
     assert local[4] == ""
     steam = model._row("steam-620", {}, {})
     assert calls == ["steam-620"]
     assert steam[4] == ""
+
+
+def test_row_uses_the_local_steam_link(qgui_app, xdg_env, monkeypatch):
+    """A local game with a Steam store link shows the cached tier."""
+    from tkarcade.gui import model as M
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.metadata.steam_appid = "620"
+    C.save(cfg)
+    model = M.GameListModel()
+    calls = []
+
+    def fake_cached(appid, target=""):
+        calls.append((appid, target))
+        return {"tier": "gold"}, True
+
+    monkeypatch.setattr(M.pdbmod, "cached", fake_cached)
+    row = model._row("local-doom", {}, {})
+    assert calls == [("local-doom", "620")]
+    assert row[4] == "Gold"
 
 
 def test_save_game_pins_the_prefix_folder(qgui_app, xdg_env, tmp_path):

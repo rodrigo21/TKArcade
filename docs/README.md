@@ -87,3 +87,6 @@ What each document is for and where the source of truth lives.
   ghproxy URL shape and the digest check through a proxy.
 - `decisions/runtime-sources.md` — one list and one default per runtime
   kind, the Wine build list, Proton discovery and the graphics sources.
+- `decisions/protondb-local-games.md` — a local game's optional Steam
+  store AppID for the ProtonDB rating, and the per-game cache key with
+  its recorded target.

@@ -219,8 +219,9 @@ the same installed value.
 **Game dialog** — tabs for Details (the game, optional `version`/`date`/
 `tag` metadata shown as name suffixes, categories, developer, publisher,
 genre, series, age ratings (CERO/ClassInd/ESRB/PEGI first, the other
-boards behind a divider and switch), region, status, description and a Steam
-game's ProtonDB rating linking to its page), Execution (launch
+boards behind a divider and switch), region, status, description and a
+ProtonDB rating linking to its page; a local game gets the rating
+through its optional Steam store AppID), Execution (launch
 settings first, then the runtime selector and tool, the Steam Linux
 Runtime of a local native game, prefix with its installed and pending
 winetricks verbs plus the interactive protontricks/winetricks window,

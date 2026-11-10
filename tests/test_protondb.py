@@ -54,6 +54,25 @@ def test_canonical_id_caches_under_game_id_fetches_numeric(monkeypatch, xdg_env)
     assert pdb.fetch("local-doom") is None
 
 
+def test_local_game_caches_by_id_and_fetches_the_linked_appid(monkeypatch, xdg_env):
+    seen = []
+
+    def fake_open(url, timeout=15):
+        seen.append(url)
+        return _Resp({"tier": "gold"})
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_open)
+    assert pdb.refresh("local-doom", "620") == {"tier": "gold"}
+    assert seen == [pdb.ENDPOINT.format(appid="620")]
+    assert pdb.cache_path("local-doom").is_file()
+    assert pdb.cached("local-doom", "620")[0] == {"tier": "gold"}
+    # A changed store link must never show the previous game's tier.
+    assert pdb.cached("local-doom", "621") == (None, False)
+    assert pdb.cached("local-doom") == (None, False)
+    assert pdb.refresh("local-doom") is None
+    assert seen == [pdb.ENDPOINT.format(appid="620")]
+
+
 def test_stale_cache_returned_but_flagged(monkeypatch, xdg_env):
     import json as jsonlib
 

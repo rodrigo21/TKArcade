@@ -34,13 +34,30 @@ def cache_path(appid: str) -> Path:
     return xdg.app_cache_dir() / "protondb" / f"{xdg.safe_stem(appid)}.json"
 
 
-def cached(appid: str) -> tuple[dict | None, bool]:
-    """Return (data, is_fresh). Stale data is returned for instant display."""
+def _numeric(appid: str, target: str = "") -> str:
+    """Numeric Steam AppID to query: the explicit target wins."""
+    return str(target or "").strip() or steammod.steam_appid(appid)
+
+
+def cached(appid: str, target: str = "") -> tuple[dict | None, bool]:
+    """Return (data, is_fresh). Stale data is returned for instant display.
+
+    ``target`` is a local game's Steam store link. The cache stays keyed
+    by the game ID (so cleanup finds it) and records the AppID it was
+    fetched for: a changed link reads as not cached instead of showing
+    the previous game's tier.
+    """
+    numeric = _numeric(appid, target)
+    if not numeric:
+        return None, False
     try:
         payload = json.loads(cache_path(appid).read_text(encoding="utf-8"))
     except Exception:
         return None, False
     if not isinstance(payload, dict):
+        return None, False
+    stored = str(payload.get("target", "") or "")
+    if stored and stored != numeric:
         return None, False
     data = payload.get("data")
     try:
@@ -51,9 +68,9 @@ def cached(appid: str) -> tuple[dict | None, bool]:
     return (data if isinstance(data, dict) else None), fresh
 
 
-def fetch(appid: str, timeout: int = 15) -> dict | None:
+def fetch(appid: str, target: str = "", timeout: int = 15) -> dict | None:
     """Fetch the tier summary from ProtonDB. None on any failure."""
-    numeric = steammod.steam_appid(appid)
+    numeric = _numeric(appid, target)
     if not numeric:
         return None
     try:
@@ -65,16 +82,19 @@ def fetch(appid: str, timeout: int = 15) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-def refresh(appid: str) -> dict | None:
+def refresh(appid: str, target: str = "") -> dict | None:
     """Fetch and cache; returns fresh data or None (cache untouched)."""
-    data = fetch(appid)
+    numeric = _numeric(appid, target)
+    if not numeric:
+        return None
+    data = fetch(appid, numeric)
     if data is None:
         return None
     path = cache_path(appid)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps({"saved": int(time.time()), "data": data}),
+            json.dumps({"saved": int(time.time()), "target": numeric, "data": data}),
             encoding="utf-8",
         )
     except Exception as e:

@@ -23,11 +23,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   release-date lookup uses the same API); local games need an IGDB-style
   service and key. Needs a decision for the provider, cache and the
   per-game Download Metadata action.
-- [ ] **ProtonDB for local games.** A local game may also exist on
-  Steam. A per-game Steam AppID (separate from the Artwork Source AppID,
-  which is art-only) would let the ProtonDB cache and the Details/table
-  badge work; needs a decision and a cache key that does not collide
-  with `local-<slug>`.
 - [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) for the local
   library import of Lutris/Playnite/Faugus file formats. The format
   import itself is still pending (only tarball, SteamTinkerLaunch and

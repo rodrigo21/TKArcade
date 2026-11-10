@@ -7,7 +7,10 @@ Standing decisions that shape every change. `AGENTS.md` links here.
 - One identity key: `[general] gameid` holds the canonical
   `<origin>-<body>` ID (`steam-570`, `local-doom`); external store IDs
   (the Steam AppID) are derived with `steam.steam_appid()`, never stored
-  twice. Legacy bare digits are read as Steam and renamed by
+  twice. A local game may also store its own Steam store link in
+  `[metadata] steam_appid` (digits only): the ID carries no store
+  identity, ProtonDB needs one, and the link is ignored for `steam-*`
+  IDs. Legacy bare digits are read as Steam and renamed by
   `config.migrate_ids()` at startup.
 - XDG Base Directory for all files; per-game TOML snapshots (full files,
   never sparse); `defaults.toml` is a new-game template only.

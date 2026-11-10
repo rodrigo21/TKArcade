@@ -221,6 +221,15 @@ class MetadataConfig:
     age_ratings: list[str] = field(default_factory=list)  # AGE_RATINGS values
     region: str = ""  # eu|jp|us|world ("" = unset)
     status: str = ""  # one of GAME_STATUSES ("" = unset)
+    # A local game's own Steam store link: digits only, "" when it has
+    # none. A Steam ID derives its AppID, so this field is ignored there.
+    steam_appid: str = ""
+
+
+def normalize_steam_appid(value: object) -> str:
+    """Digits-only Steam AppID ("" for anything else)."""
+    text = str(value or "").strip()
+    return text if text.isdigit() else ""
 
 
 @dataclass
@@ -996,6 +1005,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "age_ratings",
         "region",
         "status",
+        "steam_appid",
     },
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
@@ -1221,6 +1231,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.metadata.region = region if region in REGIONS else ""
     status = str(md.get("status", "")).strip().lower()
     cfg.metadata.status = status if status in GAME_STATUSES else ""
+    cfg.metadata.steam_appid = normalize_steam_appid(md.get("steam_appid", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}

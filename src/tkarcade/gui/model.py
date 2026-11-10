@@ -71,6 +71,7 @@ def _apply_metadata(cfg, data: dict) -> None:
     md.region = region if region in cfgmod.REGIONS else ""
     status = str(data.get("status", "")).strip().lower()
     md.status = status if status in cfgmod.GAME_STATUSES else ""
+    md.steam_appid = cfgmod.normalize_steam_appid(data.get("steam_appid", ""))
 
 
 #: Solid status badge colors (background, text). The text is always black:
@@ -712,8 +713,9 @@ class GameListModel(QAbstractTableModel):
             gcfg = None
         origin = steammod.origin(appid)
         is_steam = origin == "steam"
-        # ProtonDB only knows Steam AppIDs.
-        data, _fresh = pdbmod.cached(appid) if is_steam else (None, False)
+        # ProtonDB needs a Steam AppID: the game's own or its store link.
+        target = self._pdb_target(appid, gcfg)
+        data, _fresh = pdbmod.cached(appid, target) if target else (None, False)
         tier = str(((data or {}).get("tier", "")) or "").lower()
         bg, fg = pdbmod.TIER_STYLE.get(tier, ("", ""))
         icon = self._row_icon(appid, gcfg)
@@ -751,6 +753,28 @@ class GameListModel(QAbstractTableModel):
             status_bg,
             status_fg,
         )
+
+    @staticmethod
+    def _pdb_target(appid: str, gcfg=None, draft: str = "") -> str:
+        """Numeric Steam AppID for ProtonDB ("" when the game has none).
+
+        A Steam ID derives its AppID. A local game uses the Steam store
+        link typed in the dialog (``draft``), else ``[metadata]
+        steam_appid``; the Artwork Source AppID is art-only and never
+        used here.
+        """
+        numeric = steammod.steam_appid(appid)
+        if numeric:
+            return numeric
+        value = str(draft or "").strip()
+        if value:
+            return value if value.isdigit() else ""
+        if gcfg is None:
+            try:
+                gcfg = cfgmod.load(str(appid))
+            except Exception:
+                return ""
+        return cfgmod.normalize_steam_appid(gcfg.metadata.steam_appid) if gcfg is not None else ""
 
     @staticmethod
     def _art_source(appid: str, draft: str = "") -> str:
@@ -962,6 +986,7 @@ class GameListModel(QAbstractTableModel):
             "age_ratings": list(cfg.metadata.age_ratings),
             "region": cfg.metadata.region,
             "status": cfg.metadata.status,
+            "steam_appid": cfg.metadata.steam_appid,
             "custom_executable": g.custom_executable,
             "runtime_type": cfgmod.normalize_runtime(cfg.runtime.type),
             "show_menu": bool(g.show_menu),
@@ -1138,6 +1163,7 @@ class GameListModel(QAbstractTableModel):
         if appid and active:
             return self._save_profile(appid, active, data)
         is_new = not cfgmod.game_file(appid).is_file()
+        old_link = cfgmod.normalize_steam_appid(cfg.metadata.steam_appid)
         self._apply_map(cfg, data)
         try:
             cfgmod.save(cfg)
@@ -1145,12 +1171,16 @@ class GameListModel(QAbstractTableModel):
             log.warning("saveGame(%s) failed: %s", appid, e)
             return ""
         self.refresh()
-        self._fetch_on_first_save(appid, is_new)
+        self._fetch_on_save(appid, is_new or cfg.metadata.steam_appid != old_link)
         return appid
 
-    def _fetch_on_first_save(self, appid: str, is_new: bool) -> None:
-        """A game added here looks up its tier, date and art at once."""
-        if is_new:
+    def _fetch_on_save(self, appid: str, needed: bool) -> None:
+        """A game added here looks up its tier, date and art at once.
+
+        A changed Steam store link triggers the same lookup, so the new
+        ProtonDB tier does not wait for the next start.
+        """
+        if needed:
             self._fetch_async([appid])
 
     @staticmethod
@@ -3041,12 +3071,18 @@ class GameListModel(QAbstractTableModel):
             pass
 
     @Slot(str, result="QVariantMap")
-    def protonDBInfo(self, appid: str) -> dict:
-        """Cached ProtonDB tier for the settings dialog ({} outside Steam)."""
-        if not steammod.steam_appid(appid):
+    @Slot(str, str, result="QVariantMap")
+    def protonDBInfo(self, appid: str, target: str = "") -> dict:
+        """Cached ProtonDB tier for the settings dialog ({} without a link).
+
+        ``target`` is the unsaved Steam AppID field, so the badge follows
+        the dialog before Save.
+        """
+        numeric = self._pdb_target(appid, None, target)
+        if not numeric:
             return {}
         try:
-            data, _fresh = pdbmod.cached(appid)
+            data, _fresh = pdbmod.cached(appid, numeric)
         except Exception:
             data = None
         tier = str((data or {}).get("tier", "") or "").lower()
@@ -3054,19 +3090,17 @@ class GameListModel(QAbstractTableModel):
         return {"tier": tier.title(), "bg": bg, "fg": fg}
 
     @Slot(str, result=bool)
-    def openProtonDB(self, appid: str) -> bool:
-        """Open the ProtonDB page for a Steam game in the browser."""
+    @Slot(str, str, result=bool)
+    def openProtonDB(self, appid: str, target: str = "") -> bool:
+        """Open the ProtonDB page for a game with a Steam AppID."""
         try:
-            if not steammod.steam_appid(appid):
+            numeric = self._pdb_target(appid, None, target)
+            if not numeric:
                 return False
             from PySide6.QtCore import QUrl
             from PySide6.QtGui import QDesktopServices
 
-            return bool(
-                QDesktopServices.openUrl(
-                    QUrl(pdbmod.GAME_URL.format(appid=steammod.steam_appid(appid)))
-                )
-            )
+            return bool(QDesktopServices.openUrl(QUrl(pdbmod.GAME_URL.format(appid=numeric))))
         except Exception as e:  # never crash the list on a browser failure
             log.warning("openProtonDB(%s) failed: %s", appid, e)
             return False
@@ -3131,6 +3165,7 @@ class GameListModel(QAbstractTableModel):
         return {
             "is_steam": is_steam,
             "steam_appid": steammod.steam_appid(appid) if is_steam else "",
+            "protondb_appid": self._pdb_target(appid),
             "install": self.installDir(appid),
             "prefix": prefix,
             "prefix_applicable": prefix_applicable,
@@ -4233,6 +4268,10 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             api_key, default = "", "steam"
         for appid in list(appids) if appids is not None else cfgmod.list_appids():
+            if not steammod.is_steam_id(str(appid)):
+                target = self._pdb_target(str(appid))
+                if target:
+                    self._refresh_protondb(str(appid), target)
             provider = self._game_provider(str(appid), default)
             source = self._art_source(str(appid))
             if source.isdigit():
@@ -4253,12 +4292,7 @@ class GameListModel(QAbstractTableModel):
 
     def _fetch_one(self, appid, api_key: str, provider: str, target: str) -> None:
         """Refresh ProtonDB, the release date (and art) for one Steam appid."""
-        try:
-            _data, fresh = pdbmod.cached(appid)
-            if not fresh:
-                pdbmod.refresh(appid)
-        except Exception:
-            pass
+        self._refresh_protondb(appid, target)
         try:
             if not cfgmod.load(appid).metadata.date.strip():
                 _date, fresh = rdmod.cached(appid)
@@ -4267,6 +4301,15 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             pass
         self._fetch_steam_art(target, api_key, provider)
+
+    def _refresh_protondb(self, appid, target: str) -> None:
+        """Refresh one game's cached tier; failures leave the cache alone."""
+        try:
+            _data, fresh = pdbmod.cached(appid, target)
+            if not fresh:
+                pdbmod.refresh(appid, target)
+        except Exception:
+            pass
 
     def _fetch_steam_art(self, target: str, api_key: str, provider: str) -> None:
         """Download whatever art kinds are missing for one Steam AppID."""

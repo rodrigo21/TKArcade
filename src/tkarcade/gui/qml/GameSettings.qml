@@ -51,8 +51,9 @@ Window {
     // The profile bar is a whole-config preset strip; a game may hide it
     // from the footer, and the choice persists like the two blocks above.
     property bool profileBarVisible: true
-    // ProtonDB is a read-only, Steam-only badge on Details; the cache is
-    // global, so nothing enters the game config.
+    // ProtonDB is a read-only badge on Details; the cache is global and
+    // keyed by the game ID. A local game links its Steam store page in
+    // [metadata] steam_appid, kept apart from the artwork source AppID.
     property string protonDBTier: ""
     property string protonDBBg: ""
     property string protonDBFg: ""
@@ -764,6 +765,7 @@ Window {
         ageRatings = (f.age_ratings || []).slice()
         regionBox.currentIndex = Math.max(0, regionBox.indexOfValue(f.region || ""))
         gameStatusBox.currentIndex = Math.max(0, gameStatusBox.indexOfValue(f.status || ""))
+        steamAppIdField.text = f.steam_appid || ""
         refreshProtonDB()
         artSourceField.text = f.art_source || ""
         var prefs = gameModel.loadPrefs()
@@ -874,6 +876,7 @@ Window {
             "age_ratings": ageRatings,
             "region": String(regionBox.currentValue || ""),
             "status": String(gameStatusBox.currentValue || ""),
+            "steam_appid": steamAppIdField.text,
             // The slots have no path field any more: read what the store
             // holds, or a Save would clear a file picked earlier.
             "art_icon": gameModel.artworkPath(editAppid, "icon"),
@@ -1600,7 +1603,8 @@ Window {
     }
 
     function refreshProtonDB() {
-        var info = editAppid !== "" ? gameModel.protonDBInfo(editAppid) : ({})
+        var info = editAppid !== ""
+            ? gameModel.protonDBInfo(editAppid, steamAppIdField.text) : ({})
         protonDBTier = info.tier || ""
         protonDBBg = info.bg || ""
         protonDBFg = info.fg || ""
@@ -2174,10 +2178,10 @@ Window {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    visible: fields.is_steam || false
                                     KirigamiLayouts.FormData.label: qsTr("ProtonDB:")
                                     Controls.Button {
                                         objectName: "settingsProtonDB"
+                                        enabled: (fields.is_steam || false) || steamAppIdField.text !== ""
                                         Layout.alignment: Qt.AlignLeft
                                         Layout.minimumWidth: Kirigami.Units.gridUnit * 7
                                         Layout.maximumWidth: Kirigami.Units.gridUnit * 10
@@ -2202,11 +2206,24 @@ Window {
                                                 ? gameSettings.protonDBFg : Kirigami.Theme.textColor
                                         }
                                         onClicked: {
-                                            if (!gameModel.openProtonDB(editAppid)) {
+                                            if (!gameModel.openProtonDB(editAppid, steamAppIdField.text)) {
                                                 settingsError.text = qsTr("Could Not Open the ProtonDB Page.")
                                             }
                                         }
                                         Controls.ToolTip.text: qsTr("Open ProtonDB Page")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.TextField {
+                                        id: steamAppIdField
+                                        objectName: "settingsSteamAppId"
+                                        // Store link of a local game that also
+                                        // exists on Steam; a Steam ID derives
+                                        // its own AppID.
+                                        visible: !defaultsMode && !(fields.is_steam || false)
+                                        placeholderText: qsTr("Steam AppID (Optional)")
+                                        Layout.fillWidth: true
+                                        onEditingFinished: gameSettings.refreshProtonDB()
+                                        Controls.ToolTip.text: qsTr("Steam AppID of This Game on the Steam Store. Used by the ProtonDB Badge; Artwork Keeps Its Own Source AppID.")
                                         Controls.ToolTip.visible: hovered
                                     }
                                 }

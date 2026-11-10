@@ -6,6 +6,13 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- A local game can carry its Steam store AppID (`[metadata]
+  steam_appid`, digits only): the ProtonDB table column, the Details
+  rating and the context menu item then work for it, and saving a
+  changed link refreshes the tier at once. The cache stays keyed by the
+  game ID and records the AppID it was fetched for, so changing the link
+  never shows the previous game's rating. The Artwork Source AppID stays
+  art-only.
 - A fourth artwork kind, `background` (`[artwork] background`): a wide
   backdrop with its own picker, cache file and Artwork-tab preview
   (icon, banner, background, cover). It downloads nothing of its own and

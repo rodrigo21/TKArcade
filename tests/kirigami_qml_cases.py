@@ -7078,6 +7078,7 @@ def test_settings_metadata_and_protondb(qgui_app, xdg_env):
     pdb = swin.findChild(QQuickItem, "settingsProtonDB")
     assert pdb.isVisible() is True
     assert pdb.property("text") == "Platinum"
+    assert swin.findChild(QQuickItem, "settingsSteamAppId").isVisible() is False
     swin.findChild(QQuickItem, "settingsDeveloper").setProperty("text", "Valve")
     swin.findChild(QQuickItem, "settingsPublisher").setProperty("text", "Valve")
     swin.findChild(QQuickItem, "settingsGenre").setProperty("text", "Puzzle")
@@ -7117,6 +7118,61 @@ def test_settings_metadata_and_protondb(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Valve"
     assert swin.findChild(QQuickItem, "settingsStatus").property("currentIndex") == 3
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_settings_local_steam_appid_and_protondb(qgui_app, xdg_env):
+    """A local game links its Steam store AppID on Details for the rating."""
+    import json
+    import time
+
+    from PySide6.QtCore import QMetaObject, QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+    from tkarcade import protondb as P
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    C.save(cfg)
+    path = P.cache_path("local-doom")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"saved": int(time.time()), "target": "620", "data": {"tier": "gold"}}),
+        encoding="utf-8",
+    )
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    link = swin.findChild(QQuickItem, "settingsSteamAppId")
+    assert link.isVisible() is True
+    assert link.property("text") == "620"
+    pdb = swin.findChild(QQuickItem, "settingsProtonDB")
+    assert pdb.property("text") == "Gold"
+    link.setProperty("text", "621")
+    dlg = win.findChild(QObject, "gameSettings")
+    assert QMetaObject.invokeMethod(dlg, "refreshProtonDB") is True
+    qgui_app.processEvents()
+    assert pdb.property("text") == "Not Rated"
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.steam_appid == "621"
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    assert swin.findChild(QQuickItem, "settingsSteamAppId").property("text") == "621"
+    page.openGameMenu("local-doom")
+    qgui_app.processEvents()
+    assert page.property("menuProtonDBAppId") == "621"
+    assert win.findChild(QObject, "menuProtonDB").property("visible") is True
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
