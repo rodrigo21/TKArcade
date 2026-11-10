@@ -7,32 +7,34 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 `TODO.md`, document roles in `docs/README.md`. Refresh it with
 `/handoff` before stopping mid-task.
 
-- Branch: `main`, pushed, clean. The working tree carries only the
-  maintainer's packaging churn in
-  `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: thirty-six batches. The latest: the Details description box
-  fills the space the other sections leave, stretches with the window,
-  shrinks to five lines and scrolls long text inside its own frame (it
-  stays in the Information section). Before it: a local game's
-  `[metadata] steam_appid` links its Steam store page, so the ProtonDB
-  table column, Details rating and context menu work for it; the cache
-  stays keyed by the game ID and records the AppID it was fetched for.
-  Earlier: the fourth artwork kind `background` (`[artwork] background`,
-  its own manual slot, config key and cache name, falling back to the
-  banner), the game dialog rework (Details/Execution tabs, manual
-  `[metadata]` fields, status badges, ProtonDB row), the Wine
-  column/Compat Tool work, and translations were suspended until 1.0
-  (`tests/test_i18n.py` catalog tests are skipped).
-- Verified: the approved diffs. 693 passed, 3 skipped with the QML driver
-  (`scripts/check.sh --qml`); the description screenshots are
-  `/tmp/opencode/description-empty.png` and
-  `/tmp/opencode/description-long.png`.
+- Branch: `main`, pushed, clean. The working tree carries uncommitted
+  maintainer changes: the `pkgver` churn in
+  `packaging/arch/tkarcade-git/PKGBUILD` and the websearch permission in
+  `opencode.json`, never committed.
+- Landed: thirty-seven batches. The latest: Download Metadata closes the
+  Details Game section, beside the Steam AppID and ProtonDB rows it
+  depends on, and fills empty description/developer/publisher/genre/
+  series/age ratings from the Steam store for a Steam ID or a local
+  game's `[metadata] steam_appid`. It keeps typed values, caches per
+  game in `steam-meta` with the target recorded, and maps ESRB/PEGI/USK
+  only; the manual date stays manual. The store rows moved out of
+  Information, so Information holds the manual fields plus the
+  elastic five-line Description. Before it: the description box fill
+  and scroll, the local game's ProtonDB store link, the fourth artwork
+  kind `background`, and the game dialog rework (Details/Execution tabs,
+  manual `[metadata]` fields, status badges, ProtonDB row). Translations
+  were suspended until 1.0 (`tests/test_i18n.py` catalog tests are
+  skipped).
+- Verified: the approved diff. 701 passed, 3 skipped with the QML driver
+  (`scripts/check.sh --qml`); the layout comparison is
+  `/tmp/opencode/compare-linked.png` (A/B), metadata screenshots
+  `/tmp/opencode/info-B-*.png`.
 - Next: the other game sources (Epic, GOG). The metadata-provider
-  consolidation (other artwork sources, metadata download, Playnite
-  enrichment, online categories) is proposed in the TODO items, not
-  decided. The 1.0 visual pass, the packaging check, the
-  compatibility-shim removal and the release pass wait for the
-  maintainer's release call.
+  consolidation (other artwork sources, a provider for local games
+  without a Steam link, Playnite enrichment, online categories) is
+  proposed in the TODO items, not decided. The 1.0 visual pass, the
+  packaging check, the compatibility-shim removal and the release pass
+  wait for the maintainer's release call.
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
