@@ -17,13 +17,13 @@
       "model": "opencode-go/deepseek-v4.1-flash",
       "permissions": [
         { "action": "webfetch", "resource": "*", "effect": "allow" },
-        { "action": "websearch", "resource": "*", "effect": "deny" }
+        { "action": "websearch", "resource": "*", "effect": "allow" }
       ]
     },
     "plan": {
       "permissions": [
         { "action": "webfetch", "resource": "*", "effect": "allow" },
-        { "action": "websearch", "resource": "*", "effect": "deny" }
+        { "action": "websearch", "resource": "*", "effect": "allow" }
       ]
     }
   },
