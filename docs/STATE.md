@@ -10,18 +10,23 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's packaging churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: thirty-four batches. The latest: the fourth artwork kind,
-  `background` (`[artwork] background`) — its own manual slot, config
-  key and cache name, resolution falling back to the banner, no
-  download of its own, and the Artwork tab previews now centered with
-  frames that hug the loaded art plus an equal margin; each tooltip
-  names its kind. Before it: the game dialog rework (Details/Execution
-  tabs, manual `[metadata]` fields, status badges, ProtonDB row), the
-  Wine column/Compat Tool work, and translations were suspended until
-  1.0 (`tests/test_i18n.py` catalog tests are skipped).
-- Verified: the approved diff. 689 passed, 3 skipped with the QML driver
-  (`scripts/check.sh --qml`); the artwork preview screenshot is
-  `/tmp/opencode/artwork-tab.png`.
+- Landed: thirty-six batches. The latest: the Details description box
+  fills the space the other sections leave, stretches with the window,
+  shrinks to five lines and scrolls long text inside its own frame (it
+  stays in the Information section). Before it: a local game's
+  `[metadata] steam_appid` links its Steam store page, so the ProtonDB
+  table column, Details rating and context menu work for it; the cache
+  stays keyed by the game ID and records the AppID it was fetched for.
+  Earlier: the fourth artwork kind `background` (`[artwork] background`,
+  its own manual slot, config key and cache name, falling back to the
+  banner), the game dialog rework (Details/Execution tabs, manual
+  `[metadata]` fields, status badges, ProtonDB row), the Wine
+  column/Compat Tool work, and translations were suspended until 1.0
+  (`tests/test_i18n.py` catalog tests are skipped).
+- Verified: the approved diffs. 693 passed, 3 skipped with the QML driver
+  (`scripts/check.sh --qml`); the description screenshots are
+  `/tmp/opencode/description-empty.png` and
+  `/tmp/opencode/description-long.png`.
 - Next: the other game sources (Epic, GOG). The metadata-provider
   consolidation (other artwork sources, metadata download, Playnite
   enrichment, online categories) is proposed in the TODO items, not
