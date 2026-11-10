@@ -7,10 +7,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 `TODO.md`, document roles in `docs/README.md`. Refresh it with
 `/handoff` before stopping mid-task.
 
-- Branch: `main`, pushed, clean. The working tree carries uncommitted
-  maintainer changes: the `pkgver` churn in
-  `packaging/arch/tkarcade-git/PKGBUILD` and the websearch permission in
-  `opencode.json`, never committed.
+- Branch: `main`, pushed, clean. The working tree carries only the
+  maintainer's `pkgver` churn in
+  `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
 - Landed: thirty-seven batches. The latest: Download Metadata closes the
   Details Game section, beside the Steam AppID and ProtonDB rows it
   depends on, and fills empty description/developer/publisher/genre/
