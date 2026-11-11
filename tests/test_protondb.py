@@ -95,7 +95,14 @@ def test_fetch_failures_are_none(monkeypatch):
 
 
 def test_tier_styles_complete():
-    assert set(pdb.TIER_STYLE) == {"platinum", "gold", "silver", "bronze", "borked"}
+    assert set(pdb.TIER_STYLE) == {
+        "platinum",
+        "gold",
+        "silver",
+        "bronze",
+        "borked",
+        "pending",
+    }
     for bg, fg in pdb.TIER_STYLE.values():
         assert bg.startswith("#") and fg.startswith("#")
 

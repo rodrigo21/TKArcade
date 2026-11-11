@@ -27,6 +27,8 @@ TIER_STYLE: dict[str, tuple[str, str]] = {
     "silver": ("#E0E0E0", "#000000"),
     "bronze": ("#CD7F32", "#FFFFFF"),
     "borked": ("#F44336", "#FFFFFF"),
+    # ProtonDB reports "pending" for a game with no reports yet.
+    "pending": ("#757575", "#000000"),
 }
 
 

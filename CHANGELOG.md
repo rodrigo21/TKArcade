@@ -367,6 +367,9 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- The library's ProtonDB badge shows a "Pending" game as grey text on
+  grey instead of an unreadable black bar, in the list, card and game
+  dialog views.
 - The Description box on the Details tab no longer clips long text: it
   fills the space the other sections leave, shrinks to five lines with
   the window and scrolls the rest inside its own frame.

@@ -2095,6 +2095,21 @@ def test_row_uses_the_local_steam_link(qgui_app, xdg_env, monkeypatch):
     assert row[4] == "Gold"
 
 
+def test_row_styles_a_pending_tier(qgui_app, xdg_env, monkeypatch):
+    """A tier without its own style left the badge a black bar."""
+    from tkarcade.gui import model as M
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-620"
+    C.save(cfg)
+    model = M.GameListModel()
+    monkeypatch.setattr(M.pdbmod, "cached", lambda appid, target="": ({"tier": "pending"}, True))
+    row = model._row("steam-620", {}, {})
+    assert row[4] == "Pending"
+    assert row[5] == "#757575"
+    assert row[6] == "#000000"
+
+
 def test_save_game_pins_the_prefix_folder(qgui_app, xdg_env, tmp_path):
     """The name-derived folder is stored, so a rename never moves it."""
     from tkarcade.gui.model import GameListModel
