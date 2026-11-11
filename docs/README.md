@@ -98,6 +98,8 @@ What each document is for and where the source of truth lives.
   fill-empty-only rule, the Steam field mapping and its cache.
 - `decisions/metadata-registry.md` — the provider registry, its
   per-provider cache and rate gate, and the Steam adapter split.
+- `decisions/metadata-preview.md` — the preview before writing, the
+  Replace existing values switch and the fill-empty default.
 
 ## Plans
 

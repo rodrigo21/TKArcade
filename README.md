@@ -221,8 +221,9 @@ the same installed value.
 genre, series, age ratings (CERO/ClassInd/ESRB/PEGI first, the other
 boards behind a divider and switch), region, status, description, a
 ProtonDB rating linking to its page and a Download Metadata action that
-fills empty fields from the Steam store; a local game gets the rating
-and the metadata through its optional Steam store AppID), Execution (launch
+previews the Steam store answer (Apply fills empty fields from it, a
+switch replaces typed ones; a local game gets the rating and the
+metadata through its optional Steam store AppID), Execution (launch
 settings first, then the runtime selector and tool, the Steam Linux
 Runtime of a local native game, prefix with its installed and pending
 winetricks verbs plus the interactive protontricks/winetricks window,

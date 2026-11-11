@@ -1,11 +1,12 @@
 # Metadata provider registry: four providers, one client (proposal)
 
 Status: proposal, not approved. C1 (the registry plus the Steam adapter)
-landed as `docs/decisions/metadata-registry.md`, and the earlier Steam
+landed as `docs/decisions/metadata-registry.md`, C2 (the action preview)
+as `docs/decisions/metadata-preview.md`, and the earlier Steam
 `appdetails` download as `docs/decisions/metadata-download.md`; the
-adapters below and the action UI are still open. When the rest lands it
-belongs in `docs/decisions/metadata-provider.md` with a landing banner,
-and this file is deleted.
+adapters below are still open. When the rest lands it belongs in
+`docs/decisions/metadata-provider.md` with a landing banner, and this
+file is deleted.
 
 ## Problem
 
@@ -92,11 +93,11 @@ item; it comes back only if the site publishes an API or an export.
 | # | Landing | Deliverable |
 | --- | --- | --- |
 | C1 | Registry + cache + rate gate + Steam adapter | landed (`decisions/metadata-registry.md`); no key, no UI change |
-| C2 | Download Metadata action UI: provider menu, candidate picker, preview dialog | works with Steam only; validates the UX cheaply |
+| C2 | Download Metadata preview dialog | landed (`decisions/metadata-preview.md`); the provider menu moved to C6, the candidate picker to C4 |
 | C3 | Field locks (config + game dialog) | makes overwrite safe; QML change |
-| C4 | VNDB adapter | no key; the visual-novel case |
+| C4 | VNDB adapter + candidate picker | no key; the visual-novel case |
 | C5 | PCGamingWiki adapter | publisher, series, ratings |
-| C6 | IGDB adapter + credential field | waits on the maintainer's Twitch app |
+| C6 | IGDB adapter + credential field + provider menu | waits on the maintainer's Twitch app |
 | C7 | IGDB artwork as a third source | joins `artwork.PROVIDERS` |
 | C8 | Online categories/tags in bulk | last; taxonomy UX is its own risk |
 

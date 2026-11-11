@@ -26,6 +26,9 @@ manual fields meant retyping what the store already answers.
 3. The action fills **empty** fields only. A typed synopsis, studio,
    genre or rating set survives, and the status line says whether every
    field was filled, some were kept, or the store answered nothing.
+   Changed 2026-11-11: the answer opens a preview first, and a
+   **Replace existing values** switch opts into overwriting typed
+   fields; see `docs/decisions/metadata-preview.md`.
 4. The download runs off the GUI thread (the house `threading.Thread`
    plus signal pattern) and returns the fields to the dialog; Save is
    still what writes the config.

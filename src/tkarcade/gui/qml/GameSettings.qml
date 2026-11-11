@@ -60,6 +60,10 @@ Window {
     // Download Metadata runs off-thread; the status line reports the result.
     property bool metadataBusy: false
     property string metadataStatus: ""
+    // Preview rows for the store answer: {key, field, current, next,
+    // values} for every field the provider answered. Apply is the only
+    // writer, into the fields; Save still writes the config.
+    property var metadataRows: []
     // Age ratings are a fixed-board checklist, stored as a list.
     property var ageRatings: []
     // Wine/Proton only mean something for a Steam id (or the defaults
@@ -1624,47 +1628,75 @@ Window {
         gameModel.fetchMetadata(editAppid, steamAppIdField.text)
     }
 
-    // Download Metadata only completes empty fields, so a typed synopsis or
-    // studio name is never replaced by the store answer.
-    function applyMetadata(data) {
+    // Download Metadata opens a preview instead of writing: nothing is
+    // filled until Apply, so the current text stays visible next to the
+    // store answer. Only the fields the provider answered become rows.
+    function openMetadataPreview(data) {
         metadataBusy = false
-        var fieldsByKey = {
+        metadataStatus = ""
+        var rows = []
+        function add(key, field, current, next, values) {
+            if (next === "") {
+                return
+            }
+            rows.push({
+                "key": key,
+                "field": field,
+                "current": current,
+                "next": next,
+                "values": values || []
+            })
+        }
+        add("description", qsTr("Description"), descriptionArea.text, String(data.description || ""))
+        add("developer", qsTr("Developer"), developerField.text, String(data.developer || ""))
+        add("publisher", qsTr("Publisher"), publisherField.text, String(data.publisher || ""))
+        add("genre", qsTr("Genre"), genreField.text, String(data.genre || ""))
+        add("series", qsTr("Series"), seriesField.text, String(data.series || ""))
+        var ratings = data.age_ratings || []
+        add("age_ratings", qsTr("Age Ratings"), ageRatings.join(", "), ratings.join(", "), ratings)
+        add("date", qsTr("Release Date"), dateField.text, String(data.date || ""))
+        if (rows.length === 0) {
+            metadataStatus = qsTr("No Metadata Found.")
+            return
+        }
+        metadataRows = rows
+        metadataPreview.open(gameSettings)
+    }
+
+    // Apply fills empty fields only; the switch is the explicit
+    // confirmation for replacing typed values (field locks come later).
+    function applyMetadataRows() {
+        var targets = {
             "description": descriptionArea,
             "developer": developerField,
             "publisher": publisherField,
             "genre": genreField,
-            "series": seriesField
+            "series": seriesField,
+            "date": dateField
         }
-        var provided = 0
-        var filled = 0
-        for (var key in fieldsByKey) {
-            var text = String(data[key] || "")
-            if (text === "") {
+        var applied = 0
+        var kept = 0
+        for (var i = 0; i < metadataRows.length; i++) {
+            var row = metadataRows[i]
+            if (row.current !== "" && !metadataReplaceBox.checked) {
+                kept++
                 continue
             }
-            provided++
-            if (fieldsByKey[key].text === "") {
-                fieldsByKey[key].text = text
-                filled++
+            if (row.key === "age_ratings") {
+                ageRatings = row.values.slice()
+            } else {
+                targets[row.key].text = row.next
             }
+            applied++
         }
-        var ratings = data.age_ratings || []
-        if (ratings.length > 0) {
-            provided++
-            if (ageRatings.length === 0) {
-                ageRatings = ratings.slice()
-                filled++
-            }
-        }
-        if (provided === 0) {
-            metadataStatus = qsTr("No Metadata Found.")
-        } else if (filled === 0) {
+        if (applied === 0) {
             metadataStatus = qsTr("Nothing to Fill.")
-        } else if (filled < provided) {
+        } else if (kept > 0) {
             metadataStatus = qsTr("Loaded; Typed Fields Kept.")
         } else {
             metadataStatus = qsTr("Metadata Loaded.")
         }
+        metadataPreview.close()
     }
 
     function refreshPreview() {
@@ -1925,7 +1957,7 @@ Window {
         }
         function onMetadataFetched(appid, data) {
             if (appid === editAppid) {
-                applyMetadata(data || {})
+                openMetadataPreview(data || {})
             }
         }
         // The name matched several SteamGridDB entries: ask which one.
@@ -4521,6 +4553,77 @@ Window {
         objectName: "settingsAgeRatingPicker"
         onPicked: function(ratings) {
             gameSettings.ageRatings = ratings
+        }
+    }
+
+    // Store answer preview: Apply writes the empty fields, the switch
+    // widens that to every row. Cancel (or closing) writes nothing.
+    DialogWindow {
+        id: metadataPreview
+        objectName: "metadataPreview"
+        title: qsTr("Download Metadata")
+        width: Kirigami.Units.gridUnit * 38
+        acceptText: qsTr("Apply")
+        onAccepted: gameSettings.applyMetadataRows()
+        RowLayout {
+            Layout.fillWidth: true
+            Controls.Label {
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 7
+                font.bold: true
+                text: qsTr("Field")
+            }
+            Controls.Label {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: 1
+                font.bold: true
+                text: qsTr("Current")
+            }
+            Controls.Label {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: 1
+                font.bold: true
+                text: qsTr("New")
+            }
+        }
+        Repeater {
+            objectName: "metadataPreviewRows"
+            model: gameSettings.metadataRows
+            delegate: RowLayout {
+                required property var modelData
+                Layout.fillWidth: true
+                Controls.Label {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 7
+                    elide: Text.ElideRight
+                    text: modelData.field
+                }
+                Controls.Label {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredWidth: 1
+                    elide: Text.ElideRight
+                    opacity: 0.7
+                    text: modelData.current !== "" ? modelData.current : "—"
+                    Controls.ToolTip.text: modelData.current
+                    Controls.ToolTip.visible: hovered && modelData.current !== ""
+                }
+                Controls.Label {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredWidth: 1
+                    elide: Text.ElideRight
+                    text: modelData.next
+                    Controls.ToolTip.text: modelData.next
+                    Controls.ToolTip.visible: hovered
+                }
+            }
+        }
+        Controls.CheckBox {
+            id: metadataReplaceBox
+            objectName: "metadataPreviewReplace"
+            Layout.fillWidth: true
+            text: qsTr("Replace existing values")
         }
     }
 

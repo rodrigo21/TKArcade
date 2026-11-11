@@ -6,11 +6,13 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
-- Download Metadata on the Details tab fills empty description,
-  developer, publisher, genre, series and age ratings from the Steam
-  store, for a Steam game or a local game with `[metadata] steam_appid`.
-  Typed values stay, the cache is per game and records the AppID it was
-  fetched for, and the boards come from ESRB, PEGI and USK.
+- Download Metadata on the Details tab previews the Steam store answer
+  (`Field | Current | New`) and fills empty description, developer,
+  publisher, genre, series, age ratings and a missing date only when
+  Apply is pressed; a **Replace existing values** switch opts into
+  overwriting typed fields. Works for a Steam game or a local game with
+  `[metadata] steam_appid`. The cache is per game and records the AppID
+  it was fetched for, and the boards come from ESRB, PEGI and USK.
 - A local game can carry its Steam store AppID (`[metadata]
   steam_appid`, digits only): the ProtonDB table column, the Details
   rating and the context menu item then work for it, and saving a
