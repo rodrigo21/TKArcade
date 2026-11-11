@@ -7,9 +7,10 @@ and git, standing decisions in `docs/POLICIES.md`, and hard-won
 QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 `docs/README.md`. The order:
 
-1. Metadata provider first: the local metadata download, the provider
-   artwork source and the online categories need its client, cache and
-   credential, and a store game without a Steam link is its real target.
+1. Metadata provider registry first: Steam now, then VNDB,
+   PCGamingWiki and IGDB; the local metadata download, the provider
+   artwork source and the online categories all consume it. IGDB lands
+   last inside the phase because it waits on a Twitch app key.
 2. Library import second: the Playnite-style enrichment reuses the
    provider, and the provider has nothing to enrich before the import
    exists.
@@ -21,22 +22,15 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Before 1.0
 
-- [ ] **Metadata provider client (IGDB).** One client behind the local
-  metadata download, the provider artwork source and the online
-  categories: a decision record, the user credential, the cache and the
-  rate limit. Prerequisite of the metadata, artwork and category items
-  below.
+- [ ] **Metadata provider registry (Steam, VNDB, PCGamingWiki, IGDB).**
+  One client behind the local metadata download, the provider artwork
+  source and the online categories: per-provider adapters, cache, rate
+  limit, a preview before writing and per-field locks. It covers a game
+  without a Steam AppID.
   Design: `docs/plans/metadata-provider.md`.
 - [ ] **Other artwork sources.** Steam's CDN and SteamGridDB are the only
-  providers today. A third source (IGDB, GiantBomb, a Playnite-style
-  metadata service) would need its own key, cache and provider entry in
-  the Download From list, plus a decision record.
-  Design: `docs/plans/metadata-provider.md`.
-- [ ] **Metadata for local games without a Steam link.** Download Metadata
-  covers a Steam ID and a local game's `[metadata] steam_appid`; a game
-  that is not on Steam needs an IGDB-style service and key, its own
-  provider entry and a cache. A second provider (or a metadata service)
-  would also cover franchises the store omits.
+  providers today; IGDB joins as the third source, through the registry
+  and its own key and cache.
   Design: `docs/plans/metadata-provider.md`.
 - [ ] **Library format import (Lutris, Playnite, Faugus).** Only tarball,
   SteamTinkerLaunch and predecessor configs import today. A foreign
@@ -46,7 +40,7 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   Design: a plan lands before the first reader.
 - [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) on top of the
   library format import above: the enrichment reads the imported
-  entries and fills the manual metadata fields.
+  entries and fills the manual metadata fields through the registry.
   Design: `docs/plans/metadata-provider.md`.
 - [ ] Online sources à la Playnite for categories/tags (the per-game
   categories and the drawer filter shipped without them).

@@ -1,94 +1,122 @@
-# Metadata provider: one client, four consumers (proposal)
+# Metadata provider registry: four providers, one client (proposal)
 
 Status: proposal, not approved. Step 1 (Steam `appdetails` metadata
 download, no key) landed as `docs/decisions/metadata-download.md`; the
-consumers below are still open. When the provider itself lands it belongs
-in `docs/decisions/metadata-provider.md` with a landing banner, and this
+registry below is still open. When it lands it belongs in
+`docs/decisions/metadata-provider.md` with a landing banner, and this
 file is deleted.
 
 ## Problem
 
-`TODO.md` lists four items that look like separate features but share one
-missing piece: a metadata provider client (service, credential, cache,
-rate limit).
+`TODO.md` lists work that shares one missing piece: a provider registry
+(service, credential, cache, rate limit, field locks) behind three
+consumers: a local metadata download, provider artwork and online
+categories. A single Steam client cannot answer a game without a Steam
+AppID, and the manual fields would be retyped anyway.
 
-- Other artwork sources.
-- Metadata download.
-- Playnite-style metadata for local library import.
-- Online categories/tags.
+## Providers
 
-Nothing in `src/tkarcade` calls IGDB or any metadata service today
-(`artwork.py` uses Steam's CDN and SteamGridDB only; `releasedate.py`
-already reads Steam's `appdetails`).
+| Field | Steam | IGDB | VNDB | PCGamingWiki |
+| --- | --- | --- | --- | --- |
+| description | yes | yes | yes (synopsis) | no |
+| developer | yes | yes | yes (brand) | yes |
+| publisher | yes | yes | no | yes |
+| genre | yes | yes | tags (genre-class only) | yes |
+| series | yes | yes (franchise) | no (relations are not a series) | yes |
+| age ratings | ESRB/PEGI/USK | ESRB/PEGI/USK | no | ESRB/PEGI/CERO |
+| date | yes | yes | yes | yes |
+| engine/requirements/fixes | no | no | no | yes, separate feature |
 
-## Shared core
+- **Steam** wraps the landed `storemeta.py`; no key.
+- **IGDB** needs a Twitch app (client id/secret) and the Apicalypse query
+  language; 4 req/s.
+- **VNDB** has a public API with no key; title search, synopsis, brands
+  and tags; ~1 req/s.
+- **PCGamingWiki** uses the MediaWiki Cargo query (`action=cargoquery`);
+  no key and no API contract, so the adapter tolerates missing columns;
+  ~1 req/s.
 
-One client for a metadata service (IGDB is the leading candidate; it is
-also the source SGDB's own data is built around):
+GameStoryLog was evaluated and dropped: a React SPA whose data comes
+from an internal cache worker, with no public API. It is not a TODO
+item; it comes back only if the site publishes an API or an export.
 
-- credential: client id/secret, Twitch OAuth for IGDB (client-credentials
-  token is enough for read-only lookups);
-- cache: a JSON cache under the app cache dir, keyed like the existing
-  per-game caches (`artwork._cache_key` shape) so Steam and local games do
-  not collide;
-- request budget: a small delay/backoff, as IGDB rate-limits per second;
-- one decision record: service, credential storage (next to
-  `[ui] sgdb_api_key`), cache TTL, field mapping, failure policy (same
-  "silent on background fetch" rule as artwork).
+## Registry
 
-This core is a dependency of the four consumers below, not a user-facing
-feature on its own.
+- New `src/tkarcade/metadata.py`: a `PROVIDERS` registry; each entry
+  declares `label`, `fields`, `needs_key`, `search(game)` and
+  `fetch(game, target)`. The UI menu and the Preferences key field derive
+  from the registry, so a new provider is one module, one registry line
+  and its tests.
+- Cache: `app_cache_dir()/metadata/<provider>/<safe_stem(game_id)>.json`,
+  30-day TTL, `target` and `saved` recorded, so a changed match reads as
+  not cached. One namespace per provider keeps Steam and a store game
+  apart.
+- Rate gate per provider: IGDB 250 ms, VNDB and PCGamingWiki 1 s, Steam
+  none. Token cache for IGDB in the same dir, invalidated when the
+  client id changes.
+- Credential: `[ui] igdb_client_id` and `igdb_client_secret`, next to
+  `sgdb_api_key`; only IGDB needs one.
+- Failure policy: network error, 401 or a missing key return `None` and
+  leave the cache alone, like `storemeta.py`.
 
-## Consumers
+## Download policy
 
-1. **Metadata download (Steam half) — landed.** `appdetails` supplies
-   description, developer, publisher, genre, series, age ratings and
-   release date; the action fills empty `[metadata]` fields for a Steam
-   ID or a local game's `[metadata] steam_appid`, cached per game in
-   `steam-meta`. See `docs/decisions/metadata-download.md`. The local
-   half below still needs the provider.
+- Explicit action only; nothing fetches on open, save or startup, and
+  the work stays off the GUI thread (both landed rules stay).
+- **Fill empty only** by default; a typed field survives.
+- Preview before writing: a dialog lists `Field | Current | New` with a
+  **Replace existing values** switch, off by default. Replacing a typed
+  synopsis or genre is irreversible, so it never happens silently.
+- **Field locks**: `[metadata] locked = "description,developer"` (CSV,
+  normalized against the known field names). A label-side toggle in the
+  game dialog marks a field; a locked field is never replaced. Locks
+  cover description, developer, publisher, genre, series, age_ratings,
+  region, status, tag, version and date; `steam_appid` is identity, not
+  metadata.
+- **Date becomes fillable** when empty (Steam included), which supersedes
+  `docs/decisions/metadata-download.md` #7: the manual date already wins
+  over the cached store date, so a filled empty field becomes the
+  override instead of fighting it. Only values that pass
+  `metadata_date_valid` are written.
+- Ambiguous searches show a candidate picker, reusing the
+  `artworkChoices` signal pattern; the pick is remembered as the cached
+  `target`.
+- `age_ratings` is a list: fill-empty only when empty, replaced as a
+  whole when the switch is on.
 
-2. **Metadata download (local half).** Same fields from the provider by
-   name, plus a per-game "Download Metadata" action. Uses the shared
-   client; per-field overwrite policy is a decision (fill empty only,
-   overwrite, or preview-and-pick).
+## Consumers and order
 
-3. **Artwork from the metadata provider.** IGDB serves covers and
-   artworks, so it can join `artwork.PROVIDERS` as a third provider
-   without changing `ART_KINDS`. Different from "other artwork sources"
-   in `TODO.md` only in which service is chosen.
+| # | Landing | Deliverable |
+| --- | --- | --- |
+| C1 | Registry + cache + rate gate + Steam adapter | decision record; no key, no UI change |
+| C2 | Download Metadata action UI: provider menu, candidate picker, preview dialog | works with Steam only; validates the UX cheaply |
+| C3 | Field locks (config + game dialog) | makes overwrite safe; QML change |
+| C4 | VNDB adapter | no key; the visual-novel case |
+| C5 | PCGamingWiki adapter | publisher, series, ratings |
+| C6 | IGDB adapter + credential field | waits on the maintainer's Twitch app |
+| C7 | IGDB artwork as a third source | joins `artwork.PROVIDERS` |
+| C8 | Online categories/tags in bulk | last; taxonomy UX is its own risk |
 
-4. **Playnite-style enrichment (Steam/Epic/GOG/PCGW/VNDB).** Blocked on
-   the missing library-format import (Lutris/Playnite/Faugus). The
-   enrichment reuses consumer 2; the import is its own theme.
-
-5. **Online categories/tags.** Taxonomy (genres, keywords) applied in
-   bulk to many games, not a per-game field. Different UX from consumer
-   2; last, highest uncertainty.
-
-## Ordering
-
-1. ~~Steam `appdetails` metadata download (no key)~~ — landed.
-2. Decision record + credential + client + cache.
-3. Local metadata, provider artwork and online categories as consumers
-   of the client.
-4. Library format import (`TODO.md`), then the Playnite-style
-   enrichment: it reuses step 3 and has nothing to read before the
-   import exists.
-
-The provider is the first theme before 1.0; the library import and its
-enrichment follow, and Epic/GOG as origins wait for 2.0
-(`docs/plans/epic-gog-sources.md`). An imported store game stays a
-`local` game with its store recorded in `[store]`, so the origin needs no
-ID prefix and no rename.
+The library format import and its enrichment follow as a separate theme;
+the enrichment reuses C2's action in bulk.
 
 ## Open questions
 
-- Provider: IGDB only, or IGDB for both text and art plus PCGW for
-  fixes? PCGW has no clean API.
-- Does the provider need a user-supplied key in Preferences (like SGDB),
-  or can a bundled credential work? IGDB/Twitch requires an app
-  registration, so it is a user key at least for now.
-- Overwrite policy for a field the user already filled by hand.
-- One shared cache shape for text fields, or one file per game next to
-  the existing artwork sidecar.
+- None block C1. C6 waits on the maintainer registering a Twitch
+  application (client id/secret).
+- PCGamingWiki engine/requirements/fixes are a separate feature, not
+  metadata.
+- VNDB tags: only genre-class tags feed `genre`; theme tags are dropped.
+
+## Risks
+
+- Four field mappings and three search shapes: the registry keeps the
+  core small, but each adapter needs its fixtures.
+- PCGamingWiki has no API contract; a renamed Cargo column must degrade
+  to a missing field, not a crash.
+- IGDB's Apicalypse query needs quote escaping; a title with quotes must
+  not break the request.
+- The preview dialog is a new QML surface; the fill-empty path must keep
+  working without the switch.
+- 1.0 grows by eight landings before the library import. If the release
+  tightens, C5 and C7 move to 2.0 without touching VNDB.
