@@ -70,13 +70,17 @@ feature on its own.
 
 1. ~~Steam `appdetails` metadata download (no key)~~ — landed.
 2. Decision record + credential + client + cache.
-3. Local metadata and provider artwork as consumers of the client.
-4. Library import, then enrichment.
-5. Online categories/tags.
+3. Local metadata, provider artwork and online categories as consumers
+   of the client.
+4. Library format import (`TODO.md`), then the Playnite-style
+   enrichment: it reuses step 3 and has nothing to read before the
+   import exists.
 
-Steps 2 and 3 can land as one batch; 4 and 5 stay separate themes. Step
-4 depends on the library format import listed in `TODO.md`, not on the
-client.
+The provider is the first theme before 1.0; the library import and its
+enrichment follow, and Epic/GOG as origins wait for 2.0
+(`docs/plans/epic-gog-sources.md`). An imported store game stays a
+`local` game with its store recorded in `[store]`, so the origin needs no
+ID prefix and no rename.
 
 ## Open questions
 

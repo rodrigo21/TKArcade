@@ -1,19 +1,32 @@
-# TODO — deferred ideas
+# TODO — open work
 
 Where the work stands: `docs/STATE.md` (injected into every session
 through `instructions` in `opencode.json`; refresh it with `/handoff`).
 This file is the open list only: finished work lives in `CHANGELOG.md`
 and git, standing decisions in `docs/POLICIES.md`, and hard-won
 QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
-`docs/README.md`.
+`docs/README.md`. The order:
 
-## Deferred research
+1. Metadata provider first: the local metadata download, the provider
+   artwork source and the online categories need its client, cache and
+   credential, and a store game without a Steam link is its real target.
+2. Library import second: the Playnite-style enrichment reuses the
+   provider, and the provider has nothing to enrich before the import
+   exists.
+3. The 1.0 gate on the maintainer's release call: visual pass, shim
+   removal, translations, release pass.
+4. Epic and GOG as origins in 2.0: the 1.0 gate removes the rename
+   machinery a new ID prefix would need, so a store game records its
+   store in a `[store]` field and keeps a `local` ID.
 
-- [ ] **Other game sources (Epic, GOG).** The Add Game dialog picks the
-  source (Steam, Local); a second store needs its own scan, a per-source
-  import flow for a whole library and a decision record. The removed
-  Scan dialog is the shape a per-source batch import can come back in.
-  Design: `docs/plans/epic-gog-sources.md`.
+## Before 1.0
+
+- [ ] **Metadata provider client (IGDB).** One client behind the local
+  metadata download, the provider artwork source and the online
+  categories: a decision record, the user credential, the cache and the
+  rate limit. Prerequisite of the metadata, artwork and category items
+  below.
+  Design: `docs/plans/metadata-provider.md`.
 - [ ] **Other artwork sources.** Steam's CDN and SteamGridDB are the only
   providers today. A third source (IGDB, GiantBomb, a Playnite-style
   metadata service) would need its own key, cache and provider entry in
@@ -28,7 +41,9 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 - [ ] **Library format import (Lutris, Playnite, Faugus).** Only tarball,
   SteamTinkerLaunch and predecessor configs import today. A foreign
   library file needs a per-format reader, the ID/name mapping onto
-  existing games and an ImportDialog page.
+  existing games and an ImportDialog page. An imported store game records
+  its store in a `[store]` field and keeps a `local` ID.
+  Design: a plan lands before the first reader.
 - [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) on top of the
   library format import above: the enrichment reads the imported
   entries and fills the manual metadata fields.
@@ -37,9 +52,7 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   categories and the drawer filter shipped without them).
   Design: `docs/plans/metadata-provider.md`.
 
-## Deferred release
-
-Only when the maintainer opens the subject.
+Release, only when the maintainer opens the subject:
 
 - [ ] **1.0: drop every compatibility shim.** 1.0 should read only the
   current format; the compatibility promise starts after it. Remove
@@ -67,3 +80,11 @@ Only when the maintainer opens the subject.
   env-override test) and the 580.x NVIDIA README; both are
   OpenGL/GLX-only, so Vulkan needs its own present mode and the presets
   carry that in their `note`.
+
+## 2.0
+
+- [ ] **Epic and GOG game sources.** The Add Game dialog picks the source
+  (Steam, Local); a second store needs its own scan, a per-source import
+  flow for a whole library and a decision record. The removed Scan dialog
+  is the shape a per-source batch import can come back in.
+  Design: `docs/plans/epic-gog-sources.md`.

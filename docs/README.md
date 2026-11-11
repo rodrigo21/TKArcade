@@ -101,7 +101,8 @@ What each document is for and where the source of truth lives.
 
 - `plans/epic-gog-sources.md` — Epic and GOG as game origins: discovery
   through Heroic's files, the local-family launch choice, the import flow
-  and four decisions the maintainer still owes.
+  and four decisions the maintainer still owes; targeted at 2.0, after
+  the 1.0 release.
 - `plans/metadata-provider.md` — one metadata client behind four
   consumers (local metadata, provider artwork, Playnite enrichment,
   online categories). Its first consumer landed as

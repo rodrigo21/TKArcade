@@ -3,6 +3,10 @@
 Status: proposal, not approved. Awaiting the maintainer's decisions
 below; when it lands it becomes `docs/decisions/game-sources.md` with a
 landing banner and this file is deleted.
+Target: 2.0, after the 1.0 release. The origin becomes a `[store]` config
+field, not an ID prefix: the 1.0 gate removes `--migrate-ids` and the
+automatic rename, so a `gog-*`/`epic-*` prefix would have no migration
+left. A store game imported before 2.0 keeps a `local` ID.
 Created: 2026-11-11. Read `TODO.md` "Other game sources" and
 `docs/STATE.md` "Next" for the current snapshot.
 
@@ -68,7 +72,8 @@ fallback chain and ProtonDB-via-`[metadata] steam_appid` still apply.
 ### 1. Origin foundation, no UI
 
 - `steam.py`: a small origin registry (`steam`, `local`, `epic`, `gog`),
-  `origin()` parsing `<origin>-<body>`, `is_local_family()`.
+  `origin()` parsing `<origin>-<body>` and reading `[store] kind` for a
+  store game imported before 2.0, `is_local_family()`.
 - `launcher.py`: `runtime_problem()` allows native|wine|umu for the
   local family (epic/gog), proton only for steam; error messages keep
   naming valid choices.
