@@ -10,31 +10,10 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: thirty-nine batches. The latest: the roadmap fixes the order —
-  metadata provider and library import before 1.0, Epic/GOG in 2.0 —
-  `TODO.md` splits into Before 1.0 and 2.0, and the two plans carry the
-  order and the `[store]` constraint. Before it: the library's ProtonDB
-  badge shows a pending game as grey text on grey (`#757575`) instead
-  of an unreadable black bar, in the list, card and game dialog;
-  `TIER_STYLE` gained a `pending` entry and a model test pins the row
-  values. Before it: Download Metadata closes the
-  Details Game section, beside the Steam AppID and ProtonDB rows it
-  depends on, and fills empty description/developer/publisher/genre/
-  series/age ratings from the Steam store for a Steam ID or a local
-  game's `[metadata] steam_appid`. It keeps typed values, caches per
-  game in `steam-meta` with the target recorded, and maps ESRB/PEGI/USK
-  only; the manual date stays manual. The store rows moved out of
-  Information, so Information holds the manual fields plus the
-  elastic five-line Description. Before it: the description box fill
-  and scroll, the local game's ProtonDB store link, the fourth artwork
-  kind `background`, and the game dialog rework (Details/Execution tabs,
-  manual `[metadata]` fields, status badges, ProtonDB row). Translations
-  were suspended until 1.0 (`tests/test_i18n.py` catalog tests are
-  skipped).
-- Verified: the docs landing by `pytest tests/test_docs.py`; the last
-  code landing by `scripts/check.sh --qml` (702 passed, 3 skipped), and
-  the earlier layout comparison (`/tmp/opencode/compare-linked.png`) and
-  metadata screenshots still stand.
+- Landed: thirty-nine batches. The latest orders the roadmap: metadata
+  provider, library import, the 1.0 gate, then Epic/GOG in 2.0;
+  `TODO.md` splits into Before 1.0 and 2.0 with the why of each phase.
+- Verified: the docs batch by `pytest tests/test_docs.py` (6 passed).
 - Next: the metadata provider client — decision record, IGDB credential,
   client, cache, rate limit — then its consumers (local metadata,
   provider artwork, online categories), then the library import and its
