@@ -179,6 +179,22 @@ GAME_STATUSES = (
     "played",
     "playing",
 )
+#: Metadata fields a lock protects from every download, in the order the
+#: config writes them. `steam_appid` is identity and categories are
+#: taxonomy, so neither takes a lock.
+LOCKABLE_FIELDS = (
+    "description",
+    "developer",
+    "publisher",
+    "genre",
+    "series",
+    "age_ratings",
+    "region",
+    "status",
+    "tag",
+    "version",
+    "date",
+)
 #: Board -> ratings, in the picker order. Stored as the display strings.
 AGE_RATING_GROUPS = (
     ("PEGI", ("PEGI 3", "PEGI 7", "PEGI 12", "PEGI 16", "PEGI 18")),
@@ -221,9 +237,24 @@ class MetadataConfig:
     age_ratings: list[str] = field(default_factory=list)  # AGE_RATINGS values
     region: str = ""  # eu|jp|us|world ("" = unset)
     status: str = ""  # one of GAME_STATUSES ("" = unset)
+    # CSV of LOCKABLE_FIELDS a download must never replace, in canonical
+    # order ("" = none). Case-insensitive on load, unknown names dropped.
+    locked: str = ""
     # A local game's own Steam store link: digits only, "" when it has
     # none. A Steam ID derives its AppID, so this field is ignored there.
     steam_appid: str = ""
+
+
+def normalize_locked_fields(value: object) -> str:
+    """Known lockable field names as canonical CSV ("" when none)."""
+    if isinstance(value, str):
+        names = value.split(",")
+    elif isinstance(value, (list, tuple)):
+        names = [str(name) for name in value]
+    else:
+        names = []
+    wanted = {str(name).strip().lower() for name in names}
+    return ",".join(name for name in LOCKABLE_FIELDS if name in wanted)
 
 
 def normalize_steam_appid(value: object) -> str:
@@ -1005,6 +1036,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "age_ratings",
         "region",
         "status",
+        "locked",
         "steam_appid",
     },
     "env": {"vars"},
@@ -1231,6 +1263,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.metadata.region = region if region in REGIONS else ""
     status = str(md.get("status", "")).strip().lower()
     cfg.metadata.status = status if status in GAME_STATUSES else ""
+    cfg.metadata.locked = normalize_locked_fields(md.get("locked", ""))
     cfg.metadata.steam_appid = normalize_steam_appid(md.get("steam_appid", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (

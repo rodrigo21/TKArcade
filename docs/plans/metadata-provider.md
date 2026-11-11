@@ -2,9 +2,10 @@
 
 Status: proposal, not approved. C1 (the registry plus the Steam adapter)
 landed as `docs/decisions/metadata-registry.md`, C2 (the action preview)
-as `docs/decisions/metadata-preview.md`, and the earlier Steam
-`appdetails` download as `docs/decisions/metadata-download.md`; the
-adapters below are still open. When the rest lands it belongs in
+as `docs/decisions/metadata-preview.md`, C3 (the field locks) as
+`docs/decisions/metadata-locks.md`, and the earlier Steam `appdetails`
+download as `docs/decisions/metadata-download.md`; the adapters below
+are still open. When the rest lands it belongs in
 `docs/decisions/metadata-provider.md` with a landing banner, and this
 file is deleted.
 
@@ -94,7 +95,7 @@ item; it comes back only if the site publishes an API or an export.
 | --- | --- | --- |
 | C1 | Registry + cache + rate gate + Steam adapter | landed (`decisions/metadata-registry.md`); no key, no UI change |
 | C2 | Download Metadata preview dialog | landed (`decisions/metadata-preview.md`); the provider menu moved to C6, the candidate picker to C4 |
-| C3 | Field locks (config + game dialog) | makes overwrite safe; QML change |
+| C3 | Field locks (config + game dialog) | landed (`decisions/metadata-locks.md`); locks win over the replace switch, QML change |
 | C4 | VNDB adapter + candidate picker | no key; the visual-novel case |
 | C5 | PCGamingWiki adapter | publisher, series, ratings |
 | C6 | IGDB adapter + credential field + provider menu | waits on the maintainer's Twitch app |

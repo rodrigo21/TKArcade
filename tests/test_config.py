@@ -368,6 +368,21 @@ def test_metadata_region_and_status_are_normalized(xdg_env):
     assert back.metadata.status == "playing"
 
 
+def test_metadata_locks_are_normalized(xdg_env):
+    assert C.normalize_locked_fields("Developer, description ,bogus,developer") == (
+        "description,developer"
+    )
+    assert C.normalize_locked_fields(["version", "date"]) == "version,date"
+    assert C.normalize_locked_fields("") == ""
+    assert C.normalize_locked_fields(None) == ""
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.metadata.locked = "status,unknown,genre"
+    C.save(cfg)
+    assert C.load("local-doom").metadata.locked == "genre,status"
+
+
 def test_metadata_steam_appid_is_digits_only(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "local-doom"
@@ -425,6 +440,7 @@ _GAME_FIELDS = {
     "metadata.age_ratings": ["PEGI 12", "ESRB T"],
     "metadata.region": "world",
     "metadata.status": "completed",
+    "metadata.locked": "description,developer",
     "metadata.steam_appid": "620",
     "env.vars": {"A": "1", "B": "two words"},
     "pre_post.pre_command": "prescript",

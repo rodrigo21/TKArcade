@@ -7344,6 +7344,88 @@ def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_metadata_lock_toggle_persists(qgui_app, xdg_env):
+    """The per-field lock saves in [metadata] locked and toggles off again."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.locked = "genre"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    assert dlg.isLocked("genre") is True
+    # The top row's control is on screen; the lower toggles use the same
+    # function the button calls.
+    _click(swin, "settingsLockVersion")
+    assert dlg.isLocked("version") is True
+    dlg.toggleLock("developer")
+    dlg.toggleLock("genre")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.locked == "developer,version"
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_locked_field_survives_replace(qgui_app, xdg_env):
+    """A locked row is never written, even with the replace switch on."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    cfg.metadata.developer = "Typed Studio"
+    cfg.metadata.locked = "developer"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    assert dlg.isLocked("developer") is True
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit(
+        "local-doom",
+        {"description": "Store synopsis.", "developer": "Store Studio"},
+    )
+    qgui_app.processEvents()
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    assert [row["locked"] for row in rows] == [False, True]
+    preview = _confirm_window(qgui_app, "metadataPreview")
+    replace = preview.findChild(QQuickItem, "metadataPreviewReplace")
+    replace.setProperty("checked", True)
+    _click(preview, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Store synopsis."
+    assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Typed Studio"
+    status = swin.findChild(QQuickItem, "settingsMetadataStatus").property("text")
+    assert status == "Loaded; Typed Fields Kept."
+    dlg.save()
+    qgui_app.processEvents()
+    saved = C.load("local-doom")
+    assert saved.metadata.locked == "developer"
+    assert saved.metadata.developer == "Typed Studio"
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_age_rating_picker_default_boards(qgui_app, xdg_env):
     """Primary boards stay alphabetical; the rest hide behind one row."""
     from PySide6.QtCore import QMetaObject, QObject, QPointF

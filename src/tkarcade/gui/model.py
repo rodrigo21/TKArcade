@@ -72,6 +72,7 @@ def _apply_metadata(cfg, data: dict) -> None:
     md.region = region if region in cfgmod.REGIONS else ""
     status = str(data.get("status", "")).strip().lower()
     md.status = status if status in cfgmod.GAME_STATUSES else ""
+    md.locked = cfgmod.normalize_locked_fields(data.get("locked", ""))
     md.steam_appid = cfgmod.normalize_steam_appid(data.get("steam_appid", ""))
 
 
@@ -988,6 +989,7 @@ class GameListModel(QAbstractTableModel):
             "age_ratings": list(cfg.metadata.age_ratings),
             "region": cfg.metadata.region,
             "status": cfg.metadata.status,
+            "locked": cfg.metadata.locked,
             "steam_appid": cfg.metadata.steam_appid,
             "custom_executable": g.custom_executable,
             "runtime_type": cfgmod.normalize_runtime(cfg.runtime.type),

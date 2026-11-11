@@ -1075,6 +1075,23 @@ def test_fetch_metadata_targets_the_store_link(qgui_app, xdg_env, monkeypatch):
     assert got == [("local-other", {})]
 
 
+def test_metadata_locks_survive_the_form_map(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    appid = model.saveGame(
+        "",
+        {
+            "name": "Doom",
+            "custom_executable": "/bin/true",
+            "runtime_type": "native",
+            "locked": "developer, bogus, description",
+        },
+    )
+    assert C.load(appid).metadata.locked == "description,developer"
+    assert model.loadGame(appid)["locked"] == "description,developer"
+
+
 def test_settings_create_and_profiles(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

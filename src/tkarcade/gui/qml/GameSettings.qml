@@ -66,6 +66,9 @@ Window {
     property var metadataRows: []
     // Age ratings are a fixed-board checklist, stored as a list.
     property var ageRatings: []
+    // [metadata] locked split into field names: a locked field is never
+    // written by Download Metadata, even with the replace switch on.
+    property var lockedFields: []
     // Wine/Proton only mean something for a Steam id (or the defaults
     // template): a local game has no compatdata prefix to edit.
     readonly property bool wineAvailable: defaultsMode || ((fields.is_steam || false) && editAppid !== "")
@@ -770,6 +773,9 @@ Window {
         genreField.text = f.genre || ""
         seriesField.text = f.series || ""
         ageRatings = (f.age_ratings || []).slice()
+        lockedFields = String(f.locked || "").split(",").filter(function(name) {
+            return name !== ""
+        })
         regionBox.currentIndex = Math.max(0, regionBox.indexOfValue(f.region || ""))
         gameStatusBox.currentIndex = Math.max(0, gameStatusBox.indexOfValue(f.status || ""))
         steamAppIdField.text = f.steam_appid || ""
@@ -885,6 +891,7 @@ Window {
             "age_ratings": ageRatings,
             "region": String(regionBox.currentValue || ""),
             "status": String(gameStatusBox.currentValue || ""),
+            "locked": lockedFields.join(","),
             "steam_appid": steamAppIdField.text,
             // The slots have no path field any more: read what the store
             // holds, or a Save would clear a file picked earlier.
@@ -1619,6 +1626,22 @@ Window {
         protonDBFg = info.fg || ""
     }
 
+    function isLocked(key) {
+        return lockedFields.indexOf(key) >= 0
+    }
+
+    // The lock is part of the config: Save writes it, Cancel drops it.
+    function toggleLock(key) {
+        var next = lockedFields.slice()
+        var at = next.indexOf(key)
+        if (at >= 0) {
+            next.splice(at, 1)
+        } else {
+            next.push(key)
+        }
+        lockedFields = next
+    }
+
     function downloadMetadata() {
         if (metadataBusy || editAppid === "") {
             return
@@ -1644,7 +1667,8 @@ Window {
                 "field": field,
                 "current": current,
                 "next": next,
-                "values": values || []
+                "values": values || [],
+                "locked": gameSettings.isLocked(key)
             })
         }
         add("description", qsTr("Description"), descriptionArea.text, String(data.description || ""))
@@ -1663,8 +1687,8 @@ Window {
         metadataPreview.open(gameSettings)
     }
 
-    // Apply fills empty fields only; the switch is the explicit
-    // confirmation for replacing typed values (field locks come later).
+    // Apply fills empty fields only; a locked field is never written, and
+    // the switch only widens the write to unlocked rows.
     function applyMetadataRows() {
         var targets = {
             "description": descriptionArea,
@@ -1678,7 +1702,7 @@ Window {
         var kept = 0
         for (var i = 0; i < metadataRows.length; i++) {
             var row = metadataRows[i]
-            if (row.current !== "" && !metadataReplaceBox.checked) {
+            if (row.locked || (row.current !== "" && !metadataReplaceBox.checked)) {
                 kept++
                 continue
             }
@@ -2239,29 +2263,53 @@ Window {
                                 // Optional identity extras, rendered as
                                 // name suffixes in the library; the saved
                                 // name never carries them.
-                                Controls.TextField {
-                                    id: versionField
-                                    objectName: "settingsVersion"
-                                    visible: !defaultsMode
-                                    placeholderText: qsTr("Shown as Name [Version]")
+                                RowLayout {
                                     Layout.fillWidth: true
+                                    visible: !defaultsMode
                                     KirigamiLayouts.FormData.label: qsTr("Version:")
+                                    Controls.TextField {
+                                        id: versionField
+                                        objectName: "settingsVersion"
+                                        placeholderText: qsTr("Shown as Name [Version]")
+                                        Layout.fillWidth: true
+                                    }
+                                    LockButton {
+                                        key: "version"
+                                        locked: gameSettings.isLocked("version")
+                                        onClicked: gameSettings.toggleLock("version")
+                                    }
                                 }
-                                Controls.TextField {
-                                    id: dateField
-                                    objectName: "settingsDate"
-                                    visible: !defaultsMode
-                                    placeholderText: qsTr("YYYY-MM-DD, YYYY-MM or YYYY")
+                                RowLayout {
                                     Layout.fillWidth: true
+                                    visible: !defaultsMode
                                     KirigamiLayouts.FormData.label: qsTr("Release Date:")
+                                    Controls.TextField {
+                                        id: dateField
+                                        objectName: "settingsDate"
+                                        placeholderText: qsTr("YYYY-MM-DD, YYYY-MM or YYYY")
+                                        Layout.fillWidth: true
+                                    }
+                                    LockButton {
+                                        key: "date"
+                                        locked: gameSettings.isLocked("date")
+                                        onClicked: gameSettings.toggleLock("date")
+                                    }
                                 }
-                                Controls.TextField {
-                                    id: tagField
-                                    objectName: "settingsTag"
-                                    visible: !defaultsMode
-                                    placeholderText: qsTr("Shown as Name (TAG)")
+                                RowLayout {
                                     Layout.fillWidth: true
+                                    visible: !defaultsMode
                                     KirigamiLayouts.FormData.label: qsTr("State Tag:")
+                                    Controls.TextField {
+                                        id: tagField
+                                        objectName: "settingsTag"
+                                        placeholderText: qsTr("Shown as Name (TAG)")
+                                        Layout.fillWidth: true
+                                    }
+                                    LockButton {
+                                        key: "tag"
+                                        locked: gameSettings.isLocked("tag")
+                                        onClicked: gameSettings.toggleLock("tag")
+                                    }
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2366,33 +2414,65 @@ Window {
                                 id: infoForm
                                 labelWidth: generalColumn.labelWidth
                                 Layout.fillWidth: true
-                                Controls.TextField {
-                                    id: developerField
-                                    objectName: "settingsDeveloper"
-                                    placeholderText: qsTr("Studio or Team")
+                                RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Developer:")
+                                    Controls.TextField {
+                                        id: developerField
+                                        objectName: "settingsDeveloper"
+                                        placeholderText: qsTr("Studio or Team")
+                                        Layout.fillWidth: true
+                                    }
+                                    LockButton {
+                                        key: "developer"
+                                        locked: gameSettings.isLocked("developer")
+                                        onClicked: gameSettings.toggleLock("developer")
+                                    }
                                 }
-                                Controls.TextField {
-                                    id: publisherField
-                                    objectName: "settingsPublisher"
-                                    placeholderText: qsTr("Publisher")
+                                RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Publisher:")
+                                    Controls.TextField {
+                                        id: publisherField
+                                        objectName: "settingsPublisher"
+                                        placeholderText: qsTr("Publisher")
+                                        Layout.fillWidth: true
+                                    }
+                                    LockButton {
+                                        key: "publisher"
+                                        locked: gameSettings.isLocked("publisher")
+                                        onClicked: gameSettings.toggleLock("publisher")
+                                    }
                                 }
-                                Controls.TextField {
-                                    id: genreField
-                                    objectName: "settingsGenre"
-                                    placeholderText: qsTr("Action, Adventure (Comma-Separated)")
+                                RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Genre:")
+                                    Controls.TextField {
+                                        id: genreField
+                                        objectName: "settingsGenre"
+                                        placeholderText: qsTr("Action, Adventure (Comma-Separated)")
+                                        Layout.fillWidth: true
+                                    }
+                                    LockButton {
+                                        key: "genre"
+                                        locked: gameSettings.isLocked("genre")
+                                        onClicked: gameSettings.toggleLock("genre")
+                                    }
                                 }
-                                Controls.TextField {
-                                    id: seriesField
-                                    objectName: "settingsSeries"
-                                    placeholderText: qsTr("Series")
+                                RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Series:")
+                                    Controls.TextField {
+                                        id: seriesField
+                                        objectName: "settingsSeries"
+                                        placeholderText: qsTr("Series")
+                                        Layout.fillWidth: true
+                                    }
+                                    LockButton {
+                                        key: "series"
+                                        locked: gameSettings.isLocked("series")
+                                        onClicked: gameSettings.toggleLock("series")
+                                    }
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2408,40 +2488,61 @@ Window {
                                         Controls.ToolTip.visible: hovered
                                         onClicked: gameSettings.openAgeRatings()
                                     }
+                                    LockButton {
+                                        key: "age_ratings"
+                                        locked: gameSettings.isLocked("age_ratings")
+                                        onClicked: gameSettings.toggleLock("age_ratings")
+                                    }
                                 }
-                                AppComboBox {
-                                    id: regionBox
-                                    objectName: "settingsRegion"
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    textRole: "text"
-                                    valueRole: "data"
-                                    model: [
-                                        {"text": qsTr("Not Set"), "data": ""},
-                                        {"text": qsTr("Europe"), "data": "eu"},
-                                        {"text": qsTr("Japan"), "data": "jp"},
-                                        {"text": qsTr("USA"), "data": "us"},
-                                        {"text": qsTr("World"), "data": "world"}
-                                    ]
                                     KirigamiLayouts.FormData.label: qsTr("Region:")
+                                    AppComboBox {
+                                        id: regionBox
+                                        objectName: "settingsRegion"
+                                        Layout.fillWidth: true
+                                        textRole: "text"
+                                        valueRole: "data"
+                                        model: [
+                                            {"text": qsTr("Not Set"), "data": ""},
+                                            {"text": qsTr("Europe"), "data": "eu"},
+                                            {"text": qsTr("Japan"), "data": "jp"},
+                                            {"text": qsTr("USA"), "data": "us"},
+                                            {"text": qsTr("World"), "data": "world"}
+                                        ]
+                                    }
+                                    LockButton {
+                                        key: "region"
+                                        locked: gameSettings.isLocked("region")
+                                        onClicked: gameSettings.toggleLock("region")
+                                    }
                                 }
-                                AppComboBox {
-                                    id: gameStatusBox
-                                    objectName: "settingsStatus"
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    textRole: "text"
-                                    valueRole: "data"
-                                    model: [
-                                        {"text": qsTr("Not Set"), "data": ""},
-                                        {"text": qsTr("Abandoned"), "data": "abandoned"},
-                                        {"text": qsTr("Beaten"), "data": "beaten"},
-                                        {"text": qsTr("Completed"), "data": "completed"},
-                                        {"text": qsTr("Not Played"), "data": "not_played"},
-                                        {"text": qsTr("On Hold"), "data": "on_hold"},
-                                        {"text": qsTr("Plan to Play"), "data": "plan_to_play"},
-                                        {"text": qsTr("Played"), "data": "played"},
-                                        {"text": qsTr("Playing"), "data": "playing"}
-                                    ]
                                     KirigamiLayouts.FormData.label: qsTr("Status:")
+                                    AppComboBox {
+                                        id: gameStatusBox
+                                        objectName: "settingsStatus"
+                                        Layout.fillWidth: true
+                                        textRole: "text"
+                                        valueRole: "data"
+                                        model: [
+                                            {"text": qsTr("Not Set"), "data": ""},
+                                            {"text": qsTr("Abandoned"), "data": "abandoned"},
+                                            {"text": qsTr("Beaten"), "data": "beaten"},
+                                            {"text": qsTr("Completed"), "data": "completed"},
+                                            {"text": qsTr("Not Played"), "data": "not_played"},
+                                            {"text": qsTr("On Hold"), "data": "on_hold"},
+                                            {"text": qsTr("Plan to Play"), "data": "plan_to_play"},
+                                            {"text": qsTr("Played"), "data": "played"},
+                                            {"text": qsTr("Playing"), "data": "playing"}
+                                        ]
+                                    }
+                                    LockButton {
+                                        key: "status"
+                                        locked: gameSettings.isLocked("status")
+                                        onClicked: gameSettings.toggleLock("status")
+                                    }
                                 }
                             }
                             // Same label column and gap as the form rows; the
@@ -2480,6 +2581,12 @@ Window {
                                         placeholderText: qsTr("Synopsis or Description…")
                                         wrapMode: Text.WordWrap
                                     }
+                                }
+                                LockButton {
+                                    key: "description"
+                                    locked: gameSettings.isLocked("description")
+                                    onClicked: gameSettings.toggleLock("description")
+                                    Layout.alignment: Qt.AlignTop
                                 }
                             }
                         }
@@ -4613,8 +4720,11 @@ Window {
                     Layout.minimumWidth: 0
                     Layout.preferredWidth: 1
                     elide: Text.ElideRight
-                    text: modelData.next
-                    Controls.ToolTip.text: modelData.next
+                    opacity: modelData.locked ? 0.7 : 1
+                    text: modelData.locked ? qsTr("Locked") : modelData.next
+                    Controls.ToolTip.text: modelData.locked
+                        ? qsTr("Locked; Download Metadata Will Not Replace It")
+                        : modelData.next
                     Controls.ToolTip.visible: hovered
                 }
             }

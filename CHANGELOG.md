@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Metadata fields on the Details tab can be locked against downloads: a
+  lock toggle at the end of every lockable row saves in `[metadata]
+  locked` (normalized CSV), shows `Locked` in the Download Metadata
+  preview and is never replaced, even with **Replace existing values**
+  on.
 - Download Metadata on the Details tab previews the Steam store answer
   (`Field | Current | New`) and fills empty description, developer,
   publisher, genre, series, age ratings and a missing date only when

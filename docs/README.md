@@ -100,6 +100,8 @@ What each document is for and where the source of truth lives.
   per-provider cache and rate gate, and the Steam adapter split.
 - `decisions/metadata-preview.md` — the preview before writing, the
   Replace existing values switch and the fill-empty default.
+- `decisions/metadata-locks.md` — per-field `[metadata] locked`, the
+  row toggle on Details and the lock winning over the replace switch.
 
 ## Plans
 
