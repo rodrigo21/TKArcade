@@ -10,7 +10,11 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: thirty-seven batches. The latest: Download Metadata closes the
+- Landed: thirty-eight batches. The latest: the library's ProtonDB
+  badge shows a pending game as grey text on grey (`#757575`) instead
+  of an unreadable black bar, in the list, card and game dialog;
+  `TIER_STYLE` gained a `pending` entry and a model test pins the row
+  values. Before it: Download Metadata closes the
   Details Game section, beside the Steam AppID and ProtonDB rows it
   depends on, and fills empty description/developer/publisher/genre/
   series/age ratings from the Steam store for a Steam ID or a local
@@ -24,10 +28,10 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   manual `[metadata]` fields, status badges, ProtonDB row). Translations
   were suspended until 1.0 (`tests/test_i18n.py` catalog tests are
   skipped).
-- Verified: the approved diff. 701 passed, 3 skipped with the QML driver
-  (`scripts/check.sh --qml`); the layout comparison is
-  `/tmp/opencode/compare-linked.png` (A/B), metadata screenshots
-  `/tmp/opencode/info-B-*.png`.
+- Verified: the approved diff. 702 passed, 3 skipped with the QML
+  driver (`scripts/check.sh --qml`); the badge change touches no QML,
+  and the earlier layout comparison (`/tmp/opencode/compare-linked.png`)
+  and metadata screenshots still stand.
 - Next: the other game sources (Epic, GOG). The metadata-provider
   consolidation (other artwork sources, a provider for local games
   without a Steam link, Playnite enrichment, online categories) is
