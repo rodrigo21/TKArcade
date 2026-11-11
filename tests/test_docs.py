@@ -3,8 +3,8 @@
 `docs/README.md` is an ambient instruction (`opencode.json`), so every
 session sees where each answer lives. These checks keep that route table
 honest: a new document must be indexed, `TODO.md` stays open-only, the
-landing records keep their banner, nothing points at the retired
-`docs/plans/` directory and the ambient wiring survives.
+landing records keep their banner, every plan stays marked as an
+unapproved proposal and the ambient wiring survives.
 """
 
 import json
@@ -14,7 +14,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 MAP = DOCS / "README.md"
-DOCS_PLANS = "docs/plans"
 
 
 def _map_text() -> str:
@@ -50,22 +49,13 @@ def test_todo_has_no_finished_items():
     assert not done, "TODO.md carries finished items: history belongs to CHANGELOG.md and git"
 
 
-def test_retired_plans_directory_is_gone():
-    scanned = [
-        *ROOT.glob("*.md"),
-        *DOCS.rglob("*.md"),
-        *ROOT.glob("scripts/*.sh"),
-        *ROOT.glob("packaging/man/*"),
-        *ROOT.glob("packaging/**/*.md"),
-        *ROOT.glob(".opencode/**/*.md"),
-        ROOT / "opencode.json",
+def test_plans_are_marked_as_proposals():
+    unmarked = [
+        p.name
+        for p in sorted((DOCS / "plans").glob("*.md"))
+        if "Status: proposal, not approved" not in p.read_text(encoding="utf-8")
     ]
-    offenders = [
-        str(p.relative_to(ROOT))
-        for p in scanned
-        if p.is_file() and DOCS_PLANS in p.read_text(encoding="utf-8", errors="ignore")
-    ]
-    assert not offenders, f"references to the retired {DOCS_PLANS}/: {offenders}"
+    assert not unmarked, f"plans without the proposal banner: {unmarked}"
 
 
 def test_decisions_are_marked_as_landing_records():

@@ -14,6 +14,7 @@ What each document is for and where the source of truth lives.
 | QML/Kirigami rules learned the hard way | `QML-NOTES.md` |
 | Dev environment, tests, packaging, releases | `DEVELOPMENT.md` |
 | Why a landed design is the way it is | `decisions/` (frozen landing records) |
+| An unapproved design waiting on a decision | `plans/` (proposals, deleted on landing) |
 | Manual display checks before a release | `runbooks/real-display-checks.md` |
 
 ## Rules
@@ -30,12 +31,15 @@ What each document is for and where the source of truth lives.
   landing, not necessarily today's behaviour. Correct them only when
   the rationale or the historical record is wrong; current behaviour
   belongs in `README.md`/`CHANGELOG.md`.
+- `plans/` are unapproved designs waiting on a maintainer decision.
+  They carry `Status: proposal, not approved` and are deleted when they
+  land: the design becomes a `decisions/` record, the rest is history in
+  git. A plan never describes current behaviour.
 - `runbooks/` are procedures, not designs; keep them executable.
 - A change that makes a document wrong updates it in the same commit.
   `tests/test_docs.py` enforces the rules above: every document must be
   listed here, `TODO.md` cannot carry a finished item, every decision
-  keeps its landing banner, and nothing may point at the retired plans
-  directory (its content moved to `decisions/` and `runbooks/`).
+  keeps its landing banner, and every plan keeps its proposal banner.
 
 ## Decisions
 
@@ -92,3 +96,13 @@ What each document is for and where the source of truth lives.
   its recorded target.
 - `decisions/metadata-download.md` — the Download Metadata action, the
   fill-empty-only rule, the Steam field mapping and its cache.
+
+## Plans
+
+- `plans/epic-gog-sources.md` — Epic and GOG as game origins: discovery
+  through Heroic's files, the local-family launch choice, the import flow
+  and four decisions the maintainer still owes.
+- `plans/metadata-provider.md` — one metadata client behind four
+  consumers (local metadata, provider artwork, Playnite enrichment,
+  online categories). Its first consumer landed as
+  `decisions/metadata-download.md`.

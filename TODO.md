@@ -13,41 +13,42 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   source (Steam, Local); a second store needs its own scan, a per-source
   import flow for a whole library and a decision record. The removed
   Scan dialog is the shape a per-source batch import can come back in.
+  Design: `docs/plans/epic-gog-sources.md`.
 - [ ] **Other artwork sources.** Steam's CDN and SteamGridDB are the only
   providers today. A third source (IGDB, GiantBomb, a Playnite-style
   metadata service) would need its own key, cache and provider entry in
   the Download From list, plus a decision record.
+  Design: `docs/plans/metadata-provider.md`.
 - [ ] **Metadata for local games without a Steam link.** Download Metadata
   covers a Steam ID and a local game's `[metadata] steam_appid`; a game
   that is not on Steam needs an IGDB-style service and key, its own
   provider entry and a cache. A second provider (or a metadata service)
   would also cover franchises the store omits.
-- [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) for the local
-  library import of Lutris/Playnite/Faugus file formats. The format
-  import itself is still pending (only tarball, SteamTinkerLaunch and
-  predecessor configs import today); this is the metadata enrichment on
-  top of it.
+  Design: `docs/plans/metadata-provider.md`.
+- [ ] **Library format import (Lutris, Playnite, Faugus).** Only tarball,
+  SteamTinkerLaunch and predecessor configs import today. A foreign
+  library file needs a per-format reader, the ID/name mapping onto
+  existing games and an ImportDialog page.
+- [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) on top of the
+  library format import above: the enrichment reads the imported
+  entries and fills the manual metadata fields.
+  Design: `docs/plans/metadata-provider.md`.
 - [ ] Online sources à la Playnite for categories/tags (the per-game
   categories and the drawer filter shipped without them).
+  Design: `docs/plans/metadata-provider.md`.
 
 ## Deferred release
 
 Only when the maintainer opens the subject.
 
-- [ ] **1.0 packaging: the new Python deps.** Confirm `icoextract` and
-  `pefile` actually ship in the AppImage (the bundle must pick them up
-  from the project dependencies) and depend on them in every package
-  recipe before the release build. Same pass checks `zstandard` on 3.14.
-
 - [ ] **1.0: drop every compatibility shim.** 1.0 should read only the
   current format; the compatibility promise starts after it. Remove
   `--migrate-ids` and the automatic rename plus numeric lookups for bare
   AppIDs (configs, profiles, logs, history, artwork), old numeric AppIDs
-  in launch options, the `[general] appid` and `--appid` aliases once
-  pass 2 lands, the legacy `environment` key that load ignores and save
-  drops, and `move_legacy_prefix`. Keep the `config_version` newer-file
-  warning and the third-party importers (they read other tools, not old
-  TKArcade builds).
+  in launch options, the `--appid` alias, the legacy `environment` key
+  that load ignores and save drops, and `move_legacy_prefix`. Keep the
+  `config_version` newer-file warning and the third-party importers (they
+  read other tools, not old TKArcade builds).
 - [ ] **1.0: restore translations.** Translations are suspended until
   1.0 (2026-11-08): new QML strings ship in English,
   `tests/test_i18n.py` catalog tests are skipped and
@@ -55,8 +56,9 @@ Only when the maintainer opens the subject.
   translate every message, remove the skips and update
   `docs/DEVELOPMENT.md`.
 - [ ] Release pass: group the `Unreleased` entries, update the `-git`
-  PKGBUILD, `diff -r` against TKSteamLaunch, check package versions and
-  run `scripts/display-check.sh`. Numbering/tag and signing are the
+  PKGBUILD, `diff -r` against TKSteamLaunch, check package versions,
+  confirm `icoextract` and `pefile` ship in the AppImage bundle and run
+  `scripts/display-check.sh`. Numbering/tag and signing are the
   maintainer's decision.
 - [ ] Re-audit the environment presets against vendor docs on every
   release tag (Mesa/NVIDIA semantics drift; verify `vblank_mode` /

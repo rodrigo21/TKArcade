@@ -44,7 +44,8 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   checks while iterating, one verification pass on the approved diff.
   Translations stay suspended (English-only new strings) until the 1.0
   pass restores the catalog.
-- Open decisions: none blocking; `docs/decisions/artwork-sources.md`,
-  `docs/decisions/artwork-background.md` and
-  `docs/decisions/exe-icon.md` cover the artwork work.
+- Open decisions: none blocking. Two proposals wait on you:
+  `docs/plans/epic-gog-sources.md` (scope, discovery, launch, import UI)
+  and `docs/plans/metadata-provider.md` (provider, credential, overwrite
+  policy, cache shape).
 - Nothing blocking.

@@ -12,7 +12,9 @@ one stopped.
 2. Rewrite the bullets in `docs/STATE.md`: current branch and whether it
    is clean (no commit hash — it changes on every commit), what landed,
    what was verified (with the numbers), the next concrete step, open
-   decisions, anything blocking. Keep the header paragraph
+   decisions, anything blocking. An open decision names the plan file
+   under `docs/plans/` that carries it, or says there is none; a plan
+   that landed is deleted in the same pass. Keep the header paragraph
    and the "keep it short" character of the file intact — no history,
    no narrative, that belongs in `CHANGELOG.md` and git. Never record
    the `-git` PKGBUILD `pkgver` churn as work: it stays uncommitted.

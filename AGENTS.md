@@ -35,9 +35,9 @@ instructions (`instructions` in `opencode.json`), so all three are
 already in context: current branch, last landed change and next step;
 the map of every document; and the branch/commit/push rules. Refresh
 `STATE.md` with `/handoff` before stopping mid-task and after each
-landing (`docs/GIT.md`); designs are
-committed docs under `docs/decisions/`, never plan-mode scratch files
-outside the repo.
+landing (`docs/GIT.md`); a design is a committed doc too: an unapproved
+proposal in `docs/plans/`, a landed one in `docs/decisions/`. Never keep
+a design as a plan-mode scratch file outside the repo.
 
 ## Context hygiene
 
@@ -172,6 +172,7 @@ Read the triggered document **before** the first change in that area;
 | tests, venv, packaging, tags/releases, AppImage | `docs/DEVELOPMENT.md` |
 | new dependencies, Steam-owned files, save/backup integration, packaging recipes | `docs/POLICIES.md` |
 | a design question ("why is it like this?") | `docs/decisions/` through `docs/README.md` |
+| an unapproved design or a pending decision | `docs/plans/` through `docs/README.md` |
 | what is still open | `TODO.md` |
 | a release display check | `docs/runbooks/real-display-checks.md` |
 | session state, handoff | `docs/STATE.md` |
@@ -182,4 +183,4 @@ User-facing CLI flags, config keys and exit codes also update
 A change that makes a document wrong updates it in the same commit:
 `tests/test_docs.py` fails when a document is missing from the map, a
 `TODO.md` item is finished, a decision loses its landing banner or a
-link points at the retired plans directory.
+plan loses its proposal banner.
