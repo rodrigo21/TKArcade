@@ -1,7 +1,6 @@
-"""Steam store metadata cache/fetch behavior (network stubbed)."""
+"""Steam store metadata payload mapping (network stubbed)."""
 
 import json
-import time
 import urllib.error
 
 from tkarcade import config as C
@@ -45,6 +44,7 @@ def test_normalize_payload():
             "publishers": ["Valve"],
             "genres": [{"description": "Action"}, {"description": "Adventure"}],
             "franchise": "Witcher",
+            "release_date": {"date": "28 Aug, 2025"},
             "ratings": {
                 "esrb": {"rating": "m"},
                 "pegi": {"rating": "18"},
@@ -59,6 +59,7 @@ def test_normalize_payload():
     assert out["genre"] == "Action, Adventure"
     assert out["series"] == "Witcher"
     assert out["age_ratings"] == ["ESRB M", "PEGI 18", "USK 16"]
+    assert out["date"] == "2025-08-28"
 
 
 def test_normalize_missing_fields():
@@ -69,19 +70,12 @@ def test_normalize_missing_fields():
         "genre": "",
         "series": "",
         "age_ratings": [],
+        "date": "",
     }
+    assert meta.normalize({"release_date": {"date": "Coming soon"}})["date"] == ""
 
 
-def test_fetch_and_cache_roundtrip(monkeypatch, xdg_env):
-    _stub(monkeypatch, {"70": {"success": True, "data": {"short_description": "Hi"}}})
-    data = meta.refresh("steam-70")
-    assert data["description"] == "Hi"
-    cached, fresh = meta.cached("steam-70")
-    assert cached["description"] == "Hi" and fresh is True
-    assert meta.cache_path("steam-70").is_file()
-
-
-def test_local_game_uses_the_linked_appid(monkeypatch, xdg_env):
+def test_local_game_uses_the_linked_appid(monkeypatch):
     seen = []
 
     def fake_open(url, timeout=15):
@@ -89,14 +83,10 @@ def test_local_game_uses_the_linked_appid(monkeypatch, xdg_env):
         return _Resp({"620": {"data": {"short_description": "Portal"}}})
 
     monkeypatch.setattr("urllib.request.urlopen", fake_open)
-    assert meta.refresh("local-doom", "620")["description"] == "Portal"
+    assert meta.fetch("local-doom", "620")["description"] == "Portal"
     assert seen == [meta.ENDPOINT.format(appid="620")]
-    assert meta.cache_path("local-doom").is_file()
-    assert meta.cached("local-doom", "620")[0]["description"] == "Portal"
-    # A changed store link must never fill the previous game's fields.
-    assert meta.cached("local-doom", "621") == (None, False)
-    assert meta.cached("local-doom") == (None, False)
-    assert meta.refresh("local-doom") is None
+    # No store link and no Steam ID: nothing to query.
+    assert meta.fetch("local-doom") is None
     assert seen == [meta.ENDPOINT.format(appid="620")]
 
 
@@ -107,14 +97,3 @@ def test_fetch_failures_are_none(monkeypatch):
     assert meta.fetch("73") is None
     _stub(monkeypatch, payload={"73": {"data": []}})
     assert meta.fetch("73") is None
-
-
-def test_stale_cache_is_flagged(xdg_env):
-    path = meta.cache_path("steam-9")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"saved": int(time.time()) - meta.CACHE_TTL - 1, "data": {"series": "Old"}}),
-        encoding="utf-8",
-    )
-    data, fresh = meta.cached("steam-9")
-    assert data == {"series": "Old"} and fresh is False

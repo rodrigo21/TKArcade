@@ -1058,15 +1058,15 @@ def test_fetch_metadata_targets_the_store_link(qgui_app, xdg_env, monkeypatch):
     model.metadataFetched.connect(lambda appid, data: got.append((appid, data)))
     calls = []
     monkeypatch.setattr(
-        M.metamod, "cached", lambda appid, target="": calls.append((appid, target)) or (None, False)
-    )
-    monkeypatch.setattr(
         M.metamod,
-        "refresh",
-        lambda appid, target="": {"description": "Portal", "developer": "Valve"},
+        "download",
+        lambda provider, appid, target="": (
+            calls.append((provider, appid, target))
+            or {"description": "Portal", "developer": "Valve"}
+        ),
     )
     model._metadata_worker("local-doom", model._steam_target("local-doom"))
-    assert calls == [("local-doom", "620")]
+    assert calls == [("steam", "local-doom", "620")]
     assert got == [("local-doom", {"description": "Portal", "developer": "Valve"})]
 
     # No Steam AppID: the dialog is told at once, without a worker.

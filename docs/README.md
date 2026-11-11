@@ -96,6 +96,8 @@ What each document is for and where the source of truth lives.
   its recorded target.
 - `decisions/metadata-download.md` — the Download Metadata action, the
   fill-empty-only rule, the Steam field mapping and its cache.
+- `decisions/metadata-registry.md` — the provider registry, its
+  per-provider cache and rate gate, and the Steam adapter split.
 
 ## Plans
 

@@ -32,13 +32,13 @@ from .. import config as cfgmod
 from .. import graphics as graphicsmod
 from .. import history as histmod
 from .. import launcher as launchermod
+from .. import metadata as metamod
 from .. import protondb as pdbmod
 from .. import releasedate as rdmod
 from .. import running as runningmod
 from .. import runtime_archives as archivesmod
 from .. import runtimes, xdg
 from .. import steam as steammod
-from .. import storemeta as metamod
 from .. import winetricks as wtmod
 from ..backends import network as net_backend
 from ..backends.notify import format_duration
@@ -4328,9 +4328,7 @@ class GameListModel(QAbstractTableModel):
     def _metadata_worker(self, appid: str, numeric: str) -> None:
         """Use the fresh cache first; the store call only when stale/missing."""
         try:
-            data, fresh = metamod.cached(appid, numeric)
-            if not fresh:
-                data = metamod.refresh(appid, numeric)
+            data = metamod.download("steam", appid, numeric)
         except Exception:
             data = None
         self.metadataFetched.emit(appid, data or {})

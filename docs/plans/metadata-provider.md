@@ -1,10 +1,11 @@
 # Metadata provider registry: four providers, one client (proposal)
 
-Status: proposal, not approved. Step 1 (Steam `appdetails` metadata
-download, no key) landed as `docs/decisions/metadata-download.md`; the
-registry below is still open. When it lands it belongs in
-`docs/decisions/metadata-provider.md` with a landing banner, and this
-file is deleted.
+Status: proposal, not approved. C1 (the registry plus the Steam adapter)
+landed as `docs/decisions/metadata-registry.md`, and the earlier Steam
+`appdetails` download as `docs/decisions/metadata-download.md`; the
+adapters below and the action UI are still open. When the rest lands it
+belongs in `docs/decisions/metadata-provider.md` with a landing banner,
+and this file is deleted.
 
 ## Problem
 
@@ -43,14 +44,16 @@ item; it comes back only if the site publishes an API or an export.
 ## Registry
 
 - New `src/tkarcade/metadata.py`: a `PROVIDERS` registry; each entry
-  declares `label`, `fields`, `needs_key`, `search(game)` and
-  `fetch(game, target)`. The UI menu and the Preferences key field derive
-  from the registry, so a new provider is one module, one registry line
-  and its tests.
-- Cache: `app_cache_dir()/metadata/<provider>/<safe_stem(game_id)>.json`,
+  declares `label`, `fields`, `needs_key`, `resolve(game, target)` and
+  `fetch(game, target)`. `search(game)` arrives with the first
+  name-based provider (VNDB). The UI menu and the Preferences key field
+  derive from the registry, so a new provider is one module, one
+  registry line and its tests.
+- Cache: `app_cache_dir()/<provider cache dir>/<safe_stem(game_id)>.json`,
   30-day TTL, `target` and `saved` recorded, so a changed match reads as
   not cached. One namespace per provider keeps Steam and a store game
-  apart.
+  apart; Steam keeps the landed `steam-meta` directory, which the
+  Removed games cleanup already deletes.
 - Rate gate per provider: IGDB 250 ms, VNDB and PCGamingWiki 1 s, Steam
   none. Token cache for IGDB in the same dir, invalidated when the
   client id changes.
@@ -88,7 +91,7 @@ item; it comes back only if the site publishes an API or an export.
 
 | # | Landing | Deliverable |
 | --- | --- | --- |
-| C1 | Registry + cache + rate gate + Steam adapter | decision record; no key, no UI change |
+| C1 | Registry + cache + rate gate + Steam adapter | landed (`decisions/metadata-registry.md`); no key, no UI change |
 | C2 | Download Metadata action UI: provider menu, candidate picker, preview dialog | works with Steam only; validates the UX cheaply |
 | C3 | Field locks (config + game dialog) | makes overwrite safe; QML change |
 | C4 | VNDB adapter | no key; the visual-novel case |

@@ -1,10 +1,9 @@
-"""Steam store metadata with a 30-day disk cache (stdlib urllib).
+"""Steam store metadata payload (stdlib urllib).
 
 The same ``appdetails`` payload backs the release date: a Steam game
 derives its AppID, a local game passes its ``[metadata] steam_appid``
 store link. Only fields the user can also type by hand are extracted;
-the manual date is left alone (the Release Date column owns the store
-date).
+the cache and the rate gate live in ``metadata.py``.
 """
 
 from __future__ import annotations
@@ -12,20 +11,14 @@ from __future__ import annotations
 import html
 import json
 import logging
-import time
 import urllib.request
-from typing import TYPE_CHECKING
 
+from . import releasedate as rdmod
 from . import steam as steammod
-from . import xdg
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 log = logging.getLogger("tkarcade.storemeta")
 
 ENDPOINT = "https://store.steampowered.com/api/appdetails?appids={appid}&l=english&cc=us"
-CACHE_TTL = 30 * 24 * 3600
 
 #: Steam board key -> payload value -> ``config.AGE_RATINGS`` entry.
 #: Boards whose codes do not map cleanly (igrs, cero, ...) are ignored.
@@ -43,11 +36,7 @@ RATINGS: dict[str, dict[str, str]] = {
 }
 
 
-def cache_path(appid: str) -> Path:
-    return xdg.app_cache_dir() / "steam-meta" / f"{xdg.safe_stem(appid)}.json"
-
-
-def _numeric(appid: str, target: str = "") -> str:
+def resolve(appid: str, target: str = "") -> str:
     """Numeric Steam AppID to query: the explicit target wins."""
     return str(target or "").strip() or steammod.steam_appid(appid)
 
@@ -83,6 +72,8 @@ def normalize(data: dict) -> dict:
         ]
         genre = ", ".join(name for name in names if name)
     franchise = data.get("franchise")
+    release = data.get("release_date")
+    date = rdmod.parse_date(release.get("date", "")) if isinstance(release, dict) else ""
     return {
         "description": html.unescape(str(data.get("short_description") or "")).strip(),
         "developer": _joined(data.get("developers")),
@@ -90,40 +81,13 @@ def normalize(data: dict) -> dict:
         "genre": genre,
         "series": franchise.strip() if isinstance(franchise, str) else "",
         "age_ratings": _age_ratings(data.get("ratings")),
+        "date": date,
     }
-
-
-def cached(appid: str, target: str = "") -> tuple[dict | None, bool]:
-    """Return (fields, is_fresh). Stale fields are returned for display.
-
-    The cache stays keyed by the game ID and records the AppID it was
-    fetched for: a changed store link reads as not cached instead of
-    filling the previous game's metadata.
-    """
-    numeric = _numeric(appid, target)
-    if not numeric:
-        return None, False
-    try:
-        payload = json.loads(cache_path(appid).read_text(encoding="utf-8"))
-    except Exception:
-        return None, False
-    if not isinstance(payload, dict):
-        return None, False
-    stored = str(payload.get("target", "") or "")
-    if stored and stored != numeric:
-        return None, False
-    data = payload.get("data")
-    try:
-        age = time.time() - float(payload.get("saved", 0))
-    except (TypeError, ValueError):
-        return None, False
-    fresh = isinstance(data, dict) and age < CACHE_TTL
-    return (data if isinstance(data, dict) else None), fresh
 
 
 def fetch(appid: str, target: str = "", timeout: int = 15) -> dict | None:
     """Fetch the store metadata. None on any failure or no entry."""
-    numeric = _numeric(appid, target)
+    numeric = resolve(appid, target)
     if not numeric:
         return None
     try:
@@ -139,23 +103,3 @@ def fetch(appid: str, target: str = "", timeout: int = 15) -> dict | None:
     if not isinstance(data, dict):
         return None
     return normalize(data)
-
-
-def refresh(appid: str, target: str = "") -> dict | None:
-    """Fetch and cache; returns the fields or None (cache untouched)."""
-    numeric = _numeric(appid, target)
-    if not numeric:
-        return None
-    data = fetch(appid, numeric)
-    if data is None:
-        return None
-    path = cache_path(appid)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps({"saved": int(time.time()), "target": numeric, "data": data}),
-            encoding="utf-8",
-        )
-    except Exception as e:
-        log.debug("metadata cache write failed: %s", e)
-    return data
