@@ -6,7 +6,8 @@ as `docs/decisions/metadata-preview.md`, C3 (the field locks) as
 `docs/decisions/metadata-locks.md`, C4 (the VNDB fallback and the
 candidate picker) as `docs/decisions/metadata-vndb.md`, C6 (the IGDB
 adapter, the credentials and the provider menu) as
-`docs/decisions/metadata-igdb.md`, and the earlier Steam `appdetails`
+`docs/decisions/metadata-igdb.md`, C8 (online tags through
+Download Metadata) as `docs/decisions/online-tags.md`, and the earlier Steam `appdetails`
 download as `docs/decisions/metadata-download.md`. C5 (PCGamingWiki)
 was dropped: the site answers a plain HTTP client with a Cloudflare
 interstitial, so its Cargo API is unreachable. The remaining consumers
@@ -107,7 +108,7 @@ item; it comes back only if the site publishes an API or an export.
 | C5 | PCGamingWiki adapter | dropped: Cloudflare blocks a plain HTTP client; IGDB covers the fields |
 | C6 | IGDB adapter + credential field + provider menu | landed (`decisions/metadata-igdb.md`) |
 | C7 | IGDB artwork as a third source | landed (`decisions/artwork-igdb.md`) |
-| C8 | Online categories/tags in bulk | last; taxonomy UX is its own risk |
+| C8 | Online tags via Download Metadata | landed (`decisions/online-tags.md`); no bulk action; categories stay manual |
 
 The library format import and its enrichment follow as a separate theme;
 the enrichment reuses C2's action in bulk.

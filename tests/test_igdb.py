@@ -86,6 +86,8 @@ def test_fetch_maps_the_payload(monkeypatch, xdg_env):
                 "first_release_date": 1581379200,
                 "genres": [{"name": "Adventure"}, {"name": "Indie"}],
                 "franchises": [{"name": "Hades"}],
+                "themes": [{"name": "Fantasy"}, {"name": "Action"}],
+                "keywords": [{"name": "roguelike"}, {"name": "greek mythology"}],
                 "involved_companies": [
                     {
                         "company": {"name": "Supergiant Games"},
@@ -106,6 +108,15 @@ def test_fetch_maps_the_payload(monkeypatch, xdg_env):
         "series": "Hades",
         "age_ratings": ["ESRB T", "PEGI 12"],
         "date": "2020-02-11",
+        "tags": [
+            "Adventure",
+            "Indie",
+            "Hades",
+            "Fantasy",
+            "Action",
+            "roguelike",
+            "greek mythology",
+        ],
     }
     request = _api_calls(calls)[0]
     assert "where id = 1145360;" in request.data.decode()

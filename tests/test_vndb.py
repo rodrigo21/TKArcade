@@ -83,6 +83,12 @@ def test_fetch_maps_the_payload(monkeypatch, xdg_env):
                         {"name": "MAGES."},
                         {"name": "NITRO PLUS"},
                     ],
+                    "tags": [
+                        {"name": "Science Fiction", "rating": 3.0, "spoiler": 0},
+                        {"name": "Spoiler Tag", "rating": 3.0, "spoiler": 1},
+                        {"name": "Weak Tag", "rating": 1.0, "spoiler": 0},
+                        {"name": "Romance", "rating": 2.0, "spoiler": 0},
+                    ],
                 }
             ]
         },
@@ -95,6 +101,7 @@ def test_fetch_maps_the_payload(monkeypatch, xdg_env):
         "series": "",
         "age_ratings": [],
         "date": "2009-10",
+        "tags": ["Science Fiction", "Romance"],
     }
     assert json.loads(calls[0].data)["filters"] == ["id", "=", "v2002"]
 
@@ -108,6 +115,19 @@ def test_fetch_drops_unknown_dates_and_fields(monkeypatch, xdg_env):
     assert data["date"] == ""
     assert data["description"] == ""
     assert data["developer"] == ""
+
+
+def test_tags_keep_the_strongest_few_without_spoilers(monkeypatch, xdg_env):
+    tags = [
+        {"name": f"Tag {index}", "rating": 3.0, "spoiler": 0} for index in range(vndb.TAG_LIMIT + 5)
+    ]
+    tags.append({"name": "Spoiler", "rating": 3.0, "spoiler": 1})
+    tags.append({"name": "Weak", "rating": 1.5, "spoiler": 0})
+    _stub(monkeypatch, {"results": [{"id": "v1", "tags": tags}]})
+    data = vndb.fetch("local-x", "v1")
+    assert len(data["tags"]) == vndb.TAG_LIMIT
+    assert "Spoiler" not in data["tags"]
+    assert "Weak" not in data["tags"]
 
 
 def test_resolve_prefers_the_draft_then_the_config(xdg_env):

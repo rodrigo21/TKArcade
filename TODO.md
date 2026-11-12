@@ -44,9 +44,12 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   library format import above: the enrichment reads the imported
   entries and fills the manual metadata fields through the registry.
   Design: `docs/plans/metadata-provider.md`.
-- [ ] Online sources à la Playnite for categories/tags (the per-game
-  categories and the drawer filter shipped without them).
-  Design: `docs/plans/metadata-provider.md`.
+- [ ] **Online tags follow-up.** Download Metadata fills `[metadata]
+  tags` from Steam, IGDB and VNDB, and Details shows them read-only.
+  After the library import, decide whether the sidebar categories derive
+  from them, whether they get their own filter and editor, and whether a
+  bulk download is worth it.
+  Design: `docs/decisions/online-tags.md`.
 
 Release, only when the maintainer opens the subject:
 

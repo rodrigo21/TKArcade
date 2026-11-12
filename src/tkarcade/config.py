@@ -249,6 +249,10 @@ class MetadataConfig:
     # IGDB game id ("1145360"): identity like the two above, so it takes no
     # lock. The provider menu chooses the source; an empty id searches.
     igdb_id: str = ""
+    # Online taxonomy from the last Download Metadata: genres, Steam
+    # features, themes and keywords. Not the sidebar categories and not
+    # the `tag` state label; Apply replaces the whole list.
+    tags: list[str] = field(default_factory=list)
 
 
 def normalize_locked_fields(value: object) -> str:
@@ -1064,6 +1068,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "steam_appid",
         "vndb_id",
         "igdb_id",
+        "tags",
     },
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
@@ -1293,6 +1298,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.metadata.steam_appid = normalize_steam_appid(md.get("steam_appid", ""))
     cfg.metadata.vndb_id = normalize_vndb_id(md.get("vndb_id", ""))
     cfg.metadata.igdb_id = normalize_igdb_id(md.get("igdb_id", ""))
+    cfg.metadata.tags = normalize_categories(md.get("tags", []))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}

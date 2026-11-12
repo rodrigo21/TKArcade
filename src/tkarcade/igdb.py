@@ -27,6 +27,7 @@ API_URL = "https://api.igdb.com/v4/games"
 SEARCH_FIELDS = "id,name,first_release_date"
 FETCH_FIELDS = (
     "name,summary,first_release_date,genres.name,franchises.name,"
+    "themes.name,keywords.name,"
     "involved_companies.company.name,involved_companies.developer,"
     "involved_companies.publisher,age_ratings.rating"
 )
@@ -206,16 +207,31 @@ def _label(row: dict) -> str:
     return f"{name} ({year})" if year else name
 
 
-def _names(value: object) -> str:
-    """Joined ``name`` keys of a genre, franchise or company list."""
+def _name_list(value: object) -> list[str]:
+    """``name`` keys of a genre, franchise or company list, deduped."""
     if not isinstance(value, list):
-        return ""
+        return []
     names: list[str] = []
     for part in value:
         name = str(part.get("name", "")).strip() if isinstance(part, dict) else ""
         if name and name not in names:
             names.append(name)
-    return ", ".join(names)
+    return names
+
+
+def _names(value: object) -> str:
+    """Joined ``name`` keys of a genre, franchise or company list."""
+    return ", ".join(_name_list(value))
+
+
+def _tags(data: dict) -> list[str]:
+    """Genres, franchise, themes and keywords, as one tag list."""
+    out: list[str] = []
+    for key in ("genres", "franchises", "themes", "keywords"):
+        for name in _name_list(data.get(key)):
+            if name not in out:
+                out.append(name)
+    return out
 
 
 def _companies(value: object, flag: str) -> str:
@@ -286,6 +302,7 @@ def fetch(game_id: str, target: str = "", timeout: int = 15) -> dict | None:
         "series": _names(data.get("franchises")),
         "age_ratings": _ratings(data.get("age_ratings")),
         "date": _date(data.get("first_release_date")),
+        "tags": _tags(data),
     }
 
 

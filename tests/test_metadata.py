@@ -38,7 +38,11 @@ def _stub(monkeypatch, payload=None, error=None):
 def _write_cache(provider, game_id, data, saved=None, target=None):
     path = md.cache_path(provider, game_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"saved": int(time.time()) if saved is None else saved, "data": data}
+    payload = {
+        "version": md.CACHE_VERSION,
+        "saved": int(time.time()) if saved is None else saved,
+        "data": data,
+    }
     if target is not None:
         payload["target"] = target
     path.write_text(json.dumps(payload), encoding="utf-8")
@@ -145,6 +149,7 @@ def test_stale_cache_is_flagged_and_refetched(monkeypatch, xdg_env):
             "series": "",
             "age_ratings": [],
             "date": "",
+            "tags": [],
         },
         True,
     )
@@ -156,6 +161,21 @@ def test_failed_fetch_leaves_the_cache_alone(monkeypatch, xdg_env):
     _stub(monkeypatch, error=urllib.error.URLError("down"))
     assert md.download("steam", "steam-9") is None
     assert md.cached("steam", "steam-9")[0] == {"series": "Old"}
+
+
+def test_old_cache_version_reads_as_cold(monkeypatch, xdg_env):
+    """A payload from an older build cannot answer for the new tags field."""
+    path = md.cache_path("vndb", "steam-1277940")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"saved": int(time.time()), "target": "v21852", "data": {"date": "2017"}}),
+        encoding="utf-8",
+    )
+    assert md.cached("vndb", "steam-1277940", "v21852") == (None, False)
+    calls = _stub(monkeypatch, {"results": [{"id": "v21852", "tags": []}]})
+    assert md.download("vndb", "steam-1277940", "v21852") is not None
+    assert len(calls) == 1
+    assert md.cached("vndb", "steam-1277940", "v21852")[1] is True
 
 
 def test_unknown_provider_is_none(xdg_env):

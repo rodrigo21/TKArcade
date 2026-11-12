@@ -36,6 +36,11 @@ FIELDS = (
 
 CACHE_TTL = 30 * 24 * 3600
 
+#: Cache payload version: a payload written by an older build reads as
+#: cold, so a new field (the online tags) is fetched instead of showing
+#: a fresh cache that cannot answer for it.
+CACHE_VERSION = 2
+
 
 @dataclass(frozen=True)
 class Provider:
@@ -113,6 +118,8 @@ def cached(provider: str, game_id: str, target: str = "") -> tuple[dict | None, 
         return None, False
     if not isinstance(payload, dict):
         return None, False
+    if payload.get("version") != CACHE_VERSION:
+        return None, False
     stored = str(payload.get("target", "") or "")
     if stored and stored != wanted:
         return None, False
@@ -157,7 +164,14 @@ def download(provider: str, game_id: str, target: str = "") -> dict | None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps({"saved": int(time.time()), "target": wanted, "data": data}),
+            json.dumps(
+                {
+                    "version": CACHE_VERSION,
+                    "saved": int(time.time()),
+                    "target": wanted,
+                    "data": data,
+                }
+            ),
             encoding="utf-8",
         )
     except Exception as e:

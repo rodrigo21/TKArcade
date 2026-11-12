@@ -426,6 +426,14 @@ def test_metadata_igdb_id_is_normalized(xdg_env):
     assert C.load("local-hades").metadata.igdb_id == "1145360"
 
 
+def test_metadata_tags_are_normalized(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.metadata.tags = ["Action", " action ", "", "Indie"]
+    C.save(cfg)
+    assert C.load("local-doom").metadata.tags == ["Action", "Indie"]
+
+
 def test_preferences_igdb_credentials_round_trip(xdg_env):
     prefs = C.Preferences()
     prefs.igdb_client_id = "cid"

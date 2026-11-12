@@ -69,6 +69,10 @@ Window {
     property var metadataRows: []
     // Age ratings are a fixed-board checklist, stored as a list.
     property var ageRatings: []
+    // Online tags: read-only on Details and distinct from the categories.
+    // Download Metadata fills them in its preview like any other row.
+    property var onlineTagList: []
+    property string onlineTags: ""
     // [metadata] locked split into field names: a locked field is never
     // written by Download Metadata, even with the replace switch on.
     property var lockedFields: []
@@ -775,6 +779,8 @@ Window {
         publisherField.text = f.publisher || ""
         genreField.text = f.genre || ""
         seriesField.text = f.series || ""
+        onlineTagList = (f.tags || []).slice()
+        onlineTags = onlineTagList.join(", ")
         ageRatings = (f.age_ratings || []).slice()
         lockedFields = String(f.locked || "").split(",").filter(function(name) {
             return name !== ""
@@ -896,6 +902,7 @@ Window {
             "genre": genreField.text,
             "series": seriesField.text,
             "age_ratings": ageRatings,
+            "tags": onlineTagList,
             "region": String(regionBox.currentValue || ""),
             "status": String(gameStatusBox.currentValue || ""),
             "locked": lockedFields.join(","),
@@ -1743,6 +1750,8 @@ Window {
         var ratings = data.age_ratings || []
         add("age_ratings", qsTr("Age Ratings"), ageRatings.join(", "), ratings.join(", "), ratings)
         add("date", qsTr("Release Date"), dateField.text, String(data.date || ""))
+        var tags = data.tags || []
+        add("tags", qsTr("Tags"), onlineTags, tags.join(", "), tags)
         if (rows.length === 0) {
             metadataStatus = qsTr("No Metadata Found.")
             return
@@ -1772,6 +1781,9 @@ Window {
             }
             if (row.key === "age_ratings") {
                 ageRatings = row.values.slice()
+            } else if (row.key === "tags") {
+                onlineTagList = row.values.slice()
+                onlineTags = onlineTagList.join(", ")
             } else {
                 targets[row.key].text = row.next
             }
@@ -2591,6 +2603,23 @@ Window {
                                         key: "series"
                                         locked: gameSettings.isLocked("series")
                                         onClicked: gameSettings.toggleLock("series")
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Tags:")
+                                    Controls.Label {
+                                        objectName: "settingsTags"
+                                        Layout.fillWidth: true
+                                        text: gameSettings.onlineTags !== ""
+                                            ? gameSettings.onlineTags : qsTr("Not Set")
+                                        opacity: gameSettings.onlineTags !== "" ? 1.0 : 0.6
+                                        elide: Text.ElideRight
+                                        HoverHandler {
+                                            id: tagsHover
+                                        }
+                                        Controls.ToolTip.text: qsTr("Online Tags From Download Metadata, Not the Categories")
+                                        Controls.ToolTip.visible: tagsHover.hovered
                                     }
                                 }
                                 RowLayout {

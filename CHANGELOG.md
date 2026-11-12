@@ -6,6 +6,16 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Download Metadata fills online tags along with the metadata fields:
+  the preview gained a Tags row, Apply writes it and Save persists
+  `[metadata] tags`. Steam contributes genres, store features and the
+  franchise, IGDB its genres, franchise, themes and keywords, and VNDB
+  its non-spoiler tags rated 2.0 or more (top 20). The list stays apart
+  from the manual `[general] categories` and from the `[metadata] tag`
+  state label: it is out of the sidebar and the category store, and
+  Details shows it read-only next to Series. The metadata cache payload
+  carries a version now, so an entry written before the tags field
+  refetches instead of answering without them.
 - IGDB joins Fetch Artwork as the third provider: the per-game
   Download From menu and the global Artwork Source accept it, and its
   cover and banner (first artwork, else a screenshot) fill the cache

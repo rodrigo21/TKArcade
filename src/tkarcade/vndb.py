@@ -3,9 +3,9 @@
 A local game without a Steam AppID is searched by title; the picked
 visual novel saves in ``[metadata] vndb_id`` so the next download skips
 the search. VNDB answers a synopsis, the developers and a release date.
-It has no publisher, series, age ratings or genre field: tags are a
-different taxonomy and stay out. The cache and the rate gate live in
-``metadata.py``.
+It has no publisher, series, age ratings or genre field; its tags land in
+``[metadata] tags`` through Download Metadata, filtered by rating and spoiler.
+The cache and the rate gate live in ``metadata.py``.
 """
 
 from __future__ import annotations
@@ -22,8 +22,11 @@ log = logging.getLogger("tkarcade.vndb")
 
 ENDPOINT = "https://api.vndb.org/kana/vn"
 SEARCH_FIELDS = "id,title,alttitle,released"
-FETCH_FIELDS = "id,description,released,developers.name"
+FETCH_FIELDS = "id,description,released,developers.name,tags.name,tags.rating,tags.spoiler"
 SEARCH_RESULTS = 10
+#: VNDB tags: drop spoilers and weak tags, keep the strongest few.
+TAG_MIN_RATING = 2.0
+TAG_LIMIT = 20
 
 #: VNDB descriptions are BBCode; the text area takes plain text.
 _BBCODE = re.compile(r"\[[^\]]*\]")
@@ -54,6 +57,30 @@ def _developers(value: object) -> str:
         if name and name not in names:
             names.append(name)
     return ", ".join(names)
+
+
+def _tags(value: object) -> list[str]:
+    """Non-spoiler tags at or above the rating floor, strongest first."""
+    rows: list[tuple[float, str]] = []
+    for part in value if isinstance(value, list) else []:
+        if not isinstance(part, dict):
+            continue
+        name = str(part.get("name", "")).strip()
+        try:
+            spoiler = int(part.get("spoiler") or 0)
+            rating = float(part.get("rating") or 0)
+        except (TypeError, ValueError):
+            continue
+        if name and spoiler == 0 and rating >= TAG_MIN_RATING:
+            rows.append((-rating, name))
+    rows.sort()
+    out: list[str] = []
+    for _rating, name in rows:
+        if name not in out:
+            out.append(name)
+        if len(out) >= TAG_LIMIT:
+            break
+    return out
 
 
 def _label(row: dict) -> str:
@@ -132,4 +159,5 @@ def fetch(game_id: str, target: str = "", timeout: int = 15) -> dict | None:
         "series": "",
         "age_ratings": [],
         "date": date,
+        "tags": _tags(data.get("tags")),
     }

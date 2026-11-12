@@ -7318,6 +7318,50 @@ def test_metadata_download_fills_only_empty_fields(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_metadata_download_carries_tags(qgui_app, xdg_env):
+    """Download Metadata previews the online tags and Apply writes them."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit(
+        "local-doom",
+        {"genre": "Action", "tags": ["Action", "Indie", "Single-player"]},
+    )
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    assert [row["field"] for row in rows] == ["Genre", "Tags"]
+    preview = _confirm_window(qgui_app, "metadataPreview")
+    _click(preview, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsTags").property("text") == (
+        "Action, Indie, Single-player"
+    )
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.tags == ["Action", "Indie", "Single-player"]
+    swin.close()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
     """The Replace switch is the explicit opt-in for overwriting typed values."""
     from PySide6.QtCore import QObject
@@ -8018,7 +8062,7 @@ def test_menu_and_issues_check(qgui_app, xdg_env, monkeypatch):
         "Quit",
     ]
     assert [texts.index(text) for text in order] == sorted(texts.index(text) for text in order)
-    for gone in ("With Issues Only", "Global Defaults..."):
+    for gone in ("With Issues Only", "Global Defaults...", "Download Tags..."):
         assert gone not in texts, gone
     # The sidebar holds filters only.
     for gone in ("drawerScan", "drawerHistory", "drawerIssuesOnly"):

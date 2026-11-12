@@ -47,6 +47,27 @@ def _joined(value: object) -> str:
     return ", ".join(str(part).strip() for part in value if str(part).strip())
 
 
+def _descriptions(value: object) -> list[str]:
+    """Description strings of a Steam genres/categories list, deduped."""
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for part in value:
+        name = str(part.get("description", "")).strip() if isinstance(part, dict) else ""
+        if name and name not in out:
+            out.append(name)
+    return out
+
+
+def _tags(data: dict) -> list[str]:
+    """Genres, store features and the franchise, as one tag list."""
+    out = _descriptions(data.get("genres")) + _descriptions(data.get("categories"))
+    franchise = str(data.get("franchise", "") or "").strip()
+    if franchise and franchise not in out:
+        out.append(franchise)
+    return out
+
+
 def _age_ratings(ratings: object) -> list[str]:
     if not isinstance(ratings, dict):
         return []
@@ -82,6 +103,7 @@ def normalize(data: dict) -> dict:
         "series": franchise.strip() if isinstance(franchise, str) else "",
         "age_ratings": _age_ratings(data.get("ratings")),
         "date": date,
+        "tags": _tags(data),
     }
 
 

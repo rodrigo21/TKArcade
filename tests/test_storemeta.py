@@ -43,6 +43,7 @@ def test_normalize_payload():
             "developers": ["Valve", " "],
             "publishers": ["Valve"],
             "genres": [{"description": "Action"}, {"description": "Adventure"}],
+            "categories": [{"description": "Single-player"}, {"description": "Steam Cloud"}],
             "franchise": "Witcher",
             "release_date": {"date": "28 Aug, 2025"},
             "ratings": {
@@ -60,6 +61,13 @@ def test_normalize_payload():
     assert out["series"] == "Witcher"
     assert out["age_ratings"] == ["ESRB M", "PEGI 18", "USK 16"]
     assert out["date"] == "2025-08-28"
+    assert out["tags"] == [
+        "Action",
+        "Adventure",
+        "Single-player",
+        "Steam Cloud",
+        "Witcher",
+    ]
 
 
 def test_normalize_missing_fields():
@@ -71,6 +79,7 @@ def test_normalize_missing_fields():
         "series": "",
         "age_ratings": [],
         "date": "",
+        "tags": [],
     }
     assert meta.normalize({"release_date": {"date": "Coming soon"}})["date"] == ""
 

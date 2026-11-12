@@ -76,6 +76,13 @@ def _apply_metadata(cfg, data: dict) -> None:
     md.steam_appid = cfgmod.normalize_steam_appid(data.get("steam_appid", ""))
     md.vndb_id = cfgmod.normalize_vndb_id(data.get("vndb_id", ""))
     md.igdb_id = cfgmod.normalize_igdb_id(data.get("igdb_id", ""))
+    # Only a caller that carries the field writes it: an older form map
+    # without tags must not clear the list on save.
+    if "tags" in data:
+        raw_tags = data.get("tags", [])
+        if isinstance(raw_tags, str):
+            raw_tags = raw_tags.split(",")
+        md.tags = cfgmod.normalize_categories(raw_tags)
 
 
 #: Solid status badge colors (background, text). The text is always black:
@@ -995,6 +1002,7 @@ class GameListModel(QAbstractTableModel):
             "steam_appid": cfg.metadata.steam_appid,
             "vndb_id": cfg.metadata.vndb_id,
             "igdb_id": cfg.metadata.igdb_id,
+            "tags": list(cfg.metadata.tags),
             "custom_executable": g.custom_executable,
             "runtime_type": cfgmod.normalize_runtime(cfg.runtime.type),
             "show_menu": bool(g.show_menu),
