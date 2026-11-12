@@ -234,8 +234,8 @@ Apply writes the online tags into `[metadata] tags`, where Steam
 contributes genres, store features and the franchise, IGDB its genres,
 franchise, themes and keywords, and VNDB its non-spoiler tags rated 2.0
 or more (top 20). Tags are not categories: they stay out of the sidebar
-and the category store, and Details shows the list read-only next to
-Series.
+and the category store, and Details lists them next to Series with a
+Clear button that empties the list on Save.
 Execution (launch settings first, then the runtime selector and tool,
 the Steam Linux Runtime of a local native game, prefix with its
 installed and pending

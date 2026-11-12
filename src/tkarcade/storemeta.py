@@ -61,9 +61,14 @@ def _descriptions(value: object) -> list[str]:
 
 def _tags(data: dict) -> list[str]:
     """Genres, store features and the franchise, as one tag list."""
-    out = _descriptions(data.get("genres")) + _descriptions(data.get("categories"))
+    out: list[str] = []
+    seen: set[str] = set()
+    for part in _descriptions(data.get("genres")) + _descriptions(data.get("categories")):
+        if part.casefold() not in seen:
+            seen.add(part.casefold())
+            out.append(part)
     franchise = str(data.get("franchise", "") or "").strip()
-    if franchise and franchise not in out:
+    if franchise and franchise.casefold() not in seen:
         out.append(franchise)
     return out
 

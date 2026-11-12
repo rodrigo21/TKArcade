@@ -1695,7 +1695,13 @@ Window {
     }
 
     function downloadMetadata() {
-        if (metadataBusy || editAppid === "") {
+        if (metadataBusy) {
+            return
+        }
+        if (editAppid === "") {
+            // An unsaved game has no cache key: say so instead of ignoring
+            // the press, like the artwork path does.
+            metadataStatus = qsTr("Save the Game First.")
             return
         }
         var provider = String(metadataProviderBox.currentValue || "steam")
@@ -1728,6 +1734,8 @@ Window {
     function openMetadataPreview(data) {
         metadataBusy = false
         metadataStatus = ""
+        // Fill-empty is the default; overwriting is opt-in per download.
+        metadataReplaceBox.checked = false
         var rows = []
         function add(key, field, current, next, values) {
             if (next === "") {
@@ -1797,6 +1805,12 @@ Window {
             metadataStatus = qsTr("Metadata Loaded.")
         }
         metadataPreview.close()
+    }
+
+    // The tags come from the provider; clearing is the one manual action.
+    function clearTags() {
+        onlineTagList = []
+        onlineTags = ""
     }
 
     function refreshPreview() {
@@ -2620,6 +2634,15 @@ Window {
                                         }
                                         Controls.ToolTip.text: qsTr("Online Tags From Download Metadata, Not the Categories")
                                         Controls.ToolTip.visible: tagsHover.hovered
+                                    }
+                                    Controls.Button {
+                                        objectName: "settingsTagsClear"
+                                        text: qsTr("Clear")
+                                        visible: gameSettings.onlineTags !== ""
+                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
+                                        onClicked: gameSettings.clearTags()
+                                        Controls.ToolTip.text: qsTr("Clear the Online Tags; Save Persists It.")
+                                        Controls.ToolTip.visible: hovered
                                     }
                                 }
                                 RowLayout {

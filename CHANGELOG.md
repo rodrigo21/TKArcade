@@ -6,6 +6,9 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Details shows a Clear button next to the online Tags row: it empties
+  the list in the dialog and Save persists it, so a wrong download is
+  not stuck until a Replace-all download.
 - Download Metadata fills online tags along with the metadata fields:
   the preview gained a Tags row, Apply writes it and Save persists
   `[metadata] tags`. Steam contributes genres, store features and the
@@ -412,6 +415,18 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Download Metadata on an unsaved game says "Save the Game First."
+  instead of ignoring the press: a game with no ID has no cache key, so
+  the button did nothing on the Add Game dialog.
+- The metadata preview always opens with **Replace existing values**
+  off. The switch kept its last state for the whole session, so one
+  opt-in turned every later download into an overwrite of typed values.
+- An expired metadata cache still fills the preview when the provider
+  fails, instead of reporting nothing found while a good answer sits on
+  disk. The failed refresh leaves the cached entry untouched, and a
+  provider entry with no field is no longer cached for 30 days.
+- Steam's online tags no longer repeat a name that appears in both its
+  genre and its category lists.
 - The library's ProtonDB badge shows a "Pending" game as grey text on
   grey instead of an unreadable black bar, in the list, card and game
   dialog views.

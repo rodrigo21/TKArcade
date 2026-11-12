@@ -7362,6 +7362,49 @@ def test_metadata_download_carries_tags(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_tags_clear_and_unsaved_download_status(qgui_app, xdg_env):
+    """The Tags row clears by hand; an unsaved game says to save first."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.tags = ["Action", "Indie"]
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openNewGameSettings("native")
+    swin = _settings_window(qgui_app)
+    _click(swin, "settingsMetadataFetch")
+    assert swin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == (
+        "Save the Game First."
+    )
+    swin.close()
+    qgui_app.processEvents()
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    tags = swin.findChild(QQuickItem, "settingsTags")
+    clear = swin.findChild(QQuickItem, "settingsTagsClear")
+    assert tags.property("text") == "Action, Indie"
+    assert clear.property("visible") is True
+    _click(swin, "settingsTagsClear")
+    assert tags.property("text") == "Not Set"
+    assert clear.property("visible") is False
+    win.findChild(QObject, "gameSettings").save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.tags == []
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
     """The Replace switch is the explicit opt-in for overwriting typed values."""
     from PySide6.QtCore import QObject
@@ -7398,6 +7441,12 @@ def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
     assert (
         swin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == "Metadata Loaded."
     )
+    # The next preview starts from the fill-empty default again.
+    model.metadataFetched.emit("local-doom", {"developer": "Store Studio"})
+    qgui_app.processEvents()
+    preview = _confirm_window(qgui_app, "metadataPreview")
+    assert preview.findChild(QQuickItem, "metadataPreviewReplace").property("checked") is False
+    _click(preview, "dialogCancel")
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()

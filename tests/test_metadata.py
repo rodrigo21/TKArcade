@@ -61,7 +61,7 @@ def test_registry_declares_vndb():
     assert entry.label == "VNDB"
     assert entry.needs_key is False
     assert entry.cache_dir == "vndb-meta"
-    assert entry.fields == ("description", "developer", "date")
+    assert entry.fields == ("description", "developer", "date", "tags")
     assert entry.search is not None
     assert entry.min_interval >= 1.0
     assert set(md.cache_dirs()) == {"steam-meta", "vndb-meta", "igdb-meta"}
@@ -156,11 +156,23 @@ def test_stale_cache_is_flagged_and_refetched(monkeypatch, xdg_env):
     assert len(calls) == 1
 
 
-def test_failed_fetch_leaves_the_cache_alone(monkeypatch, xdg_env):
+def test_failed_fetch_falls_back_to_the_stale_cache(monkeypatch, xdg_env):
+    """An expired entry still fills the preview when the provider fails."""
     _write_cache("steam", "steam-9", {"series": "Old"}, saved=int(time.time()) - md.CACHE_TTL - 1)
     _stub(monkeypatch, error=urllib.error.URLError("down"))
-    assert md.download("steam", "steam-9") is None
-    assert md.cached("steam", "steam-9")[0] == {"series": "Old"}
+    assert md.download("steam", "steam-9") == {"series": "Old"}
+    # The failed refresh leaves the stale entry untouched.
+    assert md.cached("steam", "steam-9") == ({"series": "Old"}, False)
+
+
+def test_empty_answer_is_not_cached(monkeypatch, xdg_env):
+    """A store entry with no field is not cached fresh for a month."""
+    _stub(monkeypatch, {"70": {"data": {}}})
+    assert md.download("steam", "steam-70") is None
+    assert md.cached("steam", "steam-70") == (None, False)
+    _write_cache("steam", "steam-9", {"series": "Old"}, saved=int(time.time()) - md.CACHE_TTL - 1)
+    _stub(monkeypatch, {"9": {"data": {}}})
+    assert md.download("steam", "steam-9") == {"series": "Old"}
 
 
 def test_old_cache_version_reads_as_cold(monkeypatch, xdg_env):
@@ -172,7 +184,7 @@ def test_old_cache_version_reads_as_cold(monkeypatch, xdg_env):
         encoding="utf-8",
     )
     assert md.cached("vndb", "steam-1277940", "v21852") == (None, False)
-    calls = _stub(monkeypatch, {"results": [{"id": "v21852", "tags": []}]})
+    calls = _stub(monkeypatch, {"results": [{"id": "v21852", "description": "Syn", "tags": []}]})
     assert md.download("vndb", "steam-1277940", "v21852") is not None
     assert len(calls) == 1
     assert md.cached("vndb", "steam-1277940", "v21852")[1] is True

@@ -192,7 +192,10 @@ def _date(value: object) -> str:
         stamp = int(value)
     except (TypeError, ValueError):
         return ""
-    text = datetime.fromtimestamp(stamp, tz=UTC).strftime("%Y-%m-%d")
+    try:
+        text = datetime.fromtimestamp(stamp, tz=UTC).strftime("%Y-%m-%d")
+    except (OSError, OverflowError, ValueError):
+        return ""
     return text if cfgmod.metadata_date_valid(text) else ""
 
 

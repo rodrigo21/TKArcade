@@ -32,6 +32,7 @@ FIELDS = (
     "series",
     "age_ratings",
     "date",
+    "tags",
 )
 
 CACHE_TTL = 30 * 24 * 3600
@@ -67,7 +68,7 @@ PROVIDERS: dict[str, Provider] = {
     "vndb": Provider(
         label="VNDB",
         cache_dir="vndb-meta",
-        fields=("description", "developer", "date"),
+        fields=("description", "developer", "date", "tags"),
         resolve=vndb.resolve,
         fetch=vndb.fetch,
         search=vndb.search,
@@ -145,8 +146,24 @@ def _gate(provider: str) -> None:
         time.sleep(start - now)
 
 
+def _filled(data: dict) -> bool:
+    """Whether a payload answered at least one field: an empty one is not cached."""
+    for value in data.values():
+        if isinstance(value, str):
+            if value.strip():
+                return True
+        elif value:
+            return True
+    return False
+
+
 def download(provider: str, game_id: str, target: str = "") -> dict | None:
-    """Cached answer first, then one provider call. None on any failure."""
+    """Fresh cache first, then one provider call.
+
+    A failed or empty answer falls back to the stale cache, so an expired
+    entry still fills the preview offline; None only when nothing was ever
+    cached.
+    """
     entry = PROVIDERS.get(provider)
     if entry is None:
         return None
@@ -157,9 +174,9 @@ def download(provider: str, game_id: str, target: str = "") -> dict | None:
     if fresh:
         return data
     _gate(provider)
-    data = entry.fetch(game_id, wanted)
-    if data is None:
-        return None
+    fetched = entry.fetch(game_id, wanted)
+    if fetched is None or not _filled(fetched):
+        return data or None
     path = cache_path(provider, game_id)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,14 +186,14 @@ def download(provider: str, game_id: str, target: str = "") -> dict | None:
                     "version": CACHE_VERSION,
                     "saved": int(time.time()),
                     "target": wanted,
-                    "data": data,
+                    "data": fetched,
                 }
             ),
             encoding="utf-8",
         )
     except Exception as e:
         log.debug("metadata cache write failed: %s", e)
-    return data
+    return fetched
 
 
 def search(provider: str, query: str) -> list[dict]:
