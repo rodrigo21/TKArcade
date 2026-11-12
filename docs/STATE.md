@@ -10,26 +10,27 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: forty-three batches. The latest is C4: the VNDB adapter for a
-  local game without a Steam AppID (title search, candidate picker) and
-  `[metadata] vndb_id`; VNDB fills description, developer and date, and
-  Steam still wins when the game has a Steam AppID.
-- Verified: `scripts/check.sh --qml` (722 passed, 3 skipped), the three
-  QML metadata cases on their own, plus offscreen screenshots of the
-  VNDB row and the picker.
-- Next: C5, the PCGamingWiki adapter, then IGDB with the credential
-  field and the provider menu (C6), IGDB artwork (C7) and online
-  categories (C8); the library import follows. Epic/GOG is 2.0. The 1.0
-  visual pass, the packaging check, the shim removal and the release
-  pass wait for the maintainer's release call.
+- Landed: forty-four batches. The latest is C6: the IGDB adapter, the
+  Twitch credentials (`[ui] igdb_client_id`/`igdb_client_secret`), the
+  Metadata Source menu on Details and `[metadata] igdb_id`. C5
+  (PCGamingWiki) is dropped: Cloudflare answers a plain HTTP client, and
+  IGDB carries the fields it would have added.
+- Verified: `scripts/check.sh --changed` with the QML driver (737
+  passed, 3 skipped) and offscreen screenshots of the Details rows and
+  the Preferences Metadata section.
+- Next: C7, IGDB artwork as a third source in `artwork.PROVIDERS`, then
+  C8 (online categories) and the library import. A real-key IGDB smoke
+  test waits on the maintainer's Twitch application; the adapter and its
+  fixtures do not. Epic/GOG is 2.0. The 1.0 visual pass, the packaging
+  check, the shim removal and the release pass wait for the maintainer's
+  release call.
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
   checks while iterating, one verification pass on the approved diff.
   Translations stay suspended (English-only new strings) until the 1.0
   pass restores the catalog.
-- Open decisions: none block C5; C6 waits on the maintainer's Twitch
-  application (client id/secret). `docs/plans/epic-gog-sources.md` is
+- Open decisions: none block C7. `docs/plans/epic-gog-sources.md` is
   parked for 2.0 with its own four decisions (scope, discovery, launch,
   import UI).
 - Nothing blocking.
