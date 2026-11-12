@@ -3052,7 +3052,7 @@ def test_artwork_origin_names_the_source(qgui_app, xdg_env, tmp_path):
     cached = artwork.grid_path("local-doom", "cover")
     cached.parent.mkdir(parents=True, exist_ok=True)
     cached.write_bytes(b"C")
-    artwork._write_manifest("local-doom", "cover", "sgdb", "123")
+    artwork._write_manifest("local-doom", "cover", "sgdb")
     assert model.artworkOrigin("local-doom", "cover") == "cache:sgdb"
     # No sidecar: plain downloaded art.
     other = artwork.grid_path("local-doom", "banner")

@@ -1811,6 +1811,7 @@ Window {
     function clearTags() {
         onlineTagList = []
         onlineTags = ""
+        metadataStatus = ""
     }
 
     function refreshPreview() {

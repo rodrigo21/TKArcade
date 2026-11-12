@@ -177,7 +177,7 @@ def manifest_path(appid: str) -> Path:
 
 
 def read_manifest(appid: str) -> dict:
-    """{kind: {"provider": ..., "appid": ...}} for one game (may be empty).
+    """{kind: {"provider": ...}} for one game (may be empty).
 
     One file per kind cannot say where it came from; the sidecar does,
     and the status row needs it to name the provider honestly.
@@ -189,9 +189,9 @@ def read_manifest(appid: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def _write_manifest(appid: str, kind: str, provider: str, source: str) -> None:
+def _write_manifest(appid: str, kind: str, provider: str) -> None:
     data = read_manifest(appid)
-    data[kind] = {"provider": provider, "appid": str(source)}
+    data[kind] = {"provider": provider}
     data.pop(CLEARED_KEY, None)
     path = manifest_path(appid)
     try:
@@ -882,7 +882,7 @@ def fetch_official(
             path = _store(gid, kind, url)
             if path is not None:
                 out[kind] = path
-                _write_manifest(gid, kind, "steam", gid)
+                _write_manifest(gid, kind, "steam")
                 if kind == "icon":
                     _mark_icon_chain(gid)
                 break
@@ -972,7 +972,7 @@ def fetch_sgdb_game(
             path = _store(gid, kind, str(entry["thumb"]))
             if path is not None:
                 out[kind] = path
-                _write_manifest(gid, kind, "sgdb", gid)
+                _write_manifest(gid, kind, "sgdb")
                 if kind == "icon":
                     _mark_icon_chain(gid)
                 break
@@ -1010,7 +1010,7 @@ def fetch_igdb(
         path = _store(gid, kind, url)
         if path is not None:
             out[kind] = path
-            _write_manifest(gid, kind, "igdb", gid)
+            _write_manifest(gid, kind, "igdb")
     return out, "" if out else "no-art"
 
 
