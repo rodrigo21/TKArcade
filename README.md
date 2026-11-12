@@ -229,7 +229,10 @@ store AppID, reads the Steam store; a stored `[metadata] vndb_id` or
 `igdb_id` is fetched directly, and an empty one searches that database
 by title, asks which game it is and saves the pick, so the next
 download skips the search. IGDB needs a free Twitch application (client
-id and secret in Preferences). The preview also carries a **Tags** row:
+id and secret in Preferences); the Twitch console asks for an OAuth
+redirect URL, where any public HTTPS address works, because the
+download uses the client-credentials grant and never redirects. The
+preview also carries a **Tags** row:
 Apply writes the online tags into `[metadata] tags`, where Steam
 contributes genres, store features and the franchise, IGDB its genres,
 franchise, themes and keywords, and VNDB its non-spoiler tags rated 2.0

@@ -87,3 +87,11 @@ Release, only when the maintainer opens the subject:
   flow for a whole library and a decision record. The removed Scan dialog
   is the shape a per-source batch import can come back in.
   Design: `docs/plans/epic-gog-sources.md`.
+- [ ] **IGDB without a per-user key.** Every user registers a Twitch
+  application and pastes `[ui] igdb_client_id` / `igdb_client_secret`,
+  and the Twitch console requires an OAuth redirect URL the app never
+  uses. Playnite hides the setup behind its own backend service, which
+  owns the Twitch keys. Decide at 2.0: project-hosted proxy (hosting,
+  uptime, IGDB redistribution terms) against a key embedded in the
+  package (public secret, Twitch confidentiality expectation) against
+  dropping IGDB. No plan yet; a design lands before any code.

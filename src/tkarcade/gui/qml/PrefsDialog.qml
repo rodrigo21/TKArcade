@@ -343,7 +343,7 @@ Window {
                                             prefsDialog.setPref("igdbClientId", text)
                                         }
                                     }
-                                    Controls.ToolTip.text: qsTr("IGDB Reads a Free Twitch Application: Client ID From dev.twitch.tv.")
+                                    Controls.ToolTip.text: qsTr("IGDB Reads a Free Twitch Application: Client ID From dev.twitch.tv, Which Asks for an OAuth Redirect URL; Any Public HTTPS Address Works, This App Never Redirects.")
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("IGDB Client ID:")
                                 }
