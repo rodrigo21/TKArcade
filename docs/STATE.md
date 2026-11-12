@@ -10,25 +10,25 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: forty-two batches. The latest is C3: `[metadata] locked`
-  (normalized CSV) plus a lock toggle on each of the 11 lockable Details
-  rows; the preview shows `Locked` and Apply skips a locked row even
-  with Replace existing values on.
-- Verified: `scripts/check.sh --qml` (709 passed, 3 skipped) plus an
-  offscreen screenshot of Details (11 lock icons) and the locked preview.
-- Next: C4, the VNDB adapter with the candidate picker, then the
-  PCGamingWiki adapter (C5), IGDB with the credential field and the
-  provider menu (C6), IGDB artwork (C7) and online categories (C8); the
-  library import follows. Epic/GOG is 2.0. The 1.0 visual pass, the
-  packaging check, the shim removal and the release pass wait for the
-  maintainer's release call.
+- Landed: forty-three batches. The latest is C4: the VNDB adapter for a
+  local game without a Steam AppID (title search, candidate picker) and
+  `[metadata] vndb_id`; VNDB fills description, developer and date, and
+  Steam still wins when the game has a Steam AppID.
+- Verified: `scripts/check.sh --qml` (722 passed, 3 skipped), the three
+  QML metadata cases on their own, plus offscreen screenshots of the
+  VNDB row and the picker.
+- Next: C5, the PCGamingWiki adapter, then IGDB with the credential
+  field and the provider menu (C6), IGDB artwork (C7) and online
+  categories (C8); the library import follows. Epic/GOG is 2.0. The 1.0
+  visual pass, the packaging check, the shim removal and the release
+  pass wait for the maintainer's release call.
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
   checks while iterating, one verification pass on the approved diff.
   Translations stay suspended (English-only new strings) until the 1.0
   pass restores the catalog.
-- Open decisions: none block C4; C6 waits on the maintainer's Twitch
+- Open decisions: none block C5; C6 waits on the maintainer's Twitch
   application (client id/secret). `docs/plans/epic-gog-sources.md` is
   parked for 2.0 with its own four decisions (scope, discovery, launch,
   import UI).
