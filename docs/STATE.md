@@ -10,21 +10,25 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: forty-six batches. The latest is C8: online tags. The three
-  providers return a `tags` list (Steam genres, store features and
-  franchise; IGDB genres, franchise, themes and keywords; VNDB
-  non-spoiler tags rated 2.0+, top 20), Download Metadata previews a
-  Tags row and writes `[metadata] tags`, and Details shows the list
-  read-only next to Series. Categories stay manual. There is no bulk
-  tag action: it was built and removed at the maintainer's call. The
-  metadata cache payload carries `CACHE_VERSION = 2`.
-- Verified: `scripts/check.sh --qml` (750 passed, 3 skipped) and
-  offscreen screenshots of the Details Tags row and the metadata
-  preview.
+- Landed: forty-seven batches. The latest is the Search Data window: one
+  modal per game (opened from the Information title) with a Metadata tab
+  (source Steam/VNDB/IGDB/ProtonDB, name-or-id search, candidate
+  buttons, identity fields, preview rows, Replace) and an Artwork tab
+  (the four slots, Source AppID, Download From, Fetch/Clear). The
+  Details tab lost the source menu, the Download Metadata action and the
+  Steam/VNDB/IGDB fields, gained a `Matches:` line and a four-tile art
+  strip, kept the ProtonDB badge and the Tags row with its Clear, and
+  Notes moved to its end: six tabs. A new Steam game also fills its
+  store metadata on save (fill-empty, locks respected, tags and date
+  included). Record: `docs/decisions/metadata-window.md`.
+- Verified: `scripts/check.sh --qml` (753 passed, 3 skipped), `qmllint`,
+  `tests/test_docs.py`, offscreen screenshots of Details, the Add dialog
+  and both window tabs at normal, minimum and intermediate widths.
 - Next: the maintainer's new changes (not scoped yet), then the library
   import. Open follow-up: after the import, decide whether categories
-  derive from the tags, whether the tags get a filter/editor and whether
-  a bulk download is worth it. Epic/GOG is 2.0. The 1.0 visual pass, the
+  derive from tags, whether the tags get a filter/editor and whether a
+  bulk download is worth it. Epic/GOG is 2.0, and so is the IGDB
+  per-user credential review (`TODO.md`). The 1.0 visual pass, the
   packaging check, the shim removal and the release pass wait for the
   maintainer's release call.
 - The Proton default is a dialog preselection only: a Steam game
