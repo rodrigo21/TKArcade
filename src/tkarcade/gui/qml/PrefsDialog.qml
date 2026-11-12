@@ -272,7 +272,9 @@ Window {
                         objectName: "prefsArtworkColumn"
                         width: parent.width
                         spacing: Kirigami.Units.largeSpacing
-                        property real labelWidth: prefsArtworkForm.naturalLabelWidth
+                        property real labelWidth: Math.max(
+                            prefsArtworkForm.naturalLabelWidth,
+                            prefsMetadataForm.naturalLabelWidth)
                         SectionBox {
                             title: qsTr("Artwork")
                             Layout.fillWidth: true
@@ -319,6 +321,44 @@ Window {
                                     Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB Is Community Artwork (Needs a Key). Fetch Artwork Re-Downloads With the Chosen Source.")
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("Artwork Source:")
+                                }
+                            }
+                        }
+                        SectionBox {
+                            title: qsTr("Metadata")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: prefsMetadataForm
+                                labelWidth: artworkColumn.labelWidth
+                                Layout.fillWidth: true
+                                Controls.TextField {
+                                    objectName: "prefsIgdbClientId"
+                                    Layout.fillWidth: true
+                                    placeholderText: qsTr("Twitch Application Client ID")
+                                    text: prefsDialog.values.igdbClientId ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.igdbClientId !== text) {
+                                            prefsDialog.setPref("igdbClientId", text)
+                                        }
+                                    }
+                                    Controls.ToolTip.text: qsTr("IGDB Reads a Free Twitch Application: Client ID From dev.twitch.tv.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("IGDB Client ID:")
+                                }
+                                Controls.TextField {
+                                    objectName: "prefsIgdbClientSecret"
+                                    Layout.fillWidth: true
+                                    echoMode: Controls.TextField.Password
+                                    placeholderText: qsTr("Twitch Application Client Secret")
+                                    text: prefsDialog.values.igdbClientSecret ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.igdbClientSecret !== text) {
+                                            prefsDialog.setPref("igdbClientSecret", text)
+                                        }
+                                    }
+                                    Controls.ToolTip.text: qsTr("IGDB Client Secret: Kept in the Preferences File, Never Sent Anywhere Else.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("IGDB Client Secret:")
                                 }
                             }
                         }

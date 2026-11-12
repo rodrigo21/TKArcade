@@ -104,6 +104,9 @@ What each document is for and where the source of truth lives.
   row toggle on Details and the lock winning over the replace switch.
 - `decisions/metadata-vndb.md` — the VNDB fallback for a local game
   without a Steam AppID, `[metadata] vndb_id` and the candidate picker.
+- `decisions/metadata-igdb.md` — the IGDB adapter, its Twitch
+  credentials, `[metadata] igdb_id`, the provider menu and why
+  PCGamingWiki was dropped.
 
 ## Plans
 

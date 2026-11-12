@@ -243,9 +243,12 @@ class MetadataConfig:
     # A local game's own Steam store link: digits only, "" when it has
     # none. A Steam ID derives its AppID, so this field is ignored there.
     steam_appid: str = ""
-    # VNDB visual-novel id ("v2002"): the metadata source of a local game
-    # without a Steam AppID. A Steam AppID wins, so it is ignored there.
+    # VNDB visual-novel id ("v2002"): identity for the VNDB provider. The
+    # provider menu decides the source; an empty id searches by title.
     vndb_id: str = ""
+    # IGDB game id ("1145360"): identity like the two above, so it takes no
+    # lock. The provider menu chooses the source; an empty id searches.
+    igdb_id: str = ""
 
 
 def normalize_locked_fields(value: object) -> str:
@@ -274,6 +277,12 @@ def normalize_vndb_id(value: object) -> str:
     if text.isdigit():
         text = f"v{text}"
     return text if re.fullmatch(r"v\d+", text) else ""
+
+
+def normalize_igdb_id(value: object) -> str:
+    """IGDB game id, digits only ("" for anything else)."""
+    text = str(value or "").strip()
+    return text if text.isdigit() else ""
 
 
 @dataclass
@@ -465,6 +474,8 @@ class Preferences:
     minimize_to_tray: bool = False
     close_to_tray: bool = False
     sgdb_api_key: str = ""
+    igdb_client_id: str = ""  # Twitch application, for the IGDB provider
+    igdb_client_secret: str = ""
     artwork_source: str = "steam"  # steam|sgdb: which provider a fetch tries first
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
@@ -1052,6 +1063,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "locked",
         "steam_appid",
         "vndb_id",
+        "igdb_id",
     },
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
@@ -1280,6 +1292,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.metadata.locked = normalize_locked_fields(md.get("locked", ""))
     cfg.metadata.steam_appid = normalize_steam_appid(md.get("steam_appid", ""))
     cfg.metadata.vndb_id = normalize_vndb_id(md.get("vndb_id", ""))
+    cfg.metadata.igdb_id = normalize_igdb_id(md.get("igdb_id", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}
@@ -1366,6 +1379,8 @@ def load_preferences() -> Preferences:
     out.minimize_to_tray = _as_bool(ui.get("minimize_to_tray", False), False)
     out.close_to_tray = _as_bool(ui.get("close_to_tray", False), False)
     out.sgdb_api_key = str(ui.get("sgdb_api_key", "") or "")
+    out.igdb_client_id = str(ui.get("igdb_client_id", "") or "").strip()
+    out.igdb_client_secret = str(ui.get("igdb_client_secret", "") or "").strip()
     artwork_source = str(ui.get("artwork_source", "steam") or "steam").strip()
     out.artwork_source = artwork_source if artwork_source in ("steam", "sgdb") else "steam"
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
@@ -1632,6 +1647,8 @@ def save_preferences(prefs: Preferences) -> Path:
             "minimize_to_tray": bool(prefs.minimize_to_tray),
             "close_to_tray": bool(prefs.close_to_tray),
             "sgdb_api_key": prefs.sgdb_api_key,
+            "igdb_client_id": prefs.igdb_client_id,
+            "igdb_client_secret": prefs.igdb_client_secret,
             "artwork_source": prefs.artwork_source
             if prefs.artwork_source in ("steam", "sgdb")
             else "steam",

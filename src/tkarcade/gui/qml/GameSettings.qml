@@ -60,6 +60,9 @@ Window {
     // Download Metadata runs off-thread; the status line reports the result.
     property bool metadataBusy: false
     property string metadataStatus: ""
+    // Provider whose title search opened the picker: the pick fills that
+    // provider's identity field ([metadata] vndb_id or igdb_id).
+    property string metadataPendingProvider: ""
     // Preview rows for the store answer: {key, field, current, next,
     // values} for every field the provider answered. Apply is the only
     // writer, into the fields; Save still writes the config.
@@ -780,6 +783,9 @@ Window {
         gameStatusBox.currentIndex = Math.max(0, gameStatusBox.indexOfValue(f.status || ""))
         steamAppIdField.text = f.steam_appid || ""
         vndbIdField.text = f.vndb_id || ""
+        igdbIdField.text = f.igdb_id || ""
+        metadataProviderBox.currentIndex = Math.max(0,
+            ["steam", "vndb", "igdb"].indexOf(defaultMetadataProvider()))
         metadataBusy = false
         metadataStatus = ""
         refreshProtonDB()
@@ -895,6 +901,7 @@ Window {
             "locked": lockedFields.join(","),
             "steam_appid": steamAppIdField.text,
             "vndb_id": vndbIdField.text,
+            "igdb_id": igdbIdField.text,
             // The slots have no path field any more: read what the store
             // holds, or a Save would clear a file picked earlier.
             "art_icon": gameModel.artworkPath(editAppid, "icon"),
@@ -1595,10 +1602,15 @@ Window {
             choicePrompt.close()
             if (pick !== undefined && pick.data !== "") {
                 // The pick is part of the form: Save writes it, Cancel drops it.
-                vndbIdField.text = String(pick.data)
+                var provider = metadataPendingProvider || "vndb"
+                if (provider === "igdb") {
+                    igdbIdField.text = String(pick.data)
+                } else {
+                    vndbIdField.text = String(pick.data)
+                }
                 metadataBusy = true
                 metadataStatus = qsTr("Downloading…")
-                gameModel.fetchVndb(editAppid, String(pick.data))
+                gameModel.fetchMetadata(editAppid, provider, String(pick.data))
             }
         }
     }
@@ -1654,21 +1666,47 @@ Window {
         lockedFields = next
     }
 
+    // Where Download Metadata reads from when nothing is picked yet: the
+    // stored identity wins, then Steam when the game links an AppID, then
+    // VNDB, which is what a local game did before the menu existed.
+    function defaultMetadataProvider() {
+        if (vndbIdField.text !== "") {
+            return "vndb"
+        }
+        if (igdbIdField.text !== "") {
+            return "igdb"
+        }
+        if ((fields.is_steam || false) || steamAppIdField.text !== "") {
+            return "steam"
+        }
+        return "vndb"
+    }
+
     function downloadMetadata() {
         if (metadataBusy || editAppid === "") {
             return
         }
+        var provider = String(metadataProviderBox.currentValue || "steam")
+        if (provider === "igdb" && !gameModel.igdbConfigured()) {
+            // A missing Twitch credential is not a failed download: say so
+            // here instead of the preview's "No Metadata Found.".
+            metadataStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
+            return
+        }
         metadataBusy = true
         metadataStatus = qsTr("Downloading…")
-        // A Steam game or a local game with a store link reads Steam; a
-        // local game without one uses its saved VNDB ID, else searches by
-        // title and asks which visual novel it is.
-        if ((fields.is_steam || false) || steamAppIdField.text !== "") {
-            gameModel.fetchMetadata(editAppid, steamAppIdField.text)
-        } else if (vndbIdField.text !== "") {
-            gameModel.fetchVndb(editAppid, vndbIdField.text)
+        if (provider === "steam") {
+            gameModel.fetchMetadata(editAppid, "steam", steamAppIdField.text)
+            return
+        }
+        var idField = provider === "igdb" ? igdbIdField : vndbIdField
+        if (idField.text !== "") {
+            gameModel.fetchMetadata(editAppid, provider, idField.text)
         } else {
-            gameModel.searchVndb(editAppid, nameField.text)
+            // An empty identity searches by the dialog title and asks
+            // which game it is before anything is written.
+            metadataPendingProvider = provider
+            gameModel.searchMetadata(editAppid, provider, nameField.text)
         }
     }
 
@@ -2005,7 +2043,7 @@ Window {
                 openMetadataPreview(data || {})
             }
         }
-        // The title matched VNDB entries: ask which visual novel it is.
+        // The title matched provider entries: ask which game it is.
         function onMetadataChoices(appid, rows) {
             if (appid !== editAppid) {
                 return
@@ -2380,17 +2418,29 @@ Window {
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("Steam AppID:")
                                 }
-                                Controls.TextField {
-                                    id: vndbIdField
-                                    objectName: "settingsVndbId"
-                                    // The VNDB fallback is only consulted
-                                    // when the game has no Steam AppID.
-                                    visible: !(fields.is_steam || false)
-                                    placeholderText: qsTr("VNDB ID (Optional)")
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    Controls.ToolTip.text: qsTr("VNDB Visual Novel of This Game, e.g. v2002. Download Metadata Uses It When the Game Has No Steam AppID.")
-                                    Controls.ToolTip.visible: hovered
-                                    KirigamiLayouts.FormData.label: qsTr("VNDB:")
+                                    KirigamiLayouts.FormData.label: qsTr("VNDB / IGDB:")
+                                    Controls.TextField {
+                                        id: vndbIdField
+                                        objectName: "settingsVndbId"
+                                        // Identity for the VNDB provider; the
+                                        // menu decides when it is consulted.
+                                        placeholderText: qsTr("VNDB ID")
+                                        Layout.fillWidth: true
+                                        Controls.ToolTip.text: qsTr("VNDB Visual Novel of This Game, e.g. v2002. Download Metadata Uses It When the Source Is VNDB.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.TextField {
+                                        id: igdbIdField
+                                        objectName: "settingsIgdbId"
+                                        // Identity for the IGDB provider; empty
+                                        // means a title search.
+                                        placeholderText: qsTr("IGDB ID")
+                                        Layout.fillWidth: true
+                                        Controls.ToolTip.text: qsTr("IGDB Game of This Game, e.g. 1145360. Download Metadata Uses It When the Source Is IGDB.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -2428,13 +2478,31 @@ Window {
                                         Controls.ToolTip.text: qsTr("Open ProtonDB Page")
                                         Controls.ToolTip.visible: hovered
                                     }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Metadata:")
+                                    AppComboBox {
+                                        id: metadataProviderBox
+                                        objectName: "settingsMetadataProvider"
+                                        Layout.preferredWidth: Kirigami.Units.gridUnit * 9
+                                        model: [
+                                            { "text": qsTr("Steam"), "data": "steam" },
+                                            { "text": qsTr("VNDB"), "data": "vndb" },
+                                            { "text": qsTr("IGDB"), "data": "igdb" }
+                                        ]
+                                        textRole: "text"
+                                        valueRole: "data"
+                                        Controls.ToolTip.text: qsTr("Where Download Metadata Reads From. Steam Needs an AppID; VNDB and IGDB Search by Title When Their ID Is Empty.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
                                     Controls.Button {
                                         objectName: "settingsMetadataFetch"
                                         text: qsTr("Download Metadata")
                                         enabled: !gameSettings.metadataBusy
                                         Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
                                         onClicked: gameSettings.downloadMetadata()
-                                        Controls.ToolTip.text: qsTr("Fill Empty Fields from Steam or VNDB")
+                                        Controls.ToolTip.text: qsTr("Fill Empty Fields from the Chosen Source")
                                         Controls.ToolTip.visible: hovered
                                     }
                                     Controls.Label {

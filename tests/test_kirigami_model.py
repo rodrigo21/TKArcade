@@ -1065,17 +1065,17 @@ def test_fetch_metadata_targets_the_store_link(qgui_app, xdg_env, monkeypatch):
             or {"description": "Portal", "developer": "Valve"}
         ),
     )
-    model._metadata_worker("local-doom", model._steam_target("local-doom"))
+    model._metadata_worker("local-doom", "steam", model._steam_target("local-doom"))
     assert calls == [("steam", "local-doom", "620")]
     assert got == [("local-doom", {"description": "Portal", "developer": "Valve"})]
 
     # No Steam AppID: the dialog is told at once, without a worker.
     got.clear()
-    model.fetchMetadata("local-other", "")
+    model.fetchMetadata("local-other", "steam", "")
     assert got == [("local-other", {})]
 
 
-def test_vndb_search_and_fetch_workers(qgui_app, xdg_env, monkeypatch):
+def test_metadata_provider_workers(qgui_app, xdg_env, monkeypatch):
     from tkarcade.gui import model as M
 
     model = M.GameListModel()
@@ -1088,22 +1088,63 @@ def test_vndb_search_and_fetch_workers(qgui_app, xdg_env, monkeypatch):
         "search",
         lambda provider, query: [{"id": "v2002", "name": query}] if provider == "vndb" else [],
     )
-    model._vndb_search_worker("local-sg", "Steins;Gate")
+    model._metadata_search_worker("local-sg", "vndb", "Steins;Gate")
     assert choices == [("local-sg", [{"id": "v2002", "name": "Steins;Gate"}])]
 
+    calls = []
     monkeypatch.setattr(
-        M.metamod, "download", lambda provider, appid, target="": {"description": "Syn"}
+        M.metamod,
+        "download",
+        lambda provider, appid, target="": (
+            calls.append((provider, appid, target)) or {"description": "Syn"}
+        ),
     )
-    model._vndb_worker("local-sg", "v2002")
-    assert got == [("local-sg", {"description": "Syn"})]
+    model._metadata_worker("local-sg", "vndb", "v2002")
+    model._metadata_worker("local-hades", "igdb", "1145360")
+    assert calls == [("vndb", "local-sg", "v2002"), ("igdb", "local-hades", "1145360")]
+    assert got == [
+        ("local-sg", {"description": "Syn"}),
+        ("local-hades", {"description": "Syn"}),
+    ]
 
-    # No target and no title: the dialog is told at once, without a worker.
+    # An unknown provider and an empty title answer at once, no worker.
     got.clear()
-    model.fetchVndb("local-sg", "nope")
+    model.fetchMetadata("local-sg", "nope", "")
     assert got == [("local-sg", {})]
     choices.clear()
-    model.searchVndb("local-sg", "  ")
+    model.searchMetadata("local-sg", "vndb", "  ")
     assert choices == [("local-sg", [])]
+
+
+def test_igdb_configured_needs_both_parts(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.igdbConfigured() is False
+    prefs = C.Preferences()
+    prefs.igdb_client_id = "cid"
+    C.save_preferences(prefs)
+    assert model.igdbConfigured() is False
+    prefs.igdb_client_secret = "sec"
+    C.save_preferences(prefs)
+    assert model.igdbConfigured() is True
+
+
+def test_igdb_id_survives_the_form_map(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    appid = model.saveGame(
+        "",
+        {
+            "name": "Hades",
+            "custom_executable": "/bin/true",
+            "runtime_type": "native",
+            "igdb_id": " 1145360 ",
+        },
+    )
+    assert C.load(appid).metadata.igdb_id == "1145360"
+    assert model.loadGame(appid)["igdb_id"] == "1145360"
 
 
 def test_vndb_id_survives_the_form_map(qgui_app, xdg_env):

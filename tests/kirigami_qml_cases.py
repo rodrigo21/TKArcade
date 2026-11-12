@@ -7442,9 +7442,9 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     queries = []
-    model.searchVndb = lambda appid, title: queries.append((appid, title))
+    model.searchMetadata = lambda appid, provider, title: queries.append((provider, appid, title))
     _click(swin, "settingsMetadataFetch")
-    assert queries == [("local-sg", "Steins;Gate")]
+    assert queries == [("vndb", "local-sg", "Steins;Gate")]
     status = swin.findChild(QQuickItem, "settingsMetadataStatus")
     assert status.property("text") == "Downloading…"
     # Nothing found is a plain status line, never an empty dialog.
@@ -7454,7 +7454,7 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     # Several candidates: the choice dialog asks; the pick fills the field
     # and goes back to the model for the fetch.
     fetched = []
-    model.fetchVndb = lambda appid, target: fetched.append((appid, target))
+    model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
     model.metadataChoices.emit(
         "local-sg",
         [
@@ -7467,7 +7467,7 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     box = prompt.findChild(QQuickItem, "settingsChoiceBox")
     assert box.property("count") == 2
     _click(prompt, "dialogOk")
-    assert fetched == [("local-sg", "v2002")]
+    assert fetched == [("vndb", "local-sg", "v2002")]
     vndb_field = swin.findChild(QQuickItem, "settingsVndbId")
     assert vndb_field.property("text") == "v2002"
     # The fetched fields go through the same preview and Apply.
@@ -7486,6 +7486,57 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     dlg.save()
     qgui_app.processEvents()
     assert C.load("local-sg").metadata.vndb_id == "v2002"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_igdb_provider_and_picker(qgui_app, xdg_env):
+    """The provider menu reads IGDB and the pick saves [metadata] igdb_id."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    _save_one_game("local-hades", "Hades")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-hades")
+    swin = _settings_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    provider = swin.findChild(QQuickItem, "settingsMetadataProvider")
+    assert provider.property("count") == 3
+    status = swin.findChild(QQuickItem, "settingsMetadataStatus")
+    searches = []
+    model.searchMetadata = lambda appid, name, title: searches.append((name, appid, title))
+    provider.setProperty("currentIndex", 2)
+
+    # Without the Twitch credential the action says so and calls nothing.
+    _click(swin, "settingsMetadataFetch")
+    assert searches == []
+    assert status.property("text") == "IGDB Needs a Client ID and Secret in Preferences."
+
+    prefs = C.Preferences()
+    prefs.igdb_client_id = "cid"
+    prefs.igdb_client_secret = "sec"
+    C.save_preferences(prefs)
+    _click(swin, "settingsMetadataFetch")
+    assert searches == [("igdb", "local-hades", "Hades")]
+
+    fetched = []
+    model.fetchMetadata = lambda appid, name, target: fetched.append((name, appid, target))
+    model.metadataChoices.emit("local-hades", [{"id": "1145360", "name": "Hades (2020)"}])
+    qgui_app.processEvents()
+    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
+    _click(prompt, "dialogOk")
+    assert fetched == [("igdb", "local-hades", "1145360")]
+    assert swin.findChild(QQuickItem, "settingsIgdbId").property("text") == "1145360"
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-hades").metadata.igdb_id == "1145360"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

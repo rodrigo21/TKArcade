@@ -75,6 +75,7 @@ def _apply_metadata(cfg, data: dict) -> None:
     md.locked = cfgmod.normalize_locked_fields(data.get("locked", ""))
     md.steam_appid = cfgmod.normalize_steam_appid(data.get("steam_appid", ""))
     md.vndb_id = cfgmod.normalize_vndb_id(data.get("vndb_id", ""))
+    md.igdb_id = cfgmod.normalize_igdb_id(data.get("igdb_id", ""))
 
 
 #: Solid status badge colors (background, text). The text is always black:
@@ -993,6 +994,7 @@ class GameListModel(QAbstractTableModel):
             "locked": cfg.metadata.locked,
             "steam_appid": cfg.metadata.steam_appid,
             "vndb_id": cfg.metadata.vndb_id,
+            "igdb_id": cfg.metadata.igdb_id,
             "custom_executable": g.custom_executable,
             "runtime_type": cfgmod.normalize_runtime(cfg.runtime.type),
             "show_menu": bool(g.show_menu),
@@ -4251,7 +4253,7 @@ class GameListModel(QAbstractTableModel):
     #: error is "", "network", "not-image", "too-large" or "save".
     artworkStored = Signal(str, str, str)
     #: (appid, fields) after Download Metadata; fields is the empty map
-    #: when the game has no Steam AppID or the store answered nothing.
+    #: when the provider has no target or answered nothing.
     metadataFetched = Signal(str, "QVariantMap")
     #: (appid, rows) when a title search needs a pick: rows are
     #: [{"id": "v2002", "name": "STEINS;GATE (2009)"}, ...].
@@ -4323,54 +4325,55 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             pass
 
-    @Slot(str, str)
-    def fetchMetadata(self, appid: str, target: str = "") -> None:
-        """Download store metadata off-thread for the dialog to fill."""
-        numeric = self._steam_target(appid, None, target)
-        if not numeric:
+    @Slot(str, str, str)
+    def fetchMetadata(self, appid: str, provider: str = "steam", target: str = "") -> None:
+        """Download one provider's metadata off-thread for the dialog to fill."""
+        if provider not in metamod.PROVIDERS:
             self.metadataFetched.emit(appid, {})
             return
-        threading.Thread(target=self._metadata_worker, args=(appid, numeric), daemon=True).start()
+        if provider == "steam":
+            target = self._steam_target(appid, None, target)
+            if not target:
+                self.metadataFetched.emit(appid, {})
+                return
+        threading.Thread(
+            target=self._metadata_worker, args=(appid, provider, target), daemon=True
+        ).start()
 
-    def _metadata_worker(self, appid: str, numeric: str) -> None:
-        """Use the fresh cache first; the store call only when stale/missing."""
+    def _metadata_worker(self, appid: str, provider: str, target: str) -> None:
+        """Use the fresh cache first; the provider call only when stale/missing."""
         try:
-            data = metamod.download("steam", appid, numeric)
+            data = metamod.download(provider, appid, target)
         except Exception:
             data = None
         self.metadataFetched.emit(appid, data or {})
 
-    @Slot(str, str)
-    def searchVndb(self, appid: str, title: str = "") -> None:
-        """Search VNDB by title off-thread; the dialog picks a candidate."""
+    @Slot(str, str, str)
+    def searchMetadata(self, appid: str, provider: str, title: str = "") -> None:
+        """Search a provider by title off-thread; the dialog picks a candidate."""
         query = str(title or "").strip()
-        if not query:
+        if not query or provider not in metamod.PROVIDERS:
             self.metadataChoices.emit(appid, [])
             return
-        threading.Thread(target=self._vndb_search_worker, args=(appid, query), daemon=True).start()
+        threading.Thread(
+            target=self._metadata_search_worker, args=(appid, provider, query), daemon=True
+        ).start()
 
-    def _vndb_search_worker(self, appid: str, query: str) -> None:
+    def _metadata_search_worker(self, appid: str, provider: str, query: str) -> None:
         try:
-            rows = metamod.search("vndb", query)
+            rows = metamod.search(provider, query)
         except Exception:
             rows = []
         self.metadataChoices.emit(appid, rows)
 
-    @Slot(str, str)
-    def fetchVndb(self, appid: str, target: str = "") -> None:
-        """Download the picked VNDB entry off-thread for the preview."""
-        wanted = cfgmod.normalize_vndb_id(target)
-        if not wanted:
-            self.metadataFetched.emit(appid, {})
-            return
-        threading.Thread(target=self._vndb_worker, args=(appid, wanted), daemon=True).start()
-
-    def _vndb_worker(self, appid: str, target: str) -> None:
+    @Slot(result=bool)
+    def igdbConfigured(self) -> bool:
+        """Whether the IGDB provider has its Twitch client id and secret."""
         try:
-            data = metamod.download("vndb", appid, target)
+            prefs = cfgmod.load_preferences()
         except Exception:
-            data = None
-        self.metadataFetched.emit(appid, data or {})
+            return False
+        return bool(prefs.igdb_client_id.strip() and prefs.igdb_client_secret.strip())
 
     def _fetch_steam_art(self, target: str, api_key: str, provider: str) -> None:
         """Download whatever art kinds are missing for one Steam AppID."""
@@ -4570,6 +4573,8 @@ class GameListModel(QAbstractTableModel):
             "trayQuickLaunch": bool(prefs.tray_quick_launch),
             "trayQuickCount": int(prefs.tray_quick_count),
             "sgdbApiKey": str(prefs.sgdb_api_key),
+            "igdbClientId": str(prefs.igdb_client_id),
+            "igdbClientSecret": str(prefs.igdb_client_secret),
             "artworkSource": str(prefs.artwork_source),
             "language": str(prefs.language),
             "prefixBase": str(prefs.prefix_base),
@@ -4606,6 +4611,10 @@ class GameListModel(QAbstractTableModel):
                 1, min(10, int(get("trayQuickCount", prefs.tray_quick_count)))
             )
             prefs.sgdb_api_key = str(get("sgdbApiKey", prefs.sgdb_api_key))
+            prefs.igdb_client_id = str(get("igdbClientId", prefs.igdb_client_id)).strip()
+            prefs.igdb_client_secret = str(
+                get("igdbClientSecret", prefs.igdb_client_secret)
+            ).strip()
             pref_source = str(get("artworkSource", prefs.artwork_source)).strip()
             prefs.artwork_source = pref_source if pref_source in ("steam", "sgdb") else "steam"
             lang = str(get("language", prefs.language)).strip() or "system"

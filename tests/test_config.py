@@ -412,6 +412,30 @@ def test_metadata_vndb_id_is_normalized(xdg_env):
     assert C.load("local-sg").metadata.vndb_id == "v2002"
 
 
+def test_metadata_igdb_id_is_normalized(xdg_env):
+    assert C.normalize_igdb_id("1145360") == "1145360"
+    assert C.normalize_igdb_id(" 1145360 ") == "1145360"
+    assert C.normalize_igdb_id("hades") == ""
+    assert C.normalize_igdb_id("-1") == ""
+    assert C.normalize_igdb_id(None) == ""
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-hades"
+    cfg.metadata.igdb_id = " 1145360 "
+    C.save(cfg)
+    assert C.load("local-hades").metadata.igdb_id == "1145360"
+
+
+def test_preferences_igdb_credentials_round_trip(xdg_env):
+    prefs = C.Preferences()
+    prefs.igdb_client_id = "cid"
+    prefs.igdb_client_secret = "sec"
+    C.save_preferences(prefs)
+    back = C.load_preferences()
+    assert back.igdb_client_id == "cid"
+    assert back.igdb_client_secret == "sec"
+
+
 def test_preferences_invalid_values(xdg_env):
     from tkarcade import xdg as xdgmod
 

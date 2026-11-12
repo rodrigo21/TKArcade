@@ -4,9 +4,13 @@ Status: proposal, not approved. C1 (the registry plus the Steam adapter)
 landed as `docs/decisions/metadata-registry.md`, C2 (the action preview)
 as `docs/decisions/metadata-preview.md`, C3 (the field locks) as
 `docs/decisions/metadata-locks.md`, C4 (the VNDB fallback and the
-candidate picker) as `docs/decisions/metadata-vndb.md`, and the earlier
-Steam `appdetails` download as `docs/decisions/metadata-download.md`;
-the adapters below are still open. When the rest lands it belongs in
+candidate picker) as `docs/decisions/metadata-vndb.md`, C6 (the IGDB
+adapter, the credentials and the provider menu) as
+`docs/decisions/metadata-igdb.md`, and the earlier Steam `appdetails`
+download as `docs/decisions/metadata-download.md`. C5 (PCGamingWiki)
+was dropped: the site answers a plain HTTP client with a Cloudflare
+interstitial, so its Cargo API is unreachable. The remaining consumers
+below are still open. When the rest lands it belongs in
 `docs/decisions/metadata-provider.md` with a landing banner, and this
 file is deleted.
 
@@ -20,25 +24,27 @@ AppID, and the manual fields would be retyped anyway.
 
 ## Providers
 
-| Field | Steam | IGDB | VNDB | PCGamingWiki |
-| --- | --- | --- | --- | --- |
-| description | yes | yes | yes (synopsis) | no |
-| developer | yes | yes | yes (brand) | yes |
-| publisher | yes | yes | no | yes |
-| genre | yes | yes | no (tags are not genres) | yes |
-| series | yes | yes (franchise) | no (relations are not a series) | yes |
-| age ratings | ESRB/PEGI/USK | ESRB/PEGI/USK | no | ESRB/PEGI/CERO |
-| date | yes | yes | yes | yes |
-| engine/requirements/fixes | no | no | no | yes, separate feature |
+| Field | Steam | IGDB | VNDB |
+| --- | --- | --- | --- |
+| description | yes | yes | yes (synopsis) |
+| developer | yes | yes | yes (brand) |
+| publisher | yes | yes | no |
+| genre | yes | yes | no (tags are not genres) |
+| series | yes | yes (franchise) | no (relations are not a series) |
+| age ratings | ESRB/PEGI/USK | ESRB/PEGI/USK | no |
+| date | yes | yes | yes |
+| engine/requirements/fixes | no | no | no |
 
 - **Steam** wraps the landed `storemeta.py`; no key.
 - **IGDB** needs a Twitch app (client id/secret) and the Apicalypse query
   language; 4 req/s.
 - **VNDB** has a public API with no key; title search, synopsis, brands
   and tags; ~1 req/s.
-- **PCGamingWiki** uses the MediaWiki Cargo query (`action=cargoquery`);
-  no key and no API contract, so the adapter tolerates missing columns;
-  ~1 req/s.
+- **PCGamingWiki** is out: both its Cargo API and its `appid.php` helper
+  answer a plain HTTP client with a Cloudflare interstitial (`403`,
+  `Just a moment...`, tested 2026-11-11). A stdlib adapter cannot reach
+  it, and its fields are a subset of IGDB's. Engine/requirements/fixes
+  stay a separate feature if the site ever exposes them.
 
 GameStoryLog was evaluated and dropped: a React SPA whose data comes
 from an internal cache worker, with no public API. It is not a TODO
@@ -57,9 +63,8 @@ item; it comes back only if the site publishes an API or an export.
   not cached. One namespace per provider keeps Steam and a store game
   apart; Steam keeps the landed `steam-meta` directory, which the
   Removed games cleanup already deletes.
-- Rate gate per provider: IGDB 250 ms, VNDB and PCGamingWiki 1 s, Steam
-  none. Token cache for IGDB in the same dir, invalidated when the
-  client id changes.
+- Rate gate per provider: IGDB 250 ms, VNDB 1 s, Steam none. Token
+  cache for IGDB in the same dir, invalidated when the client id changes.
 - Credential: `[ui] igdb_client_id` and `igdb_client_secret`, next to
   `sgdb_api_key`; only IGDB needs one.
 - Failure policy: network error, 401 or a missing key return `None` and
@@ -86,7 +91,8 @@ item; it comes back only if the site publishes an API or an export.
   `metadata_date_valid` are written.
 - Ambiguous searches show a candidate picker, reusing the
   `artworkChoices` signal pattern; the pick saves in the provider's
-  identity field (`[metadata] vndb_id` for VNDB).
+  identity field (`[metadata] vndb_id` for VNDB, `[metadata] igdb_id`
+  for IGDB).
 - `age_ratings` is a list: fill-empty only when empty, replaced as a
   whole when the switch is on.
 
@@ -98,8 +104,8 @@ item; it comes back only if the site publishes an API or an export.
 | C2 | Download Metadata preview dialog | landed (`decisions/metadata-preview.md`); the provider menu moved to C6, the candidate picker to C4 |
 | C3 | Field locks (config + game dialog) | landed (`decisions/metadata-locks.md`); locks win over the replace switch, QML change |
 | C4 | VNDB adapter + candidate picker | landed (`decisions/metadata-vndb.md`); no key, the visual-novel case |
-| C5 | PCGamingWiki adapter | publisher, series, ratings |
-| C6 | IGDB adapter + credential field + provider menu | waits on the maintainer's Twitch app |
+| C5 | PCGamingWiki adapter | dropped: Cloudflare blocks a plain HTTP client; IGDB covers the fields |
+| C6 | IGDB adapter + credential field + provider menu | landed (`decisions/metadata-igdb.md`) |
 | C7 | IGDB artwork as a third source | joins `artwork.PROVIDERS` |
 | C8 | Online categories/tags in bulk | last; taxonomy UX is its own risk |
 
@@ -108,20 +114,18 @@ the enrichment reuses C2's action in bulk.
 
 ## Open questions
 
-- None block C1. C6 waits on the maintainer registering a Twitch
-  application (client id/secret).
-- PCGamingWiki engine/requirements/fixes are a separate feature, not
-  metadata.
+- None block C7. A real-key IGDB smoke test waits on the maintainer's
+  Twitch application; the adapter and its tests do not.
+- PCGamingWiki engine/requirements/fixes stay out of metadata, and the
+  site's Cloudflare challenge keeps them out of reach for now.
 
 ## Risks
 
-- Four field mappings and three search shapes: the registry keeps the
+- Four field mappings and two search shapes: the registry keeps the
   core small, but each adapter needs its fixtures.
-- PCGamingWiki has no API contract; a renamed Cargo column must degrade
-  to a missing field, not a crash.
 - IGDB's Apicalypse query needs quote escaping; a title with quotes must
   not break the request.
 - The preview dialog is a new QML surface; the fill-empty path must keep
   working without the switch.
-- 1.0 grows by eight landings before the library import. If the release
-  tightens, C5 and C7 move to 2.0 without touching VNDB.
+- 1.0 grows by six landings before the library import. If the release
+  tightens, C7 moves to 2.0 without touching VNDB or IGDB.

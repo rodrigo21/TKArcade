@@ -7,10 +7,11 @@ and git, standing decisions in `docs/POLICIES.md`, and hard-won
 QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 `docs/README.md`. The order:
 
-1. Metadata provider registry first: Steam now, then VNDB,
-   PCGamingWiki and IGDB; the local metadata download, the provider
-   artwork source and the online categories all consume it. IGDB lands
-   last inside the phase because it waits on a Twitch app key.
+1. Metadata provider registry first: Steam, VNDB and IGDB (the
+   PCGamingWiki adapter is dropped: Cloudflare blocks a plain HTTP
+   client); the local metadata download, the provider artwork source
+   and the online categories all consume it. IGDB landed last inside the
+   phase because it needs a Twitch app key.
 2. Library import second: the Playnite-style enrichment reuses the
    provider, and the provider has nothing to enrich before the import
    exists.
@@ -22,11 +23,12 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Before 1.0
 
-- [ ] **Metadata provider registry (Steam, VNDB, PCGamingWiki, IGDB).**
+- [ ] **Metadata provider registry (Steam, VNDB, IGDB).**
   One client behind the local metadata download, the provider artwork
   source and the online categories: per-provider adapters, cache, rate
   limit, a preview before writing and per-field locks. It covers a game
-  without a Steam AppID.
+  without a Steam AppID. PCGamingWiki is out: Cloudflare blocks a plain
+  HTTP client, and IGDB carries the fields it would have added.
   Design: `docs/plans/metadata-provider.md`.
 - [ ] **Other artwork sources.** Steam's CDN and SteamGridDB are the only
   providers today; IGDB joins as the third source, through the registry

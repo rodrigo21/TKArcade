@@ -6,6 +6,17 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- IGDB joins Download Metadata as the third provider: a **Metadata
+  Source** menu on the Details tab picks Steam, VNDB or IGDB, the
+  default keeps the previous routing (stored id, then Steam, then
+  VNDB), and the VNDB/IGDB identity rows show for every game. IGDB needs
+  a free Twitch application: `[ui] igdb_client_id` and
+  `igdb_client_secret` in a new Metadata section on the Preferences
+  Artwork tab; the app token is cached in `igdb-meta/.token.json` and
+  renewed on expiry or a changed client id. A search saves its pick in
+  `[metadata] igdb_id`, and IGDB fills every metadata field, the age
+  ratings mapped from its global enum. PCGamingWiki was dropped: the
+  site answers a plain HTTP client with a Cloudflare interstitial.
 - Download Metadata falls back to VNDB for a local game without a Steam
   AppID: it searches by title, shows a candidate picker (the same choice
   dialog as a SteamGridDB name match) and saves the pick in `[metadata]

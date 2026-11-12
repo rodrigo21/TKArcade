@@ -60,7 +60,17 @@ def test_registry_declares_vndb():
     assert entry.fields == ("description", "developer", "date")
     assert entry.search is not None
     assert entry.min_interval >= 1.0
-    assert set(md.cache_dirs()) == {"steam-meta", "vndb-meta"}
+    assert set(md.cache_dirs()) == {"steam-meta", "vndb-meta", "igdb-meta"}
+
+
+def test_registry_declares_igdb():
+    entry = md.PROVIDERS["igdb"]
+    assert entry.label == "IGDB"
+    assert entry.needs_key is True
+    assert entry.cache_dir == "igdb-meta"
+    assert entry.fields == md.FIELDS
+    assert entry.search is not None
+    assert entry.min_interval > 0
 
 
 def test_search_is_gated_and_survives_failure(monkeypatch):

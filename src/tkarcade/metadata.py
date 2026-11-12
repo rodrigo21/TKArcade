@@ -2,7 +2,8 @@
 
 A provider declares how a game resolves to a target and how a payload
 becomes the shared field map; ``download()`` adds the 30-day disk cache
-and the per-provider rate gate. Steam and VNDB are the adapters so far.
+and the per-provider rate gate. Steam, VNDB and IGDB are the adapters so
+far.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from . import storemeta, vndb, xdg
+from . import igdb, storemeta, vndb, xdg
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -66,6 +67,16 @@ PROVIDERS: dict[str, Provider] = {
         fetch=vndb.fetch,
         search=vndb.search,
         min_interval=1.0,
+    ),
+    "igdb": Provider(
+        label="IGDB",
+        cache_dir="igdb-meta",
+        fields=FIELDS,
+        resolve=igdb.resolve,
+        fetch=igdb.fetch,
+        search=igdb.search,
+        needs_key=True,
+        min_interval=0.25,
     ),
 }
 
