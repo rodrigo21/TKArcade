@@ -396,6 +396,22 @@ def test_metadata_steam_appid_is_digits_only(xdg_env):
     assert C.load("local-doom").metadata.steam_appid == "620"
 
 
+def test_metadata_vndb_id_is_normalized(xdg_env):
+    assert C.normalize_vndb_id("v2002") == "v2002"
+    assert C.normalize_vndb_id("V2002") == "v2002"
+    assert C.normalize_vndb_id("2002") == "v2002"
+    assert C.normalize_vndb_id("https://vndb.org/v2002") == "v2002"
+    assert C.normalize_vndb_id("https://vndb.org/v2002/") == "v2002"
+    assert C.normalize_vndb_id("Steins;Gate") == ""
+    assert C.normalize_vndb_id(None) == ""
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-sg"
+    cfg.metadata.vndb_id = "V2002"
+    C.save(cfg)
+    assert C.load("local-sg").metadata.vndb_id == "v2002"
+
+
 def test_preferences_invalid_values(xdg_env):
     from tkarcade import xdg as xdgmod
 

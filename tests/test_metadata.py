@@ -1,5 +1,6 @@
 """Metadata registry: cache keying and the provider rate gate (network stubbed)."""
 
+import dataclasses
 import json
 import time
 import urllib.error
@@ -49,6 +50,56 @@ def test_registry_declares_steam():
     assert steam.needs_key is False
     assert steam.cache_dir == "steam-meta"
     assert steam.fields == md.FIELDS
+
+
+def test_registry_declares_vndb():
+    entry = md.PROVIDERS["vndb"]
+    assert entry.label == "VNDB"
+    assert entry.needs_key is False
+    assert entry.cache_dir == "vndb-meta"
+    assert entry.fields == ("description", "developer", "date")
+    assert entry.search is not None
+    assert entry.min_interval >= 1.0
+    assert set(md.cache_dirs()) == {"steam-meta", "vndb-meta"}
+
+
+def test_search_is_gated_and_survives_failure(monkeypatch):
+    clock = {"now": 100.0}
+    sleeps = []
+
+    def fake_sleep(seconds):
+        sleeps.append(seconds)
+        clock["now"] += seconds
+
+    monkeypatch.setattr(md.time, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(md.time, "sleep", fake_sleep)
+    monkeypatch.setitem(md._next_call, "vndb", 0.0)
+    entry = dataclasses.replace(
+        md.PROVIDERS["vndb"], min_interval=0.5, search=lambda query: [{"id": "v1", "name": query}]
+    )
+    monkeypatch.setitem(md.PROVIDERS, "vndb", entry)
+    assert md.search("vndb", "Muv-Luv") == [{"id": "v1", "name": "Muv-Luv"}]
+    assert md.search("vndb", "Muv-Luv") == [{"id": "v1", "name": "Muv-Luv"}]
+    assert sleeps == [0.5]
+
+    def broken(query):
+        raise urllib.error.URLError("down")
+
+    monkeypatch.setitem(md.PROVIDERS, "vndb", dataclasses.replace(entry, search=broken))
+    assert md.search("vndb", "Muv-Luv") == []
+    assert md.search("steam", "Muv-Luv") == []
+
+
+def test_vndb_cache_follows_the_picked_id(monkeypatch, xdg_env):
+    calls = _stub(
+        monkeypatch,
+        {"results": [{"id": "v2002", "description": "Syn", "released": "2009", "developers": []}]},
+    )
+    assert md.download("vndb", "local-sg", "v2002")["description"] == "Syn"
+    assert md.cached("vndb", "local-sg", "v2002")[1] is True
+    # A different pick must never reuse the previous visual novel's fields.
+    assert md.cached("vndb", "local-sg", "v2003") == (None, False)
+    assert len(calls) == 1
 
 
 def test_download_caches_and_reuses(monkeypatch, xdg_env):

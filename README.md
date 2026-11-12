@@ -221,12 +221,15 @@ the same installed value.
 genre, series, age ratings (CERO/ClassInd/ESRB/PEGI first, the other
 boards behind a divider and switch), region, status, description, a
 ProtonDB rating linking to its page and a Download Metadata action that
-previews the Steam store answer (Apply fills empty fields from it, a
-switch replaces typed ones, and a lock toggle on each metadata row keeps
-that field out of every download; a local game gets the rating and the
-metadata through its optional Steam store AppID), Execution (launch
-settings first, then the runtime selector and tool, the Steam Linux
-Runtime of a local native game, prefix with its installed and pending
+previews the online answer (Apply fills empty fields from it, a switch
+replaces typed ones, and a lock toggle on each metadata row keeps that
+field out of every download). A Steam game, or a local game with its
+optional Steam store AppID, reads the Steam store; a local game without
+one searches VNDB by title, asks which visual novel it is and saves the
+pick in `[metadata] vndb_id`, so the next download skips the search.
+Execution (launch settings first, then the runtime selector and tool,
+the Steam Linux Runtime of a local native game, prefix with its
+installed and pending
 winetricks verbs plus the interactive protontricks/winetricks window,
 Create for a missing prefix — the Steam custom dir or a local WINEPREFIX,
 made only after a confirmation, while Open never creates one — DXVK and

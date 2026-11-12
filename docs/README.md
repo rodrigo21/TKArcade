@@ -102,6 +102,8 @@ What each document is for and where the source of truth lives.
   Replace existing values switch and the fill-empty default.
 - `decisions/metadata-locks.md` — per-field `[metadata] locked`, the
   row toggle on Details and the lock winning over the replace switch.
+- `decisions/metadata-vndb.md` — the VNDB fallback for a local game
+  without a Steam AppID, `[metadata] vndb_id` and the candidate picker.
 
 ## Plans
 

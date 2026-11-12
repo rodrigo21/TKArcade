@@ -6,6 +6,14 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Download Metadata falls back to VNDB for a local game without a Steam
+  AppID: it searches by title, shows a candidate picker (the same choice
+  dialog as a SteamGridDB name match) and saves the pick in `[metadata]
+  vndb_id`, so the next download skips the search and a changed field
+  never reuses the previous visual novel's fields. The preview and the
+  field locks work as before; VNDB fills the synopsis, the developer and
+  the release date, and the Steam store still wins when the game has a
+  Steam AppID.
 - Metadata fields on the Details tab can be locked against downloads: a
   lock toggle at the end of every lockable row saves in `[metadata]
   locked` (normalized CSV), shows `Locked` in the Download Metadata

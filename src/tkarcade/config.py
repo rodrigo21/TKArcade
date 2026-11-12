@@ -243,6 +243,9 @@ class MetadataConfig:
     # A local game's own Steam store link: digits only, "" when it has
     # none. A Steam ID derives its AppID, so this field is ignored there.
     steam_appid: str = ""
+    # VNDB visual-novel id ("v2002"): the metadata source of a local game
+    # without a Steam AppID. A Steam AppID wins, so it is ignored there.
+    vndb_id: str = ""
 
 
 def normalize_locked_fields(value: object) -> str:
@@ -261,6 +264,16 @@ def normalize_steam_appid(value: object) -> str:
     """Digits-only Steam AppID ("" for anything else)."""
     text = str(value or "").strip()
     return text if text.isdigit() else ""
+
+
+def normalize_vndb_id(value: object) -> str:
+    """VNDB visual-novel id like ``v2002`` ("" for anything else)."""
+    text = str(value or "").strip().lower().rstrip("/")
+    if "vndb.org/" in text:
+        text = text.rsplit("/", 1)[-1]
+    if text.isdigit():
+        text = f"v{text}"
+    return text if re.fullmatch(r"v\d+", text) else ""
 
 
 @dataclass
@@ -1038,6 +1051,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "status",
         "locked",
         "steam_appid",
+        "vndb_id",
     },
     "env": {"vars"},
     "pre_post": {"pre_command", "pre_args", "post_command", "post_args", "timeout", "run_in_shell"},
@@ -1265,6 +1279,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.metadata.status = status if status in GAME_STATUSES else ""
     cfg.metadata.locked = normalize_locked_fields(md.get("locked", ""))
     cfg.metadata.steam_appid = normalize_steam_appid(md.get("steam_appid", ""))
+    cfg.metadata.vndb_id = normalize_vndb_id(md.get("vndb_id", ""))
     raw_vars = _section(data, "env").get("vars", {})
     cfg.env.vars = (
         {str(k): str(v) for k, v in raw_vars.items()} if isinstance(raw_vars, dict) else {}

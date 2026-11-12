@@ -1075,6 +1075,54 @@ def test_fetch_metadata_targets_the_store_link(qgui_app, xdg_env, monkeypatch):
     assert got == [("local-other", {})]
 
 
+def test_vndb_search_and_fetch_workers(qgui_app, xdg_env, monkeypatch):
+    from tkarcade.gui import model as M
+
+    model = M.GameListModel()
+    choices = []
+    got = []
+    model.metadataChoices.connect(lambda appid, rows: choices.append((appid, rows)))
+    model.metadataFetched.connect(lambda appid, data: got.append((appid, data)))
+    monkeypatch.setattr(
+        M.metamod,
+        "search",
+        lambda provider, query: [{"id": "v2002", "name": query}] if provider == "vndb" else [],
+    )
+    model._vndb_search_worker("local-sg", "Steins;Gate")
+    assert choices == [("local-sg", [{"id": "v2002", "name": "Steins;Gate"}])]
+
+    monkeypatch.setattr(
+        M.metamod, "download", lambda provider, appid, target="": {"description": "Syn"}
+    )
+    model._vndb_worker("local-sg", "v2002")
+    assert got == [("local-sg", {"description": "Syn"})]
+
+    # No target and no title: the dialog is told at once, without a worker.
+    got.clear()
+    model.fetchVndb("local-sg", "nope")
+    assert got == [("local-sg", {})]
+    choices.clear()
+    model.searchVndb("local-sg", "  ")
+    assert choices == [("local-sg", [])]
+
+
+def test_vndb_id_survives_the_form_map(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    appid = model.saveGame(
+        "",
+        {
+            "name": "Steins;Gate",
+            "custom_executable": "/bin/true",
+            "runtime_type": "native",
+            "vndb_id": "V2002",
+        },
+    )
+    assert C.load(appid).metadata.vndb_id == "v2002"
+    assert model.loadGame(appid)["vndb_id"] == "v2002"
+
+
 def test_metadata_locks_survive_the_form_map(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

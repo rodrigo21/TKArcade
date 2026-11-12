@@ -779,6 +779,7 @@ Window {
         regionBox.currentIndex = Math.max(0, regionBox.indexOfValue(f.region || ""))
         gameStatusBox.currentIndex = Math.max(0, gameStatusBox.indexOfValue(f.status || ""))
         steamAppIdField.text = f.steam_appid || ""
+        vndbIdField.text = f.vndb_id || ""
         metadataBusy = false
         metadataStatus = ""
         refreshProtonDB()
@@ -893,6 +894,7 @@ Window {
             "status": String(gameStatusBox.currentValue || ""),
             "locked": lockedFields.join(","),
             "steam_appid": steamAppIdField.text,
+            "vndb_id": vndbIdField.text,
             // The slots have no path field any more: read what the store
             // holds, or a Save would clear a file picked earlier.
             "art_icon": gameModel.artworkPath(editAppid, "icon"),
@@ -1588,6 +1590,16 @@ Window {
                 }
                 artStatusLabel.text = messages[err] || err
             }
+        } else if (pendingPrompt === "metaGame") {
+            var pick = choiceBox.model[choiceBox.currentIndex]
+            choicePrompt.close()
+            if (pick !== undefined && pick.data !== "") {
+                // The pick is part of the form: Save writes it, Cancel drops it.
+                vndbIdField.text = String(pick.data)
+                metadataBusy = true
+                metadataStatus = qsTr("Downloading…")
+                gameModel.fetchVndb(editAppid, String(pick.data))
+            }
         }
     }
 
@@ -1648,7 +1660,16 @@ Window {
         }
         metadataBusy = true
         metadataStatus = qsTr("Downloading…")
-        gameModel.fetchMetadata(editAppid, steamAppIdField.text)
+        // A Steam game or a local game with a store link reads Steam; a
+        // local game without one uses its saved VNDB ID, else searches by
+        // title and asks which visual novel it is.
+        if ((fields.is_steam || false) || steamAppIdField.text !== "") {
+            gameModel.fetchMetadata(editAppid, steamAppIdField.text)
+        } else if (vndbIdField.text !== "") {
+            gameModel.fetchVndb(editAppid, vndbIdField.text)
+        } else {
+            gameModel.searchVndb(editAppid, nameField.text)
+        }
     }
 
     // Download Metadata opens a preview instead of writing: nothing is
@@ -1983,6 +2004,23 @@ Window {
             if (appid === editAppid) {
                 openMetadataPreview(data || {})
             }
+        }
+        // The title matched VNDB entries: ask which visual novel it is.
+        function onMetadataChoices(appid, rows) {
+            if (appid !== editAppid) {
+                return
+            }
+            metadataBusy = false
+            metadataStatus = ""
+            if (rows.length === 0) {
+                metadataStatus = qsTr("No Metadata Found.")
+                return
+            }
+            var items = []
+            for (var i = 0; i < rows.length; i++) {
+                items.push({"text": rows[i].name, "data": rows[i].id})
+            }
+            gameSettings.askChoice("metaGame", items, "")
         }
         // The name matched several SteamGridDB entries: ask which one.
         function onArtworkChoices(appid, rows) {
@@ -2342,6 +2380,18 @@ Window {
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("Steam AppID:")
                                 }
+                                Controls.TextField {
+                                    id: vndbIdField
+                                    objectName: "settingsVndbId"
+                                    // The VNDB fallback is only consulted
+                                    // when the game has no Steam AppID.
+                                    visible: !(fields.is_steam || false)
+                                    placeholderText: qsTr("VNDB ID (Optional)")
+                                    Layout.fillWidth: true
+                                    Controls.ToolTip.text: qsTr("VNDB Visual Novel of This Game, e.g. v2002. Download Metadata Uses It When the Game Has No Steam AppID.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("VNDB:")
+                                }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("ProtonDB:")
@@ -2382,10 +2432,9 @@ Window {
                                         objectName: "settingsMetadataFetch"
                                         text: qsTr("Download Metadata")
                                         enabled: !gameSettings.metadataBusy
-                                            && ((fields.is_steam || false) || steamAppIdField.text !== "")
                                         Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
                                         onClicked: gameSettings.downloadMetadata()
-                                        Controls.ToolTip.text: qsTr("Fill Empty Fields from the Steam Store")
+                                        Controls.ToolTip.text: qsTr("Fill Empty Fields from Steam or VNDB")
                                         Controls.ToolTip.visible: hovered
                                     }
                                     Controls.Label {
@@ -2393,10 +2442,7 @@ Window {
                                         Layout.fillWidth: true
                                         opacity: 0.7
                                         elide: Text.ElideRight
-                                        text: gameSettings.metadataStatus !== ""
-                                            ? gameSettings.metadataStatus
-                                            : ((!(fields.is_steam || false) && steamAppIdField.text === "")
-                                                ? qsTr("Needs a Steam AppID.") : "")
+                                        text: gameSettings.metadataStatus
                                     }
                                 }
                             }

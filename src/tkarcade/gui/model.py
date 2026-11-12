@@ -74,6 +74,7 @@ def _apply_metadata(cfg, data: dict) -> None:
     md.status = status if status in cfgmod.GAME_STATUSES else ""
     md.locked = cfgmod.normalize_locked_fields(data.get("locked", ""))
     md.steam_appid = cfgmod.normalize_steam_appid(data.get("steam_appid", ""))
+    md.vndb_id = cfgmod.normalize_vndb_id(data.get("vndb_id", ""))
 
 
 #: Solid status badge colors (background, text). The text is always black:
@@ -991,6 +992,7 @@ class GameListModel(QAbstractTableModel):
             "status": cfg.metadata.status,
             "locked": cfg.metadata.locked,
             "steam_appid": cfg.metadata.steam_appid,
+            "vndb_id": cfg.metadata.vndb_id,
             "custom_executable": g.custom_executable,
             "runtime_type": cfgmod.normalize_runtime(cfg.runtime.type),
             "show_menu": bool(g.show_menu),
@@ -4026,7 +4028,7 @@ class GameListModel(QAbstractTableModel):
         try:
             artwork = len(artmod.cache_files(appid)) + sum(
                 1
-                for name in ("protondb", "steam-release", "steam-meta")
+                for name in ("protondb", "steam-release", *metamod.cache_dirs())
                 if (xdg.app_cache_dir() / name / f"{xdg.safe_stem(appid)}.json").is_file()
             )
         except Exception:
@@ -4078,7 +4080,7 @@ class GameListModel(QAbstractTableModel):
             candidates.update(artmod.cache_keys())
         except Exception:
             pass
-        for name in ("protondb", "steam-release", "steam-meta"):
+        for name in ("protondb", "steam-release", *metamod.cache_dirs()):
             try:
                 candidates.update(p.stem for p in (xdg.app_cache_dir() / name).glob("*.json"))
             except OSError:
@@ -4173,14 +4175,14 @@ class GameListModel(QAbstractTableModel):
 
     @staticmethod
     def _clean_game_cache(appid: str) -> bool:
-        """Delete cached artwork, ProtonDB and release-date entries."""
+        """Delete cached artwork, ProtonDB, release-date and metadata entries."""
         touched = False
         try:
             if artmod.clear_cache(appid):
                 touched = True
         except Exception as e:
             log.warning("cleanLeftovers(%s) artwork: %s", appid, e)
-        for name in ("protondb", "steam-release", "steam-meta"):
+        for name in ("protondb", "steam-release", *metamod.cache_dirs()):
             try:
                 cached = xdg.app_cache_dir() / name / f"{xdg.safe_stem(appid)}.json"
                 if cached.is_file():
@@ -4251,6 +4253,9 @@ class GameListModel(QAbstractTableModel):
     #: (appid, fields) after Download Metadata; fields is the empty map
     #: when the game has no Steam AppID or the store answered nothing.
     metadataFetched = Signal(str, "QVariantMap")
+    #: (appid, rows) when a title search needs a pick: rows are
+    #: [{"id": "v2002", "name": "STEINS;GATE (2009)"}, ...].
+    metadataChoices = Signal(str, "QVariantList")
 
     @Slot()
     def fetchMissing(self) -> None:
@@ -4331,6 +4336,38 @@ class GameListModel(QAbstractTableModel):
         """Use the fresh cache first; the store call only when stale/missing."""
         try:
             data = metamod.download("steam", appid, numeric)
+        except Exception:
+            data = None
+        self.metadataFetched.emit(appid, data or {})
+
+    @Slot(str, str)
+    def searchVndb(self, appid: str, title: str = "") -> None:
+        """Search VNDB by title off-thread; the dialog picks a candidate."""
+        query = str(title or "").strip()
+        if not query:
+            self.metadataChoices.emit(appid, [])
+            return
+        threading.Thread(target=self._vndb_search_worker, args=(appid, query), daemon=True).start()
+
+    def _vndb_search_worker(self, appid: str, query: str) -> None:
+        try:
+            rows = metamod.search("vndb", query)
+        except Exception:
+            rows = []
+        self.metadataChoices.emit(appid, rows)
+
+    @Slot(str, str)
+    def fetchVndb(self, appid: str, target: str = "") -> None:
+        """Download the picked VNDB entry off-thread for the preview."""
+        wanted = cfgmod.normalize_vndb_id(target)
+        if not wanted:
+            self.metadataFetched.emit(appid, {})
+            return
+        threading.Thread(target=self._vndb_worker, args=(appid, wanted), daemon=True).start()
+
+    def _vndb_worker(self, appid: str, target: str) -> None:
+        try:
+            data = metamod.download("vndb", appid, target)
         except Exception:
             data = None
         self.metadataFetched.emit(appid, data or {})

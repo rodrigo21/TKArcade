@@ -3,9 +3,10 @@
 Status: proposal, not approved. C1 (the registry plus the Steam adapter)
 landed as `docs/decisions/metadata-registry.md`, C2 (the action preview)
 as `docs/decisions/metadata-preview.md`, C3 (the field locks) as
-`docs/decisions/metadata-locks.md`, and the earlier Steam `appdetails`
-download as `docs/decisions/metadata-download.md`; the adapters below
-are still open. When the rest lands it belongs in
+`docs/decisions/metadata-locks.md`, C4 (the VNDB fallback and the
+candidate picker) as `docs/decisions/metadata-vndb.md`, and the earlier
+Steam `appdetails` download as `docs/decisions/metadata-download.md`;
+the adapters below are still open. When the rest lands it belongs in
 `docs/decisions/metadata-provider.md` with a landing banner, and this
 file is deleted.
 
@@ -24,7 +25,7 @@ AppID, and the manual fields would be retyped anyway.
 | description | yes | yes | yes (synopsis) | no |
 | developer | yes | yes | yes (brand) | yes |
 | publisher | yes | yes | no | yes |
-| genre | yes | yes | tags (genre-class only) | yes |
+| genre | yes | yes | no (tags are not genres) | yes |
 | series | yes | yes (franchise) | no (relations are not a series) | yes |
 | age ratings | ESRB/PEGI/USK | ESRB/PEGI/USK | no | ESRB/PEGI/CERO |
 | date | yes | yes | yes | yes |
@@ -84,8 +85,8 @@ item; it comes back only if the site publishes an API or an export.
   override instead of fighting it. Only values that pass
   `metadata_date_valid` are written.
 - Ambiguous searches show a candidate picker, reusing the
-  `artworkChoices` signal pattern; the pick is remembered as the cached
-  `target`.
+  `artworkChoices` signal pattern; the pick saves in the provider's
+  identity field (`[metadata] vndb_id` for VNDB).
 - `age_ratings` is a list: fill-empty only when empty, replaced as a
   whole when the switch is on.
 
@@ -96,7 +97,7 @@ item; it comes back only if the site publishes an API or an export.
 | C1 | Registry + cache + rate gate + Steam adapter | landed (`decisions/metadata-registry.md`); no key, no UI change |
 | C2 | Download Metadata preview dialog | landed (`decisions/metadata-preview.md`); the provider menu moved to C6, the candidate picker to C4 |
 | C3 | Field locks (config + game dialog) | landed (`decisions/metadata-locks.md`); locks win over the replace switch, QML change |
-| C4 | VNDB adapter + candidate picker | no key; the visual-novel case |
+| C4 | VNDB adapter + candidate picker | landed (`decisions/metadata-vndb.md`); no key, the visual-novel case |
 | C5 | PCGamingWiki adapter | publisher, series, ratings |
 | C6 | IGDB adapter + credential field + provider menu | waits on the maintainer's Twitch app |
 | C7 | IGDB artwork as a third source | joins `artwork.PROVIDERS` |
@@ -111,7 +112,6 @@ the enrichment reuses C2's action in bulk.
   application (client id/secret).
 - PCGamingWiki engine/requirements/fixes are a separate feature, not
   metadata.
-- VNDB tags: only genre-class tags feed `genre`; theme tags are dropped.
 
 ## Risks
 

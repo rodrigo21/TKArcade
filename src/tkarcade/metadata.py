@@ -2,7 +2,7 @@
 
 A provider declares how a game resolves to a target and how a payload
 becomes the shared field map; ``download()`` adds the 30-day disk cache
-and the per-provider rate gate. Steam is the only adapter so far.
+and the per-provider rate gate. Steam and VNDB are the adapters so far.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from . import storemeta, xdg
+from . import storemeta, vndb, xdg
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -45,6 +45,7 @@ class Provider:
     fields: tuple[str, ...]
     resolve: Callable[[str, str], str]
     fetch: Callable[[str, str], dict | None]
+    search: Callable[[str], list[dict]] | None = None
     needs_key: bool = False
     min_interval: float = 0.0
 
@@ -57,6 +58,15 @@ PROVIDERS: dict[str, Provider] = {
         resolve=storemeta.resolve,
         fetch=storemeta.fetch,
     ),
+    "vndb": Provider(
+        label="VNDB",
+        cache_dir="vndb-meta",
+        fields=("description", "developer", "date"),
+        resolve=vndb.resolve,
+        fetch=vndb.fetch,
+        search=vndb.search,
+        min_interval=1.0,
+    ),
 }
 
 _gate_lock = threading.Lock()
@@ -66,6 +76,11 @@ _next_call: dict[str, float] = {}
 def cache_path(provider: str, game_id: str) -> Path:
     entry = PROVIDERS[provider]
     return xdg.app_cache_dir() / entry.cache_dir / f"{xdg.safe_stem(game_id)}.json"
+
+
+def cache_dirs() -> tuple[str, ...]:
+    """Cache namespaces a removed game's cleanup must delete."""
+    return tuple(entry.cache_dir for entry in PROVIDERS.values())
 
 
 def cached(provider: str, game_id: str, target: str = "") -> tuple[dict | None, bool]:
@@ -137,3 +152,16 @@ def download(provider: str, game_id: str, target: str = "") -> dict | None:
     except Exception as e:
         log.debug("metadata cache write failed: %s", e)
     return data
+
+
+def search(provider: str, query: str) -> list[dict]:
+    """Name search: gated and failure-tolerant, like ``download()``."""
+    entry = PROVIDERS.get(provider)
+    if entry is None or entry.search is None:
+        return []
+    _gate(provider)
+    try:
+        return list(entry.search(query))
+    except Exception as e:
+        log.debug("metadata search failed for %s: %s", provider, e)
+        return []

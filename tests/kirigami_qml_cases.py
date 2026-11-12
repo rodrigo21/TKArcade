@@ -7295,7 +7295,9 @@ def test_metadata_download_fills_only_empty_fields(qgui_app, xdg_env):
     assert saved.metadata.age_ratings == ["PEGI 12"]
     page.openGameSettings("local-blank")
     swin = _settings_window(qgui_app)
-    assert swin.findChild(QQuickItem, "settingsMetadataFetch").property("enabled") is False
+    # A local game without a Steam AppID searches VNDB by title now.
+    assert swin.findChild(QQuickItem, "settingsMetadataFetch").property("enabled") is True
+    assert swin.findChild(QQuickItem, "settingsVndbId").property("visible") is True
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -7421,6 +7423,71 @@ def test_metadata_locked_field_survives_replace(qgui_app, xdg_env):
     saved = C.load("local-doom")
     assert saved.metadata.locked == "developer"
     assert saved.metadata.developer == "Typed Studio"
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
+    """A local game without a Steam AppID searches VNDB and picks a match."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    _save_one_game("local-sg", "Steins;Gate")
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-sg")
+    swin = _settings_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    queries = []
+    model.searchVndb = lambda appid, title: queries.append((appid, title))
+    _click(swin, "settingsMetadataFetch")
+    assert queries == [("local-sg", "Steins;Gate")]
+    status = swin.findChild(QQuickItem, "settingsMetadataStatus")
+    assert status.property("text") == "Downloading…"
+    # Nothing found is a plain status line, never an empty dialog.
+    model.metadataChoices.emit("local-sg", [])
+    qgui_app.processEvents()
+    assert status.property("text") == "No Metadata Found."
+    # Several candidates: the choice dialog asks; the pick fills the field
+    # and goes back to the model for the fetch.
+    fetched = []
+    model.fetchVndb = lambda appid, target: fetched.append((appid, target))
+    model.metadataChoices.emit(
+        "local-sg",
+        [
+            {"id": "v2002", "name": "STEINS;GATE (2009)"},
+            {"id": "v6618", "name": "STEINS;GATE: Hiyoku Renri no Darling (2011)"},
+        ],
+    )
+    qgui_app.processEvents()
+    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
+    box = prompt.findChild(QQuickItem, "settingsChoiceBox")
+    assert box.property("count") == 2
+    _click(prompt, "dialogOk")
+    assert fetched == [("local-sg", "v2002")]
+    vndb_field = swin.findChild(QQuickItem, "settingsVndbId")
+    assert vndb_field.property("text") == "v2002"
+    # The fetched fields go through the same preview and Apply.
+    model.metadataFetched.emit(
+        "local-sg", {"description": "Synopsis.", "developer": "NITRO PLUS", "date": "2009-10-15"}
+    )
+    qgui_app.processEvents()
+    preview = _confirm_window(qgui_app, "metadataPreview")
+    _click(preview, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Synopsis."
+    assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "NITRO PLUS"
+    assert swin.findChild(QQuickItem, "settingsDate").property("text") == "2009-10-15"
+    assert status.property("text") == "Metadata Loaded."
+    # Save persists the pick; the next download skips the title search.
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-sg").metadata.vndb_id == "v2002"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
