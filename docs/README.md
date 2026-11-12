@@ -107,6 +107,8 @@ What each document is for and where the source of truth lives.
 - `decisions/metadata-igdb.md` — the IGDB adapter, its Twitch
   credentials, `[metadata] igdb_id`, the provider menu and why
   PCGamingWiki was dropped.
+- `decisions/artwork-igdb.md` — IGDB as the third artwork provider, its
+  cover/banner mapping and the provider chain order.
 
 ## Plans
 

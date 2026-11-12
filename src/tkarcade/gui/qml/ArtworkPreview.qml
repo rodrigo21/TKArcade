@@ -173,6 +173,7 @@ ColumnLayout {
             "manual": qsTr("Manual Image"),
             "cache:steam": qsTr("Downloaded From Steam"),
             "cache:sgdb": qsTr("Downloaded From SteamGridDB"),
+            "cache:igdb": qsTr("Downloaded From IGDB"),
             "cache": qsTr("Downloaded Artwork"),
             "steam": qsTr("Steam's Own Artwork"),
             "exe": qsTr("From the Game Executable")

@@ -436,6 +436,17 @@ def test_preferences_igdb_credentials_round_trip(xdg_env):
     assert back.igdb_client_secret == "sec"
 
 
+def test_artwork_provider_accepts_igdb(xdg_env):
+    assert C.normalize_artwork_provider("igdb") == "igdb"
+    assert C.normalize_artwork_provider(" IGDB ") == "igdb"
+    assert C.normalize_artwork_provider("gog") == ""
+
+    prefs = C.Preferences()
+    prefs.artwork_source = "igdb"
+    C.save_preferences(prefs)
+    assert C.load_preferences().artwork_source == "igdb"
+
+
 def test_preferences_invalid_values(xdg_env):
     from tkarcade import xdg as xdgmod
 

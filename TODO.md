@@ -30,9 +30,9 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   without a Steam AppID. PCGamingWiki is out: Cloudflare blocks a plain
   HTTP client, and IGDB carries the fields it would have added.
   Design: `docs/plans/metadata-provider.md`.
-- [ ] **Other artwork sources.** Steam's CDN and SteamGridDB are the only
-  providers today; IGDB joins as the third source, through the registry
-  and its own key and cache.
+- [ ] **Other artwork sources.** Steam's CDN, SteamGridDB and IGDB are
+  the providers today; IGDB serves cover and banner only (no square
+  icon) and needs the IGDB ID from Download Metadata.
   Design: `docs/plans/metadata-provider.md`.
 - [ ] **Library format import (Lutris, Playnite, Faugus).** Only tarball,
   SteamTinkerLaunch and predecessor configs import today. A foreign

@@ -1,11 +1,14 @@
-"""Game artwork: official Steam assets first, then SteamGridDB.
+"""Game artwork: official Steam assets first, then SteamGridDB, then IGDB.
 
 Official art comes from Steam's public CDN and needs no key at all: the
 library capsule (portrait), the library hero (wide) and the client icon
 (the square one Steam itself shows). SteamGridDB is the community
-fallback and needs a key. A game can point at any Steam AppID's art
-(`[artwork] artwork_appid`), installed or not. A local game without one
-is looked up by name and the chosen SteamGridDB game id is remembered.
+fallback and needs a key; IGDB is the other community source, needs a
+Twitch application and only serves a game whose ``[metadata] igdb_id``
+is known (so it has no name lookup and no icon). A game can point at any
+Steam AppID's art (`[artwork] artwork_appid`), installed or not. A local
+game without one is looked up by name and the chosen SteamGridDB game id
+is remembered.
 
 Downloaded files live in our own cache and never touch Steam's files;
 the per-kind provider is recorded next to them so the dialog can say
@@ -25,6 +28,7 @@ import urllib.request
 from pathlib import Path
 
 from . import exeicon as exeiconmod
+from . import igdb as igdbmod
 from . import steam as steammod
 from . import xdg
 
@@ -66,7 +70,11 @@ FETCH_KINDS = ("icon", "cover", "banner")
 MANUAL_KINDS = ART_KINDS
 
 #: Where a game's art comes from, in the order the fetch tries it.
-PROVIDERS = ("steam", "sgdb")
+PROVIDERS = ("steam", "sgdb", "igdb")
+
+#: Kinds IGDB can fill: it has no square icon, so `icon` stays with the
+#: other providers.
+IGDB_KINDS = ("cover", "banner")
 
 #: Shape of the SteamGridDB entry each kind wants.
 _KIND_SHAPE = {"icon": "square", "cover": "portrait", "banner": "landscape"}
@@ -971,6 +979,41 @@ def fetch_sgdb_game(
     return out
 
 
+def fetch_igdb(
+    appid: str,
+    kinds=FETCH_KINDS,
+    force: bool = False,
+) -> tuple[dict[str, Path], str]:
+    """Download IGDB's cover and banner. (paths, error token).
+
+    IGDB needs the ``[metadata] igdb_id`` the metadata download saves;
+    without it nothing is fetched. It has no square icon, so `icon` is
+    always left to the other providers. Error tokens: "no-igdb-key",
+    "no-id", "not-found", "no-art".
+    """
+    gid = _art_key(appid)
+    if not force and is_cleared(gid):
+        return {}, ""
+    wanted = [
+        kind for kind in kinds if kind in IGDB_KINDS and (force or cached_path(gid, kind) is None)
+    ]
+    if not wanted:
+        return {}, ""
+    urls, error = igdbmod.art(gid)
+    if error:
+        return {}, error
+    out: dict[str, Path] = {}
+    for kind in wanted:
+        url = urls.get(kind, "")
+        if not url:
+            continue
+        path = _store(gid, kind, url)
+        if path is not None:
+            out[kind] = path
+            _write_manifest(gid, kind, "igdb", gid)
+    return out, "" if out else "no-art"
+
+
 # --------------------------------------------------------------------
 # Name lookup (local games)
 
@@ -1090,15 +1133,16 @@ def fetch_best(
 ) -> dict:
     """Download a game's art with the chosen provider first.
 
-    Returns {"art": {kind: Path}, "provider": "steam"|"sgdb", "error":
-    token, "name": Steam name or "", "valid": whether the AppID is a real
-    Steam app, "game_id": resolved SteamGridDB id, "candidates": name
-    matches when the user has to choose}. The first provider fills what
-    it can; the second one only covers the kinds still missing. Official
+    Returns {"art": {kind: Path}, "provider": "steam"|"sgdb"|"igdb",
+    "error": token, "name": Steam name or "", "valid": whether the AppID
+    is a real Steam app, "game_id": resolved SteamGridDB id, "candidates":
+    name matches when the user has to choose}. The first provider fills
+    what it can; the others only cover the kinds still missing. Official
     Steam art never needs a key.
 
-    A game without a Steam AppID is looked up by `names` (SteamGridDB
-    only, one name tried in order); the others are untouched.
+    A game without a Steam AppID is looked up by `names` on SteamGridDB;
+    IGDB joins only when it is the chosen provider (it needs a stored
+    igdb_id and has no name search).
     """
     gid = _art_key(appid)
     if force:
@@ -1106,22 +1150,43 @@ def fetch_best(
         # marker that keeps the background fetch away goes.
         _unmark_cleared(gid)
     if not gid.isdigit():
-        return _fetch_named(gid, names, api_key, kinds, force)
+        return _fetch_named(gid, names, api_key, kinds, force, provider)
     return _fetch_numeric(gid, provider, api_key, kinds, force)
 
 
-def _fetch_named(gid: str, names, api_key: str, kinds, force: bool) -> dict:
-    """`fetch_best` for a game without a Steam AppID."""
+def _fetch_named(
+    gid: str,
+    names,
+    api_key: str,
+    kinds,
+    force: bool,
+    provider: str = "",
+) -> dict:
+    """`fetch_best` for a game without a Steam AppID.
+
+    IGDB runs only when it is the chosen provider: it needs a stored
+    igdb_id and has no name lookup, so SteamGridDB keeps the name search
+    and fills whatever IGDB did not.
+    """
     result = _empty_result()
-    looked = fetch_by_name(gid, names, api_key, kinds, force)
+    remaining = list(kinds)
+    if provider == "igdb":
+        art, error = fetch_igdb(gid, remaining, force)
+        result["art"].update(art)
+        remaining = [kind for kind in remaining if kind not in art]
+        if art:
+            result["provider"] = "igdb"
+        if error and not art:
+            result["error"] = error
+    looked = fetch_by_name(gid, names, api_key, remaining, force)
     result.update(
-        art=looked["art"],
+        art={**result["art"], **looked["art"]},
         game_id=looked["game_id"],
         name=looked["name"],
         candidates=looked["candidates"],
-        error=looked["error"],
+        error=result["error"] or looked["error"],
     )
-    if looked["art"]:
+    if looked["art"] and not result["provider"]:
         result["provider"] = "sgdb"
     return result
 
@@ -1134,7 +1199,9 @@ def _fetch_numeric(gid: str, provider: str, api_key: str, kinds, force: bool) ->
     info = steam_app(gid)
     result["valid"] = info is not None
     result["name"] = (info or {}).get("name", "")
-    order = PROVIDERS if provider == "steam" else tuple(reversed(PROVIDERS))
+    if provider not in PROVIDERS:
+        provider = "steam"
+    order = (provider,) + tuple(source for source in PROVIDERS if source != provider)
     missing = [kind for kind in kinds if kind in ART_KINDS]
     first = True
     for source in order:
@@ -1164,6 +1231,8 @@ def _fetch_from(
     """One provider pass: (paths, error token)."""
     if source == "steam":
         return fetch_official(gid, kinds, info, force), ""
+    if source == "igdb":
+        return fetch_igdb(gid, kinds, force)
     return fetch_sgdb(gid, api_key, kinds, force)
 
 

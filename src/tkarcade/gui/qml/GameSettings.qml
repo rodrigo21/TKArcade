@@ -1423,11 +1423,13 @@ Window {
     // Provider combo entries: the first one names the global preference
     // it falls back to, so "Use Global Preference" is never a mystery.
     function providerOptions(globalSource) {
-        var globalLabel = globalSource === "sgdb" ? qsTr("SteamGridDB") : qsTr("Steam")
+        var globalLabel = globalSource === "igdb" ? qsTr("IGDB")
+            : (globalSource === "sgdb" ? qsTr("SteamGridDB") : qsTr("Steam"))
         return [
             { "text": qsTr("Use Global Preference (%1)").arg(globalLabel), "data": "" },
             { "text": qsTr("Steam (Official)"), "data": "steam" },
-            { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" }
+            { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" },
+            { "text": qsTr("IGDB (Community)"), "data": "igdb" }
         ]
     }
 
@@ -1480,7 +1482,8 @@ Window {
     function providerSuffix(provider) {
         var providers = {
             "steam": qsTr(" (Official Steam Artwork)"),
-            "sgdb": qsTr(" (SteamGridDB Artwork)")
+            "sgdb": qsTr(" (SteamGridDB Artwork)"),
+            "igdb": qsTr(" (IGDB Artwork)")
         }
         return providers[provider] || ""
     }
@@ -1527,6 +1530,8 @@ Window {
             "ok": qsTr("Artwork Downloaded."),
             "choose": qsTr("Pick the Matching Game Below."),
             "no-key": qsTr("SteamGridDB Needs an API Key in Preferences."),
+            "no-igdb-key": qsTr("IGDB Needs a Client ID and Secret in Preferences."),
+            "no-id": qsTr("IGDB Needs an IGDB ID: Run Download Metadata With IGDB."),
             "no-match": qsTr("No Exact Name Match on SteamGridDB. Pick One From the List."),
             "not-a-steam-app": qsTr("That Number Is Not a Steam AppID (a SteamGridDB Page ID Looks Similar)."),
             "not-found": qsTr("SteamGridDB Has No Artwork for That AppID."),
@@ -4314,7 +4319,7 @@ Window {
                                         Layout.fillWidth: true
                                         textRole: "text"
                                         valueRole: "data"
-                                        Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB Is Community Artwork and Needs a Key. The Other Provider Fills the Missing Kinds.")
+                                        Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB and IGDB Are Community Artwork and Need a Key. The Other Providers Fill the Missing Kinds.")
                                         Controls.ToolTip.visible: hovered
                                     }
                                     Item {

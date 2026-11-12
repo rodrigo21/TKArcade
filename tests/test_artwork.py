@@ -844,3 +844,92 @@ def test_cache_keys_lists_games_with_art(xdg_env):
     grid.write_bytes(b"x")
     art.grid_path("local-doom", "icon").write_bytes(b"x")
     assert art.cache_keys() == {"steam-620", "local-doom"}
+
+
+def _igdb_game(igdb_id: str = "1145360") -> None:
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-hades"
+    cfg.general.name = "Hades"
+    cfg.metadata.igdb_id = igdb_id
+    C.save(cfg)
+
+
+def _igdb_creds() -> None:
+    from tkarcade import config as C
+
+    prefs = C.Preferences()
+    prefs.igdb_client_id = "cid"
+    prefs.igdb_client_secret = "sec"
+    C.save_preferences(prefs)
+
+
+IGDB_ROUTES = [
+    ("id.twitch.tv", {"access_token": "tok", "expires_in": 3600}),
+    (
+        "api.igdb.com",
+        [
+            {
+                "cover": {"url": "//images.igdb.com/igdb/image/upload/t_thumb/co1.jpg"},
+                "artworks": [{"url": "//images.igdb.com/igdb/image/upload/t_thumb/ar1.jpg"}],
+            }
+        ],
+    ),
+    ("co1.jpg", b"COVER"),
+    ("ar1.jpg", b"BANNER"),
+]
+
+
+def test_igdb_fills_cover_and_banner(monkeypatch, xdg_env):
+    """The chosen IGDB provider stores its cover and banner in the cache."""
+    _igdb_game()
+    _igdb_creds()
+    _stub(monkeypatch, IGDB_ROUTES)
+    result = art.fetch_best(
+        "local-hades", "igdb", "", ("cover", "banner"), force=True, names=("Hades",)
+    )
+    assert result["provider"] == "igdb"
+    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert result["art"]["banner"].read_bytes() == b"BANNER"
+    assert art.provider_for("local-hades", "cover") == "igdb"
+    assert art.provider_for("local-hades", "banner") == "igdb"
+
+
+def test_igdb_reports_the_missing_id(monkeypatch, xdg_env):
+    """IGDB has no name search: without [metadata] igdb_id it says so."""
+    _igdb_game("")
+    _igdb_creds()
+    assert art.fetch_igdb("local-hades") == ({}, "no-id")
+
+
+def test_igdb_reports_the_missing_key(monkeypatch, xdg_env):
+    _igdb_game()
+    assert art.fetch_igdb("local-hades") == ({}, "no-igdb-key")
+
+
+def test_provider_order_puts_the_choice_first(xdg_env, monkeypatch):
+    """Three providers: the choice runs first, the rest keep PROVIDERS order."""
+    calls = []
+
+    def fake_steam(*_args, **_kwargs):
+        calls.append("steam")
+        return {}
+
+    def fake_sgdb(*_args, **_kwargs):
+        calls.append("sgdb")
+        return {}, "no-key"
+
+    def fake_igdb(*_args, **_kwargs):
+        calls.append("igdb")
+        return {}, "no-id"
+
+    monkeypatch.setattr(art, "steam_app", lambda _appid: {"name": "Game"})
+    monkeypatch.setattr(art, "fetch_official", fake_steam)
+    monkeypatch.setattr(art, "fetch_sgdb", fake_sgdb)
+    monkeypatch.setattr(art, "fetch_igdb", fake_igdb)
+    art.fetch_best("620", "igdb", "", ("cover",))
+    assert calls == ["igdb", "steam", "sgdb"]
+    calls.clear()
+    art.fetch_best("620", "sgdb", "", ("banner",))
+    assert calls == ["sgdb", "steam", "igdb"]

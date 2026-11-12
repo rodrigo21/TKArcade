@@ -2273,11 +2273,12 @@ class GameListModel(QAbstractTableModel):
 
         Target: the Artwork Source AppID typed in the dialog, then the
         game's own Steam AppID, then the SteamGridDB name lookup for a
-        local game. `provider` is the dialog draft, so a just-changed
-        combo applies before Save; empty falls back to the game's key and
-        then to the global preference. Explicit, so it forces a refresh
-        of the three kinds. The outcome arrives as `artworkFetched(appid,
-        status, provider)` and, when the name matched several entries,
+        local game (IGDB, when chosen, serves the stored igdb_id first).
+        `provider` is the dialog draft, so a just-changed combo applies
+        before Save; empty falls back to the game's key and then to the
+        global preference. Explicit, so it forces a refresh of the three
+        kinds. The outcome arrives as `artworkFetched(appid, status,
+        provider)` and, when the name matched several entries,
         `artworkChoices(appid, rows)`; the dialog stays responsive.
         """
         if not appid:
@@ -2288,7 +2289,7 @@ class GameListModel(QAbstractTableModel):
             default = prefs.artwork_source
         except Exception:
             api_key, default = "", "steam"
-        provider = provider if provider in ("steam", "sgdb") else ""
+        provider = provider if provider in artmod.PROVIDERS else ""
         provider = provider or self._game_provider(appid, default)
         target, names = self._art_target(appid, source)
         if not target:

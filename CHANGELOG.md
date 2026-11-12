@@ -6,6 +6,15 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- IGDB joins Fetch Artwork as the third provider: the per-game
+  Download From menu and the global Artwork Source accept it, and its
+  cover and banner (first artwork, else a screenshot) fill the cache
+  with the `igdb` provider in the manifest. It needs the Twitch
+  application from Download Metadata and a stored `[metadata]
+  igdb_id`; it has no name search and no square icon, and the status
+  line says which part is missing. The provider chain now starts with
+  the chosen source and keeps the others in order for any number of
+  providers.
 - IGDB joins Download Metadata as the third provider: a **Metadata
   Source** menu on the Details tab picks Steam, VNDB or IGDB, the
   default keeps the previous routing (stored id, then Steam, then

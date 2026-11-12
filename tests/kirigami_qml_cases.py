@@ -2729,7 +2729,7 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
 
     combo = swin.findChild(QQuickItem, "artProvider")
     assert combo is not None
-    assert combo.property("count") == 3, combo.property("count")
+    assert combo.property("count") == 4, combo.property("count")
     assert combo.property("currentIndex") == 0, combo.property("currentIndex")
     # The first entry names the global preference it falls back to.
     assert "(Steam)" in combo.property("currentText"), combo.property("currentText")
@@ -2767,6 +2767,19 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     assert fetched == [("480", "sgdb", True, ())], fetched
     assert "Artwork Downloaded" in status.property("text"), status.property("text")
     assert "SteamGridDB Artwork" in status.property("text"), status.property("text")
+
+    # IGDB is the third entry; the status names it after the fetch.
+    combo.setProperty("currentIndex", 3)
+    qgui_app.processEvents()
+    fetched.clear()
+    _click(swin, "artFetch")
+    for _ in range(40):
+        if "IGDB Artwork" in status.property("text"):
+            break
+        qgui_app.processEvents()
+        QTest.qWait(50)
+    assert fetched == [("480", "igdb", True, ())], fetched
+    assert "IGDB Artwork" in status.property("text"), status.property("text")
 
     # The buttons in the section share one width and the fields line up in
     # one column (the provider row carries two spacers).

@@ -30,6 +30,10 @@ FETCH_FIELDS = (
     "involved_companies.company.name,involved_companies.developer,"
     "involved_companies.publisher,age_ratings.rating"
 )
+#: Artwork kinds IGDB serves, with the size token its CDN takes. IGDB has
+#: no square icon.
+ART_FIELDS = "cover.url,artworks.url,screenshots.url"
+ART_SIZES = {"cover": "t_720p", "banner": "t_1080p"}
 SEARCH_RESULTS = 10
 
 #: IGDB age-rating value -> ``config.AGE_RATINGS`` entry. The enum is one
@@ -283,3 +287,47 @@ def fetch(game_id: str, target: str = "", timeout: int = 15) -> dict | None:
         "age_ratings": _ratings(data.get("age_ratings")),
         "date": _date(data.get("first_release_date")),
     }
+
+
+def _image(url: object, size: str) -> str:
+    """Absolute CDN URL at the requested size token ("" when missing)."""
+    text = str(url or "").strip()
+    if not text:
+        return ""
+    if text.startswith("//"):
+        text = "https:" + text
+    return text.replace("/t_thumb/", f"/{size}/")
+
+
+def art(game_id: str, target: str = "", timeout: int = 15) -> tuple[dict[str, str], str]:
+    """Cover and banner URLs for one game: ({"cover", "banner"}, error).
+
+    IGDB has no square icon. The banner is the first artwork and falls
+    back to a screenshot, both 16:9; the views crop it into their box.
+    Error tokens: "no-igdb-key", "no-id", "not-found".
+    """
+    client_id, secret = credentials()
+    if not (client_id and secret):
+        return {}, "no-igdb-key"
+    wanted = resolve(game_id, target)
+    if not wanted:
+        return {}, "no-id"
+    rows = _query(f"fields {ART_FIELDS}; where id = {wanted};", timeout)
+    if not rows or not isinstance(rows[0], dict):
+        return {}, "not-found"
+    data = rows[0]
+    cover = data.get("cover")
+    cover_url = _image(cover.get("url") if isinstance(cover, dict) else "", ART_SIZES["cover"])
+    banner_url = ""
+    for key in ("artworks", "screenshots"):
+        entries = data.get(key)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("url"):
+                banner_url = _image(entry["url"], ART_SIZES["banner"])
+                break
+        if banner_url:
+            break
+    found = {kind: url for kind, url in (("cover", cover_url), ("banner", banner_url)) if url}
+    return (found, "") if found else ({}, "not-found")

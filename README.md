@@ -246,9 +246,12 @@ the window and scrolls longer text inside its frame. The Artwork
 section picks the manual
 icon/cover/banner/background files, an optional Artwork Source AppID (any
 Steam AppID whose art overrides the game's own), the per-game download
-provider (Steam first by default, SteamGridDB as fallback) and
+provider (Steam, SteamGridDB or IGDB; Steam first by default) and
 Fetch/Clear; a local game without an AppID is looked up by name on
-SteamGridDB and a stored choice keeps the same art across fetches. The
+SteamGridDB and a stored choice keeps the same art across fetches. IGDB
+needs a Twitch application and the IGDB ID that Download Metadata
+saves; it fills the cover and the banner, and its square icon slot
+stays with the other providers. The
 `background` slot is a wide backdrop with no download of its own: it
 falls back to the banner art when empty, and clearing it never removes
 the banner. A local game whose icon slot is still empty shows the icon

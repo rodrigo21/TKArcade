@@ -444,9 +444,9 @@ class ArtworkConfig:
 
 
 def normalize_artwork_provider(value: object) -> str:
-    """Per-game artwork provider: "" (global), "steam" or "sgdb"."""
+    """Per-game artwork provider: "" (global), "steam", "sgdb" or "igdb"."""
     text = str(value or "").strip().lower()
-    return text if text in ("steam", "sgdb") else ""
+    return text if text in ("steam", "sgdb", "igdb") else ""
 
 
 @dataclass
@@ -476,7 +476,7 @@ class Preferences:
     sgdb_api_key: str = ""
     igdb_client_id: str = ""  # Twitch application, for the IGDB provider
     igdb_client_secret: str = ""
-    artwork_source: str = "steam"  # steam|sgdb: which provider a fetch tries first
+    artwork_source: str = "steam"  # steam|sgdb|igdb: which provider a fetch tries first
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
     column_widths: str = ""  # fitted widths, e.g. "1=210,2=90"
@@ -1382,7 +1382,7 @@ def load_preferences() -> Preferences:
     out.igdb_client_id = str(ui.get("igdb_client_id", "") or "").strip()
     out.igdb_client_secret = str(ui.get("igdb_client_secret", "") or "").strip()
     artwork_source = str(ui.get("artwork_source", "steam") or "steam").strip()
-    out.artwork_source = artwork_source if artwork_source in ("steam", "sgdb") else "steam"
+    out.artwork_source = artwork_source if artwork_source in ("steam", "sgdb", "igdb") else "steam"
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
     out.column_widths = _clean_width_map(str(ui.get("column_widths", "") or ""))
@@ -1650,7 +1650,7 @@ def save_preferences(prefs: Preferences) -> Path:
             "igdb_client_id": prefs.igdb_client_id,
             "igdb_client_secret": prefs.igdb_client_secret,
             "artwork_source": prefs.artwork_source
-            if prefs.artwork_source in ("steam", "sgdb")
+            if prefs.artwork_source in ("steam", "sgdb", "igdb")
             else "steam",
             "column_order": _clean_int_list(prefs.column_order),
             "hidden_columns": _clean_int_list(prefs.hidden_columns),

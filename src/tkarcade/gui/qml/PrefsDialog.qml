@@ -303,7 +303,8 @@ Window {
                                     Layout.fillWidth: true
                                     model: [
                                         { "text": qsTr("Steam (Official)"), "data": "steam" },
-                                        { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" }
+                                        { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" },
+                                        { "text": qsTr("IGDB (Community)"), "data": "igdb" }
                                     ]
                                     textRole: "text"
                                     valueRole: "data"
@@ -316,9 +317,10 @@ Window {
                                     Binding {
                                         target: artSourceCombo
                                         property: "currentIndex"
-                                        value: (prefsDialog.values.artworkSource ?? "steam") === "sgdb" ? 1 : 0
+                                        value: Math.max(0, ["steam", "sgdb", "igdb"].indexOf(
+                                            prefsDialog.values.artworkSource ?? "steam"))
                                     }
-                                    Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB Is Community Artwork (Needs a Key). Fetch Artwork Re-Downloads With the Chosen Source.")
+                                    Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB and IGDB Are Community Artwork (Both Need a Key). Fetch Artwork Re-Downloads With the Chosen Source.")
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("Artwork Source:")
                                 }

@@ -106,7 +106,7 @@ item; it comes back only if the site publishes an API or an export.
 | C4 | VNDB adapter + candidate picker | landed (`decisions/metadata-vndb.md`); no key, the visual-novel case |
 | C5 | PCGamingWiki adapter | dropped: Cloudflare blocks a plain HTTP client; IGDB covers the fields |
 | C6 | IGDB adapter + credential field + provider menu | landed (`decisions/metadata-igdb.md`) |
-| C7 | IGDB artwork as a third source | joins `artwork.PROVIDERS` |
+| C7 | IGDB artwork as a third source | landed (`decisions/artwork-igdb.md`) |
 | C8 | Online categories/tags in bulk | last; taxonomy UX is its own risk |
 
 The library format import and its enrichment follow as a separate theme;

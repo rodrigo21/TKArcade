@@ -184,3 +184,56 @@ def test_request_failure_returns_none(monkeypatch, xdg_env):
     )
     assert igdb.fetch("local-x", "1") is None
     assert igdb.search("Hades") == []
+
+
+def test_art_maps_cover_and_artwork(monkeypatch, xdg_env):
+    _creds()
+    calls = _stub(
+        monkeypatch,
+        rows=[
+            {
+                "cover": {"url": "//images.igdb.com/igdb/image/upload/t_thumb/co1.jpg"},
+                "artworks": [{"url": "//images.igdb.com/igdb/image/upload/t_thumb/ar1.jpg"}],
+                "screenshots": [{"url": "//images.igdb.com/igdb/image/upload/t_thumb/sc1.jpg"}],
+            }
+        ],
+    )
+    assert igdb.art("local-hades", "1145360") == (
+        {
+            "cover": "https://images.igdb.com/igdb/image/upload/t_720p/co1.jpg",
+            "banner": "https://images.igdb.com/igdb/image/upload/t_1080p/ar1.jpg",
+        },
+        "",
+    )
+    body = _api_calls(calls)[0].data.decode()
+    assert "fields cover.url,artworks.url,screenshots.url;" in body
+
+
+def test_art_falls_back_to_a_screenshot(monkeypatch, xdg_env):
+    _creds()
+    _stub(
+        monkeypatch,
+        rows=[{"screenshots": [{"url": "//images.igdb.com/igdb/image/upload/t_thumb/sc1.jpg"}]}],
+    )
+    urls, error = igdb.art("local-x", "1")
+    assert error == ""
+    assert urls == {"banner": "https://images.igdb.com/igdb/image/upload/t_1080p/sc1.jpg"}
+
+
+def test_art_needs_the_key_before_the_id(monkeypatch, xdg_env):
+    calls = _stub(monkeypatch)
+    assert igdb.art("local-x") == ({}, "no-igdb-key")
+    assert calls == []
+
+
+def test_art_without_an_id_is_reported(monkeypatch, xdg_env):
+    _creds()
+    calls = _stub(monkeypatch, rows=[])
+    assert igdb.art("local-x") == ({}, "no-id")
+    assert calls == []
+
+
+def test_art_without_images_is_not_found(monkeypatch, xdg_env):
+    _creds()
+    _stub(monkeypatch, rows=[{"name": "Hades"}])
+    assert igdb.art("local-x", "1") == ({}, "not-found")
