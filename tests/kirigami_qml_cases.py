@@ -9,7 +9,7 @@ OFFSCREEN_NOISE = ("was not placed in the graphics scene",)
 # Settings TabBar order (GameSettings.qml) and the scroll body behind each
 # tab. Named here so a reshuffle updates one table, not a dozen indices.
 # QQC2 reads `&` in a button text as a mnemonic, so titles carry no spaces
-# (the slash in Artwork/Notes is fine) to avoid eliding in seven tabs.
+# to avoid eliding in six tabs.
 SETTINGS_TAB_TITLES = (
     "Details",
     "Execution",
@@ -17,7 +17,6 @@ SETTINGS_TAB_TITLES = (
     "Performance",
     "Display",
     "System",
-    "Artwork/Notes",
 )
 (
     TAB_DETAILS,
@@ -26,7 +25,6 @@ SETTINGS_TAB_TITLES = (
     TAB_PERF,
     TAB_DISPLAY,
     TAB_SYSTEM,
-    TAB_ART,
 ) = range(len(SETTINGS_TAB_TITLES))
 
 # Launch moved into Execution, which took Runtime's slot; the old names
@@ -43,7 +41,6 @@ SETTINGS_TAB_BODIES = {
     TAB_PERF: "settingsPerfScroll",
     TAB_DISPLAY: "settingsDisplayScroll",
     TAB_SYSTEM: "settingsSystemScroll",
-    TAB_ART: "settingsArtworkScroll",
 }
 
 
@@ -2047,7 +2044,7 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
     # Every desktop-integration group draws the widgets QGroupBox look:
     # centered title above a framed panel (the QQC2 GroupBox painted the
     # title inside the frame at the top-left).
-    assert visible_titles(TAB_GENERAL) == ["Game", "Information"]
+    assert visible_titles(TAB_GENERAL) == ["Game", "Information", "Notes"]
     # Env vars and the pre/post hooks share the Commands tab.
     assert visible_titles(TAB_COMMANDS) == ["Environment Variables", "Pre/Post Commands"]
     # Launch leads Execution; a local game picks its Wine/umu runtime
@@ -2064,7 +2061,6 @@ def _check_settings_sections(win, settings, tabs, qgui_app):
         "Notifications",
         "Saves (Ludusavi)",
     ]
-    assert visible_titles(TAB_ART) == ["Artwork", "Notes"]
 
     # Ludusavi: the widgets form layout indents the checkboxes into the
     # field column, stretches the name field across the panel and puts
@@ -2478,8 +2474,10 @@ def test_settings_tabs_regrouped(qgui_app, xdg_env):
         "luCoverage",
         "luOpen",
     ]
-    _settings_tab(swin, TAB_ART)
-    assert shown("artPreviewIcon", "settingsNotes") == ["artPreviewIcon", "settingsNotes"]
+    _settings_tab(swin, TAB_GENERAL)
+    assert shown("settingsNotes") == ["settingsNotes"]
+    # The artwork controls moved to the Search Data window.
+    assert shown("artPreviewIcon") == []
     assert shown("luEnable") == []
 
     real = [w for w in warnings if "graphics scene" not in w]
@@ -2723,8 +2721,7 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _settings_window(qgui_app)
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
+    swin = _search_window(qgui_app, artwork=True)
     qgui_app.processEvents()
 
     combo = swin.findChild(QQuickItem, "artProvider")
@@ -2873,8 +2870,7 @@ def test_artwork_previews_show_the_effective_art(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    swin = _settings_window(qgui_app)
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
+    swin = _search_window(qgui_app, artwork=True)
     qgui_app.processEvents()
 
     icon_tile = swin.findChild(QQuickItem, "artPreviewIcon")
@@ -2959,7 +2955,8 @@ def test_artwork_previews_show_the_effective_art(qgui_app, xdg_env):
     model.clearArtwork = lambda appid, kind: cleared.append((appid, kind)) or True
     _click(swin, "artPreviewCover")
     assert picked == ["Cover Image"], picked
-    assert swin.property("pendingBrowse") == "art:cover"
+    dlg = win.findChild(QObject, "gameSettings")
+    assert dlg.property("pendingBrowse") == "art:cover"
     assert icon_tile.findChild(QQuickItem, "artPreviewClear").property("opacity") == 1
     cleared.clear()
     click_item(icon_tile, "artPreviewClear")
@@ -3018,7 +3015,7 @@ def test_artwork_previews_show_the_effective_art(qgui_app, xdg_env):
     own_image = QImage(620, 200, QImage.Format_ARGB32)
     own_image.fill(0xFF339966)
     assert own_image.save(str(own))
-    swin.refreshArtPreviews()
+    dlg.refreshArtPreviews()
     QTest.qWait(50)
     assert background.property("artUrl") != banner.property("artUrl")
     assert round(background_frame.property("width")) == 216
@@ -3464,7 +3461,6 @@ def test_enter_keeps_the_text_area_newline(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     _settle_focus(swin)
     dialog = win.findChild(QObject, "gameSettings")
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
     notes = swin.findChild(QQuickItem, "settingsNotes")
     notes.forceActiveFocus()
     QTest.qWait(120)
@@ -5137,6 +5133,24 @@ def _settings_window(qgui_app):
         QTest.qWait(20)
     titles = [w.title() for w in QGuiApplication.topLevelWindows()]
     raise AssertionError(f"settings window never showed (have {titles})")
+
+
+def _search_window(qgui_app, artwork=False):
+    """The Search Data window of the open game dialog, on the asked tab.
+
+    Metadata and artwork controls live in that top-level now, so a case
+    holds it instead of the settings window.
+    """
+    from PySide6.QtTest import QTest
+
+    dlg = _settings_window(qgui_app)
+    if artwork:
+        dlg.openSearchDataArtwork()
+    else:
+        dlg.openSearchData()
+    win = _confirm_window(qgui_app, "searchData")
+    QTest.qWait(80)
+    return win
 
 
 def _confirm_window(qgui_app, name="settingsConfirm"):
@@ -7091,7 +7105,12 @@ def test_settings_metadata_and_protondb(qgui_app, xdg_env):
     pdb = swin.findChild(QQuickItem, "settingsProtonDB")
     assert pdb.isVisible() is True
     assert pdb.property("text") == "Platinum"
-    assert swin.findChild(QQuickItem, "settingsSteamAppId").isVisible() is False
+    link = swin.findChild(QQuickItem, "settingsSteamAppId")
+    assert link.window() is not swin
+    awin = _search_window(qgui_app)
+    assert awin.findChild(QQuickItem, "settingsSteamAppId").isVisible() is False
+    awin.close()
+    qgui_app.processEvents()
     swin.findChild(QQuickItem, "settingsDeveloper").setProperty("text", "Valve")
     swin.findChild(QQuickItem, "settingsPublisher").setProperty("text", "Valve")
     swin.findChild(QQuickItem, "settingsGenre").setProperty("text", "Puzzle")
@@ -7166,16 +7185,19 @@ def test_settings_local_steam_appid_and_protondb(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
-    link = swin.findChild(QQuickItem, "settingsSteamAppId")
-    assert link.isVisible() is True
-    assert link.property("text") == "620"
     pdb = swin.findChild(QQuickItem, "settingsProtonDB")
     assert pdb.property("text") == "Gold"
+    awin = _search_window(qgui_app)
+    link = awin.findChild(QQuickItem, "settingsSteamAppId")
+    assert link.isVisible() is True
+    assert link.property("text") == "620"
     link.setProperty("text", "621")
     dlg = win.findChild(QObject, "gameSettings")
     assert QMetaObject.invokeMethod(dlg, "refreshProtonDB") is True
     qgui_app.processEvents()
     assert pdb.property("text") == "Not Rated"
+    awin.close()
+    qgui_app.processEvents()
     dlg.save()
     qgui_app.processEvents()
     assert C.load("local-doom").metadata.steam_appid == "621"
@@ -7228,7 +7250,7 @@ def test_description_box_stretches_with_the_window(qgui_app, xdg_env):
     QTest.qWait(150)
     short = scroll.property("height")
     assert short + 1 >= 5 * unit
-    swin.setProperty("height", minimum + 500)
+    swin.setProperty("height", minimum + 900)
     QTest.qWait(150)
     assert scroll.property("height") > short + 100
     real = [w for w in warnings if "graphics scene" not in w]
@@ -7260,6 +7282,7 @@ def test_metadata_download_fills_only_empty_fields(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     button = swin.findChild(QQuickItem, "settingsMetadataFetch")
     assert button.property("enabled") is True
+    awin = _search_window(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     answer = {
         "description": "Store synopsis.",
@@ -7283,23 +7306,24 @@ def test_metadata_download_fills_only_empty_fields(qgui_app, xdg_env):
     ]
     # Nothing is written until Apply: the dialog is the only writer.
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Typed Studio"
-    preview = _confirm_window(qgui_app, "metadataPreview")
-    # Cancel writes nothing.
-    _click(preview, "dialogCancel")
+    # Close writes nothing.
+    _click(awin, "dialogCancel")
     assert swin.findChild(QQuickItem, "settingsDescription").property("text") == ""
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Typed Studio"
-    assert swin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == ""
+    assert awin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == ""
 
+    awin = _search_window(qgui_app)
     model.metadataFetched.emit("local-doom", answer)
     qgui_app.processEvents()
-    preview = _confirm_window(qgui_app, "metadataPreview")
-    _click(preview, "dialogOk")
+    _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Store synopsis."
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Typed Studio"
     assert swin.findChild(QQuickItem, "settingsPublisher").property("text") == "Store Publisher"
     assert swin.findChild(QQuickItem, "settingsAgeRating").property("text") == "PEGI 12"
-    status = swin.findChild(QQuickItem, "settingsMetadataStatus").property("text")
+    status = awin.findChild(QQuickItem, "settingsMetadataStatus").property("text")
     assert status == "Loaded; Typed Fields Kept."
+    awin.close()
+    qgui_app.processEvents()
     dlg.save()
     qgui_app.processEvents()
     saved = C.load("local-doom")
@@ -7310,7 +7334,10 @@ def test_metadata_download_fills_only_empty_fields(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     # A local game without a Steam AppID searches VNDB by title now.
     assert swin.findChild(QQuickItem, "settingsMetadataFetch").property("enabled") is True
-    assert swin.findChild(QQuickItem, "settingsVndbId").property("visible") is True
+    awin = _search_window(qgui_app)
+    assert awin.findChild(QQuickItem, "settingsVndbId").property("visible") is True
+    awin.close()
+    qgui_app.processEvents()
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -7336,6 +7363,7 @@ def test_metadata_download_carries_tags(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     model.metadataFetched.emit(
         "local-doom",
@@ -7346,11 +7374,12 @@ def test_metadata_download_carries_tags(qgui_app, xdg_env):
     raw = dlg.property("metadataRows")
     rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
     assert [row["field"] for row in rows] == ["Genre", "Tags"]
-    preview = _confirm_window(qgui_app, "metadataPreview")
-    _click(preview, "dialogOk")
+    _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsTags").property("text") == (
         "Action, Indie, Single-player"
     )
+    awin.close()
+    qgui_app.processEvents()
     dlg.save()
     qgui_app.processEvents()
     assert C.load("local-doom").metadata.tags == ["Action", "Indie", "Single-player"]
@@ -7380,10 +7409,8 @@ def test_tags_clear_and_unsaved_download_status(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.openNewGameSettings("native")
     swin = _settings_window(qgui_app)
-    _click(swin, "settingsMetadataFetch")
-    assert swin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == (
-        "Save the Game First."
-    )
+    # An unsaved game has no cache key: the button is disabled, not silent.
+    assert swin.findChild(QQuickItem, "settingsMetadataFetch").property("enabled") is False
     swin.close()
     qgui_app.processEvents()
     page.openGameSettings("local-doom")
@@ -7425,28 +7452,28 @@ def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     model.metadataFetched.emit(
         "local-doom",
         {"developer": "Store Studio", "date": "1993-12-10"},
     )
     qgui_app.processEvents()
-    preview = _confirm_window(qgui_app, "metadataPreview")
-    replace = preview.findChild(QQuickItem, "metadataPreviewReplace")
+    replace = awin.findChild(QQuickItem, "metadataPreviewReplace")
     assert replace.property("checked") is False
     replace.setProperty("checked", True)
-    _click(preview, "dialogOk")
+    _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Store Studio"
     assert swin.findChild(QQuickItem, "settingsDate").property("text") == "1993-12-10"
     assert (
-        swin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == "Metadata Loaded."
+        awin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == "Metadata Loaded."
     )
-    # The next preview starts from the fill-empty default again.
+    # The next answer starts from the fill-empty default again.
     model.metadataFetched.emit("local-doom", {"developer": "Store Studio"})
     qgui_app.processEvents()
-    preview = _confirm_window(qgui_app, "metadataPreview")
-    assert preview.findChild(QQuickItem, "metadataPreviewReplace").property("checked") is False
-    _click(preview, "dialogCancel")
+    assert awin.findChild(QQuickItem, "metadataPreviewReplace").property("checked") is False
+    awin.close()
+    qgui_app.processEvents()
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
@@ -7507,6 +7534,7 @@ def test_metadata_locked_field_survives_replace(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     dlg = win.findChild(QObject, "gameSettings")
     assert dlg.isLocked("developer") is True
+    awin = _search_window(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     model.metadataFetched.emit(
         "local-doom",
@@ -7516,14 +7544,15 @@ def test_metadata_locked_field_survives_replace(qgui_app, xdg_env):
     raw = dlg.property("metadataRows")
     rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
     assert [row["locked"] for row in rows] == [False, True]
-    preview = _confirm_window(qgui_app, "metadataPreview")
-    replace = preview.findChild(QQuickItem, "metadataPreviewReplace")
+    replace = awin.findChild(QQuickItem, "metadataPreviewReplace")
     replace.setProperty("checked", True)
-    _click(preview, "dialogOk")
+    _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Store synopsis."
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Typed Studio"
-    status = swin.findChild(QQuickItem, "settingsMetadataStatus").property("text")
+    status = awin.findChild(QQuickItem, "settingsMetadataStatus").property("text")
     assert status == "Loaded; Typed Fields Kept."
+    awin.close()
+    qgui_app.processEvents()
     dlg.save()
     qgui_app.processEvents()
     saved = C.load("local-doom")
@@ -7546,19 +7575,20 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-sg")
     swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     queries = []
     model.searchMetadata = lambda appid, provider, title: queries.append((provider, appid, title))
-    _click(swin, "settingsMetadataFetch")
+    _click(awin, "settingsMetadataSearch")
     assert queries == [("vndb", "local-sg", "Steins;Gate")]
-    status = swin.findChild(QQuickItem, "settingsMetadataStatus")
-    assert status.property("text") == "Downloading…"
-    # Nothing found is a plain status line, never an empty dialog.
+    status = awin.findChild(QQuickItem, "settingsMetadataStatus")
+    assert status.property("text") == "Searching…"
+    # Nothing found is a plain status line, never an empty list.
     model.metadataChoices.emit("local-sg", [])
     qgui_app.processEvents()
     assert status.property("text") == "No Metadata Found."
-    # Several candidates: the choice dialog asks; the pick fills the field
-    # and goes back to the model for the fetch.
+    # Several candidates become buttons; the pick fills the field and goes
+    # back to the model for the fetch.
     fetched = []
     model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
     model.metadataChoices.emit(
@@ -7569,24 +7599,27 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
         ],
     )
     qgui_app.processEvents()
-    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
-    box = prompt.findChild(QQuickItem, "settingsChoiceBox")
-    assert box.property("count") == 2
-    _click(prompt, "dialogOk")
+    rep = awin.findChild(QObject, "settingsSearchCandidates")
+    assert rep.property("count") == 2, rep.property("count")
+    # The button delegates are visual children only, so call the same
+    # handler they call instead of reaching them through the object tree.
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.pickCandidate("v2002")
     assert fetched == [("vndb", "local-sg", "v2002")]
-    vndb_field = swin.findChild(QQuickItem, "settingsVndbId")
+    vndb_field = awin.findChild(QQuickItem, "settingsVndbId")
     assert vndb_field.property("text") == "v2002"
     # The fetched fields go through the same preview and Apply.
     model.metadataFetched.emit(
         "local-sg", {"description": "Synopsis.", "developer": "NITRO PLUS", "date": "2009-10-15"}
     )
     qgui_app.processEvents()
-    preview = _confirm_window(qgui_app, "metadataPreview")
-    _click(preview, "dialogOk")
+    _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Synopsis."
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "NITRO PLUS"
     assert swin.findChild(QQuickItem, "settingsDate").property("text") == "2009-10-15"
     assert status.property("text") == "Metadata Loaded."
+    awin.close()
+    qgui_app.processEvents()
     # Save persists the pick; the next download skips the title search.
     dlg = win.findChild(QObject, "gameSettings")
     dlg.save()
@@ -7601,7 +7634,7 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
 
 def test_metadata_igdb_provider_and_picker(qgui_app, xdg_env):
     """The provider menu reads IGDB and the pick saves [metadata] igdb_id."""
-    from PySide6.QtCore import QObject
+    from PySide6.QtCore import QMetaObject, QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
@@ -7610,17 +7643,20 @@ def test_metadata_igdb_provider_and_picker(qgui_app, xdg_env):
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-hades")
-    swin = _settings_window(qgui_app)
+    _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
-    provider = swin.findChild(QQuickItem, "settingsMetadataProvider")
-    assert provider.property("count") == 3
-    status = swin.findChild(QQuickItem, "settingsMetadataStatus")
+    dlg = win.findChild(QObject, "gameSettings")
+    provider = awin.findChild(QQuickItem, "settingsSearchSource")
+    assert provider.property("count") == 4
+    status = awin.findChild(QQuickItem, "settingsMetadataStatus")
     searches = []
     model.searchMetadata = lambda appid, name, title: searches.append((name, appid, title))
     provider.setProperty("currentIndex", 2)
+    assert QMetaObject.invokeMethod(dlg, "changeSearchSource") is True
 
     # Without the Twitch credential the action says so and calls nothing.
-    _click(swin, "settingsMetadataFetch")
+    _click(awin, "settingsMetadataSearch")
     assert searches == []
     assert status.property("text") == "IGDB Needs a Client ID and Secret in Preferences."
 
@@ -7628,18 +7664,20 @@ def test_metadata_igdb_provider_and_picker(qgui_app, xdg_env):
     prefs.igdb_client_id = "cid"
     prefs.igdb_client_secret = "sec"
     C.save_preferences(prefs)
-    _click(swin, "settingsMetadataFetch")
+    _click(awin, "settingsMetadataSearch")
     assert searches == [("igdb", "local-hades", "Hades")]
 
     fetched = []
     model.fetchMetadata = lambda appid, name, target: fetched.append((name, appid, target))
     model.metadataChoices.emit("local-hades", [{"id": "1145360", "name": "Hades (2020)"}])
     qgui_app.processEvents()
-    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
-    _click(prompt, "dialogOk")
+    rep = awin.findChild(QObject, "settingsSearchCandidates")
+    assert rep.property("count") == 1, rep.property("count")
+    dlg.pickCandidate("1145360")
     assert fetched == [("igdb", "local-hades", "1145360")]
-    assert swin.findChild(QQuickItem, "settingsIgdbId").property("text") == "1145360"
-    dlg = win.findChild(QObject, "gameSettings")
+    assert awin.findChild(QQuickItem, "settingsIgdbId").property("text") == "1145360"
+    awin.close()
+    qgui_app.processEvents()
     dlg.save()
     qgui_app.processEvents()
     assert C.load("local-hades").metadata.igdb_id == "1145360"
@@ -7915,10 +7953,11 @@ def test_settings_library_fields_flow(qgui_app, xdg_env):
     qgui_app.processEvents()
     swin.findChild(QQuickItem, "winePrefix").setProperty("text", "/tmp/pfx")
     assert isinstance(dlg.property("wineToolsData"), list)
-    swin.findChild(QQuickItem, "settingsTabs").setProperty("currentIndex", TAB_ART)
+    awin = _search_window(qgui_app, artwork=True)
+    awin.findChild(QQuickItem, "artSource").setProperty("text", "480")
+    awin.findChild(QQuickItem, "artProvider").setProperty("currentIndex", 2)
+    awin.close()
     qgui_app.processEvents()
-    swin.findChild(QQuickItem, "artSource").setProperty("text", "480")
-    swin.findChild(QQuickItem, "artProvider").setProperty("currentIndex", 2)
     dlg.save()
     qgui_app.processEvents()
     back = C.load("local-doom")

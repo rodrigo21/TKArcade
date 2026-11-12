@@ -335,11 +335,16 @@ def test_parse_open_request():
 def test_open_surface_opens_the_named_dialog():
     import logging
 
-    from tkarcade.gui.kirigami_app import SETTINGS_TAB_ARTWORK, open_surface
+    from tkarcade.gui.kirigami_app import open_surface
 
     log = logging.getLogger("test")
     root = _FakeRoot(
-        "gamesPage", "settingsTabs", "addGameDialog", "sourceDrawer", "prefsDialog", "aboutDialog"
+        "gamesPage",
+        "gameSettings",
+        "addGameDialog",
+        "sourceDrawer",
+        "prefsDialog",
+        "aboutDialog",
     )
 
     assert open_surface(root, log, "settings:730") is True
@@ -349,7 +354,7 @@ def test_open_surface_opens_the_named_dialog():
     assert root.calls("gamesPage")[-1] == ("openSettingsForSelection", ())
 
     assert open_surface(root, log, "artwork:730") is True
-    assert root.calls("settingsTabs")[-1] == ("setProperty", ("currentIndex", SETTINGS_TAB_ARTWORK))
+    assert root.calls("gameSettings")[-1] == ("openSearchDataArtwork", ())
 
     assert open_surface(root, log, "add") is True
     assert root.calls("addGameDialog") == [("open", ())]

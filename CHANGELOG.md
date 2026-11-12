@@ -6,6 +6,12 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- A newly added Steam game fills its metadata from the store on save,
+  in the background: description, developer, publisher, genre, series,
+  age ratings, release date and the online tags. Only empty fields are
+  written, a locked field stays out, a value typed before saving wins,
+  and a failed fetch changes nothing. The metadata cache answers a
+  re-add without a second request.
 - Details shows a Clear button next to the online Tags row: it empties
   the list in the dialog and Save persists it, so a wrong download is
   not stuck until a Replace-all download.
@@ -168,6 +174,19 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- Download Metadata is now **Search Data**, a window opened from the
+  Information title: the source menu, the title search and the Steam,
+  VNDB and IGDB identity fields moved into it, and the ProtonDB tier is
+  read there. A query that looks like an id (`v2002`, `1145360`, an
+  AppID) goes straight to the provider; a name lists candidates in the
+  window instead of a separate picker. Apply still writes the draft and
+  Save persists it, and the Details tab keeps a "Matches:" line with the
+  identities in use.
+- Artwork left the game dialog: the four slots, the Artwork Source
+  AppID, the provider and Fetch/Clear now live in the Search Data
+  window's **Artwork** tab. Details shows a strip of the four previews
+  that opens it, Notes moved to the end of Details, and the seventh tab
+  is gone: six tabs remain.
 - The game dialog tabs are now Details and Execution: Launch moved to the
   top of Execution and stays editable in Global Defaults, while the
   runtime, prefix, layers and debug switches remain per game. A footer

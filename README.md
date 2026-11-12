@@ -216,19 +216,25 @@ uses the `[general] installed_at` stamp written on the first save, or
 the game's `.toml` birth time for older configs. Session History shows
 the same installed value.
 
-**Game dialog** — tabs for Details (the game, optional `version`/`date`/
-`tag` metadata shown as name suffixes, categories, developer, publisher,
-genre, series, age ratings (CERO/ClassInd/ESRB/PEGI first, the other
-boards behind a divider and switch), region, status, description, a
-ProtonDB rating linking to its page and a Download Metadata action that
-previews the online answer (Apply fills empty fields from it, a switch
-replaces typed ones, and a lock toggle on each metadata row keeps that
-field out of every download). A **Metadata Source** menu picks Steam,
-VNDB or IGDB: a Steam game, or a local game with its optional Steam
-store AppID, reads the Steam store; a stored `[metadata] vndb_id` or
-`igdb_id` is fetched directly, and an empty one searches that database
-by title, asks which game it is and saves the pick, so the next
-download skips the search. IGDB needs a free Twitch application (client
+**Game dialog** — six tabs: Details (the game, optional `version`/`date`/
+`tag` metadata shown as name suffixes, categories, the identity line, a
+ProtonDB rating linking to its page, a strip of the four artwork
+previews and the Notes box at the end), Execution, Commands,
+Performance, Display and System.
+Developer, publisher, genre, series, age ratings (CERO/ClassInd/ESRB/PEGI
+first, the other boards behind a divider and switch), region, status,
+description and Notes stay manual, with a lock toggle on each row that
+keeps that field out of every download. A **Search Data** button next to
+the Information title opens a window with two tabs. **Metadata** picks
+the source (Steam, VNDB, IGDB or ProtonDB) and holds the Steam AppID,
+VNDB and IGDB identity fields: a stored id fills the query, an id typed
+in place of a title goes straight to the provider, and a title lists
+candidates. The answer arrives as preview rows (Apply fills empty
+fields, a switch replaces typed ones, the locks win) and writes the
+dialog draft; Save persists it. Details shows the identities back as a
+"Matches:" line, and a newly added Steam game fills its own store entry
+on save: empty fields only, locks respected, tags and release date
+included. IGDB needs a free Twitch application (client
 id and secret in Preferences); the Twitch console asks for an OAuth
 redirect URL, where any public HTTPS address works, because the
 download uses the client-credentials grant and never redirects. The
@@ -249,16 +255,16 @@ vkd3d layers, Proton debug switches), Commands (variables, curated
 presets and the pre/post commands), Performance
 (GameMode, MangoHud, RT upscaler), Display (Gamescope, monitor mode),
 System (notifications, idle suspend, network, night light, audio,
-Ludusavi saves) and Artwork/Notes. The Description box on Details
+Ludusavi saves). The Description box on Details
 fills the space the other sections leave, shrinks to five lines with
-the window and scrolls longer text inside its frame. The Artwork
-section picks the manual
+the window and scrolls longer text inside its frame. The window's
+**Artwork** tab picks the manual
 icon/cover/banner/background files, an optional Artwork Source AppID (any
 Steam AppID whose art overrides the game's own), the per-game download
 provider (Steam, SteamGridDB or IGDB; Steam first by default) and
 Fetch/Clear; a local game without an AppID is looked up by name on
 SteamGridDB and a stored choice keeps the same art across fetches. IGDB
-needs a Twitch application and the IGDB ID that Download Metadata
+needs a Twitch application and the IGDB ID that Search Data
 saves; it fills the cover and the banner, and its square icon slot
 stays with the other providers. The
 `background` slot is a wide backdrop with no download of its own: it

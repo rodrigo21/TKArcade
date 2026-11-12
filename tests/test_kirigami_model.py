@@ -6,6 +6,47 @@ from pathlib import Path
 from tkarcade import config as C
 
 
+def test_steam_metadata_fills_only_empty_and_unlocked(qgui_app, xdg_env):
+    """A new Steam game absorbs the store answer; typed and locked stay."""
+    from tkarcade.gui.model import _fill_steam_metadata
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-620"
+    cfg.metadata.developer = "Typed Studio"
+    cfg.metadata.locked = "publisher"
+    payload = {
+        "description": "Store synopsis.",
+        "developer": "Store Studio",
+        "publisher": "Store Publisher",
+        "genre": "Action",
+        "series": "",
+        "age_ratings": ["PEGI 12", "Bogus 99"],
+        "date": "1993-12-10",
+        "tags": ["Action", "Action", "Single-player"],
+    }
+    assert _fill_steam_metadata(cfg, payload) is True
+    assert cfg.metadata.description == "Store synopsis."
+    assert cfg.metadata.developer == "Typed Studio"
+    assert cfg.metadata.publisher == ""
+    assert cfg.metadata.genre == "Action"
+    assert cfg.metadata.series == ""
+    assert cfg.metadata.age_ratings == ["PEGI 12"]
+    assert cfg.metadata.date == "1993-12-10"
+    assert cfg.metadata.tags == ["Action", "Single-player"]
+    # Second pass changes nothing: only the locked field is still empty.
+    assert _fill_steam_metadata(cfg, payload) is False
+
+
+def test_steam_metadata_drops_an_invalid_date(qgui_app, xdg_env):
+    """A date the config cannot store stays out of the auto-fill."""
+    from tkarcade.gui.model import _fill_steam_metadata
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-70"
+    assert _fill_steam_metadata(cfg, {"date": "soon"}) is False
+    assert cfg.metadata.date == ""
+
+
 def _model(qgui_app):
     from tkarcade.gui.model import GameListModel
 

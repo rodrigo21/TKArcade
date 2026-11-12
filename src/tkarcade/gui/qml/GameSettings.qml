@@ -57,16 +57,18 @@ Window {
     property string protonDBTier: ""
     property string protonDBBg: ""
     property string protonDBFg: ""
-    // Download Metadata runs off-thread; the status line reports the result.
-    property bool metadataBusy: false
-    property string metadataStatus: ""
-    // Provider whose title search opened the picker: the pick fills that
-    // provider's identity field ([metadata] vndb_id or igdb_id).
-    property string metadataPendingProvider: ""
-    // Preview rows for the store answer: {key, field, current, next,
-    // values} for every field the provider answered. Apply is the only
-    // writer, into the fields; Save still writes the config.
+    // Search Data runs off-thread; its window owns the status line and the
+    // candidate list.
+    property bool searchBusy: false
+    property string searchStatus: ""
+    // Provider the window reads from: steam, vndb, igdb or proton.
+    property string searchSource: ""
+    // Preview rows for the provider answer: {key, field, current, next,
+    // values} for every field it answered. Apply is the only writer, into
+    // the fields; Save still writes the config.
     property var metadataRows: []
+    // Title-search candidates the window lists: [{"id", "name"}].
+    property var searchCandidates: []
     // Age ratings are a fixed-board checklist, stored as a list.
     property var ageRatings: []
     // Online tags: read-only on Details and distinct from the categories.
@@ -790,10 +792,11 @@ Window {
         steamAppIdField.text = f.steam_appid || ""
         vndbIdField.text = f.vndb_id || ""
         igdbIdField.text = f.igdb_id || ""
-        metadataProviderBox.currentIndex = Math.max(0,
-            ["steam", "vndb", "igdb"].indexOf(defaultMetadataProvider()))
-        metadataBusy = false
-        metadataStatus = ""
+        searchBusy = false
+        searchStatus = ""
+        searchSource = ""
+        searchCandidates = []
+        metadataRows = []
         refreshProtonDB()
         artSourceField.text = f.art_source || ""
         var prefs = gameModel.loadPrefs()
@@ -1450,7 +1453,9 @@ Window {
         var messages = {
             "own": qsTr("Using This Game's Own Artwork."),
             "partial": qsTr("Some Images Are Missing."),
-            "none": qsTr("No Artwork Yet. Save the Game First."),
+            "none": editAppid === ""
+                ? qsTr("Save the Game First to Fetch Artwork.")
+                : qsTr("No Artwork Downloaded Yet. Use Fetch Artwork."),
             "cleared": qsTr("Artwork Cleared. Fetch Restores It.")
         }
         if (artResult !== "") {
@@ -1609,21 +1614,6 @@ Window {
                 }
                 artStatusLabel.text = messages[err] || err
             }
-        } else if (pendingPrompt === "metaGame") {
-            var pick = choiceBox.model[choiceBox.currentIndex]
-            choicePrompt.close()
-            if (pick !== undefined && pick.data !== "") {
-                // The pick is part of the form: Save writes it, Cancel drops it.
-                var provider = metadataPendingProvider || "vndb"
-                if (provider === "igdb") {
-                    igdbIdField.text = String(pick.data)
-                } else {
-                    vndbIdField.text = String(pick.data)
-                }
-                metadataBusy = true
-                metadataStatus = qsTr("Downloading…")
-                gameModel.fetchMetadata(editAppid, provider, String(pick.data))
-            }
         }
     }
 
@@ -1678,9 +1668,9 @@ Window {
         lockedFields = next
     }
 
-    // Where Download Metadata reads from when nothing is picked yet: the
-    // stored identity wins, then Steam when the game links an AppID, then
-    // VNDB, which is what a local game did before the menu existed.
+    // Where Search Data starts: the stored identity wins, then Steam when
+    // the game links an AppID, then VNDB, which is what a local game did
+    // before the window existed.
     function defaultMetadataProvider() {
         if (vndbIdField.text !== "") {
             return "vndb"
@@ -1694,47 +1684,165 @@ Window {
         return "vndb"
     }
 
-    function downloadMetadata() {
-        if (metadataBusy) {
-            return
+    // The identities the window edits, shown on Details so the target of
+    // a download is visible without opening it.
+    function matchedIdentity() {
+        var parts = []
+        if (fields.is_steam || false) {
+            parts.push(qsTr("Steam %1").arg(String(fields.appid || "").replace(/^steam-/, "")))
+        } else if (steamAppIdField.text.trim() !== "") {
+            parts.push(qsTr("Steam %1").arg(steamAppIdField.text.trim()))
         }
+        if (vndbIdField.text.trim() !== "") {
+            parts.push(qsTr("VNDB %1").arg(vndbIdField.text.trim()))
+        }
+        if (igdbIdField.text.trim() !== "") {
+            parts.push(qsTr("IGDB %1").arg(igdbIdField.text.trim()))
+        }
+        return parts.length > 0 ? qsTr("Matches: %1").arg(parts.join(" · ")) : ""
+    }
+
+    function openSearchData() {
         if (editAppid === "") {
-            // An unsaved game has no cache key: say so instead of ignoring
-            // the press, like the artwork path does.
-            metadataStatus = qsTr("Save the Game First.")
             return
         }
-        var provider = String(metadataProviderBox.currentValue || "steam")
-        if (provider === "igdb" && !gameModel.igdbConfigured()) {
-            // A missing Twitch credential is not a failed download: say so
-            // here instead of the preview's "No Metadata Found.".
-            metadataStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
+        searchBusy = false
+        searchStatus = ""
+        searchCandidates = []
+        metadataRows = []
+        searchSource = defaultMetadataProvider()
+        searchSourceBox.currentIndex = Math.max(0,
+            ["steam", "vndb", "igdb", "proton"].indexOf(searchSource))
+        searchQueryField.text = nameField.text.trim()
+        searchData.open(gameSettings)
+        searchTabs.currentIndex = 0
+        refreshProtonDB()
+    }
+
+    function openSearchDataArtwork() {
+        if (editAppid === "") {
             return
         }
-        metadataBusy = true
-        metadataStatus = qsTr("Downloading…")
-        if (provider === "steam") {
-            gameModel.fetchMetadata(editAppid, "steam", steamAppIdField.text)
-            return
+        if (searchSource === "") {
+            searchSource = defaultMetadataProvider()
+            searchSourceBox.currentIndex = Math.max(0,
+                ["steam", "vndb", "igdb", "proton"].indexOf(searchSource))
         }
-        var idField = provider === "igdb" ? igdbIdField : vndbIdField
-        if (idField.text !== "") {
-            gameModel.fetchMetadata(editAppid, provider, idField.text)
-        } else {
-            // An empty identity searches by the dialog title and asks
-            // which game it is before anything is written.
-            metadataPendingProvider = provider
-            gameModel.searchMetadata(editAppid, provider, nameField.text)
+        refreshArtStatus()
+        searchData.open(gameSettings)
+        searchTabs.currentIndex = 1
+    }
+
+    // The identity of the current source, from the draft fields.
+    function storedIdentity() {
+        if (searchSource === "vndb") {
+            return vndbIdField.text.trim()
+        }
+        if (searchSource === "igdb") {
+            return igdbIdField.text.trim()
+        }
+        if (searchSource === "steam") {
+            return steamAppIdField.text.trim()
+        }
+        return ""
+    }
+
+    function setIdentity(source, value) {
+        if (source === "vndb") {
+            vndbIdField.text = String(value).toLowerCase()
+        } else if (source === "igdb") {
+            igdbIdField.text = String(value)
+        } else if (source === "steam" && !(fields.is_steam || false)) {
+            // A Steam game derives its AppID: the field is a local game's
+            // store link.
+            steamAppIdField.text = String(value)
+            refreshProtonDB()
         }
     }
 
-    // Download Metadata opens a preview instead of writing: nothing is
-    // filled until Apply, so the current text stays visible next to the
-    // store answer. Only the fields the provider answered become rows.
-    function openMetadataPreview(data) {
-        metadataBusy = false
-        metadataStatus = ""
-        // Fill-empty is the default; overwriting is opt-in per download.
+    // v2002 is a VNDB id, digits are an IGDB id or a Steam AppID.
+    function looksLikeId(source, text) {
+        var value = String(text).trim()
+        if (value === "") {
+            return false
+        }
+        return source === "vndb" ? /^v\d+$/i.test(value) : /^\d+$/.test(value)
+    }
+
+    function fetchIdentity() {
+        if (searchSource === "proton") {
+            refreshProtonDB()
+            return
+        }
+        if (searchSource === "igdb" && !gameModel.igdbConfigured()) {
+            searchStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
+            return
+        }
+        if (searchSource === "steam" && !(fields.is_steam || false)
+                && steamAppIdField.text.trim() === "") {
+            searchStatus = qsTr("Type the Steam AppID.")
+            return
+        }
+        searchBusy = true
+        searchStatus = qsTr("Looking Up…")
+        metadataRows = []
+        gameModel.fetchMetadata(editAppid, searchSource, storedIdentity())
+    }
+
+    // Find: an ID goes straight to the provider, a name lists candidates.
+    function searchDataAgain() {
+        if (searchBusy || editAppid === "") {
+            return
+        }
+        if (searchSource === "proton") {
+            refreshProtonDB()
+            return
+        }
+        if (searchSource === "igdb" && !gameModel.igdbConfigured()) {
+            searchStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
+            return
+        }
+        var query = searchQueryField.text.trim()
+        if (query === "") {
+            searchStatus = qsTr("Type a Name or an ID.")
+            return
+        }
+        searchCandidates = []
+        metadataRows = []
+        if (looksLikeId(searchSource, query)) {
+            setIdentity(searchSource, query)
+            fetchIdentity()
+            return
+        }
+        searchBusy = true
+        searchStatus = qsTr("Searching…")
+        gameModel.searchMetadata(editAppid, searchSource, query)
+    }
+
+    function changeSearchSource() {
+        searchBusy = false
+        searchStatus = ""
+        searchCandidates = []
+        metadataRows = []
+        searchSource = String(searchSourceBox.currentValue || "steam")
+        if (searchSource === "proton") {
+            refreshProtonDB()
+        }
+    }
+
+    // The pick is part of the form: Save writes the identity, Cancel drops it.
+    function pickCandidate(id) {
+        searchCandidates = []
+        setIdentity(searchSource, id)
+        fetchIdentity()
+    }
+
+    // The provider answered: the window shows the rows instead of writing,
+    // so the current text stays visible next to the store answer. Only the
+    // fields it answered become rows.
+    function showProviderAnswer(data) {
+        searchBusy = false
+        // Fill-empty is the default; overwriting is opt-in per lookup.
         metadataReplaceBox.checked = false
         var rows = []
         function add(key, field, current, next, values) {
@@ -1761,11 +1869,11 @@ Window {
         var tags = data.tags || []
         add("tags", qsTr("Tags"), onlineTags, tags.join(", "), tags)
         if (rows.length === 0) {
-            metadataStatus = qsTr("No Metadata Found.")
+            searchStatus = qsTr("No Metadata Found.")
             return
         }
+        searchStatus = ""
         metadataRows = rows
-        metadataPreview.open(gameSettings)
     }
 
     // Apply fills empty fields only; a locked field is never written, and
@@ -1798,20 +1906,19 @@ Window {
             applied++
         }
         if (applied === 0) {
-            metadataStatus = qsTr("Nothing to Fill.")
+            searchStatus = qsTr("Nothing to Fill.")
         } else if (kept > 0) {
-            metadataStatus = qsTr("Loaded; Typed Fields Kept.")
+            searchStatus = qsTr("Loaded; Typed Fields Kept.")
         } else {
-            metadataStatus = qsTr("Metadata Loaded.")
+            searchStatus = qsTr("Metadata Loaded.")
         }
-        metadataPreview.close()
     }
 
     // The tags come from the provider; clearing is the one manual action.
     function clearTags() {
         onlineTagList = []
         onlineTags = ""
-        metadataStatus = ""
+        searchStatus = ""
     }
 
     function refreshPreview() {
@@ -2072,25 +2179,21 @@ Window {
         }
         function onMetadataFetched(appid, data) {
             if (appid === editAppid) {
-                openMetadataPreview(data || {})
+                showProviderAnswer(data || {})
             }
         }
-        // The title matched provider entries: ask which game it is.
+        // The title matched provider entries: list them in the window and
+        // let the pick decide which game it is.
         function onMetadataChoices(appid, rows) {
             if (appid !== editAppid) {
                 return
             }
-            metadataBusy = false
-            metadataStatus = ""
+            searchBusy = false
+            searchStatus = ""
+            searchCandidates = rows
             if (rows.length === 0) {
-                metadataStatus = qsTr("No Metadata Found.")
-                return
+                searchStatus = qsTr("No Metadata Found.")
             }
-            var items = []
-            for (var i = 0; i < rows.length; i++) {
-                items.push({"text": rows[i].name, "data": rows[i].id})
-            }
-            gameSettings.askChoice("metaGame", items, "")
         }
         // The name matched several SteamGridDB entries: ask which one.
         function onArtworkChoices(appid, rows) {
@@ -2296,9 +2399,6 @@ Window {
             Controls.TabButton {
                 text: qsTr("System")
             }
-            Controls.TabButton {
-                text: qsTr("Artwork/Notes")
-            }
         }
         StackLayout {
             Layout.fillWidth: true
@@ -2436,44 +2536,6 @@ Window {
                                         onClicked: gameSettings.openCatsPicker()
                                     }
                                 }
-                                Controls.TextField {
-                                    id: steamAppIdField
-                                    objectName: "settingsSteamAppId"
-                                    // Store link of a local game that also
-                                    // exists on Steam; a Steam ID derives
-                                    // its own AppID.
-                                    visible: !(fields.is_steam || false)
-                                    placeholderText: qsTr("Steam AppID (Optional)")
-                                    Layout.fillWidth: true
-                                    onEditingFinished: gameSettings.refreshProtonDB()
-                                    Controls.ToolTip.text: qsTr("Steam AppID of This Game on the Steam Store. Used by the ProtonDB Rating and Download Metadata; Artwork Keeps Its Own Source AppID.")
-                                    Controls.ToolTip.visible: hovered
-                                    KirigamiLayouts.FormData.label: qsTr("Steam AppID:")
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("VNDB / IGDB:")
-                                    Controls.TextField {
-                                        id: vndbIdField
-                                        objectName: "settingsVndbId"
-                                        // Identity for the VNDB provider; the
-                                        // menu decides when it is consulted.
-                                        placeholderText: qsTr("VNDB ID")
-                                        Layout.fillWidth: true
-                                        Controls.ToolTip.text: qsTr("VNDB Visual Novel of This Game, e.g. v2002. Download Metadata Uses It When the Source Is VNDB.")
-                                        Controls.ToolTip.visible: hovered
-                                    }
-                                    Controls.TextField {
-                                        id: igdbIdField
-                                        objectName: "settingsIgdbId"
-                                        // Identity for the IGDB provider; empty
-                                        // means a title search.
-                                        placeholderText: qsTr("IGDB ID")
-                                        Layout.fillWidth: true
-                                        Controls.ToolTip.text: qsTr("IGDB Game of This Game, e.g. 1145360. Download Metadata Uses It When the Source Is IGDB.")
-                                        Controls.ToolTip.visible: hovered
-                                    }
-                                }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("ProtonDB:")
@@ -2513,36 +2575,53 @@ Window {
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Metadata:")
-                                    AppComboBox {
-                                        id: metadataProviderBox
-                                        objectName: "settingsMetadataProvider"
-                                        Layout.preferredWidth: Kirigami.Units.gridUnit * 9
+                                    KirigamiLayouts.FormData.label: qsTr("Artwork:")
+                                    Repeater {
+                                        objectName: "settingsArtStrip"
                                         model: [
-                                            { "text": qsTr("Steam"), "data": "steam" },
-                                            { "text": qsTr("VNDB"), "data": "vndb" },
-                                            { "text": qsTr("IGDB"), "data": "igdb" }
+                                            { "url": gameSettings.artPreviewIcon,
+                                              "label": qsTr("Icon") },
+                                            { "url": gameSettings.artPreviewCover,
+                                              "label": qsTr("Cover") },
+                                            { "url": gameSettings.artPreviewBanner,
+                                              "label": qsTr("Banner") },
+                                            { "url": gameSettings.artPreviewBackground,
+                                              "label": qsTr("Background") }
                                         ]
-                                        textRole: "text"
-                                        valueRole: "data"
-                                        Controls.ToolTip.text: qsTr("Where Download Metadata Reads From. Steam Needs an AppID; VNDB and IGDB Search by Title When Their ID Is Empty.")
-                                        Controls.ToolTip.visible: hovered
+                                        delegate: Item {
+                                            required property var modelData
+                                            Layout.preferredWidth: Kirigami.Units.gridUnit * 4
+                                            Layout.preferredHeight: Kirigami.Units.gridUnit * 3
+                                            Image {
+                                                anchors.fill: parent
+                                                source: modelData.url
+                                                fillMode: Image.PreserveAspectCrop
+                                                asynchronous: true
+                                                visible: modelData.url !== ""
+                                            }
+                                            Rectangle {
+                                                anchors.fill: parent
+                                                visible: modelData.url === ""
+                                                color: "transparent"
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: Kirigami.Theme.disabledTextColor
+                                            }
+                                            Controls.Label {
+                                                anchors.centerIn: parent
+                                                visible: modelData.url === ""
+                                                opacity: 0.6
+                                                text: modelData.label
+                                            }
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: gameSettings.openSearchDataArtwork()
+                                            }
+                                        }
                                     }
-                                    Controls.Button {
-                                        objectName: "settingsMetadataFetch"
-                                        text: qsTr("Download Metadata")
-                                        enabled: !gameSettings.metadataBusy
-                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
-                                        onClicked: gameSettings.downloadMetadata()
-                                        Controls.ToolTip.text: qsTr("Fill Empty Fields from the Chosen Source")
-                                        Controls.ToolTip.visible: hovered
-                                    }
-                                    Controls.Label {
-                                        objectName: "settingsMetadataStatus"
+                                    Item {
                                         Layout.fillWidth: true
-                                        opacity: 0.7
-                                        elide: Text.ElideRight
-                                        text: gameSettings.metadataStatus
                                     }
                                 }
                             }
@@ -2556,10 +2635,29 @@ Window {
                             Layout.fillHeight: true
                             fillHeight: true
                             visible: !defaultsMode
+                            actions: Controls.Button {
+                                objectName: "settingsMetadataFetch"
+                                text: qsTr("Search Data")
+                                icon.name: gameModel.iconName(["edit-find-symbolic", "edit-find"])
+                                enabled: editAppid !== ""
+                                onClicked: gameSettings.openSearchData()
+                                Controls.ToolTip.text: enabled
+                                    ? qsTr("Search a Provider for This Game's Data")
+                                    : qsTr("Save the Game First")
+                                Controls.ToolTip.visible: hovered
+                            }
                             WidgetsFormLayout {
                                 id: infoForm
                                 labelWidth: generalColumn.labelWidth
                                 Layout.fillWidth: true
+                                Controls.Label {
+                                    objectName: "settingsMatches"
+                                    Layout.fillWidth: true
+                                    visible: text !== ""
+                                    opacity: 0.7
+                                    elide: Text.ElideRight
+                                    text: gameSettings.matchedIdentity()
+                                }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Developer:")
@@ -2759,6 +2857,27 @@ Window {
                                     locked: gameSettings.isLocked("description")
                                     onClicked: gameSettings.toggleLock("description")
                                     Layout.alignment: Qt.AlignTop
+                                }
+                            }
+                        }
+
+                        SectionBox {
+                            title: qsTr("Notes")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: notesForm
+                                labelWidth: generalColumn.labelWidth
+                                Layout.fillWidth: true
+                                Controls.TextArea {
+                                    id: notesArea
+                                    objectName: "settingsNotes"
+                                    placeholderText: qsTr("Notes for This Game…")
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                    // Five lines of the default font: a note
+                                    // box, not a document editor. The implicit
+                                    // height is what sizes the section frame.
+                                    implicitHeight: Kirigami.Units.gridUnit * 6
                                 }
                             }
                         }
@@ -4230,197 +4349,6 @@ Window {
                     }
                 }
             }
-            Controls.ScrollView {
-                clip: true
-                objectName: "settingsArtworkScroll"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                // ScrollView takes its scrollable size from the content's
-                // implicitHeight; a plain Item has none, so sizing the
-                // wrapper with `height:` leaves contentHeight at -1 and the
-                // content is squeezed into the viewport (nothing scrolls).
-                Item {
-                    width: parent.width
-                    implicitHeight: artColumn.implicitHeight
-                    ColumnLayout {
-                        id: artColumn
-                        // One label column for the tab, so the fields of every
-                        // section start at the same x.
-                        property real labelWidth: Math.max(artForm.naturalLabelWidth,
-                                                           notesForm.naturalLabelWidth)
-                        width: parent.width
-                        spacing: Kirigami.Units.smallSpacing
-                        SectionBox {
-                            title: qsTr("Artwork")
-                            Layout.fillWidth: true
-                            // The preview strip spans the section, outside
-                            // the form's label column: four boxes need the
-                            // whole width. The tile is also the picker; the
-                            // group is centered between two spacers.
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: Kirigami.Units.smallSpacing
-                                Controls.Label {
-                                    text: qsTr("Previews:")
-                                }
-                                RowLayout {
-                                    objectName: "artPreviewStrip"
-                                    Layout.fillWidth: true
-                                    spacing: Kirigami.Units.largeSpacing
-                                    Item {
-                                        Layout.fillWidth: true
-                                    }
-                                    ArtworkPreview {
-                                        objectName: "artPreviewIcon"
-                                        artLabel: qsTr("Icon")
-                                        artUrl: gameSettings.artPreviewIcon
-                                        artOrigin: gameSettings.artOriginIcon
-                                        artRatio: 1
-                                        maxWidth: Kirigami.Units.gridUnit * 2.5
-                                        Layout.alignment: Qt.AlignBottom
-                                        onPicked: gameSettings.pickArtwork("icon")
-                                        onUrlRequested: gameSettings.openArtworkUrl("icon")
-                                        onClearRequested: gameSettings.clearArtwork("icon")
-                                    }
-                                    ArtworkPreview {
-                                        objectName: "artPreviewBanner"
-                                        artLabel: qsTr("Banner")
-                                        artUrl: gameSettings.artPreviewBanner
-                                        artOrigin: gameSettings.artOriginBanner
-                                        artRatio: 460 / 215
-                                        maxWidth: Kirigami.Units.gridUnit * 12
-                                        Layout.alignment: Qt.AlignBottom
-                                        onPicked: gameSettings.pickArtwork("banner")
-                                        onUrlRequested: gameSettings.openArtworkUrl("banner")
-                                        onClearRequested: gameSettings.clearArtwork("banner")
-                                    }
-                                    ArtworkPreview {
-                                        objectName: "artPreviewBackground"
-                                        artLabel: qsTr("Background")
-                                        artUrl: gameSettings.artPreviewBackground
-                                        artOrigin: gameSettings.artOriginBackground
-                                        // The backdrop starts as a copy of
-                                        // the banner: same preview box.
-                                        artRatio: 460 / 215
-                                        maxWidth: Kirigami.Units.gridUnit * 12
-                                        Layout.alignment: Qt.AlignBottom
-                                        onPicked: gameSettings.pickArtwork("background")
-                                        onUrlRequested: gameSettings.openArtworkUrl("background")
-                                        onClearRequested: gameSettings.clearArtwork("background")
-                                    }
-                                    ArtworkPreview {
-                                        objectName: "artPreviewCover"
-                                        artLabel: qsTr("Cover")
-                                        artUrl: gameSettings.artPreviewCover
-                                        artOrigin: gameSettings.artOriginCover
-                                        artRatio: 2 / 3
-                                        maxWidth: Kirigami.Units.gridUnit * 5
-                                        Layout.alignment: Qt.AlignBottom
-                                        onPicked: gameSettings.pickArtwork("cover")
-                                        onUrlRequested: gameSettings.openArtworkUrl("cover")
-                                        onClearRequested: gameSettings.clearArtwork("cover")
-                                    }
-                                    Item {
-                                        Layout.fillWidth: true
-                                    }
-                                }
-                            }
-                            WidgetsFormLayout {
-                                labelWidth: artColumn.labelWidth
-                                id: artForm
-                                Layout.fillWidth: true
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Artwork Source AppID:")
-                                    Controls.TextField {
-                                        id: artSourceField
-                                        objectName: "artSource"
-                                        placeholderText: qsTr("Steam AppID (Optional)")
-                                        Layout.fillWidth: true
-                                        // Another app's art changes the
-                                        // thumbnails as soon as the field is
-                                        // done, like the fetch would.
-                                        onEditingFinished: gameSettings.refreshArtStatus()
-                                        Controls.ToolTip.text: qsTr("Steam AppID (Installed or Not) Whose Artwork This Game Uses Instead of Its Own.")
-                                        Controls.ToolTip.visible: hovered
-                                    }
-                                    Controls.Button {
-                                        objectName: "artFetch"
-                                        text: qsTr("Fetch Artwork")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        enabled: editAppid !== ""
-                                        onClicked: gameSettings.fetchArtwork()
-                                    }
-                                    Controls.Button {
-                                        objectName: "artClear"
-                                        text: qsTr("Clear…")
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                        enabled: editAppid !== ""
-                                        onClicked: gameSettings.requestClearFetched()
-                                        Controls.ToolTip.text: qsTr("Remove the Artwork Downloaded for This Game or Its Artwork Source AppID")
-                                        Controls.ToolTip.visible: hovered
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Download From:")
-                                    AppComboBox {
-                                        id: artProviderCombo
-                                        objectName: "artProvider"
-                                        Layout.fillWidth: true
-                                        textRole: "text"
-                                        valueRole: "data"
-                                        Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB and IGDB Are Community Artwork and Need a Key. The Other Providers Fill the Missing Kinds.")
-                                        Controls.ToolTip.visible: hovered
-                                    }
-                                    Item {
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                    }
-                                    Item {
-                                        Layout.preferredWidth: gameSettings.artButtonWidth
-                                        Layout.minimumWidth: gameSettings.artButtonWidth
-                                    }
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Status:")
-                                    Controls.Label {
-                                        id: artStatusLabel
-                                        objectName: "artStatus"
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 0
-                                        Layout.minimumWidth: 0
-                                        wrapMode: Text.WordWrap
-                                    }
-                                }
-                            }
-                        }
-                        SectionBox {
-                            title: qsTr("Notes")
-                            Layout.fillWidth: true
-                            WidgetsFormLayout {
-                                id: notesForm
-                                labelWidth: artColumn.labelWidth
-                                Layout.fillWidth: true
-                                Controls.TextArea {
-                                    id: notesArea
-                                    objectName: "settingsNotes"
-                                    placeholderText: qsTr("Notes for This Game…")
-                                    wrapMode: Text.WordWrap
-                                    Layout.fillWidth: true
-                                    // Five lines of the default font: a note
-                                    // box, not a document editor. The implicit
-                                    // height is what sizes the section frame.
-                                    implicitHeight: Kirigami.Units.gridUnit * 6
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
         SectionBox {
             id: statusBox
@@ -4835,77 +4763,403 @@ Window {
         }
     }
 
-    // Store answer preview: Apply writes the empty fields, the switch
-    // widens that to every row. Cancel (or closing) writes nothing.
+    // Search Data: one window per game. The source and the query sit at the
+    // top, the provider answer arrives as preview rows, and Apply writes the
+    // draft while Save still writes the config. The identities live here, not
+    // on the Details tab.
     DialogWindow {
-        id: metadataPreview
-        objectName: "metadataPreview"
-        title: qsTr("Download Metadata")
-        width: Kirigami.Units.gridUnit * 38
+        id: searchData
+        objectName: "searchData"
+        title: qsTr("Search Data")
+        width: Kirigami.Units.gridUnit * 40
+        minimumWidth: Kirigami.Units.gridUnit * 36
+        height: Kirigami.Units.gridUnit * 34
+        bodyFillHeight: true
         acceptText: qsTr("Apply")
+        acceptVisible: gameSettings.searchSource !== "proton"
+        rejectText: qsTr("Close")
         onAccepted: gameSettings.applyMetadataRows()
-        RowLayout {
+        Controls.TabBar {
+            id: searchTabs
+            objectName: "searchDataTabs"
             Layout.fillWidth: true
-            Controls.Label {
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 7
-                font.bold: true
-                text: qsTr("Field")
+            Controls.TabButton {
+                text: qsTr("Metadata")
             }
-            Controls.Label {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: 1
-                font.bold: true
-                text: qsTr("Current")
-            }
-            Controls.Label {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: 1
-                font.bold: true
-                text: qsTr("New")
+            Controls.TabButton {
+                text: qsTr("Artwork")
             }
         }
-        Repeater {
-            objectName: "metadataPreviewRows"
-            model: gameSettings.metadataRows
-            delegate: RowLayout {
-                required property var modelData
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: searchTabs.currentIndex === 0
+            RowLayout {
                 Layout.fillWidth: true
                 Controls.Label {
-                    Layout.preferredWidth: Kirigami.Units.gridUnit * 7
-                    elide: Text.ElideRight
-                    text: modelData.field
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                    text: qsTr("Source:")
                 }
-                Controls.Label {
+                AppComboBox {
+                    id: searchSourceBox
+                    objectName: "settingsSearchSource"
                     Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.preferredWidth: 1
-                    elide: Text.ElideRight
-                    opacity: 0.7
-                    text: modelData.current !== "" ? modelData.current : "—"
-                    Controls.ToolTip.text: modelData.current
-                    Controls.ToolTip.visible: hovered && modelData.current !== ""
-                }
-                Controls.Label {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.preferredWidth: 1
-                    elide: Text.ElideRight
-                    opacity: modelData.locked ? 0.7 : 1
-                    text: modelData.locked ? qsTr("Locked") : modelData.next
-                    Controls.ToolTip.text: modelData.locked
-                        ? qsTr("Locked; Download Metadata Will Not Replace It")
-                        : modelData.next
+                    model: [
+                        { "text": qsTr("Steam"), "data": "steam" },
+                        { "text": qsTr("VNDB"), "data": "vndb" },
+                        { "text": qsTr("IGDB"), "data": "igdb" },
+                        { "text": qsTr("ProtonDB"), "data": "proton" }
+                    ]
+                    textRole: "text"
+                    valueRole: "data"
+                    onActivated: gameSettings.changeSearchSource()
+                    Controls.ToolTip.text: qsTr("Which Provider Reads the Data. VNDB and IGDB Search by Title When Their ID Is Empty.")
                     Controls.ToolTip.visible: hovered
                 }
             }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: gameSettings.searchSource !== "proton"
+                Controls.Label {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                    text: qsTr("Find:")
+                }
+                Controls.TextField {
+                    id: searchQueryField
+                    objectName: "settingsSearchQuery"
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("Name, VNDB ID (v2002) or IGDB/Steam AppID")
+                    onAccepted: gameSettings.searchDataAgain()
+                }
+                Controls.Button {
+                    objectName: "settingsMetadataSearch"
+                    text: qsTr("Search")
+                    enabled: !gameSettings.searchBusy
+                    onClicked: gameSettings.searchDataAgain()
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: !(fields.is_steam || false)
+                Controls.Label {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                    text: qsTr("Steam AppID:")
+                }
+                Controls.TextField {
+                    id: steamAppIdField
+                    objectName: "settingsSteamAppId"
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("Steam AppID (Optional)")
+                    onEditingFinished: gameSettings.refreshProtonDB()
+                    Controls.ToolTip.text: qsTr("Steam AppID of This Game on the Steam Store. Used by the ProtonDB Rating and the Steam Source; Artwork Keeps Its Own Source AppID.")
+                    Controls.ToolTip.visible: hovered
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Controls.Label {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                    text: qsTr("VNDB ID:")
+                }
+                Controls.TextField {
+                    id: vndbIdField
+                    objectName: "settingsVndbId"
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("e.g. v2002")
+                    Controls.ToolTip.text: qsTr("VNDB Visual Novel of This Game. The VNDB Source Reads It Directly.")
+                    Controls.ToolTip.visible: hovered
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Controls.Label {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                    text: qsTr("IGDB ID:")
+                }
+                Controls.TextField {
+                    id: igdbIdField
+                    objectName: "settingsIgdbId"
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("e.g. 1145360")
+                    Controls.ToolTip.text: qsTr("IGDB Game of This Game. The IGDB Source Reads It Directly.")
+                    Controls.ToolTip.visible: hovered
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: gameSettings.searchSource === "proton"
+                Controls.Label {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                    text: qsTr("ProtonDB:")
+                }
+                Controls.Button {
+                    objectName: "settingsSearchProton"
+                    text: gameSettings.protonDBTier !== "" ? gameSettings.protonDBTier : qsTr("Not Rated")
+                    onClicked: gameSettings.fetchIdentity()
+                    Controls.ToolTip.text: qsTr("Read the Tier for the Steam AppID Above")
+                    Controls.ToolTip.visible: hovered
+                }
+                Controls.Button {
+                    objectName: "settingsSearchProtonOpen"
+                    text: qsTr("Open Page")
+                    enabled: (fields.is_steam || false) || steamAppIdField.text !== ""
+                    onClicked: {
+                        if (!gameModel.openProtonDB(editAppid, steamAppIdField.text)) {
+                            gameSettings.searchStatus = qsTr("Could Not Open the ProtonDB Page.")
+                        }
+                    }
+                }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: gameSettings.searchCandidates.length > 0
+                Repeater {
+                    objectName: "settingsSearchCandidates"
+                    model: gameSettings.searchCandidates
+                    delegate: Controls.Button {
+                        required property var modelData
+                        objectName: "settingsSearchCandidate"
+                        Layout.fillWidth: true
+                        text: modelData.name
+                        onClicked: gameSettings.pickCandidate(String(modelData.id))
+                    }
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                visible: gameSettings.metadataRows.length > 0
+                Controls.Label {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 7
+                    font.bold: true
+                    text: qsTr("Field")
+                }
+                Controls.Label {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredWidth: 1
+                    font.bold: true
+                    text: qsTr("Current")
+                }
+                Controls.Label {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredWidth: 1
+                    font.bold: true
+                    text: qsTr("New")
+                }
+            }
+            Repeater {
+                objectName: "metadataPreviewRows"
+                model: gameSettings.metadataRows
+                delegate: RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Controls.Label {
+                        Layout.preferredWidth: Kirigami.Units.gridUnit * 7
+                        elide: Text.ElideRight
+                        text: modelData.field
+                    }
+                    Controls.Label {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 1
+                        elide: Text.ElideRight
+                        opacity: 0.7
+                        text: modelData.current !== "" ? modelData.current : "—"
+                        Controls.ToolTip.text: modelData.current
+                        Controls.ToolTip.visible: hovered && modelData.current !== ""
+                    }
+                    Controls.Label {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredWidth: 1
+                        elide: Text.ElideRight
+                        opacity: modelData.locked ? 0.7 : 1
+                        text: modelData.locked ? qsTr("Locked") : modelData.next
+                        Controls.ToolTip.text: modelData.locked
+                            ? qsTr("Locked; Search Data Will Not Replace It")
+                            : modelData.next
+                        Controls.ToolTip.visible: hovered
+                    }
+                }
+            }
+            Controls.CheckBox {
+                id: metadataReplaceBox
+                objectName: "metadataPreviewReplace"
+                Layout.fillWidth: true
+                text: qsTr("Replace existing values")
+            }
+            Controls.Label {
+                objectName: "settingsMetadataStatus"
+                Layout.fillWidth: true
+                opacity: 0.7
+                wrapMode: Text.WordWrap
+                text: gameSettings.searchStatus
+            }
         }
-        Controls.CheckBox {
-            id: metadataReplaceBox
-            objectName: "metadataPreviewReplace"
+        Controls.ScrollView {
+            objectName: "searchArtworkScroll"
             Layout.fillWidth: true
-            text: qsTr("Replace existing values")
+            Layout.fillHeight: true
+            visible: searchTabs.currentIndex === 1
+            contentWidth: availableWidth
+            Item {
+                width: parent.width
+                implicitHeight: artPanel.implicitHeight
+                ColumnLayout {
+                    id: artPanel
+                    width: parent.width
+                    spacing: Kirigami.Units.smallSpacing
+                    SectionBox {
+                        title: qsTr("Artwork")
+                        Layout.fillWidth: true
+                        // The preview strip spans the section, outside
+                        // the form's label column: four boxes need the
+                        // whole width. The tile is also the picker; the
+                        // group is centered between two spacers.
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Kirigami.Units.smallSpacing
+                            Controls.Label {
+                                text: qsTr("Previews:")
+                            }
+                            RowLayout {
+                                objectName: "artPreviewStrip"
+                                Layout.fillWidth: true
+                                spacing: Kirigami.Units.largeSpacing
+                                Item {
+                                    Layout.fillWidth: true
+                                }
+                                ArtworkPreview {
+                                    objectName: "artPreviewIcon"
+                                    artLabel: qsTr("Icon")
+                                    artUrl: gameSettings.artPreviewIcon
+                                    artOrigin: gameSettings.artOriginIcon
+                                    artRatio: 1
+                                    maxWidth: Kirigami.Units.gridUnit * 2.5
+                                    Layout.alignment: Qt.AlignBottom
+                                    onPicked: gameSettings.pickArtwork("icon")
+                                    onUrlRequested: gameSettings.openArtworkUrl("icon")
+                                    onClearRequested: gameSettings.clearArtwork("icon")
+                                }
+                                ArtworkPreview {
+                                    objectName: "artPreviewBanner"
+                                    artLabel: qsTr("Banner")
+                                    artUrl: gameSettings.artPreviewBanner
+                                    artOrigin: gameSettings.artOriginBanner
+                                    artRatio: 460 / 215
+                                    maxWidth: Kirigami.Units.gridUnit * 12
+                                    Layout.alignment: Qt.AlignBottom
+                                    onPicked: gameSettings.pickArtwork("banner")
+                                    onUrlRequested: gameSettings.openArtworkUrl("banner")
+                                    onClearRequested: gameSettings.clearArtwork("banner")
+                                }
+                                ArtworkPreview {
+                                    objectName: "artPreviewBackground"
+                                    artLabel: qsTr("Background")
+                                    artUrl: gameSettings.artPreviewBackground
+                                    artOrigin: gameSettings.artOriginBackground
+                                    // The backdrop starts as a copy of
+                                    // the banner: same preview box.
+                                    artRatio: 460 / 215
+                                    maxWidth: Kirigami.Units.gridUnit * 12
+                                    Layout.alignment: Qt.AlignBottom
+                                    onPicked: gameSettings.pickArtwork("background")
+                                    onUrlRequested: gameSettings.openArtworkUrl("background")
+                                    onClearRequested: gameSettings.clearArtwork("background")
+                                }
+                                ArtworkPreview {
+                                    objectName: "artPreviewCover"
+                                    artLabel: qsTr("Cover")
+                                    artUrl: gameSettings.artPreviewCover
+                                    artOrigin: gameSettings.artOriginCover
+                                    artRatio: 2 / 3
+                                    maxWidth: Kirigami.Units.gridUnit * 5
+                                    Layout.alignment: Qt.AlignBottom
+                                    onPicked: gameSettings.pickArtwork("cover")
+                                    onUrlRequested: gameSettings.openArtworkUrl("cover")
+                                    onClearRequested: gameSettings.clearArtwork("cover")
+                                }
+                                Item {
+                                    Layout.fillWidth: true
+                                }
+                            }
+                        }
+                        WidgetsFormLayout {
+                            labelWidth: artForm.naturalLabelWidth
+                            id: artForm
+                            Layout.fillWidth: true
+                            RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Artwork Source AppID:")
+                                Controls.TextField {
+                                    id: artSourceField
+                                    objectName: "artSource"
+                                    placeholderText: qsTr("Steam AppID (Optional)")
+                                    Layout.fillWidth: true
+                                    // Another app's art changes the
+                                    // thumbnails as soon as the field is
+                                    // done, like the fetch would.
+                                    onEditingFinished: gameSettings.refreshArtStatus()
+                                    Controls.ToolTip.text: qsTr("Steam AppID (Installed or Not) Whose Artwork This Game Uses Instead of Its Own.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.Button {
+                                    objectName: "artFetch"
+                                    text: qsTr("Fetch Artwork")
+                                    Layout.preferredWidth: gameSettings.artButtonWidth
+                                    Layout.minimumWidth: gameSettings.artButtonWidth
+                                    enabled: editAppid !== ""
+                                    onClicked: gameSettings.fetchArtwork()
+                                }
+                                Controls.Button {
+                                    objectName: "artClear"
+                                    text: qsTr("Clear…")
+                                    Layout.preferredWidth: gameSettings.artButtonWidth
+                                    Layout.minimumWidth: gameSettings.artButtonWidth
+                                    enabled: editAppid !== ""
+                                    onClicked: gameSettings.requestClearFetched()
+                                    Controls.ToolTip.text: qsTr("Remove the Artwork Downloaded for This Game or Its Artwork Source AppID")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Download From:")
+                                AppComboBox {
+                                    id: artProviderCombo
+                                    objectName: "artProvider"
+                                    Layout.fillWidth: true
+                                    textRole: "text"
+                                    valueRole: "data"
+                                    Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB and IGDB Are Community Artwork and Need a Key. The Other Providers Fill the Missing Kinds.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Item {
+                                    Layout.preferredWidth: gameSettings.artButtonWidth
+                                    Layout.minimumWidth: gameSettings.artButtonWidth
+                                }
+                                Item {
+                                    Layout.preferredWidth: gameSettings.artButtonWidth
+                                    Layout.minimumWidth: gameSettings.artButtonWidth
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                KirigamiLayouts.FormData.label: qsTr("Status:")
+                                Controls.Label {
+                                    id: artStatusLabel
+                                    objectName: "artStatus"
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 0
+                                    Layout.minimumWidth: 0
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

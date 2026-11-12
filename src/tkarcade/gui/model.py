@@ -85,6 +85,41 @@ def _apply_metadata(cfg, data: dict) -> None:
         md.tags = cfgmod.normalize_categories(raw_tags)
 
 
+def _fill_steam_metadata(cfg, data: dict) -> bool:
+    """Fill a config's empty metadata fields from a Steam store payload.
+
+    Fill-empty only, and a locked field stays out even when it is empty: a
+    lock is a decision, not a default. Returns whether anything changed.
+    """
+    md = cfg.metadata
+    locked = set(cfgmod.normalize_locked_fields(md.locked).split(","))
+    changed = False
+    for name in ("description", "developer", "publisher", "genre", "series"):
+        value = str(data.get(name, "") or "").strip()
+        if value and name not in locked and not getattr(md, name):
+            setattr(md, name, value)
+            changed = True
+    date = str(data.get("date", "") or "").strip()
+    if date and "date" not in locked and not md.date and cfgmod.metadata_date_valid(date):
+        md.date = date
+        changed = True
+    ratings = data.get("age_ratings")
+    known = [
+        str(value).strip()
+        for value in (ratings if isinstance(ratings, list) else [])
+        if str(value).strip() in cfgmod.AGE_RATINGS
+    ]
+    if known and "age_ratings" not in locked and not md.age_ratings:
+        md.age_ratings = list(dict.fromkeys(known))
+        changed = True
+    raw_tags = data.get("tags")
+    tags = cfgmod.normalize_categories(raw_tags if isinstance(raw_tags, list) else [])
+    if tags and not md.tags:
+        md.tags = tags
+        changed = True
+    return changed
+
+
 #: Solid status badge colors (background, text). The text is always black:
 #: every background is light enough for WCAG AA at badge size.
 STATUS_STYLE: dict[str, tuple[str, str]] = {
@@ -1191,13 +1226,16 @@ class GameListModel(QAbstractTableModel):
         return appid
 
     def _fetch_on_save(self, appid: str, needed: bool) -> None:
-        """A game added here looks up its tier, date and art at once.
+        """A game added here looks up its tier, date, art and metadata at once.
 
         A changed Steam store link triggers the same lookup, so the new
-        ProtonDB tier does not wait for the next start.
+        ProtonDB tier does not wait for the next start. Only a Steam id
+        gets the store metadata.
         """
         if needed:
-            self._fetch_async([appid])
+            # A Steam game also gets its store metadata here: the source is
+            # official and a just-added game has nothing to lose.
+            self._fetch_async([appid], enrich=True)
 
     @staticmethod
     def _new_local_game(data: dict):
@@ -4277,13 +4315,17 @@ class GameListModel(QAbstractTableModel):
         """
         self._fetch_async()
 
-    def _fetch_async(self, appids=None) -> None:
-        """Start the stale-data fetch off-thread: every game, or a subset."""
+    def _fetch_async(self, appids=None, enrich: bool = False) -> None:
+        """Start the stale-data fetch off-thread: every game, or a subset.
+
+        ``enrich`` also writes the store metadata of a Steam id; only the
+        save path asks for it, never the startup pass.
+        """
         if os.environ.get("TKARCADE_NO_BG_FETCH"):
             return
-        threading.Thread(target=self._fetch_worker, args=(appids,), daemon=True).start()
+        threading.Thread(target=self._fetch_worker, args=(appids, enrich), daemon=True).start()
 
-    def _fetch_worker(self, appids=None) -> None:
+    def _fetch_worker(self, appids=None, enrich: bool = False) -> None:
         try:
             prefs = cfgmod.load_preferences()
             api_key = prefs.sgdb_api_key.strip()
@@ -4291,27 +4333,58 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             api_key, default = "", "steam"
         for appid in list(appids) if appids is not None else cfgmod.list_appids():
-            if not steammod.is_steam_id(str(appid)):
-                target = self._steam_target(str(appid))
-                if target:
-                    self._refresh_protondb(str(appid), target)
-            provider = self._game_provider(str(appid), default)
-            source = self._art_source(str(appid))
-            if source.isdigit():
-                # The Artwork Source AppID is a plain Steam appid, never a
-                # configured one: download it on its own.
-                self._fetch_steam_art(source, api_key, provider)
-            elif steammod.is_steam_id(str(appid)):
-                self._fetch_one(appid, api_key, provider, steammod.steam_appid(str(appid)))
-            else:
-                # A local game without an AppID: its art comes from the name.
-                names = self._name_queries(str(appid))
-                if names:
-                    self._fetch_local(str(appid), names, api_key, provider)
+            self._fetch_game(str(appid), api_key, default, enrich)
         try:
             self.backgroundDone.emit()
         except Exception:
             pass
+
+    def _fetch_game(self, appid: str, api_key: str, default: str, enrich: bool) -> None:
+        """Refresh one game's stale tier, release date and art (worker only)."""
+        if not steammod.is_steam_id(appid):
+            target = self._steam_target(appid)
+            if target:
+                self._refresh_protondb(appid, target)
+        provider = self._game_provider(appid, default)
+        source = self._art_source(appid)
+        if source.isdigit():
+            # The Artwork Source AppID is a plain Steam appid, never a
+            # configured one: download it on its own.
+            self._fetch_steam_art(source, api_key, provider)
+        elif steammod.is_steam_id(appid):
+            self._fetch_one(appid, api_key, provider, steammod.steam_appid(appid))
+        else:
+            # A local game without an AppID: its art comes from the name.
+            names = self._name_queries(appid)
+            if names:
+                self._fetch_local(appid, names, api_key, provider)
+        if enrich and steammod.is_steam_id(appid):
+            self._enrich_steam(appid)
+
+    def _enrich_steam(self, appid: str) -> None:
+        """Write a just-added Steam game's store metadata (background).
+
+        Fill-empty and the locks decide what lands; a failed fetch changes
+        nothing, and the metadata cache keeps a re-add from asking twice.
+        """
+        try:
+            data = metamod.download("steam", appid)
+        except Exception as e:
+            log.debug("steam metadata(%s) failed: %s", appid, e)
+            return
+        if not data:
+            return
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception as e:
+            log.debug("steam metadata(%s) load failed: %s", appid, e)
+            return
+        if not _fill_steam_metadata(cfg, data):
+            return
+        try:
+            cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("steam metadata(%s) save failed: %s", appid, e)
 
     def _fetch_one(self, appid, api_key: str, provider: str, target: str) -> None:
         """Refresh ProtonDB, the release date (and art) for one Steam appid."""

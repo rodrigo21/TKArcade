@@ -248,11 +248,6 @@ def _tray_callbacks(root, log) -> dict:
     }
 
 
-#: Tab index of "Artwork/Notes" in GameSettings.qml's TabBar (General
-#: first, System before it). Keep in step when a tab is inserted.
-SETTINGS_TAB_ARTWORK = 7
-
-
 def parse_open_request(spec: str) -> tuple[str, str]:
     """Split a `TKARCADE_OPEN` value into (surface, argument).
 
@@ -283,7 +278,9 @@ def _open_settings(root, appid: str) -> None:
 
 def _open_artwork(root, appid: str) -> None:
     _open_settings(root, appid)
-    _child(root, "settingsTabs").setProperty("currentIndex", SETTINGS_TAB_ARTWORK)
+    # The art controls live in the Search Data window now: open it on its
+    # Artwork tab instead of a settings tab that no longer exists.
+    _child(root, "gameSettings").openSearchDataArtwork()
 
 
 def _open_prefs(root) -> None:

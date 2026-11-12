@@ -23,6 +23,9 @@ ColumnLayout {
     property bool checkable: false
     property alias checked: titleBox.checked
     default property alias content: frameColumn.data
+    // Controls on the title line, right-aligned: one section carries an
+    // action next to its name.
+    property alias actions: actionsRow.data
     property real padding: Kirigami.Units.largeSpacing
     // Content-driven height by default (a form or a list of fields). Set
     // this when the content has to stretch to the page instead — an
@@ -45,12 +48,29 @@ ColumnLayout {
         text: root.title
     }
 
-    Controls.Label {
-        objectName: "sectionTitleText"
+    // The title line: the centered title plus an optional right-aligned
+    // action slot. The title still centers on the box, so a section with
+    // no action lays out exactly as before.
+    Item {
+        objectName: "sectionTitleRow"
         Layout.fillWidth: true
+        implicitHeight: Math.max(titleText.implicitHeight, actionsRow.implicitHeight)
         visible: !root.checkable && root.title !== ""
-        text: root.title
-        horizontalAlignment: Text.AlignHCenter
+
+        Controls.Label {
+            id: titleText
+            objectName: "sectionTitleText"
+            anchors.centerIn: parent
+            width: implicitWidth
+            text: root.title
+            horizontalAlignment: Text.AlignHCenter
+        }
+        RowLayout {
+            id: actionsRow
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Kirigami.Units.smallSpacing
+        }
     }
 
     Controls.Frame {
