@@ -10,28 +10,30 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: forty-five batches. The latest is C7: IGDB as the third
-  artwork provider (cover and banner from `[metadata] igdb_id`, no
-  name search, no icon) and the fallback order fixed for three sources.
-  Before it, C6: the IGDB metadata adapter, the Twitch credentials
-  (`[ui] igdb_client_id`/`igdb_client_secret`), the Metadata Source menu
-  on Details and `[metadata] igdb_id`. C5 (PCGamingWiki) is dropped:
-  Cloudflare answers a plain HTTP client, and IGDB carries its fields.
-- Verified: `scripts/check.sh --changed` with the QML driver (747
-  passed, 3 skipped) and offscreen screenshots of the Metadata rows,
-  the Preferences Metadata section and the art provider popup.
-- Next: C8, online categories/tags in bulk, then the library import. A
-  real-key IGDB smoke test waits on the maintainer's Twitch
-  application; the adapters and their fixtures do not. Epic/GOG is 2.0.
-  The 1.0 visual pass, the packaging check, the shim removal and the
-  release pass wait for the maintainer's release call.
+- Landed: forty-six batches. The latest is C8: online tags. The three
+  providers return a `tags` list (Steam genres, store features and
+  franchise; IGDB genres, franchise, themes and keywords; VNDB
+  non-spoiler tags rated 2.0+, top 20), Download Metadata previews a
+  Tags row and writes `[metadata] tags`, and Details shows the list
+  read-only next to Series. Categories stay manual. There is no bulk
+  tag action: it was built and removed at the maintainer's call. The
+  metadata cache payload carries `CACHE_VERSION = 2`.
+- Verified: `scripts/check.sh --qml` (750 passed, 3 skipped) and
+  offscreen screenshots of the Details Tags row and the metadata
+  preview.
+- Next: the maintainer's new changes (not scoped yet), then the library
+  import. Open follow-up: after the import, decide whether categories
+  derive from the tags, whether the tags get a filter/editor and whether
+  a bulk download is worth it. Epic/GOG is 2.0. The 1.0 visual pass, the
+  packaging check, the shim removal and the release pass wait for the
+  maintainer's release call.
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
   checks while iterating, one verification pass on the approved diff.
   Translations stay suspended (English-only new strings) until the 1.0
   pass restores the catalog.
-- Open decisions: none block C8. `docs/plans/epic-gog-sources.md` is
-  parked for 2.0 with its own four decisions (scope, discovery, launch,
-  import UI).
+- Open decisions: none block the next theme.
+  `docs/plans/epic-gog-sources.md` is parked for 2.0 with its own four
+  decisions (scope, discovery, launch, import UI).
 - Nothing blocking.
