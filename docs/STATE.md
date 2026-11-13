@@ -10,27 +10,30 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: forty-seven batches. The latest is the Search Data window: one
-  modal per game (opened from the Information title) with a Metadata tab
-  (source Steam/VNDB/IGDB/ProtonDB, name-or-id search, candidate
-  buttons, identity fields, preview rows, Replace) and an Artwork tab
-  (the four slots, Source AppID, Download From, Fetch/Clear). The
-  Details tab lost the source menu, the Download Metadata action and the
-  Steam/VNDB/IGDB fields, gained a `Matches:` line and a four-tile art
-  strip, kept the ProtonDB badge and the Tags row with its Clear, and
-  Notes moved to its end: six tabs. A new Steam game also fills its
-  store metadata on save (fill-empty, locks respected, tags and date
-  included). Record: `docs/decisions/metadata-window.md`.
-- Verified: `scripts/check.sh --qml` (753 passed, 3 skipped), `qmllint`,
-  `tests/test_docs.py`, offscreen screenshots of Details, the Add dialog
-  and both window tabs at normal, minimum and intermediate widths.
+- Landed: forty-eight batches. The latest fixed the Search Data and
+  artwork behaviour the maintainer reported: **Clear** now empties the
+  tile for real — the ✕ deletes that kind's downloaded copy, and both
+  Clear buttons write marks (`cleared` / `cleared_kinds` in the artwork
+  sidecar) that hide Steam's own art, the exe icon and the
+  cover/banner siblings until **Fetch Artwork**; a manual pick or a
+  forced fetch drops the marks. The Steam metadata source gained the
+  store title search (`storemeta.search`), looks a known AppID up as the
+  window opens with no Find row (a local game's store link refetches when
+  edited), and the month-first release date ("Jun 11, 2021") parses,
+  bumping the metadata cache to version 3. The Search Data window is
+  30 grid units and both tabs scroll, so fields start at the top. Record:
+  the CHANGELOG entry; VNDB releases are parked in `TODO.md`.
+- Verified: `scripts/check.sh --qml` (758 passed, 3 skipped), `qmllint`
+  on `GameSettings.qml`, and six offscreen screenshots (Metadata with and
+  without rows, a local game at default and minimum width, Artwork at both
+  widths): no clipped control, no blank band above the first row.
 - Next: the maintainer's new changes (not scoped yet), then the library
-  import. Open follow-up: after the import, decide whether categories
-  derive from tags, whether the tags get a filter/editor and whether a
-  bulk download is worth it. Epic/GOG is 2.0, and so is the IGDB
-  per-user credential review (`TODO.md`). The 1.0 visual pass, the
-  packaging check, the shim removal and the release pass wait for the
-  maintainer's release call.
+  import. The VNDB release picker sits in `TODO.md` before 1.0. Open
+  follow-up: after the import, decide whether categories derive from
+  tags, whether the tags get a filter/editor and whether a bulk download
+  is worth it. Epic/GOG is 2.0, and so is the IGDB per-user credential
+  review (`TODO.md`). The 1.0 visual pass, the packaging check, the shim
+  removal and the release pass wait for the maintainer's release call.
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
