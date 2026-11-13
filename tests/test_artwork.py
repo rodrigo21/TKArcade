@@ -742,6 +742,27 @@ def test_cleared_kind_hides_the_cover_and_steam_art(monkeypatch, xdg_env):
     assert art.is_kind_cleared("620", "icon") is False
 
 
+def test_forced_fetch_restores_the_cleared_background(monkeypatch, xdg_env):
+    """The backdrop has no download of its own: Fetch drops its mark too."""
+    _stub(
+        monkeypatch,
+        [
+            (APP_INFO, _steam_apps("Portal 2", "abc")),
+            ("abc.ico", _ico_with_png_frame()),
+            ("library_600x900_2x.jpg", b"COVER"),
+            ("library_hero.jpg", b"HERO"),
+        ],
+    )
+    art.fetch_best("620", "steam", "")
+    assert art.resolve("620", "background")[0] is not None
+    art.clear_kind("620", "background")
+    assert art.is_kind_cleared("620", "background") is True
+    assert art.resolve("620", "background") == (None, "")
+    art.fetch_best("620", "steam", "", force=True)
+    assert art.is_kind_cleared("620", "background") is False
+    assert art.resolve("620", "background")[0] is not None
+
+
 def test_clear_hides_the_exe_icon_until_a_fetch(monkeypatch, xdg_env, tmp_path):
     """A cleared local game shows no executable icon either."""
     monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")

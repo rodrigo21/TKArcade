@@ -218,15 +218,16 @@ the same installed value.
 
 **Game dialog** — six tabs: Details (the game, optional `version`/`date`/
 `tag` metadata shown as name suffixes, categories, the identity line, a
-ProtonDB rating linking to its page, a strip of the four artwork
-previews and the Notes box at the end), Execution, Commands,
+ProtonDB rating linking to its page — a local game gets a search
+button beside it — one banner artwork preview and the
+Notes box at the end), Execution, Commands,
 Performance, Display and System.
 Developer, publisher, genre, series, age ratings (CERO/ClassInd/ESRB/PEGI
 first, the other boards behind a divider and switch), region, status,
 description and Notes stay manual, with a lock toggle on each row that
-keeps that field out of every download. A **Search Data** button next to
+keeps that field out of every download. An icon button next to
 the Information title opens a window with two tabs. **Metadata** picks
-the source (Steam, VNDB, IGDB or ProtonDB) and holds the Steam AppID,
+the source (Steam, VNDB or IGDB) and holds the Steam AppID,
 VNDB and IGDB identity fields: a known Steam AppID — a Steam game's own,
 or a local game's store link — is looked up as the window opens and
 leaves no query row, while a local game without one searches the Steam

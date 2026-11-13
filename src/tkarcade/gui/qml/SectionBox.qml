@@ -48,9 +48,9 @@ ColumnLayout {
         text: root.title
     }
 
-    // The title line: the centered title plus an optional right-aligned
-    // action slot. The title still centers on the box, so a section with
-    // no action lays out exactly as before.
+    // The title line: the centered title plus an optional action slot
+    // right after it. The title still centers on the box, so a section
+    // with no action lays out exactly as before.
     Item {
         objectName: "sectionTitleRow"
         Layout.fillWidth: true
@@ -67,7 +67,8 @@ ColumnLayout {
         }
         RowLayout {
             id: actionsRow
-            anchors.right: parent.right
+            anchors.left: titleText.right
+            anchors.leftMargin: Kirigami.Units.smallSpacing
             anchors.verticalCenter: parent.verticalCenter
             spacing: Kirigami.Units.smallSpacing
         }

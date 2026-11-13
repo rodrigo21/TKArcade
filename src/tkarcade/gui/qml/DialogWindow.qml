@@ -28,6 +28,9 @@ Window {
     // the user resizes the window; the initial height still hugs the
     // content.
     property bool bodyFillHeight: false
+    // Buttons on the footer's left edge, the widgets dialog's action side
+    // (the accept/cancel pair sits on the right).
+    property alias leadingActions: leadingRow.data
     default property alias content: extraColumn.data
 
     signal accepted()
@@ -64,6 +67,10 @@ Window {
         }
         RowLayout {
             Layout.fillWidth: true
+            RowLayout {
+                id: leadingRow
+                spacing: Kirigami.Units.smallSpacing
+            }
             Item {
                 Layout.fillWidth: true
             }

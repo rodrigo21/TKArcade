@@ -1060,7 +1060,7 @@ def fetch_sgdb_game(
     if not force and is_cleared(gid):
         return {}
     if force:
-        unmark_cleared(gid, kinds)
+        unmark_cleared(gid)
     wanted = _missing_kinds(gid, kinds, force)
     out: dict[str, Path] = {}
     for kind in wanted:
@@ -1240,9 +1240,11 @@ def fetch_best(
     """
     gid = _art_key(appid)
     if force:
-        # Fetch Artwork is explicit: the user wants the art back, so the
-        # marker that keeps the background fetch away goes.
-        unmark_cleared(gid, kinds)
+        # Fetch Artwork is explicit: the user wants the art back, so every
+        # marker that keeps the background fetch away goes, including the
+        # kinds no provider downloads (`background` falls back to the
+        # banner).
+        unmark_cleared(gid)
     if not gid.isdigit():
         return _fetch_named(gid, names, api_key, kinds, force, provider)
     return _fetch_numeric(gid, provider, api_key, kinds, force)

@@ -52,7 +52,8 @@ Window {
     // from the footer, and the choice persists like the two blocks above.
     property bool profileBarVisible: true
     // ProtonDB is a read-only badge on Details; the cache is global and
-    // keyed by the game ID. A local game links its Steam store page in
+    // keyed by the game ID, and a double-click opens the page like the
+    // library tier cell. A local game links its Steam store page in
     // [metadata] steam_appid, kept apart from the artwork source AppID.
     property string protonDBTier: ""
     property string protonDBBg: ""
@@ -61,7 +62,7 @@ Window {
     // candidate list.
     property bool searchBusy: false
     property string searchStatus: ""
-    // Provider the window reads from: steam, vndb, igdb or proton.
+    // Provider the window reads from: steam, vndb or igdb.
     property string searchSource: ""
     // Preview rows for the provider answer: {key, field, current, next,
     // values} for every field it answered. Apply is the only writer, into
@@ -76,8 +77,11 @@ Window {
     // With an AppID there is nothing to find, so the query row stays out.
     readonly property bool steamIdentity: (fields.is_steam || false)
         || steamAppIdField.text.trim() !== ""
-    readonly property bool searchQueryVisible: searchSource === "steam"
-        ? !steamIdentity : searchSource !== "proton"
+    // The Steam link search stays reachable even when an AppID is set: the
+    // Details find button forces the query row.
+    property bool searchQueryForced: false
+    readonly property bool searchQueryVisible: searchQueryForced
+        || !(searchSource === "steam" && steamIdentity)
     // Age ratings are a fixed-board checklist, stored as a list.
     property var ageRatings: []
     // Online tags: read-only on Details and distinct from the categories.
@@ -1719,9 +1723,10 @@ Window {
         searchStatus = ""
         searchCandidates = []
         metadataRows = []
+        searchQueryForced = false
         searchSource = defaultMetadataProvider()
         searchSourceBox.currentIndex = Math.max(0,
-            ["steam", "vndb", "igdb", "proton"].indexOf(searchSource))
+            ["steam", "vndb", "igdb"].indexOf(searchSource))
         searchQueryField.text = nameField.text.trim()
         searchData.open(gameSettings)
         searchTabs.currentIndex = 0
@@ -1743,11 +1748,25 @@ Window {
         if (searchSource === "") {
             searchSource = defaultMetadataProvider()
             searchSourceBox.currentIndex = Math.max(0,
-                ["steam", "vndb", "igdb", "proton"].indexOf(searchSource))
+                ["steam", "vndb", "igdb"].indexOf(searchSource))
         }
         refreshArtStatus()
         searchData.open(gameSettings)
         searchTabs.currentIndex = 1
+    }
+
+    // A local game's store link, with or without one already: the window
+    // opens on the Steam source with the name ready, so the rating has a
+    // target or can be pointed at another match.
+    function openSearchDataFind() {
+        if (editAppid === "") {
+            return
+        }
+        openSearchData()
+        searchQueryForced = true
+        searchSource = "steam"
+        searchSourceBox.currentIndex = 0
+        searchQueryField.forceActiveFocus()
     }
 
     // The identity of the current source, from the draft fields.
@@ -1787,10 +1806,6 @@ Window {
     }
 
     function fetchIdentity() {
-        if (searchSource === "proton") {
-            refreshProtonDB()
-            return
-        }
         if (searchSource === "igdb" && !gameModel.igdbConfigured()) {
             searchStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
             return
@@ -1815,15 +1830,11 @@ Window {
             return
         }
         steamAutoName = false
-        if (searchSource === "proton") {
-            refreshProtonDB()
-            return
-        }
         if (searchSource === "igdb" && !gameModel.igdbConfigured()) {
             searchStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
             return
         }
-        if (searchSource === "steam" && steamIdentity) {
+        if (searchSource === "steam" && steamIdentity && !searchQueryForced) {
             // The AppID answers for itself: the query row is hidden here.
             searchCandidates = []
             metadataRows = []
@@ -1853,10 +1864,9 @@ Window {
         searchCandidates = []
         metadataRows = []
         steamAutoName = false
+        searchQueryForced = false
         searchSource = String(searchSourceBox.currentValue || "steam")
-        if (searchSource === "proton") {
-            refreshProtonDB()
-        } else if (searchSource === "steam" && steamIdentity) {
+        if (searchSource === "steam" && steamIdentity) {
             steamAutoName = true
             fetchIdentity()
         }
@@ -2610,61 +2620,74 @@ Window {
                                             color: gameSettings.protonDBFg !== ""
                                                 ? gameSettings.protonDBFg : Kirigami.Theme.textColor
                                         }
-                                        onClicked: {
+                                        onDoubleClicked: {
                                             if (!gameModel.openProtonDB(editAppid, steamAppIdField.text)) {
                                                 settingsError.text = qsTr("Could Not Open the ProtonDB Page.")
                                             }
                                         }
-                                        Controls.ToolTip.text: qsTr("Open ProtonDB Page")
+                                        Controls.ToolTip.text: qsTr("Double-Click to Open the ProtonDB Page")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    // A local game without a store link would
+                                    // dead-end on "Not Rated": one click
+                                    // opens the Steam title search.
+                                    Controls.ToolButton {
+                                        objectName: "settingsProtonDBFind"
+                                        visible: !(fields.is_steam || false)
+                                        enabled: editAppid !== ""
+                                        // Framed: the style's ToolButton is
+                                        // flat by default, and a bare icon
+                                        // would not read as an action.
+                                        flat: false
+                                        display: Controls.AbstractButton.IconOnly
+                                        Accessible.name: qsTr("Find Steam AppID")
+                                        icon.name: gameModel.iconName(["edit-find-symbolic", "edit-find"])
+                                        onClicked: gameSettings.openSearchDataFind()
+                                        Controls.ToolTip.text: qsTr("Find This Game on the Steam Store by Name")
                                         Controls.ToolTip.visible: hovered
                                     }
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Artwork:")
-                                    Repeater {
-                                        objectName: "settingsArtStrip"
-                                        model: [
-                                            { "url": gameSettings.artPreviewIcon,
-                                              "label": qsTr("Icon") },
-                                            { "url": gameSettings.artPreviewCover,
-                                              "label": qsTr("Cover") },
-                                            { "url": gameSettings.artPreviewBanner,
-                                              "label": qsTr("Banner") },
-                                            { "url": gameSettings.artPreviewBackground,
-                                              "label": qsTr("Background") }
-                                        ]
-                                        delegate: Item {
-                                            required property var modelData
-                                            Layout.preferredWidth: Kirigami.Units.gridUnit * 4
-                                            Layout.preferredHeight: Kirigami.Units.gridUnit * 3
-                                            Image {
-                                                anchors.fill: parent
-                                                source: modelData.url
-                                                fillMode: Image.PreserveAspectCrop
-                                                asynchronous: true
-                                                visible: modelData.url !== ""
-                                            }
-                                            Rectangle {
-                                                anchors.fill: parent
-                                                visible: modelData.url === ""
-                                                color: "transparent"
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: Kirigami.Theme.disabledTextColor
-                                            }
+                                    // One banner, drawn whole: at this height
+                                    // an icon or a cover crops or stretches,
+                                    // and the wide shape is what the Artwork
+                                    // tab previews. The tile opens that tab.
+                                    Item {
+                                        objectName: "settingsArtPreview"
+                                        Layout.preferredWidth: Math.round(
+                                            Kirigami.Units.gridUnit * 4 * 460 / 215)
+                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 4
+                                        Image {
+                                            anchors.fill: parent
+                                            source: gameSettings.artPreviewBanner
+                                            fillMode: Image.PreserveAspectFit
+                                            asynchronous: true
+                                            visible: gameSettings.artPreviewBanner !== ""
+                                        }
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            visible: gameSettings.artPreviewBanner === ""
+                                            color: "transparent"
+                                            radius: 4
+                                            border.width: 1
+                                            border.color: Kirigami.Theme.disabledTextColor
                                             Controls.Label {
                                                 anchors.centerIn: parent
-                                                visible: modelData.url === ""
                                                 opacity: 0.6
-                                                text: modelData.label
-                                            }
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: gameSettings.openSearchDataArtwork()
+                                                text: qsTr("Banner")
                                             }
                                         }
+                                        HoverHandler {
+                                            id: bannerHover
+                                            cursorShape: Qt.PointingHandCursor
+                                        }
+                                        TapHandler {
+                                            onTapped: gameSettings.openSearchDataArtwork()
+                                        }
+                                        Controls.ToolTip.text: qsTr("Click to Open the Artwork Tab")
+                                        Controls.ToolTip.visible: bannerHover.hovered
                                     }
                                     Item {
                                         Layout.fillWidth: true
@@ -2681,9 +2704,17 @@ Window {
                             Layout.fillHeight: true
                             fillHeight: true
                             visible: !defaultsMode
-                            actions: Controls.Button {
+                            actions: Controls.ToolButton {
                                 objectName: "settingsMetadataFetch"
-                                text: qsTr("Search Data")
+                                // Icon only, right beside the section title:
+                                // the accessible name and the tooltip carry
+                                // the action. A ToolButton is compact, but
+                                // this style draws it flat unless told
+                                // otherwise, and an icon alone is not a
+                                // button there.
+                                flat: false
+                                display: Controls.AbstractButton.IconOnly
+                                Accessible.name: qsTr("Search Data")
                                 icon.name: gameModel.iconName(["edit-find-symbolic", "edit-find"])
                                 enabled: editAppid !== ""
                                 onClicked: gameSettings.openSearchData()
@@ -4822,8 +4853,16 @@ Window {
         height: Kirigami.Units.gridUnit * 30
         bodyFillHeight: true
         acceptText: qsTr("Apply")
-        acceptVisible: gameSettings.searchSource !== "proton"
         rejectText: qsTr("Close")
+        // The tab's action lives in the dialog footer, the widgets button
+        // box order: actions lead, Apply/Close close the row.
+        leadingActions: Controls.Button {
+            objectName: "settingsMetadataSearch"
+            text: qsTr("Search")
+            visible: searchTabs.currentIndex === 0
+            enabled: !gameSettings.searchBusy
+            onClicked: gameSettings.searchDataAgain()
+        }
         onAccepted: gameSettings.applyMetadataRows()
         Controls.TabBar {
             id: searchTabs
@@ -4862,8 +4901,7 @@ Window {
                             model: [
                                 { "text": qsTr("Steam"), "data": "steam" },
                                 { "text": qsTr("VNDB"), "data": "vndb" },
-                                { "text": qsTr("IGDB"), "data": "igdb" },
-                                { "text": qsTr("ProtonDB"), "data": "proton" }
+                                { "text": qsTr("IGDB"), "data": "igdb" }
                             ]
                             textRole: "text"
                             valueRole: "data"
@@ -4885,12 +4923,6 @@ Window {
                             Layout.fillWidth: true
                             placeholderText: qsTr("Name, VNDB ID (v2002) or IGDB/Steam AppID")
                             onAccepted: gameSettings.searchDataAgain()
-                        }
-                        Controls.Button {
-                            objectName: "settingsMetadataSearch"
-                            text: qsTr("Search")
-                            enabled: !gameSettings.searchBusy
-                            onClicked: gameSettings.searchDataAgain()
                         }
                     }
                     RowLayout {
@@ -4947,31 +4979,6 @@ Window {
                             placeholderText: qsTr("e.g. 1145360")
                             Controls.ToolTip.text: qsTr("IGDB Game of This Game. The IGDB Source Reads It Directly.")
                             Controls.ToolTip.visible: hovered
-                        }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        visible: gameSettings.searchSource === "proton"
-                        Controls.Label {
-                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
-                            text: qsTr("ProtonDB:")
-                        }
-                        Controls.Button {
-                            objectName: "settingsSearchProton"
-                            text: gameSettings.protonDBTier !== "" ? gameSettings.protonDBTier : qsTr("Not Rated")
-                            onClicked: gameSettings.fetchIdentity()
-                            Controls.ToolTip.text: qsTr("Read the Tier for the Steam AppID Above")
-                            Controls.ToolTip.visible: hovered
-                        }
-                        Controls.Button {
-                            objectName: "settingsSearchProtonOpen"
-                            text: qsTr("Open Page")
-                            enabled: (fields.is_steam || false) || steamAppIdField.text !== ""
-                            onClicked: {
-                                if (!gameModel.openProtonDB(editAppid, steamAppIdField.text)) {
-                                    gameSettings.searchStatus = qsTr("Could Not Open the ProtonDB Page.")
-                                }
-                            }
                         }
                     }
                     ColumnLayout {

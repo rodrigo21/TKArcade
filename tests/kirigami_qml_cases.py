@@ -7187,6 +7187,38 @@ def test_settings_local_steam_appid_and_protondb(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     pdb = swin.findChild(QQuickItem, "settingsProtonDB")
     assert pdb.property("text") == "Gold"
+    # Read-only badge: a single click does nothing, a double-click opens
+    # the page like the library tier cell. Run before the modal search
+    # window opens, which blocks the settings window.
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtTest import QTest
+
+    opened = []
+    model = engine.rootContext().contextProperty("gameModel")
+    model.openProtonDB = lambda appid, target="": opened.append((appid, target)) or True
+    _click(swin, "settingsProtonDB")
+    assert opened == []
+    centre = QPointF(pdb.property("width") / 2, pdb.property("height") / 2)
+    QTest.mouseDClick(
+        swin,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+        pdb.mapToScene(centre).toPoint(),
+    )
+    QTest.qWait(30)
+    assert opened == [("local-doom", "620")], opened
+    # The find button stays for a game that already has a link: it opens the
+    # Steam title search so the link can point at another match.
+    assert swin.findChild(QQuickItem, "settingsProtonDBFind").isVisible() is True
+    _click(swin, "settingsProtonDBFind")
+    awin = _confirm_window(qgui_app, "searchData")
+    QTest.qWait(120)
+    provider = awin.findChild(QQuickItem, "settingsSearchSource")
+    assert provider.property("currentIndex") == 0, provider.property("currentIndex")
+    assert awin.findChild(QQuickItem, "settingsSearchQuery").isVisible() is True
+    assert awin.findChild(QQuickItem, "settingsSearchQuery").property("text") == "Doom"
+    awin.close()
+    qgui_app.processEvents()
     awin = _search_window(qgui_app)
     link = awin.findChild(QQuickItem, "settingsSteamAppId")
     assert link.isVisible() is True
@@ -7712,10 +7744,25 @@ def test_metadata_window_local_without_link_searches_by_name(qgui_app, xdg_env):
     model.searchMetadata = lambda appid, provider, title: searched.append((provider, appid, title))
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
-    _settings_window(qgui_app)
-    awin = _search_window(qgui_app)
+    swin = _settings_window(qgui_app)
+    # The "Not Rated" dead end offers the Steam title search: the window
+    # opens on the Steam source with the name ready.
+    from PySide6.QtCore import QMetaObject
+    from PySide6.QtTest import QTest
+
+    dlg = win.findChild(QObject, "gameSettings")
+    assert swin.findChild(QQuickItem, "settingsProtonDBFind").isVisible() is True
+    _click(swin, "settingsProtonDBFind")
+    awin = _confirm_window(qgui_app, "searchData")
+    QTest.qWait(80)
     assert fetched == []
     assert awin.findChild(QQuickItem, "settingsSearchQuery").isVisible() is True
+    provider = awin.findChild(QQuickItem, "settingsSearchSource")
+    assert provider.property("currentIndex") == 0, provider.property("currentIndex")
+    assert awin.findChild(QQuickItem, "settingsSearchQuery").property("text") == "Doom"
+    # Back to the local game's default source for the rest of the case.
+    provider.setProperty("currentIndex", 1)
+    assert QMetaObject.invokeMethod(dlg, "changeSearchSource") is True
     _click(awin, "settingsMetadataSearch")
     # The default source for a local game is VNDB, which searches by name.
     assert searched == [("vndb", "local-doom", "Doom")], searched
@@ -7740,7 +7787,7 @@ def test_metadata_igdb_provider_and_picker(qgui_app, xdg_env):
     model = engine.rootContext().contextProperty("gameModel")
     dlg = win.findChild(QObject, "gameSettings")
     provider = awin.findChild(QQuickItem, "settingsSearchSource")
-    assert provider.property("count") == 4
+    assert provider.property("count") == 3
     status = awin.findChild(QQuickItem, "settingsMetadataStatus")
     searches = []
     model.searchMetadata = lambda appid, name, title: searches.append((name, appid, title))

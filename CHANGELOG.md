@@ -181,22 +181,32 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- The game dialog's Details tab is tidier: **Search Data** is an icon-only
+  button right beside the Information title, with the action in its
+  tooltip; the Artwork row shows one whole banner preview at the Artwork
+  tab's shape instead of four cropped thumbnails; and the ProtonDB badge
+  opens the page on a double-click, like the library tier cell.
+- ProtonDB is no longer a **Metadata Source**: the rating is not a
+  metadata field and that entry only re-read its cache. The source menu
+  lists Steam, VNDB and IGDB, Apply is always available, and the
+  ProtonDB row on Details gained a search button for a local game: it
+  opens the Steam title search with the name ready, with or without a
+  link, and the pick writes `[metadata] steam_appid`.
 - The Search Data window is shorter and its fields start at the top: the
   Metadata tab sits in a scroll area like the Artwork tab, instead of a
   fixed-height form that centered its content with blank space above and
   below.
 - Download Metadata is now **Search Data**, a window opened from the
   Information title: the source menu, the title search and the Steam,
-  VNDB and IGDB identity fields moved into it, and the ProtonDB tier is
-  read there. A query that looks like an id (`v2002`, `1145360`, an
-  AppID) goes straight to the provider; a name lists candidates in the
-  window instead of a separate picker. Apply still writes the draft and
-  Save persists it, and the Details tab keeps a "Matches:" line with the
-  identities in use.
+  VNDB and IGDB identity fields moved into it. A query that looks like an
+  id (`v2002`, `1145360`, an AppID) goes straight to the provider; a name
+  lists candidates in the window instead of a separate picker. Apply
+  still writes the draft and Save persists it, and the Details tab keeps
+  a "Matches:" line with the identities in use.
 - Artwork left the game dialog: the four slots, the Artwork Source
   AppID, the provider and Fetch/Clear now live in the Search Data
-  window's **Artwork** tab. Details shows a strip of the four previews
-  that opens it, Notes moved to the end of Details, and the seventh tab
+  window's **Artwork** tab. Details shows a banner preview that opens
+  it, Notes moved to the end of Details, and the seventh tab
   is gone: six tabs remain.
 - The game dialog tabs are now Details and Execution: Launch moved to the
   top of Execution and stays editable in Global Defaults, while the
@@ -445,6 +455,10 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Fetch Artwork brings back every artwork cleared with a tile's ✕,
+  including the background: the backdrop has no download of its own and
+  its cleared mark was never dropped, so the tile stayed empty even
+  after the banner returned.
 - A Steam release date written month first ("Jun 11, 2021") is parsed
   like the day-first form ("30 Nov, 2020"). The store answers both orders
   in the same English locale, and the month-first ones were silently
