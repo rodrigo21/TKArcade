@@ -373,6 +373,7 @@ def test_metadata_locks_are_normalized(xdg_env):
         "description,developer"
     )
     assert C.normalize_locked_fields(["version", "date"]) == "version,date"
+    assert C.normalize_locked_fields("Tags, developer") == "developer,tags"
     assert C.normalize_locked_fields("") == ""
     assert C.normalize_locked_fields(None) == ""
 

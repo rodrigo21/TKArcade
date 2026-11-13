@@ -91,6 +91,19 @@ Window {
     // [metadata] locked split into field names: a locked field is never
     // written by Download Metadata, even with the replace switch on.
     property var lockedFields: []
+    // Keys that carry a LockButton, mirroring config.LOCKABLE_FIELDS.
+    readonly property var lockableFields: [
+        "description", "developer", "publisher", "genre", "series",
+        "age_ratings", "region", "status", "tag", "tags", "version", "date"
+    ]
+    readonly property bool allLocked: {
+        for (var i = 0; i < lockableFields.length; i++) {
+            if (lockedFields.indexOf(lockableFields[i]) < 0) {
+                return false
+            }
+        }
+        return true
+    }
     // Wine/Proton only mean something for a Steam id (or the defaults
     // template): a local game has no compatdata prefix to edit.
     readonly property bool wineAvailable: defaultsMode || ((fields.is_steam || false) && editAppid !== "")
@@ -1681,6 +1694,12 @@ Window {
         lockedFields = next
     }
 
+    // The lock beside the Game title: every field at once. Each row keeps
+    // toggling on its own afterwards, so a partial set is one more click.
+    function toggleAllLocks() {
+        lockedFields = allLocked ? [] : lockableFields.slice()
+    }
+
     // Where Search Data starts: the stored identity wins, then Steam when
     // the game links an AppID, then VNDB, which is what a local game did
     // before the window existed.
@@ -2496,6 +2515,27 @@ Window {
                             Layout.fillWidth: true
                             // Identity is per game: the template has no game.
                             visible: !defaultsMode
+                            actions: Controls.Button {
+                                objectName: "settingsLockAll"
+                                // The global counterpart of the per-row
+                                // locks: same list, one click for all. A
+                                // Button with a fixed square: the style's
+                                // ToolButton stays frameless.
+                                Layout.preferredWidth: Kirigami.Units.gridUnit * 1.8
+                                Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
+                                display: Controls.AbstractButton.IconOnly
+                                Accessible.name: gameSettings.allLocked
+                                    ? qsTr("Unlock Every Metadata Field")
+                                    : qsTr("Lock Every Metadata Field")
+                                icon.name: gameModel.iconName(gameSettings.allLocked
+                                    ? ["object-locked", "changes-prevent-symbolic", "lock"]
+                                    : ["object-unlocked", "changes-allow-symbolic", "lock"])
+                                onClicked: gameSettings.toggleAllLocks()
+                                Controls.ToolTip.text: gameSettings.allLocked
+                                    ? qsTr("Unlock Every Metadata Field")
+                                    : qsTr("Lock Every Metadata Field")
+                                Controls.ToolTip.visible: hovered
+                            }
                             WidgetsFormLayout {
                                 labelWidth: generalColumn.labelWidth
                                 id: generalForm
@@ -2631,14 +2671,15 @@ Window {
                                     // A local game without a store link would
                                     // dead-end on "Not Rated": one click
                                     // opens the Steam title search.
-                                    Controls.ToolButton {
+                                    Controls.Button {
                                         objectName: "settingsProtonDBFind"
                                         visible: !(fields.is_steam || false)
                                         enabled: editAppid !== ""
-                                        // Framed: the style's ToolButton is
-                                        // flat by default, and a bare icon
+                                        // Fixed square: the style's ToolButton
+                                        // stays frameless, and a bare icon
                                         // would not read as an action.
-                                        flat: false
+                                        Layout.preferredWidth: Kirigami.Units.gridUnit * 1.8
+                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
                                         display: Controls.AbstractButton.IconOnly
                                         Accessible.name: qsTr("Find Steam AppID")
                                         icon.name: gameModel.iconName(["edit-find-symbolic", "edit-find"])
@@ -2704,15 +2745,14 @@ Window {
                             Layout.fillHeight: true
                             fillHeight: true
                             visible: !defaultsMode
-                            actions: Controls.ToolButton {
+                            actions: Controls.Button {
                                 objectName: "settingsMetadataFetch"
                                 // Icon only, right beside the section title:
                                 // the accessible name and the tooltip carry
-                                // the action. A ToolButton is compact, but
-                                // this style draws it flat unless told
-                                // otherwise, and an icon alone is not a
-                                // button there.
-                                flat: false
+                                // the action. A Button with a fixed square:
+                                // this style's ToolButton stays frameless.
+                                Layout.preferredWidth: Kirigami.Units.gridUnit * 1.8
+                                Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
                                 display: Controls.AbstractButton.IconOnly
                                 Accessible.name: qsTr("Search Data")
                                 icon.name: gameModel.iconName(["edit-find-symbolic", "edit-find"])
@@ -2819,6 +2859,11 @@ Window {
                                         onClicked: gameSettings.clearTags()
                                         Controls.ToolTip.text: qsTr("Clear the Online Tags; Save Persists It.")
                                         Controls.ToolTip.visible: hovered
+                                    }
+                                    LockButton {
+                                        key: "tags"
+                                        locked: gameSettings.isLocked("tags")
+                                        onClicked: gameSettings.toggleLock("tags")
                                     }
                                 }
                                 RowLayout {

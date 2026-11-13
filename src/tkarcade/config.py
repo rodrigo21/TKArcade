@@ -192,6 +192,7 @@ LOCKABLE_FIELDS = (
     "region",
     "status",
     "tag",
+    "tags",
     "version",
     "date",
 )

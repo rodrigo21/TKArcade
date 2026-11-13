@@ -37,6 +37,17 @@ def test_steam_metadata_fills_only_empty_and_unlocked(qgui_app, xdg_env):
     assert _fill_steam_metadata(cfg, payload) is False
 
 
+def test_steam_metadata_respects_a_locked_tags_list(qgui_app, xdg_env):
+    """A locked Tags list is not filled by the silent Steam pass."""
+    from tkarcade.gui.model import _fill_steam_metadata
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-620"
+    cfg.metadata.locked = "tags"
+    assert _fill_steam_metadata(cfg, {"tags": ["Action"]}) is False
+    assert cfg.metadata.tags == []
+
+
 def test_steam_metadata_drops_an_invalid_date(qgui_app, xdg_env):
     """A date the config cannot store stays out of the auto-fill."""
     from tkarcade.gui.model import _fill_steam_metadata

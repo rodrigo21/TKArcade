@@ -225,7 +225,8 @@ Performance, Display and System.
 Developer, publisher, genre, series, age ratings (CERO/ClassInd/ESRB/PEGI
 first, the other boards behind a divider and switch), region, status,
 description and Notes stay manual, with a lock toggle on each row that
-keeps that field out of every download. An icon button next to
+keeps that field out of every download, and a lock button beside the
+Game title that locks every field at once. An icon button next to
 the Information title opens a window with two tabs. **Metadata** picks
 the source (Steam, VNDB or IGDB) and holds the Steam AppID,
 VNDB and IGDB identity fields: a known Steam AppID — a Steam game's own,
@@ -248,7 +249,7 @@ contributes genres, store features and the franchise, IGDB its genres,
 franchise, themes and keywords, and VNDB its non-spoiler tags rated 2.0
 or more (top 20). Tags are not categories: they stay out of the sidebar
 and the category store, and Details lists them next to Series with a
-Clear button that empties the list on Save.
+Clear button that empties the list on Save and its own lock.
 Execution (launch settings first, then the runtime selector and tool,
 the Steam Linux Runtime of a local native game, prefix with its
 installed and pending

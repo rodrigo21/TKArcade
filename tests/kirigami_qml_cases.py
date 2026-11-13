@@ -7514,6 +7514,7 @@ def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
 def test_metadata_lock_toggle_persists(qgui_app, xdg_env):
     """The per-field lock saves in [metadata] locked and toggles off again."""
     from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
 
     from tkarcade import config as C
 
@@ -7536,9 +7537,53 @@ def test_metadata_lock_toggle_persists(qgui_app, xdg_env):
     assert dlg.isLocked("version") is True
     dlg.toggleLock("developer")
     dlg.toggleLock("genre")
+    # The Tags row takes a lock too.
+    assert swin.findChild(QQuickItem, "settingsLockTags") is not None
+    dlg.toggleLock("tags")
     dlg.save()
     qgui_app.processEvents()
-    assert C.load("local-doom").metadata.locked == "developer,version"
+    assert C.load("local-doom").metadata.locked == "developer,tags,version"
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_lock_all_toggles_every_field(qgui_app, xdg_env):
+    """The Game title button locks or clears every field in the list."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    assert dlg.property("allLocked") is False
+    _click(swin, "settingsLockAll")
+    assert dlg.property("allLocked") is True
+    for key in C.LOCKABLE_FIELDS:
+        assert dlg.isLocked(key) is True, key
+    # One row off leaves a partial set: the same button fills it again.
+    dlg.toggleLock("genre")
+    assert dlg.property("allLocked") is False
+    _click(swin, "settingsLockAll")
+    assert dlg.isLocked("genre") is True
+    # Everything locked: the button clears the whole list.
+    _click(swin, "settingsLockAll")
+    for key in C.LOCKABLE_FIELDS:
+        assert dlg.isLocked(key) is False, key
+    # Back to all locked, so the saved CSV covers every key.
+    _click(swin, "settingsLockAll")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.locked == ",".join(C.LOCKABLE_FIELDS)
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()

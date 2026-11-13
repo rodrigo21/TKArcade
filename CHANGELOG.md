@@ -6,6 +6,10 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Every metadata row takes a lock, and the online Tags list joins them:
+  a locked Tags list survives Apply and the silent Steam fill on save.
+  A new lock button beside the Game title sets or clears every field
+  lock at once, and each row keeps toggling on its own afterwards.
 - Search Data with the Steam source looks a known AppID up as the window
   opens — a Steam game's own AppID, or a local game's store link — and
   leaves the query row out, since there is nothing to find. A local game

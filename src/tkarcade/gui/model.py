@@ -114,7 +114,7 @@ def _fill_steam_metadata(cfg, data: dict) -> bool:
         changed = True
     raw_tags = data.get("tags")
     tags = cfgmod.normalize_categories(raw_tags if isinstance(raw_tags, list) else [])
-    if tags and not md.tags:
+    if tags and "tags" not in locked and not md.tags:
         md.tags = tags
         changed = True
     return changed
