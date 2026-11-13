@@ -10,24 +10,21 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty batches. The latest two polished the game dialog and
-  added the metadata locks. Details shows one banner preview at the
-  Artwork tab's shape (tooltip opens the tab); Search Data is a framed
-  icon beside the Information title and its Search moved to the dialog
-  footer (`DialogWindow.leadingActions`); ProtonDB left the Metadata
-  sources (it only re-read its cache), the local game's badge gained a
-  find button that opens the Steam title search with or without a link,
-  and the badge opens the page on a double-click. Fetch Artwork now
-  drops every cleared mark, including the background, which has no
-  download of its own. The online Tags list joined the lockable fields,
-  and a lock button beside the Game title sets or clears every field
-  lock at once while each row keeps toggling on its own; the icon-only
-  buttons became framed 32 px squares because the theme's ToolButton
-  draws no frame. Record: CHANGELOG.
-- Verified: `scripts/check.sh --qml` (760 passed, 3 skipped), `qmllint`
-  on `GameSettings.qml`, `SectionBox.qml` and `DialogWindow.qml`, and
-  offscreen shots (Details with the banner and the lock button, the
-  Search Data footer and its three sources).
+- Landed: fifty-one batches. The latest fixed Fetch Artwork end to end.
+  IGDB searches the title when no id is stored, takes an exact match or
+  the provider-tagged picker, and writes the resolved id to
+  `[metadata] igdb_id` plus the cache sidecar; a source AppID's IGDB game
+  is never written to the local game, and `igdbResolved` keeps the dialog
+  draft in step so a later Save cannot erase it. Fetch drops the game's
+  own Clear mark as well as the source AppID's, so a sourced tile comes
+  back. Every game Save fills missing artwork. Preferences separates the
+  default **Artwork Source** from **API Keys**, and IGDB remains the
+  stored source instead of falling back to Steam. Record: CHANGELOG.
+- Verified: `scripts/check.sh --qml` (773 passed, 3 skipped), `qmllint`
+  on `GameSettings.qml` and `PrefsDialog.qml`, and an offscreen shot of
+  the Artwork preferences. The QML age-rating case now scrolls its row
+  into view; it failed on the pre-batch HEAD because the row sat below
+  the Details viewport.
 - Next: the maintainer's tag changes (the follow-up promised after the
   Tags lock), then the library import. The VNDB release picker sits in
   `TODO.md` before 1.0. Open follow-up: after the import, decide whether
