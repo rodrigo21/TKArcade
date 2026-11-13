@@ -485,14 +485,24 @@ def test_added_steam_game_fetches_its_tier_at_once(qgui_app, xdg_env, monkeypatc
     assert model.saveGame("steam-440", {"name": "Team Fortress 2"}) == "steam-440"
     assert fetched == ["steam-440"]
 
-    # An existing game is not looked up again on every save.
+    # Every save re-runs the cache-aware pass, so a missing kind does not
+    # wait for the next start and an existing game is refreshed too.
     fetched.clear()
     assert model.saveGame("steam-620", {}) == "steam-620"
-    assert fetched == []
+    assert fetched == ["steam-620"]
 
     # A new local game gets its name-based art lookup as well.
     local = model.addLocal("Zebra", "/bin/true")
     assert local.startswith("local-")
+    assert art_calls[-1] == local
+
+    # An existing local save repeats the lookup: the same guard covers
+    # Search Data's metadata writes and a game that was saved before.
+    before = len(art_calls)
+    out = dict(model.loadGame(local))
+    out["notes"] = "again"
+    assert model.saveGame(local, out) == local
+    assert len(art_calls) == before + 1
     assert art_calls[-1] == local
 
 
@@ -1180,6 +1190,27 @@ def test_igdb_configured_needs_both_parts(qgui_app, xdg_env):
     prefs.igdb_client_secret = "sec"
     C.save_preferences(prefs)
     assert model.igdbConfigured() is True
+
+
+def test_save_prefs_keeps_igdb_as_the_artwork_source(qgui_app, xdg_env):
+    """IGDB is a first-class source; a partial Save must not reset it."""
+    prefs = C.load_preferences()
+    prefs.artwork_source = "igdb"
+    prefs.sgdb_api_key = "key"
+    prefs.igdb_client_id = "cid"
+    prefs.igdb_client_secret = "sec"
+    C.save_preferences(prefs)
+    model = _model(qgui_app)
+    assert model.savePrefs({"artworkSource": "igdb"}) is True
+    saved = C.load_preferences()
+    assert saved.artwork_source == "igdb"
+    # Toggling a status bar saves a partial map; the source and keys stay.
+    assert model.savePrefs({"showPreview": True}) is True
+    saved = C.load_preferences()
+    assert saved.artwork_source == "igdb"
+    assert saved.sgdb_api_key == "key"
+    assert saved.igdb_client_id == "cid"
+    assert saved.igdb_client_secret == "sec"
 
 
 def test_igdb_id_survives_the_form_map(qgui_app, xdg_env):
@@ -3388,6 +3419,79 @@ def test_fetch_artwork_game_downloads_the_chosen_id(qgui_app, xdg_env, monkeypat
     assert calls[1] == ("id", "local-doom", "7")
 
 
+def test_fetch_artwork_game_downloads_the_chosen_igdb_id(qgui_app, xdg_env, monkeypatch):
+    """Picking an IGDB row fetches its art and keeps the provider tag."""
+    from pathlib import Path
+
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-hades"
+    local.general.name = "Hades"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    prefs = C.load_preferences()
+    prefs.igdb_client_id = "cid"
+    prefs.igdb_client_secret = "sec"
+    C.save_preferences(prefs)
+    calls = []
+
+    def fake_best(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.ART_KINDS,
+        force=False,
+        names=(),
+        **kwargs,
+    ):
+        calls.append((appid, provider, kwargs.get("igdb_id", "")))
+        return {
+            "art": {"cover": Path("/tmp/c.png")},
+            "provider": "igdb",
+            "error": "",
+            "name": "",
+            "valid": False,
+            "game_id": "",
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    model = _model(qgui_app)
+    started, resolved = [], []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append((status, prov)))
+    model.igdbResolved.connect(lambda gid, ident: resolved.append((gid, ident)))
+    assert model.fetchArtworkGame("local-hades", "1", "igdb") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert started == [("ok", "igdb")], started
+    assert calls == [("local-hades", "igdb", "1")], calls
+    assert C.load("local-hades").metadata.igdb_id == "1"
+    assert resolved == [("local-hades", "1")], resolved
+
+    # A source AppID's pick is not this game's metadata.
+    started.clear()
+    assert model.fetchArtworkGame("local-hades", "2", "igdb", "480") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert started == [("ok", "igdb")], started
+    assert calls[-1] == ("480", "igdb", "2")
+    assert C.load("local-hades").metadata.igdb_id == "1"
+    assert resolved == [("local-hades", "1")], resolved
+
+    # Without the Twitch credential the action refuses before the worker.
+    prefs = C.load_preferences()
+    prefs.igdb_client_secret = ""
+    C.save_preferences(prefs)
+    assert model.fetchArtworkGame("local-hades", "1", "igdb") == "no-igdb-key"
+
+
 def test_clear_fetched_artwork_uses_the_game_id(qgui_app, xdg_env):
     """Clear works on a local game: the cache sits under its own id."""
     from tkarcade import artwork
@@ -3448,6 +3552,239 @@ def test_clear_fetched_artwork_uses_the_source_appid(qgui_app, xdg_env):
     assert artwork.cached_path("480", "cover") is None
     assert artwork.is_cleared("480") is True
     assert model.artworkStatus("local-doom", "480") == "cleared"
+
+
+def test_fetch_artwork_clears_the_game_mark_with_a_source_appid(qgui_app, xdg_env, monkeypatch):
+    """Fetch restores a sourced tile: the game's own Clear mark goes too."""
+    from pathlib import Path
+
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.artwork.artwork_appid = "480"
+    C.save(local)
+    source_cover = artwork.grid_path("480", "cover")
+    source_cover.parent.mkdir(parents=True, exist_ok=True)
+    source_cover.write_bytes(b"P")
+    model = _model(qgui_app)
+    assert model.clearArtwork("local-doom", "cover") is True
+    assert artwork.is_kind_cleared("local-doom", "cover") is True
+
+    fetched = []
+
+    def fake_best(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.ART_KINDS,
+        force=False,
+        names=(),
+        **kwargs,
+    ):
+        fetched.append((appid, kwargs.get("igdb_id", "")))
+        return {
+            "art": {"cover": Path("/tmp/c.png")},
+            "provider": provider,
+            "error": "",
+            "name": "",
+            "valid": False,
+            "game_id": "",
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    started = []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    assert model.fetchArtwork("local-doom", "steam", "480") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert started == ["ok"], started
+    assert fetched == [("480", "")], fetched
+    # The per-tile Clear marked the game; the source AppID has the file.
+    assert artwork.is_kind_cleared("local-doom", "cover") is False
+    assert model.artworkPreview("local-doom", "cover", "480") != ""
+
+
+def test_fetch_artwork_passes_the_draft_igdb_id(qgui_app, xdg_env, monkeypatch):
+    """A just-picked IGDB entry works before Save."""
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-hades"
+    local.general.name = "Hades"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    calls = []
+
+    def fake_best(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.ART_KINDS,
+        force=False,
+        names=(),
+        **kwargs,
+    ):
+        calls.append((appid, provider, kwargs.get("igdb_id", "")))
+        return {
+            "art": {},
+            "provider": "",
+            "error": "no-art",
+            "name": "",
+            "valid": False,
+            "game_id": "",
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    model = _model(qgui_app)
+    started = []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    assert model.fetchArtwork("local-hades", "igdb", "", "1145360") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert started == ["no-art"], started
+    assert calls == [("local-hades", "igdb", "1145360")], calls
+
+
+def test_fetch_artwork_saves_the_resolved_igdb_id(qgui_app, xdg_env, monkeypatch):
+    """An explicit Fetch writes the identity and updates the draft field."""
+    from pathlib import Path
+
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-hades"
+    local.general.name = "Hades"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+
+    def fake_best(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.ART_KINDS,
+        force=False,
+        names=(),
+        **kwargs,
+    ):
+        return {
+            "art": {"cover": Path("/tmp/c.png")},
+            "provider": "igdb",
+            "error": "",
+            "name": "",
+            "valid": False,
+            "game_id": "",
+            "igdb_id": "1",
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    model = _model(qgui_app)
+    started, resolved = [], []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    model.igdbResolved.connect(lambda gid, ident: resolved.append((gid, ident)))
+    assert model.fetchArtwork("local-hades", "igdb", "") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert started == ["ok"], started
+    assert C.load("local-hades").metadata.igdb_id == "1"
+    assert resolved == [("local-hades", "1")], resolved
+
+
+def test_fetch_artwork_does_not_save_a_source_appids_igdb_id(qgui_app, xdg_env, monkeypatch):
+    """The source AppID's IGDB game is not this game's metadata."""
+    from pathlib import Path
+
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-hades"
+    local.general.name = "Hades"
+    local.general.custom_executable = "/bin/true"
+    local.artwork.artwork_appid = "480"
+    C.save(local)
+
+    def fake_best(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.ART_KINDS,
+        force=False,
+        names=(),
+        **kwargs,
+    ):
+        return {
+            "art": {"cover": Path("/tmp/c.png")},
+            "provider": "igdb",
+            "error": "",
+            "name": "",
+            "valid": False,
+            "game_id": "",
+            "igdb_id": "1",
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    model = _model(qgui_app)
+    started, resolved = [], []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    model.igdbResolved.connect(lambda gid, ident: resolved.append((gid, ident)))
+    assert model.fetchArtwork("local-hades", "igdb", "480") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.02)
+    assert started == ["ok"], started
+    assert C.load("local-hades").metadata.igdb_id == ""
+    assert resolved == [], resolved
+
+
+def test_fetch_artwork_game_clears_the_game_mark(qgui_app, xdg_env, monkeypatch):
+    """A picked SteamGridDB entry is an explicit restore; its mark goes too."""
+    from pathlib import Path
+
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    prefs = C.load_preferences()
+    prefs.sgdb_api_key = "KEY"
+    C.save_preferences(prefs)
+    artwork.clear_kind("local-doom", "cover")
+    assert artwork.is_kind_cleared("local-doom", "cover") is True
+    monkeypatch.setattr(
+        artwork,
+        "fetch_sgdb_game",
+        lambda appid, game_id, key, **kw: {"cover": Path("/tmp/c.png")},
+    )
+    model = _model(qgui_app)
+    started = []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    assert model.fetchArtworkGame("local-doom", "7") == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert started == ["ok"], started
+    assert artwork.is_kind_cleared("local-doom", "cover") is False
 
 
 def test_settings_winetricks_verbs_pending(qgui_app, xdg_env, tmp_path, monkeypatch):

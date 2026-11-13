@@ -185,6 +185,9 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- Preferences → Artwork separates the default **Artwork Source** from the
+  provider credentials under **API Keys**. IGDB is a real stored choice:
+  Save no longer falls back to Steam.
 - The game dialog's Details tab is tidier: **Search Data** is an icon-only
   button right beside the Information title, with the action in its
   tooltip; the Artwork row shows one whole banner preview at the Artwork
@@ -459,6 +462,29 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- Fetch Artwork with IGDB works directly: without a stored id it
+  searches the title, takes an exact match automatically or lists
+  provider-tagged candidates in the same picker, and writes the resolved
+  id to `[metadata] igdb_id` (also cached for the silent pass), so Details
+  and Search Data reuse it. A Steam game searches its official name; a
+  stored id or the dialog draft still wins, and a source AppID's IGDB game
+  is never written to the local game. The draft field updates at once, so
+  a later Save cannot erase the stored id. Clear keeps the choice.
+- Fetch Artwork restores a tile cleared on a game with an Artwork Source
+  AppID: the tile's ✕ marked the game, the fetch marked the source
+  AppID, and the game mark survived, so the tile stayed empty after the
+  source downloaded its art. Fetch now drops both marks.
+- Saving a game fills its missing artwork, not only when the game is new
+  or its Steam store link changed. Search Data's metadata Save now
+  reaches a local game's artwork too.
+- An IGDB entry picked in Search Data works in Fetch Artwork before Save:
+  the draft `[metadata] igdb_id` is passed to the provider instead of
+  only the stored one.
+- Search Data's SteamGridDB match picker, image URL prompt and Clear
+  confirmation open transient to the Search Data window, so they no
+  longer land behind the modal window that opened them.
+- A failed artwork fetch no longer leaves its status on the next game
+  opened in the dialog.
 - Fetch Artwork brings back every artwork cleared with a tile's ✕,
   including the background: the backdrop has no download of its own and
   its cleared mark was never dropped, so the tile stayed empty even

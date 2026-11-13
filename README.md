@@ -236,11 +236,13 @@ store by title. A stored VNDB or IGDB id fills the query, an id typed
 in place of a title goes straight to the provider, and a title lists
 candidates. The answer arrives as preview rows (Apply fills empty
 fields, a switch replaces typed ones, the locks win) and writes the
-dialog draft; Save persists it. Details shows the identities back as a
+dialog draft; Save persists it and fills any missing artwork with the
+chosen provider. Details shows the identities back as a
 "Matches:" line, and a newly added Steam game fills its own store entry
 on save: empty fields only, locks respected, tags and release date
 included. IGDB needs a free Twitch application (client
-id and secret in Preferences); the Twitch console asks for an OAuth
+id and secret in Preferences → Artwork → API Keys, apart from the
+default Artwork Source); the Twitch console asks for an OAuth
 redirect URL, where any public HTTPS address works, because the
 download uses the client-credentials grant and never redirects. The
 preview also carries a **Tags** row:
@@ -269,16 +271,21 @@ Steam AppID whose art overrides the game's own), the per-game download
 provider (Steam, SteamGridDB or IGDB; Steam first by default) and
 Fetch/Clear; a local game without an AppID is looked up by name on
 SteamGridDB and a stored choice keeps the same art across fetches. IGDB
-needs a Twitch application and the IGDB ID that Search Data
-saves; it fills the cover and the banner, and its square icon slot
-stays with the other providers. The
+needs a Twitch application and the IGDB ID that Search Data saves; a
+Fetch without one searches the title (an exact match wins, otherwise the
+picker) and writes the resolved id to `[metadata] igdb_id`, so Details
+and Search Data reuse it. The silent pass also caches it, and Clear keeps
+it. It fills the cover and the banner, and its square icon slot stays
+with the other providers. Saving a game fills any missing art with
+the chosen provider, an existing game included. The
 `background` slot is a wide backdrop with no download of its own: it
 falls back to the banner art when empty, and clearing it never removes
 the banner. A local game whose icon slot is still empty shows the icon
 embedded in its executable, extracted once into the cache. Clear empties
 the tile for real: a cleared kind, and every slot of a cleared game,
 shows no art — not even Steam's own or the executable's icon — until
-Fetch Artwork. Above the
+Fetch Artwork, which restores the tile even when the art comes from an
+Artwork Source AppID. Above the
 AppID row, framed thumbnails (icon, banner, background, cover) show what
 the list and the cards draw, at the image's own size; a filled frame
 hugs the loaded picture with an equal margin on every side, so the art

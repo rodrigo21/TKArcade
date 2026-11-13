@@ -109,6 +109,8 @@ What each document is for and where the source of truth lives.
   PCGamingWiki was dropped.
 - `decisions/artwork-igdb.md` — IGDB as the third artwork provider, its
   cover/banner mapping and the provider chain order.
+- `decisions/artwork-igdb-lookup.md` — IGDB title search on Fetch
+  Artwork, the provider-tagged picker and the cached IGDB id.
 - `decisions/online-tags.md` — `[metadata] tags`, the Tags row in the
   Download Metadata preview and why online data stays out of the manual
   categories.

@@ -2798,16 +2798,36 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
 
     # Several name matches: the list asks, and the pick goes to the model.
     model = engine.rootContext().contextProperty("gameModel")
+    # A resolved IGDB identity reaches the dialog draft at once.
+    model.igdbResolved.emit("local-doom", "1145360")
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "settingsIgdbId").property("text") == "1145360"
     picked = []
-    model.fetchArtworkGame = lambda appid, gid: picked.append((appid, gid)) or ""
+    model.fetchArtworkGame = lambda appid, gid, provider="sgdb", source="": (
+        picked.append((appid, gid, provider, source)) or ""
+    )
     model.artworkChoices.emit("local-doom", [{"id": "7", "name": "Doom"}])
     qgui_app.processEvents()
     prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
     assert prompt.isVisible() is True
+    # Search Data is modal: the picker must be transient to it, not to the
+    # game dialog behind it, or it lands out of reach.
+    parent = prompt.transientParent()
+    assert parent is not None and parent.objectName() == "searchData", parent
     box = prompt.findChild(QQuickItem, "settingsChoiceBox")
     assert box.property("count") == 1, box.property("count")
     _click(prompt, "dialogOk")
-    assert picked == [("local-doom", "7")], picked
+    assert picked == [("local-doom", "7", "sgdb", "480")], picked
+
+    # An IGDB title search carries its provider and the source draft.
+    picked.clear()
+    model.artworkChoices.emit(
+        "local-doom", [{"id": "1", "name": "Hades (2020)", "provider": "igdb"}]
+    )
+    qgui_app.processEvents()
+    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
+    _click(prompt, "dialogOk")
+    assert picked == [("local-doom", "1", "igdb", "480")], picked
 
     # Clear… asks first; with a typed AppID it removes that AppID's cache.
     cleared = []
@@ -3683,6 +3703,14 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
             continue
         right = item.property("x") + item.property("width")
         assert right <= form_width + 1, f"{item.metaObject().className()} runs past the form edge"
+    # The default source has its own section; the provider credentials
+    # live apart under API Keys.
+    tabs.setProperty("currentIndex", 1)
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "prefsArtworkSourceSection") is not None
+    assert swin.findChild(QQuickItem, "prefsApiKeysSection") is not None
+    tabs.setProperty("currentIndex", 2)
+    qgui_app.processEvents()
     # Enter is the Save path (the widgets QDialog default button); the
     # dialog's Enter routing goes through the model's key filter.
     _settle_focus(swin)
@@ -7115,6 +7143,12 @@ def test_settings_metadata_and_protondb(qgui_app, xdg_env):
     swin.findChild(QQuickItem, "settingsPublisher").setProperty("text", "Valve")
     swin.findChild(QQuickItem, "settingsGenre").setProperty("text", "Puzzle")
     swin.findChild(QQuickItem, "settingsSeries").setProperty("text", "Portal")
+    # The Details tab scrolls: the age row may sit below the viewport.
+    scroll = swin.findChild(QQuickItem, "settingsGeneralScroll")
+    content = scroll.property("contentItem")
+    button = swin.findChild(QQuickItem, "settingsAgeRating")
+    content.setProperty("contentY", max(0, button.mapToItem(content, 0, 0).y() - 100))
+    qgui_app.processEvents()
     _click(swin, "settingsAgeRating")
     picker = win.findChild(QObject, "settingsAgeRatingPicker")
     assert picker.property("visible") is True
@@ -7842,7 +7876,10 @@ def test_metadata_igdb_provider_and_picker(qgui_app, xdg_env):
     # Without the Twitch credential the action says so and calls nothing.
     _click(awin, "settingsMetadataSearch")
     assert searches == []
-    assert status.property("text") == "IGDB Needs a Client ID and Secret in Preferences."
+    assert (
+        status.property("text")
+        == "Set the IGDB Client ID and Secret in Preferences → Artwork → API Keys."
+    )
 
     prefs = C.Preferences()
     prefs.igdb_client_id = "cid"
@@ -7892,6 +7929,11 @@ def test_age_rating_picker_default_boards(qgui_app, xdg_env):
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
     assert swin.findChild(QQuickItem, "settingsAgeRating").property("text") == "USK 12"
+    scroll = swin.findChild(QQuickItem, "settingsGeneralScroll")
+    content = scroll.property("contentItem")
+    button = swin.findChild(QQuickItem, "settingsAgeRating")
+    content.setProperty("contentY", max(0, button.mapToItem(content, 0, 0).y() - 100))
+    qgui_app.processEvents()
     _click(swin, "settingsAgeRating")
     picker = win.findChild(QObject, "settingsAgeRatingPicker")
     rows = picker.property("rows").toVariant()

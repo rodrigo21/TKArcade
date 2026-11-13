@@ -4,11 +4,11 @@ Official art comes from Steam's public CDN and needs no key at all: the
 library capsule (portrait), the library hero (wide) and the client icon
 (the square one Steam itself shows). SteamGridDB is the community
 fallback and needs a key; IGDB is the other community source, needs a
-Twitch application and only serves a game whose ``[metadata] igdb_id``
-is known (so it has no name lookup and no icon). A game can point at any
-Steam AppID's art (`[artwork] artwork_appid`), installed or not. A local
-game without one is looked up by name and the chosen SteamGridDB game id
-is remembered.
+Twitch application and serves the game whose ``[metadata] igdb_id`` is
+known, or resolves it by title. It has no square icon. A game can point
+at any Steam AppID's art (`[artwork] artwork_appid`), installed or not.
+A local game without one is looked up by name and the chosen
+SteamGridDB or IGDB game id is remembered in the cache.
 
 Downloaded files live in our own cache and never touch Steam's files;
 the per-kind provider is recorded next to them so the dialog can say
@@ -20,6 +20,7 @@ from __future__ import annotations
 import html
 import json
 import logging
+import re
 import struct
 import unicodedata
 import urllib.error
@@ -91,6 +92,10 @@ _OFFICIAL_FILES = {
 #: Sidecar key: the SteamGridDB entry a name lookup resolved and the user
 #: chose. Kept across Clear so Fetch restores the same game's art.
 SGDB_KEY = "sgdb"
+
+#: Sidecar key: the IGDB game id resolved by a title search or a pick.
+#: Kept across Clear; a stored ``[metadata] igdb_id`` still wins.
+IGDB_KEY = "igdb"
 
 #: Version of the icon precedence. A numeric AppID's cached icon whose
 #: provider is "sgdb" and lacks this marker came from the old
@@ -221,12 +226,12 @@ def _mark_cleared(appid: str) -> None:
     would be cosmetic. The mark also hides every fallback (Steam's own
     art, the exe icon, the cover/banner siblings), so the tiles go empty.
     `fetch_best(force=True)` (the Fetch Artwork button) is the way back. A
-    name lookup's SGDB entry survives the Clear, so the next Fetch
+    name lookup's SGDB or IGDB entry survives the Clear, so the next Fetch
     restores the same game's art.
     """
     path = manifest_path(appid)
     data = read_manifest(appid)
-    kept = {key: value for key, value in data.items() if key == SGDB_KEY}
+    kept = {key: value for key, value in data.items() if key in (SGDB_KEY, IGDB_KEY)}
     kept[CLEARED_KEY] = True
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -364,6 +369,26 @@ def store_sgdb_id(appid: str, game_id: str, name: str) -> None:
         path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
     except Exception as e:
         log.debug("artwork sgdb id write failed: %s", e)
+
+
+def stored_igdb_id(appid: str) -> str:
+    """IGDB game id a title search or a pick resolved for this game ("" one)."""
+    entry = read_manifest(appid).get(IGDB_KEY)
+    if isinstance(entry, dict):
+        return str(entry.get("game_id", "")).strip()
+    return ""
+
+
+def store_igdb_id(appid: str, game_id: str, name: str = "") -> None:
+    """Remember the resolved IGDB entry for the next fetch."""
+    data = read_manifest(appid)
+    data[IGDB_KEY] = {"game_id": str(game_id), "name": str(name)}
+    path = manifest_path(appid)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    except Exception as e:
+        log.debug("artwork igdb id write failed: %s", e)
 
 
 def _mark_icon_chain(appid: str) -> None:
@@ -1075,15 +1100,26 @@ def fetch_sgdb_game(
     return out
 
 
+def _resolved_igdb_id(gid: str, igdb_id: str = "") -> str:
+    """Stored/drafted IGDB id first, then the id a previous pick cached."""
+    resolved = igdbmod.resolve(gid, igdb_id)
+    if resolved:
+        return resolved
+    cached = stored_igdb_id(gid)
+    return cached if cached.isdigit() else ""
+
+
 def fetch_igdb(
     appid: str,
     kinds=FETCH_KINDS,
     force: bool = False,
+    igdb_id: str = "",
 ) -> tuple[dict[str, Path], str]:
     """Download IGDB's cover and banner. (paths, error token).
 
-    IGDB needs the ``[metadata] igdb_id`` the metadata download saves;
-    without it nothing is fetched. It has no square icon, so `icon` is
+    IGDB needs a game id: ``igdb_id`` is the dialog draft or a title
+    lookup, the stored ``[metadata] igdb_id`` wins, then the cache
+    remembers the resolved one. It has no square icon, so `icon` is
     always left to the other providers. Error tokens: "no-igdb-key",
     "no-id", "not-found", "no-art".
     """
@@ -1093,7 +1129,10 @@ def fetch_igdb(
     wanted = _missing_kinds(gid, [kind for kind in kinds if kind in IGDB_KINDS], force)
     if not wanted:
         return {}, ""
-    urls, error = igdbmod.art(gid)
+    resolved = _resolved_igdb_id(gid, igdb_id)
+    if not resolved:
+        return {}, "no-id"
+    urls, error = igdbmod.art(gid, resolved)
     if error:
         return {}, error
     out: dict[str, Path] = {}
@@ -1105,6 +1144,8 @@ def fetch_igdb(
         if path is not None:
             out[kind] = path
             _write_manifest(gid, kind, "igdb")
+    if out:
+        store_igdb_id(gid, resolved)
     return out, "" if out else "no-art"
 
 
@@ -1196,6 +1237,7 @@ def _empty_result() -> dict:
         "name": "",
         "valid": False,
         "game_id": "",
+        "igdb_id": "",
         "candidates": [],
     }
 
@@ -1213,8 +1255,55 @@ def _resolve_sgdb_game(api_key: str, names) -> tuple[str, str, list[dict]]:
         if exact:
             return exact[0]["id"], exact[0]["name"], []
         if rows and not candidates:
-            candidates = rows[:10]
+            candidates = [dict(row, provider="sgdb") for row in rows[:10]]
     return "", "", candidates
+
+
+#: IGDB search labels end with the release year; it is not part of the title.
+_IGDB_YEAR = re.compile(r"\s*\(\d{4}\)$")
+
+
+def _igdb_title(label: str) -> str:
+    """Search label without its trailing ``(YYYY)``."""
+    return _IGDB_YEAR.sub("", str(label or ""))
+
+
+def _resolve_igdb_game(names) -> tuple[str, str, list[dict]]:
+    """(game_id, label, candidates) for the first exact IGDB title match."""
+    candidates: list[dict] = []
+    for name in names:
+        rows = igdbmod.search(name)
+        exact = [
+            row for row in rows if normalize_name(_igdb_title(row["name"])) == normalize_name(name)
+        ]
+        if exact:
+            return exact[0]["id"], exact[0]["name"], []
+        if rows and not candidates:
+            candidates = [dict(row, provider="igdb") for row in rows[:10]]
+    return "", "", candidates
+
+
+def _igdb_lookup(gid: str, igdb_id: str, names) -> tuple[str, list[dict], str]:
+    """(game_id, candidates, error) for an IGDB art fetch.
+
+    The stored ``[metadata] igdb_id`` and the dialog draft win, then the
+    id a previous search remembered; without one, the title is searched
+    and an exact match wins automatically. Error tokens: "no-id",
+    "no-igdb-key", "no-match", "not-found".
+    """
+    resolved = _resolved_igdb_id(gid, igdb_id)
+    if resolved:
+        return resolved, [], ""
+    names = [str(name).strip() for name in names if str(name or "").strip()]
+    if not names:
+        return "", [], "no-id"
+    client_id, secret = igdbmod.credentials()
+    if not (client_id and secret):
+        return "", [], "no-igdb-key"
+    game_id, _label, candidates = _resolve_igdb_game(names)
+    if game_id:
+        return game_id, [], ""
+    return "", candidates, ("no-match" if candidates else "not-found")
 
 
 def fetch_best(
@@ -1224,19 +1313,21 @@ def fetch_best(
     kinds=FETCH_KINDS,
     force: bool = False,
     names=(),
+    igdb_id: str = "",
 ) -> dict:
     """Download a game's art with the chosen provider first.
 
     Returns {"art": {kind: Path}, "provider": "steam"|"sgdb"|"igdb",
     "error": token, "name": Steam name or "", "valid": whether the AppID
-    is a real Steam app, "game_id": resolved SteamGridDB id, "candidates":
-    name matches when the user has to choose}. The first provider fills
+    is a real Steam app, "game_id": resolved SteamGridDB id, "igdb_id":
+    resolved IGDB id, "candidates": name matches when the user has to
+    choose}. The first provider fills
     what it can; the others only cover the kinds still missing. Official
     Steam art never needs a key.
 
     A game without a Steam AppID is looked up by `names` on SteamGridDB;
-    IGDB joins only when it is the chosen provider (it needs a stored
-    igdb_id and has no name search).
+    IGDB joins only when it is the chosen provider (it resolves an
+    ``igdb_id`` from the config, the dialog draft or a title search).
     """
     gid = _art_key(appid)
     if force:
@@ -1246,8 +1337,8 @@ def fetch_best(
         # banner).
         unmark_cleared(gid)
     if not gid.isdigit():
-        return _fetch_named(gid, names, api_key, kinds, force, provider)
-    return _fetch_numeric(gid, provider, api_key, kinds, force)
+        return _fetch_named(gid, names, api_key, kinds, force, provider, igdb_id)
+    return _fetch_numeric(gid, provider, api_key, kinds, force, igdb_id)
 
 
 def _fetch_named(
@@ -1257,29 +1348,45 @@ def _fetch_named(
     kinds,
     force: bool,
     provider: str = "",
+    igdb_id: str = "",
 ) -> dict:
     """`fetch_best` for a game without a Steam AppID.
 
-    IGDB runs only when it is the chosen provider: it needs a stored
-    igdb_id and has no name lookup, so SteamGridDB keeps the name search
-    and fills whatever IGDB did not.
+    IGDB runs only when it is the chosen provider: it resolves a stored,
+    drafted or searched id, and SteamGridDB keeps the name search for the
+    kinds IGDB cannot fill.
     """
     result = _empty_result()
     remaining = list(kinds)
     if provider == "igdb":
-        art, error = fetch_igdb(gid, remaining, force)
-        result["art"].update(art)
-        remaining = [kind for kind in remaining if kind not in art]
-        if art:
-            result["provider"] = "igdb"
-        if error and not art:
+        resolved, candidates, error = _igdb_lookup(gid, igdb_id, names)
+        if candidates:
+            # The chosen provider needs a pick before its art exists; do
+            # not mix in SteamGridDB until the pick comes back.
+            result["candidates"] = candidates
             result["error"] = error
-    looked = fetch_by_name(gid, names, api_key, remaining, force)
+            return result
+        if resolved:
+            result["igdb_id"] = resolved
+            art, error = fetch_igdb(gid, remaining, force, resolved)
+            result["art"].update(art)
+            remaining = [kind for kind in remaining if kind not in art]
+            if art:
+                result["provider"] = "igdb"
+            if error and not art:
+                result["error"] = error
+        else:
+            result["error"] = error
+    if remaining:
+        looked = fetch_by_name(gid, names, api_key, remaining, force)
+    else:
+        looked = _empty_result()
+        looked["game_id"] = stored_sgdb_id(gid)
     result.update(
         art={**result["art"], **looked["art"]},
         game_id=looked["game_id"],
         name=looked["name"],
-        candidates=looked["candidates"],
+        candidates=result["candidates"] or looked["candidates"],
         error=result["error"] or looked["error"],
     )
     if looked["art"] and not result["provider"]:
@@ -1287,7 +1394,26 @@ def _fetch_named(
     return result
 
 
-def _fetch_numeric(gid: str, provider: str, api_key: str, kinds, force: bool) -> dict:
+def _igdb_numeric_lookup(result: dict, gid: str, igdb_id: str) -> tuple[str, bool]:
+    """Resolve IGDB for a Steam AppID; True means the dialog must ask."""
+    # A Steam game has no stored IGDB id by default: its official name is
+    # the one title the search can safely use.
+    name = str(result.get("name", "") or "")
+    resolved, candidates, error = _igdb_lookup(gid, igdb_id, (name,) if name else ())
+    if candidates:
+        result["candidates"] = candidates
+        result["error"] = error
+        return "", True
+    if resolved:
+        result["igdb_id"] = resolved
+    elif error:
+        result["error"] = error
+    return resolved, False
+
+
+def _fetch_numeric(
+    gid: str, provider: str, api_key: str, kinds, force: bool, igdb_id: str = ""
+) -> dict:
     """`fetch_best` for a real Steam AppID."""
     result = _empty_result()
     if "icon" in kinds:
@@ -1295,15 +1421,19 @@ def _fetch_numeric(gid: str, provider: str, api_key: str, kinds, force: bool) ->
     info = steam_app(gid)
     result["valid"] = info is not None
     result["name"] = (info or {}).get("name", "")
-    if provider not in PROVIDERS:
-        provider = "steam"
+    provider = provider if provider in PROVIDERS else "steam"
+    if provider == "igdb":
+        resolved, pending = _igdb_numeric_lookup(result, gid, igdb_id)
+        if pending:
+            return result
+        igdb_id = resolved or igdb_id
     order = (provider,) + tuple(source for source in PROVIDERS if source != provider)
     missing = [kind for kind in kinds if kind in ART_KINDS]
     first = True
     for source in order:
         if not missing:
             break
-        art, error = _fetch_from(source, gid, missing, info, api_key, force and first)
+        art, error = _fetch_from(source, gid, missing, info, api_key, force and first, igdb_id)
         first = False
         result["art"].update(art)
         missing = [item for item in missing if item not in art]
@@ -1323,12 +1453,13 @@ def _fetch_from(
     info: dict | None,
     api_key: str,
     force: bool,
+    igdb_id: str = "",
 ) -> tuple[dict[str, Path], str]:
     """One provider pass: (paths, error token)."""
     if source == "steam":
         return fetch_official(gid, kinds, info, force), ""
     if source == "igdb":
-        return fetch_igdb(gid, kinds, force)
+        return fetch_igdb(gid, kinds, force, igdb_id)
     return fetch_sgdb(gid, api_key, kinds, force)
 
 

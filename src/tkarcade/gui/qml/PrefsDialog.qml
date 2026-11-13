@@ -273,30 +273,16 @@ Window {
                         width: parent.width
                         spacing: Kirigami.Units.largeSpacing
                         property real labelWidth: Math.max(
-                            prefsArtworkForm.naturalLabelWidth,
-                            prefsMetadataForm.naturalLabelWidth)
+                            prefsArtworkSourceForm.naturalLabelWidth,
+                            prefsKeysForm.naturalLabelWidth)
                         SectionBox {
-                            title: qsTr("Artwork")
+                            objectName: "prefsArtworkSourceSection"
+                            title: qsTr("Artwork Source")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
-                                id: prefsArtworkForm
+                                id: prefsArtworkSourceForm
                                 labelWidth: artworkColumn.labelWidth
                                 Layout.fillWidth: true
-                                Controls.TextField {
-                                    objectName: "prefsSgdb"
-                                    Layout.fillWidth: true
-                                    echoMode: Controls.TextField.Password
-                                    placeholderText: qsTr("Free Key from steamgriddb.com")
-                                    text: prefsDialog.values.sgdbApiKey ?? ""
-                                    onTextChanged: {
-                                        if (prefsDialog.values.sgdbApiKey !== text) {
-                                            prefsDialog.setPref("sgdbApiKey", text)
-                                        }
-                                    }
-                                    Controls.ToolTip.text: qsTr("SteamGridDB API Key for Missing Artwork Fallback.")
-                                    Controls.ToolTip.visible: hovered
-                                    KirigamiLayouts.FormData.label: qsTr("SteamGridDB Key:")
-                                }
                                 AppComboBox {
                                     id: artSourceCombo
                                     objectName: "prefsArtworkSource"
@@ -320,19 +306,35 @@ Window {
                                         value: Math.max(0, ["steam", "sgdb", "igdb"].indexOf(
                                             prefsDialog.values.artworkSource ?? "steam"))
                                     }
-                                    Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB and IGDB Are Community Artwork (Both Need a Key). Fetch Artwork Re-Downloads With the Chosen Source.")
+                                    Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB and IGDB Are Community Artwork. Their Keys Live in the API Keys Section. Fetch Artwork Re-Downloads With the Chosen Source.")
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("Artwork Source:")
                                 }
                             }
                         }
                         SectionBox {
-                            title: qsTr("Metadata")
+                            objectName: "prefsApiKeysSection"
+                            title: qsTr("API Keys")
                             Layout.fillWidth: true
                             WidgetsFormLayout {
-                                id: prefsMetadataForm
+                                id: prefsKeysForm
                                 labelWidth: artworkColumn.labelWidth
                                 Layout.fillWidth: true
+                                Controls.TextField {
+                                    objectName: "prefsSgdb"
+                                    Layout.fillWidth: true
+                                    echoMode: Controls.TextField.Password
+                                    placeholderText: qsTr("Free Key from steamgriddb.com")
+                                    text: prefsDialog.values.sgdbApiKey ?? ""
+                                    onTextChanged: {
+                                        if (prefsDialog.values.sgdbApiKey !== text) {
+                                            prefsDialog.setPref("sgdbApiKey", text)
+                                        }
+                                    }
+                                    Controls.ToolTip.text: qsTr("SteamGridDB API Key for Community Artwork.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("SteamGridDB Key:")
+                                }
                                 Controls.TextField {
                                     objectName: "prefsIgdbClientId"
                                     Layout.fillWidth: true

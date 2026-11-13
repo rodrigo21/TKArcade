@@ -828,6 +828,8 @@ Window {
         var prefs = gameModel.loadPrefs()
         artProviderCombo.model = providerOptions(prefs.artworkSource || "steam")
         artProviderCombo.currentIndex = Math.max(0, artProviderCombo.indexOfValue(f.art_provider || ""))
+        // A previous game's fetch message must not follow the dialog here.
+        artResult = ""
         refreshArtStatus()
         menuCheck.checked = !!f.show_menu
         timeoutSpin.value = f.menu_timeout || 0
@@ -1427,12 +1429,19 @@ Window {
         }
     }
 
+    // Child dialogs of the art tab: Search Data is modal over the game
+    // dialog, so a picker or confirmation must be transient to it or it
+    // can land behind the window that opened it.
+    function artDialogParent() {
+        return searchData.visible ? searchData : gameSettings
+    }
+
     // The tile's link button: paste an image URL instead of picking a file.
     function openArtworkUrl(kind) {
         artUrlKind = kind
         urlError.text = ""
         urlField.text = ""
-        urlPrompt.open(gameSettings)
+        urlPrompt.open(artDialogParent())
         urlField.forceActiveFocus()
     }
 
@@ -1534,7 +1543,7 @@ Window {
             ? qsTr("Remove the Downloaded Artwork of AppID %1? Any Other Game Using That AppID Falls Back to Steam's Own Art.").arg(source)
             : qsTr("Remove the Downloaded Artwork of This Game? Fetch Artwork Restores It.")
         setupConfirm("clearArtwork", qsTr("Remove Downloaded Artwork"), text, qsTr("Remove"))
-        confirmDialog.open(gameSettings)
+        confirmDialog.open(artDialogParent())
     }
 
     function clearFetchedArtwork() {
@@ -1553,7 +1562,8 @@ Window {
         var err = gameModel.fetchArtwork(
             editAppid,
             String(artProviderCombo.currentValue || ""),
-            artSourceField.text)
+            artSourceField.text,
+            igdbIdField.text.trim())
         var messages = {
             "": qsTr("Fetching Artwork…"),
             "no-game": qsTr("Save the Game First."),
@@ -1567,15 +1577,15 @@ Window {
         var messages = {
             "ok": qsTr("Artwork Downloaded."),
             "choose": qsTr("Pick the Matching Game Below."),
-            "no-key": qsTr("SteamGridDB Needs an API Key in Preferences."),
-            "no-igdb-key": qsTr("IGDB Needs a Client ID and Secret in Preferences."),
-            "no-id": qsTr("IGDB Needs an IGDB ID: Run Download Metadata With IGDB."),
-            "no-match": qsTr("No Exact Name Match on SteamGridDB. Pick One From the List."),
+            "no-key": qsTr("Set the SteamGridDB Key in Preferences → Artwork → API Keys."),
+            "no-igdb-key": qsTr("Set the IGDB Client ID and Secret in Preferences → Artwork → API Keys."),
+            "no-id": qsTr("IGDB Could Not Resolve This Game: Check the Game Name or Set the IGDB ID."),
+            "no-match": qsTr("No Exact Name Match. Pick One From the List."),
             "not-a-steam-app": qsTr("That Number Is Not a Steam AppID (a SteamGridDB Page ID Looks Similar)."),
-            "not-found": qsTr("SteamGridDB Has No Artwork for That AppID."),
+            "not-found": qsTr("No Entry Found for That Game."),
             "blocked": qsTr("SteamGridDB Refused the Request (403). Try Again Later."),
             "network": qsTr("Could Not Reach the Artwork Servers."),
-            "no-art": qsTr("No Artwork Found for That AppID.")
+            "no-art": qsTr("No Artwork Found for That Game.")
         }
         var text = messages[status] || qsTr("No Artwork Found for That Game.")
         if (status === "ok") {
@@ -1597,14 +1607,18 @@ Window {
         for (var i = 0; i < items.length; i++) {
             var item = items[i]
             if (item !== null && typeof item === "object") {
-                rows.push({"text": String(item.text), "data": item.data})
+                rows.push({
+                    "text": String(item.text),
+                    "data": item.data,
+                    "provider": String(item.provider || "")
+                })
             } else {
-                rows.push({"text": String(item), "data": item})
+                rows.push({"text": String(item), "data": item, "provider": ""})
             }
         }
         choiceBox.model = rows
         choiceBox.currentIndex = 0
-        choicePrompt.open(gameSettings)
+        choicePrompt.open(artDialogParent())
     }
 
     function acceptChoice() {
@@ -1632,11 +1646,14 @@ Window {
             choicePrompt.close()
             if (pick !== undefined && pick.data !== "") {
                 artResult = ""
-                var err = gameModel.fetchArtworkGame(editAppid, String(pick.data))
+                var provider = String(pick.provider || pendingArg || "sgdb")
+                var err = gameModel.fetchArtworkGame(
+                    editAppid, String(pick.data), provider, artSourceField.text)
                 var messages = {
                     "": qsTr("Fetching Artwork…"),
                     "no-game": qsTr("Save the Game First."),
-                    "no-key": qsTr("SteamGridDB Needs an API Key in Preferences.")
+                    "no-key": qsTr("Set the SteamGridDB Key in Preferences → Artwork → API Keys."),
+                    "no-igdb-key": qsTr("Set the IGDB Client ID and Secret in Preferences → Artwork → API Keys.")
                 }
                 artStatusLabel.text = messages[err] || err
             }
@@ -1826,7 +1843,7 @@ Window {
 
     function fetchIdentity() {
         if (searchSource === "igdb" && !gameModel.igdbConfigured()) {
-            searchStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
+            searchStatus = qsTr("Set the IGDB Client ID and Secret in Preferences → Artwork → API Keys.")
             return
         }
         if (searchSource === "steam" && !steamIdentity) {
@@ -1850,7 +1867,7 @@ Window {
         }
         steamAutoName = false
         if (searchSource === "igdb" && !gameModel.igdbConfigured()) {
-            searchStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
+            searchStatus = qsTr("Set the IGDB Client ID and Secret in Preferences → Artwork → API Keys.")
             return
         }
         if (searchSource === "steam" && steamIdentity && !searchQueryForced) {
@@ -2252,6 +2269,13 @@ Window {
                 showFetchResult(status, provider)
             }
         }
+        // Fetch Artwork resolved the IGDB game: keep the draft identity in
+        // step so a later Save cannot overwrite the stored one with empty.
+        function onIgdbResolved(appid, id) {
+            if (appid === editAppid) {
+                igdbIdField.text = String(id)
+            }
+        }
         function onMetadataFetched(appid, data) {
             if (appid === editAppid) {
                 showProviderAnswer(data || {})
@@ -2270,17 +2294,21 @@ Window {
                 searchStatus = qsTr("No Metadata Found.")
             }
         }
-        // The name matched several SteamGridDB entries: ask which one.
+        // The name matched several provider entries: ask which one.
         function onArtworkChoices(appid, rows) {
             if (appid !== editAppid) {
                 return
             }
             var items = []
             for (var i = 0; i < rows.length; i++) {
-                items.push({"text": rows[i].name, "data": rows[i].id})
+                items.push({
+                    "text": rows[i].name,
+                    "data": rows[i].id,
+                    "provider": String(rows[i].provider || "sgdb")
+                })
             }
             if (items.length > 0) {
-                gameSettings.askChoice("artGame", items, "")
+                gameSettings.askChoice("artGame", items, String(items[0].provider || "sgdb"))
             }
         }
         // The Steam launch-options probe finished in the background: the
@@ -5250,7 +5278,7 @@ Window {
                                     Layout.fillWidth: true
                                     textRole: "text"
                                     valueRole: "data"
-                                    Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB and IGDB Are Community Artwork and Need a Key. The Other Providers Fill the Missing Kinds.")
+                                    Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB and IGDB Are Community Artwork and Need a Key Under Preferences → Artwork → API Keys. The Other Providers Fill the Missing Kinds.")
                                     Controls.ToolTip.visible: hovered
                                 }
                                 Item {

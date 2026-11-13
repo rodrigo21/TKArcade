@@ -475,7 +475,7 @@ def test_name_search_returns_candidates_when_nothing_matches(monkeypatch, xdg_en
     result = art.fetch_best("local-doom", "steam", "KEY", ("cover",), names=("Doom",))
     assert result["art"] == {}
     assert result["error"] == "no-match"
-    assert result["candidates"] == [{"id": "5", "name": "Doom 3"}]
+    assert result["candidates"] == [{"id": "5", "name": "Doom 3", "provider": "sgdb"}]
     assert art.stored_sgdb_id("local-doom") == ""
 
 
@@ -981,6 +981,119 @@ def test_igdb_reports_the_missing_id(monkeypatch, xdg_env):
 def test_igdb_reports_the_missing_key(monkeypatch, xdg_env):
     _igdb_game()
     assert art.fetch_igdb("local-hades") == ({}, "no-igdb-key")
+
+
+def test_igdb_fetches_a_draft_id_before_save(monkeypatch, xdg_env):
+    """The dialog's just-picked id works without a stored igdb_id."""
+    _igdb_game("")
+    _igdb_creds()
+    _stub(monkeypatch, IGDB_ROUTES)
+    result = art.fetch_best(
+        "local-hades",
+        "igdb",
+        "",
+        ("cover", "banner"),
+        force=True,
+        names=("Hades",),
+        igdb_id="1145360",
+    )
+    assert result["provider"] == "igdb"
+    assert result["igdb_id"] == "1145360"
+    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert result["art"]["banner"].read_bytes() == b"BANNER"
+
+
+def test_igdb_search_resolves_an_exact_title(monkeypatch, xdg_env):
+    """Fetch Artwork searches IGDB when no id was stored first."""
+    _igdb_game("")
+    _igdb_creds()
+    _stub(monkeypatch, IGDB_ROUTES)
+    monkeypatch.setattr(
+        art.igdbmod,
+        "search",
+        lambda _query: [{"id": "1145360", "name": "Hades (2020)"}],
+    )
+    result = art.fetch_best(
+        "local-hades",
+        "igdb",
+        "",
+        ("cover", "banner"),
+        force=True,
+        names=("Hades",),
+    )
+    assert result["provider"] == "igdb"
+    assert result["igdb_id"] == "1145360"
+    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert art.stored_igdb_id("local-hades") == "1145360"
+
+
+def test_igdb_search_returns_candidates(monkeypatch, xdg_env):
+    """No exact title: the provider-tagged rows reach the picker."""
+    _igdb_game("")
+    _igdb_creds()
+    monkeypatch.setattr(
+        art.igdbmod,
+        "search",
+        lambda _query: [{"id": "1", "name": "Hades II (2024)"}],
+    )
+    result = art.fetch_best("local-hades", "igdb", "", ("cover",), force=True, names=("Hades",))
+    assert result["art"] == {}
+    assert result["error"] == "no-match"
+    assert result["candidates"] == [{"id": "1", "name": "Hades II (2024)", "provider": "igdb"}]
+
+
+def test_igdb_search_reports_the_missing_key(monkeypatch, xdg_env):
+    _igdb_game("")
+    monkeypatch.setattr(
+        art.igdbmod,
+        "search",
+        lambda _query: (_ for _ in ()).throw(AssertionError("searched without a key")),
+    )
+    result = art.fetch_best("local-hades", "igdb", "", ("cover",), force=True, names=("Hades",))
+    assert result["error"] == "no-igdb-key"
+    assert result["candidates"] == []
+
+
+def test_igdb_search_uses_the_steam_name(monkeypatch, xdg_env):
+    """A Steam game without an IGDB id searches its official name."""
+    _igdb_creds()
+    _stub(monkeypatch, IGDB_ROUTES)
+    monkeypatch.setattr(art, "steam_app", lambda _appid: {"name": "Hades"})
+    seen = []
+    monkeypatch.setattr(
+        art.igdbmod,
+        "search",
+        lambda query: seen.append(query) or [{"id": "1", "name": "Hades (2020)"}],
+    )
+    result = art.fetch_best("620", "igdb", "", ("cover",), force=True)
+    assert seen == ["Hades"]
+    assert result["provider"] == "igdb"
+    assert result["igdb_id"] == "1"
+    assert art.stored_igdb_id("620") == "1"
+
+
+def test_clear_keeps_the_igdb_choice(monkeypatch, xdg_env):
+    """Clear removes the files but remembers the resolved IGDB game."""
+    _igdb_game("")
+    _igdb_creds()
+    _stub(monkeypatch, IGDB_ROUTES)
+    monkeypatch.setattr(
+        art.igdbmod,
+        "search",
+        lambda _query: [{"id": "1145360", "name": "Hades (2020)"}],
+    )
+    art.fetch_best("local-hades", "igdb", "", ("cover",), force=True, names=("Hades",))
+    assert art.stored_igdb_id("local-hades") == "1145360"
+    art.clear_fetched("local-hades")
+    assert art.stored_igdb_id("local-hades") == "1145360"
+    monkeypatch.setattr(
+        art.igdbmod,
+        "search",
+        lambda _query: (_ for _ in ()).throw(AssertionError("searched again")),
+    )
+    _stub(monkeypatch, IGDB_ROUTES)
+    result = art.fetch_best("local-hades", "igdb", "", ("cover",), force=True, names=("Hades",))
+    assert result["art"]["cover"].read_bytes() == b"COVER"
 
 
 def test_provider_order_puts_the_choice_first(xdg_env, monkeypatch):
