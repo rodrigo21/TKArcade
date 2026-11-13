@@ -1747,6 +1747,7 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             log.warning("storeArtwork(%s) failed: %s", appid, e)
             return "Could Not Save the Artwork Path."
+        artmod.unmark_cleared(appid)
         self.refresh()
         return ""
 
@@ -1779,6 +1780,7 @@ class GameListModel(QAbstractTableModel):
                         cfg = cfgmod.load(appid)
                         setattr(cfg.artwork, kind, os.fspath(dest))
                         cfgmod.save(cfg)
+                        artmod.unmark_cleared(appid)
             except Exception as e:
                 log.warning("storeArtworkUrl(%s) failed: %s", appid, e)
                 token = "network"
@@ -1793,7 +1795,11 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, str, result=bool)
     def clearArtwork(self, appid: str, kind: str) -> bool:
-        """Remove a manual artwork slot and clear the config path."""
+        """Empty one slot: manual file, downloaded copy and config path.
+
+        The kind stays hidden — Steam's own art and the exec icon too —
+        until Fetch Artwork is pressed.
+        """
         try:
             cfg = cfgmod.load(appid)
             if kind in artmod.MANUAL_KINDS:
@@ -1803,6 +1809,7 @@ class GameListModel(QAbstractTableModel):
             log.warning("clearArtwork(%s) failed: %s", appid, e)
             return False
         artmod.clear_manual(appid, kind)
+        artmod.clear_kind(appid, kind)
         self.refresh()
         return True
 
@@ -2282,7 +2289,9 @@ class GameListModel(QAbstractTableModel):
         """Delete the downloaded art this game points at ("no-game" if empty).
 
         With an Artwork Source AppID the cache belongs to that AppID, so
-        every game pointing there loses it; the confirmation says so.
+        every game pointing there loses it; the confirmation says so. The
+        game shows no art — no Steam fallback, no exe icon — until Fetch
+        Artwork is pressed.
         """
         if not appid:
             return "no-game"
@@ -4413,6 +4422,10 @@ class GameListModel(QAbstractTableModel):
         if provider not in metamod.PROVIDERS:
             self.metadataFetched.emit(appid, {})
             return
+        if os.environ.get("TKARCADE_NO_BG_FETCH"):
+            # Headless runs stay offline; the window shows its empty state.
+            self.metadataFetched.emit(appid, {})
+            return
         if provider == "steam":
             target = self._steam_target(appid, None, target)
             if not target:
@@ -4435,6 +4448,9 @@ class GameListModel(QAbstractTableModel):
         """Search a provider by title off-thread; the dialog picks a candidate."""
         query = str(title or "").strip()
         if not query or provider not in metamod.PROVIDERS:
+            self.metadataChoices.emit(appid, [])
+            return
+        if os.environ.get("TKARCADE_NO_BG_FETCH"):
             self.metadataChoices.emit(appid, [])
             return
         threading.Thread(

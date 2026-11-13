@@ -45,13 +45,26 @@ def cache_path(appid: str) -> Path:
 
 
 def parse_date(text: object) -> str:
-    """Steam's '28 Aug, 2025' as ISO; '' for coming-soon/unknown dates."""
+    """Steam's store date as ISO; '' for coming-soon or unknown dates.
+
+    The store answers the English locale in both orders — "28 Aug, 2025"
+    and "Jun 11, 2021" — so the month name decides the position and the
+    two numbers are the day and the 4-digit year.
+    """
     parts = str(text or "").replace(",", " ").split()
     if len(parts) != 3:
         return ""
-    day, month, year = parts
-    month_num = _MONTHS.get(month.lower())
-    if month_num is None or not day.isdecimal() or not year.isdecimal():
+    months = [_MONTHS.get(part.lower()) for part in parts]
+    known = [index for index, month in enumerate(months) if month is not None]
+    if len(known) != 1:
+        return ""
+    month_num = months[known[0]]
+    rest = [part for index, part in enumerate(parts) if index != known[0]]
+    if not all(part.isdecimal() for part in rest):
+        return ""
+    year = next((part for part in rest if len(part) == 4), "")
+    day = next((part for part in rest if part != year), "")
+    if not day:
         return ""
     try:
         return datetime.date(int(year), month_num, int(day)).isoformat()

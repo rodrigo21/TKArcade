@@ -11,6 +11,7 @@ from __future__ import annotations
 import html
 import json
 import logging
+import urllib.parse
 import urllib.request
 
 from . import releasedate as rdmod
@@ -19,6 +20,10 @@ from . import steam as steammod
 log = logging.getLogger("tkarcade.storemeta")
 
 ENDPOINT = "https://store.steampowered.com/api/appdetails?appids={appid}&l=english&cc=us"
+SEARCH_ENDPOINT = "https://store.steampowered.com/api/storesearch/?term={term}&l=english&cc=us"
+
+#: Store entries a title search lists; the window shows buttons for them.
+SEARCH_RESULTS = 10
 
 #: Steam board key -> payload value -> ``config.AGE_RATINGS`` entry.
 #: Boards whose codes do not map cleanly (igrs, cero, ...) are ignored.
@@ -130,3 +135,32 @@ def fetch(appid: str, target: str = "", timeout: int = 15) -> dict | None:
     if not isinstance(data, dict):
         return None
     return normalize(data)
+
+
+def search(query: str, timeout: int = 15) -> list[dict]:
+    """Steam store entries matching a title: [{"id", "name"}], best first.
+
+    The store answers apps, bundles and packages alike; only an app has an
+    AppID this module can fetch, so the rest is dropped.
+    """
+    term = urllib.parse.quote(str(query or "").strip())
+    if not term:
+        return []
+    try:
+        with urllib.request.urlopen(SEARCH_ENDPOINT.format(term=term), timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception as e:
+        log.debug("metadata search failed for %r: %s", query, e)
+        return []
+    items = payload.get("items") if isinstance(payload, dict) else None
+    found: list[dict] = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict) or item.get("type") not in (None, "app"):
+            continue
+        appid = str(item.get("id", "") or "").strip()
+        name = html.unescape(str(item.get("name") or "")).strip()
+        if appid.isdigit() and name:
+            found.append({"id": appid, "name": name})
+        if len(found) >= SEARCH_RESULTS:
+            break
+    return found

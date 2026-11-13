@@ -110,6 +110,11 @@ _CACHE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".ico")
 #: must not fill it back until Fetch Artwork is pressed.
 CLEARED_KEY = "cleared"
 
+#: Sidecar key: kinds the user cleared one tile at a time. A cleared kind
+#: shows nothing — Steam's own art, the exe icon and the cover/banner
+#: fallbacks included — until Fetch Artwork is pressed.
+CLEARED_KINDS_KEY = "cleared_kinds"
+
 #: Sidecar key: the local executable an icon was extracted from, with its
 #: stat, so a changed executable is re-extracted and an unchanged one is not.
 EXE_ICON_KEY = "exe_icon"
@@ -193,6 +198,13 @@ def _write_manifest(appid: str, kind: str, provider: str) -> None:
     data = read_manifest(appid)
     data[kind] = {"provider": provider}
     data.pop(CLEARED_KEY, None)
+    marked = data.get(CLEARED_KINDS_KEY)
+    if isinstance(marked, list):
+        left = [item for item in marked if item != kind]
+        if left:
+            data[CLEARED_KINDS_KEY] = left
+        else:
+            data.pop(CLEARED_KINDS_KEY, None)
     path = manifest_path(appid)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -206,9 +218,11 @@ def _mark_cleared(appid: str) -> None:
 
     The background fetch fills every hole on each window open, so without
     the mark a "Clear" would be undone by the next launch and the button
-    would be cosmetic. `fetch_best(force=True)` (the Fetch Artwork button)
-    is the way back. A name lookup's SGDB entry survives the Clear, so the
-    next Fetch restores the same game's art.
+    would be cosmetic. The mark also hides every fallback (Steam's own
+    art, the exe icon, the cover/banner siblings), so the tiles go empty.
+    `fetch_best(force=True)` (the Fetch Artwork button) is the way back. A
+    name lookup's SGDB entry survives the Clear, so the next Fetch
+    restores the same game's art.
     """
     path = manifest_path(appid)
     data = read_manifest(appid)
@@ -226,10 +240,29 @@ def is_cleared(appid: str) -> bool:
     return bool(read_manifest(appid).get(CLEARED_KEY))
 
 
-def _unmark_cleared(appid: str) -> None:
-    """Drop the cleared mark (an explicit fetch asked for the art again)."""
+def is_kind_cleared(appid: str, kind: str) -> bool:
+    """True when one kind is cleared, by its own mark or the whole AppID's."""
     data = read_manifest(appid)
-    if not data.pop(CLEARED_KEY, None):
+    if data.get(CLEARED_KEY):
+        return True
+    marked = data.get(CLEARED_KINDS_KEY)
+    return isinstance(marked, list) and kind in marked
+
+
+def unmark_cleared(appid: str, kinds=()) -> None:
+    """Drop the cleared marks: an explicit fetch or pick asked for the art."""
+    data = read_manifest(appid)
+    changed = bool(data.pop(CLEARED_KEY, None))
+    marked = data.get(CLEARED_KINDS_KEY)
+    if isinstance(marked, list):
+        left = [item for item in marked if item not in kinds] if kinds else []
+        if left != marked:
+            changed = True
+        if left:
+            data[CLEARED_KINDS_KEY] = left
+        else:
+            data.pop(CLEARED_KINDS_KEY, None)
+    if not changed:
         return
     path = manifest_path(appid)
     try:
@@ -246,7 +279,8 @@ def clear_fetched(appid: str) -> int:
 
     The cache belongs to the AppID, not the game: a local game borrowing a
     Steam AppID's art shares it with every other game pointing there.
-    Manual slots live in their own directory and are never touched.
+    Manual slots live in their own directory and are never touched, but
+    the mark hides them: the game shows no art until Fetch Artwork.
     """
     gid = _art_key(appid)
     removed = 0
@@ -262,6 +296,42 @@ def clear_fetched(appid: str) -> int:
             except OSError as e:
                 log.warning("artwork: could not remove %s: %s", cand, e)
     _mark_cleared(gid)
+    return removed
+
+
+def clear_kind(appid: str, kind: str) -> bool:
+    """Delete one kind's downloaded file and keep every fallback away.
+
+    Only that kind goes: clearing `background` leaves the banner file and
+    clearing `icon` leaves the cover, but the mark hides both so the tile
+    stays empty until Fetch Artwork. True when a file was deleted.
+    """
+    if kind not in ART_KINDS:
+        return False
+    gid = _art_key(appid)
+    removed = False
+    path = grid_path(gid, kind)
+    stem = path.stem  # removes only ".png": an AppID may contain dots
+    for suffix in _CACHE_SUFFIXES:
+        cand = path.with_name(stem + suffix)
+        try:
+            if cand.is_file():
+                cand.unlink()
+                removed = True
+        except OSError as e:
+            log.warning("artwork: could not remove %s: %s", cand, e)
+    data = read_manifest(gid)
+    data.pop(kind, None)
+    marked = data.get(CLEARED_KINDS_KEY)
+    marked = [item for item in marked if item != kind] if isinstance(marked, list) else []
+    marked.append(kind)
+    data[CLEARED_KINDS_KEY] = marked
+    path = manifest_path(gid)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    except Exception as e:
+        log.warning("artwork: could not mark %s/%s cleared: %s", gid, kind, e)
     return removed
 
 
@@ -593,11 +663,21 @@ def resolve(
     """
     if kind not in ART_KINDS:
         kind = "icon"
+    if is_cleared(str(appid)):
+        # Clear hides the manual slot too: the user asked for an empty
+        # tile, and only Fetch Artwork brings the art back.
+        return None, ""
     own_manual = _safe_manual(str(appid), kind)
     if own_manual is not None:
         return own_manual, "manual"
+    if is_kind_cleared(str(appid), kind):
+        # A cleared kind blocks the Artwork Source AppID too: the tile the
+        # user emptied must stay empty, whatever sits under it.
+        return None, ""
     source_appid = str(source_appid or "").strip()
     if source_appid and source_appid != str(appid):
+        if is_kind_cleared(source_appid, kind):
+            return None, ""
         path, source = _local_art(source_appid, kind)
         if path is not None:
             return path, "appid-" + source
@@ -855,6 +935,20 @@ def _official_candidates(appid: str, kind: str, info: dict | None) -> list[str]:
     return [STEAM_CDN.format(appid=appid, name=name) for name in _OFFICIAL_FILES.get(kind, ())]
 
 
+def _missing_kinds(gid: str, kinds, force: bool) -> list[str]:
+    """Kinds to download: the missing ones, minus the ones the user cleared.
+
+    A cleared kind stays out until Fetch Artwork forces the download; the
+    other kinds keep filling as usual.
+    """
+    wanted = []
+    for kind in kinds:
+        if not force and (is_kind_cleared(gid, kind) or cached_path(gid, kind) is not None):
+            continue
+        wanted.append(kind)
+    return wanted
+
+
 def fetch_official(
     appid: str,
     kinds=FETCH_KINDS,
@@ -871,7 +965,7 @@ def fetch_official(
         return {}
     if not force and is_cleared(gid):
         return {}
-    wanted = [kind for kind in kinds if force or cached_path(gid, kind) is None]
+    wanted = _missing_kinds(gid, kinds, force)
     if not wanted:
         return {}
     if info is None and "icon" in wanted:
@@ -965,7 +1059,9 @@ def fetch_sgdb_game(
     gid = _art_key(appid)
     if not force and is_cleared(gid):
         return {}
-    wanted = [kind for kind in kinds if force or cached_path(gid, kind) is None]
+    if force:
+        unmark_cleared(gid, kinds)
+    wanted = _missing_kinds(gid, kinds, force)
     out: dict[str, Path] = {}
     for kind in wanted:
         for entry in _sgdb_thumbs(game_id, kind, api_key):
@@ -994,9 +1090,7 @@ def fetch_igdb(
     gid = _art_key(appid)
     if not force and is_cleared(gid):
         return {}, ""
-    wanted = [
-        kind for kind in kinds if kind in IGDB_KINDS and (force or cached_path(gid, kind) is None)
-    ]
+    wanted = _missing_kinds(gid, [kind for kind in kinds if kind in IGDB_KINDS], force)
     if not wanted:
         return {}, ""
     urls, error = igdbmod.art(gid)
@@ -1067,7 +1161,7 @@ def fetch_by_name(
         return result
     if not force and is_cleared(gid):
         return result
-    wanted = [kind for kind in kinds if force or cached_path(gid, kind) is None]
+    wanted = _missing_kinds(gid, kinds, force)
     if not wanted:
         result["game_id"] = stored_sgdb_id(gid)
         return result
@@ -1148,7 +1242,7 @@ def fetch_best(
     if force:
         # Fetch Artwork is explicit: the user wants the art back, so the
         # marker that keeps the background fetch away goes.
-        _unmark_cleared(gid)
+        unmark_cleared(gid, kinds)
     if not gid.isdigit():
         return _fetch_named(gid, names, api_key, kinds, force, provider)
     return _fetch_numeric(gid, provider, api_key, kinds, force)

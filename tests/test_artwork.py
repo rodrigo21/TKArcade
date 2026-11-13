@@ -701,6 +701,60 @@ def test_manual_slot_survives_clear(xdg_env, tmp_path):
     assert manual is not None and manual.is_file()
 
 
+def test_clear_hides_the_manual_slot_but_keeps_the_file(xdg_env, tmp_path):
+    """A cleared game shows nothing; the picked file is still on disk."""
+    manual = art.store_manual("620", "icon", str(_image(tmp_path, "m.png")))
+    art.clear_fetched("620")
+    assert manual.is_file()
+    assert art.resolve("620", "icon") == (None, "")
+    # Fetch Artwork drops the mark and the manual slot is back at once.
+    art.unmark_cleared("620")
+    assert art.resolve("620", "icon")[0] == manual
+
+
+def test_cleared_kind_hides_the_cover_and_steam_art(monkeypatch, xdg_env):
+    """The tile's clear drops one file and keeps every fallback away."""
+    _stub(
+        monkeypatch,
+        [
+            (APP_INFO, _steam_apps("Portal 2", "abc")),
+            ("abc.ico", _ico_with_png_frame()),
+            ("library_600x900_2x.jpg", b"COVER"),
+            ("library_hero.jpg", b"HERO"),
+        ],
+    )
+    art.fetch_best("620", "steam", "")
+    assert art.cached_path("620", "icon") is not None
+    assert art.clear_kind("620", "icon") is True
+    assert art.cached_path("620", "icon") is None
+    assert art.is_kind_cleared("620", "icon") is True
+    # The cover sitting next to it does not answer for the icon anymore.
+    assert art.resolve("620", "icon") == (None, "")
+    # The other kinds stay, and the backdrop still derives from the banner.
+    assert art.resolve("620", "cover")[0] is not None
+    assert art.resolve("620", "background")[0] is not None
+    # A background pass leaves the cleared kind alone.
+    art.fetch_best("620", "steam", "")
+    assert art.cached_path("620", "icon") is None
+    # Fetch Artwork (forced) restores it.
+    art.fetch_best("620", "steam", "", force=True)
+    assert art.cached_path("620", "icon") is not None
+    assert art.is_kind_cleared("620", "icon") is False
+
+
+def test_clear_hides_the_exe_icon_until_a_fetch(monkeypatch, xdg_env, tmp_path):
+    """A cleared local game shows no executable icon either."""
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    exe = _local_exe(tmp_path)
+    path, source = art.resolve("local-doom", "icon", "", str(exe))
+    assert source == "exe"
+    art.clear_fetched("local-doom")
+    assert art.resolve("local-doom", "icon", "", str(exe)) == (None, "")
+    # Fetch Artwork drops the mark; the icon the game ships stays on disk.
+    art.fetch_best("local-doom", "steam", "", names=("Doom",), force=True)
+    assert art.resolve("local-doom", "icon", "", str(exe)) == (path, "exe")
+
+
 def _local_exe(tmp_path, name="game.exe"):
     exe = tmp_path / name
     exe.write_bytes(b"MZ")

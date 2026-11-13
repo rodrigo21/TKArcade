@@ -38,9 +38,10 @@ FIELDS = (
 CACHE_TTL = 30 * 24 * 3600
 
 #: Cache payload version: a payload written by an older build reads as
-#: cold, so a new field (the online tags) is fetched instead of showing
+#: cold, so a new field (the online tags) or a fixed one (a release date
+#: the month-first store form used to drop) is fetched instead of showing
 #: a fresh cache that cannot answer for it.
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,7 @@ PROVIDERS: dict[str, Provider] = {
         fields=FIELDS,
         resolve=storemeta.resolve,
         fetch=storemeta.fetch,
+        search=storemeta.search,
     ),
     "vndb": Provider(
         label="VNDB",

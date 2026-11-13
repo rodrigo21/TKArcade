@@ -69,6 +69,15 @@ Window {
     property var metadataRows: []
     // Title-search candidates the window lists: [{"id", "name"}].
     property var searchCandidates: []
+    // The opening lookup of a known Steam AppID falls back to a store
+    // title search once when the store answers nothing.
+    property bool steamAutoName: false
+    // A Steam game derives its AppID; a local game links one in the field.
+    // With an AppID there is nothing to find, so the query row stays out.
+    readonly property bool steamIdentity: (fields.is_steam || false)
+        || steamAppIdField.text.trim() !== ""
+    readonly property bool searchQueryVisible: searchSource === "steam"
+        ? !steamIdentity : searchSource !== "proton"
     // Age ratings are a fixed-board checklist, stored as a list.
     property var ageRatings: []
     // Online tags: read-only on Details and distinct from the categories.
@@ -1717,6 +1726,14 @@ Window {
         searchData.open(gameSettings)
         searchTabs.currentIndex = 0
         refreshProtonDB()
+        // A known Steam AppID is looked up as the window opens: a Steam
+        // game always has one, a local game only when it links a store
+        // page. Without one the query row finds it by title.
+        steamAutoName = false
+        if (searchSource === "steam" && steamIdentity) {
+            steamAutoName = true
+            fetchIdentity()
+        }
     }
 
     function openSearchDataArtwork() {
@@ -1778,9 +1795,8 @@ Window {
             searchStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
             return
         }
-        if (searchSource === "steam" && !(fields.is_steam || false)
-                && steamAppIdField.text.trim() === "") {
-            searchStatus = qsTr("Type the Steam AppID.")
+        if (searchSource === "steam" && !steamIdentity) {
+            // No AppID: the query row finds one by title.
             return
         }
         searchBusy = true
@@ -1791,15 +1807,27 @@ Window {
 
     // Find: an ID goes straight to the provider, a name lists candidates.
     function searchDataAgain() {
-        if (searchBusy || editAppid === "") {
+        if (searchBusy) {
             return
         }
+        if (editAppid === "") {
+            searchStatus = qsTr("Save the Game First.")
+            return
+        }
+        steamAutoName = false
         if (searchSource === "proton") {
             refreshProtonDB()
             return
         }
         if (searchSource === "igdb" && !gameModel.igdbConfigured()) {
             searchStatus = qsTr("IGDB Needs a Client ID and Secret in Preferences.")
+            return
+        }
+        if (searchSource === "steam" && steamIdentity) {
+            // The AppID answers for itself: the query row is hidden here.
+            searchCandidates = []
+            metadataRows = []
+            fetchIdentity()
             return
         }
         var query = searchQueryField.text.trim()
@@ -1824,9 +1852,13 @@ Window {
         searchStatus = ""
         searchCandidates = []
         metadataRows = []
+        steamAutoName = false
         searchSource = String(searchSourceBox.currentValue || "steam")
         if (searchSource === "proton") {
             refreshProtonDB()
+        } else if (searchSource === "steam" && steamIdentity) {
+            steamAutoName = true
+            fetchIdentity()
         }
     }
 
@@ -1869,9 +1901,23 @@ Window {
         var tags = data.tags || []
         add("tags", qsTr("Tags"), onlineTags, tags.join(", "), tags)
         if (rows.length === 0) {
+            // The opening lookup of a local game's linked AppID found
+            // nothing: its title gets one chance before the message.
+            if (steamAutoName && !(fields.is_steam || false)) {
+                steamAutoName = false
+                var query = searchQueryField.text.trim()
+                if (query !== "") {
+                    searchBusy = true
+                    searchStatus = qsTr("Searching…")
+                    gameModel.searchMetadata(editAppid, "steam", query)
+                    return
+                }
+            }
+            steamAutoName = false
             searchStatus = qsTr("No Metadata Found.")
             return
         }
+        steamAutoName = false
         searchStatus = ""
         metadataRows = rows
     }
@@ -4773,7 +4819,7 @@ Window {
         title: qsTr("Search Data")
         width: Kirigami.Units.gridUnit * 40
         minimumWidth: Kirigami.Units.gridUnit * 36
-        height: Kirigami.Units.gridUnit * 34
+        height: Kirigami.Units.gridUnit * 30
         bodyFillHeight: true
         acceptText: qsTr("Apply")
         acceptVisible: gameSettings.searchSource !== "proton"
@@ -4790,211 +4836,231 @@ Window {
                 text: qsTr("Artwork")
             }
         }
-        ColumnLayout {
+        Controls.ScrollView {
+            objectName: "searchMetadataScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: searchTabs.currentIndex === 0
-            RowLayout {
-                Layout.fillWidth: true
-                Controls.Label {
-                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
-                    text: qsTr("Source:")
-                }
-                AppComboBox {
-                    id: searchSourceBox
-                    objectName: "settingsSearchSource"
-                    Layout.fillWidth: true
-                    model: [
-                        { "text": qsTr("Steam"), "data": "steam" },
-                        { "text": qsTr("VNDB"), "data": "vndb" },
-                        { "text": qsTr("IGDB"), "data": "igdb" },
-                        { "text": qsTr("ProtonDB"), "data": "proton" }
-                    ]
-                    textRole: "text"
-                    valueRole: "data"
-                    onActivated: gameSettings.changeSearchSource()
-                    Controls.ToolTip.text: qsTr("Which Provider Reads the Data. VNDB and IGDB Search by Title When Their ID Is Empty.")
-                    Controls.ToolTip.visible: hovered
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                visible: gameSettings.searchSource !== "proton"
-                Controls.Label {
-                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
-                    text: qsTr("Find:")
-                }
-                Controls.TextField {
-                    id: searchQueryField
-                    objectName: "settingsSearchQuery"
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("Name, VNDB ID (v2002) or IGDB/Steam AppID")
-                    onAccepted: gameSettings.searchDataAgain()
-                }
-                Controls.Button {
-                    objectName: "settingsMetadataSearch"
-                    text: qsTr("Search")
-                    enabled: !gameSettings.searchBusy
-                    onClicked: gameSettings.searchDataAgain()
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                visible: !(fields.is_steam || false)
-                Controls.Label {
-                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
-                    text: qsTr("Steam AppID:")
-                }
-                Controls.TextField {
-                    id: steamAppIdField
-                    objectName: "settingsSteamAppId"
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("Steam AppID (Optional)")
-                    onEditingFinished: gameSettings.refreshProtonDB()
-                    Controls.ToolTip.text: qsTr("Steam AppID of This Game on the Steam Store. Used by the ProtonDB Rating and the Steam Source; Artwork Keeps Its Own Source AppID.")
-                    Controls.ToolTip.visible: hovered
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Controls.Label {
-                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
-                    text: qsTr("VNDB ID:")
-                }
-                Controls.TextField {
-                    id: vndbIdField
-                    objectName: "settingsVndbId"
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("e.g. v2002")
-                    Controls.ToolTip.text: qsTr("VNDB Visual Novel of This Game. The VNDB Source Reads It Directly.")
-                    Controls.ToolTip.visible: hovered
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Controls.Label {
-                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
-                    text: qsTr("IGDB ID:")
-                }
-                Controls.TextField {
-                    id: igdbIdField
-                    objectName: "settingsIgdbId"
-                    Layout.fillWidth: true
-                    placeholderText: qsTr("e.g. 1145360")
-                    Controls.ToolTip.text: qsTr("IGDB Game of This Game. The IGDB Source Reads It Directly.")
-                    Controls.ToolTip.visible: hovered
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                visible: gameSettings.searchSource === "proton"
-                Controls.Label {
-                    Layout.preferredWidth: Kirigami.Units.gridUnit * 6
-                    text: qsTr("ProtonDB:")
-                }
-                Controls.Button {
-                    objectName: "settingsSearchProton"
-                    text: gameSettings.protonDBTier !== "" ? gameSettings.protonDBTier : qsTr("Not Rated")
-                    onClicked: gameSettings.fetchIdentity()
-                    Controls.ToolTip.text: qsTr("Read the Tier for the Steam AppID Above")
-                    Controls.ToolTip.visible: hovered
-                }
-                Controls.Button {
-                    objectName: "settingsSearchProtonOpen"
-                    text: qsTr("Open Page")
-                    enabled: (fields.is_steam || false) || steamAppIdField.text !== ""
-                    onClicked: {
-                        if (!gameModel.openProtonDB(editAppid, steamAppIdField.text)) {
-                            gameSettings.searchStatus = qsTr("Could Not Open the ProtonDB Page.")
+            contentWidth: availableWidth
+            Item {
+                width: parent.width
+                implicitHeight: metadataPanel.implicitHeight
+                ColumnLayout {
+                    id: metadataPanel
+                    width: parent.width
+                    spacing: Kirigami.Units.smallSpacing
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                            text: qsTr("Source:")
+                        }
+                        AppComboBox {
+                            id: searchSourceBox
+                            objectName: "settingsSearchSource"
+                            Layout.fillWidth: true
+                            model: [
+                                { "text": qsTr("Steam"), "data": "steam" },
+                                { "text": qsTr("VNDB"), "data": "vndb" },
+                                { "text": qsTr("IGDB"), "data": "igdb" },
+                                { "text": qsTr("ProtonDB"), "data": "proton" }
+                            ]
+                            textRole: "text"
+                            valueRole: "data"
+                            onActivated: gameSettings.changeSearchSource()
+                            Controls.ToolTip.text: qsTr("Which Provider Reads the Data. VNDB and IGDB Search by Title When Their ID Is Empty.")
+                            Controls.ToolTip.visible: hovered
                         }
                     }
-                }
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                visible: gameSettings.searchCandidates.length > 0
-                Repeater {
-                    objectName: "settingsSearchCandidates"
-                    model: gameSettings.searchCandidates
-                    delegate: Controls.Button {
-                        required property var modelData
-                        objectName: "settingsSearchCandidate"
+                    RowLayout {
                         Layout.fillWidth: true
-                        text: modelData.name
-                        onClicked: gameSettings.pickCandidate(String(modelData.id))
+                        visible: gameSettings.searchQueryVisible
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                            text: qsTr("Find:")
+                        }
+                        Controls.TextField {
+                            id: searchQueryField
+                            objectName: "settingsSearchQuery"
+                            Layout.fillWidth: true
+                            placeholderText: qsTr("Name, VNDB ID (v2002) or IGDB/Steam AppID")
+                            onAccepted: gameSettings.searchDataAgain()
+                        }
+                        Controls.Button {
+                            objectName: "settingsMetadataSearch"
+                            text: qsTr("Search")
+                            enabled: !gameSettings.searchBusy
+                            onClicked: gameSettings.searchDataAgain()
+                        }
                     }
-                }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                visible: gameSettings.metadataRows.length > 0
-                Controls.Label {
-                    Layout.preferredWidth: Kirigami.Units.gridUnit * 7
-                    font.bold: true
-                    text: qsTr("Field")
-                }
-                Controls.Label {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.preferredWidth: 1
-                    font.bold: true
-                    text: qsTr("Current")
-                }
-                Controls.Label {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    Layout.preferredWidth: 1
-                    font.bold: true
-                    text: qsTr("New")
-                }
-            }
-            Repeater {
-                objectName: "metadataPreviewRows"
-                model: gameSettings.metadataRows
-                delegate: RowLayout {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    Controls.Label {
-                        Layout.preferredWidth: Kirigami.Units.gridUnit * 7
-                        elide: Text.ElideRight
-                        text: modelData.field
-                    }
-                    Controls.Label {
+                    RowLayout {
                         Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        Layout.preferredWidth: 1
-                        elide: Text.ElideRight
+                        visible: !(fields.is_steam || false)
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                            text: qsTr("Steam AppID:")
+                        }
+                        Controls.TextField {
+                            id: steamAppIdField
+                            objectName: "settingsSteamAppId"
+                            Layout.fillWidth: true
+                            placeholderText: qsTr("Steam AppID (Optional)")
+                            // The field is the change path for a local game's
+                            // store link: a new AppID refetches at once, so the
+                            // window needs no Search button while it is set.
+                            onEditingFinished: {
+                                gameSettings.refreshProtonDB()
+                                if (gameSettings.searchSource === "steam" && gameSettings.steamIdentity) {
+                                    gameSettings.steamAutoName = false
+                                    gameSettings.fetchIdentity()
+                                }
+                            }
+                            Controls.ToolTip.text: qsTr("Steam AppID of This Game on the Steam Store. Used by the ProtonDB Rating and the Steam Source; Artwork Keeps Its Own Source AppID.")
+                            Controls.ToolTip.visible: hovered
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                            text: qsTr("VNDB ID:")
+                        }
+                        Controls.TextField {
+                            id: vndbIdField
+                            objectName: "settingsVndbId"
+                            Layout.fillWidth: true
+                            placeholderText: qsTr("e.g. v2002")
+                            Controls.ToolTip.text: qsTr("VNDB Visual Novel of This Game. The VNDB Source Reads It Directly.")
+                            Controls.ToolTip.visible: hovered
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                            text: qsTr("IGDB ID:")
+                        }
+                        Controls.TextField {
+                            id: igdbIdField
+                            objectName: "settingsIgdbId"
+                            Layout.fillWidth: true
+                            placeholderText: qsTr("e.g. 1145360")
+                            Controls.ToolTip.text: qsTr("IGDB Game of This Game. The IGDB Source Reads It Directly.")
+                            Controls.ToolTip.visible: hovered
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: gameSettings.searchSource === "proton"
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                            text: qsTr("ProtonDB:")
+                        }
+                        Controls.Button {
+                            objectName: "settingsSearchProton"
+                            text: gameSettings.protonDBTier !== "" ? gameSettings.protonDBTier : qsTr("Not Rated")
+                            onClicked: gameSettings.fetchIdentity()
+                            Controls.ToolTip.text: qsTr("Read the Tier for the Steam AppID Above")
+                            Controls.ToolTip.visible: hovered
+                        }
+                        Controls.Button {
+                            objectName: "settingsSearchProtonOpen"
+                            text: qsTr("Open Page")
+                            enabled: (fields.is_steam || false) || steamAppIdField.text !== ""
+                            onClicked: {
+                                if (!gameModel.openProtonDB(editAppid, steamAppIdField.text)) {
+                                    gameSettings.searchStatus = qsTr("Could Not Open the ProtonDB Page.")
+                                }
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        visible: gameSettings.searchCandidates.length > 0
+                        Repeater {
+                            objectName: "settingsSearchCandidates"
+                            model: gameSettings.searchCandidates
+                            delegate: Controls.Button {
+                                required property var modelData
+                                objectName: "settingsSearchCandidate"
+                                Layout.fillWidth: true
+                                text: modelData.name
+                                onClicked: gameSettings.pickCandidate(String(modelData.id))
+                            }
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: gameSettings.metadataRows.length > 0
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 7
+                            font.bold: true
+                            text: qsTr("Field")
+                        }
+                        Controls.Label {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.preferredWidth: 1
+                            font.bold: true
+                            text: qsTr("Current")
+                        }
+                        Controls.Label {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.preferredWidth: 1
+                            font.bold: true
+                            text: qsTr("New")
+                        }
+                    }
+                    Repeater {
+                        objectName: "metadataPreviewRows"
+                        model: gameSettings.metadataRows
+                        delegate: RowLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Controls.Label {
+                                Layout.preferredWidth: Kirigami.Units.gridUnit * 7
+                                elide: Text.ElideRight
+                                text: modelData.field
+                            }
+                            Controls.Label {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.preferredWidth: 1
+                                elide: Text.ElideRight
+                                opacity: 0.7
+                                text: modelData.current !== "" ? modelData.current : "—"
+                                Controls.ToolTip.text: modelData.current
+                                Controls.ToolTip.visible: hovered && modelData.current !== ""
+                            }
+                            Controls.Label {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+                                Layout.preferredWidth: 1
+                                elide: Text.ElideRight
+                                opacity: modelData.locked ? 0.7 : 1
+                                text: modelData.locked ? qsTr("Locked") : modelData.next
+                                Controls.ToolTip.text: modelData.locked
+                                    ? qsTr("Locked; Search Data Will Not Replace It")
+                                    : modelData.next
+                                Controls.ToolTip.visible: hovered
+                            }
+                        }
+                    }
+                    Controls.CheckBox {
+                        id: metadataReplaceBox
+                        objectName: "metadataPreviewReplace"
+                        Layout.fillWidth: true
+                        text: qsTr("Replace existing values")
+                    }
+                    Controls.Label {
+                        objectName: "settingsMetadataStatus"
+                        Layout.fillWidth: true
                         opacity: 0.7
-                        text: modelData.current !== "" ? modelData.current : "—"
-                        Controls.ToolTip.text: modelData.current
-                        Controls.ToolTip.visible: hovered && modelData.current !== ""
-                    }
-                    Controls.Label {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        Layout.preferredWidth: 1
-                        elide: Text.ElideRight
-                        opacity: modelData.locked ? 0.7 : 1
-                        text: modelData.locked ? qsTr("Locked") : modelData.next
-                        Controls.ToolTip.text: modelData.locked
-                            ? qsTr("Locked; Search Data Will Not Replace It")
-                            : modelData.next
-                        Controls.ToolTip.visible: hovered
+                        wrapMode: Text.WordWrap
+                        text: gameSettings.searchStatus
                     }
                 }
-            }
-            Controls.CheckBox {
-                id: metadataReplaceBox
-                objectName: "metadataPreviewReplace"
-                Layout.fillWidth: true
-                text: qsTr("Replace existing values")
-            }
-            Controls.Label {
-                objectName: "settingsMetadataStatus"
-                Layout.fillWidth: true
-                opacity: 0.7
-                wrapMode: Text.WordWrap
-                text: gameSettings.searchStatus
             }
         }
         Controls.ScrollView {

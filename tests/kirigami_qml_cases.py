@@ -7632,6 +7632,98 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_metadata_window_steam_game_looks_up_its_appid(qgui_app, xdg_env):
+    """A Steam game opens the window on its AppID: no query row, no Search."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-620"
+    cfg.general.name = "Portal 2"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    fetched = []
+    model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
+    searched = []
+    model.searchMetadata = lambda appid, provider, title: searched.append((provider, appid, title))
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("steam-620")
+    swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    assert fetched == [("steam", "steam-620", "")], fetched
+    assert searched == []
+    assert awin.findChild(QQuickItem, "settingsSearchQuery").isVisible() is False
+    # The answer fills the preview like any other provider; Apply writes it.
+    model.metadataFetched.emit("steam-620", {"description": "Aperture.", "date": "2011-04-18"})
+    qgui_app.processEvents()
+    assert awin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == ""
+    _click(awin, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Aperture."
+    assert swin.findChild(QQuickItem, "settingsDate").property("text") == "2011-04-18"
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_window_local_link_looks_up_the_typed_appid(qgui_app, xdg_env):
+    """A local game's store link answers for itself, and a new one refetches."""
+    from PySide6.QtCore import QMetaObject, QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    _save_one_game("local-doom", "Doom")
+    config = C.load("local-doom")
+    config.metadata.steam_appid = "620"
+    C.save(config)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    fetched = []
+    model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    assert fetched == [("steam", "local-doom", "620")], fetched
+    field = awin.findChild(QQuickItem, "settingsSteamAppId")
+    field.setProperty("text", "480")
+    assert QMetaObject.invokeMethod(field, "editingFinished") is True
+    qgui_app.processEvents()
+    assert fetched[-1] == ("steam", "local-doom", "480")
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_window_local_without_link_searches_by_name(qgui_app, xdg_env):
+    """No AppID: the query row is the way in, and Search lists candidates."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    _save_one_game("local-doom", "Doom")
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    fetched = []
+    model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
+    searched = []
+    model.searchMetadata = lambda appid, provider, title: searched.append((provider, appid, title))
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    assert fetched == []
+    assert awin.findChild(QQuickItem, "settingsSearchQuery").isVisible() is True
+    _click(awin, "settingsMetadataSearch")
+    # The default source for a local game is VNDB, which searches by name.
+    assert searched == [("vndb", "local-doom", "Doom")], searched
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_metadata_igdb_provider_and_picker(qgui_app, xdg_env):
     """The provider menu reads IGDB and the pick saves [metadata] igdb_id."""
     from PySide6.QtCore import QMetaObject, QObject

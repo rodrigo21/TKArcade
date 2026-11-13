@@ -6,6 +6,13 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Search Data with the Steam source looks a known AppID up as the window
+  opens — a Steam game's own AppID, or a local game's store link — and
+  leaves the query row out, since there is nothing to find. A local game
+  without a link searches the Steam store by title and lists candidates,
+  and the pick writes `[metadata] steam_appid`. A linked AppID that
+  answers nothing falls back to the title once, and editing the field
+  refetches at once.
 - A newly added Steam game fills its metadata from the store on save,
   in the background: description, developer, publisher, genre, series,
   age ratings, release date and the online tags. Only empty fields are
@@ -174,6 +181,10 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Changed
+- The Search Data window is shorter and its fields start at the top: the
+  Metadata tab sits in a scroll area like the Artwork tab, instead of a
+  fixed-height form that centered its content with blank space above and
+  below.
 - Download Metadata is now **Search Data**, a window opened from the
   Information title: the source menu, the title search and the Steam,
   VNDB and IGDB identity fields moved into it, and the ProtonDB tier is
@@ -434,6 +445,16 @@ Breaking config changes are called out explicitly under `Changed`.
   validated before saving.
 
 ### Fixed
+- A Steam release date written month first ("Jun 11, 2021") is parsed
+  like the day-first form ("30 Nov, 2020"). The store answers both orders
+  in the same English locale, and the month-first ones were silently
+  dropped from the store metadata and from the library's release date.
+- Clear on the Artwork tab empties the tile for real. The downloaded
+  file was removed, but the preview fell back to Steam's own art, to the
+  icon embedded in the executable, or to the cover/banner sibling, so the
+  images came back on the next refresh. A cleared game or a cleared kind
+  now shows nothing until **Fetch Artwork**; the tile's clear also drops
+  that kind's downloaded copy.
 - Download Metadata on an unsaved game says "Save the Game First."
   instead of ignoring the press: a game with no ID has no cache key, so
   the button did nothing on the Add Game dialog.

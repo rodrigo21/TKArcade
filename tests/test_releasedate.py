@@ -33,8 +33,12 @@ def _stub(monkeypatch, payload=None, error=None):
 def test_parse_date():
     assert rdate.parse_date("28 Aug, 2025") == "2025-08-28"
     assert rdate.parse_date("1 Jan 2024") == "2024-01-01"
+    # The store answers the same English locale month first when it likes.
+    assert rdate.parse_date("Jun 11, 2021") == "2021-06-11"
+    assert rdate.parse_date("2025 Aug 28") == "2025-08-28"
     assert rdate.parse_date("Coming soon") == ""
     assert rdate.parse_date("To be announced") == ""
+    assert rdate.parse_date("Jun 2021") == ""
     assert rdate.parse_date("31 Feb, 2025") == ""
     assert rdate.parse_date(None) == ""
 

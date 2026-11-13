@@ -106,3 +106,27 @@ def test_fetch_failures_are_none(monkeypatch):
     assert meta.fetch("73") is None
     _stub(monkeypatch, payload={"73": {"data": []}})
     assert meta.fetch("73") is None
+
+
+def test_search_lists_apps_only(monkeypatch):
+    seen = []
+
+    def fake_open(url, timeout=15):
+        seen.append(url)
+        return _Resp(
+            {
+                "items": [
+                    {"type": "app", "name": "Portal &amp; Co", "id": 620},
+                    {"type": "bundle", "name": "A Bundle", "id": 1},
+                    {"type": "app", "name": "", "id": 2},
+                    {"type": "app", "name": "No AppID"},
+                ]
+            }
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_open)
+    assert meta.search("portal 2") == [{"id": "620", "name": "Portal & Co"}]
+    assert seen == [meta.SEARCH_ENDPOINT.format(term="portal%202")]
+    # A blank query never reaches the store.
+    assert meta.search("   ") == []
+    assert seen == [meta.SEARCH_ENDPOINT.format(term="portal%202")]

@@ -101,7 +101,9 @@ def test_search_is_gated_and_survives_failure(monkeypatch):
 
     monkeypatch.setitem(md.PROVIDERS, "vndb", dataclasses.replace(entry, search=broken))
     assert md.search("vndb", "Muv-Luv") == []
-    assert md.search("steam", "Muv-Luv") == []
+    # A provider without a search adapter answers nothing, not an error.
+    monkeypatch.setitem(md.PROVIDERS, "vndb", dataclasses.replace(entry, search=None))
+    assert md.search("vndb", "Muv-Luv") == []
 
 
 def test_vndb_cache_follows_the_picked_id(monkeypatch, xdg_env):

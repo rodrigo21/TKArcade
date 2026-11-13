@@ -227,7 +227,10 @@ description and Notes stay manual, with a lock toggle on each row that
 keeps that field out of every download. A **Search Data** button next to
 the Information title opens a window with two tabs. **Metadata** picks
 the source (Steam, VNDB, IGDB or ProtonDB) and holds the Steam AppID,
-VNDB and IGDB identity fields: a stored id fills the query, an id typed
+VNDB and IGDB identity fields: a known Steam AppID — a Steam game's own,
+or a local game's store link — is looked up as the window opens and
+leaves no query row, while a local game without one searches the Steam
+store by title. A stored VNDB or IGDB id fills the query, an id typed
 in place of a title goes straight to the provider, and a title lists
 candidates. The answer arrives as preview rows (Apply fills empty
 fields, a switch replaces typed ones, the locks win) and writes the
@@ -270,7 +273,10 @@ stays with the other providers. The
 `background` slot is a wide backdrop with no download of its own: it
 falls back to the banner art when empty, and clearing it never removes
 the banner. A local game whose icon slot is still empty shows the icon
-embedded in its executable, extracted once into the cache. Above the
+embedded in its executable, extracted once into the cache. Clear empties
+the tile for real: a cleared kind, and every slot of a cleared game,
+shows no art — not even Steam's own or the executable's icon — until
+Fetch Artwork. Above the
 AppID row, framed thumbnails (icon, banner, background, cover) show what
 the list and the cards draw, at the image's own size; a filled frame
 hugs the loaded picture with an equal margin on every side, so the art

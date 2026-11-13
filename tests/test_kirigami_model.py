@@ -3395,6 +3395,28 @@ def test_clear_fetched_artwork_uses_the_game_id(qgui_app, xdg_env):
     assert artwork.cached_path("local-doom", "cover") is None
     assert artwork.is_cleared("local-doom") is True
     assert model.artworkStatus("local-doom") == "cleared"
+    # The preview goes empty too: no Steam art, no exe icon, no sibling.
+    assert model.artworkPreview("local-doom", "cover") == ""
+
+
+def test_clear_artwork_empties_the_tile(qgui_app, xdg_env):
+    """The tile's clear drops the downloaded copy, not only the manual slot."""
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    cover = artwork.grid_path("local-doom", "cover")
+    cover.parent.mkdir(parents=True, exist_ok=True)
+    cover.write_bytes(b"P")
+    model = _model(qgui_app)
+    assert model.artworkPreview("local-doom", "cover") != ""
+    assert model.clearArtwork("local-doom", "cover") is True
+    assert artwork.cached_path("local-doom", "cover") is None
+    assert artwork.is_kind_cleared("local-doom", "cover") is True
+    assert model.artworkPreview("local-doom", "cover") == ""
 
 
 def test_clear_fetched_artwork_uses_the_source_appid(qgui_app, xdg_env):
