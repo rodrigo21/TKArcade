@@ -23,6 +23,12 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   every stored image ends in the chosen format. The maintainer's cache
   is all AVIF now (68 images, 0 failures across the passes). Record:
   CHANGELOG.
+- Closed as docs, no code: the metadata registry theme (C1–C8) left
+  `TODO.md`. Its two open items described landed work, and
+  `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
+  which keeps the C numbering the other records cite. The IGDB
+  real-key wait moved to the 2.0 item. That batch passed
+  `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
 - Verified: `scripts/check.sh --qml` (801 passed, 3 skipped), ruff check
   and format clean, and an offscreen shot of the Preferences Artwork
   page with the new Stored Images section. The venv was refreshed after
