@@ -1932,6 +1932,25 @@ class GameListModel(QAbstractTableModel):
         if art:
             self._reencode_downloads(art)
 
+    def _convert_exe_icons(self) -> None:
+        """Rewrite cached executable icons in the configured format."""
+        for appid in cfgmod.list_appids():
+            if not str(appid).startswith("local-"):
+                continue
+            try:
+                cfg = cfgmod.load(str(appid))
+                exe = str(cfg.general.custom_executable or "").strip()
+            except Exception:
+                continue
+            if not exe:
+                continue
+            try:
+                path = artmod.exe_icon(str(appid), exe)
+                if path is not None:
+                    artio.convert_exe_icon(str(appid), path)
+            except Exception as e:
+                log.warning("exe icon conversion(%s) failed: %s", appid, e)
+
     def _icon_upgrade_targets(self) -> set[str]:
         """Cache slots the one-time icon upgrade looks at."""
         targets: set[str] = set()
@@ -4650,6 +4669,7 @@ class GameListModel(QAbstractTableModel):
         for appid in list(appids) if appids is not None else cfgmod.list_appids():
             self._fetch_game(str(appid), api_key, default, enrich)
         self._upgrade_weak_icons_once(api_key)
+        self._convert_exe_icons()
         try:
             self.backgroundDone.emit()
         except Exception:

@@ -218,6 +218,17 @@ def convert_file(path: Path, kind: str = "") -> tuple[Path | None, str]:
     return artmod.replace_image(path, body, suffix), token
 
 
+def convert_exe_icon(appid: str, path: Path) -> Path | None:
+    """Re-encode one extracted executable icon and record its suffix."""
+    path = Path(path)
+    new, _token = convert_file(path, "icon")
+    if new is None:
+        return None
+    if new != path:
+        artmod.record_exe_icon(appid, new)
+    return new
+
+
 def _grid_kind(name: str) -> str:
     """Kind of a cached file, from its name (`<key>-icon.png`)."""
     stem = Path(name).stem
@@ -240,10 +251,13 @@ def _grid_images() -> list[tuple[Path, str]]:
     except OSError:
         return found
     for entry in entries:
-        if not entry.is_file() or Path(entry.name).stem.endswith("-exe"):
+        if not entry.is_file():
             continue
-        if entry.suffix.lower() in artmod.IMAGE_SUFFIXES:
-            found.append((entry, _grid_kind(entry.name)))
+        if entry.suffix.lower() not in artmod.IMAGE_SUFFIXES:
+            continue
+        stem = Path(entry.name).stem
+        kind = "icon" if stem.endswith("-exe") else _grid_kind(entry.name)
+        found.append((entry, kind))
     return found
 
 
@@ -312,6 +326,9 @@ def reencode_all() -> tuple[int, int, int, dict[str, str]]:
         elif new != path:
             converted += 1
             mapping[str(path)] = str(new)
+            if "-exe." in path.name:
+                key = path.name.rsplit("-exe.", 1)[0]
+                artmod.record_exe_icon(key, new)
         elif path.stat().st_mtime_ns != before:
             # Rewritten in place: an oversized icon in its target format.
             converted += 1

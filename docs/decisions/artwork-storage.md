@@ -41,7 +41,11 @@ of the `.exe` a native port ships beside its `.sh`.
   is written as `<key>-exe.png`, a BMP-only icon as `<key>-exe.ico` with
   its directory sorted largest first, because Qt otherwise reads the
   16x16 frame. A version marker in the sidecar re-extracts icons cached
-  before that rule.
+  before that rule. The icon is extraction-time PNG/ICO only because the
+  extraction is stdlib; the background pass and **Re-encode Existing
+  Artwork…** rewrite it in the stored format (AVIF by default), record
+  the new suffix in the sidecar and leave no generated image outside the
+  format.
 - A stored `icon` is downscaled to 1024 px on its longest side (aspect
   and alpha kept): the dialog's tooltip zooms to about 378 logical px
   and the card fallback to about 324, so 1024 covers a 2x screen and

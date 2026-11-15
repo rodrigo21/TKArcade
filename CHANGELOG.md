@@ -198,6 +198,11 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- Stored executable icons now join the storage format: the background
+  pass after startup and Re-encode Existing Artwork rewrite them as AVIF
+  (or the chosen format) and record the suffix in the sidecar, so no
+  generated image stays outside the format and the cache still hits
+  instead of re-extracting the executable.
 - A local game's executable icon no longer loses to official Steam art
   (the 32x32 client icon): manual and SteamGridDB/IGDB icons still win,
   and a donor's cached cover no longer becomes the icon ahead of it.

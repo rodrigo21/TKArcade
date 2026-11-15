@@ -4,6 +4,8 @@ import os
 import time
 from pathlib import Path
 
+import pytest
+
 from tkarcade import config as C
 
 
@@ -3370,6 +3372,39 @@ def test_convert_file_downscales_an_oversized_icon_in_place(qgui_app, xdg_env, t
     before = cover.read_bytes()
     assert io.convert_file(cover, "cover") == (cover, "")
     assert cover.read_bytes() == before
+
+
+def test_convert_exe_icon_rewrites_it_and_records_the_suffix(
+    qgui_app, xdg_env, monkeypatch, tmp_path
+):
+    """An executable icon joins the stored format and the cache still hits."""
+    from tkarcade import artwork, exeicon
+    from tkarcade import config as C
+    from tkarcade.gui import artwork_io as io
+
+    if "avif" not in io._writers():
+        pytest.skip("the AVIF writer is not installed")
+    prefs = C.load_preferences()
+    prefs.artwork_format = "auto"
+    C.save_preferences(prefs)
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    exe = tmp_path / "game.exe"
+    exe.write_bytes(b"MZ")
+    monkeypatch.setattr(exeicon, "icon_bytes", lambda path: _ico_payload((16, 64)))
+    png = artwork.exe_icon("local-doom", str(exe))
+    assert png is not None and png.suffix == ".png"
+    assert (png, "icon") in io.stored_images()
+    new = io.convert_exe_icon("local-doom", png)
+    assert new is not None and new.suffix == ".avif" and new.is_file()
+    assert not png.exists()
+    assert artwork.read_manifest("local-doom")[artwork.EXE_ICON_KEY]["suffix"] == ".avif"
+    assert artwork.exe_icon("local-doom", str(exe)) == new
+    assert new in artwork.cache_files("local-doom")
 
 
 def test_weak_official_icon_is_upgraded_from_sgdb(qgui_app, xdg_env, monkeypatch):

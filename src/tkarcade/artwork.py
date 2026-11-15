@@ -610,7 +610,7 @@ def cache_files(appid: str) -> list[Path]:
         for ext in _CACHE_SUFFIXES
     ]
     candidates.append(base / f"{key}.json")
-    candidates += [base / f"{key}-exe{ext}" for ext in (".png", ".ico")]
+    candidates += [base / f"{key}-exe{ext}" for ext in (".avif", ".png", ".ico")]
     out: list[Path] = []
     for cand in candidates:
         try:
@@ -920,6 +920,27 @@ def exe_icon(appid: str, exe: str = "") -> Path | None:
         log.debug("artwork exe icon write failed: %s", e)
         return None
     return dest
+
+
+def record_exe_icon(appid: str, path: Path) -> None:
+    """Point the sidecar at the suffix a converted exe icon now uses.
+
+    The extraction itself is stdlib and writes PNG/ICO; the GUI's
+    conversion rewrites it and calls this so the next cache hit finds
+    the new file instead of re-extracting the executable.
+    """
+    data = read_manifest(appid)
+    entry = data.get(EXE_ICON_KEY)
+    if not isinstance(entry, dict):
+        return
+    entry["suffix"] = Path(path).suffix.lower()
+    data[EXE_ICON_KEY] = entry
+    try:
+        manifest_path(appid).write_text(
+            json.dumps(data, indent=2, sort_keys=True), encoding="utf-8"
+        )
+    except Exception as e:
+        log.debug("artwork exe icon suffix write failed: %s", e)
 
 
 def resolve_icon(appid: str, landscape: bool = False) -> Path | None:
