@@ -7,7 +7,7 @@ lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
 
 ## Problem
 
-C7 of `docs/plans/metadata-provider.md` wanted the IGDB adapter from
+C7 of `docs/decisions/metadata-provider.md` wanted the IGDB adapter from
 `decisions/metadata-igdb.md` behind artwork too. A local game without a
 Steam AppID had one community source (SteamGridDB), and the IGDB entry
 already carries a cover and promo art. Joining meant more than one

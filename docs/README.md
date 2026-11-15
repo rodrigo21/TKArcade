@@ -94,6 +94,9 @@ What each document is for and where the source of truth lives.
 - `decisions/protondb-local-games.md` — a local game's optional Steam
   store AppID for the ProtonDB rating, and the per-game cache key with
   its recorded target.
+- `decisions/metadata-provider.md` — the registry as a whole: the three
+  providers and their field map, the cache, rate gate and failure
+  policy, the preview and lock rules, and the C1–C8 order.
 - `decisions/metadata-download.md` — the Download Metadata action, the
   fill-empty-only rule, the Steam field mapping and its cache.
 - `decisions/metadata-registry.md` — the provider registry, its
@@ -127,7 +130,3 @@ What each document is for and where the source of truth lives.
   through Heroic's files, the local-family launch choice, the import flow
   and four decisions the maintainer still owes; targeted at 2.0, after
   the 1.0 release.
-- `plans/metadata-provider.md` — one provider registry (Steam, VNDB,
-  PCGamingWiki, IGDB) behind local metadata, provider artwork and online
-  categories, with a preview before writing and per-field locks. Its
-  first consumer landed as `decisions/metadata-download.md`.

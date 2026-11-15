@@ -7,7 +7,7 @@ lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
 
 ## Problem
 
-C1 of `docs/plans/metadata-provider.md` needed one place where a
+C1 of `docs/decisions/metadata-provider.md` needed one place where a
 metadata source declares what it can fill and how to reach it. C2 will
 add the action UI, and each later adapter (VNDB, PCGamingWiki, IGDB)
 must not repeat the cache, the target keying or the rate limit. The

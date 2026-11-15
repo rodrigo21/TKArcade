@@ -7,7 +7,7 @@ lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
 
 ## Problem
 
-C6 of `docs/plans/metadata-provider.md` needed a general provider: VNDB
+C6 of `docs/decisions/metadata-provider.md` needed a general provider: VNDB
 answers visual novels only, and a local game without a Steam store link
 had no source for publisher, series or age ratings. IGDB indexes every
 game and needs a Twitch application (client id and secret), so the

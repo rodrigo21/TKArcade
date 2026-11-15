@@ -7,7 +7,7 @@ lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
 
 ## Problem
 
-C8 of `docs/plans/metadata-provider.md` was the last consumer of the
+C8 of `docs/decisions/metadata-provider.md` was the last consumer of the
 metadata registry: online sources for categories/tags à la Playnite.
 The per-game categories and the drawer filter already shipped without
 online data, and the maintainer chose to keep categories manual for now:

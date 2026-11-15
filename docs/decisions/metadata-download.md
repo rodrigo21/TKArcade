@@ -48,7 +48,7 @@ manual fields meant retyping what the store already answers.
    column already shows the cached store date for a Steam ID, and a
    second writer of the same date would fight it. Changed 2026-11-11:
    the provider registry fills an empty date and locks it per field; see
-   `docs/plans/metadata-provider.md`.
+   `docs/decisions/metadata-provider.md`.
 
 ## Rationale
 

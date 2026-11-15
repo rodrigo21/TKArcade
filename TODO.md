@@ -7,33 +7,17 @@ and git, standing decisions in `docs/POLICIES.md`, and hard-won
 QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 `docs/README.md`. The order:
 
-1. Metadata provider registry first: Steam, VNDB and IGDB (the
-   PCGamingWiki adapter is dropped: Cloudflare blocks a plain HTTP
-   client); the local metadata download, the provider artwork source
-   and the online categories all consume it. IGDB landed last inside the
-   phase because it needs a Twitch app key.
-2. Library import second: the Playnite-style enrichment reuses the
-   provider, and the provider has nothing to enrich before the import
-   exists.
-3. The 1.0 gate on the maintainer's release call: visual pass, shim
+1. Library import first: the Playnite-style enrichment reuses the
+   landed metadata provider, and the provider has nothing to enrich
+   before the import exists.
+2. The 1.0 gate on the maintainer's release call: visual pass, shim
    removal, translations, release pass.
-4. Epic and GOG as origins in 2.0: the 1.0 gate removes the rename
+3. Epic and GOG as origins in 2.0: the 1.0 gate removes the rename
    machinery a new ID prefix would need, so a store game records its
    store in a `[store]` field and keeps a `local` ID.
 
 ## Before 1.0
 
-- [ ] **Metadata provider registry (Steam, VNDB, IGDB).**
-  One client behind the local metadata download, the provider artwork
-  source and the online categories: per-provider adapters, cache, rate
-  limit, a preview before writing and per-field locks. It covers a game
-  without a Steam AppID. PCGamingWiki is out: Cloudflare blocks a plain
-  HTTP client, and IGDB carries the fields it would have added.
-  Design: `docs/plans/metadata-provider.md`.
-- [ ] **Other artwork sources.** Steam's CDN, SteamGridDB and IGDB are
-  the providers today; IGDB serves cover and banner only (no square
-  icon) and needs the IGDB ID from Download Metadata.
-  Design: `docs/plans/metadata-provider.md`.
 - [ ] **VNDB release picker.** A visual novel has several releases, and
   each carries its own date, platforms, languages and producers (a
   publisher is not the developer). The VNDB source should list them
@@ -51,7 +35,8 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 - [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) on top of the
   library format import above: the enrichment reads the imported
   entries and fills the manual metadata fields through the registry.
-  Design: `docs/plans/metadata-provider.md`.
+  Design: `docs/decisions/metadata-provider.md`; the bulk action needs
+  its own plan.
 - [ ] **Online tags follow-up.** Download Metadata fills `[metadata]
   tags` from Steam, IGDB and VNDB, and Details shows them read-only.
   After the library import, decide whether the sidebar categories derive
@@ -102,4 +87,6 @@ Release, only when the maintainer opens the subject:
   owns the Twitch keys. Decide at 2.0: project-hosted proxy (hosting,
   uptime, IGDB redistribution terms) against a key embedded in the
   package (public secret, Twitch confidentiality expectation) against
-  dropping IGDB. No plan yet; a design lands before any code.
+  dropping IGDB. No plan yet; a design lands before any code. A
+  real-key smoke test of the adapter still waits on the maintainer's
+  Twitch application.
