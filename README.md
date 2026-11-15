@@ -267,7 +267,10 @@ fills the space the other sections leave, shrinks to five lines with
 the window and scrolls longer text inside its frame. The window's
 **Artwork** tab picks the manual
 icon/cover/banner/background files, an optional Artwork Source AppID (any
-Steam AppID whose art overrides the game's own), the per-game download
+Steam AppID whose art overrides the game's own; a local game's
+executable icon still beats that AppID's official Steam icon, and a
+32 px official icon is upgraded from SteamGridDB when a key is set), the
+per-game download
 provider (Steam, SteamGridDB or IGDB; Steam first by default) and
 Fetch/Clear; a local game without an AppID is looked up by name on
 SteamGridDB and a stored choice keeps the same art across fetches. IGDB
@@ -281,7 +284,8 @@ the chosen provider, an existing game included. The
 `background` slot is a wide backdrop with no download of its own: it
 falls back to the banner art when empty, and clearing it never removes
 the banner. A local game whose icon slot is still empty shows the icon
-embedded in its executable, extracted once into the cache. Clear empties
+embedded in its executable — or in the `.exe` shipped beside a native
+launcher, as a Ren'Py port ships — extracted once into the cache. Clear empties
 the tile for real: a cleared kind, and every slot of a cleared game,
 shows no art — not even Steam's own or the executable's icon — until
 Fetch Artwork, which restores the tile even when the art comes from an
@@ -293,7 +297,14 @@ never touches the rounded corner, and the backdrop's preview matches the
 banner's while it has no art of its own. Clicking one picks that file
 and the buttons under it download an image from a URL or clear the slot,
 while the hover tooltip names the kind and shows the picture larger with
-its origin. The
+its origin. A pasted URL or a picked file takes any format the Qt
+plugins read (AVIF, JPEG XL, HEIF, TIFF, SVG…), and a picked `.exe`
+yields its embedded icon; Preferences → Artwork → **Stored Images**
+writes them in the chosen format — `auto` is AVIF at quality 85, then
+WebP at 90, JPEG at 90, PNG — and **Re-encode Existing Artwork…**
+rewrites what is already stored. Images over 4K warn, and over 8192 px
+per side or 33 megapixels are refused; a square icon is kept at 1024 px
+on its longest side, since nothing draws it bigger. The
 dialog opens at half the screen width and the full usable height. The
 footer shows the live wrapper summary and a launch-command preview. The
 chosen status also appears as a colored disc in the list and icons and a

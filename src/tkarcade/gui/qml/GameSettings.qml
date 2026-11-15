@@ -3107,6 +3107,8 @@ Window {
                                                     editAppid, kind, picked)
                                                 if (msg !== "") {
                                                     settingsError.text = msg
+                                                } else {
+                                                    artResult = qsTr("Saving the Artwork…")
                                                 }
                                                 // Picking stores a manual slot:
                                                 // thumbnail and status follow.
@@ -4705,11 +4707,16 @@ Window {
             }
             var messages = {
                 "network": qsTr("Could Not Download the Image."),
-                "not-image": qsTr("That URL Is Not an Image."),
-                "too-large": qsTr("The Image Is Too Large (20 MB Max).")
+                "not-image": qsTr("That Is Not a Supported Image."),
+                "no-icon": qsTr("That Executable Has No Icon."),
+                "too-large": qsTr("The Image Is Too Large (20 MB Max)."),
+                "huge": qsTr("The Image Is Too Large (8192 Pixels per Side, 33 Megapixels Max)."),
+                "large": qsTr("Artwork Stored. The Image Is Very Large (Over 4K) and May Slow the Interface."),
+                "file": qsTr("Could Not Read That File."),
+                "save": qsTr("Could Not Save the Image.")
             }
             artResult = error === ""
-                ? qsTr("Image Downloaded.")
+                ? qsTr("Artwork Stored.")
                 : (messages[error] || qsTr("Could Not Save the Image."))
             refreshArtStatus()
         }

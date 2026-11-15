@@ -454,6 +454,21 @@ def normalize_artwork_provider(value: object) -> str:
     return text if text in ("steam", "sgdb", "igdb") else ""
 
 
+def normalize_artwork_format(value: object) -> str:
+    """Stored-art format: "auto", "avif", "webp", "jpeg" or "png"."""
+    text = str(value or "").strip().lower()
+    return text if text in ("auto", "avif", "webp", "jpeg", "png") else "auto"
+
+
+def clean_artwork_quality(value: object) -> int:
+    """Quality for stored art: 1-100, 85 when the value is unusable."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return 85
+    return max(1, min(100, number))
+
+
 @dataclass
 class AudioConfig:
     sink: str = ""  # output sink for the session ("" = system default)
@@ -482,6 +497,8 @@ class Preferences:
     igdb_client_id: str = ""  # Twitch application, for the IGDB provider
     igdb_client_secret: str = ""
     artwork_source: str = "steam"  # steam|sgdb|igdb: which provider a fetch tries first
+    artwork_format: str = "auto"  # auto|avif|webp|jpeg|png: how stored art is written
+    artwork_quality: int = 85  # 1-100 for the lossy storage format
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
     column_widths: str = ""  # fitted widths, e.g. "1=210,2=90"
@@ -1390,6 +1407,8 @@ def load_preferences() -> Preferences:
     out.igdb_client_secret = str(ui.get("igdb_client_secret", "") or "").strip()
     artwork_source = str(ui.get("artwork_source", "steam") or "steam").strip()
     out.artwork_source = artwork_source if artwork_source in ("steam", "sgdb", "igdb") else "steam"
+    out.artwork_format = normalize_artwork_format(ui.get("artwork_format", "auto"))
+    out.artwork_quality = clean_artwork_quality(ui.get("artwork_quality", 85))
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
     out.column_widths = _clean_width_map(str(ui.get("column_widths", "") or ""))
@@ -1659,6 +1678,8 @@ def save_preferences(prefs: Preferences) -> Path:
             "artwork_source": prefs.artwork_source
             if prefs.artwork_source in ("steam", "sgdb", "igdb")
             else "steam",
+            "artwork_format": normalize_artwork_format(prefs.artwork_format),
+            "artwork_quality": clean_artwork_quality(prefs.artwork_quality),
             "column_order": _clean_int_list(prefs.column_order),
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
             "column_widths": _clean_width_map(prefs.column_widths),

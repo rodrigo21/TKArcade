@@ -37,6 +37,9 @@ Window {
     property var archiveDirs: gameModel.runtimeArchiveDirs()
     // Which row asked the native picker, so its result lands in one place.
     property string pendingPick: ""
+    // Re-encode Existing Artwork: the worker runs one pass at a time.
+    property bool reencodeBusy: false
+    property string reencodeStatus: ""
 
     Connections {
         target: gameModel
@@ -73,6 +76,10 @@ Window {
         function onArchiveFinished(kind, message) {
             prefsDialog.setArchiveState(kind, false, message === "" ? qsTr("Installed.") : message)
         }
+        function onArtworkReencoded(message) {
+            prefsDialog.reencodeBusy = false
+            prefsDialog.reencodeStatus = message
+        }
     }
 
     function open() {
@@ -85,7 +92,10 @@ Window {
         values = gameModel.loadPrefs()
         archiveBusy = ({"dxvk": false, "vkd3d": false})
         archiveStatus = ({"dxvk": "", "vkd3d": ""})
+        reencodeBusy = false
+        reencodeStatus = ""
         quickSpin.value = values.trayQuickCount ?? 5
+        qualitySpin.value = values.artworkQuality ?? 85
         var opts = gameModel.languageOptions()
         langCodes = []
         var labels = []
@@ -309,6 +319,80 @@ Window {
                                     Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB and IGDB Are Community Artwork. Their Keys Live in the API Keys Section. Fetch Artwork Re-Downloads With the Chosen Source.")
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("Artwork Source:")
+                                }
+                            }
+                        }
+                        SectionBox {
+                            objectName: "prefsStoredImagesSection"
+                            title: qsTr("Stored Images")
+                            Layout.fillWidth: true
+                            WidgetsFormLayout {
+                                id: prefsStoredForm
+                                labelWidth: artworkColumn.labelWidth
+                                Layout.fillWidth: true
+                                AppComboBox {
+                                    id: artworkFormatCombo
+                                    objectName: "prefsArtworkFormat"
+                                    Layout.fillWidth: true
+                                    model: [
+                                        { "text": qsTr("Auto (Best Available)"), "data": "auto" },
+                                        { "text": qsTr("AVIF"), "data": "avif" },
+                                        { "text": qsTr("WebP"), "data": "webp" },
+                                        { "text": qsTr("JPEG (No Transparency)"), "data": "jpeg" },
+                                        { "text": qsTr("PNG (Lossless)"), "data": "png" }
+                                    ]
+                                    textRole: "text"
+                                    valueRole: "data"
+                                    onActivated: (index) => prefsDialog.setPref(
+                                        "artworkFormat", model[index].data)
+                                    Binding {
+                                        target: artworkFormatCombo
+                                        property: "currentIndex"
+                                        value: Math.max(0, ["auto", "avif", "webp", "jpeg", "png"].indexOf(
+                                            prefsDialog.values.artworkFormat ?? "auto"))
+                                    }
+                                    Controls.ToolTip.text: qsTr("Every Stored Image Is Written in This Format: Pasted URLs, Picked Files, Icons Extracted From .exe Files and Provider Downloads. Auto Prefers AVIF, Then WebP at Quality 90, Then JPEG at 90, Then PNG; Icons Never Use JPEG.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("Format:")
+                                }
+                                Controls.SpinBox {
+                                    id: qualitySpin
+                                    objectName: "prefsArtworkQuality"
+                                    from: 1
+                                    to: 100
+                                    enabled: (prefsDialog.values.artworkFormat ?? "auto") !== "png"
+                                    onValueModified: prefsDialog.setPref("artworkQuality", value)
+                                    Controls.ToolTip.text: qsTr("Quality for the Lossy Formats. Auto Uses It for AVIF and Keeps 90 for the WebP/JPEG Fallbacks.")
+                                    Controls.ToolTip.visible: hovered
+                                    KirigamiLayouts.FormData.label: qsTr("Quality:")
+                                }
+                                Controls.Label {
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 0
+                                    wrapMode: Text.WordWrap
+                                    opacity: 0.75
+                                    text: qsTr("New Artwork: %1").arg(gameModel.artworkFormatDescription(
+                                        prefsDialog.values.artworkFormat ?? "auto",
+                                        prefsDialog.values.artworkQuality ?? 85))
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Existing Artwork:")
+                                    Controls.Button {
+                                        objectName: "prefsReencode"
+                                        text: qsTr("Re-encode…")
+                                        enabled: !prefsDialog.reencodeBusy
+                                        onClicked: reencodeConfirm.open(prefsDialog)
+                                        Controls.ToolTip.text: qsTr("Rewrite Every Stored Image in the Current Format. The Originals Are Replaced.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Label {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        wrapMode: Text.WordWrap
+                                        opacity: 0.75
+                                        text: prefsDialog.reencodeStatus
+                                    }
                                 }
                             }
                         }
@@ -573,6 +657,28 @@ Window {
             var fresh = gameModel.loadPrefs()
             prefsDialog.setPref("wineVersions", fresh.wineVersions ?? "")
             prefsDialog.setPref("wineDefault", fresh.wineDefault ?? "")
+        }
+    }
+
+    ConfirmDialog {
+        id: reencodeConfirm
+        title: qsTr("Re-encode Artwork")
+        question: qsTr("Rewrite Every Stored Artwork Image as %1?").arg(
+            gameModel.artworkFormatDescription(
+                prefsDialog.values.artworkFormat ?? "auto",
+                prefsDialog.values.artworkQuality ?? 85))
+        detail: qsTr("The Originals Are Replaced by Lossy Copies and Cannot Be Restored, and the Current Preferences Are Saved First. Manual Images Can Be Picked Again; Downloaded Art Comes Back With Fetch Artwork.")
+        acceptText: qsTr("Re-encode")
+        onAccepted: {
+            if (!gameModel.savePrefs(prefsDialog.values)) {
+                if (page !== null) {
+                    page.notify(qsTr("Could Not Save Preferences."))
+                }
+                return
+            }
+            prefsDialog.reencodeBusy = true
+            prefsDialog.reencodeStatus = qsTr("Re-encoding Artwork…")
+            gameModel.reencodeArtwork()
         }
     }
 }

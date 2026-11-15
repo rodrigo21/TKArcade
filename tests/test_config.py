@@ -1661,6 +1661,29 @@ def test_artwork_source_defaults_to_steam_and_rejects_junk(xdg_env):
     assert C.load_preferences().artwork_source == "steam"
 
 
+def test_artwork_format_and_quality_roundtrip_and_reject_junk(xdg_env):
+    from tkarcade import xdg as xdgmod
+
+    prefs = C.load_preferences()
+    assert prefs.artwork_format == "auto"
+    assert prefs.artwork_quality == 85
+    prefs.artwork_format = "avif"
+    prefs.artwork_quality = 70
+    C.save_preferences(prefs)
+    saved = C.load_preferences()
+    assert saved.artwork_format == "avif"
+    assert saved.artwork_quality == 70
+    path = xdgmod.preferences_file()
+    text = path.read_text()
+    text = text.replace('artwork_format = "avif"', 'artwork_format = "bogus"')
+    text = text.replace("artwork_quality = 70", "artwork_quality = 500")
+    path.write_text(text)
+    loaded = C.load_preferences()
+    assert loaded.artwork_format == "auto"
+    assert loaded.artwork_quality == 100
+    assert C.clean_artwork_quality("nope") == 85
+
+
 def test_move_legacy_prefix_folds_the_base_into_the_subfolder(xdg_env, tmp_path):
     base = tmp_path / "base"
     (base / "drive_c").mkdir(parents=True)

@@ -1,5 +1,6 @@
 """Kirigami game list model (QtCore only, no widgets)."""
 
+import os
 import time
 from pathlib import Path
 
@@ -1425,8 +1426,13 @@ def test_library_schema_slots(qgui_app, xdg_env, tmp_path):
     assert model.categoryCounts() == {"Action": 1, "Retro": 0}
     assert model.categoryIcons() == {"Action": "folder", "Retro": "folder"}
     art = tmp_path / "icon.png"
-    art.write_bytes(b"\x89PNG\r\n\x1a\n")
+    art.write_bytes(_png_payload())
+    prefs = C.load_preferences()
+    prefs.artwork_format = "png"
+    C.save_preferences(prefs)
+    seen = _artwork_events(model)
     assert model.storeArtwork("local-doom", "icon", os.fspath(art)) == ""
+    assert _wait_events(qgui_app, seen) == [("local-doom", "icon", "")]
     assert C.load("local-doom").artwork.icon.endswith("icon.png")
     assert model.storeArtwork("local-doom", "icon", os.fspath(tmp_path / "nope.png")) != ""
     assert model.clearArtwork("local-doom", "icon") is True
@@ -3143,6 +3149,35 @@ def test_artwork_origin_names_the_source(qgui_app, xdg_env, tmp_path):
     assert model.artworkOrigin("local-doom", "banner") == "cache"
 
 
+def _png_payload(width=4, height=4):
+    """A real PNG the Qt decoder accepts, for the artwork pipeline."""
+    from PySide6.QtCore import QBuffer, QIODevice
+    from PySide6.QtGui import QImage
+
+    image = QImage(width, height, QImage.Format.Format_ARGB32)
+    image.fill(0xFF3366AA)
+    out = QBuffer()
+    out.open(QIODevice.OpenModeFlag.WriteOnly)
+    image.save(out, "PNG")
+    return bytes(out.data())
+
+
+def _artwork_events(model):
+    """Collect `artworkStored` outcomes; connect before starting the work."""
+    seen = []
+    model.artworkStored.connect(lambda appid, kind, error: seen.append((appid, kind, error)))
+    return seen
+
+
+def _wait_events(app, seen, expected=1):
+    for _ in range(200):
+        if len(seen) >= expected:
+            break
+        app.processEvents()
+        time.sleep(0.02)
+    return seen
+
+
 def test_artwork_from_url_stores_the_manual_slot(qgui_app, xdg_env, monkeypatch):
     """A pasted URL downloads off-thread into the game's manual slot."""
     from tkarcade import artwork
@@ -3154,22 +3189,338 @@ def test_artwork_from_url_stores_the_manual_slot(qgui_app, xdg_env, monkeypatch)
     local.general.custom_executable = "/bin/true"
     local.runtime.type = "native"
     C.save(local)
-    payload = b"\x89PNG\r\n\x1a\n" + b"0" * 8
+    prefs = C.load_preferences()
+    prefs.artwork_format = "png"
+    C.save_preferences(prefs)
+    payload = _png_payload()
     monkeypatch.setattr(artwork, "fetch_image", lambda url, limit=None: (payload, ""))
     model = _model(qgui_app)
-    done = []
-    model.artworkStored.connect(lambda appid, kind, error: done.append((appid, kind, error)))
+    seen = _artwork_events(model)
     assert model.storeArtworkUrl("local-doom", "cover", "https://x/y.png") == ""
-    # The signal crosses threads, so it needs the event loop to arrive.
-    for _ in range(100):
+    assert _wait_events(qgui_app, seen) == [("local-doom", "cover", "")]
+    stored = C.load("local-doom").artwork.cover
+    assert stored.endswith("cover.png")
+    assert Path(stored).stat().st_size > 0
+
+
+def test_artwork_url_converts_a_format_into_the_stored_one(qgui_app, xdg_env, monkeypatch):
+    """An SVG from a URL is decoded and written as PNG when PNG is chosen."""
+    from PySide6.QtGui import QImage
+
+    from tkarcade import artwork
+    from tkarcade import config as C
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    prefs = C.load_preferences()
+    prefs.artwork_format = "png"
+    C.save_preferences(prefs)
+    svg = (
+        b"<svg xmlns='http://www.w3.org/2000/svg' width='40' height='30'>"
+        b"<rect width='40' height='30' fill='red'/></svg>"
+    )
+    monkeypatch.setattr(artwork, "fetch_image", lambda url, limit=None: (svg, ""))
+    model = _model(qgui_app)
+    seen = _artwork_events(model)
+    assert model.storeArtworkUrl("local-doom", "cover", "https://x/y.svg") == ""
+    assert _wait_events(qgui_app, seen) == [("local-doom", "cover", "")]
+    stored = C.load("local-doom").artwork.cover
+    assert stored.endswith("cover.png")
+    image = QImage(stored)
+    assert (image.width(), image.height()) == (40, 30)
+
+
+def test_artwork_from_an_exe_stores_its_icon(qgui_app, xdg_env, monkeypatch, tmp_path):
+    """A picked .exe stores the largest frame of its embedded icon."""
+    from tkarcade import config as C
+    from tkarcade import exeicon
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    prefs = C.load_preferences()
+    prefs.artwork_format = "png"
+    C.save_preferences(prefs)
+    monkeypatch.setattr(exeicon, "icon_bytes", lambda path: _ico_payload((16, 64)))
+    exe = tmp_path / "game.exe"
+    exe.write_bytes(b"MZ")
+    model = _model(qgui_app)
+    seen = _artwork_events(model)
+    assert model.storeArtwork("local-doom", "icon", str(exe)) == ""
+    assert _wait_events(qgui_app, seen) == [("local-doom", "icon", "")]
+    stored = C.load("local-doom").artwork.icon
+    assert stored.endswith("icon.png")
+    from PySide6.QtGui import QImage
+
+    image = QImage(stored)
+    assert (image.width(), image.height()) == (64, 64)
+
+
+def _ico_payload(sizes=(16, 64)):
+    """A multi-size ICO whose frames are PNGs, like Windows icons."""
+    import struct
+
+    from PySide6.QtCore import QBuffer, QIODevice
+    from PySide6.QtGui import QImage
+
+    frames = []
+    for size in sizes:
+        image = QImage(size, size, QImage.Format.Format_ARGB32)
+        image.fill(0xFFAA3366)
+        out = QBuffer()
+        out.open(QIODevice.OpenModeFlag.WriteOnly)
+        image.save(out, "PNG")
+        frames.append((size, bytes(out.data())))
+    head = struct.pack("<HHH", 0, 1, len(frames))
+    offset = 6 + 16 * len(frames)
+    entries = b""
+    blobs = b""
+    for size, data in frames:
+        side = 0 if size == 256 else size
+        entries += struct.pack("<BBBBHHII", side, side, 0, 0, 1, 32, len(data), offset)
+        offset += len(data)
+        blobs += data
+    return head + entries + blobs
+
+
+def test_artwork_exe_without_an_icon_reports_it(qgui_app, xdg_env, monkeypatch, tmp_path):
+    from tkarcade import config as C
+    from tkarcade import exeicon
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    monkeypatch.setattr(exeicon, "icon_bytes", lambda path: None)
+    exe = tmp_path / "empty.exe"
+    exe.write_bytes(b"MZ")
+    model = _model(qgui_app)
+    seen = _artwork_events(model)
+    assert model.storeArtwork("local-doom", "icon", str(exe)) == ""
+    assert _wait_events(qgui_app, seen) == [("local-doom", "icon", "no-icon")]
+
+
+def test_auto_exe_icon_uses_the_largest_frame(qgui_app, xdg_env, monkeypatch, tmp_path):
+    """The cache keeps the best ICO frame, not the 16x16 one Qt reads first."""
+    from PySide6.QtGui import QImage
+
+    from tkarcade import artwork, exeicon
+    from tkarcade import config as C
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    monkeypatch.setattr(exeicon, "icon_bytes", lambda path: _ico_payload((16, 64)))
+    exe = tmp_path / "game.exe"
+    exe.write_bytes(b"MZ")
+    path, source = artwork.resolve("local-doom", "icon", "", str(exe))
+    assert source == "exe" and path is not None and path.suffix == ".png"
+    image = QImage(str(path))
+    assert (image.width(), image.height()) == (64, 64)
+
+
+def test_icon_conversion_caps_the_longest_side(qgui_app, xdg_env):
+    """A stored icon never exceeds 1024 px; the warning follows the result."""
+    from PySide6.QtGui import QImage
+
+    from tkarcade import config as C
+    from tkarcade.gui import artwork_io as io
+
+    prefs = C.load_preferences()
+    prefs.artwork_format = "png"
+    C.save_preferences(prefs)
+    body, suffix, token = io.convert_to(_png_payload(4100, 100), "icon")
+    assert suffix == ".png" and token == ""
+    image = QImage.fromData(body)
+    assert max(image.width(), image.height()) == 1024
+    body, _suffix, token = io.convert_to(_png_payload(4100, 100), "cover")
+    assert token == "large"
+    cover = QImage.fromData(body)
+    assert (cover.width(), cover.height()) == (4100, 100)
+
+
+def test_convert_file_downscales_an_oversized_icon_in_place(qgui_app, xdg_env, tmp_path):
+    from PySide6.QtGui import QImage
+
+    from tkarcade import config as C
+    from tkarcade.gui import artwork_io as io
+
+    prefs = C.load_preferences()
+    prefs.artwork_format = "png"
+    C.save_preferences(prefs)
+    icon = tmp_path / "icon.png"
+    icon.write_bytes(_png_payload(2000, 1500))
+    assert io.convert_file(icon, "icon") == (icon, "")
+    image = QImage(str(icon))
+    assert (image.width(), image.height()) == (1024, 768)
+    cover = tmp_path / "cover.png"
+    cover.write_bytes(_png_payload(2000, 1500))
+    before = cover.read_bytes()
+    assert io.convert_file(cover, "cover") == (cover, "")
+    assert cover.read_bytes() == before
+
+
+def test_weak_official_icon_is_upgraded_from_sgdb(qgui_app, xdg_env, monkeypatch):
+    """A 32x32 Steam client icon is replaced by a community one."""
+    from tkarcade import artwork
+
+    model = _model(qgui_app)
+    icon = artwork.grid_path("steam-42", "icon")
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    icon.write_bytes(_png_payload(32, 32))
+    artwork._write_manifest("steam-42", "icon", "steam")
+    calls = []
+
+    def fake_sgdb(target, key, **kwargs):
+        calls.append((target, kwargs))
+        return {}, ""
+
+    monkeypatch.setattr(artwork, "fetch_sgdb", fake_sgdb)
+    model._upgrade_weak_icon("steam-42", "KEY")
+    assert calls and calls[0][0] == "steam-42"
+    assert calls[0][1] == {"kinds": ("icon",), "force": True}
+    # A big official icon, a community one and a missing key never ask.
+    icon.write_bytes(_png_payload(256, 256))
+    calls.clear()
+    model._upgrade_weak_icon("steam-42", "KEY")
+    assert calls == []
+    icon.write_bytes(_png_payload(32, 32))
+    artwork._write_manifest("steam-42", "icon", "sgdb")
+    model._upgrade_weak_icon("steam-42", "KEY")
+    assert calls == []
+    artwork._write_manifest("steam-42", "icon", "steam")
+    model._upgrade_weak_icon("steam-42", "")
+    assert calls == []
+
+
+def test_icon_upgrade_runs_once_and_dedupes_the_cache_key(qgui_app, xdg_env, monkeypatch):
+    from tkarcade import artwork
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "steam-42"
+    cfg.general.name = "Test"
+    C.save(cfg)
+    icon = artwork.grid_path("steam-42", "icon")
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    icon.write_bytes(_png_payload(32, 32))
+    artwork._write_manifest("steam-42", "icon", "steam")
+    calls = []
+    monkeypatch.setattr(
+        artwork,
+        "fetch_sgdb",
+        lambda target, key, **kwargs: calls.append(target) or ({}, ""),
+    )
+    model = _model(qgui_app)
+    model._upgrade_weak_icons_once("KEY")
+    model._upgrade_weak_icons_once("KEY")
+    # One call, through one of the two names that share the cache slot.
+    assert len(calls) == 1 and calls[0] in ("42", "steam-42")
+
+
+def test_artwork_size_limits_warn_and_refuse(qgui_app, xdg_env, monkeypatch, tmp_path):
+    from tkarcade import config as C
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    prefs = C.load_preferences()
+    prefs.artwork_format = "png"
+    C.save_preferences(prefs)
+    model = _model(qgui_app)
+    seen = _artwork_events(model)
+    large = tmp_path / "large.png"
+    large.write_bytes(_png_payload(5000, 8))
+    assert model.storeArtwork("local-doom", "cover", str(large)) == ""
+    assert _wait_events(qgui_app, seen) == [("local-doom", "cover", "large")]
+    huge = tmp_path / "huge.png"
+    huge.write_bytes(_png_payload(9000, 8))
+    assert model.storeArtwork("local-doom", "banner", str(huge)) == ""
+    assert _wait_events(qgui_app, seen, 2) == [
+        ("local-doom", "cover", "large"),
+        ("local-doom", "banner", "huge"),
+    ]
+    assert C.load("local-doom").artwork.banner == ""
+
+
+def test_storage_format_chain_uses_the_available_writers(qgui_app, xdg_env, monkeypatch):
+    """Auto falls AVIF -> WebP -> JPEG -> PNG, and JPEG never takes an icon."""
+    from tkarcade import config as C
+    from tkarcade.gui import artwork_io as io
+
+    prefs = C.load_preferences()
+    prefs.artwork_format = "auto"
+    prefs.artwork_quality = 80
+    C.save_preferences(prefs)
+    monkeypatch.setattr(io, "_WRITERS", {"png", "jpeg"})
+    assert io.target("cover") == ("jpeg", 90, ".jpg")
+    assert io.target("icon") == ("png", 0, ".png")
+    assert io.describe("auto", 80) == "JPEG, Quality 90"
+    monkeypatch.setattr(io, "_WRITERS", {"png", "jpeg", "webp"})
+    assert io.target("cover") == ("webp", 90, ".webp")
+    prefs.artwork_format = "avif"
+    prefs.artwork_quality = 70
+    C.save_preferences(prefs)
+    assert io.target("cover") == ("webp", 90, ".webp")
+    prefs.artwork_format = "png"
+    C.save_preferences(prefs)
+    assert io.target("cover") == ("png", 0, ".png")
+
+
+def test_reencode_artwork_rewrites_files_and_config_paths(qgui_app, xdg_env, tmp_path):
+    """Re-encode Existing Artwork converts the cache and the manual slots."""
+    from tkarcade import artwork
+    from tkarcade import config as C
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    prefs = C.load_preferences()
+    prefs.artwork_format = "jpeg"
+    prefs.artwork_quality = 85
+    C.save_preferences(prefs)
+    source = tmp_path / "pick.png"
+    source.write_bytes(_png_payload(8, 8))
+    manual = artwork.store_manual("local-doom", "cover", str(source))
+    assert manual is not None and manual.suffix == ".png"
+    cfg = C.load("local-doom")
+    cfg.artwork.cover = os.fspath(manual)
+    C.save(cfg)
+    cached = artwork.grid_path("local-doom", "cover")
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    cached.write_bytes(_png_payload(8, 8))
+    model = _model(qgui_app)
+    done = []
+    model.artworkReencoded.connect(done.append)
+    model.reencodeArtwork()
+    for _ in range(200):
         if done:
             break
         qgui_app.processEvents()
         time.sleep(0.02)
-    assert done == [("local-doom", "cover", "")], done
+    assert done and "Re-encoded 2" in done[0], done
     stored = C.load("local-doom").artwork.cover
-    assert stored.endswith("cover.png")
-    assert Path(stored).read_bytes() == payload
+    assert stored.endswith("cover.jpg")
+    assert Path(stored).is_file() and not manual.exists()
+    assert artwork.cached_path("local-doom", "cover") is not None
+    assert not cached.exists()
 
 
 def test_artwork_url_is_validated_before_downloading(qgui_app, xdg_env):

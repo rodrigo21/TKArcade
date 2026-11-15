@@ -29,6 +29,7 @@ from PySide6.QtQuick import QQuickItem
 
 from .. import artwork as artmod
 from .. import config as cfgmod
+from .. import exeicon as exeiconmod
 from .. import graphics as graphicsmod
 from .. import history as histmod
 from .. import igdb as igdbmod
@@ -43,8 +44,13 @@ from .. import steam as steammod
 from .. import winetricks as wtmod
 from ..backends import network as net_backend
 from ..backends.notify import format_duration
+from . import artwork_io as artio
 
 log = logging.getLogger("tkarcade.kirigami")
+
+#: An official Steam client icon below this side is worse than the icon
+#: a local executable ships or a community one; a fetch tries SteamGridDB.
+WEAK_ICON_SIDE = 128
 
 
 def _apply_metadata(cfg, data: dict) -> None:
@@ -436,6 +442,9 @@ class GameListModel(QAbstractTableModel):
         self._archive_work_lock = threading.Lock()
         self._archive_busy: set[str] = set()
         self._archive_sync_running = False
+        self._reencode_busy = False
+        # Resolve the image writers before any worker queries them.
+        artio.preload()
         self.backgroundDone.connect(self.refresh)
         self._running_timer = QTimer(self)
         self._running_timer.setInterval(self.RUNNING_POLL_MS)
@@ -1736,27 +1745,68 @@ class GameListModel(QAbstractTableModel):
 
     @Slot(str, str, str, result=str)
     def storeArtwork(self, appid: str, kind: str, src: str) -> str:
-        """Copy an image into the manual slot and point the config at it."""
-        dest = artmod.store_manual(appid, kind, src)
-        if dest is None:
-            return "Pick a PNG, JPG or WebP Image File."
+        """Store an image file (or the icon of a `.exe`) as a manual slot.
+
+        A missing game or file answers here; the read, decode and encode
+        run in a worker and report the outcome through `artworkStored`
+        (same tokens as a pasted URL).
+        """
+        if not appid:
+            return "Save the Game First."
+        if kind not in artmod.MANUAL_KINDS:
+            return "Could Not Save the Artwork."
         try:
-            cfg = cfgmod.load(appid)
-            setattr(cfg.artwork, kind, os.fspath(dest))
-            cfgmod.save(cfg)
+            path = Path(str(src or "").strip()).expanduser()
+            if not path.is_file():
+                return "Could Not Read That File."
+        except (OSError, ValueError):
+            return "Could Not Read That File."
+        threading.Thread(
+            target=self._store_artwork_worker,
+            args=(str(appid), kind, path),
+            daemon=True,
+        ).start()
+        return ""
+
+    def _store_artwork_worker(self, appid: str, kind: str, path: Path) -> None:
+        """Read, convert and store one picked artwork file (worker only)."""
+        token = ""
+        try:
+            if path.suffix.lower() == ".exe":
+                data = exeiconmod.icon_bytes(path)
+                if data is None:
+                    token = "no-icon"
+            else:
+                data = path.read_bytes()
+            if not token:
+                body, _suffix, token = artio.convert_to(data, kind)
+                if body is None:
+                    token = token or "not-image"
+                else:
+                    dest = artmod.store_manual_bytes(appid, kind, body)
+                    if dest is None:
+                        token = "save"
+                    else:
+                        cfg = cfgmod.load(appid)
+                        setattr(cfg.artwork, kind, os.fspath(dest))
+                        cfgmod.save(cfg)
+                        artmod.unmark_cleared(appid)
         except Exception as e:
             log.warning("storeArtwork(%s) failed: %s", appid, e)
-            return "Could Not Save the Artwork Path."
-        artmod.unmark_cleared(appid)
-        self.refresh()
-        return ""
+            token = token or "file"
+        try:
+            self.refresh()
+        except Exception:
+            pass
+        self.artworkStored.emit(str(appid), kind, token)
 
     @Slot(str, str, str, result=str)
     def storeArtworkUrl(self, appid: str, kind: str, url: str) -> str:
         """Download an image from a pasted URL into a manual slot.
 
         Validation is synchronous (the token comes back at once); the
-        download runs in a worker and reports through `artworkStored`.
+        download and the re-encode run in a worker and report through
+        `artworkStored`.
         """
         if not appid:
             return "no-game"
@@ -1765,33 +1815,164 @@ class GameListModel(QAbstractTableModel):
         link = str(url or "").strip()
         if not link.startswith(("http://", "https://")):
             return "bad-url"
+        threading.Thread(
+            target=self._store_url_worker,
+            args=(str(appid), kind, link),
+            daemon=True,
+        ).start()
+        return ""
 
-        def worker() -> None:
-            token = ""
-            try:
-                data, error = artmod.fetch_image(link)
-                if data is None:
-                    token = error or "network"
+    def _store_url_worker(self, appid: str, kind: str, link: str) -> None:
+        """Fetch, convert and store one pasted URL (worker only)."""
+        token = ""
+        try:
+            data, error = artmod.fetch_image(link)
+            if data is None:
+                token = error or "network"
+            else:
+                body, _suffix, token = artio.convert_to(data, kind)
+                if body is None:
+                    token = token or "not-image"
                 else:
-                    dest = artmod.store_manual_bytes(appid, kind, data)
+                    dest = artmod.store_manual_bytes(appid, kind, body)
                     if dest is None:
-                        token = "not-image"
+                        token = "save"
                     else:
                         cfg = cfgmod.load(appid)
                         setattr(cfg.artwork, kind, os.fspath(dest))
                         cfgmod.save(cfg)
                         artmod.unmark_cleared(appid)
-            except Exception as e:
-                log.warning("storeArtworkUrl(%s) failed: %s", appid, e)
-                token = "network"
-            self.artworkStored.emit(str(appid), kind, token)
-            try:
-                self.refresh()
-            except Exception:
-                pass
+        except Exception as e:
+            log.warning("storeArtworkUrl(%s) failed: %s", appid, e)
+            token = "network"
+        try:
+            self.refresh()
+        except Exception:
+            pass
+        self.artworkStored.emit(str(appid), kind, token)
 
-        threading.Thread(target=worker, daemon=True).start()
-        return ""
+    @Slot()
+    def reencodeArtwork(self) -> None:
+        """Re-encode every stored artwork file, off-thread.
+
+        One pass under the current format/quality. The summary arrives
+        as `artworkReencoded`; a second click while the worker runs is
+        ignored.
+        """
+        if self._reencode_busy:
+            return
+        self._reencode_busy = True
+        threading.Thread(target=self._reencode_worker, daemon=True).start()
+
+    def _reencode_worker(self) -> None:
+        try:
+            converted, skipped, failed, _mapping = artio.reencode_all()
+            summary = (
+                f"Re-encoded {converted} Image(s); "
+                f"{skipped} Already in the Target Format, {failed} Failed."
+            )
+        except Exception as e:
+            log.warning("reencodeArtwork failed: %s", e)
+            summary = "Could Not Re-encode the Artwork."
+        finally:
+            self._reencode_busy = False
+        try:
+            self.refresh()
+        except Exception:
+            pass
+        self.artworkReencoded.emit(summary)
+
+    def _reencode_downloads(self, art) -> None:
+        """Rewrite freshly downloaded kinds in the configured format."""
+        for kind, path in dict(art or {}).items():
+            try:
+                artio.convert_file(Path(path), str(kind))
+            except Exception as e:
+                log.warning("artwork re-encode(%s) failed: %s", path, e)
+
+    @staticmethod
+    def _icon_stamp(target: str) -> int:
+        """mtime of the cached icon (0 when absent): a download changed it."""
+        path = artmod.cached_path(str(target), "icon")
+        try:
+            return path.stat().st_mtime_ns if path is not None else 0
+        except OSError:
+            return 0
+
+    @staticmethod
+    def _icon_is_weak(target: str) -> bool:
+        """A cached official Steam icon too small to draw (32x32 client)."""
+        path = artmod.cached_path(str(target), "icon")
+        if path is None or artmod.provider_for(str(target), "icon") != "steam":
+            return False
+        try:
+            from PySide6.QtGui import QImageReader
+
+            size = QImageReader(str(path)).size()
+        except Exception:
+            return False
+        if not size.isValid():
+            return False
+        return max(size.width(), size.height()) < WEAK_ICON_SIDE
+
+    def _upgrade_weak_icon(self, target: str, api_key: str) -> None:
+        """Try SteamGridDB over a tiny official client icon.
+
+        `fetch_sgdb` writes only when it has an icon to write: a game
+        with no community icon keeps the official one.
+        """
+        target = str(target or "").strip()
+        if not api_key or not self._icon_is_weak(target):
+            return
+        try:
+            art, _error = artmod.fetch_sgdb(target, api_key, kinds=("icon",), force=True)
+        except Exception as e:
+            log.warning("icon upgrade(%s) failed: %s", target, e)
+            return
+        if art:
+            self._reencode_downloads(art)
+
+    def _icon_upgrade_targets(self) -> set[str]:
+        """Cache slots the one-time icon upgrade looks at."""
+        targets: set[str] = set()
+        for appid in cfgmod.list_appids():
+            targets.add(str(appid))
+            numeric = self._steam_target(str(appid))
+            if numeric:
+                targets.add(numeric)
+            try:
+                source = cfgmod.load(str(appid)).artwork.artwork_appid.strip()
+            except Exception:
+                source = ""
+            if source:
+                targets.add(source)
+        return targets
+
+    def _upgrade_weak_icons_once(self, api_key: str) -> None:
+        """One pass over the cached official icons, once per cache.
+
+        The marker lives in the cache; deleting it runs the pass again.
+        """
+        if not api_key:
+            return
+        marker = xdg.app_cache_dir() / "grids" / ".icon-upgrade-v1"
+        try:
+            if marker.exists():
+                return
+        except OSError:
+            return
+        seen: set[Path] = set()
+        for target in self._icon_upgrade_targets():
+            cache = artmod.grid_path(target, "icon")
+            if cache in seen:
+                continue
+            seen.add(cache)
+            self._upgrade_weak_icon(target, api_key)
+        try:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text("1", encoding="utf-8")
+        except OSError as e:
+            log.debug("icon upgrade marker failed: %s", e)
 
     @Slot(str, str, result=bool)
     def clearArtwork(self, appid: str, kind: str) -> bool:
@@ -2413,6 +2594,8 @@ class GameListModel(QAbstractTableModel):
                 artmod.unmark_cleared(target)
             extra = {"igdb_id": draft_id} if draft_id else {}
             result = artmod.fetch_best(target, provider, api_key, force=True, names=names, **extra)
+            self._reencode_downloads(result.get("art"))
+            self._upgrade_weak_icon(target, api_key)
             resolved_id = str(result.get("igdb_id") or "")
             if owns_target and resolved_id:
                 ident = self._store_igdb_metadata(appid, resolved_id)
@@ -2502,11 +2685,13 @@ class GameListModel(QAbstractTableModel):
                     names=tuple(self._name_queries(appid)),
                     igdb_id=str(game_id).strip(),
                 )
+                self._reencode_downloads(result.get("art"))
                 status = "ok" if result["art"] else (result["error"] or "no-art")
                 provider_used = result["provider"] or "igdb"
             else:
                 art = artmod.fetch_sgdb_game(target, str(game_id).strip(), api_key, force=True)
                 if art:
+                    self._reencode_downloads(art)
                     artmod.store_sgdb_id(target, str(game_id).strip(), "")
                     status = "ok"
                 else:
@@ -4422,9 +4607,13 @@ class GameListModel(QAbstractTableModel):
     #: (appid, [{"id", "name", "provider"}, ...]) when a title search
     #: needs a choice; provider is "sgdb" or "igdb".
     artworkChoices = Signal(str, "QVariantList")
-    #: (appid, kind, error) after an image downloaded from a pasted URL;
-    #: error is "", "network", "not-image", "too-large" or "save".
+    #: (appid, kind, error) after a stored artwork image, from a pasted
+    #: URL or a picked file (`.exe` included); error is "", "network",
+    #: "not-image", "no-icon", "too-large", "huge", "large" (stored with a
+    #: warning) or "save".
     artworkStored = Signal(str, str, str)
+    #: Summary line after Re-encode Existing Artwork.
+    artworkReencoded = Signal(str)
     #: (appid, fields) after Download Metadata; fields is the empty map
     #: when the provider has no target or answered nothing.
     metadataFetched = Signal(str, "QVariantMap")
@@ -4460,6 +4649,7 @@ class GameListModel(QAbstractTableModel):
             api_key, default = "", "steam"
         for appid in list(appids) if appids is not None else cfgmod.list_appids():
             self._fetch_game(str(appid), api_key, default, enrich)
+        self._upgrade_weak_icons_once(api_key)
         try:
             self.backgroundDone.emit()
         except Exception:
@@ -4473,6 +4663,8 @@ class GameListModel(QAbstractTableModel):
                 self._refresh_protondb(appid, target)
         provider = self._game_provider(appid, default)
         source = self._art_source(appid)
+        target = source if source.isdigit() else steammod.steam_appid(appid)
+        before = self._icon_stamp(target) if target else 0
         if source.isdigit():
             # The Artwork Source AppID is a plain Steam appid, never a
             # configured one: download it on its own.
@@ -4484,6 +4676,10 @@ class GameListModel(QAbstractTableModel):
             names = self._name_queries(appid)
             if names:
                 self._fetch_local(appid, names, api_key, provider)
+        # Only a pass that downloaded the icon is worth the upgrade call:
+        # the one-time pass already covered the icons cached before it.
+        if target and self._icon_stamp(target) != before:
+            self._upgrade_weak_icon(str(target), api_key)
         if enrich and steammod.is_steam_id(appid):
             self._enrich_steam(appid)
 
@@ -4596,14 +4792,16 @@ class GameListModel(QAbstractTableModel):
         if not numeric:
             return
         try:
-            artmod.fetch_best(numeric, provider, api_key)
+            art = artmod.fetch_best(numeric, provider, api_key)
+            self._reencode_downloads(art.get("art"))
         except Exception as e:
             log.warning("artwork fetch(%s) failed: %s", target, e)
 
     def _fetch_local(self, appid: str, names, api_key: str, provider: str) -> None:
         """Download a local game's art by name (exact match only, no UI)."""
         try:
-            artmod.fetch_best(appid, provider, api_key, names=tuple(names))
+            art = artmod.fetch_best(appid, provider, api_key, names=tuple(names))
+            self._reencode_downloads(art.get("art"))
         except Exception as e:
             log.warning("artwork name fetch(%s) failed: %s", appid, e)
 
@@ -4791,6 +4989,8 @@ class GameListModel(QAbstractTableModel):
             "igdbClientId": str(prefs.igdb_client_id),
             "igdbClientSecret": str(prefs.igdb_client_secret),
             "artworkSource": str(prefs.artwork_source),
+            "artworkFormat": str(prefs.artwork_format),
+            "artworkQuality": int(prefs.artwork_quality),
             "language": str(prefs.language),
             "prefixBase": str(prefs.prefix_base),
             "wineVersions": str(prefs.wine_versions),
@@ -4832,6 +5032,12 @@ class GameListModel(QAbstractTableModel):
             ).strip()
             pref_source = str(get("artworkSource", prefs.artwork_source)).strip()
             prefs.artwork_source = cfgmod.normalize_artwork_provider(pref_source) or "steam"
+            prefs.artwork_format = cfgmod.normalize_artwork_format(
+                get("artworkFormat", prefs.artwork_format)
+            )
+            prefs.artwork_quality = cfgmod.clean_artwork_quality(
+                get("artworkQuality", prefs.artwork_quality)
+            )
             lang = str(get("language", prefs.language)).strip() or "system"
             prefs.language = lang
             prefs.prefix_base = str(get("prefixBase", prefs.prefix_base)).strip()
@@ -4858,6 +5064,14 @@ class GameListModel(QAbstractTableModel):
             except Exception as e:
                 log.warning("tray refresh failed: %s", e)
         return True
+
+    @Slot(str, int, result=str)
+    def artworkFormatDescription(self, choice: str, quality: int) -> str:
+        """What the storage setting actually writes (AVIF, Quality 85…)."""
+        return artio.describe(
+            cfgmod.normalize_artwork_format(choice),
+            cfgmod.clean_artwork_quality(quality),
+        )
 
     @Slot(result=list)
     def audioSinks(self) -> list:

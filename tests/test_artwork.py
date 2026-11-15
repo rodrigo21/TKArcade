@@ -831,16 +831,170 @@ def test_exe_icon_is_ignored_for_a_steam_game(monkeypatch, xdg_env, tmp_path):
     assert art.resolve("steam-480", "icon", "", str(exe)) == (None, "")
 
 
-def test_fetch_image_accepts_png_and_rejects_junk(monkeypatch, xdg_env):
-    """A pasted URL is downloaded and sniffed, not trusted by extension."""
+def _steam_icon(gid, provider):
+    path = art.grid_path(gid, "icon")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"PNG")
+    art._write_manifest(gid, "icon", provider)
+    return path
+
+
+def test_local_exe_icon_beats_the_sources_steam_icon(monkeypatch, xdg_env, tmp_path):
+    """A 32x32 official client icon must not hide the game's own icon."""
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    _steam_icon("480", "steam")
+    exe = _local_exe(tmp_path)
+    path, source = art.resolve("local-doom", "icon", "480", str(exe))
+    assert source == "exe" and path == art.exe_icon_path("local-doom")
+
+
+def test_local_exe_icon_keeps_a_community_source_icon(monkeypatch, xdg_env, tmp_path):
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    source_icon = _steam_icon("480", "sgdb")
+    exe = _local_exe(tmp_path)
+    assert art.resolve("local-doom", "icon", "480", str(exe)) == (source_icon, "appid-cache")
+
+
+def test_local_exe_icon_keeps_a_manual_source_icon(monkeypatch, xdg_env, tmp_path):
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    manual = art.store_manual("480", "icon", str(_image(tmp_path, "source.png")))
+    exe = _local_exe(tmp_path)
+    assert art.resolve("local-doom", "icon", "480", str(exe)) == (manual, "appid-manual")
+
+
+def test_local_exe_icon_beats_its_own_steam_icon(monkeypatch, xdg_env, tmp_path):
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    _steam_icon("local-doom", "steam")
+    exe = _local_exe(tmp_path)
+    assert art.resolve("local-doom", "icon", "", str(exe))[1] == "exe"
+
+
+def test_exe_icon_uses_the_sibling_exe_of_a_native_launcher(monkeypatch, xdg_env, tmp_path):
+    """A Ren'Py port launches a .sh but ships the .exe beside it."""
+    calls = []
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: calls.append(path) or b"ICO")
+    launcher = tmp_path / "game.sh"
+    launcher.write_bytes(b"#!/bin/sh")
+    exe = tmp_path / "game.exe"
+    exe.write_bytes(b"MZ")
+    path = art.exe_icon("local-doom", str(launcher))
+    assert path is not None and path.read_bytes() == b"ICO"
+    assert calls == [exe]
+
+
+def test_exe_icon_uses_the_only_exe_in_the_directory(monkeypatch, xdg_env, tmp_path):
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    launcher = tmp_path / "renpy.sh"
+    launcher.write_bytes(b"#!/bin/sh")
+    (tmp_path / "Game.exe").write_bytes(b"MZ")
+    assert art.exe_icon("local-doom", str(launcher)) is not None
+
+
+def test_exe_icon_refuses_an_ambiguous_directory(monkeypatch, xdg_env, tmp_path):
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    launcher = tmp_path / "run.sh"
+    launcher.write_bytes(b"#!/bin/sh")
+    (tmp_path / "one.exe").write_bytes(b"MZ")
+    (tmp_path / "two.exe").write_bytes(b"MZ")
+    assert art.exe_icon("local-doom", str(launcher)) is None
+    # A same-stem .exe still wins over the ambiguity.
+    (tmp_path / "run.exe").write_bytes(b"MZ")
+    assert art.exe_icon("local-doom", str(launcher)) is not None
+
+
+def _ico_blob(frames):
+    """An ICO from [(size, payload), ...], entries in the given order."""
+    import struct
+
+    head = struct.pack("<HHH", 0, 1, len(frames))
+    offset = 6 + 16 * len(frames)
+    entries = b""
+    blobs = b""
+    for size, data in frames:
+        side = 0 if size == 256 else size
+        entries += struct.pack("<BBBBHHII", side, side, 0, 0, 1, 32, len(data), offset)
+        offset += len(data)
+        blobs += data
+    return head + entries + blobs
+
+
+def test_best_ico_frame_takes_the_largest_png_frame(xdg_env):
+    small = b"\x89PNG\r\n\x1a\n" + b"a" * 4
+    large = b"\x89PNG\r\n\x1a\n" + b"b" * 4
+    body, suffix = art.best_ico_frame(_ico_blob([(16, small), (64, large)]))
+    assert (body, suffix) == (large, ".png")
+
+
+def test_best_ico_frame_sorts_a_bmp_only_icon_largest_first(xdg_env):
+    blob = _ico_blob([(16, b"SMALL"), (256, b"BIG")])
+    body, suffix = art.best_ico_frame(blob)
+    assert suffix == ".ico" and len(body) == len(blob)
+    # ICO width/height 0 means 256: the largest entry is now first.
+    assert body[6] == 0 and body[7] == 0
+
+
+def test_best_ico_frame_keeps_an_unreadable_blob(xdg_env):
+    assert art.best_ico_frame(b"ICO") == (b"ICO", ".ico")
+
+
+def test_exe_icon_stores_the_best_frame(monkeypatch, xdg_env, tmp_path):
+    png = b"\x89PNG\r\n\x1a\n" + b"1" * 8
+    icon = _ico_blob([(16, b"SMALL"), (64, png)])
+    calls = []
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: calls.append(path) or icon)
+    exe = _local_exe(tmp_path)
+    path = art.exe_icon("local-doom", str(exe))
+    assert path is not None and path.suffix == ".png" and path.read_bytes() == png
+    assert path in art.cache_files("local-doom")
+    # Cached with the version marker: the next refresh only stats.
+    assert art.exe_icon("local-doom", str(exe)) == path
+    assert calls == [exe]
+    record = art.read_manifest("local-doom")[art.EXE_ICON_KEY]
+    assert record["icon_version"] == art.EXE_ICON_VERSION
+    assert record["suffix"] == ".png"
+
+
+def test_exe_icon_reextracts_a_cache_from_before_the_frame_fix(monkeypatch, xdg_env, tmp_path):
+    icon = _ico_blob([(64, b"\x89PNG\r\n\x1a\n" + b"x")])
+    calls = []
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: calls.append(path) or icon)
+    exe = _local_exe(tmp_path)
+    assert art.exe_icon("local-doom", str(exe)) is not None
+    data = art.read_manifest("local-doom")
+    data[art.EXE_ICON_KEY].pop("icon_version")
+    art.manifest_path("local-doom").write_text(json.dumps(data))
+    assert art.exe_icon("local-doom", str(exe)) is not None
+    assert len(calls) == 2
+
+
+def test_fetch_image_returns_the_body_and_enforces_the_cap(monkeypatch, xdg_env):
+    """A pasted URL is downloaded; the GUI decodes the payload with Qt."""
     payload = b"\x89PNG\r\n\x1a\n" + b"0" * 8
     _stub(monkeypatch, [("cdn/a.png", payload)])
     body, error = art.fetch_image("https://cdn/a.png")
     assert error == "" and body == payload
     _stub(monkeypatch, [("cdn/a.txt", b"not an image")])
-    assert art.fetch_image("https://cdn/a.txt") == (None, "not-image")
+    assert art.fetch_image("https://cdn/a.txt") == (b"not an image", "")
     _stub(monkeypatch, [("cdn/big.png", payload)])
     assert art.fetch_image("https://cdn/big.png", limit=4) == (None, "too-large")
+
+
+def test_image_suffix_detects_avif(xdg_env):
+    """AVIF is an ISO-BMFF file whose brand list names it."""
+    avif = b"\x00\x00\x00\x1cftypavif\x00\x00\x00\x00avifmif1" + b"0" * 8
+    assert art.image_suffix(avif) == ".avif"
+    assert art.image_suffix(b"\x00\x00\x00\x1cftypmif1\x00\x00\x00\x00mif1avif") == ".avif"
+    assert art.image_suffix(b"\x00\x00\x00\x1cftypheic\x00\x00\x00\x00heicmif1") == ""
+
+
+def test_image_size_token_warns_above_4k_and_refuses_above_8k(xdg_env):
+    assert art.image_size_token(3840, 2160) == ""
+    assert art.image_size_token(4096, 2160) == ""
+    assert art.image_size_token(4097, 1080) == "large"
+    assert art.image_size_token(8000, 4000) == "large"
+    assert art.image_size_token(8192, 1080) == "large"
+    assert art.image_size_token(8193, 1080) == "huge"
+    assert art.image_size_token(8192, 8192) == "huge"
 
 
 def test_store_manual_bytes_writes_the_slot(xdg_env):
@@ -848,8 +1002,14 @@ def test_store_manual_bytes_writes_the_slot(xdg_env):
     dest = art.store_manual_bytes("local-doom", "icon", png)
     assert dest is not None and dest.read_bytes() == png
     assert art.resolve("local-doom", "icon") == (dest, "manual")
-    assert art.store_manual_bytes("local-doom", "icon", b"junk") is None
-    assert art.store_manual_bytes("local-doom", "nope", png) is None
+
+
+def test_store_manual_bytes_keeps_an_avif_slot(xdg_env):
+    avif = b"\x00\x00\x00\x1cftypavif\x00\x00\x00\x00avifmif1" + b"0" * 8
+    dest = art.store_manual_bytes("local-doom", "cover", avif)
+    assert dest is not None and dest.suffix == ".avif"
+    assert art.resolve("local-doom", "cover") == (dest, "manual")
+    assert art.store_manual_bytes("local-doom", "nope", dest.read_bytes()) is None
 
 
 def test_steam_cache_uses_the_canonical_key(xdg_env):

@@ -6,6 +6,19 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Artwork import takes any image format the Qt plugins read: AVIF,
+  JPEG XL, HEIF, TIFF, SVG, PSD, ICO and the rest, not just PNG/JPEG/
+  WebP. A pasted URL, a picked file or a provider download is decoded
+  and written in the format set under Preferences → Artwork →
+  **Stored Images** (`[ui] artwork_format` and `artwork_quality`).
+- A picked `.exe` stores the largest frame of its embedded icon, and a
+  local game whose executable is not a `.exe` uses the `.exe` beside it
+  (a Ren'Py port's `.sh` and `.exe` pair), or the only `.exe` in the
+  folder.
+- **Re-encode Existing Artwork…** under Preferences → Artwork rewrites
+  every stored image — downloaded cache and manual slots — in the
+  current format/quality and updates the game configs. Files already in
+  the target format are skipped.
 - Every metadata row takes a lock, and the online Tags list joins them:
   a locked Tags list survives Apply and the silent Steam fill on save.
   A new lock button beside the Game title sets or clears every field
@@ -184,7 +197,27 @@ Breaking config changes are called out explicitly under `Changed`.
   `shortcuts.vdf` and uses the `local-*` config with that executable when
   no `steam-<n>` config exists.
 
+### Fixed
+- A local game's executable icon no longer loses to official Steam art
+  (the 32x32 client icon): manual and SteamGridDB/IGDB icons still win,
+  and a donor's cached cover no longer becomes the icon ahead of it.
+  A Fetch Artwork or the first background pass now upgrades a 32x32
+  official icon from SteamGridDB when a key is set; a game with no
+  community icon keeps the official one. The pass runs once, guarded by
+  `grids/.icon-upgrade-v1`.
+- An icon extracted automatically from an executable stored the ICO as
+  it came, and Qt reads its first frame: the 16x16 one. The cache now
+  keeps the best frame (a PNG frame extracted, a BMP-only icon reordered
+  largest first) and icons cached by the previous version are
+  re-extracted once. Stored icons are also capped at 1024 px on the
+  longest side, since nothing in the interface draws them bigger.
+
 ### Changed
+- Stored artwork uses one format: `auto` (the default) writes AVIF at
+  quality 85, then WebP at 90, then JPEG at 90, then PNG, whichever the
+  installed Qt plugins can write. Icons never use JPEG, which has no
+  transparency. Images above 4096 px on the longest side are stored
+  with a warning; above 8192 px or 33 megapixels they are refused.
 - Preferences → Artwork separates the default **Artwork Source** from the
   provider credentials under **API Keys**. IGDB is a real stored choice:
   Save no longer falls back to Steam.

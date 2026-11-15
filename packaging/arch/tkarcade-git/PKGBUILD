@@ -17,7 +17,9 @@ optdepends=('gamemode: Feral GameMode support'
             'ludusavi: save backup and restore support (AUR)'
             'protontricks: winetricks verbs support'
             'linux-rt-upscaler: real-time upscaling support (local package)'
-            'libnotify: desktop notifications')
+            'libnotify: desktop notifications'
+            'qt6-imageformats: WebP and TIFF artwork support'
+            'kimageformats: AVIF, JPEG XL, HEIF and more artwork formats')
 conflicts=('tkarcade')
 provides=("tkarcade=${pkgver}")
 source=("$_basename::git+https://github.com/rodrigo21/TKArcade.git#branch=main")

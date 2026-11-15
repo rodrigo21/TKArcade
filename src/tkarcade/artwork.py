@@ -109,7 +109,13 @@ ICON_CHAIN = 2
 _SQUARE_TOLERANCE = 0.15
 
 #: Suffixes a cached file may carry; the first present one wins.
-_CACHE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".ico")
+_CACHE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".avif", ".ico")
+
+#: Suffixes an image file in our cache or manual slot may carry.
+IMAGE_SUFFIXES = _CACHE_SUFFIXES
+
+#: Suffixes a manual slot may carry; the first present one wins.
+_MANUAL_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".avif")
 
 #: Sidecar key: the user removed this AppID's art, the background fetch
 #: must not fill it back until Fetch Artwork is pressed.
@@ -124,9 +130,36 @@ CLEARED_KINDS_KEY = "cleared_kinds"
 #: stat, so a changed executable is re-extracted and an unchanged one is not.
 EXE_ICON_KEY = "exe_icon"
 
+#: Version of the extracted icon. 2 stores the best frame (a PNG frame
+#: extracted, a BMP-only icon reordered largest first); an entry from an
+#: older version is re-extracted once.
+EXE_ICON_VERSION = 2
+
+#: Largest side a stored `icon` keeps; a bigger source is downscaled.
+#: 1024 covers the dialog tooltip (~378 logical px at 2x) and the card
+#: fallback (~648), and keeps a square icon cheap.
+ICON_MAX_SIDE = 1024
+
 #: Largest image a pasted URL may deliver; anything bigger is refused
 #: before it reaches the disk.
 URL_IMAGE_LIMIT = 20 * 1024 * 1024
+
+#: Stored art warns above 4K and is refused above 8K or 32 megapixels.
+#: The refusal keeps a small file from decoding into hundreds of MB.
+IMAGE_SOFT_SIDE = 4096
+IMAGE_MAX_SIDE = 8192
+IMAGE_MAX_PIXELS = 33_554_432
+
+
+def image_size_token(width: int, height: int) -> str:
+    """Pixel-size token: "huge" (refuse), "large" (warn) or ""."""
+    if width <= 0 or height <= 0:
+        return ""
+    if width > IMAGE_MAX_SIDE or height > IMAGE_MAX_SIDE or width * height > IMAGE_MAX_PIXELS:
+        return "huge"
+    if max(width, height) > IMAGE_SOFT_SIDE:
+        return "large"
+    return ""
 
 
 # --------------------------------------------------------------------
@@ -157,14 +190,16 @@ def grid_path(appid: str, kind: str = "cover") -> Path:
     return base / f"{key}-{kind}.png"
 
 
-def exe_icon_path(appid: str) -> Path:
+def exe_icon_path(appid: str, suffix: str = ".ico") -> Path:
     """Cache path of the icon extracted from a local game's executable.
 
     Deliberately not `<key>-icon.*`: that name belongs to downloaded
-    client icons, and Clear must not delete a file the game ships.
+    client icons, and Clear must not delete a file the game ships. The
+    suffix is `.png` when the executable's icon had a PNG frame and
+    `.ico` otherwise.
     """
     base = xdg.app_cache_dir() / "grids"
-    return base / f"{xdg.safe_stem(_cache_key(appid))}-exe.ico"
+    return base / f"{xdg.safe_stem(_cache_key(appid))}-exe{suffix}"
 
 
 def cached_path(appid: str, kind: str) -> Path | None:
@@ -448,7 +483,7 @@ def manual_path(appid: str, kind: str) -> Path | None:
     """Stored manual file for a slot, or None (unknown kind or missing)."""
     if kind not in MANUAL_KINDS:
         return None
-    for suffix in (".png", ".jpg", ".jpeg", ".webp"):
+    for suffix in _MANUAL_SUFFIXES:
         cand = manual_dir(appid) / f"{kind}{suffix}"
         try:
             if cand.is_file():
@@ -466,7 +501,7 @@ def _manual_dest(appid: str, kind: str, suffix: str) -> Path:
     dest_dir = manual_dir(appid)
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / f"{kind}{suffix}"
-    for other in (".png", ".jpg", ".jpeg", ".webp"):
+    for other in _MANUAL_SUFFIXES:
         old = dest_dir / f"{kind}{other}"
         if old != dest:
             try:
@@ -482,12 +517,7 @@ def store_manual(appid: str, kind: str, src: str) -> Path | None:
         return None
     try:
         origin = Path(src).expanduser()
-        if not origin.is_file() or origin.suffix.lower() not in (
-            ".png",
-            ".jpg",
-            ".jpeg",
-            ".webp",
-        ):
+        if not origin.is_file() or origin.suffix.lower() not in _MANUAL_SUFFIXES:
             return None
         dest = _manual_dest(appid, kind, origin.suffix.lower())
         import shutil
@@ -507,7 +537,21 @@ def image_suffix(data: bytes) -> str:
         return ".jpg"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return ".webp"
+    if _is_avif(data):
+        return ".avif"
     return ""
+
+
+def _is_avif(data: bytes) -> bool:
+    """True for AVIF/AVIF-sequence: an ISO-BMFF box with that brand."""
+    if len(data) < 16 or data[4:8] != b"ftyp":
+        return False
+    size = int.from_bytes(data[:4], "big")
+    end = min(len(data), size if size >= 16 else len(data))
+    brands = data[8:end]
+    return any(
+        brands[index : index + 4] in (b"avif", b"avis") for index in range(0, len(brands) - 3, 4)
+    )
 
 
 def store_manual_bytes(appid: str, kind: str, data: bytes) -> Path | None:
@@ -527,14 +571,16 @@ def store_manual_bytes(appid: str, kind: str, data: bytes) -> Path | None:
 
 
 def fetch_image(url: str, limit: int = URL_IMAGE_LIMIT) -> tuple[bytes | None, str]:
-    """Download one image from a pasted URL: (bytes, error token)."""
+    """Download one pasted URL: (body, error token).
+
+    The payload is not sniffed here: the GUI decodes it through Qt, which
+    accepts every format the installed plugins read.
+    """
     body, error = _get(url)
     if body is None:
         return None, error or "network"
     if len(body) > limit:
         return None, "too-large"
-    if not image_suffix(body):
-        return None, "not-image"
     return body, ""
 
 
@@ -563,8 +609,8 @@ def cache_files(appid: str) -> list[Path]:
         for kind in ("icon", "banner", "background")
         for ext in _CACHE_SUFFIXES
     ]
-    candidates.append(base / f"{key}-exe.ico")
     candidates.append(base / f"{key}.json")
+    candidates += [base / f"{key}-exe{ext}" for ext in (".png", ".ico")]
     out: list[Path] = []
     for cand in candidates:
         try:
@@ -700,13 +746,22 @@ def resolve(
         # user emptied must stay empty, whatever sits under it.
         return None, ""
     source_appid = str(source_appid or "").strip()
-    if source_appid and source_appid != str(appid):
+    if kind == "icon" and str(appid).startswith("local-"):
+        local = _local_exe_icon(str(appid), kind, exe, source_appid)
+        if local is not None:
+            return local
+    return _fallback_art(str(appid), kind, source_appid, exe)
+
+
+def _fallback_art(appid: str, kind: str, source_appid: str, exe: str) -> tuple[Path | None, str]:
+    """The Artwork Source AppID, then the game's own art, no network."""
+    if source_appid and source_appid != appid:
         if is_kind_cleared(source_appid, kind):
             return None, ""
         path, source = _local_art(source_appid, kind)
         if path is not None:
             return path, "appid-" + source
-    return _local_art(str(appid), kind, exe)
+    return _local_art(appid, kind, exe)
 
 
 def _safe_manual(gid: str, kind: str) -> Path | None:
@@ -715,6 +770,43 @@ def _safe_manual(gid: str, kind: str) -> Path | None:
         return manual_path(gid, kind)
     except Exception:
         return None
+
+
+def _community_icon(gid: str) -> Path | None:
+    """Cached icon not from Steam's official client icon.
+
+    A provider-less file is a download from before the sidecar recorded
+    providers: it is treated as downloaded art, not as the official
+    32x32 client icon, and keeps winning over the executable's icon.
+    """
+    path = cached_path(gid, "icon")
+    if path is None or provider_for(str(gid), "icon") == "steam":
+        return None
+    return path
+
+
+def _local_exe_icon(appid: str, kind: str, exe: str, source_appid: str) -> tuple[Path, str] | None:
+    """A local game's icon when it has an executable icon to show.
+
+    Manual and community art still win; Steam's own art (the 32x32
+    client icon, or the Artwork Source AppID's cover used as an icon)
+    does not: the image the game ships is the better icon. The rest of
+    the chain stays as a fallback when the executable has no icon.
+    """
+    from_exe = exe_icon(appid, exe)
+    if from_exe is None:
+        return None
+    if source_appid and source_appid != appid and not is_kind_cleared(source_appid, kind):
+        manual = _safe_manual(source_appid, kind)
+        if manual is not None:
+            return manual, "appid-manual"
+        community = _community_icon(source_appid)
+        if community is not None:
+            return community, "appid-cache"
+    community = _community_icon(appid)
+    if community is not None:
+        return community, "cache"
+    return from_exe, "exe"
 
 
 def _local_art(gid: str, kind: str, exe: str = "") -> tuple[Path | None, str]:
@@ -747,41 +839,79 @@ def _local_art(gid: str, kind: str, exe: str = "") -> tuple[Path | None, str]:
     return None, ""
 
 
+def _exe_icon_source(path: Path) -> Path | None:
+    """The .exe whose icon represents a game's configured executable.
+
+    A `.exe` uses itself. A native launcher (the `.sh` a Ren'Py port
+    ships) uses the same-stem `.exe` beside it, or the only `.exe` in
+    that directory; several candidates and no match mean no icon, never
+    a guess.
+    """
+    if path.suffix.lower() == ".exe":
+        return path
+    try:
+        siblings = [
+            entry
+            for entry in path.parent.iterdir()
+            if entry.is_file() and entry.suffix.lower() == ".exe"
+        ]
+    except OSError:
+        return None
+    if len(siblings) == 1:
+        return siblings[0]
+    stem = path.stem.lower()
+    for entry in siblings:
+        if entry.stem.lower() == stem:
+            return entry
+    return None
+
+
 def exe_icon(appid: str, exe: str = "") -> Path | None:
     """The icon embedded in a local game's executable, extracted once.
 
-    The `.ico` copy is reused while the executable's path, size and mtime
-    stay the same, so a refresh only stats the file.
+    The cached copy is reused while the executable's path, size and
+    mtime stay the same, so a refresh only stats the file. The cache
+    keeps the best frame the executable has: a PNG frame extracted as
+    `.png`, a BMP-only icon as a `.ico` sorted largest first. A native
+    launcher falls back to the `.exe` shipped beside it (see
+    `_exe_icon_source`).
     """
     source = str(exe or "").strip()
     if not source:
         return None
     try:
-        exe_path = Path(source).expanduser()
+        exe_path = _exe_icon_source(Path(source).expanduser())
+        if exe_path is None:
+            return None
         stat = exe_path.stat()
     except OSError:
         return None
-    dest = exe_icon_path(appid)
     known = read_manifest(appid).get(EXE_ICON_KEY)
     if (
         isinstance(known, dict)
-        and dest.is_file()
+        and known.get("icon_version") == EXE_ICON_VERSION
         and known.get("path") == str(exe_path)
         and known.get("mtime_ns") == stat.st_mtime_ns
         and known.get("size") == stat.st_size
     ):
-        return dest
+        dest = exe_icon_path(appid, str(known.get("suffix") or ".ico"))
+        if dest.is_file():
+            return dest
     icon = exeiconmod.icon_bytes(exe_path)
     if icon is None:
         return None
+    body, suffix = best_ico_frame(icon)
+    dest = replace_image(exe_icon_path(appid), body, suffix)
+    if dest is None:
+        return None
     try:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(icon)
         data = read_manifest(appid)
         data[EXE_ICON_KEY] = {
             "path": str(exe_path),
             "mtime_ns": stat.st_mtime_ns,
             "size": stat.st_size,
+            "suffix": suffix,
+            "icon_version": EXE_ICON_VERSION,
         }
         manifest_path(appid).write_text(
             json.dumps(data, indent=2, sort_keys=True), encoding="utf-8"
@@ -902,6 +1032,62 @@ def ico_png_frame(blob: bytes) -> bytes | None:
     return best[1] if best else None
 
 
+def _ico_entries(blob: bytes) -> list[tuple[int, bytes, bytes]] | None:
+    """(area, directory entry, frame bytes) per ICO entry, or None."""
+    if len(blob) < 6 or blob[:4] != b"\x00\x00\x01\x00":
+        return None
+    try:
+        count = struct.unpack("<H", blob[4:6])[0]
+    except struct.error:
+        return None
+    if count <= 0 or 6 + count * 16 > len(blob):
+        return None
+    entries: list[tuple[int, bytes, bytes]] = []
+    for index in range(count):
+        start = 6 + index * 16
+        entry = blob[start : start + 16]
+        width, height = entry[0] or 256, entry[1] or 256
+        try:
+            size, offset = struct.unpack("<II", entry[8:16])
+        except struct.error:
+            return None
+        if offset + size > len(blob):
+            return None
+        entries.append((width * height, entry, blob[offset : offset + size]))
+    return entries
+
+
+def _largest_first_ico(blob: bytes) -> bytes:
+    """The ICO with its directory sorted largest frame first.
+
+    Qt reads the first frame when no size is requested, and icon editors
+    write the frames smallest first: the GUI would draw the 16x16 one.
+    The data offsets are absolute and stay untouched.
+    """
+    entries = _ico_entries(blob)
+    if entries is None:
+        return blob
+    ordered = sorted(entries, key=lambda item: item[0], reverse=True)
+    directory = b"".join(entry for _area, entry, _frame in ordered)
+    return blob[:6] + directory + blob[6 + 16 * len(ordered) :]
+
+
+def best_ico_frame(blob: bytes) -> tuple[bytes, str]:
+    """Best frame of an ICO: (bytes, suffix).
+
+    The largest frame by area wins. A PNG frame comes out as an image of
+    its own; a BMP frame keeps the ICO, with the directory sorted so Qt
+    decodes the biggest one. An unreadable icon is returned as it came.
+    """
+    entries = _ico_entries(blob)
+    if entries is None:
+        return blob, ".ico"
+    frame = max(entries, key=lambda item: item[0])[2]
+    if frame[:8] == b"\x89PNG\r\n\x1a\n":
+        return frame, ".png"
+    return _largest_first_ico(blob), ".ico"
+
+
 def _store(appid: str, kind: str, url: str) -> Path | None:
     """Download one URL into the kind's cache slot, keeping its suffix."""
     body, _error = _get(url)
@@ -913,16 +1099,24 @@ def _store(appid: str, kind: str, url: str) -> Path | None:
             return None
         body = frame
     suffix = _stored_suffix(url, body)
-    dest = grid_path(appid, kind).with_suffix(suffix)
+    return replace_image(grid_path(appid, kind), body, suffix)
+
+
+def replace_image(path: Path, body: bytes, suffix: str) -> Path | None:
+    """Write an image in one stored file, dropping its other suffixes.
+
+    Used by the cache rewrite and by the GUI's re-encoding pass. The new
+    file lands before the other suffixes go, so the cache never points at
+    a file that was not written.
+    """
+    dest = Path(path).with_suffix(suffix)
     try:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(body)
     except Exception as e:
         log.warning("artwork: could not write %s: %s", dest, e)
         return None
-    # One file per kind: drop the other suffixes (only after the new file
-    # landed) so the cache and the manifest never disagree.
-    stem = grid_path(appid, kind).with_suffix("")
+    stem = dest.with_suffix("")
     for other in _CACHE_SUFFIXES:
         if other != suffix:
             try:

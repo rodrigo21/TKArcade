@@ -117,6 +117,9 @@ What each document is for and where the source of truth lives.
 - `decisions/metadata-window.md` — the Search Data window (Metadata and
   Artwork tabs), the identities moved off the form, the Steam auto-fill
   on add and the six-tab game dialog.
+- `decisions/artwork-storage.md` — Qt-decoded imports (AVIF, JPEG XL,
+  HEIF, SVG and the rest), the stored-format setting and its fallback
+  chain, the pixel limits, the executable icon and the re-encode pass.
 
 ## Plans
 
