@@ -10,7 +10,7 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-two batches. The latest replaced artwork storage: every
+- Landed: fifty-three batches. The latest replaced artwork storage: every
   imported image (URL, picked file, `.exe` icon, provider download) is
   decoded by Qt and written in the format set under Preferences →
   Artwork → Stored Images (`[ui] artwork_format`/`artwork_quality`; auto
@@ -18,11 +18,12 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   are capped at 1024 px. An executable icon keeps the best ICO frame
   (PNG extracted, BMP reordered, versioned sidecar), beats a donor
   AppID's official Steam art, and a 32 px official icon is upgraded from
-  SteamGridDB once. Re-encode Existing Artwork rewrites the cache and
-  the manual slots; the maintainer's cache was re-encoded (36 files, 0
-  failures), so only the generated `*-exe.png/ico` stay outside the
-  format. Record: CHANGELOG.
-- Verified: `scripts/check.sh --qml` (800 passed, 3 skipped), ruff check
+  SteamGridDB once. The background pass and Re-encode Existing Artwork
+  rewrite the cached executable icons too and record their suffix, so
+  every stored image ends in the chosen format. The maintainer's cache
+  is all AVIF now (68 images, 0 failures across the passes). Record:
+  CHANGELOG.
+- Verified: `scripts/check.sh --qml` (801 passed, 3 skipped), ruff check
   and format clean, and an offscreen shot of the Preferences Artwork
   page with the new Stored Images section. The venv was refreshed after
   the merge.
