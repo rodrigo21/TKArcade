@@ -10,21 +10,22 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-one batches. The latest fixed Fetch Artwork end to end.
-  IGDB searches the title when no id is stored, takes an exact match or
-  the provider-tagged picker, and writes the resolved id to
-  `[metadata] igdb_id` plus the cache sidecar; a source AppID's IGDB game
-  is never written to the local game, and `igdbResolved` keeps the dialog
-  draft in step so a later Save cannot erase it. Fetch drops the game's
-  own Clear mark as well as the source AppID's, so a sourced tile comes
-  back. Every game Save fills missing artwork. Preferences separates the
-  default **Artwork Source** from **API Keys**, and IGDB remains the
-  stored source instead of falling back to Steam. Record: CHANGELOG.
-- Verified: `scripts/check.sh --qml` (773 passed, 3 skipped), `qmllint`
-  on `GameSettings.qml` and `PrefsDialog.qml`, and an offscreen shot of
-  the Artwork preferences. The QML age-rating case now scrolls its row
-  into view; it failed on the pre-batch HEAD because the row sat below
-  the Details viewport.
+- Landed: fifty-two batches. The latest replaced artwork storage: every
+  imported image (URL, picked file, `.exe` icon, provider download) is
+  decoded by Qt and written in the format set under Preferences →
+  Artwork → Stored Images (`[ui] artwork_format`/`artwork_quality`; auto
+  is AVIF q85, then WebP/JPEG at 90, then PNG). Icons never use JPEG and
+  are capped at 1024 px. An executable icon keeps the best ICO frame
+  (PNG extracted, BMP reordered, versioned sidecar), beats a donor
+  AppID's official Steam art, and a 32 px official icon is upgraded from
+  SteamGridDB once. Re-encode Existing Artwork rewrites the cache and
+  the manual slots; the maintainer's cache was re-encoded (36 files, 0
+  failures), so only the generated `*-exe.png/ico` stay outside the
+  format. Record: CHANGELOG.
+- Verified: `scripts/check.sh --qml` (800 passed, 3 skipped), ruff check
+  and format clean, and an offscreen shot of the Preferences Artwork
+  page with the new Stored Images section. The venv was refreshed after
+  the merge.
 - Next: the maintainer's tag changes (the follow-up promised after the
   Tags lock), then the library import. The VNDB release picker sits in
   `TODO.md` before 1.0. Open follow-up: after the import, decide whether
