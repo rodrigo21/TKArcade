@@ -934,6 +934,9 @@ def record_exe_icon(appid: str, path: Path) -> None:
     if not isinstance(entry, dict):
         return
     entry["suffix"] = Path(path).suffix.lower()
+    # The conversion decoded the best frame, so an icon extracted before
+    # the frame rule is good now and must not be re-extracted once more.
+    entry["icon_version"] = EXE_ICON_VERSION
     data[EXE_ICON_KEY] = entry
     try:
         manifest_path(appid).write_text(

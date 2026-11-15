@@ -281,6 +281,29 @@ def _manual_images() -> list[tuple[Path, str]]:
     return found
 
 
+def _ensure_exe_icons() -> None:
+    """Give every local game's executable icon a sidecar entry.
+
+    A cache from before the sidecar recorded the executable can carry a
+    converted icon with no stat to validate against; extracting once
+    writes the entry the re-encode then keeps in step.
+    """
+    for appid in cfgmod.list_appids():
+        if not str(appid).startswith("local-"):
+            continue
+        try:
+            cfg = cfgmod.load(str(appid))
+            exe = str(cfg.general.custom_executable or "").strip()
+        except Exception:
+            continue
+        if not exe:
+            continue
+        try:
+            artmod.exe_icon(str(appid), exe)
+        except Exception as e:
+            log.warning("artwork: exe icon %s failed: %s", appid, e)
+
+
 def _update_config_paths(mapping: dict[str, str]) -> None:
     """Point the game configs at the converted manual slots."""
     for appid in cfgmod.list_appids():
@@ -310,6 +333,7 @@ def reencode_all() -> tuple[int, int, int, dict[str, str]]:
     """
     converted = skipped = failed = 0
     mapping: dict[str, str] = {}
+    _ensure_exe_icons()
     for path, kind in stored_images():
         try:
             before = path.stat().st_mtime_ns
@@ -326,14 +350,20 @@ def reencode_all() -> tuple[int, int, int, dict[str, str]]:
         elif new != path:
             converted += 1
             mapping[str(path)] = str(new)
-            if "-exe." in path.name:
-                key = path.name.rsplit("-exe.", 1)[0]
-                artmod.record_exe_icon(key, new)
         elif path.stat().st_mtime_ns != before:
             # Rewritten in place: an oversized icon in its target format.
             converted += 1
         else:
             skipped += 1
+        if (
+            new is not None
+            and "-exe." in path.name
+            and (new != path or new.suffix.lower() == ".avif")
+        ):
+            # An AVIF executable icon came from this conversion; keep the
+            # sidecar from re-extracting it when it was cached earlier.
+            key = path.name.rsplit("-exe.", 1)[0]
+            artmod.record_exe_icon(key, new)
     if mapping:
         _update_config_paths(mapping)
     return converted, skipped, failed, mapping

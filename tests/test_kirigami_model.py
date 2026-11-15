@@ -1,5 +1,6 @@
 """Kirigami game list model (QtCore only, no widgets)."""
 
+import json
 import os
 import time
 from pathlib import Path
@@ -3390,21 +3391,42 @@ def test_convert_exe_icon_rewrites_it_and_records_the_suffix(
     local = C.GameConfig()
     local.general.appid = "local-doom"
     local.general.name = "Doom"
-    local.general.custom_executable = "/bin/true"
-    local.runtime.type = "native"
-    C.save(local)
     exe = tmp_path / "game.exe"
     exe.write_bytes(b"MZ")
+    local.general.custom_executable = str(exe)
+    local.runtime.type = "native"
+    C.save(local)
     monkeypatch.setattr(exeicon, "icon_bytes", lambda path: _ico_payload((16, 64)))
     png = artwork.exe_icon("local-doom", str(exe))
     assert png is not None and png.suffix == ".png"
+    # An icon cached before the frame rule has no version marker; the
+    # conversion proves the frame and must keep it from re-extracting.
+    data = artwork.read_manifest("local-doom")
+    data[artwork.EXE_ICON_KEY].pop("icon_version")
+    artwork.manifest_path("local-doom").write_text(json.dumps(data))
     assert (png, "icon") in io.stored_images()
     new = io.convert_exe_icon("local-doom", png)
     assert new is not None and new.suffix == ".avif" and new.is_file()
     assert not png.exists()
-    assert artwork.read_manifest("local-doom")[artwork.EXE_ICON_KEY]["suffix"] == ".avif"
+    record = artwork.read_manifest("local-doom")[artwork.EXE_ICON_KEY]
+    assert record["suffix"] == ".avif"
+    assert record["icon_version"] == artwork.EXE_ICON_VERSION
     assert artwork.exe_icon("local-doom", str(exe)) == new
     assert new in artwork.cache_files("local-doom")
+    # A pass over a file already in the format keeps the marker too.
+    data = artwork.read_manifest("local-doom")
+    data[artwork.EXE_ICON_KEY].pop("icon_version")
+    artwork.manifest_path("local-doom").write_text(json.dumps(data))
+    io.reencode_all()
+    assert artwork.read_manifest("local-doom")[artwork.EXE_ICON_KEY]["icon_version"] == 2
+    # A cache without an entry gets one from the game's executable.
+    data = artwork.read_manifest("local-doom")
+    data.pop(artwork.EXE_ICON_KEY)
+    artwork.manifest_path("local-doom").write_text(json.dumps(data))
+    io.reencode_all()
+    record = artwork.read_manifest("local-doom")[artwork.EXE_ICON_KEY]
+    assert record["suffix"] == ".avif" and record["icon_version"] == 2
+    assert artwork.exe_icon("local-doom", str(exe)) == artwork.exe_icon_path("local-doom", ".avif")
 
 
 def test_weak_official_icon_is_upgraded_from_sgdb(qgui_app, xdg_env, monkeypatch):
