@@ -10,20 +10,23 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-seven batches. The latest reads each graphics DLL once
-  on a layer install (size compared before the destination is read) and
-  covers every dropped template key in the trim test. Record: CHANGELOG.
+- Landed: fifty-eight batches. The latest cut the GUI refresh cost:
+  validation results are keyed by the game TOML plus the preferences
+  instead of cleared on every refresh, the Categories sidebar reuses the
+  row pass, and proxy selection maps through a source row index. Record:
+  CHANGELOG.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
   which keeps the C numbering the other records cite. The IGDB
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
-- Verified: `scripts/check.sh` (808 passed, 3 skipped, 1 deselected);
-  no QML changed. The venv was refreshed after the merge.
-- Next: batch C1 (`perf/gui-model`): per-file issue cache, one
-  category pass, O(1) `indexOf`. Then C2 (one artwork-status slot and
-  async card images). After the audit: the maintainer's tag
+- Verified: `scripts/check.sh` (812 passed, 3 skipped) and
+  `scripts/check.sh --qml` (813 passed, 3 skipped). The venv was
+  refreshed after the merge.
+- Next: batch C2 (`perf/gui-artwork`): one `artworkPanel()` slot for the
+  eight previews/origins plus status and provider, and async card/icon
+  images. After the audit: the maintainer's tag
   changes (the follow-up promised after the Tags lock), then the library
   import. The VNDB release picker sits in `TODO.md` before 1.0. Open
   follow-up: after the import, decide whether
