@@ -10,12 +10,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-six batches. The latest capped the download paths:
-  `artwork._get()` reads at most one byte past its limit (20 MB for
-  images, 8 MB for JSON), a plain-http mirror is ignored, a runtime
-  archive that fails to extract is quarantined as `.failed` (or deleted
-  when TKArcade downloaded it), and tar links are rejected. Record:
-  CHANGELOG.
+- Landed: fifty-seven batches. The latest reads each graphics DLL once
+  on a layer install (size compared before the destination is read) and
+  covers every dropped template key in the trim test. Record: CHANGELOG.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
@@ -24,10 +21,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
 - Verified: `scripts/check.sh` (808 passed, 3 skipped, 1 deselected);
   no QML changed. The venv was refreshed after the merge.
-- Next: batch D of the audit plan (`chore/launch-io`): one read in
-  `graphics.py` and the full template-trim coverage in
-  `tests/test_config.py`; then C1/C2
-  (GUI model and artwork slot). After the audit: the maintainer's tag
+- Next: batch C1 (`perf/gui-model`): per-file issue cache, one
+  category pass, O(1) `indexOf`. Then C2 (one artwork-status slot and
+  async card images). After the audit: the maintainer's tag
   changes (the follow-up promised after the Tags lock), then the library
   import. The VNDB release picker sits in `TODO.md` before 1.0. Open
   follow-up: after the import, decide whether
