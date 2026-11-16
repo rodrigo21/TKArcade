@@ -1,8 +1,11 @@
 # TKArcade
 
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)
+
 Steam and local game launch wrapper (inspired by steamtinkerlaunch), in Python 3.12+.
 
-GPLv3-or-later (SPDX `GPL-3.0-or-later`).
+GPLv3-or-later (SPDX `GPL-3.0-or-later`); see [LICENSE](LICENSE).
 
 ## Install
 

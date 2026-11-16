@@ -1,0 +1,32 @@
+<!-- Source for the GitHub social preview. Render: rsvg-convert -w 1280 -h 640 -o social-preview.png social-preview.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <radialGradient id="glow" cx="1" cy="0.5" r="0.85">
+      <stop offset="0" stop-color="#6f5cff" stop-opacity="0.55"/>
+      <stop offset="0.55" stop-color="#1b9aaa" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#0d0d14" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#cfc8ff"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity="0.035" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="640" fill="#0d0d14"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+
+  <g transform="translate(96 150)">
+    <rect x="0" y="86" width="128" height="30" rx="15" fill="#6f5cff"/>
+    <rect x="56" y="34" width="16" height="54" rx="8" fill="#cfc8ff"/>
+    <circle cx="64" cy="24" r="24" fill="#6f5cff"/>
+    <circle cx="110" cy="98" r="8" fill="#ff5c8a"/>
+    <circle cx="84" cy="98" r="8" fill="#25c2a0"/>
+  </g>
+
+  <text x="96" y="400" font-family="DejaVu Sans" font-size="112" font-weight="bold" fill="url(#word)">TKArcade</text>
+  <text x="98" y="462" font-family="DejaVu Sans" font-size="30" fill="#a8a8bd">Steam launch wrapper · per-game settings · Linux</text>
+  <text x="98" y="512" font-family="DejaVu Sans" font-size="24" fill="#6f6f85">Wine · Proton · umu · DXVK · MangoHud · Kirigami</text>
+</svg>
