@@ -10,23 +10,23 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-five batches. The latest hardened the file writers:
-  `write_atomic()` no longer sweeps another process's live temp, every
-  artwork sidecar write goes through it, a `200` body that is not an
-  image is rejected before it fills a slot, and the IGDB token cache is
-  `0600` in a `0700` directory. Record: CHANGELOG.
+- Landed: fifty-six batches. The latest capped the download paths:
+  `artwork._get()` reads at most one byte past its limit (20 MB for
+  images, 8 MB for JSON), a plain-http mirror is ignored, a runtime
+  archive that fails to extract is quarantined as `.failed` (or deleted
+  when TKArcade downloaded it), and tar links are rejected. Record:
+  CHANGELOG.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
   which keeps the C numbering the other records cite. The IGDB
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
-- Verified: `scripts/check.sh` (804 passed, 3 skipped, 1 deselected);
+- Verified: `scripts/check.sh` (808 passed, 3 skipped, 1 deselected);
   no QML changed. The venv was refreshed after the merge.
-- Next: batch B of the audit plan (`fix/network-archive-limits`): read
-  cap in `artwork._get()`, https-only mirror, downloaded archive removed
-  on a failed extraction, tar links rejected, invalid user drop renamed
-  `.failed`; then batch D (launch I/O + template-trim test), then C1/C2
+- Next: batch D of the audit plan (`chore/launch-io`): one read in
+  `graphics.py` and the full template-trim coverage in
+  `tests/test_config.py`; then C1/C2
   (GUI model and artwork slot). After the audit: the maintainer's tag
   changes (the follow-up promised after the Tags lock), then the library
   import. The VNDB release picker sits in `TODO.md` before 1.0. Open
