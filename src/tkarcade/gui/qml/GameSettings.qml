@@ -268,7 +268,9 @@ Window {
         pushToControls()
         refreshNewerFlag()
         errorText = ""
-        tabBar.currentIndex = 0
+        // Details only explains what stays per game: the template's fields
+        // start on Execution (Launch).
+        tabBar.currentIndex = 1
         gameModel.watchDialogKeys(gameSettings)
         fitToScreen()
         visible = true
@@ -2538,7 +2540,21 @@ Window {
                         width: parent.width
                         height: parent.height
                         spacing: Kirigami.Units.smallSpacing
+                        // The template has no game: this tab only says so.
+                        Controls.Label {
+                            id: defaultsDetailsNote
+                            objectName: "settingsDefaultsDetailsNote"
+                            Layout.fillWidth: true
+                            Layout.leftMargin: Kirigami.Units.largeSpacing * 2
+                            Layout.rightMargin: Kirigami.Units.largeSpacing * 2
+                            Layout.topMargin: Kirigami.Units.largeSpacing
+                            visible: defaultsMode
+                            wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
+                            text: qsTr("Game Identity, Metadata and Notes Are Per Game; Set Them in the Game's Settings.")
+                        }
                         SectionBox {
+                            objectName: "settingsGameBox"
                             title: qsTr("Game")
                             Layout.fillWidth: true
                             // Identity is per game: the template has no game.
@@ -2625,6 +2641,34 @@ Window {
                                         key: "date"
                                         locked: gameSettings.isLocked("date")
                                         onClicked: gameSettings.toggleLock("date")
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: !defaultsMode
+                                    KirigamiLayouts.FormData.label: qsTr("Status:")
+                                    AppComboBox {
+                                        id: gameStatusBox
+                                        objectName: "settingsStatus"
+                                        Layout.fillWidth: true
+                                        textRole: "text"
+                                        valueRole: "data"
+                                        model: [
+                                            {"text": qsTr("Not Set"), "data": ""},
+                                            {"text": qsTr("Abandoned"), "data": "abandoned"},
+                                            {"text": qsTr("Beaten"), "data": "beaten"},
+                                            {"text": qsTr("Completed"), "data": "completed"},
+                                            {"text": qsTr("Not Played"), "data": "not_played"},
+                                            {"text": qsTr("On Hold"), "data": "on_hold"},
+                                            {"text": qsTr("Plan to Play"), "data": "plan_to_play"},
+                                            {"text": qsTr("Played"), "data": "played"},
+                                            {"text": qsTr("Playing"), "data": "playing"}
+                                        ]
+                                    }
+                                    LockButton {
+                                        key: "status"
+                                        locked: gameSettings.isLocked("status")
+                                        onClicked: gameSettings.toggleLock("status")
                                     }
                                 }
                                 RowLayout {
@@ -2937,33 +2981,6 @@ Window {
                                         onClicked: gameSettings.toggleLock("region")
                                     }
                                 }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    KirigamiLayouts.FormData.label: qsTr("Status:")
-                                    AppComboBox {
-                                        id: gameStatusBox
-                                        objectName: "settingsStatus"
-                                        Layout.fillWidth: true
-                                        textRole: "text"
-                                        valueRole: "data"
-                                        model: [
-                                            {"text": qsTr("Not Set"), "data": ""},
-                                            {"text": qsTr("Abandoned"), "data": "abandoned"},
-                                            {"text": qsTr("Beaten"), "data": "beaten"},
-                                            {"text": qsTr("Completed"), "data": "completed"},
-                                            {"text": qsTr("Not Played"), "data": "not_played"},
-                                            {"text": qsTr("On Hold"), "data": "on_hold"},
-                                            {"text": qsTr("Plan to Play"), "data": "plan_to_play"},
-                                            {"text": qsTr("Played"), "data": "played"},
-                                            {"text": qsTr("Playing"), "data": "playing"}
-                                        ]
-                                    }
-                                    LockButton {
-                                        key: "status"
-                                        locked: gameSettings.isLocked("status")
-                                        onClicked: gameSettings.toggleLock("status")
-                                    }
-                                }
                             }
                             // Same label column and gap as the form rows; the
                             // FormLayout cannot stretch one of its rows, so the
@@ -3014,6 +3031,9 @@ Window {
                         SectionBox {
                             title: qsTr("Notes")
                             Layout.fillWidth: true
+                            // Notes are personal, not launch behaviour: the
+                            // template never carries them.
+                            visible: !defaultsMode
                             WidgetsFormLayout {
                                 id: notesForm
                                 labelWidth: generalColumn.labelWidth
@@ -4438,7 +4458,9 @@ Window {
                                     Controls.CheckBox {
                                         id: luEnable
                                         objectName: "luEnable"
-                                        text: qsTr("Enable Ludusavi for This Game")
+                                        text: defaultsMode
+                                            ? qsTr("Enable Ludusavi for New Games")
+                                            : qsTr("Enable Ludusavi for This Game")
                                     }
                                     Controls.CheckBox {
                                         id: luRestore
@@ -4457,6 +4479,10 @@ Window {
                                     Controls.TextField {
                                         id: luName
                                         objectName: "luName"
+                                        // Per game: the template has no name
+                                        // to override, and inheriting one would
+                                        // rename every new game's saves.
+                                        visible: !defaultsMode
                                         // A local game has no Steam id for --infer:
                                         // empty resolves saves by the game name.
                                         placeholderText: !fields.is_steam && (fields.name || "") !== ""

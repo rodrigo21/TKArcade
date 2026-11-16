@@ -75,6 +75,7 @@ def test_save_defaults_drops_per_game_keys(xdg_env):
     cfg.debug.proton_log = True
     cfg.artwork.cover = "cover.png"
     cfg.notes.text = "hello"
+    cfg.ludusavi.name_override = "Doom"
     cfg.gamemode.feral_gamemode = True
     C.save_defaults(cfg)
     text = C.xdg.defaults_file().read_text()
@@ -86,6 +87,7 @@ def test_save_defaults_drops_per_game_keys(xdg_env):
         "custom_executable =",
         "launch_cwd =",
         "active_profile =",
+        "name_override =",
     ):
         assert line not in text
     assert "show_menu = true" in text
@@ -94,7 +96,33 @@ def test_save_defaults_drops_per_game_keys(xdg_env):
     assert back.runtime.type == ""
     assert back.general.categories == []
     assert back.notes.text == ""
+    assert back.ludusavi.name_override == ""
     assert back.gamemode.feral_gamemode is True
+
+
+def test_hand_edited_defaults_drops_per_game_keys(xdg_env):
+    """A pre-split or hand-edited template cannot pre-fill a new game."""
+    path = C.xdg.defaults_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        '[general]\nname = "Template"\ngameid = "local-x"\nshow_menu = true\n'
+        '[notes]\ntext = "hello"\n'
+        '[runtime]\ntype = "proton"\n'
+        '[ludusavi]\nenable = true\nname_override = "Doom"\n',
+        encoding="utf-8",
+    )
+    template = C.load_defaults()
+    assert template.general.name == ""
+    assert template.general.show_menu is True
+    assert template.notes.text == ""
+    assert template.runtime.type == ""
+    assert template.ludusavi.enable is True
+    assert template.ludusavi.name_override == ""
+    # A game without a file takes the same trimmed template.
+    fresh = C.load("nope")
+    assert fresh.notes.text == ""
+    assert fresh.runtime.type == ""
+    assert fresh.ludusavi.name_override == ""
 
 
 def test_legacy_ludusavi_keys_ignored(xdg_env):

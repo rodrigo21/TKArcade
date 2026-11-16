@@ -896,6 +896,49 @@ def load_with_warning(appid: str) -> tuple[GameConfig, str | None]:
     return cfg, None
 
 
+#: Sections and general keys that never belong in defaults.toml. Identity,
+#: runtime/graphics/audio switches, artwork and notes are picked per game;
+#: a template carrying them would pre-fill new games.
+_TEMPLATE_DROP_SECTIONS = (
+    "metadata",
+    "runtime",
+    "graphics",
+    "audio",
+    "debug",
+    "artwork",
+    "notes",
+)
+_TEMPLATE_DROP_GENERAL = (
+    "gameid",
+    "name",
+    "custom_executable",
+    "launch_cwd",
+    "categories",
+    "active_profile",
+    "installed_at",
+)
+
+
+def _template_only(data: dict) -> dict:
+    """Drop the per-game keys from a defaults.toml mapping, in place.
+
+    Applied on save (they are never written) and on load (a hand-edited or
+    pre-split file cannot pre-fill new games).
+    """
+    general = data.get("general")
+    if isinstance(general, dict):
+        for key in _TEMPLATE_DROP_GENERAL:
+            general.pop(key, None)
+    for section in _TEMPLATE_DROP_SECTIONS:
+        data.pop(section, None)
+    # Ludusavi's name override names one game's saves: a template value
+    # would rename every new game's lookup.
+    ludusavi = data.get("ludusavi")
+    if isinstance(ludusavi, dict):
+        ludusavi.pop("name_override", None)
+    return data
+
+
 def defaults_dict() -> dict:
     return _read_toml(xdg.defaults_file())
 
@@ -903,7 +946,7 @@ def defaults_dict() -> dict:
 def load_defaults() -> GameConfig:
     """Load the global defaults file as a GameConfig (appid empty)."""
     cfg = GameConfig()
-    data = defaults_dict()
+    data = _template_only(defaults_dict())
     if not data:
         return cfg
     return _build(copy.deepcopy(data), cfg)
@@ -912,31 +955,7 @@ def load_defaults() -> GameConfig:
 def save_defaults(cfg: GameConfig) -> Path:
     """Save the global defaults file: launch behaviour, no per-game fields."""
     path = xdg.defaults_file()
-    data = to_toml_dict(cfg)
-    general = data.get("general", {})
-    for key in (
-        "gameid",
-        "name",
-        "custom_executable",
-        "launch_cwd",
-        "categories",
-        "active_profile",
-        "installed_at",
-    ):
-        general.pop(key, None)
-    # Identity, runtime/graphics/audio switches, artwork and notes are
-    # picked per game; a template carrying them would pre-fill new games.
-    for section in (
-        "metadata",
-        "runtime",
-        "graphics",
-        "audio",
-        "debug",
-        "artwork",
-        "notes",
-    ):
-        data.pop(section, None)
-    write_atomic(path, _render_toml(data))
+    write_atomic(path, _render_toml(_template_only(to_toml_dict(cfg))))
     return path
 
 
@@ -1720,7 +1739,7 @@ def load(appid: str) -> GameConfig:
     cfg.general.appid = appid
     data = _read_toml(game_file(appid))
     if not data:
-        return _build(copy.deepcopy(defaults_dict()), cfg)
+        return _build(_template_only(copy.deepcopy(defaults_dict())), cfg)
     return _build(data, cfg)
 
 

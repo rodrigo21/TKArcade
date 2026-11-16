@@ -318,7 +318,9 @@ game dialog footer switch hides the profile bar; the choice persists in
 
 **Global Defaults...** — template copied into new games and by
 per-game `Reset to Global Defaults` (persists immediately, with
-confirmation). Game files always store complete snapshots; unknown
+confirmation). The template holds launch behaviour only: identity,
+runtime, graphics, audio, artwork and notes stay per game. Game files
+always store complete snapshots; unknown
 keys are preserved. Files carry a `config_version` stamp; newer files
 warn instead of silently resetting.
 

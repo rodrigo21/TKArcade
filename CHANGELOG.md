@@ -216,8 +216,18 @@ Breaking config changes are called out explicitly under `Changed`.
   largest first) and icons cached by the previous version are
   re-extracted once. Stored icons are also capped at 1024 px on the
   longest side, since nothing in the interface draws them bigger.
+- The Global Defaults editor no longer offers fields the template never
+  keeps: personal Notes and the Ludusavi game-name override are per game,
+  so they hide there instead of disappearing on save. The template is
+  also trimmed when it is read, so a hand-edited or pre-split
+  `defaults.toml` cannot pre-fill a new game with an identity, runtime,
+  graphics, audio, artwork, notes or a save-name override.
 
 ### Changed
+- Status moved from the Information section to Game on Details, above
+  State Tag: it is the library classification, not provider metadata. The
+  Global Defaults editor opens on Execution, and its Details tab carries a
+  line saying which fields stay per game.
 - Stored artwork uses one format: `auto` (the default) writes AVIF at
   quality 85, then WebP at 90, then JPEG at 90, then PNG, whichever the
   installed Qt plugins can write. Icons never use JPEG, which has no

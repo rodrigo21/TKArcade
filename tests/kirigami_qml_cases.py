@@ -4461,9 +4461,19 @@ def test_header_global_defaults_button(qgui_app, xdg_env):
     assert dswin.findChild(QQuickItem, "settingsTabRuntime").property("enabled") is True
     assert dswin.findChild(QQuickItem, "settingsCats").isVisible() is False
     tabs = dswin.findChild(QQuickItem, "settingsTabs")
+    # The template opens on Execution: Details only explains what stays
+    # with the game.
+    assert tabs.property("currentIndex") == TAB_RUNTIME
+    tabs.setProperty("currentIndex", TAB_GENERAL)
+    qgui_app.processEvents()
+    assert dswin.findChild(QQuickItem, "settingsNotes").isVisible() is False
+    assert dswin.findChild(QQuickItem, "settingsStatus").isVisible() is False
+    assert dswin.findChild(QQuickItem, "settingsDefaultsDetailsNote").isVisible() is True
     tabs.setProperty("currentIndex", TAB_SYSTEM)
     qgui_app.processEvents()
     assert dswin.findChild(QQuickItem, "auSink").isVisible() is False
+    assert dswin.findChild(QQuickItem, "luName").isVisible() is False
+    assert dswin.findChild(QQuickItem, "luEnable").isVisible() is True
     tabs.setProperty("currentIndex", TAB_RUNTIME)
     qgui_app.processEvents()
     note = dswin.findChild(QQuickItem, "settingsDefaultsRuntimeNote")
@@ -7130,6 +7140,12 @@ def test_settings_metadata_and_protondb(qgui_app, xdg_env):
     page.openGameSettings("steam-620")
     swin = _settings_window(qgui_app)
     assert swin.findChild(QQuickItem, "settingsInformation") is not None
+    game_box = swin.findChild(QQuickItem, "settingsGameBox")
+    info_box = swin.findChild(QQuickItem, "settingsInformation")
+    status = swin.findChild(QQuickItem, "settingsStatus")
+    # Status is a library classification: Game, not provider Information.
+    assert game_box.isAncestorOf(status) is True
+    assert info_box.isAncestorOf(status) is False
     pdb = swin.findChild(QQuickItem, "settingsProtonDB")
     assert pdb.isVisible() is True
     assert pdb.property("text") == "Platinum"

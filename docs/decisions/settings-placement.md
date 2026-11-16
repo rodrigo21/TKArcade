@@ -62,16 +62,19 @@ Settings have three homes, and a field keeps the one it already had:
 - The Preferences window is three tabs (Interface, Artwork, Runtime)
   with one label column per tab and one shared Save/Cancel footer; the
   Tray rows live on the Interface page and disable when the tray is off.
-- The Global Defaults dialog disables the Runtime tab with a one-line
-  note (tab indices stay stable, so the other tabs do not move) and
-  hides the General `Game` and System `Audio` sections, which hold only
-  per-game fields.
+- The Global Defaults dialog opens on Execution and keeps it enabled:
+  Launch holds the template fields, and a note says where the per-game
+  runtime, prefix and graphics fields live. Details hides its `Game`,
+  `Information` and `Notes` sections behind a line naming them as
+  per-game, as do the System `Audio` section and the Ludusavi
+  game-name override row.
 - `save_defaults()` writes only the launch-behaviour sections; it drops
   `[metadata]`, `[runtime]`, `[graphics]`, `[audio]`, `[debug]`,
-  `[artwork]`, `[notes]` and the General keys `name`,
-  `custom_executable`, `launch_cwd`, `categories` and `active_profile`.
-  An existing `defaults.toml` keeps them until the dialog is saved
-  once.
+  `[artwork]`, `[notes]`, the Ludusavi `name_override` and the General
+  keys `name`, `custom_executable`, `launch_cwd`, `categories` and
+  `active_profile`. The same trim runs when the template is read, so a
+  hand-edited or pre-split `defaults.toml` cannot pre-fill a game; the
+  dialog's next Save rewrites it clean.
 - New games start from the trimmed template with no runtime set (the
   library shows Not Set and the launcher exits 18 until one is chosen);
   that is the intended explicit choice. The tarball,
