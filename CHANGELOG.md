@@ -198,6 +198,21 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- A save no longer deletes another process's in-flight temp file. The
+  atomic writer swept every `.<name>.*.tmp` in the directory before its
+  own write, so a GUI save during a launch could make the launcher's
+  rename fail and lose that write.
+- The artwork sidecar is written atomically like the config files. A
+  crash or a second worker mid-write used to truncate it, and the next
+  read returned `{}`, losing every recorded provider and cached
+  SteamGridDB/IGDB id.
+- The IGDB token cache is private to the account: the file is `0600` and
+  its directory `0700`, so the Twitch bearer token is no longer readable
+  by other local users.
+- A page that answers `200` but is not an image (a Cloudflare challenge,
+  an error page) is no longer stored as artwork. The empty slot made the
+  kind look filled, so the providers were never asked again and only a
+  manual repair recovered it.
 - Stored executable icons now join the storage format: the background
   pass after startup and Re-encode Existing Artwork rewrite them as AVIF
   (or the chosen format) and record the suffix in the sidecar, so no

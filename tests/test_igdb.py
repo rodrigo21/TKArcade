@@ -163,6 +163,18 @@ def test_token_renews_for_a_new_client_id(monkeypatch, xdg_env):
     assert len(_token_calls(calls)) == 2
 
 
+def test_token_cache_is_private_to_the_account(monkeypatch, xdg_env):
+    """The cached bearer token must not be readable by other local users."""
+    import stat
+
+    _creds()
+    _stub(monkeypatch, rows=[])
+    igdb.search("Hades")
+    path = igdb._token_path()
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+
+
 def test_unknown_ratings_and_bad_dates_are_dropped(monkeypatch, xdg_env):
     _creds()
     _stub(

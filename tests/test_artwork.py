@@ -33,6 +33,11 @@ def _stub(monkeypatch, routes):
     monkeypatch.setattr("urllib.request.urlopen", fake_open)
 
 
+def _img(tag: str = "") -> bytes:
+    """A minimal PNG body: the download path checks the magic bytes."""
+    return b"\x89PNG\r\n\x1a\n" + tag.encode()
+
+
 def test_steam_canonical_id_uses_numeric_cache_and_api(monkeypatch, xdg_env):
     seen = []
 
@@ -68,11 +73,11 @@ def test_fetch_missing_full_chain(monkeypatch, xdg_env):
         [
             ("games/steam", {"data": [{"id": 123}]}),
             ("grids/game", {"data": [_grid_entry("https://cdn/x.png", 600, 900)]}),
-            ("cdn/x.png", b"imagedata"),
+            ("cdn/x.png", _img("imagedata")),
         ],
     )
     path = art.fetch_missing("82", "KEY")
-    assert path is not None and path.read_bytes() == b"imagedata"
+    assert path is not None and path.read_bytes() == _img("imagedata")
     # second call hits the on-disk grid, no network needed
     _stub(monkeypatch, [])
     assert art.fetch_missing("82", "KEY") == path
@@ -100,7 +105,7 @@ def test_thumb_requires_https(monkeypatch, xdg_env):
 def test_fetch_dict_shaped_data(monkeypatch, xdg_env):
     games = {"data": {"id": 9, "name": "Dict Game"}}
     grids = {"data": [{"thumb": "https://cdn.test/g.png", "width": 600, "height": 900}]}
-    _stub(monkeypatch, [("games/steam", games), ("grids/game", grids), ("cdn.test", b"PNG")])
+    _stub(monkeypatch, [("games/steam", games), ("grids/game", grids), ("cdn.test", _img("PNG"))])
     path = art.fetch_missing("83", "key")
     assert path is not None and path.is_file()
 
@@ -126,16 +131,16 @@ def test_fetch_sgdb_picks_the_shape_per_kind(monkeypatch, xdg_env):
             ),
             ("heroes/game", {"data": [_grid_entry("https://cdn/hero.jpg", 3840, 1240)]}),
             ("icons/game", {"data": [_grid_entry("https://cdn/square.png", 512, 512)]}),
-            ("cdn/tall.png", b"T"),
-            ("cdn/hero.jpg", b"W"),
-            ("cdn/square.png", b"S"),
+            ("cdn/tall.png", _img("T")),
+            ("cdn/hero.jpg", _img("W")),
+            ("cdn/square.png", _img("S")),
         ],
     )
     out, error = art.fetch_sgdb("86", "KEY")
     assert error == ""
-    assert out["icon"].read_bytes() == b"S"
-    assert out["cover"].read_bytes() == b"T"
-    assert out["banner"].read_bytes() == b"W"
+    assert out["icon"].read_bytes() == _img("S")
+    assert out["cover"].read_bytes() == _img("T")
+    assert out["banner"].read_bytes() == _img("W")
     assert out["icon"].name == "steam-86-icon.png"
     assert out["cover"].name == "steam-86.png"
     assert out["banner"].name == "steam-86-banner.jpg"
@@ -162,11 +167,11 @@ def test_fetch_sgdb_prefers_official_style(monkeypatch, xdg_env):
                     ]
                 },
             ),
-            ("cdn/valve.png", b"V"),
+            ("cdn/valve.png", _img("V")),
         ],
     )
     out, _error = art.fetch_sgdb("88", "KEY", ("cover",))
-    assert out["cover"].read_bytes() == b"V"
+    assert out["cover"].read_bytes() == _img("V")
     assert art.provider_for("88", "cover") == "sgdb"
 
 
@@ -180,12 +185,12 @@ def test_fetch_sgdb_skips_cached_and_reshapes_without_dimensions(monkeypatch, xd
         [
             ("games/steam", {"data": [{"id": 56}]}),
             ("icons/game", {"data": [{"thumb": "https://cdn/any.png", "mime": "image/png"}]}),
-            ("cdn/any.png", b"ANY"),
+            ("cdn/any.png", _img("ANY")),
         ],
     )
     out, _error = art.fetch_sgdb("87", "KEY", ("icon", "cover"))
     assert "cover" not in out
-    assert out["icon"].read_bytes() == b"ANY"
+    assert out["icon"].read_bytes() == _img("ANY")
     assert art.fetch_sgdb("87", "", ("banner",)) == ({}, "no-key")
 
 
@@ -208,11 +213,11 @@ def test_sgdb_icons_skip_the_ico_submissions(monkeypatch, xdg_env):
                     ]
                 },
             ),
-            ("cdn/i.png", b"P"),
+            ("cdn/i.png", _img("P")),
         ],
     )
     out, _error = art.fetch_sgdb("89", "KEY", ("icon",))
-    assert out["icon"].read_bytes() == b"P"
+    assert out["icon"].read_bytes() == _img("P")
 
 
 def test_cached_icon_beats_the_cached_cover(xdg_env):
@@ -232,7 +237,7 @@ def test_source_appid_wins_over_the_game_own_art(xdg_env, tmp_path):
     own.parent.mkdir(parents=True)
     own.write_bytes(b"O")
     shared = art.grid_path("480", "cover")
-    shared.write_bytes(b"S")
+    shared.write_bytes(_img("S"))
     assert art.resolve("local-doom", "cover", "480") == (shared, "appid-cache")
     assert art.resolve("local-doom", "cover") == (own, "cache")
     # The game's own manual slot still wins: it is the most specific
@@ -290,8 +295,8 @@ def test_fetch_official_needs_no_key(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Portal 2", "abc")),
             ("abc.ico", _ico_with_png_frame()),
-            ("library_600x900_2x.jpg", b"COVER"),
-            ("library_hero.jpg", b"HERO"),
+            ("library_600x900_2x.jpg", _img("COVER")),
+            ("library_hero.jpg", _img("HERO")),
         ],
     )
     result = art.fetch_best("620", "steam", "")
@@ -316,11 +321,11 @@ def test_official_icon_falls_back_to_the_small_jpg(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Le Mans Ultimate", "def")),
             ("def.ico", urllib_error_404()),
-            ("def.jpg", b"SMALL"),
+            ("def.jpg", _img("SMALL")),
         ],
     )
     out = art.fetch_official("2399420", ("icon",))
-    assert out["icon"].read_bytes() == b"SMALL"
+    assert out["icon"].read_bytes() == _img("SMALL")
 
 
 def test_steam_client_icon_wins_over_the_sgdb_promo(monkeypatch, xdg_env):
@@ -330,7 +335,7 @@ def test_steam_client_icon_wins_over_the_sgdb_promo(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Le Mans Ultimate", "def")),
             ("def.ico", urllib_error_404()),
-            ("def.jpg", b"SMALL"),
+            ("def.jpg", _img("SMALL")),
             ("games/steam", {"data": [{"id": 5406300}]}),
             (
                 "icons/game",
@@ -343,11 +348,11 @@ def test_steam_client_icon_wins_over_the_sgdb_promo(monkeypatch, xdg_env):
                     ]
                 },
             ),
-            ("cdn/big.png", b"BIG"),
+            ("cdn/big.png", _img("BIG")),
         ],
     )
     result = art.fetch_best("2399420", "steam", "KEY", ("icon",))
-    assert result["art"]["icon"].read_bytes() == b"SMALL"
+    assert result["art"]["icon"].read_bytes() == _img("SMALL")
     assert result["provider"] == "steam"
 
 
@@ -370,11 +375,11 @@ def test_sgdb_icon_fills_when_steam_has_none(monkeypatch, xdg_env):
                     ]
                 },
             ),
-            ("cdn/big.png", b"BIG"),
+            ("cdn/big.png", _img("BIG")),
         ],
     )
     result = art.fetch_best("2399420", "steam", "KEY", ("icon",))
-    assert result["art"]["icon"].read_bytes() == b"BIG"
+    assert result["art"]["icon"].read_bytes() == _img("BIG")
     assert result["provider"] == "sgdb"
 
 
@@ -391,11 +396,11 @@ def test_old_sgdb_icon_is_dropped_once(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Le Mans Ultimate", "def")),
             ("def.ico", urllib_error_404()),
-            ("def.jpg", b"SMALL"),
+            ("def.jpg", _img("SMALL")),
         ],
     )
     result = art.fetch_best("2399420", "steam", "", ("icon",))
-    assert result["art"]["icon"].read_bytes() == b"SMALL"
+    assert result["art"]["icon"].read_bytes() == _img("SMALL")
     assert art.read_manifest("2399420").get("icon_chain") == art.ICON_CHAIN
     # A post-fix SGDB fallback carries the marker and is left alone.
     art.clear_fetched("2399420")
@@ -415,11 +420,11 @@ def test_icon_chain_falls_back_to_the_small_jpg_without_a_key(monkeypatch, xdg_e
         [
             (APP_INFO, _steam_apps("Le Mans Ultimate", "def")),
             ("def.ico", urllib_error_404()),
-            ("def.jpg", b"SMALL"),
+            ("def.jpg", _img("SMALL")),
         ],
     )
     result = art.fetch_best("2399420", "steam", "", ("icon",))
-    assert result["art"]["icon"].read_bytes() == b"SMALL"
+    assert result["art"]["icon"].read_bytes() == _img("SMALL")
     assert result["provider"] == "steam"
 
 
@@ -439,12 +444,12 @@ def test_name_search_matches_exactly_and_stores_the_id(monkeypatch, xdg_env):
             ),
             ("games/steam", {"data": []}),
             ("grids/game", {"data": [_grid_entry("https://cdn/cover.png", 600, 900)]}),
-            ("cdn/cover.png", b"COVER"),
+            ("cdn/cover.png", _img("COVER")),
         ],
     )
     result = art.fetch_best("local-doom", "steam", "KEY", ("cover",), names=("Doom",))
     assert result["game_id"] == "7"
-    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert result["art"]["cover"].read_bytes() == _img("COVER")
     assert result["provider"] == "sgdb"
     assert art.stored_sgdb_id("local-doom") == "7"
     # A later fetch reuses the stored id and never searches again.
@@ -453,12 +458,12 @@ def test_name_search_matches_exactly_and_stores_the_id(monkeypatch, xdg_env):
         [
             ("games/steam", {"data": []}),
             ("grids/game", {"data": [_grid_entry("https://cdn/cover2.png", 600, 900)]}),
-            ("cdn/cover2.png", b"NEW"),
+            ("cdn/cover2.png", _img("NEW")),
         ],
     )
     again = art.fetch_best("local-doom", "steam", "KEY", ("cover",), force=True)
     assert again["game_id"] == "7"
-    assert again["art"]["cover"].read_bytes() == b"NEW"
+    assert again["art"]["cover"].read_bytes() == _img("NEW")
 
 
 def test_name_search_returns_candidates_when_nothing_matches(monkeypatch, xdg_env):
@@ -493,7 +498,7 @@ def test_clear_keeps_the_sgdb_choice(monkeypatch, xdg_env):
             ("search/autocomplete", {"data": [{"id": 7, "name": "Doom"}]}),
             ("games/steam", {"data": []}),
             ("grids/game", {"data": [_grid_entry("https://cdn/cover.png", 600, 900)]}),
-            ("cdn/cover.png", b"COVER"),
+            ("cdn/cover.png", _img("COVER")),
         ],
     )
     art.fetch_best("local-doom", "steam", "KEY", ("cover",), names=("Doom",))
@@ -542,16 +547,16 @@ def test_sgdb_provider_first_when_asked(monkeypatch, xdg_env):
             (APP_INFO, _steam_apps("Portal 2", "abc")),
             ("games/steam", {"data": [{"id": 9}]}),
             ("grids/game", {"data": [_grid_entry("https://cdn/community.png", 600, 900)]}),
-            ("cdn/community.png", b"COMMUNITY"),
-            ("library_600x900_2x.jpg", b"OFFICIAL"),
-            ("library_hero.jpg", b"HERO"),
-            ("abc.ico", b"ICO"),
+            ("cdn/community.png", _img("COMMUNITY")),
+            ("library_600x900_2x.jpg", _img("OFFICIAL")),
+            ("library_hero.jpg", _img("HERO")),
+            ("abc.ico", _img("ICO")),
         ],
     )
     result = art.fetch_best("620", "sgdb", "KEY", ("cover", "banner"))
     assert result["provider"] == "sgdb"
-    assert result["art"]["cover"].read_bytes() == b"COMMUNITY"
-    assert result["art"]["banner"].read_bytes() == b"HERO"
+    assert result["art"]["cover"].read_bytes() == _img("COMMUNITY")
+    assert result["art"]["banner"].read_bytes() == _img("HERO")
     assert art.provider_for("620", "cover") == "sgdb"
     assert art.provider_for("620", "banner") == "steam"
 
@@ -565,14 +570,14 @@ def test_force_redownloads_the_cached_kind(monkeypatch, xdg_env):
         monkeypatch,
         [
             (APP_INFO, _steam_apps("Portal 2", "abc")),
-            ("library_hero.jpg", b"NEW"),
-            ("library_600x900_2x.jpg", b"COVER"),
-            ("abc.ico", b"ICO"),
+            ("library_hero.jpg", _img("NEW")),
+            ("library_600x900_2x.jpg", _img("COVER")),
+            ("abc.ico", _img("ICO")),
         ],
     )
     result = art.fetch_best("620", "steam", "", ("banner", "cover"), force=True)
-    assert result["art"]["banner"].read_bytes() == b"NEW"
-    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert result["art"]["banner"].read_bytes() == _img("NEW")
+    assert result["art"]["cover"].read_bytes() == _img("COVER")
 
 
 def _ico_with_png_frame(size=256, small=16):
@@ -628,11 +633,11 @@ def test_ico_without_png_frame_falls_back_to_the_jpg(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Old Game", "old")),
             ("old.ico", bmp_only),
-            ("old.jpg", b"SMALL"),
+            ("old.jpg", _img("SMALL")),
         ],
     )
     out = art.fetch_official("621", ("icon",))
-    assert out["icon"].read_bytes() == b"SMALL"
+    assert out["icon"].read_bytes() == _img("SMALL")
 
 
 def test_clear_fetched_removes_files_and_marks(monkeypatch, xdg_env):
@@ -642,8 +647,8 @@ def test_clear_fetched_removes_files_and_marks(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Portal 2", "abc")),
             ("abc.ico", _ico_with_png_frame()),
-            ("library_600x900_2x.jpg", b"COVER"),
-            ("library_hero.jpg", b"HERO"),
+            ("library_600x900_2x.jpg", _img("COVER")),
+            ("library_hero.jpg", _img("HERO")),
         ],
     )
     art.fetch_best("620", "steam", "")
@@ -685,12 +690,12 @@ def test_cleared_appid_is_not_refetched_in_the_background(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Portal 2", "abc")),
             ("abc.ico", _ico_with_png_frame()),
-            ("library_600x900_2x.jpg", b"COVER"),
-            ("library_hero.jpg", b"HERO"),
+            ("library_600x900_2x.jpg", _img("COVER")),
+            ("library_hero.jpg", _img("HERO")),
         ],
     )
     result = art.fetch_best("620", "steam", "", force=True)
-    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert result["art"]["cover"].read_bytes() == _img("COVER")
     assert art.is_cleared("620") is False
 
 
@@ -719,8 +724,8 @@ def test_cleared_kind_hides_the_cover_and_steam_art(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Portal 2", "abc")),
             ("abc.ico", _ico_with_png_frame()),
-            ("library_600x900_2x.jpg", b"COVER"),
-            ("library_hero.jpg", b"HERO"),
+            ("library_600x900_2x.jpg", _img("COVER")),
+            ("library_hero.jpg", _img("HERO")),
         ],
     )
     art.fetch_best("620", "steam", "")
@@ -749,8 +754,8 @@ def test_forced_fetch_restores_the_cleared_background(monkeypatch, xdg_env):
         [
             (APP_INFO, _steam_apps("Portal 2", "abc")),
             ("abc.ico", _ico_with_png_frame()),
-            ("library_600x900_2x.jpg", b"COVER"),
-            ("library_hero.jpg", b"HERO"),
+            ("library_600x900_2x.jpg", _img("COVER")),
+            ("library_hero.jpg", _img("HERO")),
         ],
     )
     art.fetch_best("620", "steam", "")
@@ -765,7 +770,7 @@ def test_forced_fetch_restores_the_cleared_background(monkeypatch, xdg_env):
 
 def test_clear_hides_the_exe_icon_until_a_fetch(monkeypatch, xdg_env, tmp_path):
     """A cleared local game shows no executable icon either."""
-    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: _img("ICO"))
     exe = _local_exe(tmp_path)
     path, source = art.resolve("local-doom", "icon", "", str(exe))
     assert source == "exe"
@@ -788,28 +793,28 @@ def test_exe_icon_fills_a_local_games_empty_icon(monkeypatch, xdg_env, tmp_path)
 
     def fake_icon(path):
         calls.append(path)
-        return b"ICO"
+        return _img("ICO")
 
     monkeypatch.setattr(art.exeiconmod, "icon_bytes", fake_icon)
     exe = _local_exe(tmp_path)
     path, source = art.resolve("local-doom", "icon", "", str(exe))
     assert source == "exe"
     assert path == art.exe_icon_path("local-doom")
-    assert path.read_bytes() == b"ICO"
+    assert path.read_bytes() == _img("ICO")
     # Cached: the next refresh only stats the executable.
     assert art.resolve("local-doom", "icon", "", str(exe)) == (path, "exe")
     assert calls == [exe]
 
 
 def test_exe_icon_is_reextracted_when_the_executable_changes(monkeypatch, xdg_env, tmp_path):
-    versions = [b"OLD", b"NEW"]
+    versions = [b"OLD", _img("NEW")]
     monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: versions.pop(0))
     exe = _local_exe(tmp_path)
     first = art.exe_icon("local-doom", str(exe))
     assert first is not None and first.read_bytes() == b"OLD"
     exe.write_bytes(b"MZ!")
     second = art.exe_icon("local-doom", str(exe))
-    assert second is not None and second.read_bytes() == b"NEW"
+    assert second is not None and second.read_bytes() == _img("NEW")
 
 
 def test_exe_icon_never_beats_real_art(monkeypatch, xdg_env, tmp_path):
@@ -821,7 +826,7 @@ def test_exe_icon_never_beats_real_art(monkeypatch, xdg_env, tmp_path):
     art.clear_manual("local-doom", "icon")
     cached = art.grid_path("local-doom", "icon")
     cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_bytes(b"PNG")
+    cached.write_bytes(_img("PNG"))
     assert art.resolve("local-doom", "icon", "", str(exe)) == (cached, "cache")
 
 
@@ -834,14 +839,14 @@ def test_exe_icon_is_ignored_for_a_steam_game(monkeypatch, xdg_env, tmp_path):
 def _steam_icon(gid, provider):
     path = art.grid_path(gid, "icon")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"PNG")
+    path.write_bytes(_img("PNG"))
     art._write_manifest(gid, "icon", provider)
     return path
 
 
 def test_local_exe_icon_beats_the_sources_steam_icon(monkeypatch, xdg_env, tmp_path):
     """A 32x32 official client icon must not hide the game's own icon."""
-    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: _img("ICO"))
     _steam_icon("480", "steam")
     exe = _local_exe(tmp_path)
     path, source = art.resolve("local-doom", "icon", "480", str(exe))
@@ -849,21 +854,21 @@ def test_local_exe_icon_beats_the_sources_steam_icon(monkeypatch, xdg_env, tmp_p
 
 
 def test_local_exe_icon_keeps_a_community_source_icon(monkeypatch, xdg_env, tmp_path):
-    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: _img("ICO"))
     source_icon = _steam_icon("480", "sgdb")
     exe = _local_exe(tmp_path)
     assert art.resolve("local-doom", "icon", "480", str(exe)) == (source_icon, "appid-cache")
 
 
 def test_local_exe_icon_keeps_a_manual_source_icon(monkeypatch, xdg_env, tmp_path):
-    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: _img("ICO"))
     manual = art.store_manual("480", "icon", str(_image(tmp_path, "source.png")))
     exe = _local_exe(tmp_path)
     assert art.resolve("local-doom", "icon", "480", str(exe)) == (manual, "appid-manual")
 
 
 def test_local_exe_icon_beats_its_own_steam_icon(monkeypatch, xdg_env, tmp_path):
-    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: _img("ICO"))
     _steam_icon("local-doom", "steam")
     exe = _local_exe(tmp_path)
     assert art.resolve("local-doom", "icon", "", str(exe))[1] == "exe"
@@ -872,18 +877,20 @@ def test_local_exe_icon_beats_its_own_steam_icon(monkeypatch, xdg_env, tmp_path)
 def test_exe_icon_uses_the_sibling_exe_of_a_native_launcher(monkeypatch, xdg_env, tmp_path):
     """A Ren'Py port launches a .sh but ships the .exe beside it."""
     calls = []
-    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: calls.append(path) or b"ICO")
+    monkeypatch.setattr(
+        art.exeiconmod, "icon_bytes", lambda path: calls.append(path) or _img("ICO")
+    )
     launcher = tmp_path / "game.sh"
     launcher.write_bytes(b"#!/bin/sh")
     exe = tmp_path / "game.exe"
     exe.write_bytes(b"MZ")
     path = art.exe_icon("local-doom", str(launcher))
-    assert path is not None and path.read_bytes() == b"ICO"
+    assert path is not None and path.read_bytes() == _img("ICO")
     assert calls == [exe]
 
 
 def test_exe_icon_uses_the_only_exe_in_the_directory(monkeypatch, xdg_env, tmp_path):
-    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: _img("ICO"))
     launcher = tmp_path / "renpy.sh"
     launcher.write_bytes(b"#!/bin/sh")
     (tmp_path / "Game.exe").write_bytes(b"MZ")
@@ -891,7 +898,7 @@ def test_exe_icon_uses_the_only_exe_in_the_directory(monkeypatch, xdg_env, tmp_p
 
 
 def test_exe_icon_refuses_an_ambiguous_directory(monkeypatch, xdg_env, tmp_path):
-    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: b"ICO")
+    monkeypatch.setattr(art.exeiconmod, "icon_bytes", lambda path: _img("ICO"))
     launcher = tmp_path / "run.sh"
     launcher.write_bytes(b"#!/bin/sh")
     (tmp_path / "one.exe").write_bytes(b"MZ")
@@ -934,7 +941,7 @@ def test_best_ico_frame_sorts_a_bmp_only_icon_largest_first(xdg_env):
 
 
 def test_best_ico_frame_keeps_an_unreadable_blob(xdg_env):
-    assert art.best_ico_frame(b"ICO") == (b"ICO", ".ico")
+    assert art.best_ico_frame(_img("ICO")) == (_img("ICO"), ".ico")
 
 
 def test_exe_icon_stores_the_best_frame(monkeypatch, xdg_env, tmp_path):
@@ -1111,8 +1118,8 @@ IGDB_ROUTES = [
             }
         ],
     ),
-    ("co1.jpg", b"COVER"),
-    ("ar1.jpg", b"BANNER"),
+    ("co1.jpg", _img("COVER")),
+    ("ar1.jpg", _img("BANNER")),
 ]
 
 
@@ -1125,8 +1132,8 @@ def test_igdb_fills_cover_and_banner(monkeypatch, xdg_env):
         "local-hades", "igdb", "", ("cover", "banner"), force=True, names=("Hades",)
     )
     assert result["provider"] == "igdb"
-    assert result["art"]["cover"].read_bytes() == b"COVER"
-    assert result["art"]["banner"].read_bytes() == b"BANNER"
+    assert result["art"]["cover"].read_bytes() == _img("COVER")
+    assert result["art"]["banner"].read_bytes() == _img("BANNER")
     assert art.provider_for("local-hades", "cover") == "igdb"
     assert art.provider_for("local-hades", "banner") == "igdb"
 
@@ -1159,8 +1166,8 @@ def test_igdb_fetches_a_draft_id_before_save(monkeypatch, xdg_env):
     )
     assert result["provider"] == "igdb"
     assert result["igdb_id"] == "1145360"
-    assert result["art"]["cover"].read_bytes() == b"COVER"
-    assert result["art"]["banner"].read_bytes() == b"BANNER"
+    assert result["art"]["cover"].read_bytes() == _img("COVER")
+    assert result["art"]["banner"].read_bytes() == _img("BANNER")
 
 
 def test_igdb_search_resolves_an_exact_title(monkeypatch, xdg_env):
@@ -1183,7 +1190,7 @@ def test_igdb_search_resolves_an_exact_title(monkeypatch, xdg_env):
     )
     assert result["provider"] == "igdb"
     assert result["igdb_id"] == "1145360"
-    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert result["art"]["cover"].read_bytes() == _img("COVER")
     assert art.stored_igdb_id("local-hades") == "1145360"
 
 
@@ -1253,7 +1260,7 @@ def test_clear_keeps_the_igdb_choice(monkeypatch, xdg_env):
     )
     _stub(monkeypatch, IGDB_ROUTES)
     result = art.fetch_best("local-hades", "igdb", "", ("cover",), force=True, names=("Hades",))
-    assert result["art"]["cover"].read_bytes() == b"COVER"
+    assert result["art"]["cover"].read_bytes() == _img("COVER")
 
 
 def test_provider_order_puts_the_choice_first(xdg_env, monkeypatch):
@@ -1281,3 +1288,34 @@ def test_provider_order_puts_the_choice_first(xdg_env, monkeypatch):
     calls.clear()
     art.fetch_best("620", "sgdb", "", ("banner",))
     assert calls == ["sgdb", "steam", "igdb"]
+
+
+def test_manifest_write_survives_a_failed_rename(monkeypatch, xdg_env):
+    """A crash mid-write must leave the previous providers and ids intact."""
+    path = art.manifest_path("local-x")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{"icon": {"provider": "steam"}}', encoding="utf-8")
+    art.store_sgdb_id("local-x", "123", "X")
+
+    def boom(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(art.cfgmod.os, "replace", boom)
+    art.store_igdb_id("local-x", "99", "X")
+    data = art.read_manifest("local-x")
+    assert data["icon"] == {"provider": "steam"}
+    assert data["sgdb"] == {"game_id": "123", "name": "X"}
+    assert "igdb" not in data
+
+
+def test_store_rejects_a_page_served_as_an_image(monkeypatch, xdg_env):
+    """A 200 page must not fill the slot, or the kind is never retried."""
+    html = b"<!DOCTYPE html><html><body>challenge</body></html>"
+    monkeypatch.setattr(art, "_get", lambda url, *_a, **_k: (html, ""))
+    assert art._store("local-x", "cover", "https://cdn/x.jpg") is None
+    assert art.cached_path("local-x", "cover") is None
+    assert art.provider_for("local-x", "cover") == ""
+    assert art._missing_kinds("local-x", ("cover",), False) == ["cover"]
+    # A real image still lands.
+    monkeypatch.setattr(art, "_get", lambda url, *_a, **_k: (_img("A"), ""))
+    assert art._store("local-x", "cover", "https://cdn/x.png") is not None

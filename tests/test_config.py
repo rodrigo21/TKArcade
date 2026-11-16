@@ -870,18 +870,18 @@ def test_write_atomic_keeps_a_symlink(xdg_env, tmp_path):
     assert target.read_text(encoding="utf-8") == "new"
 
 
-def test_save_sweeps_stale_crash_tmps(xdg_env):
+def test_save_leaves_a_concurrent_writer_temp_alone(xdg_env):
+    """A live temp belongs to another process: deleting it loses its save."""
     cfg = C.GameConfig()
     cfg.general.appid = "93"
     C.save(cfg)
     path = C.game_file("93")
-    stale = path.parent / f".{path.name}.deadbeef.tmp"
-    stale.write_text("crash leftover", encoding="utf-8")
-    cfg.notes.text = "after crash"
+    live = path.parent / f".{path.name}.cafe.tmp"
+    live.write_text("in flight", encoding="utf-8")
+    cfg.notes.text = "second"
     C.save(cfg)
-    assert not stale.exists()
-    assert not list(path.parent.glob(".*.tmp"))
-    assert C.load("93").notes.text == "after crash"
+    assert live.read_text(encoding="utf-8") == "in flight"
+    assert C.load("93").notes.text == "second"
 
 
 def test_toml_error_reports_and_stays_quiet(xdg_env):

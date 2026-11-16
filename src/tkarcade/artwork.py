@@ -28,6 +28,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from . import config as cfgmod
 from . import exeicon as exeiconmod
 from . import igdb as igdbmod
 from . import steam as steammod
@@ -234,6 +235,16 @@ def read_manifest(appid: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _store_manifest(appid: str, data: dict) -> None:
+    """Persist the sidecar atomically: a crash or a second writer must not
+    truncate it, since an empty read loses every provider and cached id."""
+    path = manifest_path(appid)
+    if not data:
+        path.unlink(missing_ok=True)
+        return
+    cfgmod.write_atomic(path, json.dumps(data, indent=2, sort_keys=True))
+
+
 def _write_manifest(appid: str, kind: str, provider: str) -> None:
     data = read_manifest(appid)
     data[kind] = {"provider": provider}
@@ -245,10 +256,8 @@ def _write_manifest(appid: str, kind: str, provider: str) -> None:
             data[CLEARED_KINDS_KEY] = left
         else:
             data.pop(CLEARED_KINDS_KEY, None)
-    path = manifest_path(appid)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        _store_manifest(appid, data)
     except Exception as e:
         log.debug("artwork manifest write failed: %s", e)
 
@@ -264,13 +273,11 @@ def _mark_cleared(appid: str) -> None:
     name lookup's SGDB or IGDB entry survives the Clear, so the next Fetch
     restores the same game's art.
     """
-    path = manifest_path(appid)
     data = read_manifest(appid)
     kept = {key: value for key, value in data.items() if key in (SGDB_KEY, IGDB_KEY)}
     kept[CLEARED_KEY] = True
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(kept, indent=2), encoding="utf-8")
+        _store_manifest(appid, kept)
     except Exception as e:
         log.warning("artwork: could not mark %s cleared: %s", appid, e)
 
@@ -304,12 +311,8 @@ def unmark_cleared(appid: str, kinds=()) -> None:
             data.pop(CLEARED_KINDS_KEY, None)
     if not changed:
         return
-    path = manifest_path(appid)
     try:
-        if data:
-            path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-        else:
-            path.unlink(missing_ok=True)
+        _store_manifest(appid, data)
     except Exception as e:
         log.debug("artwork manifest update failed: %s", e)
 
@@ -366,10 +369,8 @@ def clear_kind(appid: str, kind: str) -> bool:
     marked = [item for item in marked if item != kind] if isinstance(marked, list) else []
     marked.append(kind)
     data[CLEARED_KINDS_KEY] = marked
-    path = manifest_path(gid)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        _store_manifest(gid, data)
     except Exception as e:
         log.warning("artwork: could not mark %s/%s cleared: %s", gid, kind, e)
     return removed
@@ -398,10 +399,8 @@ def store_sgdb_id(appid: str, game_id: str, name: str) -> None:
     data = read_manifest(appid)
     data[SGDB_KEY] = {"game_id": str(game_id), "name": str(name)}
     data.pop(CLEARED_KEY, None)
-    path = manifest_path(appid)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        _store_manifest(appid, data)
     except Exception as e:
         log.debug("artwork sgdb id write failed: %s", e)
 
@@ -418,10 +417,8 @@ def store_igdb_id(appid: str, game_id: str, name: str = "") -> None:
     """Remember the resolved IGDB entry for the next fetch."""
     data = read_manifest(appid)
     data[IGDB_KEY] = {"game_id": str(game_id), "name": str(name)}
-    path = manifest_path(appid)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        _store_manifest(appid, data)
     except Exception as e:
         log.debug("artwork igdb id write failed: %s", e)
 
@@ -430,10 +427,8 @@ def _mark_icon_chain(appid: str) -> None:
     """Record that this cache's icon came from the current chain."""
     data = read_manifest(appid)
     data[ICON_CHAIN_KEY] = ICON_CHAIN
-    path = manifest_path(appid)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+        _store_manifest(appid, data)
     except Exception as e:
         log.debug("artwork icon chain write failed: %s", e)
 
@@ -461,12 +456,8 @@ def _drop_stale_sgdb_icon(appid: str) -> None:
         except OSError:
             pass
     data.pop("icon", None)
-    manifest = manifest_path(gid)
     try:
-        if data:
-            manifest.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-        else:
-            manifest.unlink(missing_ok=True)
+        _store_manifest(gid, data)
     except Exception as e:
         log.debug("artwork: stale icon cleanup failed: %s", e)
 
@@ -913,9 +904,7 @@ def exe_icon(appid: str, exe: str = "") -> Path | None:
             "suffix": suffix,
             "icon_version": EXE_ICON_VERSION,
         }
-        manifest_path(appid).write_text(
-            json.dumps(data, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        _store_manifest(appid, data)
     except Exception as e:
         log.debug("artwork exe icon write failed: %s", e)
         return None
@@ -939,9 +928,7 @@ def record_exe_icon(appid: str, path: Path) -> None:
     entry["icon_version"] = EXE_ICON_VERSION
     data[EXE_ICON_KEY] = entry
     try:
-        manifest_path(appid).write_text(
-            json.dumps(data, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        _store_manifest(appid, data)
     except Exception as e:
         log.debug("artwork exe icon suffix write failed: %s", e)
 
@@ -1122,6 +1109,11 @@ def _store(appid: str, kind: str, url: str) -> Path | None:
         if frame is None:
             return None
         body = frame
+    if not image_suffix(body):
+        # A challenge or error page can answer 200: keeping it would mark
+        # the kind filled and the cache would never ask the provider again.
+        log.warning("artwork: %s did not return an image", url)
+        return None
     suffix = _stored_suffix(url, body)
     return replace_image(grid_path(appid, kind), body, suffix)
 

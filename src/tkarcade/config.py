@@ -711,11 +711,9 @@ def write_atomic(path: Path, text: str) -> None:
         # target atomically, not the link.
         path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
-    for stale in path.parent.glob(f".{path.name}.*.tmp"):
-        try:
-            stale.unlink()
-        except OSError:
-            pass  # best effort: leftovers from a previous crash
+    # No sweep of old temp files: a concurrent writer's temp is live, and
+    # deleting it makes that os.replace fail. An orphan from a crash is
+    # harmless and small.
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     tmp_path = Path(tmp)
     try:

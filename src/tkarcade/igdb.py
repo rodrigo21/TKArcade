@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 import urllib.parse
 import urllib.request
@@ -104,6 +105,15 @@ def _token_path():
     return xdg.app_cache_dir() / "igdb-meta" / ".token.json"
 
 
+def _harden(path) -> None:
+    """Keep the token file and its directory private to this account."""
+    try:
+        os.chmod(path.parent, 0o700)
+        os.chmod(path, 0o600)
+    except OSError:
+        pass  # a cache on a filesystem without modes keeps its default
+
+
 def _token(client_id: str, secret: str, timeout: int = 15) -> str:
     """Cached app token, renewed on expiry or a changed client id."""
     path = _token_path()
@@ -116,6 +126,7 @@ def _token(client_id: str, secret: str, timeout: int = 15) -> str:
             if float(stored.get("expires", 0)) > time.time() + 60:
                 token = str(stored.get("token", "") or "")
                 if token:
+                    _harden(path)
                     return token
         except (TypeError, ValueError):
             pass
@@ -148,6 +159,7 @@ def _token(client_id: str, secret: str, timeout: int = 15) -> str:
             ),
             encoding="utf-8",
         )
+        _harden(path)
     except Exception as e:
         log.debug("igdb token cache write failed: %s", e)
     return token
