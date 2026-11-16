@@ -10,28 +10,27 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-four batches. The latest cleaned the Global Defaults
-  editor: Notes and the Ludusavi game-name override (both per game) no
-  longer appear there, `ludusavi.name_override` is stripped on save, and
-  `_template_only()` trims identity/runtime/graphics/audio/debug/
-  artwork/notes keys when the template is read too, so a hand-edited or
-  pre-split `defaults.toml` cannot pre-fill a game. Status moved from
-  Information to Game on Details, above State Tag; the template editor
-  opens on Execution, and its Details tab carries a line naming what
-  stays per game. Record: CHANGELOG.
+- Landed: fifty-five batches. The latest hardened the file writers:
+  `write_atomic()` no longer sweeps another process's live temp, every
+  artwork sidecar write goes through it, a `200` body that is not an
+  image is rejected before it fills a slot, and the IGDB token cache is
+  `0600` in a `0700` directory. Record: CHANGELOG.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
   which keeps the C numbering the other records cite. The IGDB
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
-- Verified: `scripts/check.sh` (801 passed, 3 skipped),
-  `scripts/check.sh --qml` (802 passed, 3 skipped), the config-defaults
-  and settings QML cases, and offscreen shots of Details and the
-  Global Defaults tabs. The venv was refreshed after the merge.
-- Next: the maintainer's tag changes (the follow-up promised after the
-  Tags lock), then the library import. The VNDB release picker sits in
-  `TODO.md` before 1.0. Open follow-up: after the import, decide whether
+- Verified: `scripts/check.sh` (804 passed, 3 skipped, 1 deselected);
+  no QML changed. The venv was refreshed after the merge.
+- Next: batch B of the audit plan (`fix/network-archive-limits`): read
+  cap in `artwork._get()`, https-only mirror, downloaded archive removed
+  on a failed extraction, tar links rejected, invalid user drop renamed
+  `.failed`; then batch D (launch I/O + template-trim test), then C1/C2
+  (GUI model and artwork slot). After the audit: the maintainer's tag
+  changes (the follow-up promised after the Tags lock), then the library
+  import. The VNDB release picker sits in `TODO.md` before 1.0. Open
+  follow-up: after the import, decide whether
   categories derive from tags, whether the tags get a filter/editor and
   whether a bulk download is worth it. Epic/GOG is 2.0, and so is the
   IGDB per-user credential review (`TODO.md`). The 1.0 visual pass, the
