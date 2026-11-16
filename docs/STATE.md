@@ -10,29 +10,25 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-three batches. The latest replaced artwork storage: every
-  imported image (URL, picked file, `.exe` icon, provider download) is
-  decoded by Qt and written in the format set under Preferences →
-  Artwork → Stored Images (`[ui] artwork_format`/`artwork_quality`; auto
-  is AVIF q85, then WebP/JPEG at 90, then PNG). Icons never use JPEG and
-  are capped at 1024 px. An executable icon keeps the best ICO frame
-  (PNG extracted, BMP reordered, versioned sidecar), beats a donor
-  AppID's official Steam art, and a 32 px official icon is upgraded from
-  SteamGridDB once. The background pass and Re-encode Existing Artwork
-  rewrite the cached executable icons too and record their suffix, so
-  every stored image ends in the chosen format. The maintainer's cache
-  is all AVIF now (68 images, 0 failures across the passes). Record:
-  CHANGELOG.
+- Landed: fifty-four batches. The latest cleaned the Global Defaults
+  editor: Notes and the Ludusavi game-name override (both per game) no
+  longer appear there, `ludusavi.name_override` is stripped on save, and
+  `_template_only()` trims identity/runtime/graphics/audio/debug/
+  artwork/notes keys when the template is read too, so a hand-edited or
+  pre-split `defaults.toml` cannot pre-fill a game. Status moved from
+  Information to Game on Details, above State Tag; the template editor
+  opens on Execution, and its Details tab carries a line naming what
+  stays per game. Record: CHANGELOG.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
   which keeps the C numbering the other records cite. The IGDB
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
-- Verified: `scripts/check.sh --qml` (801 passed, 3 skipped), ruff check
-  and format clean, and an offscreen shot of the Preferences Artwork
-  page with the new Stored Images section. The venv was refreshed after
-  the merge.
+- Verified: `scripts/check.sh` (801 passed, 3 skipped),
+  `scripts/check.sh --qml` (802 passed, 3 skipped), the config-defaults
+  and settings QML cases, and offscreen shots of Details and the
+  Global Defaults tabs. The venv was refreshed after the merge.
 - Next: the maintainer's tag changes (the follow-up promised after the
   Tags lock), then the library import. The VNDB release picker sits in
   `TODO.md` before 1.0. Open follow-up: after the import, decide whether
