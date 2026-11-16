@@ -10,10 +10,12 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-eight batches. The latest cut the GUI refresh cost:
-  validation results are keyed by the game TOML plus the preferences
-  instead of cleared on every refresh, the Categories sidebar reuses the
-  row pass, and proxy selection maps through a source row index. Record:
+- Landed: fifty-nine batches. The latest closed the audit plan: one
+  `artworkPanel()` slot for the dialog (previews, origins, status and
+  provider in one config pass) and async card/grid images. The plan
+  fixed 15 of its 20 findings; left out with reasons: #9 (covered by the
+  issue cache), #15 and #19 (deferred, launch parse and role constants),
+  #16 (Steam XDG is a hypothesis) and #18 (three caches differ). Record:
   CHANGELOG.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
@@ -21,12 +23,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   which keeps the C numbering the other records cite. The IGDB
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
-- Verified: `scripts/check.sh` (812 passed, 3 skipped) and
-  `scripts/check.sh --qml` (813 passed, 3 skipped). The venv was
-  refreshed after the merge.
-- Next: batch C2 (`perf/gui-artwork`): one `artworkPanel()` slot for the
-  eight previews/origins plus status and provider, and async card/icon
-  images. After the audit: the maintainer's tag
+- Verified: `scripts/check.sh --qml` (814 passed, 3 skipped). The venv
+  was refreshed after the merge.
+- Next: the maintainer's tag
   changes (the follow-up promised after the Tags lock), then the library
   import. The VNDB release picker sits in `TODO.md` before 1.0. Open
   follow-up: after the import, decide whether
