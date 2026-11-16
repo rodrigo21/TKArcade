@@ -4656,3 +4656,123 @@ def test_orphaned_leftovers_finds_cached_artwork(qgui_app, xdg_env):
     assert A.cache_files("steam-620") == []
     assert not (proton / "steam-620.json").exists()
     assert model.orphanedLeftovers() == []
+
+
+def test_issue_cache_survives_a_background_refresh(qgui_app, xdg_env, monkeypatch):
+    """backgroundDone refreshes the rows, not the evidence behind the badges."""
+    from tkarcade import launcher
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    calls: list[str] = []
+    real = launcher.validate_issues
+
+    def counted(appid):
+        calls.append(appid)
+        return real(appid)
+
+    monkeypatch.setattr(launcher, "validate_issues", counted)
+    model = GameListModel()
+    assert model.gameIssues("local-doom") == []
+    assert calls == ["local-doom"]
+    model.refresh()  # the slot backgroundDone is connected to
+    assert model.gameIssues("local-doom") == []
+    assert calls == ["local-doom"]
+    model.reload()  # explicit Reload forgets everything
+    assert model.gameIssues("local-doom") == []
+    assert calls == ["local-doom", "local-doom"]
+
+
+def test_issue_cache_follows_a_preferences_change(qgui_app, xdg_env, monkeypatch):
+    """Validation depends on prefs too: a change must revalidate."""
+    from tkarcade import launcher
+    from tkarcade.gui.model import GameListModel
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    calls: list[str] = []
+    real = launcher.validate_issues
+    monkeypatch.setattr(
+        launcher,
+        "validate_issues",
+        lambda appid: calls.append(appid) or real(appid),
+    )
+    model = GameListModel()
+    model.gameIssues("local-doom")
+    assert calls == ["local-doom"]
+    prefs = C.load_preferences()
+    prefs.show_dependency_status = not prefs.show_dependency_status
+    C.save_preferences(prefs)
+    model.gameIssues("local-doom")
+    assert calls == ["local-doom", "local-doom"]
+
+
+def test_category_slots_reuse_the_refresh_pass(qgui_app, xdg_env, monkeypatch):
+    """The sidebar reads the summary, not one config per slot."""
+    from tkarcade import config as cfgmod
+    from tkarcade.gui.model import GameListModel
+
+    for index in range(4):
+        cfg = C.GameConfig()
+        cfg.general.appid = f"local-g{index}"
+        cfg.general.name = f"Game {index}"
+        cfg.general.custom_executable = "/bin/true"
+        cfg.general.categories = ["Action"] if index % 2 else ["Retro"]
+        C.save(cfg)
+    loads: list[str] = []
+    appids_calls: list[int] = []
+    real_load = cfgmod.load
+    real_list = cfgmod.list_appids
+
+    def counted_load(appid, *args, **kwargs):
+        loads.append(str(appid))
+        return real_load(appid, *args, **kwargs)
+
+    def counted_list():
+        appids_calls.append(1)
+        return real_list()
+
+    monkeypatch.setattr(cfgmod, "load", counted_load)
+    monkeypatch.setattr(cfgmod, "list_appids", counted_list)
+    model = GameListModel()
+    assert model.categoryCounts() == {"Action": 2, "Retro": 2}
+    loads.clear()
+    appids_calls.clear()
+    assert model.allCategories() == ["Action", "Retro"]
+    assert model.categoryCounts() == {"Action": 2, "Retro": 2}
+    assert model.categoryIcons() == {"Action": "folder", "Retro": "folder"}
+    assert loads == []
+    assert appids_calls == []
+
+
+def test_indexof_maps_through_the_source_rows(qgui_app, xdg_env):
+    """Selection lookups follow the proxy order without a table scan."""
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    for name in ("Alpha", "Beta", "Gamma"):
+        cfg = C.GameConfig()
+        cfg.general.appid = f"local-{name.lower()}"
+        cfg.general.name = name
+        cfg.general.custom_executable = "/bin/true"
+        C.save(cfg)
+    model = GameListModel()
+    model.refresh()
+    proxy = GameFilterModel()
+    proxy.setSourceModel(model)
+    assert proxy.indexOf("local-beta") == 1
+    assert proxy.indexOf("local-nope") == -1
+    proxy.textQuery = "bet"
+    assert proxy.indexOf("local-beta") == 0  # the only visible row
+    proxy.textQuery = "zzz"
+    assert proxy.indexOf("local-beta") == -1
+    proxy.textQuery = ""
+    proxy.sortBy("gameName", True)
+    assert proxy.indexOf("local-alpha") == 2

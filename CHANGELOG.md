@@ -198,6 +198,14 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- A background artwork pass no longer discards every cached validation
+  result: the badge, the tip and the issues filter recompute a game only
+  when its config or the preferences changed since the last check.
+- The Categories sidebar is built in the same pass that loads the table
+  rows, instead of four to five scans of every game config per refresh
+  (and a refresh follows every save, fetch and re-encode).
+- Selecting many games no longer scans the whole visible list per id:
+  the filter maps each AppID through the source row index.
 - An image download stops at the read cap instead of buffering the whole
   body first: a 2 GB response or a stalled CDN can no longer exhaust the
   GUI's memory before the size check runs.

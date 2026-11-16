@@ -417,6 +417,15 @@ class GameListModel(QAbstractTableModel):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._rows: list[tuple[str, ...]] = []
+        # AppID -> source row, rebuilt with the rows: proxy selection and
+        # highlight lookups no longer scan the table.
+        self._row_by_id: dict[str, int] = {}
+        # Validation results with the signatures they were computed from.
+        self._issues_cache: dict[str, tuple[tuple, list[tuple[str, str]]]] = {}
+        # Sidebar categories, filled once per refresh.
+        self._categories: list[str] = []
+        self._category_counts: dict[str, int] = {}
+        self._category_icons: dict[str, str] = {}
         self._steam_detected = 0
         self._tray_active = False
         self._tray_refresher = None
@@ -486,6 +495,10 @@ class GameListModel(QAbstractTableModel):
 
     def _count_total(self) -> int:
         return len(self._rows)
+
+    def rowForId(self, appid: str) -> int:
+        """Source row of an AppID (-1 when it is not in the model)."""
+        return self._row_by_id.get(str(appid), -1)
 
     def _count_steam(self) -> int:
         return sum(1 for row in self._rows if steammod.is_steam_id(row[0]))
@@ -636,23 +649,24 @@ class GameListModel(QAbstractTableModel):
         self._log_sig = self._log_signature()
         self._steam_detected = len(steammod.list_games())
         names = self._all_names()
-        # Drop stale validation results: configs may have changed on disk.
-        self._issues_cache = {}
         try:
             stats = histmod.summarize(histmod.parse_log(xdg.log_file()))
         except Exception:
             stats = {}
-        rows = [self._row(appid, names, stats) for appid in cfgmod.list_appids()]
+        per_game: list[list[str]] = []
+        rows = [self._row(appid, names, stats, per_game) for appid in cfgmod.list_appids()]
         rows.sort(key=lambda r: r[1].lower())
         running = self._load_running()
         running_changed = running.keys() != self._running.keys()
         self._running = running
         try:
-            self._sync_category_store()
+            self._reload_categories(per_game)
         except Exception as e:
             log.warning("category store not synced: %s", e)
+        index = {str(row[0]): row_no for row_no, row in enumerate(rows)}
         self.beginResetModel()
         self._rows = rows
+        self._row_by_id = index
         self.endResetModel()
         if running_changed:
             self.runningChanged.emit()
@@ -662,6 +676,9 @@ class GameListModel(QAbstractTableModel):
     def reload(self) -> None:
         """Reload rows and drop the Steam games cache first (the Reload action)."""
         steammod.clear_games_cache()
+        # Explicit reload: forget every validation result, including one
+        # whose inputs (a tool, a profile file) changed behind our back.
+        self._issues_cache.clear()
         self.refresh()
 
     def _load_running(self) -> dict[str, dict]:
@@ -760,8 +777,12 @@ class GameListModel(QAbstractTableModel):
             log.warning("terminate: SIGKILL to the process group of pid %s", record.get("pid"))
         self._refresh_running()
 
-    def _row(self, appid: str, names: dict, stats: dict) -> tuple:
-        """One table row for an AppID (column order mirrors `rowData`)."""
+    def _row(self, appid: str, names: dict, stats: dict, per_game: list | None = None) -> tuple:
+        """One table row for an AppID (column order mirrors `rowData`).
+
+        `per_game` collects this game's tags for the category summary, so the
+        sidebar needs no second read of the config.
+        """
         played, played_secs, played_tip, last_played, last_secs = _played_cells(stats.get(appid))
         try:
             gcfg = cfgmod.load(appid)
@@ -779,6 +800,9 @@ class GameListModel(QAbstractTableModel):
         label = cfgmod.game_display_name(names.get(appid, appid), gcfg)
         status = gcfg.metadata.status if gcfg is not None else ""
         status_bg, status_fg = STATUS_STYLE.get(status, ("", ""))
+        categories = list(gcfg.general.categories) if gcfg is not None else []
+        if per_game is not None:
+            per_game.append(categories)
         return (
             appid,
             label,
@@ -801,7 +825,7 @@ class GameListModel(QAbstractTableModel):
             else "",
             self._row_wine(appid, gcfg, is_steam),
             self._row_install_dir(appid, gcfg),
-            ", ".join(gcfg.general.categories) if gcfg is not None else "",
+            ", ".join(categories),
             str(cover) if cover else "",
             self._row_release_date(appid, gcfg, is_steam),
             self._row_installed(appid, gcfg),
@@ -1572,22 +1596,12 @@ class GameListModel(QAbstractTableModel):
     @Slot(result=list)
     def allCategories(self) -> list:
         """Every category on record (store plus game tags), sorted."""
-        found = [cat.name for cat in cfgmod.load_categories()]
-        try:
-            for appid in cfgmod.list_appids():
-                try:
-                    found.extend(cfgmod.load(appid).general.categories)
-                except Exception:
-                    continue
-        except Exception:
-            pass
-        return sorted(cfgmod.normalize_categories(found), key=str.lower)
+        return list(self._categories)
 
     @Slot(result="QVariantMap")
     def categoryIcons(self) -> dict:
         """Sidebar icon for each category on record (theme icon names)."""
-        icons = {cat.name.lower(): cat.icon for cat in cfgmod.load_categories()}
-        return {name: icons.get(name.lower(), "folder") for name in self.allCategories()}
+        return dict(self._category_icons)
 
     def _register_categories(self, names) -> None:
         """Keep the given names in the store so they outlive their tags."""
@@ -1600,15 +1614,34 @@ class GameListModel(QAbstractTableModel):
         if added:
             cfgmod.save_categories(entries + added)
 
-    def _sync_category_store(self) -> None:
-        """Persist every tag seen on disk, so zero-game categories stay."""
-        found: list[str] = []
-        for appid in cfgmod.list_appids():
-            try:
-                found.extend(cfgmod.load(appid).general.categories)
-            except Exception:
-                continue
+    def _reload_categories(self, per_game: list[list[str]]) -> None:
+        """Names, icons and game counts in the pass `refresh()` already made.
+
+        `per_game` holds each game's tags as its row was built, so the
+        sidebar costs no extra config read. Tags seen on disk join the store
+        so a category outlives the last game that carried it.
+        """
+        found = [tag for tags in per_game for tag in tags]
         self._register_categories(found)
+        entries = cfgmod.load_categories()
+        icons = {entry.name.lower(): entry.icon for entry in entries}
+        labels = sorted(
+            cfgmod.normalize_categories([entry.name for entry in entries] + found),
+            key=str.lower,
+        )
+        canonical = {label.lower(): label for label in labels}
+        counts = dict.fromkeys(labels, 0)
+        for tags in per_game:
+            seen: set[str] = set()
+            for tag in tags:
+                key = str(tag).strip().lower()
+                label = canonical.get(key)
+                if label is not None and key not in seen:
+                    seen.add(key)
+                    counts[label] += 1
+        self._categories = labels
+        self._category_counts = counts
+        self._category_icons = {label: icons.get(label.lower(), "folder") for label in labels}
 
     @Slot(list, str, result=str)
     def setCategories(self, appids, text: str) -> str:
@@ -1653,7 +1686,7 @@ class GameListModel(QAbstractTableModel):
     @Slot(result="QVariantMap")
     def categoryCounts(self) -> dict:
         """How many games carry each category in use, by label."""
-        return self.categoryPresence(cfgmod.list_appids())
+        return dict(self._category_counts)
 
     @Slot(str, result="QVariantList")
     def categoryGameRows(self, name: str) -> list:
@@ -4935,17 +4968,34 @@ class GameListModel(QAbstractTableModel):
         ]
         return "\n".join(lines)
 
-    def _issue_report(self, appid: str) -> list[tuple[str, str]]:
-        if not hasattr(self, "_issues_cache"):
-            self._issues_cache: dict[str, list[tuple[str, str]]] = {}
-        if appid not in self._issues_cache:
-            from ..launcher import validate_issues
+    @staticmethod
+    def _file_signature(path: Path) -> tuple[int, int]:
+        """(mtime_ns, size) of a file; (0, 0) when it is absent."""
+        try:
+            stat = path.stat()
+        except OSError:
+            return (0, 0)
+        return (stat.st_mtime_ns, stat.st_size)
 
-            try:
-                self._issues_cache[appid] = list(validate_issues(appid))
-            except Exception as e:
-                self._issues_cache[appid] = [("error", str(e))]
-        return self._issues_cache[appid]
+    def _issue_report(self, appid: str) -> list[tuple[str, str]]:
+        # Validation reads the game's TOML and the preferences (layer
+        # defaults, tool paths); a change in either invalidates the result.
+        # A profile file edited on disk waits for Reload.
+        key = (
+            self._file_signature(cfgmod.game_file(appid)),
+            self._file_signature(xdg.preferences_file()),
+        )
+        cached = self._issues_cache.get(appid)
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        from ..launcher import validate_issues
+
+        try:
+            report = list(validate_issues(appid))
+        except Exception as e:
+            report = [("error", str(e))]
+        self._issues_cache[appid] = (key, report)
+        return report
 
     def _issue_level(self, appid: str) -> str:
         levels = {severity for severity, _message in self._issue_report(appid)}
@@ -5808,10 +5858,14 @@ class GameFilterModel(QSortFilterProxyModel):
     @Slot(str, result=int)
     def indexOf(self, appid: str) -> int:
         """Proxy row for an AppID (-1 when filtered out). Drives selection."""
-        for row in range(self.rowCount()):
-            if str(self.data(self.index(row, 0), GameListModel.IdRole) or "") == appid:
-                return row
-        return -1
+        model = self.sourceModel()
+        if model is None:
+            return -1
+        row = model.rowForId(appid)
+        if row < 0:
+            return -1
+        mapped = self.mapFromSource(model.index(row, 0))
+        return mapped.row() if mapped.isValid() else -1
 
     @Slot(int, result=str)
     def idAt(self, row: int) -> str:
