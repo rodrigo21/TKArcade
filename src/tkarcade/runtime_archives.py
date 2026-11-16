@@ -51,6 +51,16 @@ def _remove(path: Path) -> None:
         path.unlink()
 
 
+def _quarantine(archive: Path) -> None:
+    """Mark an archive that cannot be extracted, so the scan stops retrying it.
+
+    The bytes stay: the suffix only takes the file out of the supported
+    set, and renaming it back retries after a fix.
+    """
+    with contextlib.suppress(OSError):
+        archive.replace(archive.with_name(archive.name + ".failed"))
+
+
 def _archive_format(name: str) -> str:
     low = name.lower()
     for suffix, fmt in (
@@ -169,7 +179,10 @@ def _mirror_url(url: str) -> str:
         mirror = cfgmod.load_preferences().download_mirror.strip()
     except Exception:
         return url
-    if not mirror:
+    if not mirror.startswith("https://"):
+        # The preference is documented as an https prefix; a plain-http
+        # mirror would put the GitHub URL and the bytes on the wire in
+        # clear text, so it downloads direct instead.
         return url
     return f"{mirror.rstrip('/')}/{url}"
 
@@ -293,9 +306,11 @@ def _install_asset(
         return ""
     except ArchiveError as e:
         _remove(part)
+        _remove(dest)
         return str(e)
     except Exception as e:
         _remove(part)
+        _remove(dest)
         return f"{kind} download failed: {e}"
 
 
@@ -469,6 +484,10 @@ def _extract_tar_members(tf: tarfile.TarFile, staging: Path) -> None:
     for index, member in enumerate(tf):
         if index >= MAX_MEMBERS:
             raise ArchiveError("archive has too many entries")
+        if member.issym() or member.islnk():
+            # Graphics layers are plain files: a link would dangle once the
+            # staging directory goes away.
+            raise ArchiveError(f"archive contains a link: {member.name}")
         total += max(member.size, 0)
         if total > MAX_EXTRACTED_BYTES:
             raise ArchiveError("archive expands past the size cap")
@@ -542,10 +561,17 @@ def extract_archive(archive: Path, kind: str = "") -> Path:
     _cleanup_staging(root)
     staging = Path(tempfile.mkdtemp(prefix=".staging-", dir=root))
     try:
-        if fmt == "zip":
-            _extract_zip(archive, staging)
-        else:
-            _extract_tar(archive, staging, fmt)
+        try:
+            if fmt == "zip":
+                _extract_zip(archive, staging)
+            else:
+                _extract_tar(archive, staging, fmt)
+        except ArchiveError:
+            raise
+        except Exception as e:
+            # zipfile, tarfile and zstd raise their own error types; a
+            # corrupt file must reach the caller as an archive problem.
+            raise ArchiveError(f"could not extract archive: {e}") from e
         version_dir = _version_dir(staging, kind)
         kind = kind or _kind_for(version_dir)
         target = root / kind / xdg.safe_stem(version_dir.name)
@@ -571,7 +597,9 @@ def sync_archives(progress=None) -> list[str]:
     """Extract supported archives in the cache; returns newly installed names.
 
     An archive whose version already exists is skipped and user-dropped
-    files stay in the cache. Extraction failures go through `progress`.
+    files stay in the cache; one that cannot be extracted is renamed with
+    a `.failed` suffix, so the next scan does not retry it. Failures go
+    through `progress`.
     """
     say = progress if callable(progress) else (lambda _message: None)
     root = xdg.runtimes_dir()
@@ -596,7 +624,10 @@ def sync_archives(progress=None) -> list[str]:
             continue
         try:
             extract_archive(archive)
-        except Exception as e:
+        except ArchiveError as e:
+            say(f"{archive.name}: {e}")
+            _quarantine(archive)
+        except Exception as e:  # a transient I/O error keeps the retry
             say(f"{archive.name}: {e}")
     try:
         prune_versions()

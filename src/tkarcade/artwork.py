@@ -145,6 +145,9 @@ ICON_MAX_SIDE = 1024
 #: before it reaches the disk.
 URL_IMAGE_LIMIT = 20 * 1024 * 1024
 
+#: Largest API or store JSON body; a bigger answer is refused unread.
+JSON_LIMIT = 8 * 1024 * 1024
+
 #: Stored art warns above 4K and is refused above 8K or 32 megapixels.
 #: The refusal keeps a small file from decoding into hundreds of MB.
 IMAGE_SOFT_SIDE = 4096
@@ -567,12 +570,7 @@ def fetch_image(url: str, limit: int = URL_IMAGE_LIMIT) -> tuple[bytes | None, s
     The payload is not sniffed here: the GUI decodes it through Qt, which
     accepts every format the installed plugins read.
     """
-    body, error = _get(url)
-    if body is None:
-        return None, error or "network"
-    if len(body) > limit:
-        return None, "too-large"
-    return body, ""
+    return _get(url, limit=limit)
 
 
 def clear_manual(appid: str, kind: str) -> bool:
@@ -942,11 +940,14 @@ def resolve_icon(appid: str, landscape: bool = False) -> Path | None:
 # HTTP
 
 
-def _get(url: str, api_key: str = "", timeout: int = 30) -> tuple[bytes | None, str]:
+def _get(
+    url: str, api_key: str = "", timeout: int = 30, limit: int = JSON_LIMIT
+) -> tuple[bytes | None, str]:
     """Fetch a URL. Returns (body, error), error "" on success.
 
     Error tokens: "blocked" (403, Cloudflare's browser check),
-    "not-found" (404), "http" (anything else) and "network".
+    "not-found" (404), "http" (anything else), "too-large" (body over
+    `limit`) and "network".
     """
     headers = {"User-Agent": USER_AGENT}
     if api_key:
@@ -954,7 +955,7 @@ def _get(url: str, api_key: str = "", timeout: int = 30) -> tuple[bytes | None, 
     try:
         request = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.read(), ""
+            body = response.read(limit + 1)
     except urllib.error.HTTPError as e:
         if e.code == 403:
             log.warning("artwork: %s refused the request (403)", url)
@@ -966,6 +967,11 @@ def _get(url: str, api_key: str = "", timeout: int = 30) -> tuple[bytes | None, 
     except Exception as e:
         log.warning("artwork: %s failed: %s", url, e)
         return None, "network"
+    if len(body) > limit:
+        # Read one byte past the cap: a huge body must not reach memory.
+        log.warning("artwork: %s answered more than %s bytes", url, limit)
+        return None, "too-large"
+    return body, ""
 
 
 def _get_json(url: str, api_key: str = "") -> dict | list | None:
@@ -1101,7 +1107,7 @@ def best_ico_frame(blob: bytes) -> tuple[bytes, str]:
 
 def _store(appid: str, kind: str, url: str) -> Path | None:
     """Download one URL into the kind's cache slot, keeping its suffix."""
-    body, _error = _get(url)
+    body, _error = _get(url, limit=URL_IMAGE_LIMIT)
     if not body:
         return None
     if body[:4] == b"\x00\x00\x01\x00":

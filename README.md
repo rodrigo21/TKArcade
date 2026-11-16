@@ -129,9 +129,11 @@ plus the distro trees when they exist (`/usr/share/dxvk` and the
 any folder registered with **Manage Versions… → Add Folder…** (stored in
 `runtimes/.external.json`; the files stay where they are).
 Archives dropped into `$XDG_CACHE_HOME/tkarcade/archives` are extracted
-on the next GUI scan. The manager lists every build with where each came
-from, marks one as the default, installs any release of the chosen
-source and a pasted archive URL, and deletes managed versions. After an
+on the next GUI scan; one that fails to extract is renamed with a
+`.failed` suffix, so the scan stops retrying it. The manager lists every
+build with where each came from, marks one as the default, installs any
+release of the chosen source and a pasted archive URL, and deletes
+managed versions. After an
 install, and on every scan, it keeps the three newest builds it installed
 per layer: the default build and any version pinned by a game are never
 pruned, and a build dropped into the archive cache, an external folder or

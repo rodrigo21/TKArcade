@@ -15,8 +15,8 @@ class _Resp:
     def __exit__(self, *exc):
         return False
 
-    def read(self):
-        return self._payload
+    def read(self, size: int = -1):
+        return self._payload if size < 0 else self._payload[:size]
 
 
 def _stub(monkeypatch, routes):
@@ -984,6 +984,13 @@ def test_fetch_image_returns_the_body_and_enforces_the_cap(monkeypatch, xdg_env)
     assert art.fetch_image("https://cdn/a.txt") == (b"not an image", "")
     _stub(monkeypatch, [("cdn/big.png", payload)])
     assert art.fetch_image("https://cdn/big.png", limit=4) == (None, "too-large")
+
+
+def test_get_never_reads_past_the_limit(monkeypatch, xdg_env):
+    """A huge body is cut at the cap instead of being buffered."""
+    _stub(monkeypatch, [("cdn/huge.png", b"x" * 64)])
+    assert art._get("https://cdn/huge.png", limit=8) == (None, "too-large")
+    assert art._get("https://cdn/huge.png", limit=64) == (b"x" * 64, "")
 
 
 def test_image_suffix_detects_avif(xdg_env):

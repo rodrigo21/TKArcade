@@ -155,6 +155,20 @@ def test_download_latest_rejects_wrong_digest(xdg_env):
     assert list(xdg.archives_cache_dir().iterdir()) == []
 
 
+def test_failed_extraction_leaves_no_archive_behind(xdg_env):
+    """A download that will not extract must not be retried on every scan."""
+    data = b"not an archive"
+    asset = "https://x/dxvk-9.9.tar.gz"
+    opener, _calls = _opener(
+        {
+            API_URLS["dxvk"]: _release_payload("dxvk", "dxvk-9.9.tar.gz", asset, data),
+            asset: data,
+        }
+    )
+    assert A.download_latest("dxvk", opener) != ""
+    assert list(xdg.archives_cache_dir().iterdir()) == []
+
+
 def test_extract_archive_detects_kind_and_skips_existing(xdg_env, tmp_path):
     data = _tar_bytes("vkd3d-proton-3.1", {"x64/d3d12.dll": b"dll"})
     archive = tmp_path / "vkd3d-proton-3.1.tar.gz"
@@ -204,6 +218,23 @@ def test_extract_rejects_zip_traversal_and_symlinks(xdg_env, tmp_path):
         A.extract_archive(link)
 
 
+def test_extract_rejects_tar_links(xdg_env, tmp_path):
+    """A layer is plain files; a symlink would dangle after the move."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        root = tarfile.TarInfo("dxvk-2.7.1")
+        root.type = tarfile.DIRTYPE
+        tf.addfile(root)
+        link = tarfile.TarInfo("dxvk-2.7.1/x64")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "/etc"
+        tf.addfile(link)
+    archive = tmp_path / "dxvk-2.7.1.tar.gz"
+    archive.write_bytes(buf.getvalue())
+    with pytest.raises(A.ArchiveError, match="contains a link"):
+        A.extract_archive(archive)
+
+
 def test_extract_requires_one_version_directory(xdg_env, tmp_path):
     flat = tmp_path / "flat.tar.gz"
     flat.write_bytes(_tar_bytes("", {"x64/d3d11.dll": b"dll"}))
@@ -241,9 +272,18 @@ def test_sync_reports_failures_through_progress(xdg_env):
     cache = xdg.archives_cache_dir()
     cache.mkdir(parents=True)
     (cache / "broken.zip").write_bytes(b"not a zip")
+    (cache / "broken.tar.gz").write_bytes(b"not a tar")
     messages: list[str] = []
     assert A.sync_archives(messages.append) == []
-    assert messages and messages[0].startswith("broken.zip:")
+    assert len(messages) == 2
+    assert any(m.startswith("broken.zip:") for m in messages)
+    assert any(m.startswith("broken.tar.gz:") for m in messages)
+    # The bytes stay, under a suffix the scan skips: no retry, no noise.
+    assert (cache / "broken.zip.failed").is_file()
+    assert (cache / "broken.tar.gz.failed").is_file()
+    messages.clear()
+    assert A.sync_archives(messages.append) == []
+    assert messages == []
 
 
 def test_zstd_needs_a_backend(xdg_env, tmp_path, monkeypatch):
@@ -510,6 +550,33 @@ def test_download_uses_the_configured_mirror(xdg_env):
         == ""
     )
     assert (_installed("dxvk", "dxvk-2.7.0") / "x64" / "d3d11.dll").is_file()
+
+
+def test_plain_http_mirror_is_ignored(xdg_env):
+    """The preference is an https prefix: plain http downloads direct."""
+    from tkarcade import config as C
+
+    prefs = C.load_preferences()
+    prefs.download_mirror = "http://mirror.test/"
+    C.save_preferences(prefs)
+    data = _tar_bytes("dxvk-2.7.0", {"x64/d3d11.dll": b"dll"})
+    original = "https://github.com/doitsujin/dxvk/releases/download/v2.7.0/dxvk-2.7.0.tar.gz"
+    opener, calls = _opener({original: data})
+    assert (
+        A.download_release(
+            "dxvk",
+            {
+                "name": "dxvk-2.7.0.tar.gz",
+                "url": original,
+                "size": len(data),
+                "digest": "",
+                "tag": "v2.7.0",
+            },
+            opener,
+        )
+        == ""
+    )
+    assert calls == [original]
 
 
 def test_pasted_url_ignores_the_mirror(xdg_env):

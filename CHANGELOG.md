@@ -198,6 +198,18 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- An image download stops at the read cap instead of buffering the whole
+  body first: a 2 GB response or a stalled CDN can no longer exhaust the
+  GUI's memory before the size check runs.
+- A configured download mirror must be an `https://` prefix. A plain
+  `http://` one is ignored and the asset downloads direct, matching what
+  Preferences and the manual already promise; the URL and the bytes no
+  longer travel in clear text.
+- A runtime archive that fails to extract is renamed with a `.failed`
+  suffix, so the background scan stops retrying it on every game dialog.
+  An archive TKArcade downloaded itself is deleted instead, and the tar
+  extractor rejects symlinks and hard links that would dangle once the
+  staging directory is removed.
 - A save no longer deletes another process's in-flight temp file. The
   atomic writer swept every `.<name>.*.tmp` in the directory before its
   own write, so a GUI save during a launch could make the launcher's
