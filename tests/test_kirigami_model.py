@@ -3152,6 +3152,68 @@ def test_artwork_origin_names_the_source(qgui_app, xdg_env, tmp_path):
     assert model.artworkOrigin("local-doom", "banner") == "cache"
 
 
+def test_artwork_panel_resolves_each_kind_once(qgui_app, xdg_env, monkeypatch, tmp_path):
+    """The dialog gets previews, origins, status and provider in one pass."""
+    from tkarcade import artwork
+    from tkarcade import config as cfgmod
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.runtime.type = "native"
+    C.save(local)
+    picked = tmp_path / "m.png"
+    picked.write_bytes(_png_payload())
+    assert artwork.store_manual("local-doom", "icon", str(picked)) is not None
+    cover = artwork.grid_path("local-doom", "cover")
+    cover.parent.mkdir(parents=True, exist_ok=True)
+    cover.write_bytes(_png_payload())
+    artwork._write_manifest("local-doom", "cover", "sgdb")
+    model = _model(qgui_app)
+    loads: list[str] = []
+    resolves: list[str] = []
+    real_load = cfgmod.load
+    real_resolve = artwork.resolve
+
+    def counted_load(appid, *args, **kwargs):
+        loads.append(str(appid))
+        return real_load(appid, *args, **kwargs)
+
+    def counted_resolve(appid, kind="icon", *args, **kwargs):
+        resolves.append(kind)
+        return real_resolve(appid, kind, *args, **kwargs)
+
+    monkeypatch.setattr(cfgmod, "load", counted_load)
+    monkeypatch.setattr(artwork, "resolve", counted_resolve)
+    panel = model.artworkPanel("local-doom")
+    assert resolves == list(artwork.ART_KINDS)
+    assert loads == ["local-doom"]
+    assert set(panel) == {
+        "iconPreview",
+        "iconOrigin",
+        "coverPreview",
+        "coverOrigin",
+        "bannerPreview",
+        "bannerOrigin",
+        "backgroundPreview",
+        "backgroundOrigin",
+        "status",
+        "provider",
+    }
+    assert panel["iconPreview"].startswith("file://")
+    assert panel["iconOrigin"] == "manual"
+    assert panel["coverOrigin"] == "cache:sgdb"
+    assert panel["bannerPreview"] == ""
+    assert panel["status"] == "partial"
+    assert panel["provider"] == "sgdb"
+    # The single slot answers exactly what the old per-kind calls did.
+    assert panel["iconPreview"] == model.artworkPreview("local-doom", "icon")
+    assert panel["coverOrigin"] == model.artworkOrigin("local-doom", "cover")
+    assert panel["status"] == model.artworkStatus("local-doom")
+    assert panel["provider"] == model.artworkProvider("local-doom")
+
+
 def _png_payload(width=4, height=4):
     """A real PNG the Qt decoder accepts, for the artwork pipeline."""
     from PySide6.QtCore import QBuffer, QIODevice

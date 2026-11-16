@@ -858,13 +858,14 @@ class GameListModel(QAbstractTableModel):
         return cfgmod.normalize_steam_appid(gcfg.metadata.steam_appid) if gcfg is not None else ""
 
     @staticmethod
-    def _art_source(appid: str, draft: str = "") -> str:
+    def _art_source(appid: str, draft: str = "", gcfg=None) -> str:
         """Artwork Source AppID: the dialog draft when given, else the config."""
         value = str(draft or "").strip()
         if value:
             return value
         try:
-            return cfgmod.load(str(appid)).artwork.artwork_appid.strip()
+            cfg = gcfg if gcfg is not None else cfgmod.load(str(appid))
+            return cfg.artwork.artwork_appid.strip()
         except Exception:
             return ""
 
@@ -2439,6 +2440,10 @@ class GameListModel(QAbstractTableModel):
             return ""
         if path is None:
             return ""
+        return self._art_origin(appid, kind, origin, source)
+
+    def _art_origin(self, appid: str, kind: str, origin: str, source: str) -> str:
+        """Origin token for a resolved kind (see `artworkOrigin`)."""
         if origin in ("manual", "steam", "exe"):
             return origin
         gid = str(appid)
@@ -2462,7 +2467,11 @@ class GameListModel(QAbstractTableModel):
 
         Read from the cache sidecar, preferring the Artwork Source AppID.
         """
-        source_appid = self._art_source(appid, source)
+        return self._art_provider(self._art_source(appid, source), str(appid))
+
+    @staticmethod
+    def _art_provider(source_appid: str, appid: str) -> str:
+        """First provider recorded across the source AppID's kinds."""
         chain = [source_appid, str(appid)] if source_appid else [str(appid)]
         for gid in chain:
             for kind in ("cover", "icon", "banner"):
@@ -2470,6 +2479,47 @@ class GameListModel(QAbstractTableModel):
                 if value:
                     return value
         return ""
+
+    @Slot(str, str, result="QVariantMap")
+    def artworkPanel(self, appid: str, source: str = "") -> dict:
+        """Every art slot in one pass (the dialog asks on each edit).
+
+        One config load and four `artwork.resolve()` calls replace the eight
+        resolvers plus the status and the provider, each of which reloaded
+        the config and re-statted the cache.
+        """
+        try:
+            gcfg = cfgmod.load(str(appid))
+        except Exception:
+            gcfg = None
+        source_appid = self._art_source(appid, source, gcfg)
+        exe = self._local_exe(appid, gcfg)
+        out: dict[str, str] = {}
+        own = missing = 0
+        for kind in artmod.ART_KINDS:
+            try:
+                path, origin = artmod.resolve(appid, kind, source_appid, exe)
+            except Exception:
+                path, origin = None, ""
+            if path is None:
+                missing += 1
+                out[f"{kind}Preview"] = ""
+                out[f"{kind}Origin"] = ""
+                continue
+            own += 1
+            try:
+                out[f"{kind}Preview"] = f"file://{path}?v={path.stat().st_mtime_ns}"
+            except OSError:
+                out[f"{kind}Preview"] = ""
+            out[f"{kind}Origin"] = self._art_origin(appid, kind, origin, source)
+        if artmod.is_cleared(source_appid or str(appid)):
+            out["status"] = "cleared"
+        elif own and not missing:
+            out["status"] = "own"
+        else:
+            out["status"] = "partial" if own else "none"
+        out["provider"] = self._art_provider(source_appid, str(appid))
+        return out
 
     @Slot(str, str, result=str)
     def artworkStatus(self, appid: str, source: str = "") -> str:

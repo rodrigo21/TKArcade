@@ -1480,13 +1480,19 @@ Window {
         ]
     }
 
-    // Where the three images come from right now (token from the model),
-    // and which provider produced them.
+    // Where the four images come from right now (previews, origin tokens,
+    // status and provider) in one model pass: the dialog asks after every
+    // field edit, and each slot used to reload the config on its own.
     function refreshArtStatus() {
-        refreshArtPreviews()
-        var draft = artSourceField.text
-        var token = editAppid === "" ? "none" : gameModel.artworkStatus(editAppid, draft)
-        var provider = editAppid === "" ? "" : gameModel.artworkProvider(editAppid, draft)
+        var panel = editAppid === "" ? ({}) : gameModel.artworkPanel(editAppid, artSourceField.text)
+        artPreviewIcon = panel.iconPreview || ""
+        artPreviewCover = panel.coverPreview || ""
+        artPreviewBanner = panel.bannerPreview || ""
+        artPreviewBackground = panel.backgroundPreview || ""
+        artOriginIcon = panel.iconOrigin || ""
+        artOriginCover = panel.coverOrigin || ""
+        artOriginBanner = panel.bannerOrigin || ""
+        artOriginBackground = panel.backgroundOrigin || ""
         var messages = {
             "own": qsTr("Using This Game's Own Artwork."),
             "partial": qsTr("Some Images Are Missing."),
@@ -1499,33 +1505,9 @@ Window {
             artStatusLabel.text = artResult
             return
         }
+        var token = editAppid === "" ? "none" : (panel.status || "none")
+        var provider = editAppid === "" ? "" : (panel.provider || "")
         artStatusLabel.text = (messages[token] || "") + providerSuffix(provider)
-    }
-
-    // Thumbnails of the four slots as the list and the cards will draw
-    // them: the manual file, the downloaded cache, Steam's own art or the
-    // local executable's icon. Nothing to show for an unsaved game.
-    function refreshArtPreviews() {
-        if (editAppid === "") {
-            artPreviewIcon = ""
-            artPreviewCover = ""
-            artPreviewBanner = ""
-            artPreviewBackground = ""
-            artOriginIcon = ""
-            artOriginCover = ""
-            artOriginBanner = ""
-            artOriginBackground = ""
-            return
-        }
-        var draft = artSourceField.text
-        artPreviewIcon = gameModel.artworkPreview(editAppid, "icon", draft)
-        artPreviewCover = gameModel.artworkPreview(editAppid, "cover", draft)
-        artPreviewBanner = gameModel.artworkPreview(editAppid, "banner", draft)
-        artPreviewBackground = gameModel.artworkPreview(editAppid, "background", draft)
-        artOriginIcon = gameModel.artworkOrigin(editAppid, "icon", draft)
-        artOriginCover = gameModel.artworkOrigin(editAppid, "cover", draft)
-        artOriginBanner = gameModel.artworkOrigin(editAppid, "banner", draft)
-        artOriginBackground = gameModel.artworkOrigin(editAppid, "background", draft)
     }
 
     function providerSuffix(provider) {

@@ -98,6 +98,7 @@ Item {
                 width: Math.min(parent.width, parent.height, iconCell.cellSize)
                 height: width
                 fillMode: Image.PreserveAspectFit
+                asynchronous: true
             }
             Kirigami.Icon {
                 anchors.centerIn: parent

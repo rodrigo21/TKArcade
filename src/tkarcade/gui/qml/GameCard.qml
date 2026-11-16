@@ -58,6 +58,8 @@ Kirigami.Card {
         // The banner keeps the art's own aspect and never crops it;
         // CardsLayout still gives every card in a row one height.
         fillMode: Image.PreserveAspectFit
+        // Decoded off the UI thread: a grid of covers stays responsive.
+        asynchronous: true
         title: gameName
         titleIcon: gameModel.iconName(["input-gamepad", "applications-games"])
         titleAlignment: Qt.AlignBottom | Qt.AlignLeft

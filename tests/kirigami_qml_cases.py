@@ -3035,7 +3035,7 @@ def test_artwork_previews_show_the_effective_art(qgui_app, xdg_env):
     own_image = QImage(620, 200, QImage.Format_ARGB32)
     own_image.fill(0xFF339966)
     assert own_image.save(str(own))
-    dlg.refreshArtPreviews()
+    dlg.refreshArtStatus()
     QTest.qWait(50)
     assert background.property("artUrl") != banner.property("artUrl")
     assert round(background_frame.property("width")) == 216

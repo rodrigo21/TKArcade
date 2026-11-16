@@ -198,6 +198,12 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- Editing a field in the game dialog no longer resolves the artwork a
+  dozen times: one model slot returns the four previews, their origin
+  tokens, the status and the provider in a single pass (one config read
+  instead of one per slot).
+- Card covers and grid icons decode off the UI thread, so a large grid
+  does not freeze while the pictures load.
 - A background artwork pass no longer discards every cached validation
   result: the badge, the tip and the issues filter recompute a game only
   when its config or the preferences changed since the last check.
