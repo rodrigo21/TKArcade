@@ -10,13 +10,11 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: fifty-nine batches. The latest closed the audit plan: one
-  `artworkPanel()` slot for the dialog (previews, origins, status and
-  provider in one config pass) and async card/grid images. The plan
-  fixed 15 of its 20 findings; left out with reasons: #9 (covered by the
-  issue cache), #15 and #19 (deferred, launch parse and role constants),
-  #16 (Steam XDG is a hypothesis) and #18 (three caches differ). Record:
-  CHANGELOG.
+- Landed: sixty batches. The latest added the GPL-3.0 `LICENSE`, the
+  package metadata (keywords, classifiers, URLs), README badges and the
+  social preview in `.github/`. GitHub now reports GPL-3.0; the About
+  description and topics were changed on the repo itself. The audit's
+  #15 and #19 stay deferred.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
