@@ -105,24 +105,70 @@ def test_hand_edited_defaults_drops_per_game_keys(xdg_env):
     path = C.xdg.defaults_file()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        '[general]\nname = "Template"\ngameid = "local-x"\nshow_menu = true\n'
-        '[notes]\ntext = "hello"\n'
-        '[runtime]\ntype = "proton"\n'
-        '[ludusavi]\nenable = true\nname_override = "Doom"\n',
+        "[general]\n"
+        'gameid = "local-x"\n'
+        'name = "Template"\n'
+        'custom_executable = "/tmp/game.exe"\n'
+        'launch_cwd = "/tmp"\n'
+        'categories = ["Retro"]\n'
+        'active_profile = "main"\n'
+        'installed_at = "2026-01-01T00:00:00Z"\n'
+        "show_menu = true\n"
+        "[metadata]\n"
+        'version = "1.0"\n'
+        'developer = "Dev"\n'
+        "[runtime]\n"
+        'type = "proton"\n'
+        'tool = "GE-Proton9-20"\n'
+        "[graphics]\n"
+        "dxvk = true\n"
+        'dxvk_version = "2.7.1"\n'
+        "[audio]\n"
+        'sink = "alsa_output.hdmi"\n'
+        "[debug]\n"
+        "proton_log = true\n"
+        "[artwork]\n"
+        'cover = "cover.png"\n'
+        'artwork_appid = "480"\n'
+        "[notes]\n"
+        'text = "hello"\n'
+        "[ludusavi]\n"
+        "enable = true\n"
+        'name_override = "Doom"\n',
         encoding="utf-8",
     )
     template = C.load_defaults()
-    assert template.general.name == ""
-    assert template.general.show_menu is True
-    assert template.notes.text == ""
-    assert template.runtime.type == ""
+    assert template.general.show_menu is True  # launch behaviour stays
     assert template.ludusavi.enable is True
+    for name in (
+        "appid",
+        "name",
+        "custom_executable",
+        "launch_cwd",
+        "active_profile",
+        "installed_at",
+    ):
+        assert getattr(template.general, name) == "", name
+    assert template.general.categories == []
     assert template.ludusavi.name_override == ""
+    assert template.metadata.version == "" and template.metadata.developer == ""
+    assert template.runtime.type == "" and template.runtime.tool == ""
+    assert template.graphics.dxvk is False and template.graphics.dxvk_version == ""
+    assert template.audio.sink == ""
+    assert template.debug.proton_log is False
+    assert template.artwork.cover == "" and template.artwork.artwork_appid == ""
+    assert template.notes.text == ""
     # A game without a file takes the same trimmed template.
-    fresh = C.load("nope")
-    assert fresh.notes.text == ""
-    assert fresh.runtime.type == ""
-    assert fresh.ludusavi.name_override == ""
+    game = C.load("nope")
+    assert game.general.name == ""
+    assert game.notes.text == ""
+    assert game.runtime.type == ""
+    assert game.graphics.dxvk is False
+    assert game.audio.sink == ""
+    assert game.debug.proton_log is False
+    assert game.artwork.artwork_appid == ""
+    assert game.metadata.version == ""
+    assert game.ludusavi.name_override == ""
 
 
 def test_legacy_ludusavi_keys_ignored(xdg_env):

@@ -142,8 +142,12 @@ def install(prefix: Path, layer: str, prefs: object, version: str = "") -> tuple
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / src.name
         try:
-            if not dest.is_file() or dest.read_bytes() != src.read_bytes():
-                dest.write_bytes(src.read_bytes())
+            data = src.read_bytes()
+            # Size first: an unchanged DLL is the usual case and skips the
+            # second read entirely.
+            same = dest.is_file() and dest.stat().st_size == len(data) and dest.read_bytes() == data
+            if not same:
+                dest.write_bytes(data)
         except OSError as e:
             return False, [f"{kind}: could not install {src.name}: {e}"]
         copied.append(dest.relative_to(prefix).as_posix())

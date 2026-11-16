@@ -1,6 +1,7 @@
 """Graphics layer install/remove (DXVK, vkd3d-proton) in a wine prefix."""
 
 import json
+import os
 
 from tkarcade import config as C
 from tkarcade import graphics as G
@@ -74,8 +75,12 @@ def test_install_is_idempotent_and_keeps_old_files(xdg_env, tmp_path):
     prefs = _prefs(tmp_path, "dxvk", base)
     assert G.install(prefix, "dxvk", prefs)[0]
     first = G.read_marker(prefix)["layers"]["dxvk"]["files"]
+    copied = prefix / "drive_c/windows/system32/d3d11.dll"
+    os.utime(copied, (1_000_000, 1_000_000))
     assert G.install(prefix, "dxvk", prefs)[0]
     assert G.read_marker(prefix)["layers"]["dxvk"]["files"] == first
+    # An unchanged DLL is not rewritten: the install stays cheap.
+    assert int(copied.stat().st_mtime) == 1_000_000
     # A newer version with fewer DLLs keeps the old ones recorded.
     _version(base, "v2.7", "d3d11.dll")
     assert G.install(prefix, "dxvk", prefs)[0]
