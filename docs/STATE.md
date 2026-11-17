@@ -10,12 +10,14 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: sixty-one batches. The latest made `[metadata] tags` editable
-  on Details: a checkable picker with the game's tags first and the
-  global `tags.toml` store after them, a content-fitted two-column
-  window capped at 60 grid units or 80% of the screen, a `+N` summary on
-  the row and a top-bar AND filter. Download Metadata keeps the
-  fill-empty/Replace rule and the tags lock. Record:
+- Landed: sixty-two batches. The latest fixed the header actions
+  disappearing on a window clamped below the 1280 minimum: the Tags
+  button carried a label in compact mode and pushed the whole actions
+  row into Kirigami's overflow. It is icon-only with its siblings now,
+  and the search filter yields to 120px instead of overrunning its
+  slot. Regression case: `test_narrow_toolbar_with_tags_keeps_actions`.
+  Before it, `[metadata] tags` became editable on Details (checkable
+  picker, global `tags.toml`, `+N` summary, top-bar AND filter); record:
   `decisions/manual-tags.md`.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
@@ -23,9 +25,9 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   which keeps the C numbering the other records cite. The IGDB
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
-- Verified: `scripts/check.sh --changed` (816 passed, 3 skipped, QML
-  driver included), offscreen screenshots at 1200–1920 px and the tag
-  picker short/long/cap paths. The venv was refreshed after the merge.
+- Verified: `scripts/check.sh --qml` (816 passed, 3 skipped) on the
+  approved diff, plus offscreen screenshots at 700 and 1280 px. The venv
+  was refreshed after the merge.
 - Next: the library import. The VNDB release picker sits in `TODO.md`
   before 1.0. The tag follow-ups (manager, merge policy, match-any mode,
   preview selection, picker search, bulk edits, column, persistent
