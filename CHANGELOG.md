@@ -209,6 +209,11 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- The library header actions (view, Columns, Preferences, Defaults and
+  the hamburger) no longer disappear on a window clamped below the
+  1280 minimum: with the Tags button the title row overran the slot
+  Kirigami reserves, so the tag button now goes icon-only in compact
+  mode and the filter yields instead of hiding the actions row.
 - Editing a field in the game dialog no longer resolves the artwork a
   dozen times: one model slot returns the four previews, their origin
   tokens, the status and the provider in a single pass (one config read

@@ -7661,6 +7661,51 @@ def test_tag_filter_popup_filters_the_library(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_narrow_toolbar_with_tags_keeps_actions(qgui_app, xdg_env):
+    """The narrow title row yields instead of hiding the actions row.
+
+    Below the app's minimum width a HiDPI clamp or a tiling compositor can
+    still hand the window less room. The tag button goes icon-only with its
+    siblings there, and the filter shrinks, so the row never overruns the
+    slot Kirigami reserves for the view icons and the hamburger.
+    """
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-tagged"
+    cfg.general.name = "Tagged"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.metadata.tags = ["Action", "Indie"]
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    win.setProperty("width", 700)
+    QTest.qWait(50)
+
+    def visible(name):
+        for item in win.findChildren(QQuickItem, name):
+            if item.property("visible"):
+                return item
+        return None
+
+    tag = visible("tagFilterButton")
+    assert tag is not None
+    # Compact mode: the tag button drops its label like the four title
+    # buttons, so the row keeps room for the filter and the actions.
+    assert tag.property("width") < 50
+    assert visible("toolbarIcons") is not None
+    page = win.findChild(QQuickItem, "gamesPage")
+    row = win.findChild(QQuickItem, "toolbarSpacerA").parent()
+    assert row.property("width") <= page.property("width") - page.property("titleReserve")
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
     """The Replace switch is the explicit opt-in for overwriting typed values."""
     from PySide6.QtCore import QObject

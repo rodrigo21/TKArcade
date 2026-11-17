@@ -45,8 +45,8 @@ Kirigami.Page {
         // comes from the Binding below the checkbox: a direct id reference
         // here evaluates before the child exists and logs a ReferenceError.
         property real issuesWidth: 0
-        // The tag filter is an icon-only button, so its width is fixed and
-        // the filter still fits at the minimum window width.
+        // The tag filter joins the icon-only buttons in compact mode, so
+        // its width stays small enough for the filter beside it.
         property real tagWidth: 0
         // What the title slot has for this row: the window minus the room
         // the actions row keeps and the gaps between the row's items.
@@ -54,7 +54,9 @@ Kirigami.Page {
         // grow past its slot (which wraps the actions row out of the header).
         property real available: gamesPage.width - gamesPage.titleReserve - 6 * Kirigami.Units.smallSpacing
         property real fixedWidth: buttonsWidth + issuesWidth + tagWidth
-        property int filterWidth: Math.max(200, Math.min(gamesPage.titleFilterWant, available - fixedWidth))
+        // The 120 floor yields only when the row would overrun its slot:
+        // a narrow field beats Kirigami pushing the actions row away.
+        property int filterWidth: Math.max(120, Math.min(gamesPage.titleFilterWant, available - fixedWidth))
         property real slack: Math.max(0, available - fixedWidth - filterWidth)
         // The pair shares the slack; the left one also absorbs the buttons
         // width, so the filter sits centered instead of pushed right.
@@ -124,9 +126,10 @@ Kirigami.Page {
             visible: gameModel.hasTags
             text: qsTr("Tags")
             icon.name: gameModel.iconName(["tag", "tag-symbolic", "tag-places"])
+            display: gamesPage.compactToolbar ? Controls.AbstractButton.IconOnly : Controls.AbstractButton.TextBesideIcon
             highlighted: gameFilter.tagKeys.length > 0
             Controls.ToolTip.text: qsTr("Filter by Tags")
-            Controls.ToolTip.visible: hovered
+            Controls.ToolTip.visible: hovered && gamesPage.compactToolbar
             Component.onCompleted: gamesPage.tagFilterItem = tagFilterButton
             onClicked: tagFilterPopup.open()
         }
