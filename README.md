@@ -251,12 +251,24 @@ default Artwork Source); the Twitch console asks for an OAuth
 redirect URL, where any public HTTPS address works, because the
 download uses the client-credentials grant and never redirects. The
 preview also carries a **Tags** row:
-Apply writes the online tags into `[metadata] tags`, where Steam
+Apply writes the provider tags into `[metadata] tags`, where Steam
 contributes genres, store features and the franchise, IGDB its genres,
 franchise, themes and keywords, and VNDB its non-spoiler tags rated 2.0
 or more (top 20). Tags are not categories: they stay out of the sidebar
-and the category store, and Details lists them next to Series with a
-Clear button that empties the list on Save and its own lock.
+and the category store. Details shows the list next to Series in a
+button that opens a checkable picker: the game's tags come first, then
+the global `tags.toml` store, and new names can be typed. The window
+grows to the longest tag — two columns when they fit, one otherwise,
+capped at 60 grid units or 80% of the screen. The button shows only the
+whole tags that fit, then a `+N` count.
+Unchecking
+removes a tag from the game but keeps it for other games, and Save
+persists the list; its lock still blocks Download Metadata. A tag
+filter button beside the library search narrows the list by tags, and
+every selected tag must match. The fill-empty rule and the Replace
+switch still decide whether a download writes the provider list, so a
+game with tags keeps them unless Replace is on; a fully cleared list
+counts as empty, and its lock keeps a later download from refilling it.
 Execution (launch settings first, then the runtime selector and tool,
 the Steam Linux Runtime of a local native game, prefix with its
 installed and pending
@@ -334,6 +346,8 @@ warn instead of silently resetting.
 * `$XDG_CONFIG_HOME/tkarcade/games/<gameid>.toml` — per-game snapshot.
 * `$XDG_CONFIG_HOME/tkarcade/profiles/<gameid>/<name>.toml` — profiles.
 * `$XDG_CONFIG_HOME/tkarcade/defaults.toml` — new-game template only.
+* `$XDG_CONFIG_HOME/tkarcade/tags.toml` — the global tag store shared by
+  the game picker and the library tag filter.
 * `$XDG_DATA_HOME/tkarcade/prefixes/<name>/` — local Windows prefixes
   (default base; Preferences can move it, per-game `runtime.prefix` is
   the base, and the folder is `runtime.prefix_name`, else the

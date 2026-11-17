@@ -250,9 +250,10 @@ class MetadataConfig:
     # IGDB game id ("1145360"): identity like the two above, so it takes no
     # lock. The provider menu chooses the source; an empty id searches.
     igdb_id: str = ""
-    # Online taxonomy from the last Download Metadata: genres, Steam
-    # features, themes and keywords. Not the sidebar categories and not
-    # the `tag` state label; Apply replaces the whole list.
+    # The game's tags: provider suggestions plus the user's edits, kept in
+    # the global tags.toml store. Not the sidebar categories and not the
+    # `tag` state label. Download Metadata fills an empty list or replaces
+    # it when the switch is on; the tag picker edits it and Save persists.
     tags: list[str] = field(default_factory=list)
 
 
@@ -1276,6 +1277,26 @@ def save_categories(entries: list[Category]) -> Path:
     return path
 
 
+def tags_file() -> Path:
+    return xdg.app_config_dir() / "tags.toml"
+
+
+def load_tags() -> list[str]:
+    """Tags created so far (they outlive the games that carried them)."""
+    data = _read_toml(tags_file())
+    table = data.get("tags", {}) if isinstance(data, dict) else {}
+    names = table.get("names", []) if isinstance(table, dict) else []
+    return normalize_categories(_str_list(names))
+
+
+def save_tags(names: list[str]) -> Path:
+    """Write the tag store (sorted, deduped case-insensitively)."""
+    entries = sorted(normalize_categories(names), key=str.lower)
+    path = tags_file()
+    write_atomic(path, _render_toml({"tags": {"names": entries}}))
+    return path
+
+
 class ConfigVersionError(Exception):
     """Config file needs a newer TKArcade than this one."""
 
@@ -2229,7 +2250,7 @@ def migrate_ids() -> list[tuple[str, str]]:
 
 
 def export_configs(dest: str | Path) -> Path:
-    """Pack games/profiles/defaults/preferences/categories TOML files for migration."""
+    """Pack games/profiles/defaults/preferences/categories/tags TOML files for migration."""
     import tarfile
 
     dest = Path(dest)
@@ -2240,6 +2261,7 @@ def export_configs(dest: str | Path) -> Path:
             (xdg.defaults_file(), "defaults.toml"),
             (xdg.preferences_file(), "preferences.toml"),
             (categories_file(), "categories.toml"),
+            (tags_file(), "tags.toml"),
         ):
             if path.exists():
                 tar.add(path, arcname=arcname)
@@ -2278,7 +2300,7 @@ def import_configs(src: str | Path) -> list[str]:
         for member in tar.getmembers():
             name = member.name
             if (
-                name in ("defaults.toml", "preferences.toml", "categories.toml")
+                name in ("defaults.toml", "preferences.toml", "categories.toml", "tags.toml")
                 or (
                     name.startswith("games/")
                     and name.endswith(".toml")

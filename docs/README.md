@@ -117,6 +117,8 @@ What each document is for and where the source of truth lives.
 - `decisions/online-tags.md` — `[metadata] tags`, the Tags row in the
   Download Metadata preview and why online data stays out of the manual
   categories.
+- `decisions/manual-tags.md` — the editable tag list, the global
+  `tags.toml` store, the Details picker and the top-bar AND filter.
 - `decisions/metadata-window.md` — the Search Data window (Metadata and
   Artwork tabs), the identities moved off the form, the Steam auto-fill
   on add and the six-tab game dialog.

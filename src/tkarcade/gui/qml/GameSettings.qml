@@ -84,8 +84,9 @@ Window {
         || !(searchSource === "steam" && steamIdentity)
     // Age ratings are a fixed-board checklist, stored as a list.
     property var ageRatings: []
-    // Online tags: read-only on Details and distinct from the categories.
-    // Download Metadata fills them in its preview like any other row.
+    // Tags: editable on Details and distinct from the categories. The
+    // picker edits the list; Save persists it, and Download Metadata fills
+    // it in its preview like any other row.
     property var onlineTagList: []
     property string onlineTags: ""
     // [metadata] locked split into field names: a locked field is never
@@ -625,6 +626,73 @@ Window {
         catsPicker.catRows = rows
         catsPicker.newCategories = ""
         catsPicker.open(gameSettings)
+    }
+
+    // Only whole tags that fit: a cut tag reads worse than a "+N" count,
+    // and the picker shows the complete list. The button's icon and
+    // padding take roughly two grid units.
+    function tagSummary(button) {
+        var count = onlineTagList.length
+        if (count === 0) {
+            return qsTr("Not Set")
+        }
+        var avail = Math.max(0, (button ? button.width : 0)
+                                - Kirigami.Units.gridUnit * 3)
+        var parts = []
+        for (var i = 0; i < count; i++) {
+            var next = parts.concat([onlineTagList[i]]).join(", ")
+            var rest = count - i - 1
+            var candidate = rest > 0 ? next + " +" + rest : next
+            if (tagMetrics.advanceWidth(candidate) > avail) {
+                if (parts.length === 0) {
+                    return qsTr("%1 Tag(s)").arg(count)
+                }
+                break
+            }
+            parts.push(onlineTagList[i])
+        }
+        var left = count - parts.length
+        return parts.join(", ") + (left > 0 ? " +" + left : "")
+    }
+
+    // The game's tags first, in their current order, then the global store
+    // alphabetically. Store rows keep their casing; unchecking removes the
+    // tag from the game but never from the store.
+    function openTagsPicker() {
+        var keys = []
+        var names = []
+        var checked = []
+        for (var i = 0; i < onlineTagList.length; i++) {
+            var name = String(onlineTagList[i]).trim()
+            if (name === "") {
+                continue
+            }
+            var key = name.toLowerCase()
+            if (keys.indexOf(key) >= 0) {
+                continue
+            }
+            keys.push(key)
+            names.push(name)
+            checked.push(key)
+        }
+        var known = gameModel.allTags()
+        for (var j = 0; j < known.length; j++) {
+            if (keys.indexOf(String(known[j]).toLowerCase()) >= 0) {
+                continue
+            }
+            keys.push(String(known[j]).toLowerCase())
+            names.push(known[j])
+        }
+        var rows = []
+        for (var k = 0; k < names.length; k++) {
+            rows.push({
+                "name": names[k],
+                "state": checked.indexOf(names[k].toLowerCase()) >= 0 ? 2 : 0
+            })
+        }
+        tagsPicker.catRows = rows
+        tagsPicker.newCategories = ""
+        tagsPicker.open(gameSettings)
     }
 
     function openAgeRatings() {
@@ -1990,13 +2058,6 @@ Window {
         }
     }
 
-    // The tags come from the provider; clearing is the one manual action.
-    function clearTags() {
-        onlineTagList = []
-        onlineTags = ""
-        searchStatus = ""
-    }
-
     function refreshPreview() {
         var res = gameModel.previewCommand(editAppid, collect())
         var lines = [res.command]
@@ -2892,27 +2953,19 @@ Window {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     KirigamiLayouts.FormData.label: qsTr("Tags:")
-                                    Controls.Label {
+                                    Controls.Button {
+                                        id: tagsButton
                                         objectName: "settingsTags"
                                         Layout.fillWidth: true
-                                        text: gameSettings.onlineTags !== ""
-                                            ? gameSettings.onlineTags : qsTr("Not Set")
-                                        opacity: gameSettings.onlineTags !== "" ? 1.0 : 0.6
-                                        elide: Text.ElideRight
-                                        HoverHandler {
-                                            id: tagsHover
-                                        }
-                                        Controls.ToolTip.text: qsTr("Online Tags From Download Metadata, Not the Categories")
-                                        Controls.ToolTip.visible: tagsHover.hovered
-                                    }
-                                    Controls.Button {
-                                        objectName: "settingsTagsClear"
-                                        text: qsTr("Clear")
-                                        visible: gameSettings.onlineTags !== ""
-                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
-                                        onClicked: gameSettings.clearTags()
-                                        Controls.ToolTip.text: qsTr("Clear the Online Tags; Save Persists It.")
+                                        icon.name: gameModel.iconName(
+                                            ["arrow-down-symbolic", "arrow-down", "pan-down-symbolic"])
+                                        // Only the tags that fit: a half tag
+                                        // is worse than a "+N" count, and
+                                        // the picker shows the full list.
+                                        text: gameSettings.tagSummary(tagsButton)
+                                        Controls.ToolTip.text: qsTr("Edit Tags")
                                         Controls.ToolTip.visible: hovered
+                                        onClicked: gameSettings.openTagsPicker()
                                     }
                                     LockButton {
                                         key: "tags"
@@ -4917,6 +4970,32 @@ Window {
         title: qsTr("Add Categories")
         onPicked: function(names) {
             catsField.text = names.join(", ")
+        }
+    }
+
+    FontMetrics {
+        id: tagMetrics
+        font: Kirigami.Theme.defaultFont
+    }
+
+    CategoryPicker {
+        id: tagsPicker
+        objectName: "settingsTagsPicker"
+        title: qsTr("Tags")
+        // Two columns when the longest tag allows it; the window width
+        // follows the content up to the cap and falls back to one column
+        // instead of wrapping a tag onto a second line.
+        fitContent: true
+        minimumWidth: Kirigami.Units.gridUnit * 26
+        height: Kirigami.Units.gridUnit * 26
+        columns: 2
+        listHeight: Kirigami.Units.gridUnit * 20
+        newPlaceholder: qsTr("New Tags (Comma Separated)")
+        rowPrefix: "tagPick_"
+        addObjectName: "tagAdd"
+        onPicked: function(names) {
+            gameSettings.onlineTagList = names
+            gameSettings.onlineTags = names.join(", ")
         }
     }
 

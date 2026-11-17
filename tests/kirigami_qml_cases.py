@@ -7473,10 +7473,11 @@ def test_metadata_download_carries_tags(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_tags_clear_and_unsaved_download_status(qgui_app, xdg_env):
-    """The Tags row clears by hand; an unsaved game says to save first."""
-    from PySide6.QtCore import QObject
+def test_tags_picker_clears_and_unsaved_download_status(qgui_app, xdg_env):
+    """The Tags picker unchecks by hand; an unsaved game says to save first."""
+    from PySide6.QtCore import QMetaObject, QObject
     from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -7498,15 +7499,161 @@ def test_tags_clear_and_unsaved_download_status(qgui_app, xdg_env):
     page.openGameSettings("local-doom")
     swin = _settings_window(qgui_app)
     tags = swin.findChild(QQuickItem, "settingsTags")
-    clear = swin.findChild(QQuickItem, "settingsTagsClear")
     assert tags.property("text") == "Action, Indie"
-    assert clear.property("visible") is True
-    _click(swin, "settingsTagsClear")
+    dlg = win.findChild(QObject, "gameSettings")
+    assert QMetaObject.invokeMethod(dlg, "openTagsPicker") is True
+    QTest.qWait(150)
+    picker = win.findChild(QObject, "settingsTagsPicker")
+    assert picker.property("visible") is True
+    assert picker.property("columns") == 2
+    assert picker.property("fittedColumns") == 2
+    assert picker.property("fittedWidth") <= picker.property("maximumContentWidth")
+    assert picker.property("catRows").toVariant() == [
+        {"name": "Action", "state": 2},
+        {"name": "Indie", "state": 2},
+    ]
+    boxes = {
+        item.objectName(): item
+        for item in _visual_items(picker.property("contentItem"))
+        if item.objectName().startswith("tagPick_")
+    }
+    _click_item(boxes["tagPick_Action"])
+    _click_item(boxes["tagPick_Indie"])
+    _click(picker, "dialogOk")
+    qgui_app.processEvents()
     assert tags.property("text") == "Not Set"
-    assert clear.property("visible") is False
-    win.findChild(QObject, "gameSettings").save()
+    dlg.save()
     qgui_app.processEvents()
     assert C.load("local-doom").metadata.tags == []
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tags_row_summarizes_whole_tags(qgui_app, xdg_env):
+    """A long tag list shows whole tags plus a +N count, never a half tag."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.metadata.tags = [f"Tag {i:02d} With A Long Name" for i in range(15)]
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    button = swin.findChild(QQuickItem, "settingsTags")
+    text = button.property("text")
+    assert " +" in text
+    assert text.rsplit(" +", 1)[-1].isdigit()
+    assert "…" not in text
+    assert button.property("width") > 0
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tag_picker_drops_to_one_column_for_long_tags(qgui_app, xdg_env):
+    """Two columns never squeeze a long tag; the width stays under the cap."""
+    from PySide6.QtCore import QMetaObject, QObject
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.metadata.tags = [
+        f"A Very Long Tag Name That Would Otherwise Wrap And Needs A Wide Row {i:02d} "
+        "With More Words To Pass The Two-Column Cap"
+        for i in range(8)
+    ]
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    assert QMetaObject.invokeMethod(dlg, "openTagsPicker") is True
+    QTest.qWait(150)
+    picker = win.findChild(QObject, "settingsTagsPicker")
+    assert picker.property("visible") is True
+    assert picker.property("fittedColumns") == 1
+    assert picker.property("fittedWidth") <= picker.property("maximumContentWidth")
+    # The longest row still fits the single column: its one-line height
+    # matches the shortest row (the list did not wrap it).
+    boxes = [
+        item
+        for item in _visual_items(picker.property("contentItem"))
+        if item.objectName().startswith("tagPick_")
+    ]
+    assert boxes
+    assert len({round(item.property("height"), 1) for item in boxes}) == 1
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tag_filter_popup_filters_the_library(qgui_app, xdg_env):
+    """The top-bar tag button opens the AND filter; tags stay off the sidebar."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    for appid, tags in (
+        ("local-coop", ["Co-op", "Completed"]),
+        ("local-coop2", ["Co-op"]),
+        ("local-rpg", ["RPG"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.metadata.tags = tags
+        C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    button = win.findChild(QQuickItem, "tagFilterButton")
+    assert button is not None and button.property("visible") is True
+    _click(win, "tagFilterButton")
+    qgui_app.processEvents()
+    popup = win.findChild(QObject, "tagFilterPopup")
+    assert popup.property("visible") is True
+    rows = popup.property("rows").toVariant()
+    assert rows == [
+        {"name": "Co-op", "count": 2, "checked": False},
+        {"name": "Completed", "count": 1, "checked": False},
+        {"name": "RPG", "count": 1, "checked": False},
+    ]
+    boxes = {
+        item.objectName(): item
+        for item in _visual_items(popup.property("contentItem"))
+        if item.objectName().startswith("tagFilter_")
+    }
+    _click_item(boxes["tagFilter_Co-op"])
+    qgui_app.processEvents()
+    assert proxy.rowCount() == 2
+    assert proxy.property("tagKeys") == ["Co-op"]
+    _click_item(boxes["tagFilter_Completed"])
+    qgui_app.processEvents()
+    assert proxy.rowCount() == 1
+    assert sorted(proxy.property("tagKeys")) == ["Co-op", "Completed"]
+    proxy.setProperty("tagKeys", [])
+    assert proxy.rowCount() == 3
+    # Tags are never sidebar entries: only the categories section exists.
+    assert win.findChild(QObject, "categoryAction_Co-op") is None
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

@@ -3,7 +3,9 @@
 Status: landed (2026-11-12).
 
 Landing record: describes the state when it landed; current behaviour
-lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`).
+lives in `README.md`/`CHANGELOG.md` (see `docs/README.md`). The list is
+editable and globally stored since `decisions/manual-tags.md`
+(2026-11-17); the provider mapping and cache rules below still apply.
 
 ## Problem
 

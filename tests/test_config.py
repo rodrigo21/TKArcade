@@ -32,6 +32,15 @@ def test_categories_store_roundtrip(xdg_env):
     assert C.load_categories() == []
 
 
+def test_tags_store_roundtrip(xdg_env):
+    assert C.load_tags() == []
+    C.save_tags([" Retro ", "Co-op", "retro", ""])
+    assert C.load_tags() == ["Co-op", "Retro"]
+    assert C.tags_file().is_file()
+    C.save_tags([])
+    assert C.load_tags() == []
+
+
 def test_save_is_full_snapshot(xdg_env):
     cfg = C.GameConfig()
     cfg.general.appid = "8"
@@ -362,16 +371,19 @@ def test_export_import_roundtrip(xdg_env, tmp_path):
     C.save(cfg)
     C.save_defaults(C.GameConfig())
     C.save_categories([C.Category("Action", "applications-games")])
+    C.save_tags(["Co-op", "Retro"])
     dest = tmp_path / "backup.tar.gz"
     saved = C.export_configs(dest)
     assert saved.exists()
     (C.game_file("21")).unlink()
     C.xdg.defaults_file().unlink()
     C.categories_file().unlink()
+    C.tags_file().unlink()
     imported = C.import_configs(dest)
     assert imported == ["21"]
     assert C.load("21").env.vars == {"A": "1"}
     assert [(c.name, c.icon) for c in C.load_categories()] == [("Action", "applications-games")]
+    assert C.load_tags() == ["Co-op", "Retro"]
 
 
 def test_import_rejects_junk(xdg_env, tmp_path):

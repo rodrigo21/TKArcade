@@ -45,12 +45,15 @@ Kirigami.Page {
         // comes from the Binding below the checkbox: a direct id reference
         // here evaluates before the child exists and logs a ReferenceError.
         property real issuesWidth: 0
+        // The tag filter is an icon-only button, so its width is fixed and
+        // the filter still fits at the minimum window width.
+        property real tagWidth: 0
         // What the title slot has for this row: the window minus the room
         // the actions row keeps and the gaps between the row's items.
         // Everything below works from this one number, so the row can never
         // grow past its slot (which wraps the actions row out of the header).
         property real available: gamesPage.width - gamesPage.titleReserve - 6 * Kirigami.Units.smallSpacing
-        property real fixedWidth: buttonsWidth + issuesWidth
+        property real fixedWidth: buttonsWidth + issuesWidth + tagWidth
         property int filterWidth: Math.max(200, Math.min(gamesPage.titleFilterWant, available - fixedWidth))
         property real slack: Math.max(0, available - fixedWidth - filterWidth)
         // The pair shares the slack; the left one also absorbs the buttons
@@ -115,6 +118,24 @@ Kirigami.Page {
             placeholderText: qsTr("Filter by Name or ID…")
             onTextChanged: gameFilter.textQuery = text
         }
+        Controls.ToolButton {
+            id: tagFilterButton
+            objectName: "tagFilterButton"
+            visible: gameModel.hasTags
+            text: qsTr("Tags")
+            icon.name: gameModel.iconName(["tag", "tag-symbolic", "tag-places"])
+            highlighted: gameFilter.tagKeys.length > 0
+            Controls.ToolTip.text: qsTr("Filter by Tags")
+            Controls.ToolTip.visible: hovered
+            Component.onCompleted: gamesPage.tagFilterItem = tagFilterButton
+            onClicked: tagFilterPopup.open()
+        }
+        Binding {
+            target: titleRow
+            property: "tagWidth"
+            value: tagFilterButton.visible
+                ? tagFilterButton.implicitWidth + Kirigami.Units.smallSpacing : 0
+        }
         Controls.CheckBox {
             id: issuesOnlyCheck
             objectName: "issuesOnlyCheck"
@@ -163,6 +184,7 @@ Kirigami.Page {
     property var appDrawer: null
     property var viewArrowItem: null
     property var toolbarIconsItem: null
+    property var tagFilterItem: null
     // Narrow windows show the four action buttons icon-only so the
     // filter and view icons still fit. Window-based (not page-based):
     // a collapsed drawer must not flip narrow windows back to text.
@@ -1385,6 +1407,108 @@ Kirigami.Page {
             }
         }
     ]
+
+    // Tags never reach the sidebar: this popup is the only tag filter.
+    // Rows are rebuilt when it opens and while it is open after a refresh;
+    // the checkboxes bind to gameFilter.tagKeys, so no row state is copied.
+    Controls.Popup {
+        id: tagFilterPopup
+        objectName: "tagFilterPopup"
+        parent: gamesPage.tagFilterItem
+        x: gamesPage.tagFilterItem !== null
+            ? gamesPage.tagFilterItem.width - width : 0
+        y: gamesPage.tagFilterItem !== null
+            ? gamesPage.tagFilterItem.height + Kirigami.Units.smallSpacing : 0
+        closePolicy: Controls.Popup.CloseOnEscape | Controls.Popup.CloseOnPressOutside
+        padding: Kirigami.Units.largeSpacing
+        width: Kirigami.Units.gridUnit * 17
+        property var rows: []
+
+        function reload() {
+            var tags = gameModel.allTags()
+            var counts = gameModel.tagCounts()
+            var selected = gameFilter.tagKeys
+            var out = []
+            for (var i = 0; i < tags.length; i++) {
+                out.push({
+                    "name": tags[i],
+                    "count": counts[tags[i]] || 0,
+                    "checked": selected.indexOf(tags[i]) >= 0
+                })
+            }
+            tagFilterPopup.rows = out
+        }
+
+        onOpened: tagFilterPopup.reload()
+
+        Connections {
+            target: gameModel
+            function onRefreshed() {
+                if (tagFilterPopup.visible) {
+                    tagFilterPopup.reload()
+                }
+            }
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Controls.Label {
+                text: qsTr("Filter by Tags")
+                font.bold: true
+            }
+            Controls.Label {
+                Layout.fillWidth: true
+                opacity: 0.7
+                wrapMode: Text.WordWrap
+                text: qsTr("Match All Selected Tags")
+            }
+            ListView {
+                objectName: "tagFilterList"
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 16)
+                Layout.minimumHeight: 0
+                clip: true
+                model: tagFilterPopup.rows
+                delegate: Controls.CheckBox {
+                    required property var modelData
+                    objectName: "tagFilter_" + modelData.name
+                    width: ListView.view ? ListView.view.width : 100
+                    text: qsTr("%1 (%2)").arg(modelData.name).arg(modelData.count)
+                    checked: gameFilter.tagKeys.indexOf(modelData.name) >= 0
+                    onToggled: {
+                        var keys = gameFilter.tagKeys.slice()
+                        var index = keys.indexOf(modelData.name)
+                        if (checked && index < 0) {
+                            keys.push(modelData.name)
+                        } else if (!checked && index >= 0) {
+                            keys.splice(index, 1)
+                        }
+                        gameFilter.tagKeys = keys
+                    }
+                }
+            }
+            Controls.Label {
+                Layout.fillWidth: true
+                visible: tagFilterPopup.rows.length === 0
+                opacity: 0.7
+                text: qsTr("No Tags")
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item { Layout.fillWidth: true }
+                Controls.Button {
+                    objectName: "tagFilterClear"
+                    text: qsTr("Clear")
+                    enabled: gameFilter.tagKeys.length > 0
+                    onClicked: gameFilter.tagKeys = []
+                }
+                Controls.Button {
+                    text: qsTr("Close")
+                    onClicked: tagFilterPopup.close()
+                }
+            }
+        }
+    }
 
     Controls.Popup {
         id: viewOptions

@@ -203,6 +203,7 @@ def test_model_role_names_are_game_prefixed(qgui_app):
         b"gameStatus",
         b"gameStatusBg",
         b"gameStatusFg",
+        b"gameTags",
         b"gameTier",
         b"gameTierBg",
         b"gameTierFg",
@@ -331,6 +332,54 @@ def test_filter_model_source_and_text(qgui_app, xdg_env):
     assert shown() == ["local-doom", "local-quake"]
     proxy.textQuery = ""
     assert shown() == ["local-doom", "local-quake", "steam-213"]
+
+
+def test_tags_store_and_filter(qgui_app, xdg_env):
+    """Tags join the global store and the filter matches all selected."""
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    for appid, tags in (
+        ("local-coop", ["Co-op", "Completed"]),
+        ("local-coop2", ["Co-op"]),
+        ("local-rpg", ["RPG", "Completed"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.metadata.tags = tags
+        C.save(cfg)
+
+    source = GameListModel()
+    assert source.allTags() == ["Co-op", "Completed", "RPG"]
+    assert source.tagCounts() == {"Co-op": 2, "Completed": 2, "RPG": 1}
+    assert C.load_tags() == ["Co-op", "Completed", "RPG"]
+    assert source.hasTags is True
+
+    proxy = GameFilterModel()
+    proxy.setSourceModel(source)
+
+    def shown():
+        return sorted(
+            proxy.data(proxy.index(i, 0), GameListModel.IdRole) for i in range(proxy.rowCount())
+        )
+
+    proxy.tagKeys = ["Co-op"]
+    assert shown() == ["local-coop", "local-coop2"]
+    proxy.tagKeys = ["Co-op", "Completed"]
+    assert shown() == ["local-coop"]
+    proxy.tagKeys = ["RPG", "Completed"]
+    assert shown() == ["local-rpg"]
+    proxy.tagKeys = ["RPG", "Co-op"]
+    assert shown() == []
+    proxy.textQuery = "coop"
+    proxy.tagKeys = ["Co-op"]
+    assert shown() == ["local-coop", "local-coop2"]
+    proxy.textQuery = ""
+    proxy.tagKeys = []
+    assert shown() == ["local-coop", "local-coop2", "local-rpg"]
+    proxy.tagKeys = ["co-op"]
+    assert shown() == ["local-coop", "local-coop2"]
 
 
 def test_open_protondb_rejects_local(qgui_app, xdg_env):

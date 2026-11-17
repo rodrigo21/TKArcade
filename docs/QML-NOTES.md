@@ -99,10 +99,14 @@ failure. `AGENTS.md` links here.
   do not try to inject a button into the header, the drawer rebuilds
   the delegate.
 - `CategoryPicker.qml` is that checkable list, shared by the library's
-  Set Categories action and the GameSettings Add button: callers set
-  `catRows` (`{name, state}`) and `newCategories`, then `open()`, and
-  connect `onPicked(names)`; OK joins checked plus typed names and
-  closes. Tests drive it through those properties, never the checkboxes
+  Set Categories action, the GameSettings Add button and the game's tag
+  picker: callers set `catRows` (`{name, state}`) and `newCategories`,
+  then `open()`, and connect `onPicked(names)`; OK joins checked plus
+  typed names and closes. `rowPrefix` and `addObjectName` keep the
+  categories and tags instances apart; `fitContent` sizes the tag window
+  from its longest row (two columns when they fit, one otherwise, capped
+  at 60 grid units or 80% of the screen). Tests drive it through those
+  properties, never the checkboxes
   (`onToggled` is user-only); two instances live in the window tree, so
   find the dialog first (`bulkCatsDialog`, `settingsCatsPicker`) and
   read its properties. Delegates write `catRows[index].state`, never

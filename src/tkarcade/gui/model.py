@@ -341,6 +341,7 @@ class GameListModel(QAbstractTableModel):
     StatusRole = Qt.ItemDataRole.UserRole + 24
     StatusBgRole = Qt.ItemDataRole.UserRole + 25
     StatusFgRole = Qt.ItemDataRole.UserRole + 26
+    TagsRole = Qt.ItemDataRole.UserRole + 27
 
     ROLE_NAMES = (
         "gameId",
@@ -367,6 +368,7 @@ class GameListModel(QAbstractTableModel):
         "gameStatus",
         "gameStatusBg",
         "gameStatusFg",
+        "gameTags",
     )
 
     refreshed = Signal()
@@ -426,6 +428,10 @@ class GameListModel(QAbstractTableModel):
         self._categories: list[str] = []
         self._category_counts: dict[str, int] = {}
         self._category_icons: dict[str, str] = {}
+        # Global tag store, filled once per refresh; tags never reach the
+        # sidebar.
+        self._tags: list[str] = []
+        self._tag_counts: dict[str, int] = {}
         self._steam_detected = 0
         self._tray_active = False
         self._tray_refresher = None
@@ -514,6 +520,11 @@ class GameListModel(QAbstractTableModel):
     localCount = Property(int, _count_local, notify=refreshed)
     steamDetectedCount = Property(int, _count_steam_detected, notify=refreshed)
 
+    def _has_tags(self) -> bool:
+        return bool(self._tags)
+
+    hasTags = Property(bool, _has_tags, notify=refreshed)
+
     def roleNames(self) -> dict:
         # game-prefixed: bare Qt6 delegate properties must never collide
         # with the delegate item's own properties (name/source do).
@@ -544,6 +555,7 @@ class GameListModel(QAbstractTableModel):
             GameListModel.StatusRole: b"gameStatus",
             GameListModel.StatusBgRole: b"gameStatusBg",
             GameListModel.StatusFgRole: b"gameStatusFg",
+            GameListModel.TagsRole: b"gameTags",
         }
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
@@ -595,6 +607,7 @@ class GameListModel(QAbstractTableModel):
             GameListModel.StatusRole: 20,
             GameListModel.StatusBgRole: 21,
             GameListModel.StatusFgRole: 22,
+            GameListModel.TagsRole: 23,
         }
         return row[cols[role]] if role in cols else None
 
@@ -625,6 +638,7 @@ class GameListModel(QAbstractTableModel):
             "gameStatus",
             "gameStatusBg",
             "gameStatusFg",
+            "gameTags",
         )
         if not 0 <= row < len(self._rows):
             return {}
@@ -654,7 +668,11 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             stats = {}
         per_game: list[list[str]] = []
-        rows = [self._row(appid, names, stats, per_game) for appid in cfgmod.list_appids()]
+        per_game_tags: list[list[str]] = []
+        rows = [
+            self._row(appid, names, stats, per_game, per_game_tags)
+            for appid in cfgmod.list_appids()
+        ]
         rows.sort(key=lambda r: r[1].lower())
         running = self._load_running()
         running_changed = running.keys() != self._running.keys()
@@ -663,6 +681,10 @@ class GameListModel(QAbstractTableModel):
             self._reload_categories(per_game)
         except Exception as e:
             log.warning("category store not synced: %s", e)
+        try:
+            self._reload_tags(per_game_tags)
+        except Exception as e:
+            log.warning("tag store not synced: %s", e)
         index = {str(row[0]): row_no for row_no, row in enumerate(rows)}
         self.beginResetModel()
         self._rows = rows
@@ -777,11 +799,19 @@ class GameListModel(QAbstractTableModel):
             log.warning("terminate: SIGKILL to the process group of pid %s", record.get("pid"))
         self._refresh_running()
 
-    def _row(self, appid: str, names: dict, stats: dict, per_game: list | None = None) -> tuple:
+    def _row(
+        self,
+        appid: str,
+        names: dict,
+        stats: dict,
+        per_game: list | None = None,
+        per_game_tags: list | None = None,
+    ) -> tuple:
         """One table row for an AppID (column order mirrors `rowData`).
 
-        `per_game` collects this game's tags for the category summary, so the
-        sidebar needs no second read of the config.
+        `per_game` collects this game's categories for the sidebar summary,
+        and `per_game_tags` its tags for the global store, so neither needs
+        a second read of the config.
         """
         played, played_secs, played_tip, last_played, last_secs = _played_cells(stats.get(appid))
         try:
@@ -801,8 +831,11 @@ class GameListModel(QAbstractTableModel):
         status = gcfg.metadata.status if gcfg is not None else ""
         status_bg, status_fg = STATUS_STYLE.get(status, ("", ""))
         categories = list(gcfg.general.categories) if gcfg is not None else []
+        tags = list(gcfg.metadata.tags) if gcfg is not None else []
         if per_game is not None:
             per_game.append(categories)
+        if per_game_tags is not None:
+            per_game_tags.append(tags)
         return (
             appid,
             label,
@@ -832,6 +865,7 @@ class GameListModel(QAbstractTableModel):
             status,
             status_bg,
             status_fg,
+            tags,
         )
 
     @staticmethod
@@ -1604,6 +1638,16 @@ class GameListModel(QAbstractTableModel):
         """Sidebar icon for each category on record (theme icon names)."""
         return dict(self._category_icons)
 
+    @Slot(result=list)
+    def allTags(self) -> list:
+        """Every tag on record, sorted; never a sidebar entry."""
+        return list(self._tags)
+
+    @Slot(result="QVariantMap")
+    def tagCounts(self) -> dict:
+        """How many games carry each tag in use, by label."""
+        return dict(self._tag_counts)
+
     def _register_categories(self, names) -> None:
         """Keep the given names in the store so they outlive their tags."""
         wanted = cfgmod.normalize_categories(names)
@@ -1643,6 +1687,40 @@ class GameListModel(QAbstractTableModel):
         self._categories = labels
         self._category_counts = counts
         self._category_icons = {label: icons.get(label.lower(), "folder") for label in labels}
+
+    def _register_tags(self, names) -> None:
+        """Keep the given names in the store so they outlive their games."""
+        wanted = cfgmod.normalize_categories(names)
+        if not wanted:
+            return
+        entries = cfgmod.load_tags()
+        known = {tag.lower() for tag in entries}
+        added = [tag for tag in wanted if tag.lower() not in known]
+        if added:
+            cfgmod.save_tags(entries + added)
+
+    def _reload_tags(self, per_game: list[list[str]]) -> None:
+        """Global tags and their counts from the pass `refresh()` made.
+
+        `per_game` holds each game's `[metadata] tags` as its row was built.
+        Tags seen on disk join the store, so a tag outlives the last game
+        that carried it; the sidebar never reads this.
+        """
+        found = [tag for tags in per_game for tag in tags]
+        self._register_tags(found)
+        labels = sorted(cfgmod.normalize_categories(cfgmod.load_tags() + found), key=str.lower)
+        canonical = {label.lower(): label for label in labels}
+        counts = dict.fromkeys(labels, 0)
+        for tags in per_game:
+            seen: set[str] = set()
+            for tag in tags:
+                key = str(tag).strip().lower()
+                label = canonical.get(key)
+                if label is not None and key not in seen:
+                    seen.add(key)
+                    counts[label] += 1
+        self._tags = labels
+        self._tag_counts = counts
 
     @Slot(list, str, result=str)
     def setCategories(self, appids, text: str) -> str:
@@ -5417,6 +5495,7 @@ class GameFilterModel(QSortFilterProxyModel):
     sourceChanged = Signal()
     textChanged = Signal()
     issuesChanged = Signal()
+    tagsChanged = Signal()
 
     TABLE_COLUMNS = (
         "#",
@@ -5460,6 +5539,7 @@ class GameFilterModel(QSortFilterProxyModel):
         self._category = ""
         self._text = ""
         self._issues = False
+        self._tags: list[str] = []
         self._order, self._hidden = self._load_columns()
         self._widths = self._load_widths()
         self._sort_role = "gameName"
@@ -5770,6 +5850,20 @@ class GameFilterModel(QSortFilterProxyModel):
 
     issuesOnly = Property(bool, _get_issues, _set_issues, notify=issuesChanged)
 
+    def _get_tags(self) -> list:
+        return list(self._tags)
+
+    def _set_tags(self, keys) -> None:
+        if isinstance(keys, str):
+            keys = [keys]
+        tags = cfgmod.normalize_categories(list(keys or []))
+        if tags != self._tags:
+            self._tags = tags
+            self.invalidate()
+            self.tagsChanged.emit()
+
+    tagKeys = Property("QVariantList", _get_tags, _set_tags, notify=tagsChanged)
+
     columnsChanged = Signal()
     widthsChanged = Signal()
 
@@ -5964,6 +6058,7 @@ class GameFilterModel(QSortFilterProxyModel):
             and self._accepts_text(model, index, appid)
             and self._accepts_issues(model, appid)
             and self._accepts_category(model, index)
+            and self._accepts_tags(model, index)
         )
 
     def _accepts_source(self, appid) -> bool:
@@ -5991,3 +6086,13 @@ class GameFilterModel(QSortFilterProxyModel):
             return True
         cats = str(model.data(index, GameListModel.CategoryRole) or "")
         return self._category.lower() in [c.strip().lower() for c in cats.split(",")]
+
+    def _accepts_tags(self, model, index) -> bool:
+        """Every selected tag must be on the game (AND)."""
+        if not self._tags:
+            return True
+        raw = model.data(index, GameListModel.TagsRole) or []
+        values = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
+        have = {str(tag).strip().lower() for tag in values if str(tag).strip()}
+        wanted = {tag.strip().lower() for tag in self._tags if tag.strip()}
+        return wanted <= have

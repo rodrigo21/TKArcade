@@ -1,10 +1,12 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 
-// The checkable category list with a free-form field for new ones, shared
-// by the library's Set Categories action and the GameSettings picker.
+// The checkable name list with a free-form field for new ones, shared by
+// the library's Set Categories action, the GameSettings category picker
+// and the game's tag picker.
 // Rows are {name, state}: 2 checked, 1 partially (some selected games
 // carry it), 0 unchecked. On OK the names with state > 0 plus the typed
 // ones go to `picked`; the caller decides where they land.
@@ -17,10 +19,61 @@ DialogWindow {
     property var catRows: []
     property alias newCategories: newField.text
     property string hint: ""
+    property string newPlaceholder: qsTr("New Categories (Comma Separated)")
+    // Namespaced object names keep the two pickers apart in tests.
+    property string rowPrefix: "categoryPick_"
+    property string addObjectName: "categoryAdd"
+    // A long tag list reads better in two columns; a category list stays
+    // one column, and the capped height keeps the footer reachable.
+    property int columns: 1
+    property real listHeight: Kirigami.Units.gridUnit * 12
+    // Opt-in for the tag picker: fit the window to the longest row, and
+    // drop to one column rather than squeeze a tag onto a second line.
+    property bool fitContent: false
+    property real maximumContentWidth: Math.min(
+        Kirigami.Units.gridUnit * 60,
+        Screen.availableWidth > 0 ? Screen.availableWidth * 0.8 : Kirigami.Units.gridUnit * 60)
     // Set by addTyped(); the list scrolls once the layout pass has given
     // the column its final height.
     property bool revealPending: false
     signal picked(var names)
+
+    FontMetrics {
+        id: nameMetrics
+        font: Kirigami.Theme.defaultFont
+    }
+
+    readonly property real widestName: {
+        var widest = 0
+        for (var i = 0; i < picker.catRows.length; i++) {
+            widest = Math.max(widest,
+                nameMetrics.advanceWidth(String(picker.catRows[i].name || "")))
+        }
+        return widest
+    }
+    // Checkbox indicator, spacing and the row's own padding.
+    readonly property real rowWidth: widestName + Kirigami.Units.gridUnit * 2
+    // Body margins and the scroll bar.
+    readonly property real bodyWidth: Kirigami.Units.gridUnit + Kirigami.Units.smallSpacing * 6
+    readonly property int fittedColumns: {
+        if (!picker.fitContent) {
+            return picker.columns
+        }
+        var two = picker.rowWidth * 2 + Kirigami.Units.smallSpacing + picker.bodyWidth
+        return two <= picker.maximumContentWidth ? 2 : 1
+    }
+    readonly property real fittedWidth: {
+        if (!picker.fitContent) {
+            return Kirigami.Units.gridUnit * 24
+        }
+        var needed = picker.rowWidth * picker.fittedColumns
+            + Kirigami.Units.smallSpacing * (picker.fittedColumns - 1)
+            + picker.bodyWidth
+        return Math.min(picker.maximumContentWidth,
+            Math.max(picker.minimumWidth, needed))
+    }
+
+    width: picker.fittedWidth
 
     onVisibleChanged: {
         if (!visible) {
@@ -88,23 +141,25 @@ DialogWindow {
         Layout.fillHeight: true
         Layout.minimumHeight: 0
         visible: picker.catRows.length > 0
-        Layout.preferredHeight: Math.min(catColumn.implicitHeight,
-            Kirigami.Units.gridUnit * 12)
+        Layout.preferredHeight: Math.min(catColumn.implicitHeight, picker.listHeight)
         clip: true
         Item {
             width: parent.width
             implicitHeight: catColumn.implicitHeight
-            ColumnLayout {
+            GridLayout {
                 id: catColumn
                 width: parent.width
-                spacing: Kirigami.Units.smallSpacing
+                columns: picker.fittedColumns
+                columnSpacing: Kirigami.Units.smallSpacing
+                rowSpacing: Kirigami.Units.smallSpacing
                 Repeater {
                     model: picker.catRows
                     delegate: Controls.CheckBox {
                         required property var modelData
                         required property int index
-                        objectName: "categoryPick_" + modelData.name
+                        objectName: picker.rowPrefix + modelData.name
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         text: modelData.name
                         checkState: modelData.state === 2 ? Qt.Checked
                             : (modelData.state === 1 ? Qt.PartiallyChecked : Qt.Unchecked)
@@ -132,13 +187,13 @@ DialogWindow {
         Layout.fillWidth: true
         Controls.TextField {
             id: newField
-            placeholderText: qsTr("New Categories (Comma Separated)")
+            placeholderText: picker.newPlaceholder
             Layout.fillWidth: true
             Layout.preferredWidth: Kirigami.Units.gridUnit * 20
             onAccepted: picker.accepted()
         }
         Controls.Button {
-            objectName: "categoryAdd"
+            objectName: picker.addObjectName
             text: qsTr("Add")
             enabled: newField.text.trim() !== ""
             onClicked: picker.addTyped()

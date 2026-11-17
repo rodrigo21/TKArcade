@@ -6,6 +6,17 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Tags are editable on the Details tab: the row opens a checkable
+  picker with the game's tags first and the global `tags.toml` store
+  after them, plus a field for new names. Unchecking removes a tag from
+  the game but keeps it in the store for other games, and Save persists
+  the list. The row shows only whole tags that fit plus a `+N` count,
+  and the picker grows to the longest tag: two columns when they fit,
+  one column otherwise, capped at 60 grid units or 80% of the screen.
+  A tag filter button
+  beside the search field narrows the library by tags (every selected
+  tag must match); tags never reach the sidebar. The read-only Tags row
+  and its Clear button are gone.
 - Artwork import takes any image format the Qt plugins read: AVIF,
   JPEG XL, HEIF, TIFF, SVG, PSD, ICO and the rest, not just PNG/JPEG/
   WebP. A pasted URL, a picked file or a provider download is decoded

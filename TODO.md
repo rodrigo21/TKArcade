@@ -9,7 +9,8 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 1. Library import first: the Playnite-style enrichment reuses the
    landed metadata provider, and the provider has nothing to enrich
-   before the import exists.
+   before the import exists. The manual tags theme landed; its
+   follow-ups sit under "Tags follow-up".
 2. The 1.0 gate on the maintainer's release call: visual pass, shim
    removal, translations, release pass.
 3. Epic and GOG as origins in 2.0: the 1.0 gate removes the rename
@@ -38,10 +39,9 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
   Design: `docs/decisions/metadata-provider.md`; the bulk action needs
   its own plan.
 - [ ] **Online tags follow-up.** Download Metadata fills `[metadata]
-  tags` from Steam, IGDB and VNDB, and Details shows them read-only.
-  After the library import, decide whether the sidebar categories derive
-  from them, whether they get their own filter and editor, and whether a
-  bulk download is worth it.
+  tags` from Steam, IGDB and VNDB, and Details edits the list and filters
+  the library by it. After the library import, decide whether the sidebar
+  categories derive from tags and whether a bulk download is worth it.
   Design: `docs/decisions/online-tags.md`.
 
 Release, only when the maintainer opens the subject:
@@ -72,6 +72,33 @@ Release, only when the maintainer opens the subject:
   env-override test) and the 580.x NVIDIA README; both are
   OpenGL/GLX-only, so Vulkan needs its own present mode and the presets
   carry that in their `note`.
+
+## Tags follow-up
+
+- [ ] **Tag manager.** A dialog like Edit Categories for the global
+  `tags.toml`: rename, delete, merge duplicates and prune zero-count
+  names. Entry point from the tag picker.
+- [ ] **Metadata merge policy.** Decide whether a download may merge
+  provider values into an existing list (tags, age ratings) instead of
+  fill-empty/Replace, and whether the same rule fits other multi-value
+  fields.
+- [ ] **Tag filter match mode.** Add a persisted "match all / match any"
+  switch to the tag filter; default all (AND). Revisit the per-tag counts
+  when AND is active.
+- [ ] **Search Data tag selection.** Make the preview Tags row open the
+  tag picker so individual provider tags can be accepted or declined
+  before Apply.
+- [ ] **Tag picker search.** Add a filter field to the picker; needed
+  once the global store grows.
+- [ ] **Bulk tags.** Add, set or remove tags on the selected games, like
+  Set Categories.
+- [ ] **Tags column.** Optional library table column, hidden by default.
+- [ ] **Persist tag filter.** Keep the selected tags across refresh and
+  restart; drop names that disappear.
+- [ ] **Library import tag mapping.** Map Playnite/Lutris tags into
+  `tags.toml` when the library import lands.
+- [ ] **Tag display polish.** Chips, autocomplete, manual order and
+  colors; only if use shows the need.
 
 ## 2.0
 
