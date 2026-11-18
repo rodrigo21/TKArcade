@@ -10,30 +10,31 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: sixty-five batches. The latest persisted the library tag
-  filter: the selected names and the Match Any mode live in the
-  preferences, a name that leaves the store is dropped on refresh, and
-  the popup gained the switch. The AND default is unchanged. Before it,
-  a search field landed in the tag picker and in the top-bar filter.
+- Landed: sixty-six batches. The latest added **Set Tags…** to the
+  selection menu: a searchable checkable picker replaces the tag list of
+  every selected game (partial rows included), and clearing every tag
+  from games that have one asks for confirmation first. Before it, the
+  library tag filter became persistent with a Match Any switch.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
   which keeps the C numbering the other records cite. The IGDB
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
-- Verified: `scripts/check.sh --qml` (817 passed, 3 skipped) on the
-  approved diff, plus the offscreen switch check. The venv was
+- Verified: `scripts/check.sh --qml` (818 passed, 3 skipped) on the
+  approved diff, plus the offscreen bulk-picker check. The venv was
   refreshed after the merge.
-- Next: bulk tags (lote 4) needs the set-replaces vs add/remove
-  decision before implementation; then the Tags column (layout
-  migration) and the Search Data tag selection. The VNDB release picker
-  sits in `TODO.md` before 1.0; the remaining tag follow-ups (merge
-  policy, preview selection, column, bulk edits, counts, import
-  mapping) are there too. After the library import, decide whether
-  categories derive from tags and whether a bulk download is worth it.
-  Epic/GOG is 2.0, and so is the IGDB per-user credential review
-  (`TODO.md`). The 1.0 visual pass, the packaging check, the shim
-  removal and the release pass wait for the maintainer's release call.
+- Next: the Tags column (lote 5): optional table column, hidden by
+  default, with a one-time layout migration that appends the new column
+  instead of resetting the user's order and widths. Then the Search
+  Data tag selection. The VNDB release picker sits in `TODO.md` before
+  1.0; the remaining tag follow-ups (merge policy, preview selection,
+  column, counts, import mapping) are there too. After the library
+  import, decide whether categories derive from tags and whether a bulk
+  download is worth it. Epic/GOG is 2.0, and so is the IGDB per-user
+  credential review (`TODO.md`). The 1.0 visual pass, the packaging
+  check, the shim removal and the release pass wait for the
+  maintainer's release call.
 - Deferred: the audit's #15 (launch parse) and #19 (role constants).
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
