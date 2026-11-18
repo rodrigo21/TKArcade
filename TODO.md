@@ -75,10 +75,6 @@ Release, only when the maintainer opens the subject:
 
 ## Tags follow-up
 
-- [ ] **Metadata merge policy.** Decide whether a download may merge
-  provider values into an existing list (tags, age ratings) instead of
-  fill-empty/Replace, and whether the same rule fits other multi-value
-  fields.
 - [ ] **Library import tag mapping.** Map Playnite/Lutris tags into
   `tags.toml` when the library import lands.
 - [ ] **Tag display polish.** Chips, autocomplete, manual order and

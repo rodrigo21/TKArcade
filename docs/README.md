@@ -118,7 +118,8 @@ What each document is for and where the source of truth lives.
   Download Metadata preview and why online data stays out of the manual
   categories.
 - `decisions/manual-tags.md` — the editable tag list, the global
-  `tags.toml` store, the Details picker and the top-bar AND filter.
+  `tags.toml` store, the Details picker and the top-bar AND filter (§5
+  superseded 2026-11-18; see `decisions/metadata-merge.md`).
 - `decisions/tag-manager.md` — the store maintenance dialog: rename
   across every game, merge into an existing name, delete with a
   game-count confirmation, prune unused names and the content-fitted
@@ -129,6 +130,10 @@ What each document is for and where the source of truth lives.
 - `decisions/artwork-storage.md` — Qt-decoded imports (AVIF, JPEG XL,
   HEIF, SVG and the rest), the stored-format setting and its fallback
   chain, the pixel limits, the executable icon and the re-encode pass.
+- `decisions/metadata-merge.md` — the default list merge for Download
+  Metadata: tags append, an age rating replaces its own board, the
+  Replace switch stays the wholesale overwrite, and the preview shows
+  the result.
 
 ## Plans
 

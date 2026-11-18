@@ -313,6 +313,14 @@ Breaking config changes are called out explicitly under `Changed`.
   graphics, audio, artwork, notes or a save-name override.
 
 ### Changed
+- Download Metadata merges the list fields instead of dropping them:
+  the accepted provider tags append to the game's own list (its order
+  first, deduped case-insensitively), and an age rating replaces only
+  its own board, so PEGI and ESRB can come from different sources.
+  **Replace existing values** still swaps a whole list, a lock blocks
+  either write, and the preview's New column shows the merged result.
+  Scalar fields keep the fill-empty rule, and the automatic Steam fill
+  on adding a game still fills empty fields only.
 - Status moved from the Information section to Game on Details, above
   State Tag: it is the library classification, not provider metadata. The
   Global Defaults editor opens on Execution, and its Details tab carries a

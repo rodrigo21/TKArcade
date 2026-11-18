@@ -694,6 +694,73 @@ Window {
         return rows
     }
 
+    // Trim, drop empties and dedupe case-insensitively; the first spelling
+    // wins. Provider names and stored names both go through here.
+    function uniqueNames(names) {
+        var out = []
+        var keys = []
+        for (var i = 0; i < names.length; i++) {
+            var name = String(names[i]).trim()
+            if (name === "") {
+                continue
+            }
+            var key = name.toLowerCase()
+            if (keys.indexOf(key) >= 0) {
+                continue
+            }
+            keys.push(key)
+            out.push(name)
+        }
+        return out
+    }
+
+    // A list row's result before Apply: Replace writes the picked names;
+    // otherwise tags append to the current list and age ratings replace
+    // their own board.
+    function listRowResult(key, values) {
+        var picked = uniqueNames(values || [])
+        if (metadataReplaceBox.checked) {
+            return picked
+        }
+        if (key === "tags") {
+            return uniqueNames(onlineTagList.concat(picked))
+        }
+        return mergedRatings(ageRatings, picked)
+    }
+
+    // Current ratings keep every board the provider did not answer; a
+    // board it did answer takes the provider's value, so one game never
+    // ends up with two classifications from the same board.
+    function mergedRatings(current, incoming) {
+        var groups = gameModel.ageRatingGroups()
+        var boardOf = {}
+        for (var g = 0; g < groups.length; g++) {
+            var ratings = groups[g].ratings || []
+            for (var r = 0; r < ratings.length; r++) {
+                boardOf[String(ratings[r])] = String(groups[g].name)
+            }
+        }
+        var covered = {}
+        for (var i = 0; i < incoming.length; i++) {
+            // An unknown label counts as its own board, never as covered.
+            covered[boardOf[incoming[i]] || incoming[i]] = true
+        }
+        var out = []
+        for (var c = 0; c < current.length; c++) {
+            var label = String(current[c])
+            if (covered[boardOf[label] || label]) {
+                continue
+            }
+            out.push(label)
+        }
+        for (var k = 0; k < incoming.length; k++) {
+            if (out.indexOf(incoming[k]) < 0) {
+                out.push(incoming[k])
+            }
+        }
+        return out
+    }
+
     function openTagsPicker() {
         tagsPicker.catRows = gameSettings.tagPickerRows(onlineTagList)
         tagsPicker.newCategories = ""
@@ -717,16 +784,7 @@ Window {
     // Replace the row wholesale: mutating it in place leaves the
     // Repeater showing the old text (docs/QML-NOTES.md).
     function setPreviewTags(names) {
-        var list = []
-        var keys = []
-        for (var i = 0; i < names.length; i++) {
-            var name = String(names[i]).trim()
-            if (name === "" || keys.indexOf(name.toLowerCase()) >= 0) {
-                continue
-            }
-            keys.push(name.toLowerCase())
-            list.push(name)
-        }
+        var list = uniqueNames(names)
         var rows = metadataRows.slice()
         for (var j = 0; j < rows.length; j++) {
             if (rows[j].key !== "tags") {
@@ -2147,7 +2205,9 @@ Window {
     }
 
     // Apply fills empty fields only; a locked field is never written, and
-    // the switch only widens the write to unlocked rows.
+    // the switch only widens the write to unlocked rows. The two list
+    // fields merge by default (tags append, age ratings replace their
+    // board) and the switch replaces the whole list instead.
     function applyMetadataRows() {
         var targets = {
             "description": descriptionArea,
@@ -2161,7 +2221,8 @@ Window {
         var kept = 0
         for (var i = 0; i < metadataRows.length; i++) {
             var row = metadataRows[i]
-            if (row.locked || (row.current !== "" && !metadataReplaceBox.checked)) {
+            var isList = row.key === "tags" || row.key === "age_ratings"
+            if (row.locked || (!isList && row.current !== "" && !metadataReplaceBox.checked)) {
                 kept++
                 continue
             }
@@ -2171,10 +2232,11 @@ Window {
                 continue
             }
             if (row.key === "age_ratings") {
-                ageRatings = row.values.slice()
+                ageRatings = listRowResult("age_ratings", row.values)
             } else if (row.key === "tags") {
-                onlineTagList = row.values.slice()
-                onlineTags = onlineTagList.join(", ")
+                var merged = listRowResult("tags", row.values)
+                onlineTagList = merged
+                onlineTags = merged.join(", ")
             } else {
                 targets[row.key].text = row.next
             }
@@ -5387,6 +5449,14 @@ Window {
                             // widens the RowLayout (its text would starve the
                             // other columns).
                             Item {
+                                id: tagsNewCell
+                                // The list rows show what Apply writes, not the
+                                // provider answer: the merge depends on the
+                                // Replace switch and the current lists.
+                                readonly property var listResult:
+                                    (modelData.key === "tags" || modelData.key === "age_ratings")
+                                        ? gameSettings.listRowResult(modelData.key, modelData.values)
+                                        : []
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
                                 Layout.preferredWidth: 1
@@ -5400,10 +5470,17 @@ Window {
                                     elide: Text.ElideRight
                                     verticalAlignment: Text.AlignVCenter
                                     opacity: modelData.locked ? 0.7 : 1
-                                    text: modelData.locked ? qsTr("Locked") : modelData.next
+                                    text: {
+                                        if (modelData.locked) {
+                                            return qsTr("Locked")
+                                        }
+                                        return modelData.key === "age_ratings"
+                                            ? tagsNewCell.listResult.join(", ")
+                                            : modelData.next
+                                    }
                                     Controls.ToolTip.text: modelData.locked
                                         ? qsTr("Locked; Search Data Will Not Replace It")
-                                        : modelData.next
+                                        : text
                                     Controls.ToolTip.visible: hovered
                                 }
                                 // The Tags row accepts or declines each
@@ -5419,16 +5496,16 @@ Window {
                                     // so one here doubles it
                                     // (docs/QML-NOTES.md).
                                     text: modelData.locked ? qsTr("Locked")
-                                        : (modelData.values.length === 0 ? "—"
-                                            : (modelData.values.length === 1
-                                                ? modelData.values[0]
+                                        : (tagsNewCell.listResult.length === 0 ? "—"
+                                            : (tagsNewCell.listResult.length === 1
+                                                ? tagsNewCell.listResult[0]
                                                 : qsTr("%1 + %2 Tag(s)")
-                                                    .arg(modelData.values[0])
-                                                    .arg(modelData.values.length - 1)))
+                                                    .arg(tagsNewCell.listResult[0])
+                                                    .arg(tagsNewCell.listResult.length - 1)))
                                     Controls.ToolTip.text: modelData.locked
                                         ? qsTr("Locked; Search Data Will Not Replace It")
-                                        : (modelData.next !== ""
-                                            ? modelData.next
+                                        : (tagsNewCell.listResult.length > 0
+                                            ? tagsNewCell.listResult.join(", ")
                                             : qsTr("Choose the Tags to Apply"))
                                     Controls.ToolTip.visible: hovered
                                     onClicked: gameSettings.openPreviewTags()

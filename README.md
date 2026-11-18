@@ -243,7 +243,8 @@ leaves no query row, while a local game without one searches the Steam
 store by title. A stored VNDB or IGDB id fills the query, an id typed
 in place of a title goes straight to the provider, and a title lists
 candidates. The answer arrives as preview rows (Apply fills empty
-fields, a switch replaces typed ones, the locks win) and writes the
+fields, merges the tag list and the age ratings, a switch replaces typed
+values and whole lists, the locks win) and writes the
 dialog draft; Save persists it and fills any missing artwork with the
 chosen provider. Details shows the identities back as a
 "Matches:" line, and a newly added Steam game fills its own store entry
@@ -277,10 +278,13 @@ count beside each name follows the search, origin, issues, category and
 tag selection, so it previews what the next check would leave. A
 name that leaves the store is dropped from the selection. The selection
 menu sets the tag list of several games at once; clearing every tag from
-games that have one asks for confirmation. The fill-empty rule and the Replace
-switch still decide whether a download writes the provider list, so a
-game with tags keeps them unless Replace is on; a fully cleared list
-counts as empty, and its lock keeps a later download from refilling it.
+games that have one asks for confirmation. Apply appends the accepted
+provider tags to the game's list, its own names first; the Replace
+switch swaps the whole list for the accepted set, and a fully cleared
+list counts as empty. Age ratings merge by board: the provider replaces
+the value of each board it answers and leaves the others, while Replace
+swaps the whole set. A lock blocks either list write, and the preview's
+New column shows the merged result.
 Execution (launch settings first, then the runtime selector and tool,
 the Steam Linux Runtime of a local native game, prefix with its
 installed and pending

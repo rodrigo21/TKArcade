@@ -7641,6 +7641,132 @@ def test_metadata_preview_tags_all_declined_writes_nothing(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_metadata_preview_tags_merge_with_existing(qgui_app, xdg_env):
+    """Apply appends the accepted provider tags to the game's own list."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    cfg.metadata.tags = ["RPG"]
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit("local-doom", {"tags": ["Action", "RPG"]})
+    qgui_app.processEvents()
+    # The New cell previews the merged list, not the provider answer alone.
+    assert _visible_tags_button(awin).property("text") == "RPG + 1 Tag(s)"
+    _click(awin, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsTags").property("text") == "RPG, Action"
+    awin.close()
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.tags == ["RPG", "Action"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_preview_tags_replace_still_replaces(qgui_app, xdg_env):
+    """The Replace switch still swaps the whole list for the checked set."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    cfg.metadata.tags = ["RPG"]
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit("local-doom", {"tags": ["Action", "Indie"]})
+    qgui_app.processEvents()
+    awin.findChild(QQuickItem, "metadataPreviewReplace").setProperty("checked", True)
+    qgui_app.processEvents()
+    assert _visible_tags_button(awin).property("text") == "Action + 1 Tag(s)"
+    _click(awin, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsTags").property("text") == "Action, Indie"
+    awin.close()
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.tags == ["Action", "Indie"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_preview_ratings_merge_by_board(qgui_app, xdg_env):
+    """A provider rating replaces its own board and keeps the others."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    cfg.metadata.age_ratings = ["PEGI 18", "USK 16"]
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit("local-doom", {"age_ratings": ["PEGI 12"]})
+    qgui_app.processEvents()
+    texts = [
+        item.property("text")
+        for item in _visual_items(awin.property("contentItem"))
+        if isinstance(item.property("text"), str)
+    ]
+    assert "USK 16, PEGI 12" in texts
+    assert "PEGI 18, PEGI 12" not in texts
+    _click(awin, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsAgeRating").property("text") == "USK 16, PEGI 12"
+    awin.close()
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.age_ratings == ["USK 16", "PEGI 12"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_tags_picker_clears_and_unsaved_download_status(qgui_app, xdg_env):
     """The Tags picker unchecks by hand; an unsaved game says to save first."""
     from PySide6.QtCore import QMetaObject, QObject
