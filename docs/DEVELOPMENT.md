@@ -48,6 +48,16 @@ load-bearing: without it uv installs its own PySide6 into the venv,
 which shadows the distro one and makes Qt miss the system QML modules
 (`module "org.kde.kirigami" is not installed`).
 
+The venv is the build under test: the GUI's Play path runs its
+interpreter, so the maintainer tests this install, never a system one.
+The install is editable, so Python and QML always come from `src/`, but
+its recorded version (the About dialog, `tkarcade --version`) is the
+`git describe` string captured when the install was made. Refresh it
+with the install command above before a test round so the tree and the
+build agree, and again after every commit and merge so the version
+names the new commit. A refresh taken before the commit still carries
+the previous hash; the post-commit one carries the commit's.
+
 The suite must pass with and without `pytest-qt` installed: never
 monkeypatch Qt globals at fixture scope (patch inside the test body so
 teardown hooks see a healthy QApplication). GUI changes need an
