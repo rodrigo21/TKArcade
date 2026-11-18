@@ -87,7 +87,6 @@ Release, only when the maintainer opens the subject:
   before Apply.
 - [ ] **Tag picker search.** Add a filter field to the picker; needed
   once the global store grows.
-- [ ] **Tags column.** Optional library table column, hidden by default.
 - [ ] **Library import tag mapping.** Map Playnite/Lutris tags into
   `tags.toml` when the library import lands.
 - [ ] **Tag display polish.** Chips, autocomplete, manual order and

@@ -563,13 +563,13 @@ class GameListModel(QAbstractTableModel):
 
     def columnCount(self, parent: QModelIndex | None = None) -> int:
         # Fixed logical columns (proxy permutes/hides them for the view).
-        return 0 if (parent is not None and parent.isValid()) else 13
+        return 0 if (parent is not None and parent.isValid()) else 14
 
     def index(self, row: int, column: int, parent: QModelIndex | None = None):
         # Table models own their indexes (unlike proxy mapping, this is safe).
         if parent is not None and parent.isValid():
             return QModelIndex()
-        if 0 <= row < len(self._rows) and 0 <= column < 13:
+        if 0 <= row < len(self._rows) and 0 <= column < 14:
             return self.createIndex(row, column)
         return QModelIndex()
 
@@ -5647,6 +5647,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameInstallDir",
         "gameReleaseDate",
         "gameInstalledAt",
+        "gameTags",
     )
     COLUMN_TITLES = {
         "#": "#",
@@ -5662,12 +5663,13 @@ class GameFilterModel(QSortFilterProxyModel):
         "gameInstallDir": "Install Dir",
         "gameReleaseDate": "Release Date",
         "gameInstalledAt": "Installed",
+        "gameTags": "Tags",
     }
 
     #: Default view order: Release Date, Origin, Platform, Played, Last
     #: Played and Installed show after the game name; the rest hide.
-    _DEFAULT_ORDER = (0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10)
-    _DEFAULT_HIDDEN = frozenset({2, 4, 8, 9, 10})
+    _DEFAULT_ORDER = (0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10)
+    _DEFAULT_HIDDEN = frozenset({2, 4, 8, 9, 10, 13})
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -5687,25 +5689,18 @@ class GameFilterModel(QSortFilterProxyModel):
 
     @staticmethod
     def _load_columns() -> tuple[list[int], set[int]]:
-        """Column order + hidden set from prefs (garbage means defaults)."""
+        """Column order + hidden set from prefs (garbage means defaults).
+
+        A layout one version back gains the new columns and keeps the
+        user's order and widths; an older or invalid layout resets once
+        to the current defaults.
+        """
         prefs = cfgmod.load_preferences()
+        total = len(GameFilterModel.TABLE_COLUMNS)
         try:
             version = int(prefs.column_layout_version or 0)
         except (TypeError, ValueError):
             version = 0
-        if version < cfgmod.COLUMN_LAYOUT_VERSION:
-            # One-time reset to the current defaults; fitted widths
-            # survive because they stay keyed by logical column.
-            order = list(GameFilterModel._DEFAULT_ORDER)
-            hidden = set(GameFilterModel._DEFAULT_HIDDEN)
-            prefs.column_order = ",".join(map(str, order))
-            prefs.hidden_columns = ",".join(map(str, sorted(hidden)))
-            prefs.column_layout_version = cfgmod.COLUMN_LAYOUT_VERSION
-            try:
-                cfgmod.save_preferences(prefs)
-            except OSError:
-                pass
-            return order, hidden
         try:
             order = [int(x) for x in prefs.column_order.split(",")]
         except Exception:
@@ -5714,10 +5709,26 @@ class GameFilterModel(QSortFilterProxyModel):
             hidden = {int(x) for x in prefs.hidden_columns.split(",")}
         except Exception:
             hidden = set()
-        if sorted(order) != list(range(13)):
+        if version >= cfgmod.COLUMN_LAYOUT_VERSION and sorted(order) == list(range(total)):
+            return order, {h for h in hidden if 1 <= h < total}
+        if version == cfgmod.COLUMN_LAYOUT_VERSION - 1 and sorted(order) == list(range(total - 1)):
+            # One-time insert: the new column lands before ProtonDB, at
+            # the position defaults use, hidden. Fitted widths survive
+            # (keyed by logical).
+            order.insert(order.index(4), total - 1)
+            hidden = {h for h in hidden if 1 <= h < total - 1}
+            hidden.add(total - 1)
+        else:
             order = list(GameFilterModel._DEFAULT_ORDER)
             hidden = set(GameFilterModel._DEFAULT_HIDDEN)
-        return order, {h for h in hidden if 1 <= h <= 12}
+        prefs.column_order = ",".join(map(str, order))
+        prefs.hidden_columns = ",".join(map(str, sorted(hidden)))
+        prefs.column_layout_version = cfgmod.COLUMN_LAYOUT_VERSION
+        try:
+            cfgmod.save_preferences(prefs)
+        except OSError:
+            pass
+        return order, hidden
 
     def _view_columns(self) -> list[int]:
         """Logical columns in view order (hidden stay mapped, QML widths them 0)."""
@@ -5793,7 +5804,7 @@ class GameFilterModel(QSortFilterProxyModel):
             logical, width = int(logical), int(width)
         except (TypeError, ValueError):
             return
-        if not 1 <= logical <= 12 or not 20 <= width <= 2000:
+        if not 1 <= logical <= 13 or not 20 <= width <= 2000:
             return
         if self._widths.get(logical) != width:
             self._widths[logical] = width
@@ -5850,7 +5861,7 @@ class GameFilterModel(QSortFilterProxyModel):
             logical = int(logical)
         except (TypeError, ValueError):
             return 0
-        if not 0 <= logical <= 12:
+        if not 0 <= logical <= 13:
             return 0
         measured = self._measure_column(logical)
         if not measured:
@@ -5864,7 +5875,7 @@ class GameFilterModel(QSortFilterProxyModel):
     @Slot()
     def fitDefaults(self) -> None:
         """Fit visible content columns capped: fresh starts and resets."""
-        for logical in range(1, 13):
+        for logical in range(1, 14):
             measured = self._measure_column(logical)
             if measured:
                 self._widths[logical] = min(max(40, measured), self.DEFAULT_FIT_MAX)
@@ -5901,7 +5912,13 @@ class GameFilterModel(QSortFilterProxyModel):
                 10: GameListModel.InstallDirRole,
                 11: GameListModel.ReleaseDateRole,
                 12: GameListModel.InstalledAtRole,
+                13: GameListModel.TagsRole,
             }
+            if logical == 13:
+                # Tags display in their stored order, like the Details
+                # row; the delegate joins the same role for its text.
+                tags = model.data(sidx, GameListModel.TagsRole) or []
+                return ", ".join(str(tag) for tag in tags)
             return str(model.data(sidx, roles[logical]) or "")
         return super().data(index, role)
 
@@ -6067,6 +6084,7 @@ class GameFilterModel(QSortFilterProxyModel):
         "showInstallDir": 10,
         "showReleaseDate": 11,
         "showInstalled": 12,
+        "showTags": 13,
     }
 
     def _get_flag(self, name: str) -> bool:
@@ -6151,6 +6169,12 @@ class GameFilterModel(QSortFilterProxyModel):
     def _set_showInstalled(self, value: bool) -> None:
         self._set_flag("showInstalled", value)
 
+    def _get_showTags(self) -> bool:
+        return self._get_flag("showTags")
+
+    def _set_showTags(self, value: bool) -> None:
+        self._set_flag("showTags", value)
+
     showAppId = Property(bool, _get_showAppId, _set_showAppId, notify=columnsChanged)
     showPlayed = Property(bool, _get_showPlayed, _set_showPlayed, notify=columnsChanged)
     showTier = Property(bool, _get_showTier, _set_showTier, notify=columnsChanged)
@@ -6164,6 +6188,7 @@ class GameFilterModel(QSortFilterProxyModel):
         bool, _get_showReleaseDate, _set_showReleaseDate, notify=columnsChanged
     )
     showInstalled = Property(bool, _get_showInstalled, _set_showInstalled, notify=columnsChanged)
+    showTags = Property(bool, _get_showTags, _set_showTags, notify=columnsChanged)
 
     @Slot(int, result="QVariantMap")
     def rowData(self, row: int) -> dict:
@@ -6228,8 +6253,15 @@ class GameFilterModel(QSortFilterProxyModel):
         if model is None:
             return False
         role = self._sort_role_id
-        lang = str(model.data(left, role) or "")
-        rang = str(model.data(right, role) or "")
+        left_value = model.data(left, role)
+        right_value = model.data(right, role)
+        if role == GameListModel.TagsRole:
+            # Sort by the visible list, not by the repr of a Python list.
+            lang = ", ".join(str(tag) for tag in left_value or [])
+            rang = ", ".join(str(tag) for tag in right_value or [])
+        else:
+            lang = str(left_value or "")
+            rang = str(right_value or "")
         try:
             return float(lang) < float(rang)
         except (TypeError, ValueError):

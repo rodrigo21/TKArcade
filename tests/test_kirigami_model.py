@@ -944,14 +944,16 @@ def test_column_prefs_roundtrip(qgui_app, xdg_env):
     proxy = GameFilterModel()
     proxy.setSourceModel(source)
     assert proxy.columnLogical(0) == 0
+    default = [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10]
+    moved = [0, 1, 5, 11, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10]
     proxy.moveColumn(11, 1)
-    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 5, 11, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+    assert [proxy.columnLogical(c) for c in range(14)] == moved
     assert C.load_preferences().column_order.split(",")[:4] == ["0", "1", "5", "11"]
     proxy.showOrigin = False
     assert "5" in C.load_preferences().hidden_columns.split(",")
     proxy.resetColumns()
-    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
-    assert C.load_preferences().hidden_columns == "2,4,8,9,10"
+    assert [proxy.columnLogical(c) for c in range(14)] == default
+    assert C.load_preferences().hidden_columns == "2,4,8,9,10,13"
 
 
 def test_column_width_autofit_persists(qgui_app, xdg_env):
@@ -1653,7 +1655,7 @@ def test_library_columns_roles(qgui_app, xdg_env):
     cfg.runtime.type = "native"
     C.save(cfg)
     model = GameListModel()
-    assert model.columnCount() == 13
+    assert model.columnCount() == 14
     row = model.rowData(0)
     assert row["gamePlatform"] == "Linux"
     assert row["gameCategory"] == "Action"
@@ -1664,12 +1666,43 @@ def test_library_columns_roles(qgui_app, xdg_env):
     assert row["gameInstalledAt"][:2] == "20"
     game_filter = GameFilterModel()
     game_filter.setSourceModel(model)
-    assert game_filter.columnCount() == 13
-    assert game_filter._order == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
-    assert game_filter._hidden == {2, 4, 8, 9, 10}
+    assert game_filter.columnCount() == 14
+    assert game_filter._order == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10]
+    assert game_filter._hidden == {2, 4, 8, 9, 10, 13}
     assert game_filter.showLastPlayed is True
     assert game_filter.showReleaseDate is True
+    assert game_filter.showTags is False
     game_filter.sortBy("gameLastSecs", True)
+
+
+def test_tags_column_display_and_sort(qgui_app, xdg_env):
+    """Tags render joined in their stored order and sort by that text."""
+    for appid, name, tags in (
+        ("local-a", "Alpha", ["RPG", "Action"]),
+        ("local-b", "Beta", ["Puzzle"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = "/bin/true"
+        cfg.metadata.tags = tags
+        C.save(cfg)
+
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    proxy = GameFilterModel()
+    proxy.setSourceModel(GameListModel())
+    section = next(c for c in range(proxy.columnCount()) if proxy.columnLogical(c) == 13)
+    shown = {
+        proxy.data(proxy.index(row, 1)): proxy.data(proxy.index(row, section))
+        for row in range(proxy.rowCount())
+    }
+    assert shown == {"Alpha": "RPG, Action", "Beta": "Puzzle"}
+    proxy.sortBy("gameTags", False)
+    assert [proxy.data(proxy.index(row, 1)) for row in range(proxy.rowCount())] == [
+        "Beta",
+        "Alpha",
+    ]
 
 
 def test_release_date_manual_wins_over_steam_cache(qgui_app, xdg_env):
@@ -2875,13 +2908,13 @@ def _filtered(qgui_app, appids=("213", "local-doom")):
     return proxy
 
 
-def test_proxy_is_thirteen_column_table(qgui_app, xdg_env):
+def test_proxy_is_fourteen_column_table(qgui_app, xdg_env):
     from PySide6.QtCore import Qt
 
     proxy = _filtered(qgui_app)
-    assert proxy.columnCount() == 13
+    assert proxy.columnCount() == 14
     assert proxy.columnCount(proxy.index(0, 0)) == 0
-    assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(13)] == [
+    assert [proxy.headerData(c, Qt.Orientation.Horizontal) for c in range(14)] == [
         "#",
         "Game",
         "Release Date",
@@ -2892,6 +2925,7 @@ def test_proxy_is_thirteen_column_table(qgui_app, xdg_env):
         "Installed",
         "Runtime",
         "Wine",
+        "Tags",
         "ProtonDB",
         "Game ID",
         "Install Dir",
@@ -2899,7 +2933,7 @@ def test_proxy_is_thirteen_column_table(qgui_app, xdg_env):
     assert proxy.data(proxy.index(0, 0)) == "1"
     # Sorted by name: the local game ("Doom") comes before "steam-213".
     assert proxy.data(proxy.index(0, 1)) == "Doom"
-    assert proxy.data(proxy.index(1, 11)) == "steam-213"
+    assert proxy.data(proxy.index(1, 12)) == "steam-213"
     assert proxy.data(proxy.index(1, 3)) == "Steam"
     assert proxy.data(proxy.index(9, 0)) is None
     # custom roles stay row-based: delegates keep working per column
@@ -2911,23 +2945,23 @@ def test_proxy_is_thirteen_column_table(qgui_app, xdg_env):
 def test_proxy_move_hide_reset_columns(qgui_app, xdg_env):
     proxy = _filtered(qgui_app)
     proxy.moveColumn(11, 1)
-    assert proxy.columnCount() == 13
+    assert proxy.columnCount() == 14
     assert (
         proxy.headerData(2, __import__("PySide6.QtCore", fromlist=["x"]).Qt.Orientation.Horizontal)
         == "Origin"
     )
     assert C.load_preferences().column_order.split(",")[:4] == ["0", "1", "5", "11"]
     proxy.showOrigin = False
-    assert proxy.columnCount() == 13  # hidden columns keep mapped slots
+    assert proxy.columnCount() == 14  # hidden columns keep mapped slots
     assert "5" in C.load_preferences().hidden_columns.split(",")
     proxy.resetColumns()
-    assert proxy.columnCount() == 13
-    assert C.load_preferences().hidden_columns == "2,4,8,9,10"
+    assert proxy.columnCount() == 14
+    assert C.load_preferences().hidden_columns == "2,4,8,9,10,13"
     proxy.moveColumn(0, -1)  # edge: no-op, stays valid
-    assert proxy.columnCount() == 13
+    assert proxy.columnCount() == 14
 
 
-def test_proxy_columns_migrate_saved_layout_once(qgui_app, xdg_env):
+def test_proxy_columns_reset_pre_defaults_layout_once(qgui_app, xdg_env):
     prefs = C.load_preferences()
     prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11,12"
     prefs.hidden_columns = "2,9"
@@ -2936,20 +2970,41 @@ def test_proxy_columns_migrate_saved_layout_once(qgui_app, xdg_env):
 
     proxy = GameFilterModel()
     proxy.setSourceModel(GameListModel())
-    assert proxy._order == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
-    assert proxy._hidden == {2, 4, 8, 9, 10}
+    assert proxy._order == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10]
+    assert proxy._hidden == {2, 4, 8, 9, 10, 13}
     prefs = C.load_preferences()
     assert prefs.column_layout_version == C.COLUMN_LAYOUT_VERSION
-    assert prefs.column_order == "0,1,11,5,7,3,6,12,8,9,4,2,10"
-    assert prefs.hidden_columns == "2,4,8,9,10"
+    assert prefs.column_order == "0,1,11,5,7,3,6,12,8,9,13,4,2,10"
+    assert prefs.hidden_columns == "2,4,8,9,10,13"
     # Once versioned, a custom layout survives the next load.
-    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11,12"
+    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11,12,13"
     prefs.hidden_columns = ""
     C.save_preferences(prefs)
     again = GameFilterModel()
     again.setSourceModel(GameListModel())
-    assert again._order == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    assert again._order == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
     assert again._hidden == set()
+
+
+def test_proxy_columns_append_new_column_once(qgui_app, xdg_env):
+    """A layout one version back keeps order/widths; Tags lands before ProtonDB."""
+    prefs = C.load_preferences()
+    prefs.column_order = "1,0,5,6,3,12,2,10,11,7,8,9,4"
+    prefs.hidden_columns = "9"
+    prefs.column_widths = "1=210,6=130"
+    prefs.column_layout_version = C.COLUMN_LAYOUT_VERSION - 1
+    C.save_preferences(prefs)
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    proxy = GameFilterModel()
+    proxy.setSourceModel(GameListModel())
+    assert proxy._order == [1, 0, 5, 6, 3, 12, 2, 10, 11, 7, 8, 9, 13, 4]
+    assert proxy._hidden == {9, 13}
+    assert proxy.columnWidth(1) == 210 and proxy.columnWidth(6) == 130
+    prefs = C.load_preferences()
+    assert prefs.column_layout_version == C.COLUMN_LAYOUT_VERSION
+    assert prefs.column_order == "1,0,5,6,3,12,2,10,11,7,8,9,13,4"
+    assert prefs.hidden_columns == "9,13"
 
 
 def test_refresh_counts_only_steam_detected(qgui_app, xdg_env):

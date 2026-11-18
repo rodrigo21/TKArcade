@@ -45,6 +45,8 @@ DialogWindow {
             return "showReleaseDate"
         } else if (logical === 12) {
             return "showInstalled"
+        } else if (logical === 13) {
+            return "showTags"
         }
         return "showOrigin"
     }

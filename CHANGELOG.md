@@ -35,6 +35,11 @@ Breaking config changes are called out explicitly under `Changed`.
   replaces the tag list of every selected game (partial rows included),
   and clearing every tag from games that have some asks for
   confirmation first.
+- The library table gains an optional **Tags** column, hidden by
+  default, placed before ProtonDB: it lists each game's tags in their
+  stored order, comma separated, and sorts by that text. A layout saved
+  by an earlier version keeps its column order and widths; the new
+  column lands before ProtonDB.
 - Artwork import takes any image format the Qt plugins read: AVIF,
   JPEG XL, HEIF, TIFF, SVG, PSD, ICO and the rest, not just PNG/JPEG/
   WebP. A pasted URL, a picked file or a provider download is decoded

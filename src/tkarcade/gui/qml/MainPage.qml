@@ -941,6 +941,9 @@ Kirigami.Page {
         if (logical === 12) {
             return gameFilter.showInstalled
         }
+        if (logical === 13) {
+            return gameFilter.showTags
+        }
         return true
     }
 
@@ -980,6 +983,9 @@ Kirigami.Page {
         }
         if (logical === 12) {
             return "gameInstalledAt"
+        }
+        if (logical === 13) {
+            return "gameTags"
         }
         return ""
     }
@@ -1039,10 +1045,13 @@ Kirigami.Page {
         if (logical === 12) {
             return qsTr("Installed")
         }
+        if (logical === 13) {
+            return qsTr("Tags")
+        }
         return ""
     }
 
-    property var columnOrder: [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10] // JS mirror of the proxy
+    property var columnOrder: [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10] // JS mirror of the proxy
     // order (fresh JS array from JSON: QVariantList lays out at zero
     // width). Refreshed on start and on every columnsChanged.
     property var fittedColumnWidths: ({}) // logical -> px, same mirror rule
@@ -1146,6 +1155,7 @@ Kirigami.Page {
         gameFilter.showInstallDir = false
         gameFilter.showReleaseDate = true
         gameFilter.showInstalled = true
+        gameFilter.showTags = false
     }
 
     function defaultColumnWidth(logical) {
@@ -1164,6 +1174,9 @@ Kirigami.Page {
         }
         if (logical === 11) {
             return 100
+        }
+        if (logical === 13) {
+            return 140
         }
         return 80
     }
@@ -1200,7 +1213,7 @@ Kirigami.Page {
             return
         }
         var base = 0
-        for (var l of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+        for (var l of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]) {
             base += baseColumnWidth(l)
         }
         var gameFit = gameFilter.columnWidth(1)
@@ -1208,7 +1221,7 @@ Kirigami.Page {
         var avail = gameTable.width - 36 - gameMin
         columnShrink = (base <= 0 || avail >= base) ? 1.0 : Math.max(0.15, avail / base)
         var fixed = 36
-        for (var l2 of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+        for (var l2 of [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]) {
             // Hidden columns take no space (the 24px floor is for
             // visible narrow columns only).
             if (columnVisible(l2)) {
@@ -2342,7 +2355,7 @@ Kirigami.Page {
                 // Dir)
                 Controls.Label {
                     objectName: "cellText" + logical
-                    visible: [2, 5, 6, 7, 8, 9, 10, 11, 12].indexOf(logical) >= 0
+                    visible: [2, 5, 6, 7, 8, 9, 10, 11, 12, 13].indexOf(logical) >= 0
                     anchors.fill: parent
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: Kirigami.Units.smallSpacing
@@ -2374,6 +2387,9 @@ Kirigami.Page {
                         if (logical === 12) {
                             return model?.gameInstalledAt ?? ""
                         }
+                        if (logical === 13) {
+                            return (model?.gameTags ?? []).join(", ")
+                        }
                         return ""
                     }
                     color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
@@ -2387,7 +2403,7 @@ Kirigami.Page {
                     }
                     // Truncated paths/tags: show the whole value.
                     Controls.ToolTip.visible: textColumnHover.hovered
-                        && logical === 10 && text !== ""
+                        && (logical === 10 || logical === 13) && text !== ""
                     Controls.ToolTip.text: text
                 }
                 // played (with session tooltip)
@@ -2565,6 +2581,12 @@ Kirigami.Page {
             checkable: true
             checked: gameFilter.showInstalled
             onTriggered: gameFilter.showInstalled = checked
+        }
+        Controls.MenuItem {
+            text: qsTr("Show Tags")
+            checkable: true
+            checked: gameFilter.showTags
+            onTriggered: gameFilter.showTags = checked
         }
         Controls.MenuSeparator {
         }

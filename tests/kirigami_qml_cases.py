@@ -854,6 +854,7 @@ def _column_widths(proxy, table, page=None):
         10: 80.0,
         11: 80.0,
         12: 80.0,
+        13: 140.0,
     }
     try:
         live = {lg: float(proxy.columnWidth(lg) or 0) for lg in defaults}
@@ -896,6 +897,7 @@ def _shown_flags(proxy):
         (10, "showInstallDir"),
         (11, "showReleaseDate"),
         (12, "showInstalled"),
+        (13, "showTags"),
     ):
         try:
             shown[logical] = bool(proxy.property(flag))
@@ -913,7 +915,7 @@ def _column_cell_x(host, page, proxy, logical):
         raw = page.property("columnOrder")
         order = list(raw.toVariant()) if hasattr(raw, "toVariant") else list(raw)
     except Exception:
-        order = [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+        order = [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10]
     table = None
     try:
         win = host.window()
@@ -4242,7 +4244,9 @@ def test_column_move_reorders_cells(qgui_app, xdg_env):
     C.save(cfg)
     win, _engine, proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
-    assert page.property("columnOrder").toVariant() == [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+    default = [0, 1, 11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10]
+    moved = [0, 1, 11, 5, 7, 6, 3, 12, 8, 9, 13, 4, 2, 10]
+    assert page.property("columnOrder").toVariant() == default
     header = win.findChild(QQuickItem, "tableHeader")
 
     def xs():
@@ -4254,7 +4258,7 @@ def test_column_move_reorders_cells(qgui_app, xdg_env):
     qgui_app.processEvents()
     played_x, last_x = xs()
     assert last_x < played_x
-    assert page.property("columnOrder").toVariant() == [0, 1, 11, 5, 7, 6, 3, 12, 8, 9, 4, 2, 10]
+    assert page.property("columnOrder").toVariant() == moved
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -4273,12 +4277,27 @@ def test_column_layout_persists(qgui_app, xdg_env):
     win, engine, proxy, warnings = _load_main(qgui_app)
     assert proxy.columnLogical(0) == 0
     proxy.moveColumn(11, 1)
-    assert [proxy.columnLogical(c) for c in range(13)] == [0, 1, 5, 11, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+    assert [proxy.columnLogical(c) for c in range(14)] == [
+        0,
+        1,
+        5,
+        11,
+        7,
+        3,
+        6,
+        12,
+        8,
+        9,
+        13,
+        4,
+        2,
+        10,
+    ]
     proxy.setProperty("showOrigin", False)
     qgui_app.processEvents()
     prefs = C.load_preferences()
-    assert prefs.column_order == "0,1,5,11,7,3,6,12,8,9,4,2,10"
-    assert prefs.hidden_columns == "2,4,5,8,9,10"
+    assert prefs.column_order == "0,1,5,11,7,3,6,12,8,9,13,4,2,10"
+    assert prefs.hidden_columns == "2,4,5,8,9,10,13"
     assert prefs.column_layout_version == C.COLUMN_LAYOUT_VERSION
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
@@ -4703,13 +4722,13 @@ def test_columns_dialog_toggles_and_header_menu_opens(qgui_app, xdg_env):
     assert dialog.property("visible") is True
     listed = dialog.property("listedLogicals")
     listed = listed.toVariant() if hasattr(listed, "toVariant") else listed
-    assert list(listed) == [11, 5, 7, 3, 6, 12, 8, 9, 4, 2, 10]
+    assert list(listed) == [11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 2, 10]
     page = win.findChild(QObject, "gamesPage")
     page.moveColumn(2, 1)
     qgui_app.processEvents()
     listed = dialog.property("listedLogicals")
     listed = listed.toVariant() if hasattr(listed, "toVariant") else listed
-    assert list(listed) == [11, 5, 7, 3, 6, 12, 8, 9, 4, 10, 2]
+    assert list(listed) == [11, 5, 7, 3, 6, 12, 8, 9, 13, 4, 10, 2]
     # Dialog content is lazy offscreen: exercise the same flags directly.
     proxy.setProperty("showAppId", False)
     qgui_app.processEvents()
@@ -4777,7 +4796,7 @@ def test_header_width_matches_table_for_unfitted_columns(qgui_app, xdg_env):
     C.save(cfg)
 
     prefs = C.load_preferences()
-    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11,12"
+    prefs.column_order = "0,1,2,3,4,5,6,7,8,9,10,11,12,13"
     prefs.hidden_columns = ""
     prefs.column_widths = "1=200"  # only the game column fitted
     prefs.column_layout_version = C.COLUMN_LAYOUT_VERSION
@@ -4794,7 +4813,7 @@ def test_header_width_matches_table_for_unfitted_columns(qgui_app, xdg_env):
     for _ in range(5):
         qgui_app.processEvents()
     cells = {c.objectName(): c for c in row.childItems() if isinstance(c, QQuickItem)}
-    for logical in range(13):
+    for logical in range(14):
         cell = cells.get(f"headerCell{logical}")
         assert cell is not None, logical
         assert cell.property("width") == page.tableColumnWidth(logical), logical
@@ -8917,6 +8936,7 @@ def test_library_columns_headers(qgui_app, xdg_env):
     assert page.columnTitle(6) == "Last Played"
     assert page.columnTitle(11) == "Release Date"
     assert page.columnTitle(12) == "Installed"
+    assert page.columnTitle(13) == "Tags"
     assert page.columnVisible(3) is True
     assert page.columnVisible(5) is True
     assert page.columnVisible(6) is True
@@ -8924,11 +8944,47 @@ def test_library_columns_headers(qgui_app, xdg_env):
     assert page.columnVisible(10) is False
     assert page.columnVisible(11) is True
     assert page.columnVisible(12) is True
+    assert page.columnVisible(13) is False
     assert page.columnSortRole(6) == "gameLastSecs"
     assert page.columnSortRole(11) == "gameReleaseDate"
     assert page.columnSortRole(12) == "gameInstalledAt"
+    assert page.columnSortRole(13) == "gameTags"
     page.headerClicked(6)
     qgui_app.processEvents()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tags_column_renders_joined_list(qgui_app, xdg_env):
+    """The optional Tags column shows the stored list, comma separated."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.metadata.tags = ["Action", "RPG"]
+    C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    table = win.findChild(QQuickItem, "gameTable")
+    page = win.findChild(QObject, "gamesPage")
+    assert page.columnVisible(13) is False
+    assert page.tableColumnWidth(13) == 0
+    proxy.setProperty("showTags", True)
+    for _ in range(5):
+        qgui_app.processEvents()
+    assert page.tableColumnWidth(13) > 0
+    delegate = _table_delegate(table, proxy, 0, 13)
+    assert delegate is not None
+    label = delegate.findChild(QQuickItem, "cellText13")
+    assert label is not None
+    assert label.property("text") == "Action, RPG"
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

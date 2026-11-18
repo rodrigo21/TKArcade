@@ -214,8 +214,11 @@ icon lists recent games for quick launch through Steam.
 
 The default table layout shows Release Date, Origin, Platform, Played,
 Last Played and Installed after the game name; Runtime, Wine, ProtonDB,
-Game ID and Install Dir start hidden (header menu or Configure
-Columns). Release Date shows the manual `[metadata] date` first and
+Game ID, Install Dir and Tags start hidden (header menu or Configure
+Columns). A saved layout gains Tags before ProtonDB on the first
+start, keeping its order and widths; Tags lists the game's tags in
+their stored order, comma separated, and sorts by that text. Release
+Date shows the manual `[metadata] date` first and
 otherwise the Steam store release date, cached for 30 days; Installed
 uses the `[general] installed_at` stamp written on the first save, or
 the game's `.toml` birth time for older configs. Session History shows

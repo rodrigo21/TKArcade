@@ -475,9 +475,10 @@ class AudioConfig:
     sink: str = ""  # output sink for the session ("" = system default)
 
 
-#: Bumped when the default library column layout changes: saved layouts
-#: below it reset once to the current defaults (order + visibility).
-COLUMN_LAYOUT_VERSION = 1
+#: Bumped when the default library column layout changes. A saved layout
+#: one version back gains the new columns (order and widths kept); an
+#: older or invalid one resets once to the current defaults.
+COLUMN_LAYOUT_VERSION = 2
 
 
 @dataclass
@@ -1665,11 +1666,11 @@ def _clean_int_list(text: str) -> str:
     return ",".join(p for p in (x.strip() for x in text.split(",")) if p.isdecimal())
 
 
-#: The upper bound must match the table width the model writes (13
+#: The upper bound must match the table width the model writes (14
 #: columns): a smaller one silently dropped every width for the library
 #: columns past 'Source' on the next load.
 def parse_width_map(text: object) -> dict[int, int]:
-    """Parsed 'logical=px' pairs (logical 0-12, px 20-2000)."""
+    """Parsed 'logical=px' pairs (logical 0-13, px 20-2000)."""
     out: dict[int, int] = {}
     for part in (x.strip() for x in str(text or "").split(",")):
         if "=" not in part:
@@ -1677,13 +1678,13 @@ def parse_width_map(text: object) -> dict[int, int]:
         left, _, right = part.partition("=")
         if left.strip().isdecimal() and right.strip().isdecimal():
             logical, width = int(left.strip()), int(right.strip())
-            if 0 <= logical <= 12 and 20 <= width <= 2000:
+            if 0 <= logical <= 13 and 20 <= width <= 2000:
                 out[logical] = width
     return out
 
 
 def _clean_width_map(text: str) -> str:
-    """Normalize 'logical=px' pairs (logical 0-12, px 20-2000)."""
+    """Normalize 'logical=px' pairs (logical 0-13, px 20-2000)."""
     return ",".join(f"{logical}={width}" for logical, width in parse_width_map(text).items())
 
 
