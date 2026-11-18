@@ -174,6 +174,7 @@ Kirigami.Page {
     property var viewSizes: ({icons: 96})
     property int iconSize: viewSizes["icons"] || 96
     property var selectedIds: []
+    property var bulkTagClearIds: []
     property string anchorId: ""
     // Set by a user-cleared selection: background refreshes must not
     // re-select the first row behind the user's back.
@@ -638,6 +639,28 @@ Kirigami.Page {
         bulkCatsDialog.catRows = rows
         bulkCatsDialog.newCategories = ""
         gamesPage.openDialog(bulkCatsDialog)
+    }
+
+    function openBulkTags() {
+        if (selectedIds.length === 0) {
+            gamesPage.notify(qsTr("Select Games First."))
+            return
+        }
+        var tags = gameModel.allTags()
+        var counts = gameModel.tagPresence(selectedIds)
+        var rows = []
+        for (var i = 0; i < tags.length; i++) {
+            var count = counts[tags[i]] || 0
+            rows.push({
+                "name": tags[i],
+                "state": count === selectedIds.length ? 2 : (count > 0 ? 1 : 0)
+            })
+        }
+        bulkTagsDialog.hint = qsTr("Check the Tags to Apply. New Ones Go in the Field Below. Applies to %1 Game(s).").arg(
+            selectedIds.length)
+        bulkTagsDialog.catRows = rows
+        bulkTagsDialog.newCategories = ""
+        gamesPage.openDialog(bulkTagsDialog)
     }
 
     function acceptClone() {
@@ -1829,6 +1852,10 @@ Kirigami.Page {
             text: qsTr("Set Categories…")
             onTriggered: gamesPage.openBulkCats()
         }
+        Controls.MenuItem {
+            text: qsTr("Set Tags…")
+            onTriggered: gamesPage.openBulkTags()
+        }
     }
 
     // Flush rounded frame around the table (TKS look): no margins, so
@@ -2992,6 +3019,49 @@ Kirigami.Page {
         title: qsTr("Set Categories")
         onPicked: function(names) {
             gamesPage.notify(gameModel.setCategories(gamesPage.selectedIds, names.join(",")))
+        }
+    }
+
+    CategoryPicker {
+        id: bulkTagsDialog
+        objectName: "bulkTagsDialog"
+        title: qsTr("Set Tags")
+        searchable: true
+        filterPlaceholder: qsTr("Filter Tags")
+        filterObjectName: "bulkTagFilter"
+        rowPrefix: "bulkTagPick_"
+        addObjectName: "bulkTagAdd"
+        onPicked: function(names) {
+            if (names.length === 0) {
+                var counts = gameModel.tagPresence(gamesPage.selectedIds)
+                var used = false
+                for (var key in counts) {
+                    if (counts[key] > 0) {
+                        used = true
+                        break
+                    }
+                }
+                if (used) {
+                    gamesPage.bulkTagClearIds = gamesPage.selectedIds
+                    bulkTagClearConfirm.open(Controls.ApplicationWindow.window)
+                    return
+                }
+            }
+            gamesPage.notify(gameModel.setTags(gamesPage.selectedIds, names))
+        }
+    }
+
+    ConfirmDialog {
+        id: bulkTagClearConfirm
+        objectName: "bulkTagClearConfirm"
+        title: qsTr("Remove Tags")
+        question: qsTr("Remove Every Tag from %1 Game(s)?").arg(
+            gamesPage.bulkTagClearIds.length)
+        acceptText: qsTr("Remove")
+        onAccepted: {
+            gamesPage.notify(gameModel.setTags(gamesPage.bulkTagClearIds, []))
+            gamesPage.bulkTagClearIds = []
+            bulkTagClearConfirm.close()
         }
     }
 

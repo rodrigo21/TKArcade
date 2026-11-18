@@ -7795,6 +7795,68 @@ def test_tag_filter_popup_searches(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_bulk_set_tags_and_clear_guard(qgui_app, xdg_env):
+    """Set Tags replaces the selection's lists; clearing all asks first."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid, tags in (
+        ("local-a", ["Co-op", "Indie"]),
+        ("local-b", ["Co-op"]),
+        ("local-c", ["RPG"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.metadata.tags = tags
+        C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.setProperty("selectedIds", ["local-a", "local-b"])
+    page.openBulkTags()
+    QTest.qWait(120)
+    picker = win.findChild(QObject, "bulkTagsDialog")
+    assert picker.property("visible") is True
+    assert picker.property("catRows").toVariant() == [
+        {"name": "Co-op", "state": 2},
+        {"name": "Indie", "state": 1},
+        {"name": "RPG", "state": 0},
+    ]
+    _click(picker, "dialogOk")
+    QTest.qWait(120)
+    assert C.load("local-a").metadata.tags == ["Co-op", "Indie"]
+    assert C.load("local-b").metadata.tags == ["Co-op", "Indie"]
+    assert C.load("local-c").metadata.tags == ["RPG"]
+
+    page.setProperty("selectedIds", ["local-a", "local-b"])
+    page.openBulkTags()
+    QTest.qWait(120)
+    boxes = {
+        item.objectName(): item
+        for item in _visual_items(picker.property("contentItem"))
+        if item.objectName().startswith("bulkTagPick_")
+    }
+    _click_item(boxes["bulkTagPick_Co-op"])
+    _click_item(boxes["bulkTagPick_Indie"])
+    _click(picker, "dialogOk")
+    QTest.qWait(120)
+    confirm = _confirm_window(qgui_app, "bulkTagClearConfirm")
+    _click(confirm, "confirmOk")
+    QTest.qWait(120)
+    assert C.load("local-a").metadata.tags == []
+    assert C.load("local-b").metadata.tags == []
+    assert C.load("local-c").metadata.tags == ["RPG"]
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_tag_manager_renames_prunes_and_deletes(qgui_app, xdg_env):
     """The filter popup opens the manager; every action reaches the games."""
     from PySide6.QtCore import QObject

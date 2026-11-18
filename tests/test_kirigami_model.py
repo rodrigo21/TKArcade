@@ -399,6 +399,43 @@ def test_tags_store_and_filter(qgui_app, xdg_env):
     assert proxy.tagKeys == ["RPG"]
 
 
+def test_bulk_tags_set_and_presence(qgui_app, xdg_env):
+    """Bulk Set replaces the list and reports how many games carry a tag."""
+    from tkarcade.gui.model import GameListModel
+
+    for appid, tags in (
+        ("local-a", ["Co-op", "Indie"]),
+        ("local-b", ["Co-op"]),
+        ("local-c", ["RPG"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.metadata.tags = tags
+        C.save(cfg)
+
+    source = GameListModel()
+    assert source.tagPresence(["local-a", "local-b"]) == {
+        "Co-op": 2,
+        "Indie": 1,
+        "RPG": 0,
+    }
+    assert source.setTags(["local-a", "local-b"], ["Co-op", "New"]) == (
+        "Set 2 Tag(s) on 2 Game(s)."
+    )
+    assert C.load("local-a").metadata.tags == ["Co-op", "New"]
+    assert C.load("local-b").metadata.tags == ["Co-op", "New"]
+    assert C.load("local-c").metadata.tags == ["RPG"]
+    assert "New" in source.allTags()
+
+    assert source.setTags([], ["New"]) == "Select Games First."
+    assert source.setTags(["local-a", "local-b"], []) == "Set 0 Tag(s) on 2 Game(s)."
+    assert C.load("local-a").metadata.tags == []
+    assert C.load("local-b").metadata.tags == []
+    assert C.load("local-c").metadata.tags == ["RPG"]
+
+
 def test_tag_manager_rename_merge_delete_and_prune(qgui_app, xdg_env):
     """The manager rewrites every game, merges names, deletes and prunes."""
     from tkarcade.gui.model import GameListModel

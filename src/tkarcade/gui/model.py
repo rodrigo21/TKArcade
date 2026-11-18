@@ -1838,6 +1838,45 @@ class GameListModel(QAbstractTableModel):
         self.refresh()
         return f"Set {len(cats)} Categor(ies) on {count} Game(s)."
 
+    @Slot(list, list, result=str)
+    def setTags(self, appids, names) -> str:
+        """Bulk-replace the tag list of every given game."""
+        ids = [str(a) for a in appids or []]
+        if not ids:
+            return "Select Games First."
+        tags = cfgmod.normalize_categories(list(names or []))
+        count = 0
+        for appid in ids:
+            try:
+                cfg = cfgmod.load(appid)
+                cfg.metadata.tags = list(tags)
+                cfgmod.save(cfg)
+                count += 1
+            except Exception as e:
+                log.warning("setTags(%s) failed: %s", appid, e)
+        self.refresh()
+        return f"Set {len(tags)} Tag(s) on {count} Game(s)."
+
+    @Slot(list, result="QVariantMap")
+    def tagPresence(self, appids) -> dict:
+        """How many of `appids` carry each tag in use, by label."""
+        ids = [str(a) for a in appids or []]
+        canonical = {name.lower(): name for name in self.allTags()}
+        counts: dict[str, int] = {name: 0 for name in canonical.values()}
+        for appid in ids:
+            try:
+                tags = cfgmod.load(appid).metadata.tags
+            except Exception:
+                continue
+            seen: set[str] = set()
+            for tag in tags:
+                key = tag.lower()
+                label = canonical.get(key)
+                if label and key not in seen:
+                    seen.add(key)
+                    counts[label] += 1
+        return counts
+
     @Slot(list, result="QVariantMap")
     def categoryPresence(self, appids) -> dict:
         """How many of `appids` carry each category in use, by label."""

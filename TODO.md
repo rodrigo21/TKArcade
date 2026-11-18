@@ -87,8 +87,6 @@ Release, only when the maintainer opens the subject:
   before Apply.
 - [ ] **Tag picker search.** Add a filter field to the picker; needed
   once the global store grows.
-- [ ] **Bulk tags.** Add, set or remove tags on the selected games, like
-  Set Categories.
 - [ ] **Tags column.** Optional library table column, hidden by default.
 - [ ] **Library import tag mapping.** Map Playnite/Lutris tags into
   `tags.toml` when the library import lands.
