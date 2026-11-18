@@ -700,6 +700,51 @@ Window {
         tagsPicker.open(gameSettings)
     }
 
+    // The preview's Tags row opens the same checkable list, seeded with
+    // the provider names: Apply writes only the checked subset.
+    function openPreviewTags() {
+        var rows = metadataRows
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].key === "tags") {
+                metadataTagsPicker.catRows = gameSettings.tagPickerRows(rows[i].values)
+                metadataTagsPicker.newCategories = ""
+                metadataTagsPicker.open(gameSettings)
+                return
+            }
+        }
+    }
+
+    // Replace the row wholesale: mutating it in place leaves the
+    // Repeater showing the old text (docs/QML-NOTES.md).
+    function setPreviewTags(names) {
+        var list = []
+        var keys = []
+        for (var i = 0; i < names.length; i++) {
+            var name = String(names[i]).trim()
+            if (name === "" || keys.indexOf(name.toLowerCase()) >= 0) {
+                continue
+            }
+            keys.push(name.toLowerCase())
+            list.push(name)
+        }
+        var rows = metadataRows.slice()
+        for (var j = 0; j < rows.length; j++) {
+            if (rows[j].key !== "tags") {
+                continue
+            }
+            rows[j] = {
+                "key": "tags",
+                "field": rows[j].field,
+                "current": rows[j].current,
+                "next": list.join(", "),
+                "values": list,
+                "locked": rows[j].locked
+            }
+            break
+        }
+        metadataRows = rows
+    }
+
     // The manager renamed or deleted names behind the open picker: keep
     // the checks in progress and rebuild from the current store.
     function tagPickerChecks() {
@@ -2117,6 +2162,11 @@ Window {
         for (var i = 0; i < metadataRows.length; i++) {
             var row = metadataRows[i]
             if (row.locked || (row.current !== "" && !metadataReplaceBox.checked)) {
+                kept++
+                continue
+            }
+            if (row.key === "tags" && row.values.length === 0) {
+                // Every provider tag was declined: write nothing.
                 kept++
                 continue
             }
@@ -5101,6 +5151,29 @@ Window {
         onChanged: if (tagsPicker.visible) gameSettings.reloadTagsPicker()
     }
 
+    // Search Data preview: the provider tags are accepted or declined per
+    // name before Apply. The Details picker above owns the game's own
+    // list, so this one is a separate instance with its own row names.
+    CategoryPicker {
+        id: metadataTagsPicker
+        objectName: "settingsMetadataTagsPicker"
+        title: qsTr("Tags")
+        fitContent: true
+        minimumWidth: Kirigami.Units.gridUnit * 26
+        height: Kirigami.Units.gridUnit * 26
+        columns: 2
+        listHeight: Kirigami.Units.gridUnit * 20
+        newPlaceholder: qsTr("New Tags (Comma Separated)")
+        rowPrefix: "metadataTagPick_"
+        addObjectName: "metadataTagAdd"
+        searchable: true
+        filterPlaceholder: qsTr("Filter Tags")
+        filterObjectName: "metadataTagFilter"
+        onPicked: function(names) {
+            gameSettings.setPreviewTags(names)
+        }
+    }
+
     AgeRatingPicker {
         id: agePicker
         objectName: "settingsAgeRatingPicker"
@@ -5309,17 +5382,57 @@ Window {
                                 Controls.ToolTip.text: modelData.current
                                 Controls.ToolTip.visible: hovered && modelData.current !== ""
                             }
-                            Controls.Label {
+                            // One cell for the New column: the Label and the
+                            // Tags button share it, so the hidden one never
+                            // widens the RowLayout (its text would starve the
+                            // other columns).
+                            Item {
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 0
                                 Layout.preferredWidth: 1
-                                elide: Text.ElideRight
-                                opacity: modelData.locked ? 0.7 : 1
-                                text: modelData.locked ? qsTr("Locked") : modelData.next
-                                Controls.ToolTip.text: modelData.locked
-                                    ? qsTr("Locked; Search Data Will Not Replace It")
-                                    : modelData.next
-                                Controls.ToolTip.visible: hovered
+                                implicitHeight: modelData.key === "tags"
+                                    ? tagsPickButton.implicitHeight
+                                    : newValueLabel.implicitHeight
+                                Controls.Label {
+                                    id: newValueLabel
+                                    anchors.fill: parent
+                                    visible: modelData.key !== "tags"
+                                    elide: Text.ElideRight
+                                    verticalAlignment: Text.AlignVCenter
+                                    opacity: modelData.locked ? 0.7 : 1
+                                    text: modelData.locked ? qsTr("Locked") : modelData.next
+                                    Controls.ToolTip.text: modelData.locked
+                                        ? qsTr("Locked; Search Data Will Not Replace It")
+                                        : modelData.next
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                // The Tags row accepts or declines each
+                                // provider name before Apply (its own picker).
+                                Controls.Button {
+                                    id: tagsPickButton
+                                    objectName: "metadataTagsPick"
+                                    anchors.fill: parent
+                                    visible: modelData.key === "tags"
+                                    enabled: !modelData.locked
+                                    // No custom content item: the Plasma
+                                    // style paints the button text itself,
+                                    // so one here doubles it
+                                    // (docs/QML-NOTES.md).
+                                    text: modelData.locked ? qsTr("Locked")
+                                        : (modelData.values.length === 0 ? "—"
+                                            : (modelData.values.length === 1
+                                                ? modelData.values[0]
+                                                : qsTr("%1 + %2 Tag(s)")
+                                                    .arg(modelData.values[0])
+                                                    .arg(modelData.values.length - 1)))
+                                    Controls.ToolTip.text: modelData.locked
+                                        ? qsTr("Locked; Search Data Will Not Replace It")
+                                        : (modelData.next !== ""
+                                            ? modelData.next
+                                            : qsTr("Choose the Tags to Apply"))
+                                    Controls.ToolTip.visible: hovered
+                                    onClicked: gameSettings.openPreviewTags()
+                                }
                             }
                         }
                     }

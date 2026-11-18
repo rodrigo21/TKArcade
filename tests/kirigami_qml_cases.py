@@ -4753,6 +4753,18 @@ def test_selected_row_uses_highlight_text_color():
     assert "isSelected ? Kirigami.Theme.highlightColor" in text
 
 
+def test_preview_tags_button_has_no_custom_content_item():
+    """The Plasma style paints the button text; a contentItem doubles it."""
+    import pathlib
+
+    from tkarcade.gui import kirigami_app as kapp
+
+    text = (pathlib.Path(kapp.__file__).parent / "qml" / "GameSettings.qml").read_text()
+    start = text.index('objectName: "metadataTagsPick"')
+    block = text[start : text.index("onClicked: gameSettings.openPreviewTags()", start)]
+    assert "contentItem:" not in block
+
+
 def test_header_titles_share_styled_delegate():
     """Every header cell uses the Button-set title style (contrast)."""
     import pathlib
@@ -7492,6 +7504,143 @@ def test_metadata_download_carries_tags(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_metadata_preview_tags_picker_selects_subset(qgui_app, xdg_env):
+    """The preview Tags row opens the picker; Apply writes the checked set."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit(
+        "local-doom",
+        {"developer": "Store Studio", "tags": ["Action", "RPG", "Indie"]},
+    )
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    awin.setProperty("width", 720)
+    QTest.qWait(150)
+    button = _visible_tags_button(awin)
+    assert button.property("visible") is True
+    # The New column is one cell: a hidden Tags button must never widen the
+    # row or squeeze the other columns (it once overlapped every value).
+    rows = button.parentItem().parentItem().parentItem().childItems()
+    by_field = {
+        str(row.childItems()[0].property("text")): row.childItems()
+        for row in rows
+        if len(row.childItems()) >= 3
+    }
+    assert len(by_field["Developer"]) == 3
+    developer_widths = [cell.property("width") for cell in by_field["Developer"]]
+    assert all(width > 100 for width in developer_widths), developer_widths
+    assert sum(developer_widths) <= 720
+    assert len(by_field["Tags"]) == 3
+    # Compact label: the first tag plus how many follow.
+    assert button.property("text") == "Action + 2 Tag(s)"
+    _click_item(button)
+    QTest.qWait(150)
+    picker = win.findChild(QObject, "settingsMetadataTagsPicker")
+    assert picker.property("visible") is True
+    # Every provider name starts checked; the store follows unchecked.
+    assert picker.property("catRows").toVariant()[:3] == [
+        {"name": "Action", "state": 2},
+        {"name": "RPG", "state": 2},
+        {"name": "Indie", "state": 2},
+    ]
+    boxes = {
+        item.objectName(): item
+        for item in _visual_items(picker.property("contentItem"))
+        if item.objectName().startswith("metadataTagPick_")
+    }
+    _click_item(boxes["metadataTagPick_RPG"])
+    _click(picker, "dialogOk")
+    qgui_app.processEvents()
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    tags_row = next(row for row in rows if row["key"] == "tags")
+    assert tags_row["values"] == ["Action", "Indie"]
+    assert tags_row["next"] == "Action, Indie"
+    assert _visible_tags_button(awin).property("text") == "Action + 1 Tag(s)"
+    _click(awin, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsTags").property("text") == "Action, Indie"
+    awin.close()
+    qgui_app.processEvents()
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.tags == ["Action", "Indie"]
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_preview_tags_all_declined_writes_nothing(qgui_app, xdg_env):
+    """Declining every provider tag leaves the list untouched on Apply."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit("local-doom", {"tags": ["Action", "Indie"]})
+    qgui_app.processEvents()
+    button = _visible_tags_button(awin)
+    _click_item(button)
+    QTest.qWait(150)
+    picker = win.findChild(QObject, "settingsMetadataTagsPicker")
+    boxes = {
+        item.objectName(): item
+        for item in _visual_items(picker.property("contentItem"))
+        if item.objectName().startswith("metadataTagPick_")
+    }
+    _click_item(boxes["metadataTagPick_Action"])
+    _click_item(boxes["metadataTagPick_Indie"])
+    _click(picker, "dialogOk")
+    qgui_app.processEvents()
+    assert _visible_tags_button(awin).property("text") == "—"
+    _click(awin, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsTags").property("text") == "Not Set"
+    assert awin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == (
+        "Nothing to Fill."
+    )
+    awin.close()
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.save()
+    qgui_app.processEvents()
+    assert C.load("local-doom").metadata.tags == []
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_tags_picker_clears_and_unsaved_download_status(qgui_app, xdg_env):
     """The Tags picker unchecks by hand; an unsaved game says to save first."""
     from PySide6.QtCore import QMetaObject, QObject
@@ -8997,6 +9146,15 @@ def _visual_items(root):
     yield root
     for child in root.childItems():
         yield from _visual_items(child)
+
+
+def _visible_tags_button(host):
+    """The Search Data Tags button of the tags row (delegates are rebuilt)."""
+    return next(
+        item
+        for item in _visual_items(host.property("contentItem"))
+        if item.objectName() == "metadataTagsPick" and item.property("visible")
+    )
 
 
 def _flush_deletes():

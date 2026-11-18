@@ -253,8 +253,11 @@ id and secret in Preferences → Artwork → API Keys, apart from the
 default Artwork Source); the Twitch console asks for an OAuth
 redirect URL, where any public HTTPS address works, because the
 download uses the client-credentials grant and never redirects. The
-preview also carries a **Tags** row:
-Apply writes the provider tags into `[metadata] tags`, where Steam
+preview also carries a **Tags** row whose button opens the picker, so
+each provider tag can be accepted or declined before Apply; the button
+shows the first tag plus how many follow and keeps the whole list in
+its tooltip:
+Apply writes the checked ones into `[metadata] tags`, where Steam
 contributes genres, store features and the franchise, IGDB its genres,
 franchise, themes and keywords, and VNDB its non-spoiler tags rated 2.0
 or more (top 20). Tags are not categories: they stay out of the sidebar

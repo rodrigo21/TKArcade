@@ -65,6 +65,13 @@ failure. `AGENTS.md` links here.
   release combo showed doubled glyphs). The style does not elide that
   text either, so shorten `displayText` itself (a `TextMetrics` with
   `elide: Text.ElideRight`) and keep the full value in the tooltip.
+- The desktop `Button` has no `contentItem` either: its `StyleItem`
+  background paints `text` with the native style, so adding a
+  `contentItem` draws the label twice (the Search Data Tags button
+  showed `Action + 17 Tag(s)` overlapped). Set `text` and let the
+  style paint and elide it. Fusion, the offscreen default, defines a
+  contentItem and hides the bug: check a new button with
+  `QT_QUICK_CONTROLS_STYLE=org.kde.desktop`.
 - The title row works from one budget (`available` = window width minus
   `titleReserve` minus the row's gaps): `filterWidth` is capped at
   `available - buttons - issues` and the two elastics share the rest, so

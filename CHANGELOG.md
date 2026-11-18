@@ -40,6 +40,10 @@ Breaking config changes are called out explicitly under `Changed`.
   stored order, comma separated, and sorts by that text. A layout saved
   by an earlier version keeps its column order and widths; the new
   column lands before ProtonDB.
+- The Search Data preview's **Tags** row opens the tag picker with the
+  provider names checked, so each one can be accepted or declined
+  before Apply; the button shows the first tag plus how many follow,
+  the tooltip the whole list, and declining them all writes no tags.
 - Artwork import takes any image format the Qt plugins read: AVIF,
   JPEG XL, HEIF, TIFF, SVG, PSD, ICO and the rest, not just PNG/JPEG/
   WebP. A pasted URL, a picked file or a provider download is decoded

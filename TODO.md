@@ -82,11 +82,6 @@ Release, only when the maintainer opens the subject:
 - [ ] **Tag filter counts.** Revisit whether the per-tag counts should
   reflect the AND selection; today they show every game carrying the
   tag.
-- [ ] **Search Data tag selection.** Make the preview Tags row open the
-  tag picker so individual provider tags can be accepted or declined
-  before Apply.
-- [ ] **Tag picker search.** Add a filter field to the picker; needed
-  once the global store grows.
 - [ ] **Library import tag mapping.** Map Playnite/Lutris tags into
   `tags.toml` when the library import lands.
 - [ ] **Tag display polish.** Chips, autocomplete, manual order and
