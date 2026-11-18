@@ -7532,6 +7532,68 @@ def test_tags_picker_clears_and_unsaved_download_status(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_tag_picker_filters_without_losing_checks(qgui_app, xdg_env):
+    """The picker filter hides rows only; checks survive and reach OK."""
+    from PySide6.QtCore import QMetaObject, QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.tags = ["Co-op"]
+    C.save(cfg)
+    C.save_tags(["Co-op", "Completed", "RPG"])
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    dlg = win.findChild(QObject, "gameSettings")
+    assert QMetaObject.invokeMethod(dlg, "openTagsPicker") is True
+    QTest.qWait(150)
+    picker = win.findChild(QObject, "settingsTagsPicker")
+    field = picker.findChild(QQuickItem, "tagFilterField")
+    assert field is not None and field.property("visible") is True
+    boxes = {
+        item.objectName(): item
+        for item in _visual_items(picker.property("contentItem"))
+        if item.objectName().startswith("tagPick_")
+    }
+    assert set(boxes) == {"tagPick_Co-op", "tagPick_Completed", "tagPick_RPG"}
+
+    field.setProperty("text", "co")
+    QTest.qWait(80)
+    assert boxes["tagPick_Co-op"].property("visible") is True
+    assert boxes["tagPick_Completed"].property("visible") is True
+    assert boxes["tagPick_RPG"].property("visible") is False
+    assert picker.property("matchedRows") == 2
+
+    # Check a row found by another filter, then clear it: the check stays.
+    field.setProperty("text", "rpg")
+    QTest.qWait(80)
+    _click_item(boxes["tagPick_RPG"])
+    field.setProperty("text", "zzz")
+    QTest.qWait(80)
+    assert picker.property("matchedRows") == 0
+    field.setProperty("text", "")
+    QTest.qWait(80)
+    assert boxes["tagPick_Co-op"].property("checked") is True
+    assert boxes["tagPick_RPG"].property("checked") is True
+
+    _click(picker, "dialogOk")
+    qgui_app.processEvents()
+    assert swin.findChild(QQuickItem, "settingsTags").property("text") == "Co-op, RPG"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_tags_row_summarizes_whole_tags(qgui_app, xdg_env):
     """A long tag list shows whole tags plus a +N count, never a half tag."""
     from PySide6.QtCore import QObject
@@ -7654,6 +7716,67 @@ def test_tag_filter_popup_filters_the_library(qgui_app, xdg_env):
     assert proxy.rowCount() == 3
     # Tags are never sidebar entries: only the categories section exists.
     assert win.findChild(QObject, "categoryAction_Co-op") is None
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tag_filter_popup_searches(qgui_app, xdg_env):
+    """The popup's filter hides rows only; the hidden checks survive."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid, tags in (
+        ("local-coop", ["Co-op", "Completed"]),
+        ("local-rpg", ["RPG"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.metadata.tags = tags
+        C.save(cfg)
+    win, engine, proxy, warnings = _load_main(qgui_app)
+    _click(win, "tagFilterButton")
+    QTest.qWait(60)
+    popup = win.findChild(QObject, "tagFilterPopup")
+    field = win.findChild(QQuickItem, "tagFilterSearch")
+    assert field is not None and field.property("visible") is True
+
+    def rows():
+        return [entry["name"] for entry in popup.property("visibleRows").toVariant()]
+
+    field.setProperty("text", "rp")
+    QTest.qWait(60)
+    assert rows() == ["RPG"]
+    assert "tagFilter_Co-op" not in {
+        item.objectName() for item in _visual_items(popup.property("contentItem"))
+    }
+    box = None
+    for item in _visual_items(popup.property("contentItem")):
+        if item.objectName() == "tagFilter_RPG":
+            box = item
+    assert box is not None
+    _click_item(box)
+    QTest.qWait(60)
+    assert proxy.property("tagKeys") == ["RPG"]
+
+    field.setProperty("text", "")
+    QTest.qWait(60)
+    assert rows() == ["Co-op", "Completed", "RPG"]
+    # A filtered-out check stays selected when the filter clears.
+    assert proxy.property("tagKeys") == ["RPG"]
+
+    popup.close()
+    QTest.qWait(40)
+    _click(win, "tagFilterButton")
+    QTest.qWait(60)
+    assert field.property("text") == ""
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()
@@ -7830,8 +7953,8 @@ def test_tag_dialogs_grow_tall_but_capped(qgui_app, xdg_env):
     assert rows_view.property("height") <= popup.property("listMaximumHeight") + 1
     assert rows_view.property("contentHeight") > rows_view.property("height")
     # The popup itself stays near half the screen: the list cap plus the
-    # chrome around it (about six grid units).
-    assert popup.property("height") <= popup.property("listMaximumHeight") + 18 * 6
+    # chrome around it (about nine grid units with the search field).
+    assert popup.property("height") <= popup.property("listMaximumHeight") + 18 * 9
 
     manage = None
     for item in _visual_items(popup.property("contentItem")):

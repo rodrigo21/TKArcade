@@ -5074,6 +5074,9 @@ Window {
         newPlaceholder: qsTr("New Tags (Comma Separated)")
         rowPrefix: "tagPick_"
         addObjectName: "tagAdd"
+        searchable: true
+        filterPlaceholder: qsTr("Filter Tags")
+        filterObjectName: "tagFilterField"
         manageText: qsTr("Manage Tags…")
         manageObjectName: "tagManage"
         onManageRequested: tagsManager.open(gameSettings)

@@ -1433,13 +1433,14 @@ Kirigami.Page {
         readonly property real windowWidth: Controls.ApplicationWindow.window
             ? Controls.ApplicationWindow.window.width : 0
         // The list gets at most half the screen height in total; the
-        // chrome around it (title, hint, buttons, padding) is about six
-        // grid units, so the popup itself stays near that cap.
+        // chrome around it (title, hint, field, buttons, padding) is
+        // about eight grid units, so the popup itself stays near that
+        // cap.
         readonly property real listMaximumHeight: Math.max(
             Kirigami.Units.gridUnit * 6,
             Math.min(Kirigami.Units.gridUnit * 24,
                 (Screen.availableHeight > 0 ? Screen.availableHeight * 0.5
-                    : Kirigami.Units.gridUnit * 40) - Kirigami.Units.gridUnit * 6))
+                    : Kirigami.Units.gridUnit * 40) - Kirigami.Units.gridUnit * 8))
         FontMetrics {
             id: tagFilterMetrics
             font: Kirigami.Theme.defaultFont
@@ -1467,6 +1468,20 @@ Kirigami.Page {
             return Math.max(leftLimit, Math.min(wanted, rightLimit))
         }
         property var rows: []
+        // The filter hides rows only: the checks write through
+        // gameFilter.tagKeys, so a hidden selection survives.
+        property alias filterText: tagFilterSearchField.text
+        readonly property var visibleRows: {
+            var query = filterText.trim().toLowerCase()
+            var out = []
+            for (var i = 0; i < rows.length; i++) {
+                var name = String(rows[i].name || "")
+                if (query === "" || name.toLowerCase().indexOf(query) >= 0) {
+                    out.push(rows[i])
+                }
+            }
+            return out
+        }
 
         function reload() {
             var tags = gameModel.allTags()
@@ -1483,7 +1498,10 @@ Kirigami.Page {
             tagFilterPopup.rows = out
         }
 
-        onOpened: tagFilterPopup.reload()
+        onOpened: {
+            tagFilterPopup.reload()
+            tagFilterPopup.filterText = ""
+        }
 
         Connections {
             target: gameModel
@@ -1506,13 +1524,20 @@ Kirigami.Page {
                 wrapMode: Text.WordWrap
                 text: qsTr("Match All Selected Tags")
             }
+            Controls.TextField {
+                id: tagFilterSearchField
+                objectName: "tagFilterSearch"
+                visible: tagFilterPopup.rows.length > 0
+                Layout.fillWidth: true
+                placeholderText: qsTr("Filter Tags")
+            }
             ListView {
                 objectName: "tagFilterList"
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.min(contentHeight, tagFilterPopup.listMaximumHeight)
                 Layout.minimumHeight: 0
                 clip: true
-                model: tagFilterPopup.rows
+                model: tagFilterPopup.visibleRows
                 delegate: Controls.CheckBox {
                     required property var modelData
                     objectName: "tagFilter_" + modelData.name
@@ -1533,9 +1558,10 @@ Kirigami.Page {
             }
             Controls.Label {
                 Layout.fillWidth: true
-                visible: tagFilterPopup.rows.length === 0
+                visible: tagFilterPopup.visibleRows.length === 0
                 opacity: 0.7
-                text: qsTr("No Tags")
+                text: tagFilterPopup.rows.length === 0
+                    ? qsTr("No Tags") : qsTr("No Matching Tag.")
             }
             RowLayout {
                 Layout.fillWidth: true

@@ -25,6 +25,9 @@ Breaking config changes are called out explicitly under `Changed`.
   name back. The manager and the filter popup widen to the longest tag
   (half the screen for the manager), both open taller and scroll after
   24 grid units.
+- The tag picker and the top-bar tag filter gain a search field: typing
+  hides the names that do not match, while checked names keep their
+  state and still reach OK when they are hidden.
 - Artwork import takes any image format the Qt plugins read: AVIF,
   JPEG XL, HEIF, TIFF, SVG, PSD, ICO and the rest, not just PNG/JPEG/
   WebP. A pasted URL, a picked file or a provider download is decoded

@@ -30,6 +30,13 @@ DialogWindow {
     // Opt-in for the tag picker: fit the window to the longest row, and
     // drop to one column rather than squeeze a tag onto a second line.
     property bool fitContent: false
+    // Opt-in filter field for a store that outgrew one screen. It hides
+    // rows only: `catRows` keeps every state, so OK still returns the
+    // names checked before the filter was typed.
+    property bool searchable: false
+    property string filterPlaceholder: qsTr("Filter Names")
+    property string filterObjectName: "categoryFilter"
+    property alias filterText: filterField.text
     // The optional maintenance action on the footer's left edge (the tag
     // picker opens the manager; the category pickers leave it empty).
     property string manageText: ""
@@ -88,9 +95,26 @@ DialogWindow {
     }
 
     onVisibleChanged: {
-        if (!visible) {
+        if (visible) {
+            filterText = ""
+        } else {
             revealPending = false
         }
+    }
+
+    function nameMatches(name) {
+        var query = String(filterText).trim().toLowerCase()
+        return query === "" || String(name || "").toLowerCase().indexOf(query) >= 0
+    }
+
+    readonly property int matchedRows: {
+        var count = 0
+        for (var i = 0; i < picker.catRows.length; i++) {
+            if (picker.nameMatches(picker.catRows[i].name)) {
+                count++
+            }
+        }
+        return count
     }
 
     onAccepted: {
@@ -147,6 +171,20 @@ DialogWindow {
         wrapMode: Text.WordWrap
         text: picker.hint
     }
+    Controls.TextField {
+        id: filterField
+        objectName: picker.filterObjectName
+        visible: picker.searchable
+        Layout.fillWidth: true
+        placeholderText: picker.filterPlaceholder
+    }
+    Controls.Label {
+        Layout.fillWidth: true
+        visible: picker.searchable && picker.filterText.trim() !== ""
+            && picker.matchedRows === 0
+        opacity: 0.7
+        text: qsTr("No Matching Name.")
+    }
     Controls.ScrollView {
         id: catScroll
         Layout.fillWidth: true
@@ -170,6 +208,7 @@ DialogWindow {
                         required property var modelData
                         required property int index
                         objectName: picker.rowPrefix + modelData.name
+                        visible: !picker.searchable || picker.nameMatches(modelData.name)
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         text: modelData.name
