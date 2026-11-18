@@ -272,7 +272,9 @@ removes a tag from the game but keeps it for other games, and Save
 persists the list; its lock still blocks Download Metadata. A tag
 filter button beside the library search narrows the list by tags, and
 every selected tag must match by default; a switch makes any selected
-tag match, and both the selection and the switch survive a restart. A
+tag match, and both the selection and the switch survive a restart. The
+count beside each name follows the search, origin, issues, category and
+tag selection, so it previews what the next check would leave. A
 name that leaves the store is dropped from the selection. The selection
 menu sets the tag list of several games at once; clearing every tag from
 games that have one asks for confirmation. The fill-empty rule and the Replace

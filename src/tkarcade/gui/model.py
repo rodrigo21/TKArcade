@@ -6318,3 +6318,42 @@ class GameFilterModel(QSortFilterProxyModel):
         if self._tag_match_any:
             return bool(wanted & have)
         return wanted <= have
+
+    @Slot(result="QVariantMap")
+    def tagCountsForFilter(self) -> dict:
+        """Per-tag counts as the current filters would show after checking it.
+
+        Source, text, issues and category narrow every count. In AND mode
+        a row counts for its tags only when it carries every selected tag;
+        in Match Any mode checking a tag can only add rows, so the tag
+        selection itself does not narrow the counts. Keys are lowercase so
+        the caller matches whatever casing the store shows.
+        """
+        model = self.sourceModel()
+        if model is None:
+            return {}
+        counts: dict[str, int] = {}
+        wanted = {tag.strip().lower() for tag in self._tags if tag.strip()}
+        for row in range(model.rowCount()):
+            index = model.index(row, 0)
+            appid = model.data(index, GameListModel.IdRole) or ""
+            if not (
+                self._accepts_source(appid)
+                and self._accepts_text(model, index, appid)
+                and self._accepts_issues(model, appid)
+                and self._accepts_category(model, index)
+            ):
+                continue
+            raw = model.data(index, GameListModel.TagsRole) or []
+            values = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
+            labels = [str(tag).strip() for tag in values if str(tag).strip()]
+            if (
+                not self._tag_match_any
+                and wanted
+                and not wanted <= {label.lower() for label in labels}
+            ):
+                continue
+            for label in labels:
+                key = label.lower()
+                counts[key] = counts.get(key, 0) + 1
+        return counts

@@ -44,6 +44,11 @@ Breaking config changes are called out explicitly under `Changed`.
   provider names checked, so each one can be accepted or declined
   before Apply; the button shows the first tag plus how many follow,
   the tooltip the whole list, and declining them all writes no tags.
+- The library's per-tag counts follow the active filters: the search,
+  origin, issues-only, category and tag selection (in AND) narrow the
+  number beside every name, so the popup shows what the next check
+  would leave. Match Any keeps the plain per-tag counts, where a check
+  can only widen the list.
 - Artwork import takes any image format the Qt plugins read: AVIF,
   JPEG XL, HEIF, TIFF, SVG, PSD, ICO and the rest, not just PNG/JPEG/
   WebP. A pasted URL, a picked file or a provider download is decoded

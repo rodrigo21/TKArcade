@@ -79,9 +79,6 @@ Release, only when the maintainer opens the subject:
   provider values into an existing list (tags, age ratings) instead of
   fill-empty/Replace, and whether the same rule fits other multi-value
   fields.
-- [ ] **Tag filter counts.** Revisit whether the per-tag counts should
-  reflect the AND selection; today they show every game carrying the
-  tag.
 - [ ] **Library import tag mapping.** Map Playnite/Lutris tags into
   `tags.toml` when the library import lands.
 - [ ] **Tag display polish.** Chips, autocomplete, manual order and

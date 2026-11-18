@@ -399,6 +399,45 @@ def test_tags_store_and_filter(qgui_app, xdg_env):
     assert proxy.tagKeys == ["RPG"]
 
 
+def test_tag_filter_counts_follow_the_selection(qgui_app, xdg_env):
+    """Per-tag counts narrow with the filters, in both match modes."""
+    from tkarcade.gui.model import GameFilterModel, GameListModel
+
+    games = (
+        ("local-a", "Alpha", ["Action", "RPG"], ["Genre"]),
+        ("local-b", "Beta", ["Action"], ["Genre"]),
+        ("local-c", "Gamma", ["RPG"], []),
+        ("local-d", "Delta", ["Puzzle"], []),
+    )
+    for appid, name, tags, cats in games:
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = "/bin/true"
+        cfg.general.categories = cats
+        cfg.metadata.tags = tags
+        C.save(cfg)
+
+    proxy = GameFilterModel()
+    proxy.setSourceModel(GameListModel())
+    assert proxy.tagCountsForFilter() == {"action": 2, "rpg": 2, "puzzle": 1}
+    proxy.tagKeys = ["Action"]
+    assert proxy.tagCountsForFilter() == {"action": 2, "rpg": 1}
+    proxy.tagKeys = ["Action", "RPG"]
+    assert proxy.tagCountsForFilter() == {"action": 1, "rpg": 1}
+    # Match Any: a checked name can only widen, so it never narrows counts.
+    proxy.tagMatchAny = True
+    assert proxy.tagCountsForFilter() == {"action": 2, "rpg": 2, "puzzle": 1}
+    proxy.tagKeys = []
+    proxy.tagMatchAny = False
+    # The other filters narrow every count.
+    proxy.categoryKey = "genre"
+    assert proxy.tagCountsForFilter() == {"action": 2, "rpg": 1}
+    proxy.categoryKey = ""
+    proxy.textQuery = "be"
+    assert proxy.tagCountsForFilter() == {"action": 1}
+
+
 def test_bulk_tags_set_and_presence(qgui_app, xdg_env):
     """Bulk Set replaces the list and reports how many games carry a tag."""
     from tkarcade.gui.model import GameListModel

@@ -1507,6 +1507,18 @@ Kirigami.Page {
         // The filter hides rows only: the checks write through
         // gameFilter.tagKeys, so a hidden selection survives.
         property alias filterText: tagFilterSearchField.text
+        // Counts follow every filter. The reads below make the binding
+        // re-run on a toggle; the rows it feeds never change, so the list
+        // keeps its delegates and its scroll position.
+        readonly property var counts: {
+            gameFilter.tagKeys
+            gameFilter.tagMatchAny
+            gameFilter.textQuery
+            gameFilter.sourceKey
+            gameFilter.categoryKey
+            gameFilter.issuesOnly
+            return gameFilter.tagCountsForFilter()
+        }
         readonly property var visibleRows: {
             var query = filterText.trim().toLowerCase()
             var out = []
@@ -1521,13 +1533,13 @@ Kirigami.Page {
 
         function reload() {
             var tags = gameModel.allTags()
-            var counts = gameModel.tagCounts()
+            var counts = tagFilterPopup.counts
             var selected = gameFilter.tagKeys
             var out = []
             for (var i = 0; i < tags.length; i++) {
                 out.push({
                     "name": tags[i],
-                    "count": counts[tags[i]] || 0,
+                    "count": counts[String(tags[i]).toLowerCase()] || 0,
                     "checked": selected.indexOf(tags[i]) >= 0
                 })
             }
@@ -1587,7 +1599,8 @@ Kirigami.Page {
                     required property var modelData
                     objectName: "tagFilter_" + modelData.name
                     width: ListView.view ? ListView.view.width : 100
-                    text: qsTr("%1 (%2)").arg(modelData.name).arg(modelData.count)
+                    text: qsTr("%1 (%2)").arg(modelData.name).arg(
+                        tagFilterPopup.counts[String(modelData.name).toLowerCase()] || 0)
                     checked: gameFilter.tagKeys.indexOf(modelData.name) >= 0
                     onToggled: {
                         var keys = gameFilter.tagKeys.slice()
