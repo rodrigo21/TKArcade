@@ -10,12 +10,14 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: sixty-seven batches. The latest added the optional **Tags**
-  column to the library table: hidden by default, placed before
-  ProtonDB, showing the stored tag list comma separated, sortable by
-  that text. `COLUMN_LAYOUT_VERSION` 2 gives a saved layout the column
-  before ProtonDB, keeping its order and widths. Before it, **Set Tags…**
-  in the selection menu and the persistent tag filter with Match Any.
+- Landed: sixty-eight batches. The latest lets the Search Data preview
+  pick the tags to apply: the Tags row is a button (first tag plus how
+  many follow, full list in the tooltip) that opens the picker with
+  every provider name checked, and declining them all writes no tags.
+  It also fixed two rendering bugs: the hidden button no longer widens
+  the preview row, and the button sets no `contentItem`, because the
+  Plasma style paints its own text. Before it, the optional **Tags**
+  column and **Set Tags…** with the persistent filter.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
@@ -23,19 +25,20 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
 - Verified: `scripts/check.sh --changed` and `scripts/check.sh --qml`
-  (820 passed, 3 skipped) on the approved diff, plus the offscreen
-  screenshot with Tags before ProtonDB. The venv was refreshed after
-  the merge.
-- Next: the Search Data tag selection: the preview Tags row opens the
-  tag picker so individual provider tags are accepted or declined
-  before Apply. The VNDB release picker sits in `TODO.md` before 1.0;
-  the remaining tag follow-ups (merge policy, filter counts, picker
-  search, import mapping, display polish) are there too. After the
-  library import, decide whether categories derive from tags and
-  whether a bulk download is worth it. Epic/GOG is 2.0, and so is the
-  IGDB per-user credential review (`TODO.md`). The 1.0 visual pass, the
-  packaging check, the shim removal and the release pass wait for the
-  maintainer's release call.
+  (820 passed, 3 skipped) on the approved diff, plus offscreen
+  screenshots with `QT_QUICK_CONTROLS_STYLE=org.kde.desktop` (the
+  Fusion default hid the doubled button text). The venv was refreshed
+  after the merge and `makepkg -f` built the `-git` package at
+  r810.g23c8835; installing it needs the maintainer's sudo.
+- Next: **tag filter counts** reflect the AND selection instead of
+  every game carrying the tag; then the metadata merge policy decision,
+  the VNDB release picker and the remaining tag follow-ups in `TODO.md`
+  (import mapping, display polish). After the library import, decide
+  whether categories derive from tags and whether a bulk download is
+  worth it. Epic/GOG is 2.0, and so is the IGDB per-user credential
+  review (`TODO.md`). The 1.0 visual pass, the packaging check, the
+  shim removal and the release pass wait for the maintainer's release
+  call.
 - Deferred: the audit's #15 (launch parse) and #19 (role constants).
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
