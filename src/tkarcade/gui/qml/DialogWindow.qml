@@ -15,8 +15,10 @@ Window {
     minimumWidth: Kirigami.Units.gridUnit * 20
     width: Kirigami.Units.gridUnit * 24
     // The height follows the content, so the box hugs its body; a caller
-    // may cap it (the age-rating picker uses the screen work area).
-    height: Math.min(body.implicitHeight + body.anchors.margins * 2, maximumHeight)
+    // may cap it (the age-rating picker uses the screen work area) or
+    // raise the floor (the tag manager opens tall enough for a few rows).
+    height: Math.max(dialogWindow.minimumHeight,
+        Math.min(body.implicitHeight + body.anchors.margins * 2, maximumHeight))
     visible: false
     color: Kirigami.Theme.backgroundColor
 

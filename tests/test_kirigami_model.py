@@ -382,6 +382,52 @@ def test_tags_store_and_filter(qgui_app, xdg_env):
     assert shown() == ["local-coop", "local-coop2"]
 
 
+def test_tag_manager_rename_merge_delete_and_prune(qgui_app, xdg_env):
+    """The manager rewrites every game, merges names, deletes and prunes."""
+    from tkarcade.gui.model import GameListModel
+
+    for appid, tags in (
+        ("local-a", ["Co-op", "Indie"]),
+        ("local-b", ["Co-op", "Completed"]),
+        ("local-c", ["Indie"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.metadata.tags = tags
+        C.save(cfg)
+
+    source = GameListModel()
+    assert source.renameTag("Co-op", "Multiplayer") == ("Renamed Co-op to Multiplayer (2 Game(s)).")
+    assert C.load("local-a").metadata.tags == ["Multiplayer", "Indie"]
+    assert C.load("local-b").metadata.tags == ["Multiplayer", "Completed"]
+    assert "Multiplayer" in C.load_tags()
+
+    # A target already on record keeps its casing and merges the names;
+    # the game carrying both ends up with it once.
+    assert source.renameTag("Multiplayer", "Completed") == (
+        "Merged Multiplayer into Completed (2 Game(s))."
+    )
+    assert C.load("local-a").metadata.tags == ["Completed", "Indie"]
+    assert C.load("local-b").metadata.tags == ["Completed"]
+    assert source.allTags() == ["Completed", "Indie"]
+
+    # An unused store name prunes; a used one stays.
+    C.save_tags(C.load_tags() + ["Ghost"])
+    source.refresh()
+    assert source.allTags() == ["Completed", "Ghost", "Indie"]
+    assert source.pruneTags() == "Removed 1 Unused Tag(s)."
+    assert source.allTags() == ["Completed", "Indie"]
+
+    # Delete strips the name from every game, not only from the store.
+    assert source.deleteTag("Completed") == "Deleted Completed (2 Game(s))."
+    assert C.load("local-a").metadata.tags == ["Indie"]
+    assert C.load("local-b").metadata.tags == []
+    assert C.load("local-c").metadata.tags == ["Indie"]
+    assert source.allTags() == ["Indie"]
+
+
 def test_open_protondb_rejects_local(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

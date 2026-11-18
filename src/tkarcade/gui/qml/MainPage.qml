@@ -2,6 +2,7 @@ import QtQuick
 import QtQml
 import QtQml.Models as QQmlModels
 import QtQuick.Layouts
+import QtQuick.Window
 import QtQuick.Controls as Controls
 import org.kde.kirigami as Kirigami
 import org.kde.kirigami.layouts as KL
@@ -1418,13 +1419,53 @@ Kirigami.Page {
         id: tagFilterPopup
         objectName: "tagFilterPopup"
         parent: gamesPage.tagFilterItem
-        x: gamesPage.tagFilterItem !== null
-            ? gamesPage.tagFilterItem.width - width : 0
         y: gamesPage.tagFilterItem !== null
             ? gamesPage.tagFilterItem.height + Kirigami.Units.smallSpacing : 0
         closePolicy: Controls.Popup.CloseOnEscape | Controls.Popup.CloseOnPressOutside
         padding: Kirigami.Units.largeSpacing
-        width: Kirigami.Units.gridUnit * 17
+        // A tag is user data: the width follows the longest row, capped
+        // by the screen and by the window so a long tag never pushes the
+        // popup past an edge. The window clamp also keeps the position
+        // below inside the window.
+        readonly property real maximumContentWidth: Math.min(
+            Kirigami.Units.gridUnit * 60,
+            Screen.availableWidth > 0 ? Screen.availableWidth * 0.8 : Kirigami.Units.gridUnit * 60)
+        readonly property real windowWidth: Controls.ApplicationWindow.window
+            ? Controls.ApplicationWindow.window.width : 0
+        // The list gets at most half the screen height in total; the
+        // chrome around it (title, hint, buttons, padding) is about six
+        // grid units, so the popup itself stays near that cap.
+        readonly property real listMaximumHeight: Math.max(
+            Kirigami.Units.gridUnit * 6,
+            Math.min(Kirigami.Units.gridUnit * 24,
+                (Screen.availableHeight > 0 ? Screen.availableHeight * 0.5
+                    : Kirigami.Units.gridUnit * 40) - Kirigami.Units.gridUnit * 6))
+        FontMetrics {
+            id: tagFilterMetrics
+            font: Kirigami.Theme.defaultFont
+        }
+        readonly property real widestRow: {
+            var widest = 0
+            for (var i = 0; i < rows.length; i++) {
+                widest = Math.max(widest, tagFilterMetrics.advanceWidth(
+                    qsTr("%1 (%2)").arg(rows[i].name).arg(rows[i].count)))
+            }
+            return widest
+        }
+        width: Math.min(maximumContentWidth,
+            windowWidth > 0 ? windowWidth - Kirigami.Units.smallSpacing * 2 : maximumContentWidth,
+            Math.max(Kirigami.Units.gridUnit * 17,
+                widestRow + Kirigami.Units.gridUnit * 2 + padding * 2))
+        x: {
+            if (gamesPage.tagFilterItem === null) {
+                return 0
+            }
+            var anchor = gamesPage.tagFilterItem.mapToItem(null, 0, 0).x
+            var wanted = gamesPage.tagFilterItem.width - width
+            var leftLimit = -anchor
+            var rightLimit = windowWidth > 0 ? windowWidth - anchor - width : wanted
+            return Math.max(leftLimit, Math.min(wanted, rightLimit))
+        }
         property var rows: []
 
         function reload() {
@@ -1468,7 +1509,7 @@ Kirigami.Page {
             ListView {
                 objectName: "tagFilterList"
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 16)
+                Layout.preferredHeight: Math.min(contentHeight, tagFilterPopup.listMaximumHeight)
                 Layout.minimumHeight: 0
                 clip: true
                 model: tagFilterPopup.rows
@@ -1499,6 +1540,14 @@ Kirigami.Page {
             RowLayout {
                 Layout.fillWidth: true
                 Item { Layout.fillWidth: true }
+                Controls.Button {
+                    objectName: "tagManage"
+                    text: qsTr("Manage Tags…")
+                    onClicked: {
+                        tagFilterPopup.close()
+                        tagsManager.open(Controls.ApplicationWindow.window)
+                    }
+                }
                 Controls.Button {
                     objectName: "tagFilterClear"
                     text: qsTr("Clear")
@@ -2909,6 +2958,10 @@ Kirigami.Page {
         onPicked: function(names) {
             gamesPage.notify(gameModel.setCategories(gamesPage.selectedIds, names.join(",")))
         }
+    }
+
+    TagManagerDialog {
+        id: tagsManager
     }
 
     ConfirmDialog {

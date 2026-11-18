@@ -119,6 +119,10 @@ What each document is for and where the source of truth lives.
   categories.
 - `decisions/manual-tags.md` — the editable tag list, the global
   `tags.toml` store, the Details picker and the top-bar AND filter.
+- `decisions/tag-manager.md` — the store maintenance dialog: rename
+  across every game, merge into an existing name, delete with a
+  game-count confirmation, prune unused names and the content-fitted
+  window.
 - `decisions/metadata-window.md` — the Search Data window (Metadata and
   Artwork tabs), the identities moved off the form, the Steam auto-fill
   on add and the six-tab game dialog.

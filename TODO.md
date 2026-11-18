@@ -75,9 +75,6 @@ Release, only when the maintainer opens the subject:
 
 ## Tags follow-up
 
-- [ ] **Tag manager.** A dialog like Edit Categories for the global
-  `tags.toml`: rename, delete, merge duplicates and prune zero-count
-  names. Entry point from the tag picker.
 - [ ] **Metadata merge policy.** Decide whether a download may merge
   provider values into an existing list (tags, age ratings) instead of
   fill-empty/Replace, and whether the same rule fits other multi-value

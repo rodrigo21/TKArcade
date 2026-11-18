@@ -17,6 +17,14 @@ Breaking config changes are called out explicitly under `Changed`.
   beside the search field narrows the library by tags (every selected
   tag must match); tags never reach the sidebar. The read-only Tags row
   and its Clear button are gone.
+- Tags gain a manager, reachable from the tag picker and the library's
+  tag filter popup: rename a name across every game (renaming to an
+  existing name merges them), delete one with a confirmation naming how
+  many games carry it, and prune the names no game uses. An open game
+  dialog follows the rename or deletion, so Save cannot write the old
+  name back. The manager and the filter popup widen to the longest tag
+  (half the screen for the manager), both open taller and scroll after
+  24 grid units.
 - Artwork import takes any image format the Qt plugins read: AVIF,
   JPEG XL, HEIF, TIFF, SVG, PSD, ICO and the rest, not just PNG/JPEG/
   WebP. A pasted URL, a picked file or a provider download is decoded

@@ -655,15 +655,16 @@ Window {
         return parts.join(", ") + (left > 0 ? " +" + left : "")
     }
 
-    // The game's tags first, in their current order, then the global store
-    // alphabetically. Store rows keep their casing; unchecking removes the
-    // tag from the game but never from the store.
-    function openTagsPicker() {
+    // The picker rows: the given checked names first, in their current
+    // order, then the global store alphabetically. Store rows keep their
+    // casing; unchecking removes the tag from the game but never from the
+    // store.
+    function tagPickerRows(checkedNames) {
         var keys = []
         var names = []
         var checked = []
-        for (var i = 0; i < onlineTagList.length; i++) {
-            var name = String(onlineTagList[i]).trim()
+        for (var i = 0; i < checkedNames.length; i++) {
+            var name = String(checkedNames[i]).trim()
             if (name === "") {
                 continue
             }
@@ -690,9 +691,89 @@ Window {
                 "state": checked.indexOf(names[k].toLowerCase()) >= 0 ? 2 : 0
             })
         }
-        tagsPicker.catRows = rows
+        return rows
+    }
+
+    function openTagsPicker() {
+        tagsPicker.catRows = gameSettings.tagPickerRows(onlineTagList)
         tagsPicker.newCategories = ""
         tagsPicker.open(gameSettings)
+    }
+
+    // The manager renamed or deleted names behind the open picker: keep
+    // the checks in progress and rebuild from the current store.
+    function tagPickerChecks() {
+        var checked = []
+        var keys = []
+        for (var i = 0; i < tagsPicker.catRows.length; i++) {
+            var row = tagsPicker.catRows[i]
+            if (row.state <= 0) {
+                continue
+            }
+            var key = String(row.name).toLowerCase()
+            if (keys.indexOf(key) < 0) {
+                keys.push(key)
+                checked.push(row.name)
+            }
+        }
+        return checked
+    }
+
+    function reloadTagsPicker() {
+        tagsPicker.catRows = gameSettings.tagPickerRows(gameSettings.tagPickerChecks())
+    }
+
+    // A rename on disk must reach the dialog draft too: saving the old
+    // name back would re-create it next to the new one.
+    function renameTagInPicker(from, to) {
+        var key = String(from).toLowerCase()
+        var list = []
+        var keys = []
+        for (var i = 0; i < onlineTagList.length; i++) {
+            var name = String(onlineTagList[i]).trim()
+            if (name === "") {
+                continue
+            }
+            if (name.toLowerCase() === key) {
+                name = to
+            }
+            var nameKey = name.toLowerCase()
+            if (keys.indexOf(nameKey) < 0) {
+                keys.push(nameKey)
+                list.push(name)
+            }
+        }
+        gameSettings.onlineTagList = list
+        gameSettings.onlineTags = list.join(", ")
+        var checked = []
+        for (var j = 0; j < tagsPicker.catRows.length; j++) {
+            var row = tagsPicker.catRows[j]
+            if (row.state <= 0) {
+                continue
+            }
+            checked.push(String(row.name).toLowerCase() === key ? to : row.name)
+        }
+        tagsPicker.catRows = gameSettings.tagPickerRows(checked)
+    }
+
+    function deleteTagFromPicker(name) {
+        var key = String(name).toLowerCase()
+        var list = []
+        for (var i = 0; i < onlineTagList.length; i++) {
+            if (String(onlineTagList[i]).toLowerCase() !== key) {
+                list.push(onlineTagList[i])
+            }
+        }
+        gameSettings.onlineTagList = list
+        gameSettings.onlineTags = list.join(", ")
+        var checked = []
+        for (var j = 0; j < tagsPicker.catRows.length; j++) {
+            var row = tagsPicker.catRows[j]
+            if (row.state > 0 && String(row.name).toLowerCase() !== key) {
+                checked.push(row.name)
+            }
+        }
+        tagsPicker.catRows = gameSettings.tagPickerRows(checked)
     }
 
     function openAgeRatings() {
@@ -4993,10 +5074,28 @@ Window {
         newPlaceholder: qsTr("New Tags (Comma Separated)")
         rowPrefix: "tagPick_"
         addObjectName: "tagAdd"
+        manageText: qsTr("Manage Tags…")
+        manageObjectName: "tagManage"
+        onManageRequested: tagsManager.open(gameSettings)
         onPicked: function(names) {
             gameSettings.onlineTagList = names
             gameSettings.onlineTags = names.join(", ")
         }
+    }
+
+    TagManagerDialog {
+        id: tagsManager
+        onRenamed: function(from, to) {
+            if (tagsPicker.visible) {
+                gameSettings.renameTagInPicker(from, to)
+            }
+        }
+        onDeleted: function(name) {
+            if (tagsPicker.visible) {
+                gameSettings.deleteTagFromPicker(name)
+            }
+        }
+        onChanged: if (tagsPicker.visible) gameSettings.reloadTagsPicker()
     }
 
     AgeRatingPicker {

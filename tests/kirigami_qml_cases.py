@@ -7661,6 +7661,252 @@ def test_tag_filter_popup_filters_the_library(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_tag_manager_renames_prunes_and_deletes(qgui_app, xdg_env):
+    """The filter popup opens the manager; every action reaches the games."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    for appid, tags in (
+        ("local-one", ["Co-op", "Indie"]),
+        ("local-two", ["Co-op"]),
+    ):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.metadata.tags = tags
+        C.save(cfg)
+    C.save_tags(C.load_tags() + ["Ghost"])
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    _click(win, "tagFilterButton")
+    QTest.qWait(50)
+    popup = win.findChild(QObject, "tagFilterPopup")
+    manage = None
+    for item in _visual_items(popup.property("contentItem")):
+        if item.objectName() == "tagManage":
+            manage = item
+    assert manage is not None
+    _click_item(manage)
+    mgr = _confirm_window(qgui_app, "tagManager")
+
+    def item_named(name):
+        for item in _visual_items(mgr.contentItem()):
+            if item.objectName() == name:
+                return item
+        return None
+
+    rows = mgr.property("rows").toVariant()
+    assert [(entry["name"], entry["count"]) for entry in rows] == [
+        ("Co-op", 2),
+        ("Ghost", 0),
+        ("Indie", 1),
+    ]
+    prune = item_named("tagPrune")
+    assert prune is not None and prune.property("enabled") is True
+    _click(mgr, "tagPrune")
+    QTest.qWait(80)
+    assert C.load_tags() == ["Co-op", "Indie"]
+
+    rename = item_named("tagRename_Co-op")
+    assert rename is not None
+    _click_item(rename)
+    dlg = _confirm_window(qgui_app, "tagRenameDialog")
+    field = dlg.findChild(QQuickItem, "tagRenameField")
+    assert field is not None
+    field.setProperty("text", "Indie")
+    _click(dlg, "dialogOk")
+    QTest.qWait(80)
+    assert C.load("local-one").metadata.tags == ["Indie"]
+    assert C.load("local-two").metadata.tags == ["Indie"]
+
+    delete = item_named("tagDelete_Indie")
+    assert delete is not None
+    _click_item(delete)
+    confirm = _confirm_window(qgui_app, "tagDeleteConfirm")
+    _click(confirm, "confirmOk")
+    QTest.qWait(80)
+    assert C.load("local-one").metadata.tags == []
+    assert C.load("local-two").metadata.tags == []
+    assert C.load_tags() == []
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tag_dialogs_fit_long_names(qgui_app, xdg_env):
+    """Long tags widen the manager and the filter popup up to the cap."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    long_tag = "A Cooperative Multiplayer Adventure With Friends And More"
+    huge_tag = "X" * 240
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.metadata.tags = [long_tag]
+    C.save(cfg)
+    C.save_tags(C.load_tags() + [huge_tag])
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    _click(win, "tagFilterButton")
+    QTest.qWait(60)
+    popup = win.findChild(QObject, "tagFilterPopup")
+    popup_cap = popup.property("maximumContentWidth")
+    assert popup.property("width") <= popup_cap + 0.5
+    assert popup.property("width") > 18 * 17
+    # The width cap must not push the popup past the window: the left
+    # edge clamps instead of starting off-screen.
+    from PySide6.QtCore import QPointF
+
+    content = popup.property("contentItem")
+    left = content.mapToScene(QPointF(0, 0)).x()
+    assert left >= -0.5
+    assert left + popup.property("width") <= win.property("width") + 0.5
+
+    manage = None
+    for item in _visual_items(popup.property("contentItem")):
+        if item.objectName() == "tagManage":
+            manage = item
+    assert manage is not None
+    _click_item(manage)
+    mgr = _confirm_window(qgui_app, "tagManager")
+    QTest.qWait(80)
+    cap = mgr.property("maximumContentWidth")
+    assert mgr.property("width") <= cap + 0.5
+    assert mgr.property("width") > 18 * 24
+    # Few rows: the window opens tall enough instead of hugging them.
+    assert mgr.property("height") >= 18 * 18 - 1
+
+    def item_named(name):
+        for item in _visual_items(mgr.contentItem()):
+            if item.objectName() == name:
+                return item
+        return None
+
+    label = item_named("tagManagerName_" + long_tag)
+    assert label is not None and label.property("truncated") is False
+    huge = item_named("tagManagerName_" + huge_tag)
+    assert huge is not None and huge.property("truncated") is True
+    assert mgr.property("width") == cap
+
+    mgr.close()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tag_dialogs_grow_tall_but_capped(qgui_app, xdg_env):
+    """Many tags grow both lists to the cap, then scroll instead."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.metadata.tags = [f"Tag {i:02d}" for i in range(30)]
+    C.save(cfg)
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    _click(win, "tagFilterButton")
+    QTest.qWait(80)
+    popup = win.findChild(QObject, "tagFilterPopup")
+    rows_view = win.findChild(QQuickItem, "tagFilterList")
+    assert rows_view.property("height") <= popup.property("listMaximumHeight") + 1
+    assert rows_view.property("contentHeight") > rows_view.property("height")
+    # The popup itself stays near half the screen: the list cap plus the
+    # chrome around it (about six grid units).
+    assert popup.property("height") <= popup.property("listMaximumHeight") + 18 * 6
+
+    manage = None
+    for item in _visual_items(popup.property("contentItem")):
+        if item.objectName() == "tagManage":
+            manage = item
+    assert manage is not None
+    _click_item(manage)
+    mgr = _confirm_window(qgui_app, "tagManager")
+    QTest.qWait(80)
+    scroll = mgr.findChild(QQuickItem, "tagManagerList")
+    assert scroll is not None
+    flick = scroll.property("contentItem")
+    assert flick.property("contentHeight") > scroll.property("height")
+    assert scroll.property("height") <= 18 * 24 + 1
+    assert mgr.property("height") >= 18 * 18 - 1
+
+    mgr.close()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_tag_picker_opens_the_manager(qgui_app, xdg_env):
+    """The picker's Manage button opens the manager; the rows reload."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.metadata.tags = ["Action"]
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    _click(swin, "settingsTags")
+    picker = _confirm_window(qgui_app, "settingsTagsPicker")
+    _click(picker, "tagManage")
+    mgr = _confirm_window(qgui_app, "tagManager")
+
+    def item_named(name):
+        for item in _visual_items(mgr.contentItem()):
+            if item.objectName() == name:
+                return item
+        return None
+
+    rename = item_named("tagRename_Action")
+    assert rename is not None
+    _click_item(rename)
+    dlg = _confirm_window(qgui_app, "tagRenameDialog")
+    dlg.findChild(QQuickItem, "tagRenameField").setProperty("text", "Adventure")
+    _click(dlg, "dialogOk")
+    QTest.qWait(100)
+    assert C.load_tags() == ["Adventure"]
+    rows = picker.property("catRows").toVariant()
+    assert [(entry["name"], entry["state"]) for entry in rows] == [("Adventure", 2)]
+    assert swin.property("onlineTagList").toVariant() == ["Adventure"]
+
+    mgr.close()
+    picker.close()
+    swin.close()
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_narrow_toolbar_with_tags_keeps_actions(qgui_app, xdg_env):
     """The narrow title row yields instead of hiding the actions row.
 

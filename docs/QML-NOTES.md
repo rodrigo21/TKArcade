@@ -148,6 +148,14 @@ failure. `AGENTS.md` links here.
   means the ScrollView syncs its content size a layout pass **after**
   the window is mapped: tests wait (`QTest.qWait`) before asserting
   `contentHeight`.
+- A dialog that lists names the user typed (tags, categories) sizes
+  its width from the longest row with a documented cap: half the screen
+  for the tag manager, 60 grid units or 80% of the screen for the
+  picker and the tag filter. A list that can grow also caps its height
+  (24 grid units, or half the screen for the filter), and a caller that
+  needs a roomier window raises `DialogWindow`'s floor with
+  `minimumHeight`. The default 24 grid units elides real data at first
+  paint.
 - `DialogWindow`'s body column does not fill the window by default
   (`height` hugs the content), so a capped list or text area would stay
   put when the user resizes the window and leave the extra height empty
@@ -225,6 +233,11 @@ failure. `AGENTS.md` links here.
   dead popup wrapper. Hold that window in a variable: PySide's
   `topLevelWindows()` wrapper owns it, and letting the temporary drop
   invalidates the window and every item under it.
+- A `DialogWindow` body uses the default property, so a prompt window a
+  subclass needs (a rename box, a confirmation) cannot be a direct body
+  child: keep it inside a zero-size `Item` in the body, or the layout
+  tries to place the `Window` (`Cannot assign QObject* to QWindow*` at
+  load, and the dialog never opens).
 - A `CheckBox` in a dialog body needs `Layout.fillWidth: true` to wrap
   its label: the desktop style wraps the content item, but an
   unconstrained control keeps its one-line text width and overruns the

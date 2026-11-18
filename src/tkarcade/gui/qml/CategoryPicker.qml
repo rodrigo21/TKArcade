@@ -30,6 +30,11 @@ DialogWindow {
     // Opt-in for the tag picker: fit the window to the longest row, and
     // drop to one column rather than squeeze a tag onto a second line.
     property bool fitContent: false
+    // The optional maintenance action on the footer's left edge (the tag
+    // picker opens the manager; the category pickers leave it empty).
+    property string manageText: ""
+    property string manageObjectName: "categoryManage"
+    signal manageRequested()
     property real maximumContentWidth: Math.min(
         Kirigami.Units.gridUnit * 60,
         Screen.availableWidth > 0 ? Screen.availableWidth * 0.8 : Kirigami.Units.gridUnit * 60)
@@ -74,6 +79,13 @@ DialogWindow {
     }
 
     width: picker.fittedWidth
+
+    leadingActions: Controls.Button {
+        objectName: picker.manageObjectName
+        visible: picker.manageText !== ""
+        text: picker.manageText
+        onClicked: picker.manageRequested()
+    }
 
     onVisibleChanged: {
         if (!visible) {

@@ -1648,6 +1648,102 @@ class GameListModel(QAbstractTableModel):
         """How many games carry each tag in use, by label."""
         return dict(self._tag_counts)
 
+    def _rewrite_tag(self, old: str, target: str) -> int:
+        """Replace one tag in every game carrying it; answer the count."""
+        key = old.lower()
+        changed = 0
+        for appid in cfgmod.list_appids():
+            try:
+                cfg = cfgmod.load(appid)
+                tags = list(cfg.metadata.tags)
+                if not any(str(tag).strip().lower() == key for tag in tags):
+                    continue
+                replaced = [target if str(tag).strip().lower() == key else tag for tag in tags]
+                cfg.metadata.tags = cfgmod.normalize_categories(replaced)
+                cfgmod.save(cfg)
+                changed += 1
+            except Exception as e:
+                log.warning("renameTag(%s) failed: %s", appid, e)
+        return changed
+
+    @Slot(str, str, result=str)
+    def renameTag(self, oldName: str, newName: str) -> str:
+        """Rename a tag everywhere; an existing name merges into it.
+
+        The store alone is not enough: `refresh()` registers every tag in
+        use, so the old name would come back from the games. Every config
+        carrying it is rewritten, and a game carrying both names ends up
+        with the target once.
+        """
+        names = cfgmod.normalize_categories([oldName])
+        targets = cfgmod.normalize_categories([newName])
+        if not names:
+            return "Pick a Tag First."
+        if not targets:
+            return "Type a New Tag Name."
+        old = next((tag for tag in self._tags if tag.lower() == names[0].lower()), None)
+        if old is None:
+            return "Tag Not Found."
+        key = old.lower()
+        wanted = targets[0]
+        store = cfgmod.load_tags()
+        merged = any(tag.lower() == wanted.lower() for tag in store if tag.lower() != key)
+        target = next((tag for tag in store if tag.lower() == wanted.lower()), wanted)
+        if target.lower() == key:
+            return "That Is the Same Tag."
+        changed = self._rewrite_tag(old, target)
+        updated = [tag for tag in store if tag.lower() != key]
+        if not any(tag.lower() == target.lower() for tag in updated):
+            updated.append(target)
+        cfgmod.save_tags(updated)
+        self.refresh()
+        if merged:
+            return f"Merged {old} into {target} ({changed} Game(s))."
+        return f"Renamed {old} to {target} ({changed} Game(s))."
+
+    @Slot(str, result=str)
+    def deleteTag(self, name: str) -> str:
+        """Delete a tag from the store and from every game carrying it.
+
+        Removing the store entry alone is not enough: the next refresh
+        registers it again from the game configs.
+        """
+        names = cfgmod.normalize_categories([name])
+        if not names:
+            return "Pick a Tag First."
+        key = names[0].lower()
+        store = cfgmod.load_tags()
+        label = next((tag for tag in store if tag.lower() == key), None)
+        if label is None:
+            return "Tag Not Found."
+        cfgmod.save_tags([tag for tag in store if tag.lower() != key])
+        changed = 0
+        for appid in cfgmod.list_appids():
+            try:
+                cfg = cfgmod.load(appid)
+                tags = list(cfg.metadata.tags)
+                kept = [tag for tag in tags if str(tag).strip().lower() != key]
+                if len(kept) != len(tags):
+                    cfg.metadata.tags = cfgmod.normalize_categories(kept)
+                    cfgmod.save(cfg)
+                    changed += 1
+            except Exception as e:
+                log.warning("deleteTag(%s) failed: %s", appid, e)
+        self.refresh()
+        return f"Deleted {label} ({changed} Game(s))."
+
+    @Slot(result=str)
+    def pruneTags(self) -> str:
+        """Drop every store name that no game carries."""
+        store = cfgmod.load_tags()
+        kept = [tag for tag in store if self._tag_counts.get(tag, 0) > 0]
+        removed = len(store) - len(kept)
+        if not removed:
+            return "No Unused Tags."
+        cfgmod.save_tags(kept)
+        self.refresh()
+        return f"Removed {removed} Unused Tag(s)."
+
     def _register_categories(self, names) -> None:
         """Keep the given names in the store so they outlive their tags."""
         wanted = cfgmod.normalize_categories(names)
