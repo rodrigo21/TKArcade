@@ -82,6 +82,9 @@ rebuild `-git`, check upscale/presets.
 * `packaging/arch/linux-rt-upscaler*` — vendored upscaler packages.
 * Build with `makepkg -Ccfrs --noconfirm`. Build outputs are
   git-ignored; `PKGDEST` points outside the repo.
+* Building or installing packages is the maintainer's step on the
+  packaging/release subject; the development loop tests the venv and
+  never installs to the system.
 
 ## AppImage
 

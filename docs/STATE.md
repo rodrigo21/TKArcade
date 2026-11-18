@@ -44,8 +44,11 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
   checks while iterating, one verification pass on the approved diff.
-  Translations stay suspended (English-only new strings) until the 1.0
-  pass restores the catalog.
+  The venv is the only build under test; the agent never installs the
+  app on the system (no `makepkg -i`, `pacman -U`, writes under
+  `/usr`). Package builds belong to the maintainer, on the packaging or
+  release subject. Translations stay suspended (English-only new
+  strings) until the 1.0 pass restores the catalog.
 - Open decisions: none block the next theme.
   `docs/plans/epic-gog-sources.md` is parked for 2.0 with its own four
   decisions (scope, discovery, launch, import UI).

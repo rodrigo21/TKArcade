@@ -136,7 +136,9 @@ uv pip install --python .venv/bin/python --no-deps --no-build-isolation -e .
 
 The GUI's Play path runs the interpreter that owns it, so the venv is
 the build under test: refresh it after every change, before committing,
-or the maintainer tests a stale install.
+or the maintainer tests a stale install. Never install the app on the
+system (no `makepkg -i`, `pacman -U` or writes under `/usr`); package
+builds happen only when the maintainer opens that subject.
 
 ## Git
 
