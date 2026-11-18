@@ -10,30 +10,29 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: sixty-eight batches. The latest lets the Search Data preview
-  pick the tags to apply: the Tags row is a button (first tag plus how
-  many follow, full list in the tooltip) that opens the picker with
-  every provider name checked, and declining them all writes no tags.
-  It also fixed two rendering bugs: the hidden button no longer widens
-  the preview row, and the button sets no `contentItem`, because the
-  Plasma style paints its own text. Before it, the optional **Tags**
-  column and **Set Tags…** with the persistent filter.
+- Landed: sixty-nine batches. The latest makes the tag filter counts
+  follow the active filters: source, text, issues, category and the tag
+  selection (AND) narrow every number, while Match Any keeps the plain
+  per-tag count because checking a name can only widen. The popup binds
+  one live map, so no rows are rebuilt. The title-row width test lost
+  its brittle 200 px floor. Before it, the Search Data preview tag
+  picker and the optional **Tags** column.
 - Closed as docs, no code: the metadata registry theme (C1–C8) left
   `TODO.md`. Its two open items described landed work, and
   `plans/metadata-provider.md` became `decisions/metadata-provider.md`,
   which keeps the C numbering the other records cite. The IGDB
   real-key wait moved to the 2.0 item. That batch passed
   `scripts/check.sh` (800 passed, 3 skipped) and is pushed.
-- Verified: `scripts/check.sh --changed` and `scripts/check.sh --qml`
-  (820 passed, 3 skipped) on the approved diff, plus offscreen
-  screenshots with `QT_QUICK_CONTROLS_STYLE=org.kde.desktop` (the
-  Fusion default hid the doubled button text). The venv was refreshed
-  after the merge and `makepkg -f` built the `-git` package at
-  r810.g23c8835; installing it needs the maintainer's sudo.
-- Next: **tag filter counts** reflect the AND selection instead of
-  every game carrying the tag; then the metadata merge policy decision,
-  the VNDB release picker and the remaining tag follow-ups in `TODO.md`
-  (import mapping, display polish). After the library import, decide
+- Verified: `scripts/check.sh --qml` (821 passed, 3 skipped) on the
+  approved diff, plus the offscreen popup screenshot with the counts
+  (`/tmp/opencode/tag-counts.png`). The venv was refreshed after the
+  merge. An earlier `makepkg -f` left a package at r810.g23c8835 in
+  `~/Curioso/Packages/makepkg/Packages/`; nothing is installed, and the
+  installed app stays at r799.
+- Next: the metadata merge policy decision (does a download add to an
+  existing tag/age-rating list), then the VNDB release picker and the
+  remaining tag follow-ups in `TODO.md` (import mapping, display
+  polish). After the library import, decide
   whether categories derive from tags and whether a bulk download is
   worth it. Epic/GOG is 2.0, and so is the IGDB per-user credential
   review (`TODO.md`). The 1.0 visual pass, the packaging check, the
