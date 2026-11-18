@@ -654,6 +654,8 @@ _PREF_FIELDS = {
     "hidden_columns": "4,5",
     "column_widths": "1=210,2=90,11=150",
     "column_layout_version": 1,
+    "tag_filter": ["Co-op", "RPG"],
+    "tag_match_any": True,
     "tray_quick_launch": False,
     "tray_quick_count": 7,
     "language": "pt_BR",

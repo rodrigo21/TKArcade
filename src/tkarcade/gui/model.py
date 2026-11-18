@@ -5592,6 +5592,7 @@ class GameFilterModel(QSortFilterProxyModel):
     textChanged = Signal()
     issuesChanged = Signal()
     tagsChanged = Signal()
+    tagMatchChanged = Signal()
 
     TABLE_COLUMNS = (
         "#",
@@ -5636,6 +5637,9 @@ class GameFilterModel(QSortFilterProxyModel):
         self._text = ""
         self._issues = False
         self._tags: list[str] = []
+        prefs = cfgmod.load_preferences()
+        self._tags = cfgmod.normalize_categories(prefs.tag_filter)
+        self._tag_match_any = bool(prefs.tag_match_any)
         self._order, self._hidden = self._load_columns()
         self._widths = self._load_widths()
         self._sort_role = "gameName"
@@ -5957,8 +5961,57 @@ class GameFilterModel(QSortFilterProxyModel):
             self._tags = tags
             self.invalidate()
             self.tagsChanged.emit()
+            self._save_tag_state()
 
     tagKeys = Property("QVariantList", _get_tags, _set_tags, notify=tagsChanged)
+
+    def _get_tag_match_any(self) -> bool:
+        return self._tag_match_any
+
+    def _set_tag_match_any(self, value: bool) -> None:
+        value = bool(value)
+        if value != self._tag_match_any:
+            self._tag_match_any = value
+            self.invalidate()
+            self.tagMatchChanged.emit()
+            self._save_tag_state()
+
+    tagMatchAny = Property(bool, _get_tag_match_any, _set_tag_match_any, notify=tagMatchChanged)
+
+    def _save_tag_state(self) -> None:
+        """Persist the selection and the match mode with the other prefs."""
+        try:
+            prefs = cfgmod.load_preferences()
+            prefs.tag_filter = list(self._tags)
+            prefs.tag_match_any = self._tag_match_any
+            cfgmod.save_preferences(prefs)
+        except OSError:
+            pass
+
+    def setSourceModel(self, model):
+        old = self.sourceModel()
+        if old is not None:
+            try:
+                old.refreshed.disconnect(self._prune_tag_selection)
+            except (RuntimeError, TypeError):
+                pass
+        super().setSourceModel(model)
+        if model is not None:
+            model.refreshed.connect(self._prune_tag_selection)
+
+    @Slot()
+    def _prune_tag_selection(self) -> None:
+        """Drop selected names that left the store on a refresh."""
+        model = self.sourceModel()
+        if model is None or not self._tags:
+            return
+        known = {str(tag).lower() for tag in model.allTags()}
+        kept = [tag for tag in self._tags if tag.lower() in known]
+        if kept != self._tags:
+            self._tags = kept
+            self.invalidate()
+            self.tagsChanged.emit()
+            self._save_tag_state()
 
     columnsChanged = Signal()
     widthsChanged = Signal()
@@ -6184,11 +6237,13 @@ class GameFilterModel(QSortFilterProxyModel):
         return self._category.lower() in [c.strip().lower() for c in cats.split(",")]
 
     def _accepts_tags(self, model, index) -> bool:
-        """Every selected tag must be on the game (AND)."""
+        """All selected tags (AND) or any of them (OR) must be on the game."""
         if not self._tags:
             return True
         raw = model.data(index, GameListModel.TagsRole) or []
         values = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
         have = {str(tag).strip().lower() for tag in values if str(tag).strip()}
         wanted = {tag.strip().lower() for tag in self._tags if tag.strip()}
+        if self._tag_match_any:
+            return bool(wanted & have)
         return wanted <= have

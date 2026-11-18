@@ -381,6 +381,23 @@ def test_tags_store_and_filter(qgui_app, xdg_env):
     proxy.tagKeys = ["co-op"]
     assert shown() == ["local-coop", "local-coop2"]
 
+    # Match-any mode: a game with either name passes.
+    proxy.tagMatchAny = True
+    proxy.tagKeys = ["RPG", "Completed"]
+    assert shown() == ["local-coop", "local-rpg"]
+
+    # The mode and the selection persist with the preferences.
+    again = GameFilterModel()
+    again.setSourceModel(source)
+    assert again.tagKeys == ["RPG", "Completed"]
+    assert again.tagMatchAny is True
+
+    # A name that leaves the store is dropped from the selection.
+    proxy.tagMatchAny = False
+    proxy.tagKeys = ["RPG", "Ghost"]
+    source.refresh()
+    assert proxy.tagKeys == ["RPG"]
+
 
 def test_tag_manager_rename_merge_delete_and_prune(qgui_app, xdg_env):
     """The manager rewrites every game, merges names, deletes and prunes."""

@@ -504,6 +504,9 @@ class Preferences:
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
     column_widths: str = ""  # fitted widths, e.g. "1=210,2=90"
     column_layout_version: int = 0  # 0 = layout saved before the defaults
+    # Library tag filter: selected names and the AND (all) / OR (any) mode.
+    tag_filter: list[str] = field(default_factory=list)
+    tag_match_any: bool = False
     tray_quick_launch: bool = True  # recent games section in the tray menu
     tray_quick_count: int = 5  # recent games shown (1-10)
     language: str = "system"  # system locale, "en" for English, or a locale code
@@ -1449,6 +1452,8 @@ def load_preferences() -> Preferences:
     out.artwork_quality = clean_artwork_quality(ui.get("artwork_quality", 85))
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
+    out.tag_filter = normalize_categories(ui.get("tag_filter", []))
+    out.tag_match_any = _as_bool(ui.get("tag_match_any", False), False)
     out.column_widths = _clean_width_map(str(ui.get("column_widths", "") or ""))
     try:
         out.column_layout_version = max(0, int(ui.get("column_layout_version", 0) or 0))
@@ -1722,6 +1727,8 @@ def save_preferences(prefs: Preferences) -> Path:
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
             "column_widths": _clean_width_map(prefs.column_widths),
             "column_layout_version": max(0, int(prefs.column_layout_version or 0)),
+            "tag_filter": list(prefs.tag_filter),
+            "tag_match_any": bool(prefs.tag_match_any),
             "tray_quick_launch": bool(prefs.tray_quick_launch),
             "tray_quick_count": _clamp_quick_count(prefs.tray_quick_count),
             "language": prefs.language if isinstance(prefs.language, str) else "system",

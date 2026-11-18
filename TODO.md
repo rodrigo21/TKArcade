@@ -79,9 +79,9 @@ Release, only when the maintainer opens the subject:
   provider values into an existing list (tags, age ratings) instead of
   fill-empty/Replace, and whether the same rule fits other multi-value
   fields.
-- [ ] **Tag filter match mode.** Add a persisted "match all / match any"
-  switch to the tag filter; default all (AND). Revisit the per-tag counts
-  when AND is active.
+- [ ] **Tag filter counts.** Revisit whether the per-tag counts should
+  reflect the AND selection; today they show every game carrying the
+  tag.
 - [ ] **Search Data tag selection.** Make the preview Tags row open the
   tag picker so individual provider tags can be accepted or declined
   before Apply.
@@ -90,8 +90,6 @@ Release, only when the maintainer opens the subject:
 - [ ] **Bulk tags.** Add, set or remove tags on the selected games, like
   Set Categories.
 - [ ] **Tags column.** Optional library table column, hidden by default.
-- [ ] **Persist tag filter.** Keep the selected tags across refresh and
-  restart; drop names that disappear.
 - [ ] **Library import tag mapping.** Map Playnite/Lutris tags into
   `tags.toml` when the library import lands.
 - [ ] **Tag display polish.** Chips, autocomplete, manual order and

@@ -265,7 +265,9 @@ Unchecking
 removes a tag from the game but keeps it for other games, and Save
 persists the list; its lock still blocks Download Metadata. A tag
 filter button beside the library search narrows the list by tags, and
-every selected tag must match. The fill-empty rule and the Replace
+every selected tag must match by default; a switch makes any selected
+tag match, and both the selection and the switch survive a restart. A
+name that leaves the store is dropped from the selection. The fill-empty rule and the Replace
 switch still decide whether a download writes the provider list, so a
 game with tags keeps them unless Replace is on; a fully cleared list
 counts as empty, and its lock keeps a later download from refilling it.

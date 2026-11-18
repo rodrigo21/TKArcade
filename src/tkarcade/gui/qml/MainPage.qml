@@ -1518,11 +1518,20 @@ Kirigami.Page {
                 text: qsTr("Filter by Tags")
                 font.bold: true
             }
-            Controls.Label {
+            RowLayout {
                 Layout.fillWidth: true
-                opacity: 0.7
-                wrapMode: Text.WordWrap
-                text: qsTr("Match All Selected Tags")
+                Controls.Label {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    opacity: 0.7
+                    wrapMode: Text.WordWrap
+                    text: qsTr("Match Any Selected Tag")
+                }
+                Controls.Switch {
+                    objectName: "tagFilterMatchAny"
+                    checked: gameFilter.tagMatchAny
+                    onToggled: gameFilter.tagMatchAny = checked
+                }
             }
             Controls.TextField {
                 id: tagFilterSearchField

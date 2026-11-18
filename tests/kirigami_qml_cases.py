@@ -7714,6 +7714,17 @@ def test_tag_filter_popup_filters_the_library(qgui_app, xdg_env):
     assert sorted(proxy.property("tagKeys")) == ["Co-op", "Completed"]
     proxy.setProperty("tagKeys", [])
     assert proxy.rowCount() == 3
+    # Match Any: the same two names now accept a game with either one.
+    proxy.setProperty("tagKeys", ["Co-op", "RPG"])
+    assert proxy.rowCount() == 0
+    match_any = win.findChild(QQuickItem, "tagFilterMatchAny")
+    assert match_any is not None
+    _click_item(match_any)
+    qgui_app.processEvents()
+    assert proxy.property("tagMatchAny") is True
+    assert proxy.rowCount() == 3
+    assert C.load_preferences().tag_match_any is True
+    proxy.setProperty("tagKeys", [])
     # Tags are never sidebar entries: only the categories section exists.
     assert win.findChild(QObject, "categoryAction_Co-op") is None
     real = [w for w in warnings if "graphics scene" not in w]
