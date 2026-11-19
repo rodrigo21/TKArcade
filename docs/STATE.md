@@ -10,26 +10,25 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: seventy-one batches. The latest makes Download Metadata merge
-  the list fields: the accepted provider tags append to the game's own
-  list and an age rating replaces only its own board, the Replace
-  switch still swaps whole lists, and the preview's New column shows
-  the merged result. Before it, the venv refresh rule moved into
-  `docs/DEVELOPMENT.md` and `docs/GIT.md` (refresh before a test round
-  and again after every commit and merge), and the tag filter counts
-  followed the active filters.
-- Verified: `scripts/check.sh --qml` (820 passed, 3 skipped; its one
-  docs failure was fixed and `tests/test_docs.py` re-ran green) plus the
-  offscreen Search Data screenshot (`/tmp/opencode/metadata-merge.png`).
-  The venv was refreshed after the merge.
-- Next: the VNDB release picker plan is
-  `docs/plans/vndb-release-picker.md`; implement its batch 2 (adapter,
-  `[metadata] vndb_release`, registry `release` channel) after approval.
-  Then the remaining tag follow-ups in `TODO.md` (library import tag
-  mapping, display polish). After the library import, decide whether
-  sidebar categories derive from tags and whether a bulk download is
-  worth it.
-  Epic/GOG is 2.0, and so is the IGDB per-user credential review.
+- Landed: seventy-two batches. The latest adds the VNDB release
+  picker: Search Data lists the releases linked to a VNDB identity, a
+  client-side language filter narrows them, the pick drives Release Date
+  and Publisher, and `[metadata] vndb_release` re-keys the cache for the
+  next download. Before it, Download Metadata merged the list fields
+  (tags append, an age rating replaces its own board) and the venv
+  refresh rule moved into `docs/DEVELOPMENT.md` and `docs/GIT.md`.
+- Verified: `scripts/check.sh --qml` (832 passed, 3 skipped) on the
+  approved diff, the offscreen Search Data screenshot
+  (`/tmp/opencode/vndb-release.png`) and `tests/test_docs.py` re-run
+  green after the decision record. The venv was refreshed after the
+  merge.
+- Next: the library format import needs a plan before its first reader
+  (per-format readers for Lutris, Playnite and Faugus, the ID/name
+  mapping and an ImportDialog page). The tag follow-ups wait for it
+  (library import tag mapping, display polish). After the import, decide
+  whether sidebar categories derive from tags and whether a bulk
+  download is worth it. Epic/GOG is 2.0, and so is the IGDB per-user
+  credential review.
 - Deferred: the audit's #15 (launch parse) and #19 (role constants).
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
