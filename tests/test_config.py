@@ -499,6 +499,27 @@ def test_metadata_vndb_id_is_normalized(xdg_env):
     assert C.load("local-sg").metadata.vndb_id == "v2002"
 
 
+def test_metadata_vndb_release_is_normalized(xdg_env):
+    assert C.normalize_vndb_release("r1234") == "r1234"
+    assert C.normalize_vndb_release("R1234") == "r1234"
+    assert C.normalize_vndb_release("1234") == "r1234"
+    assert C.normalize_vndb_release("https://vndb.org/r1234") == "r1234"
+    assert C.normalize_vndb_release("https://vndb.org/r1234/") == "r1234"
+    assert C.normalize_vndb_release("v2002") == ""
+    assert C.normalize_vndb_release(None) == ""
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-sg"
+    cfg.metadata.vndb_id = "v2002"
+    cfg.metadata.vndb_release = "R1234"
+    C.save(cfg)
+    assert C.load("local-sg").metadata.vndb_release == "r1234"
+    # A release without its visual novel is not identity: load drops it.
+    cfg.metadata.vndb_id = ""
+    C.save(cfg)
+    assert C.load("local-sg").metadata.vndb_release == ""
+
+
 def test_metadata_igdb_id_is_normalized(xdg_env):
     assert C.normalize_igdb_id("1145360") == "1145360"
     assert C.normalize_igdb_id(" 1145360 ") == "1145360"

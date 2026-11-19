@@ -247,6 +247,10 @@ class MetadataConfig:
     # VNDB visual-novel id ("v2002"): identity for the VNDB provider. The
     # provider menu decides the source; an empty id searches by title.
     vndb_id: str = ""
+    # VNDB release id ("r1234") qualifying that visual novel: the pick
+    # drives the date and publisher rows. Identity too, so no lock; it is
+    # ignored and dropped when the visual-novel id is empty.
+    vndb_release: str = ""
     # IGDB game id ("1145360"): identity like the two above, so it takes no
     # lock. The provider menu chooses the source; an empty id searches.
     igdb_id: str = ""
@@ -283,6 +287,16 @@ def normalize_vndb_id(value: object) -> str:
     if text.isdigit():
         text = f"v{text}"
     return text if re.fullmatch(r"v\d+", text) else ""
+
+
+def normalize_vndb_release(value: object) -> str:
+    """VNDB release id like ``r1234`` ("" for anything else)."""
+    text = str(value or "").strip().lower().rstrip("/")
+    if "vndb.org/" in text:
+        text = text.rsplit("/", 1)[-1]
+    if text.isdigit():
+        text = f"r{text}"
+    return text if re.fullmatch(r"r\d+", text) else ""
 
 
 def normalize_igdb_id(value: object) -> str:
@@ -1107,6 +1121,7 @@ SECTION_KEYS: dict[str, set[str]] = {
         "locked",
         "steam_appid",
         "vndb_id",
+        "vndb_release",
         "igdb_id",
         "tags",
     },
@@ -1357,6 +1372,9 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.metadata.locked = normalize_locked_fields(md.get("locked", ""))
     cfg.metadata.steam_appid = normalize_steam_appid(md.get("steam_appid", ""))
     cfg.metadata.vndb_id = normalize_vndb_id(md.get("vndb_id", ""))
+    cfg.metadata.vndb_release = (
+        normalize_vndb_release(md.get("vndb_release", "")) if cfg.metadata.vndb_id else ""
+    )
     cfg.metadata.igdb_id = normalize_igdb_id(md.get("igdb_id", ""))
     cfg.metadata.tags = normalize_categories(md.get("tags", []))
     raw_vars = _section(data, "env").get("vars", {})

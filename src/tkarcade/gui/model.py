@@ -82,6 +82,9 @@ def _apply_metadata(cfg, data: dict) -> None:
     md.locked = cfgmod.normalize_locked_fields(data.get("locked", ""))
     md.steam_appid = cfgmod.normalize_steam_appid(data.get("steam_appid", ""))
     md.vndb_id = cfgmod.normalize_vndb_id(data.get("vndb_id", ""))
+    md.vndb_release = (
+        cfgmod.normalize_vndb_release(data.get("vndb_release", "")) if md.vndb_id else ""
+    )
     md.igdb_id = cfgmod.normalize_igdb_id(data.get("igdb_id", ""))
     # Only a caller that carries the field writes it: an older form map
     # without tags must not clear the list on save.
@@ -1105,6 +1108,7 @@ class GameListModel(QAbstractTableModel):
             "locked": cfg.metadata.locked,
             "steam_appid": cfg.metadata.steam_appid,
             "vndb_id": cfg.metadata.vndb_id,
+            "vndb_release": cfg.metadata.vndb_release,
             "igdb_id": cfg.metadata.igdb_id,
             "tags": list(cfg.metadata.tags),
             "custom_executable": g.custom_executable,
@@ -4935,6 +4939,9 @@ class GameListModel(QAbstractTableModel):
     #: (appid, rows) when a title search needs a pick: rows are
     #: [{"id": "v2002", "name": "STEINS;GATE (2009)"}, ...].
     metadataChoices = Signal(str, "QVariantList")
+    #: (appid, target, rows) with a provider's release list for the picker:
+    #: rows are [{"id": "r1234", "name": ..., "detail": ..., "langs": [...]}].
+    metadataReleases = Signal(str, str, "QVariantList")
 
     @Slot()
     def fetchMissing(self) -> None:
@@ -5045,8 +5052,10 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             pass
 
-    @Slot(str, str, str)
-    def fetchMetadata(self, appid: str, provider: str = "steam", target: str = "") -> None:
+    @Slot(str, str, str, str)
+    def fetchMetadata(
+        self, appid: str, provider: str = "steam", target: str = "", release: str = ""
+    ) -> None:
         """Download one provider's metadata off-thread for the dialog to fill."""
         if provider not in metamod.PROVIDERS:
             self.metadataFetched.emit(appid, {})
@@ -5061,16 +5070,38 @@ class GameListModel(QAbstractTableModel):
                 self.metadataFetched.emit(appid, {})
                 return
         threading.Thread(
-            target=self._metadata_worker, args=(appid, provider, target), daemon=True
+            target=self._metadata_worker,
+            args=(appid, provider, target, release),
+            daemon=True,
         ).start()
 
-    def _metadata_worker(self, appid: str, provider: str, target: str) -> None:
+    def _metadata_worker(self, appid: str, provider: str, target: str, release: str = "") -> None:
         """Use the fresh cache first; the provider call only when stale/missing."""
         try:
-            data = metamod.download(provider, appid, target)
+            data = metamod.download(provider, appid, target, release)
         except Exception:
             data = None
         self.metadataFetched.emit(appid, data or {})
+
+    @Slot(str, str, str)
+    def fetchReleases(self, appid: str, provider: str = "vndb", target: str = "") -> None:
+        """List a provider's releases off-thread for the dialog picker."""
+        if provider not in metamod.PROVIDERS or not str(target or "").strip():
+            self.metadataReleases.emit(appid, target, [])
+            return
+        if os.environ.get("TKARCADE_NO_BG_FETCH"):
+            self.metadataReleases.emit(appid, target, [])
+            return
+        threading.Thread(
+            target=self._metadata_releases_worker, args=(appid, provider, target), daemon=True
+        ).start()
+
+    def _metadata_releases_worker(self, appid: str, provider: str, target: str) -> None:
+        try:
+            rows = metamod.releases(provider, target)
+        except Exception:
+            rows = []
+        self.metadataReleases.emit(appid, target, rows)
 
     @Slot(str, str, str)
     def searchMetadata(self, appid: str, provider: str, title: str = "") -> None:

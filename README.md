@@ -242,7 +242,11 @@ or a local game's store link — is looked up as the window opens and
 leaves no query row, while a local game without one searches the Steam
 store by title. A stored VNDB or IGDB id fills the query, an id typed
 in place of a title goes straight to the provider, and a title lists
-candidates. The answer arrives as preview rows (Apply fills empty
+candidates. Under the VNDB id a Language filter narrows the releases
+linked to the visual novel, and the Release pick drives the preview's
+Release Date and Publisher; Save stores it as `[metadata] vndb_release`
+and Details shows the identity as `v2002/r1234`. The answer arrives as
+preview rows (Apply fills empty
 fields, merges the tag list and the age ratings, a switch replaces typed
 values and whole lists, the locks win) and writes the
 dialog draft; Save persists it and fills any missing artwork with the

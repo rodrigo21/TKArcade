@@ -299,8 +299,11 @@ def search(query: str, timeout: int = 15) -> list[dict]:
     return found
 
 
-def fetch(game_id: str, target: str = "", timeout: int = 15) -> dict | None:
-    """Fetch one IGDB game's metadata. None on any failure or no entry."""
+def fetch(game_id: str, target: str = "", timeout: int = 15, release: str = "") -> dict | None:
+    """Fetch one IGDB game's metadata. None on any failure or no entry.
+
+    ``release`` is the registry's shared qualifier; IGDB has none.
+    """
     wanted = resolve(game_id, target)
     if not wanted:
         return None

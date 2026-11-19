@@ -8707,7 +8707,9 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     # Several candidates become buttons; the pick fills the field and goes
     # back to the model for the fetch.
     fetched = []
-    model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
+    model.fetchMetadata = lambda appid, provider, target, release: fetched.append(
+        (provider, appid, target, release)
+    )
     model.metadataChoices.emit(
         "local-sg",
         [
@@ -8722,7 +8724,7 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     # handler they call instead of reaching them through the object tree.
     dlg = win.findChild(QObject, "gameSettings")
     dlg.pickCandidate("v2002")
-    assert fetched == [("vndb", "local-sg", "v2002")]
+    assert fetched == [("vndb", "local-sg", "v2002", "")]
     vndb_field = awin.findChild(QQuickItem, "settingsVndbId")
     assert vndb_field.property("text") == "v2002"
     # The fetched fields go through the same preview and Apply.
@@ -8749,6 +8751,102 @@ def test_metadata_vndb_fallback_and_picker(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_metadata_vndb_release_picker_and_language_filter(qgui_app, xdg_env):
+    """The stored VNDB id lists releases; the pick and the filter drive it."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    _save_one_game("local-sg", "Steins;Gate")
+    cfg = C.load("local-sg")
+    cfg.metadata.vndb_id = "v2002"
+    C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    requested = []
+    model.fetchReleases = lambda appid, provider, target: requested.append(
+        (appid, provider, target)
+    )
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-sg")
+    _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    assert requested == [("local-sg", "vndb", "v2002")], requested
+    rows = [
+        {
+            "id": "r1",
+            "name": "STEINS;GATE (2009-10-15 · win · ja, en)",
+            "detail": "PC, Japanese and English",
+            "langs": ["ja", "en"],
+        },
+        {
+            "id": "r2",
+            "name": "STEINS;GATE (2010 · ps3 · ja) [unofficial]",
+            "detail": "PS3, Japanese",
+            "langs": ["ja"],
+        },
+        {
+            "id": "r1234",
+            "name": "STEINS;GATE (2011 · win · en)",
+            "detail": "PC, English",
+            "langs": ["en"],
+        },
+    ]
+    model.metadataReleases.emit("local-sg", "v2002", rows)
+    qgui_app.processEvents()
+    box = awin.findChild(QQuickItem, "settingsVndbRelease")
+    lang = awin.findChild(QQuickItem, "settingsReleaseLanguage")
+    assert box.property("visible") is True
+    assert box.property("count") == 4, box.property("count")
+    assert box.property("currentIndex") == 0
+    assert lang.property("count") == 3, lang.property("count")
+
+    dlg = win.findChild(QObject, "gameSettings")
+    dlg.setProperty("languageFilter", "ja")
+    qgui_app.processEvents()
+    assert dlg.property("languageFilter") == "ja"
+    assert box.property("count") == 3, box.property("count")
+
+    fetched = []
+    model.fetchMetadata = lambda appid, provider, target, release: fetched.append(
+        (provider, appid, target, release)
+    )
+    dlg.pickRelease("r2")
+    assert fetched == [("vndb", "local-sg", "v2002", "r2")]
+
+    # A filter that hides the pick keeps it visible, marked outside it.
+    dlg.setProperty("languageFilter", "en")
+    qgui_app.processEvents()
+    assert box.property("count") == 4, box.property("count")
+    assert box.property("currentIndex") == 1
+
+    # A new visual novel drops the pick and reloads the list.
+    dlg.setProperty("languageFilter", "")
+    dlg.setIdentity("vndb", "v2003")
+    qgui_app.processEvents()
+    assert dlg.property("releaseDraft") == ""
+    assert requested[-1] == ("local-sg", "vndb", "v2003")
+    dlg.setIdentity("vndb", "v2002")
+    qgui_app.processEvents()
+    model.metadataReleases.emit("local-sg", "v2002", rows)
+    qgui_app.processEvents()
+
+    dlg.pickRelease("r1234")
+    awin.close()
+    qgui_app.processEvents()
+    dlg.save()
+    qgui_app.processEvents()
+    saved = C.load("local-sg")
+    assert saved.metadata.vndb_id == "v2002"
+    assert saved.metadata.vndb_release == "r1234"
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_metadata_window_steam_game_looks_up_its_appid(qgui_app, xdg_env):
     """A Steam game opens the window on its AppID: no query row, no Search."""
     from PySide6.QtCore import QObject
@@ -8763,14 +8861,16 @@ def test_metadata_window_steam_game_looks_up_its_appid(qgui_app, xdg_env):
     win, engine, _proxy, _warnings = _load_main(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     fetched = []
-    model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
+    model.fetchMetadata = lambda appid, provider, target, release: fetched.append(
+        (provider, appid, target, release)
+    )
     searched = []
     model.searchMetadata = lambda appid, provider, title: searched.append((provider, appid, title))
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("steam-620")
     swin = _settings_window(qgui_app)
     awin = _search_window(qgui_app)
-    assert fetched == [("steam", "steam-620", "")], fetched
+    assert fetched == [("steam", "steam-620", "", "")], fetched
     assert searched == []
     assert awin.findChild(QQuickItem, "settingsSearchQuery").isVisible() is False
     # The answer fills the preview like any other provider; Apply writes it.
@@ -8799,17 +8899,19 @@ def test_metadata_window_local_link_looks_up_the_typed_appid(qgui_app, xdg_env):
     win, engine, _proxy, _warnings = _load_main(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     fetched = []
-    model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
+    model.fetchMetadata = lambda appid, provider, target, release: fetched.append(
+        (provider, appid, target, release)
+    )
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
     _settings_window(qgui_app)
     awin = _search_window(qgui_app)
-    assert fetched == [("steam", "local-doom", "620")], fetched
+    assert fetched == [("steam", "local-doom", "620", "")], fetched
     field = awin.findChild(QQuickItem, "settingsSteamAppId")
     field.setProperty("text", "480")
     assert QMetaObject.invokeMethod(field, "editingFinished") is True
     qgui_app.processEvents()
-    assert fetched[-1] == ("steam", "local-doom", "480")
+    assert fetched[-1] == ("steam", "local-doom", "480", "")
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
@@ -8824,7 +8926,9 @@ def test_metadata_window_local_without_link_searches_by_name(qgui_app, xdg_env):
     win, engine, _proxy, _warnings = _load_main(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
     fetched = []
-    model.fetchMetadata = lambda appid, provider, target: fetched.append((provider, appid, target))
+    model.fetchMetadata = lambda appid, provider, target, release: fetched.append(
+        (provider, appid, target, release)
+    )
     searched = []
     model.searchMetadata = lambda appid, provider, title: searched.append((provider, appid, title))
     page = win.findChild(QObject, "gamesPage")
@@ -8895,13 +8999,15 @@ def test_metadata_igdb_provider_and_picker(qgui_app, xdg_env):
     assert searches == [("igdb", "local-hades", "Hades")]
 
     fetched = []
-    model.fetchMetadata = lambda appid, name, target: fetched.append((name, appid, target))
+    model.fetchMetadata = lambda appid, name, target, release: fetched.append(
+        (name, appid, target, release)
+    )
     model.metadataChoices.emit("local-hades", [{"id": "1145360", "name": "Hades (2020)"}])
     qgui_app.processEvents()
     rep = awin.findChild(QObject, "settingsSearchCandidates")
     assert rep.property("count") == 1, rep.property("count")
     dlg.pickCandidate("1145360")
-    assert fetched == [("igdb", "local-hades", "1145360")]
+    assert fetched == [("igdb", "local-hades", "1145360", "")]
     assert awin.findChild(QQuickItem, "settingsIgdbId").property("text") == "1145360"
     awin.close()
     qgui_app.processEvents()

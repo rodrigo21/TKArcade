@@ -19,14 +19,6 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Before 1.0
 
-- [ ] **VNDB release picker.** A visual novel has several releases, and
-  each carries its own date, platforms, languages and producers (a
-  publisher is not the developer). The VNDB source should list them
-  under the identity and let the pick drive the date and publisher rows,
-  with the choice stored in a new `[metadata] vndb_release` key and used
-  by the next download. The metadata registry passes only the game id
-  and a target today, so the release needs its own channel.
-  Design: a plan lands before the adapter call.
 - [ ] **Library format import (Lutris, Playnite, Faugus).** Only tarball,
   SteamTinkerLaunch and predecessor configs import today. A foreign
   library file needs a per-format reader, the ID/name mapping onto

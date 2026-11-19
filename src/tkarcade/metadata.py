@@ -52,8 +52,10 @@ class Provider:
     cache_dir: str
     fields: tuple[str, ...]
     resolve: Callable[[str, str], str]
-    fetch: Callable[[str, str], dict | None]
+    fetch: Callable[..., dict | None]
     search: Callable[[str], list[dict]] | None = None
+    releases: Callable[[str], list[dict]] | None = None
+    resolve_release: Callable[[str, str, str], str] | None = None
     needs_key: bool = False
     min_interval: float = 0.0
 
@@ -70,10 +72,12 @@ PROVIDERS: dict[str, Provider] = {
     "vndb": Provider(
         label="VNDB",
         cache_dir="vndb-meta",
-        fields=("description", "developer", "date", "tags"),
+        fields=("description", "developer", "publisher", "date", "tags"),
         resolve=vndb.resolve,
         fetch=vndb.fetch,
         search=vndb.search,
+        releases=vndb.releases,
+        resolve_release=vndb.resolve_release,
         min_interval=1.0,
     ),
     "igdb": Provider(
@@ -102,12 +106,22 @@ def cache_dirs() -> tuple[str, ...]:
     return tuple(entry.cache_dir for entry in PROVIDERS.values())
 
 
-def cached(provider: str, game_id: str, target: str = "") -> tuple[dict | None, bool]:
+def _resolved_release(entry: Provider, game_id: str, target: str, release: str) -> str:
+    """Release qualifier: the explicit pick, else the provider's stored one."""
+    if entry.resolve_release is None:
+        return ""
+    return entry.resolve_release(game_id, str(target or ""), str(release or ""))
+
+
+def cached(
+    provider: str, game_id: str, target: str = "", release: str = ""
+) -> tuple[dict | None, bool]:
     """Return (fields, is_fresh). Stale fields are returned for display.
 
     The cache stays keyed by the game ID and records the target it was
     fetched for: a changed match reads as not cached instead of filling
-    the previous game's metadata.
+    the previous game's metadata. A release qualifier re-keys it the same
+    way, so another release never reuses this one's date and publisher.
     """
     entry = PROVIDERS.get(provider)
     if entry is None:
@@ -115,6 +129,7 @@ def cached(provider: str, game_id: str, target: str = "") -> tuple[dict | None, 
     wanted = entry.resolve(game_id, target)
     if not wanted:
         return None, False
+    wanted_release = _resolved_release(entry, game_id, target, release)
     try:
         payload = json.loads(cache_path(provider, game_id).read_text(encoding="utf-8"))
     except Exception:
@@ -125,6 +140,8 @@ def cached(provider: str, game_id: str, target: str = "") -> tuple[dict | None, 
         return None, False
     stored = str(payload.get("target", "") or "")
     if stored and stored != wanted:
+        return None, False
+    if str(payload.get("release", "") or "") != wanted_release:
         return None, False
     data = payload.get("data")
     try:
@@ -159,7 +176,7 @@ def _filled(data: dict) -> bool:
     return False
 
 
-def download(provider: str, game_id: str, target: str = "") -> dict | None:
+def download(provider: str, game_id: str, target: str = "", release: str = "") -> dict | None:
     """Fresh cache first, then one provider call.
 
     A failed or empty answer falls back to the stale cache, so an expired
@@ -172,11 +189,12 @@ def download(provider: str, game_id: str, target: str = "") -> dict | None:
     wanted = entry.resolve(game_id, target)
     if not wanted:
         return None
-    data, fresh = cached(provider, game_id, wanted)
+    wanted_release = _resolved_release(entry, game_id, target, release)
+    data, fresh = cached(provider, game_id, target, release)
     if fresh:
         return data
     _gate(provider)
-    fetched = entry.fetch(game_id, wanted)
+    fetched = entry.fetch(game_id, wanted, release=wanted_release)
     if fetched is None or not _filled(fetched):
         return data or None
     path = cache_path(provider, game_id)
@@ -188,6 +206,7 @@ def download(provider: str, game_id: str, target: str = "") -> dict | None:
                     "version": CACHE_VERSION,
                     "saved": int(time.time()),
                     "target": wanted,
+                    "release": wanted_release,
                     "data": fetched,
                 }
             ),
@@ -196,6 +215,20 @@ def download(provider: str, game_id: str, target: str = "") -> dict | None:
     except Exception as e:
         log.debug("metadata cache write failed: %s", e)
     return fetched
+
+
+def releases(provider: str, target: str = "") -> list[dict]:
+    """Release list for a provider target: gated and failure-tolerant."""
+    entry = PROVIDERS.get(provider)
+    wanted = str(target or "").strip()
+    if entry is None or entry.releases is None or not wanted:
+        return []
+    _gate(provider)
+    try:
+        return list(entry.releases(wanted))
+    except Exception as e:
+        log.debug("metadata releases failed for %s: %s", provider, e)
+        return []
 
 
 def search(provider: str, query: str) -> list[dict]:

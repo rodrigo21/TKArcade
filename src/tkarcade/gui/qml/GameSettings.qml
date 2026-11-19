@@ -70,6 +70,13 @@ Window {
     property var metadataRows: []
     // Title-search candidates the window lists: [{"id", "name"}].
     property var searchCandidates: []
+    // VNDB releases under the identity: the fetched rows, the draft pick,
+    // the language filter and the id the rows belong to.
+    property var releaseRows: []
+    property string releaseDraft: ""
+    property string releaseFor: ""
+    property bool releaseLoading: false
+    property string languageFilter: ""
     // The opening lookup of a known Steam AppID falls back to a store
     // title search once when the store answers nothing.
     property bool steamAutoName: false
@@ -1071,6 +1078,11 @@ Window {
         gameStatusBox.currentIndex = Math.max(0, gameStatusBox.indexOfValue(f.status || ""))
         steamAppIdField.text = f.steam_appid || ""
         vndbIdField.text = f.vndb_id || ""
+        releaseDraft = f.vndb_release || ""
+        releaseRows = []
+        releaseFor = ""
+        releaseLoading = false
+        languageFilter = ""
         igdbIdField.text = f.igdb_id || ""
         searchBusy = false
         searchStatus = ""
@@ -1193,6 +1205,7 @@ Window {
             "locked": lockedFields.join(","),
             "steam_appid": steamAppIdField.text,
             "vndb_id": vndbIdField.text,
+            "vndb_release": vndbIdField.text.trim() !== "" ? releaseDraft : "",
             "igdb_id": igdbIdField.text,
             // The slots have no path field any more: read what the store
             // holds, or a Save would clear a file picked earlier.
@@ -1979,7 +1992,9 @@ Window {
             parts.push(qsTr("Steam %1").arg(steamAppIdField.text.trim()))
         }
         if (vndbIdField.text.trim() !== "") {
-            parts.push(qsTr("VNDB %1").arg(vndbIdField.text.trim()))
+            var vndb = vndbIdField.text.trim()
+            parts.push(qsTr("VNDB %1").arg(
+                releaseDraft !== "" ? vndb + "/" + releaseDraft : vndb))
         }
         if (igdbIdField.text.trim() !== "") {
             parts.push(qsTr("IGDB %1").arg(igdbIdField.text.trim()))
@@ -1996,6 +2011,10 @@ Window {
         searchCandidates = []
         metadataRows = []
         searchQueryForced = false
+        releaseRows = []
+        releaseFor = ""
+        releaseLoading = false
+        languageFilter = ""
         searchSource = defaultMetadataProvider()
         searchSourceBox.currentIndex = Math.max(0,
             ["steam", "vndb", "igdb"].indexOf(searchSource))
@@ -2010,6 +2029,8 @@ Window {
         if (searchSource === "steam" && steamIdentity) {
             steamAutoName = true
             fetchIdentity()
+        } else if (searchSource === "vndb" && vndbIdField.text.trim() !== "") {
+            loadReleases()
         }
     }
 
@@ -2057,7 +2078,16 @@ Window {
 
     function setIdentity(source, value) {
         if (source === "vndb") {
-            vndbIdField.text = String(value).toLowerCase()
+            var next = String(value).toLowerCase()
+            if (next !== vndbIdField.text.trim().toLowerCase()) {
+                // Another visual novel: its releases replace this one's pick.
+                releaseDraft = ""
+                releaseRows = []
+                releaseFor = ""
+                languageFilter = ""
+            }
+            vndbIdField.text = next
+            loadReleases()
         } else if (source === "igdb") {
             igdbIdField.text = String(value)
         } else if (source === "steam" && !(fields.is_steam || false)) {
@@ -2089,7 +2119,8 @@ Window {
         searchBusy = true
         searchStatus = qsTr("Looking Up…")
         metadataRows = []
-        gameModel.fetchMetadata(editAppid, searchSource, storedIdentity())
+        gameModel.fetchMetadata(editAppid, searchSource, storedIdentity(),
+            searchSource === "vndb" ? releaseDraft : "")
     }
 
     // Find: an ID goes straight to the provider, a name lists candidates.
@@ -2141,6 +2172,8 @@ Window {
         if (searchSource === "steam" && steamIdentity) {
             steamAutoName = true
             fetchIdentity()
+        } else if (searchSource === "vndb") {
+            loadReleases()
         }
     }
 
@@ -2149,6 +2182,134 @@ Window {
         searchCandidates = []
         setIdentity(searchSource, id)
         fetchIdentity()
+    }
+
+    // The release pick follows the same rule: it refetches with the draft,
+    // Save writes it and Cancel drops it.
+    function pickRelease(id) {
+        releaseDraft = String(id || "")
+        if (vndbIdField.text.trim() !== "") {
+            fetchIdentity()
+        }
+    }
+
+    // One list per visual-novel id and window open; a manual id edit re-keys
+    // it. The rows stay in memory while the window is open.
+    function loadReleases() {
+        var id = vndbIdField.text.trim()
+        if (id === "" || editAppid === "") {
+            releaseRows = []
+            releaseLoading = false
+            return
+        }
+        if (releaseFor === id) {
+            return
+        }
+        if (releaseFor !== "") {
+            // Another visual novel: the old pick cannot apply to it.
+            releaseDraft = ""
+            languageFilter = ""
+        }
+        releaseFor = id
+        releaseRows = []
+        releaseLoading = true
+        gameModel.fetchReleases(editAppid, "vndb", id)
+    }
+
+    // The empty entry means no release, so the visual-novel date stays. The
+    // current pick remains visible when the language filter or a deleted
+    // entry would hide it.
+    function releaseChoices() {
+        var out = [{
+            "id": "",
+            "name": qsTr("Earliest Release (Visual Novel)"),
+            "detail": qsTr("No Release Pick: the Visual Novel Date and No Publisher"),
+            "langs": []
+        }]
+        var picked = null
+        var shown = false
+        for (var i = 0; i < releaseRows.length; i++) {
+            var row = releaseRows[i]
+            var langs = row.langs || []
+            var matches = languageFilter === "" || langs.indexOf(languageFilter) >= 0
+            if (matches) {
+                out.push(row)
+            }
+            if (releaseDraft !== "" && row.id === releaseDraft) {
+                picked = row
+                shown = matches
+            }
+        }
+        if (releaseDraft !== "" && !shown) {
+            var item = picked !== null ? {
+                "id": picked.id,
+                "name": qsTr("%1 (outside filter)").arg(picked.name),
+                "detail": picked.detail || "",
+                "langs": picked.langs || []
+            } : {
+                "id": releaseDraft,
+                "name": qsTr("%1 (not in VNDB)").arg(releaseDraft),
+                "detail": "",
+                "langs": []
+            }
+            out.splice(1, 0, item)
+        }
+        return out
+    }
+
+    function releaseDetail(id) {
+        var rows = releaseChoices()
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].id === id) {
+                return String(rows[i].detail || "")
+            }
+        }
+        return ""
+    }
+
+    // The index follows the rows, the pick and the filter, so a rebuilt
+    // model never leaves the combo on a stale row.
+    function releaseIndex() {
+        var rows = releaseChoices()
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].id === releaseDraft) {
+                return i
+            }
+        }
+        return 0
+    }
+
+    // Language codes present in the fetched rows, with release counts.
+    function languageChoices() {
+        var counts = ({})
+        var codes = []
+        for (var i = 0; i < releaseRows.length; i++) {
+            var langs = releaseRows[i].langs || []
+            for (var j = 0; j < langs.length; j++) {
+                var code = String(langs[j])
+                if (counts[code] === undefined) {
+                    counts[code] = 0
+                    codes.push(code)
+                }
+                counts[code] += 1
+            }
+        }
+        codes.sort()
+        var out = [{ "text": qsTr("Any Language"), "data": "" }]
+        for (var k = 0; k < codes.length; k++) {
+            out.push({ "text": codes[k] + " (" + counts[codes[k]] + ")", "data": codes[k] })
+        }
+        return out
+    }
+
+    function languageIndex() {
+        var rows = languageChoices()
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].data === languageFilter) {
+                return i
+            }
+        }
+        return 0
     }
 
     // The provider answered: the window shows the rows instead of writing,
@@ -2531,6 +2692,17 @@ Window {
             if (rows.length === 0) {
                 searchStatus = qsTr("No Metadata Found.")
             }
+        }
+        // The release list arrived for the visual novel the window shows.
+        function onMetadataReleases(appid, target, rows) {
+            if (appid !== editAppid) {
+                return
+            }
+            if (target !== vndbIdField.text.trim()) {
+                return
+            }
+            releaseLoading = false
+            releaseRows = rows || []
         }
         // The name matched several provider entries: ask which one.
         function onArtworkChoices(appid, rows) {
@@ -5272,6 +5444,13 @@ Window {
             id: searchTabs
             objectName: "searchDataTabs"
             Layout.fillWidth: true
+            // The release list belongs to the Metadata tab, wherever the
+            // window opened; the load is idempotent per identity.
+            onCurrentIndexChanged: {
+                if (currentIndex === 0) {
+                    gameSettings.loadReleases()
+                }
+            }
             Controls.TabButton {
                 text: qsTr("Metadata")
             }
@@ -5366,7 +5545,52 @@ Window {
                             objectName: "settingsVndbId"
                             Layout.fillWidth: true
                             placeholderText: qsTr("e.g. v2002")
+                            // A hand-typed id re-keys the release list at once.
+                            onEditingFinished: gameSettings.loadReleases()
                             Controls.ToolTip.text: qsTr("VNDB Visual Novel of This Game. The VNDB Source Reads It Directly.")
+                            Controls.ToolTip.visible: hovered
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: gameSettings.searchSource === "vndb"
+                            && vndbIdField.text.trim() !== ""
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                            text: qsTr("Language:")
+                        }
+                        AppComboBox {
+                            id: releaseLanguageBox
+                            objectName: "settingsReleaseLanguage"
+                            Layout.fillWidth: true
+                            model: gameSettings.languageChoices()
+                            textRole: "text"
+                            valueRole: "data"
+                            currentIndex: gameSettings.languageIndex()
+                            onActivated: gameSettings.languageFilter = String(currentValue || "")
+                            Controls.ToolTip.text: qsTr("Narrow the Release List by Language. The Current Pick Still Applies When the Filter Hides It.")
+                            Controls.ToolTip.visible: hovered
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: gameSettings.searchSource === "vndb"
+                            && vndbIdField.text.trim() !== ""
+                        Controls.Label {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 6
+                            text: qsTr("Release:")
+                        }
+                        AppComboBox {
+                            id: releaseBox
+                            objectName: "settingsVndbRelease"
+                            Layout.fillWidth: true
+                            enabled: !gameSettings.releaseLoading
+                            model: gameSettings.releaseChoices()
+                            textRole: "name"
+                            valueRole: "id"
+                            currentIndex: gameSettings.releaseIndex()
+                            onActivated: gameSettings.pickRelease(String(currentValue || ""))
+                            Controls.ToolTip.text: gameSettings.releaseDetail(gameSettings.releaseDraft)
                             Controls.ToolTip.visible: hovered
                         }
                     }

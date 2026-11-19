@@ -6,6 +6,11 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Search Data lists the releases linked to a stored VNDB visual novel,
+  with a Language filter built from the fetched rows; the pick drives
+  the preview's Release Date and Publisher, is saved as
+  `[metadata] vndb_release`, and the next download reuses it. Details
+  shows the identity as `v2002/r1234`.
 - Tags are editable on the Details tab: the row opens a checkable
   picker with the game's tags first and the global `tags.toml` store
   after them, plus a field for new names. Unchecking removes a tag from

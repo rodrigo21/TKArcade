@@ -144,3 +144,185 @@ def test_network_failure_is_none_and_no_candidates(monkeypatch, xdg_env):
     _stub(monkeypatch, error=urllib.error.URLError("down"))
     assert vndb.search("Steins;Gate") == []
     assert vndb.fetch("local-sg", "v2002") is None
+
+
+def _stub_sequence(monkeypatch, payloads):
+    calls = []
+    queue = list(payloads)
+
+    def fake_open(request, timeout=15):
+        calls.append(request)
+        return _Resp(queue.pop(0))
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_open)
+    return calls
+
+
+def test_releases_list_the_linked_entries(monkeypatch, xdg_env):
+    calls = _stub(
+        monkeypatch,
+        {
+            "results": [
+                {
+                    "id": "r1",
+                    "title": "STEINS;GATE",
+                    "alttitle": "シュタインズ・ゲート",
+                    "released": "2009-10-15",
+                    "platforms": ["win"],
+                    "languages": [{"lang": "ja"}, {"lang": "en"}],
+                    "official": True,
+                    "vns": [{"id": "v2002", "rtype": "complete"}],
+                    "producers": [
+                        {"name": "NITRO PLUS", "developer": True, "publisher": False},
+                        {"name": "MAGES.", "publisher": True},
+                    ],
+                },
+                {
+                    "id": "r2",
+                    "title": "STEINS;GATE",
+                    "released": "2010",
+                    "platforms": ["ps3"],
+                    "languages": [{"lang": "ja"}],
+                    "official": False,
+                    "vns": [{"id": "v2002", "rtype": "complete"}],
+                    "producers": [],
+                },
+                {
+                    "id": "r3",
+                    "title": "Trial",
+                    "released": "2008",
+                    "platforms": ["win"],
+                    "languages": [{"lang": "ja"}],
+                    "official": True,
+                    "vns": [{"id": "v2002", "rtype": "trial"}],
+                    "producers": [],
+                },
+                {
+                    "id": "r4",
+                    "title": "Other game",
+                    "released": "2009",
+                    "official": True,
+                    "vns": [{"id": "v9999", "rtype": "complete"}],
+                    "producers": [],
+                },
+                "junk",
+            ]
+        },
+    )
+
+    rows = vndb.releases("V2002")
+
+    assert [row["id"] for row in rows] == ["r1", "r2", "r3"]
+    assert rows[0]["name"] == "STEINS;GATE (2009-10-15 · win · ja, en)"
+    assert rows[1]["name"] == "STEINS;GATE (2010 · ps3 · ja) [unofficial]"
+    assert rows[2]["name"] == "Trial (2008 · win · ja) [trial]"
+    assert rows[0]["langs"] == ["ja", "en"]
+    assert "NITRO PLUS (developer)" in rows[0]["detail"]
+    assert "MAGES. (publisher)" in rows[0]["detail"]
+    assert "シュタインズ・ゲート" in rows[0]["detail"]
+    request = calls[0]
+    assert request.full_url == vndb.RELEASE_ENDPOINT
+    assert json.loads(request.data) == {
+        "filters": ["vn", "=", ["id", "=", "v2002"]],
+        "fields": vndb.RELEASE_FIELDS,
+        "sort": "released",
+        "results": vndb.RELEASE_RESULTS,
+    }
+
+
+def test_releases_without_an_id_skip_the_network(monkeypatch, xdg_env):
+    calls = _stub(monkeypatch, {"results": []})
+    assert vndb.releases("  ") == []
+    assert calls == []
+
+
+def test_fetch_with_a_release_reads_its_date_and_publisher(monkeypatch, xdg_env):
+    calls = _stub_sequence(
+        monkeypatch,
+        [
+            {
+                "results": [
+                    {
+                        "id": "v2002",
+                        "description": "Syn",
+                        "released": "2009-10",
+                        "developers": [{"name": "NITRO PLUS"}],
+                        "tags": [],
+                    }
+                ]
+            },
+            {
+                "results": [
+                    {
+                        "id": "r1234",
+                        "released": "2010-06-24",
+                        "producers": [
+                            {"name": "NITRO PLUS", "developer": True, "publisher": False},
+                            {"name": "MAGES.", "publisher": True},
+                            {"name": "MAGES.", "publisher": True},
+                        ],
+                        "vns": [{"id": "v2002", "rtype": "complete"}],
+                    }
+                ]
+            },
+        ],
+    )
+
+    data = vndb.fetch("local-sg", "v2002", release="R1234")
+
+    assert data["date"] == "2010-06-24"
+    assert data["publisher"] == "MAGES."
+    assert data["developer"] == "NITRO PLUS"
+    assert calls[1].full_url == vndb.RELEASE_ENDPOINT
+    assert json.loads(calls[1].data)["filters"] == ["id", "=", "r1234"]
+
+
+def test_fetch_rejects_a_release_of_another_visual_novel(monkeypatch, xdg_env):
+    _stub_sequence(
+        monkeypatch,
+        [
+            {"results": [{"id": "v2002", "description": "Syn", "released": "2009"}]},
+            {
+                "results": [
+                    {
+                        "id": "r1234",
+                        "released": "2010",
+                        "producers": [{"name": "MAGES.", "publisher": True}],
+                        "vns": [{"id": "v9999", "rtype": "complete"}],
+                    }
+                ]
+            },
+        ],
+    )
+    assert vndb.fetch("local-sg", "v2002", release="r1234") is None
+
+
+def test_fetch_with_a_failed_release_returns_none(monkeypatch, xdg_env):
+    calls = []
+
+    def fake_open(request, timeout=15):
+        calls.append(request)
+        if len(calls) == 1:
+            return _Resp({"results": [{"id": "v2002", "released": "2009", "tags": []}]})
+        raise urllib.error.URLError("down")
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_open)
+
+    assert vndb.fetch("local-sg", "v2002", release="r1234") is None
+
+
+def test_resolve_release_prefers_the_draft_then_the_config(xdg_env):
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-sg"
+    cfg.metadata.vndb_id = "v2002"
+    cfg.metadata.vndb_release = "r9"
+    C.save(cfg)
+    assert vndb.resolve_release("local-sg") == "r9"
+    assert vndb.resolve_release("local-sg", "", "r1") == "r1"
+    # An explicit visual novel with no release means no release: clearing
+    # the pick must win over the stored value.
+    assert vndb.resolve_release("local-sg", "v2002") == ""
+    # A release without a stored visual novel is not used.
+    cfg.metadata.vndb_id = ""
+    C.save(cfg)
+    assert vndb.resolve_release("local-sg") == ""

@@ -61,8 +61,10 @@ def test_registry_declares_vndb():
     assert entry.label == "VNDB"
     assert entry.needs_key is False
     assert entry.cache_dir == "vndb-meta"
-    assert entry.fields == ("description", "developer", "date", "tags")
+    assert entry.fields == ("description", "developer", "publisher", "date", "tags")
     assert entry.search is not None
+    assert entry.releases is not None
+    assert entry.resolve_release is not None
     assert entry.min_interval >= 1.0
     assert set(md.cache_dirs()) == {"steam-meta", "vndb-meta", "igdb-meta"}
 
@@ -116,6 +118,62 @@ def test_vndb_cache_follows_the_picked_id(monkeypatch, xdg_env):
     # A different pick must never reuse the previous visual novel's fields.
     assert md.cached("vndb", "local-sg", "v2003") == (None, False)
     assert len(calls) == 1
+
+
+def test_vndb_cache_follows_the_picked_release(monkeypatch, xdg_env):
+    calls = []
+
+    def fetch(game_id, target="", timeout=15, release=""):
+        calls.append((target, release))
+        return {"description": "Syn", "publisher": release, "date": "2009"}
+
+    def resolve_release(game_id, target="", release=""):
+        return release
+
+    entry = dataclasses.replace(
+        md.PROVIDERS["vndb"],
+        fetch=fetch,
+        resolve_release=resolve_release,
+        min_interval=0.0,
+    )
+    monkeypatch.setitem(md.PROVIDERS, "vndb", entry)
+    assert md.download("vndb", "local-sg", "v2002", "r1")["publisher"] == "r1"
+    assert md.cached("vndb", "local-sg", "v2002", "r1")[1] is True
+    # Another release must never reuse the previous pick's date and publisher.
+    assert md.cached("vndb", "local-sg", "v2002", "r2") == (None, False)
+    assert md.download("vndb", "local-sg", "v2002", "r2")["publisher"] == "r2"
+    assert calls == [("v2002", "r1"), ("v2002", "r2")]
+
+
+def test_cache_without_a_release_reads_as_no_release(xdg_env):
+    """A payload from before the picker answers only the no-release lookup."""
+    _write_cache("vndb", "local-sg", {"date": "2009"}, target="v2002")
+    assert md.cached("vndb", "local-sg", "v2002")[1] is True
+    assert md.cached("vndb", "local-sg", "v2002", "r1") == (None, False)
+
+
+def test_releases_use_the_provider_hook(monkeypatch):
+    entry = dataclasses.replace(
+        md.PROVIDERS["vndb"],
+        releases=lambda vn: [{"id": "r1", "name": vn}],
+    )
+    monkeypatch.setitem(md.PROVIDERS, "vndb", entry)
+    assert md.releases("vndb", "v2002") == [{"id": "r1", "name": "v2002"}]
+    assert md.releases("vndb", "") == []
+    assert md.releases("steam", "620") == []
+    assert md.releases("nope", "v2002") == []
+
+
+def test_releases_survive_failure(monkeypatch):
+    def broken(vn):
+        raise urllib.error.URLError("down")
+
+    monkeypatch.setitem(
+        md.PROVIDERS,
+        "vndb",
+        dataclasses.replace(md.PROVIDERS["vndb"], releases=broken),
+    )
+    assert md.releases("vndb", "v2002") == []
 
 
 def test_download_caches_and_reuses(monkeypatch, xdg_env):

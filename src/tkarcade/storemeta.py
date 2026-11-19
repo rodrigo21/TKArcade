@@ -117,8 +117,11 @@ def normalize(data: dict) -> dict:
     }
 
 
-def fetch(appid: str, target: str = "", timeout: int = 15) -> dict | None:
-    """Fetch the store metadata. None on any failure or no entry."""
+def fetch(appid: str, target: str = "", timeout: int = 15, release: str = "") -> dict | None:
+    """Fetch the store metadata. None on any failure or no entry.
+
+    ``release`` is the registry's shared qualifier; Steam has none.
+    """
     numeric = resolve(appid, target)
     if not numeric:
         return None

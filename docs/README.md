@@ -134,12 +134,12 @@ What each document is for and where the source of truth lives.
   Metadata: tags append, an age rating replaces its own board, the
   Replace switch stays the wholesale overwrite, and the preview shows
   the result.
+- `decisions/metadata-vndb-release.md` — the VNDB release list under the
+  identity, the pick driving Date and Publisher, the client-side
+  language filter and `[metadata] vndb_release`.
 
 ## Plans
 
-- `plans/vndb-release-picker.md` — the VNDB release list under the
-  identity, the pick driving Date and Publisher, and
-  `[metadata] vndb_release`.
 - `plans/epic-gog-sources.md` — Epic and GOG as game origins: discovery
   through Heroic's files, the local-family launch choice, the import flow
   and four decisions the maintainer still owes; targeted at 2.0, after

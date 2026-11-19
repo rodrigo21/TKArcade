@@ -1316,13 +1316,13 @@ def test_fetch_metadata_targets_the_store_link(qgui_app, xdg_env, monkeypatch):
     monkeypatch.setattr(
         M.metamod,
         "download",
-        lambda provider, appid, target="": (
-            calls.append((provider, appid, target))
+        lambda provider, appid, target="", release="": (
+            calls.append((provider, appid, target, release))
             or {"description": "Portal", "developer": "Valve"}
         ),
     )
     model._metadata_worker("local-doom", "steam", model._steam_target("local-doom"))
-    assert calls == [("steam", "local-doom", "620")]
+    assert calls == [("steam", "local-doom", "620", "")]
     assert got == [("local-doom", {"description": "Portal", "developer": "Valve"})]
 
     # No Steam AppID: the dialog is told at once, without a worker.
@@ -1351,17 +1351,41 @@ def test_metadata_provider_workers(qgui_app, xdg_env, monkeypatch):
     monkeypatch.setattr(
         M.metamod,
         "download",
-        lambda provider, appid, target="": (
-            calls.append((provider, appid, target)) or {"description": "Syn"}
+        lambda provider, appid, target="", release="": (
+            calls.append((provider, appid, target, release)) or {"description": "Syn"}
         ),
     )
-    model._metadata_worker("local-sg", "vndb", "v2002")
+    model._metadata_worker("local-sg", "vndb", "v2002", "r1")
     model._metadata_worker("local-hades", "igdb", "1145360")
-    assert calls == [("vndb", "local-sg", "v2002"), ("igdb", "local-hades", "1145360")]
+    assert calls == [
+        ("vndb", "local-sg", "v2002", "r1"),
+        ("igdb", "local-hades", "1145360", ""),
+    ]
     assert got == [
         ("local-sg", {"description": "Syn"}),
         ("local-hades", {"description": "Syn"}),
     ]
+
+    releases = []
+    model.metadataReleases.connect(
+        lambda appid, target, rows: releases.append((appid, target, rows))
+    )
+    monkeypatch.setattr(
+        M.metamod,
+        "releases",
+        lambda provider, target: [{"id": "r1", "name": target, "detail": "", "langs": ["ja"]}],
+    )
+    model._metadata_releases_worker("local-sg", "vndb", "v2002")
+    assert releases == [
+        (
+            "local-sg",
+            "v2002",
+            [{"id": "r1", "name": "v2002", "detail": "", "langs": ["ja"]}],
+        )
+    ]
+    releases.clear()
+    model.fetchReleases("local-sg", "vndb", "  ")
+    assert releases == [("local-sg", "  ", [])]
 
     # An unknown provider and an empty title answer at once, no worker.
     got.clear()

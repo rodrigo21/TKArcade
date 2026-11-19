@@ -3,9 +3,11 @@
 A local game without a Steam AppID is searched by title; the picked
 visual novel saves in ``[metadata] vndb_id`` so the next download skips
 the search. VNDB answers a synopsis, the developers and a release date.
-It has no publisher, series, age ratings or genre field; its tags land in
-``[metadata] tags`` through Download Metadata, filtered by rating and spoiler.
-The cache and the rate gate live in ``metadata.py``.
+Its releases each carry a date and publishers, so an optional pick in
+``[metadata] vndb_release`` replaces the visual-novel date and fills the
+publisher. Its tags land in ``[metadata] tags`` through Download
+Metadata, filtered by rating and spoiler. The cache and the rate gate
+live in ``metadata.py``.
 """
 
 from __future__ import annotations
@@ -21,9 +23,18 @@ from . import config as cfgmod
 log = logging.getLogger("tkarcade.vndb")
 
 ENDPOINT = "https://api.vndb.org/kana/vn"
+RELEASE_ENDPOINT = "https://api.vndb.org/kana/release"
 SEARCH_FIELDS = "id,title,alttitle,released"
 FETCH_FIELDS = "id,description,released,developers.name,tags.name,tags.rating,tags.spoiler"
+RELEASE_FIELDS = (
+    "id,title,alttitle,released,platforms,languages.lang,official,"
+    "vns.id,vns.rtype,producers.name,producers.developer,producers.publisher"
+)
+RELEASE_LINK_FIELDS = "id,released,producers.name,producers.publisher,vns.id"
 SEARCH_RESULTS = 10
+#: Kana caps one page at 100 rows.
+# shortcut: the first 100 releases; paginate when a visual novel exceeds it.
+RELEASE_RESULTS = 100
 #: VNDB tags: drop spoilers and weak tags, keep the strongest few.
 TAG_MIN_RATING = 2.0
 TAG_LIMIT = 20
@@ -43,9 +54,112 @@ def resolve(game_id: str, target: str = "") -> str:
         return ""
 
 
+def resolve_release(game_id: str, target: str = "", release: str = "") -> str:
+    """Release id to query: the draft pick wins over ``[metadata] vndb_release``.
+
+    An explicit target with an empty release means no release, so clearing
+    the pick in the dialog beats a stored value; without a target both ids
+    come from the config.
+    """
+    wanted = cfgmod.normalize_vndb_release(release)
+    if wanted:
+        return wanted
+    if str(target or "").strip():
+        return ""
+    try:
+        cfg = cfgmod.load(str(game_id))
+    except Exception:
+        return ""
+    if not cfgmod.normalize_vndb_id(cfg.metadata.vndb_id):
+        return ""
+    return cfgmod.normalize_vndb_release(cfg.metadata.vndb_release)
+
+
 def _plain(text: object) -> str:
     """BBCode stripped and entities decoded, as the text area shows it."""
     return html.unescape(_BBCODE.sub("", str(text or ""))).strip()
+
+
+def _publishers(value: object) -> str:
+    """Release producers flagged as publisher, deduplicated."""
+    names: list[str] = []
+    for part in value if isinstance(value, list) else []:
+        if not isinstance(part, dict) or not part.get("publisher"):
+            continue
+        name = str(part.get("name", "")).strip()
+        if name and name not in names:
+            names.append(name)
+    return ", ".join(names)
+
+
+def _langs(row: dict) -> list[str]:
+    codes: list[str] = []
+    for part in row.get("languages") if isinstance(row.get("languages"), list) else []:
+        if not isinstance(part, dict):
+            continue
+        code = str(part.get("lang", "") or "").strip()
+        if code and code not in codes:
+            codes.append(code)
+    return codes
+
+
+def _linked_rtype(row: dict, vn_id: str) -> str:
+    """This release's link type to the visual novel ("" when not linked)."""
+    for part in row.get("vns") if isinstance(row.get("vns"), list) else []:
+        if not isinstance(part, dict):
+            continue
+        if str(part.get("id", "")) == vn_id:
+            return str(part.get("rtype", "") or "complete")
+    return ""
+
+
+def _release_name(row: dict, rtype: str) -> str:
+    """Short combo label: title, date, platforms, languages and markers."""
+    title = str(row.get("title", "") or "").strip() or "Release"
+    parts = [str(row.get("released", "") or "").strip() or "TBA"]
+    platforms = [str(code).strip() for code in row.get("platforms") or [] if str(code).strip()]
+    if platforms:
+        parts.append(", ".join(platforms))
+    langs = _langs(row)
+    if langs:
+        parts.append(", ".join(langs))
+    markers: list[str] = []
+    if row.get("official") is False:
+        markers.append("unofficial")
+    if rtype != "complete":
+        markers.append(rtype)
+    label = f"{title} ({' · '.join(parts)})"
+    return f"{label} [{', '.join(markers)}]" if markers else label
+
+
+def _release_detail(row: dict) -> str:
+    """Tooltip: alternative title, full lists, type and producers."""
+    title = str(row.get("title", "") or "").strip()
+    alt = str(row.get("alttitle", "") or "").strip()
+    parts: list[str] = []
+    if alt and alt.casefold() != title.casefold():
+        parts.append(alt)
+    date = str(row.get("released", "") or "").strip()
+    parts.append(f"Released {date}" if date else "Release date unknown")
+    platforms = [str(code).strip() for code in row.get("platforms") or [] if str(code).strip()]
+    if platforms:
+        parts.append(f"Platforms {', '.join(platforms)}")
+    langs = _langs(row)
+    if langs:
+        parts.append(f"Languages {', '.join(langs)}")
+    parts.append("Official" if row.get("official") else "Unofficial")
+    producers: list[str] = []
+    for part in row.get("producers") if isinstance(row.get("producers"), list) else []:
+        if not isinstance(part, dict):
+            continue
+        name = str(part.get("name", "")).strip()
+        if not name:
+            continue
+        roles = [role for role in ("developer", "publisher") if part.get(role)]
+        producers.append(f"{name} ({', '.join(roles)})" if roles else name)
+    if producers:
+        parts.append(f"Producers: {'; '.join(producers)}")
+    return " · ".join(parts)
 
 
 def _developers(value: object) -> str:
@@ -92,9 +206,9 @@ def _label(row: dict) -> str:
     return f"{label} ({year})" if year.isdigit() else label
 
 
-def _post(body: dict, timeout: int = 15) -> dict | None:
+def _post(body: dict, timeout: int = 15, endpoint: str = ENDPOINT) -> dict | None:
     request = urllib.request.Request(
-        ENDPOINT,
+        endpoint,
         data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -135,7 +249,58 @@ def search(query: str, timeout: int = 15) -> list[dict]:
     return found
 
 
-def fetch(game_id: str, target: str = "", timeout: int = 15) -> dict | None:
+def releases(vn_id: str, timeout: int = 15) -> list[dict]:
+    """Releases linked to a visual novel: [{"id", "name", "detail", "langs"}]."""
+    wanted = cfgmod.normalize_vndb_id(vn_id)
+    if not wanted:
+        return []
+    payload = _post(
+        {
+            "filters": ["vn", "=", ["id", "=", wanted]],
+            "fields": RELEASE_FIELDS,
+            "sort": "released",
+            "results": RELEASE_RESULTS,
+        },
+        timeout,
+        RELEASE_ENDPOINT,
+    )
+    rows = payload.get("results") if payload is not None else None
+    if not isinstance(rows, list):
+        return []
+    found: list[dict] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id", "") or "").strip()
+        rtype = _linked_rtype(row, wanted)
+        if not re.fullmatch(r"r\d+", rid) or not rtype:
+            continue
+        found.append(
+            {
+                "id": rid,
+                "name": _release_name(row, rtype),
+                "detail": _release_detail(row),
+                "langs": _langs(row),
+            }
+        )
+    return found
+
+
+def _release(vn_id: str, release_id: str, timeout: int) -> dict | None:
+    """The picked release, only while it still links this visual novel."""
+    payload = _post(
+        {"filters": ["id", "=", release_id], "fields": RELEASE_LINK_FIELDS, "results": 1},
+        timeout,
+        RELEASE_ENDPOINT,
+    )
+    rows = payload.get("results") if payload is not None else None
+    if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
+        return None
+    row = rows[0]
+    return row if _linked_rtype(row, vn_id) else None
+
+
+def fetch(game_id: str, target: str = "", timeout: int = 15, release: str = "") -> dict | None:
     """Fetch one visual novel's metadata. None on any failure or no entry."""
     vid = resolve(game_id, target)
     if not vid:
@@ -149,12 +314,20 @@ def fetch(game_id: str, target: str = "", timeout: int = 15) -> dict | None:
         return None
     data = rows[0]
     date = str(data.get("released", "") or "").strip()
+    publisher = ""
+    picked = cfgmod.normalize_vndb_release(release)
+    if picked:
+        rel = _release(vid, picked, timeout)
+        if rel is None:
+            return None
+        date = str(rel.get("released", "") or "").strip()
+        publisher = _publishers(rel.get("producers"))
     if not cfgmod.metadata_date_valid(date):
         date = ""
     return {
         "description": _plain(data.get("description")),
         "developer": _developers(data.get("developers")),
-        "publisher": "",
+        "publisher": publisher,
         "genre": "",
         "series": "",
         "age_ratings": [],
