@@ -22,12 +22,13 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   docs failure was fixed and `tests/test_docs.py` re-ran green) plus the
   offscreen Search Data screenshot (`/tmp/opencode/metadata-merge.png`).
   The venv was refreshed after the merge.
-- Next: the VNDB release picker needs a plan before its adapter call
-  (the releases list under the identity, the pick drives date and
-  publisher, and the choice stores `[metadata] vndb_release`). Then the
-  remaining tag follow-ups in `TODO.md` (library import tag mapping,
-  display polish). After the library import, decide whether sidebar
-  categories derive from tags and whether a bulk download is worth it.
+- Next: the VNDB release picker plan is
+  `docs/plans/vndb-release-picker.md`; implement its batch 2 (adapter,
+  `[metadata] vndb_release`, registry `release` channel) after approval.
+  Then the remaining tag follow-ups in `TODO.md` (library import tag
+  mapping, display polish). After the library import, decide whether
+  sidebar categories derive from tags and whether a bulk download is
+  worth it.
   Epic/GOG is 2.0, and so is the IGDB per-user credential review.
 - Deferred: the audit's #15 (launch parse) and #19 (role constants).
 - The Proton default is a dialog preselection only: a Steam game

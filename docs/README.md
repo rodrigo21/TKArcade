@@ -137,6 +137,9 @@ What each document is for and where the source of truth lives.
 
 ## Plans
 
+- `plans/vndb-release-picker.md` — the VNDB release list under the
+  identity, the pick driving Date and Publisher, and
+  `[metadata] vndb_release`.
 - `plans/epic-gog-sources.md` — Epic and GOG as game origins: discovery
   through Heroic's files, the local-family launch choice, the import flow
   and four decisions the maintainer still owes; targeted at 2.0, after
