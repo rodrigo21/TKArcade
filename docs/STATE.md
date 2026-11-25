@@ -23,12 +23,13 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
   green after the decision record. The venv was refreshed after the
   merge.
 - Next: the library format import needs a plan before its first reader
-  (per-format readers for Lutris, Playnite and Faugus, the ID/name
-  mapping and an ImportDialog page). The tag follow-ups wait for it
-  (library import tag mapping, display polish). After the import, decide
-  whether sidebar categories derive from tags and whether a bulk
-  download is worth it. Epic/GOG is 2.0, and so is the IGDB per-user
-  credential review.
+  (per-format readers for Lutris and Faugus, the ID/name mapping and an
+  ImportDialog page). The tag follow-ups wait for it (library import tag
+  mapping, display polish). After the import, decide whether sidebar
+  categories derive from tags and whether a bulk download is worth it.
+  Playnite is parked for 3.0, only if another operating system is
+  supported. Epic/GOG is 2.0, and so is the IGDB per-user credential
+  review.
 - Deferred: the audit's #15 (launch parse) and #19 (role constants).
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.

@@ -7,29 +7,25 @@ and git, standing decisions in `docs/POLICIES.md`, and hard-won
 QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 `docs/README.md`. The order:
 
-1. Library import first: the Playnite-style enrichment reuses the
-   landed metadata provider, and the provider has nothing to enrich
-   before the import exists. The manual tags theme landed; its
-   follow-ups sit under "Tags follow-up".
+1. Library import first: the Lutris and Faugus readers bring foreign
+   libraries in, and the tag mapping waits on them. The manual tags
+   theme landed; its follow-ups sit under "Tags follow-up".
 2. The 1.0 gate on the maintainer's release call: visual pass, shim
    removal, translations, release pass.
 3. Epic and GOG as origins in 2.0: the 1.0 gate removes the rename
    machinery a new ID prefix would need, so a store game records its
    store in a `[store]` field and keeps a `local` ID.
+4. Playnite in 3.0, only if the project supports another operating
+   system: its library import, its plugin metadata and its tag mapping.
 
 ## Before 1.0
 
-- [ ] **Library format import (Lutris, Playnite, Faugus).** Only tarball,
+- [ ] **Library format import (Lutris, Faugus).** Only tarball,
   SteamTinkerLaunch and predecessor configs import today. A foreign
   library file needs a per-format reader, the ID/name mapping onto
   existing games and an ImportDialog page. An imported store game records
   its store in a `[store]` field and keeps a `local` ID.
   Design: a plan lands before the first reader.
-- [ ] Playnite plugin metadata (Steam/Epic/GOG/PCGW/VNDB) on top of the
-  library format import above: the enrichment reads the imported
-  entries and fills the manual metadata fields through the registry.
-  Design: `docs/decisions/metadata-provider.md`; the bulk action needs
-  its own plan.
 - [ ] **Online tags follow-up.** Download Metadata fills `[metadata]
   tags` from Steam, IGDB and VNDB, and Details edits the list and filters
   the library by it. After the library import, decide whether the sidebar
@@ -67,7 +63,7 @@ Release, only when the maintainer opens the subject:
 
 ## Tags follow-up
 
-- [ ] **Library import tag mapping.** Map Playnite/Lutris tags into
+- [ ] **Library import tag mapping.** Map Lutris tags into
   `tags.toml` when the library import lands.
 - [ ] **Tag display polish.** Chips, autocomplete, manual order and
   colors; only if use shows the need.
@@ -89,3 +85,20 @@ Release, only when the maintainer opens the subject:
   dropping IGDB. No plan yet; a design lands before any code. A
   real-key smoke test of the adapter still waits on the maintainer's
   Twitch application.
+
+## 3.0
+
+Only if the project supports another operating system. Playnite is
+Windows-only, so its formats wait for that decision.
+
+- [ ] **Playnite library import.** A per-format reader for Playnite's
+  library file, the ID/name mapping onto existing games and an
+  ImportDialog page; an imported store game records its store in a
+  `[store]` field and keeps a `local` ID. Design: a plan lands before
+  the reader.
+- [ ] **Playnite plugin metadata** (Steam/Epic/GOG/PCGW/VNDB) on top of
+  the Playnite import: the enrichment reads the imported entries and
+  fills the manual metadata fields through the registry. The bulk
+  action needs its own plan.
+- [ ] **Playnite tag mapping.** Map Playnite tags into `tags.toml` when
+  the import lands.
