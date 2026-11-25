@@ -503,6 +503,16 @@ class Preferences:
     # material (dependency marks, the launch command), and expanded they
     # cost every tab a third of its height.
     show_preview: bool = False
+    # Library display: the selected game's background art behind the
+    # views, and its preview on hover. Both off so nothing changes until
+    # asked for.
+    library_backdrop: bool = False
+    background_preview: bool = False
+    # How strongly the backdrop art shows through its theme dim: percent
+    # of the picture (10-60), not the dim.
+    backdrop_visibility: int = 30
+    # Extra weight for the text drawn over the backdrop art.
+    backdrop_bold: bool = False
     show_dependency_status: bool = False
     show_profile_bar: bool = True
     tray_enable: bool = False
@@ -1454,6 +1464,10 @@ def load_preferences() -> Preferences:
     if not isinstance(ui, dict):
         return out
     out.show_preview = _as_bool(ui.get("show_preview", False), False)
+    out.library_backdrop = _as_bool(ui.get("library_backdrop", False), False)
+    out.background_preview = _as_bool(ui.get("background_preview", False), False)
+    out.backdrop_visibility = clean_backdrop_visibility(ui.get("backdrop_visibility", 30))
+    out.backdrop_bold = _as_bool(ui.get("backdrop_bold", False), False)
     out.show_dependency_status = _as_bool(ui.get("show_dependency_status", False), False)
     out.show_profile_bar = _as_bool(ui.get("show_profile_bar", True), True)
     out.tray_enable = _as_bool(ui.get("tray_enable", False), False)
@@ -1512,6 +1526,14 @@ def clean_download_mirror(value: object) -> str:
     """An https:// prefix for GitHub asset URLs; "" means download direct."""
     text = str(value or "").strip()
     return text if text.lower().startswith("https://") else ""
+
+
+def clean_backdrop_visibility(value: object) -> int:
+    """Backdrop visibility percent, clamped to 10-60 (default 30)."""
+    try:
+        return min(60, max(10, int(value)))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 30
 
 
 def _load_graphics_prefs(ui: dict, out: Preferences) -> None:
@@ -1728,6 +1750,10 @@ def save_preferences(prefs: Preferences) -> Path:
     data = {
         "ui": {
             "show_preview": bool(prefs.show_preview),
+            "library_backdrop": bool(prefs.library_backdrop),
+            "background_preview": bool(prefs.background_preview),
+            "backdrop_visibility": clean_backdrop_visibility(prefs.backdrop_visibility),
+            "backdrop_bold": bool(prefs.backdrop_bold),
             "show_dependency_status": bool(prefs.show_dependency_status),
             "show_profile_bar": bool(prefs.show_profile_bar),
             "tray_enable": bool(prefs.tray_enable),

@@ -5341,6 +5341,10 @@ class GameListModel(QAbstractTableModel):
             return {}
         return {
             "showPreview": bool(prefs.show_preview),
+            "libraryBackdrop": bool(prefs.library_backdrop),
+            "backgroundPreview": bool(prefs.background_preview),
+            "backdropVisibility": int(prefs.backdrop_visibility),
+            "backdropBold": bool(prefs.backdrop_bold),
             "showDependencyStatus": bool(prefs.show_dependency_status),
             "showProfileBar": bool(prefs.show_profile_bar),
             "trayEnable": bool(prefs.tray_enable),
@@ -5377,6 +5381,12 @@ class GameListModel(QAbstractTableModel):
         try:
             get = values.get if hasattr(values, "get") else lambda k, d=None: d
             prefs.show_preview = bool(get("showPreview", prefs.show_preview))
+            prefs.library_backdrop = bool(get("libraryBackdrop", prefs.library_backdrop))
+            prefs.background_preview = bool(get("backgroundPreview", prefs.background_preview))
+            prefs.backdrop_visibility = cfgmod.clean_backdrop_visibility(
+                get("backdropVisibility", prefs.backdrop_visibility)
+            )
+            prefs.backdrop_bold = bool(get("backdropBold", prefs.backdrop_bold))
             prefs.show_dependency_status = bool(
                 get("showDependencyStatus", prefs.show_dependency_status)
             )

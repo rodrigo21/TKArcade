@@ -563,6 +563,21 @@ def test_artwork_provider_accepts_igdb(xdg_env):
     assert C.load_preferences().artwork_source == "igdb"
 
 
+def test_backdrop_visibility_limits(xdg_env):
+    """Visibility is a 10-60 percent int; garbage falls back to 30."""
+    assert C.clean_backdrop_visibility(5) == 10
+    assert C.clean_backdrop_visibility(99) == 60
+    assert C.clean_backdrop_visibility("x") == 30
+    assert C.Preferences().backdrop_visibility == 30
+    prefs = C.Preferences()
+    prefs.backdrop_visibility = 0
+    C.save_preferences(prefs)
+    assert C.load_preferences().backdrop_visibility == 10
+    prefs.backdrop_visibility = 200
+    C.save_preferences(prefs)
+    assert C.load_preferences().backdrop_visibility == 60
+
+
 def test_preferences_invalid_values(xdg_env):
     from tkarcade import xdg as xdgmod
 
@@ -663,6 +678,10 @@ _GAME_FIELDS = {
 
 _PREF_FIELDS = {
     "show_preview": False,
+    "library_backdrop": True,
+    "background_preview": True,
+    "backdrop_visibility": 45,
+    "backdrop_bold": True,
     "show_dependency_status": False,
     "show_profile_bar": False,
     "tray_enable": True,

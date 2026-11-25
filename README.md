@@ -210,7 +210,15 @@ error or warning badge in the table, card and icon views, whose tooltip
 lists them; Clear Shader Cache per
 game; double-click the ProtonDB rating to open its page; the Played
 column totals session history (clearable in Session History); the tray
-icon lists recent games for quick launch through Steam.
+icon lists recent games for quick launch through Steam. Preferences →
+Interface can draw the selected game's background art behind every
+library view (`[ui] library_backdrop`, `[ui] backdrop_visibility`
+10–60% and off by default, plus `[ui] backdrop_bold` for heavier text
+over the art) and preview the same art in a delayed
+tooltip when the pointer rests on a game (`[ui] background_preview`,
+off by default); both use
+the manual background, its cache, then the banner, and neither
+downloads anything.
 
 The default table layout shows Release Date, Origin, Platform, Played,
 Last Played and Installed after the game name; Runtime, Wine, ProtonDB,

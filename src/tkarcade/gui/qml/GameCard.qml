@@ -27,6 +27,10 @@ Kirigami.Card {
     required property string gameStatusBg
     required property string gameStatusFg
     property bool selected: false
+    // Preferences → Interface: the hover tooltip shows the background art.
+    property bool previewEnabled: false
+    // Preferences → Interface: the footer text sits on the backdrop art.
+    property bool boldText: false
 
     function statusLabel(code) {
         switch (code) {
@@ -70,6 +74,7 @@ Kirigami.Card {
             Layout.fillWidth: true
             // The running game takes the slot the played time occupies.
             text: gameCard.gameRunning ? qsTr("Running") : gameCard.gamePlayed
+            font.bold: gameCard.boldText
             color: gameCard.gameRunning ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.textColor
             opacity: 0.7
             elide: Text.ElideRight
@@ -86,6 +91,7 @@ Kirigami.Card {
                     id: cardTierLabel
                     anchors.centerIn: parent
                     text: gameCard.gameTier
+                    font.bold: gameCard.boldText
                     color: gameCard.gameTierFg
                 }
             }
@@ -94,6 +100,7 @@ Kirigami.Card {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignRight
                 text: gameCard.gameOrigin
+                font.bold: gameCard.boldText
                 opacity: 0.7
                 elide: Text.ElideRight
             }
@@ -196,6 +203,19 @@ Kirigami.Card {
             text: gameCard.statusLabel(gameCard.gameStatus)
             color: gameCard.gameStatusFg
         }
+    }
+
+    // Hover preview of the wide background art (tooltip, delayed), when
+    // Preferences enables it. The card itself still owns the clicks.
+    HoverHandler {
+        id: cardHover
+    }
+    BackgroundPreviewTip {
+        objectName: "cardBackgroundTip"
+        gameId: gameCard.gameId
+        label: gameCard.gameName
+        previewEnabled: gameCard.previewEnabled
+        visible: cardHover.hovered && gameCard.previewEnabled
     }
 
     showClickFeedback: true

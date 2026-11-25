@@ -61,6 +61,8 @@ What each document is for and where the source of truth lives.
   chain.
 - `decisions/artwork-background.md` — the wide backdrop kind, its
   banner fallback and the no-own-download rule.
+- `decisions/background-display.md` — the optional dimmed library
+  backdrop, the delayed hover tooltip and their two `[ui]` switches.
 - `decisions/exe-icon.md` — the icon embedded in a local game's
   executable as the last icon fallback, extracted with `icoextract`.
 - `decisions/categories.md` — the persistent category store, the sidebar

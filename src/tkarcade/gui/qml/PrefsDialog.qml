@@ -30,6 +30,9 @@ Window {
     property var values: ({})
     property var page: null
     property var langCodes: []
+    // The page re-reads display preferences after a successful save: the
+    // backdrop and hover preview live in the games page, not this dialog.
+    signal saved()
     // Runtime archive downloads: one entry per layer, fed by the model
     // signals so the dialog keeps its state across reopenings.
     property var archiveBusy: ({"dxvk": false, "vkd3d": false})
@@ -192,6 +195,52 @@ Window {
                                     checked: prefsDialog.values.showPreview ?? true
                                     onClicked: prefsDialog.setPref("showPreview", checked)
                                     Controls.ToolTip.text: qsTr("Live Preview Box at the Bottom of Game Dialogs.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.CheckBox {
+                                    id: backdropCheck
+                                    objectName: "prefsLibraryBackdrop"
+                                    text: qsTr("Background Behind the Library")
+                                    checked: prefsDialog.values.libraryBackdrop ?? false
+                                    onClicked: prefsDialog.setPref("libraryBackdrop", checked)
+                                    Controls.ToolTip.text: qsTr("Draws the Selected Game's Background Art Behind the Game List.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    KirigamiLayouts.FormData.label: qsTr("Visibility:")
+                                    Controls.Slider {
+                                        id: backdropSlider
+                                        objectName: "prefsBackdropVisibility"
+                                        Layout.fillWidth: true
+                                        enabled: backdropCheck.checked
+                                        from: 10
+                                        to: 60
+                                        stepSize: 5
+                                        value: prefsDialog.values.backdropVisibility ?? 30
+                                        onMoved: prefsDialog.setPref("backdropVisibility", Math.round(value))
+                                        Controls.ToolTip.text: qsTr("How Strongly the Background Art Shows Through the Theme Dim.")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.Label {
+                                        text: qsTr("%1%").arg(Math.round(backdropSlider.value))
+                                    }
+                                }
+                                Controls.CheckBox {
+                                    objectName: "prefsBackdropBold"
+                                    text: qsTr("Bold Text Over Background")
+                                    enabled: backdropCheck.checked
+                                    checked: prefsDialog.values.backdropBold ?? false
+                                    onClicked: prefsDialog.setPref("backdropBold", checked)
+                                    Controls.ToolTip.text: qsTr("Uses a Heavier Font for the Text Drawn Over the Backdrop Art.")
+                                    Controls.ToolTip.visible: hovered
+                                }
+                                Controls.CheckBox {
+                                    objectName: "prefsBackgroundPreview"
+                                    text: qsTr("Background Preview on Hover")
+                                    checked: prefsDialog.values.backgroundPreview ?? false
+                                    onClicked: prefsDialog.setPref("backgroundPreview", checked)
+                                    Controls.ToolTip.text: qsTr("Shows the Background Art in a Tooltip When the Pointer Rests on a Game.")
                                     Controls.ToolTip.visible: hovered
                                 }
                                 AppComboBox {
@@ -625,6 +674,7 @@ Window {
                     prefsDialog.setPref("wineDefault", fresh.wineDefault ?? "")
                     prefsDialog.setPref("protonDefault", fresh.protonDefault ?? "")
                     if (gameModel.savePrefs(prefsDialog.values)) {
+                        prefsDialog.saved()
                         prefsDialog.close()
                     } else if (page !== null) {
                         page.notify(qsTr("Could Not Save Preferences."))
@@ -676,6 +726,7 @@ Window {
                 }
                 return
             }
+            prefsDialog.saved()
             prefsDialog.reencodeBusy = true
             prefsDialog.reencodeStatus = qsTr("Re-encoding Artwork…")
             gameModel.reencodeArtwork()

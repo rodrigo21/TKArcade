@@ -3667,6 +3667,10 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
         "values",
         {
             "showPreview": True,
+            "libraryBackdrop": True,
+            "backgroundPreview": True,
+            "backdropVisibility": 45,
+            "backdropBold": True,
             "trayEnable": False,
             "trayIcon": "mono",
             "minimizeToTray": False,
@@ -3684,6 +3688,16 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     # Three tabs, one page per area; the interface page is the first.
     tabs = swin.findChild(QQuickItem, "prefsTabs")
     assert tabs.property("count") == 3
+    slider = swin.findChild(QQuickItem, "prefsBackdropVisibility")
+    assert slider is not None
+    assert slider.property("from") == 10
+    assert slider.property("to") == 60
+    assert slider.property("value") == 45
+    assert slider.property("enabled") is True
+    bold = swin.findChild(QQuickItem, "prefsBackdropBold")
+    assert bold is not None
+    assert bold.property("checked") is True
+    assert bold.property("enabled") is True
     # The form scrolls: its wrapper advertises the form's implicit size
     # (an explicit `height:` alone leaves contentHeight at -1).
     scroller = swin.findChild(QQuickItem, "prefsInterfaceScroll")
@@ -3725,6 +3739,10 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     assert prefs.tray_quick_count == 3
     assert prefs.sgdb_api_key == "secret"
     assert prefs.artwork_source == "sgdb"
+    assert prefs.library_backdrop is True
+    assert prefs.background_preview is True
+    assert prefs.backdrop_visibility == 45
+    assert prefs.backdrop_bold is True
     # The combo mirrors the stored preference instead of defaulting to the
     # first row (which would silently flip the provider on the next Save).
     combo = swin.findChild(QQuickItem, "prefsArtworkSource")
@@ -3735,6 +3753,106 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     assert real == []
     win.close()
     _engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_library_backdrop_and_hover_preview(qgui_app, xdg_env):
+    """The display prefs draw the background art and its hover tooltip."""
+    from PySide6.QtCore import QObject, QPointF
+    from PySide6.QtGui import QImage
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import artwork
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    wide = artwork.grid_path("local-doom", "background")
+    wide.parent.mkdir(parents=True, exist_ok=True)
+    picture = QImage(960, 310, QImage.Format_ARGB32)
+    picture.fill(0xFF336699)
+    assert picture.save(str(wide))
+    prefs = C.load_preferences()
+    prefs.library_backdrop = True
+    prefs.background_preview = True
+    prefs.backdrop_visibility = 45
+    prefs.backdrop_bold = True
+    C.save_preferences(prefs)
+
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.select("local-doom")
+    backdrop = win.findChild(QQuickItem, "libraryBackdrop")
+    dim = win.findChild(QQuickItem, "libraryBackdropDim")
+    assert backdrop is not None and dim is not None
+    assert _wait_for(lambda: str(wide) in page.property("backdropUrl")), "backdrop URL empty"
+    assert backdrop.property("visible") is True
+    assert str(wide) in backdrop.property("source").toString()
+    assert dim.property("visible") is True
+    assert page.property("backdropVisibility") == 45
+    assert abs(dim.property("opacity") - 0.55) < 0.001
+    assert page.property("boldLibraryText") is True
+
+    page.setProperty("viewMode", "cards")
+    qgui_app.processEvents()
+    layout = win.findChild(QQuickItem, "cardLayout")
+    card = next(c for c in _delegate_rows(layout) if c.property("gameId") == "local-doom")
+    played = card.findChild(QQuickItem, "cardPlayed")
+    assert played is not None and played.property("font").bold()
+    tip = card.findChild(QObject, "cardBackgroundTip")
+    assert tip is not None
+    assert tip.property("visible") is False
+    centre = QPointF(card.property("width") / 2, card.property("height") / 2)
+    QTest.mouseMove(win, card.mapToScene(centre).toPoint())
+    assert _wait_for(lambda: tip.property("visible") is True), "hover tooltip did not show"
+    preview = tip.findChild(QQuickItem, "backgroundPreviewImage")
+    assert preview is not None
+    assert str(wide) in preview.property("source").toString()
+
+    page.setProperty("viewMode", "icons")
+    qgui_app.processEvents()
+    grid = win.findChild(QQuickItem, "iconGrid")
+    cell = next(c for c in _delegate_rows(grid) if c.property("gameId") == "local-doom")
+    icon_played = cell.findChild(QQuickItem, "iconPlayed")
+    assert icon_played is not None and icon_played.property("font").bold()
+    icon_tip = cell.findChild(QObject, "iconBackgroundTip")
+    assert icon_tip is not None
+    QTest.mouseMove(win, cell.mapToScene(QPointF(cell.property("width") / 2, 20)).toPoint())
+    assert _wait_for(lambda: icon_tip.property("visible") is True), "icon tooltip missing"
+
+    page.setProperty("viewMode", "list")
+    qgui_app.processEvents()
+    table = win.findChild(QQuickItem, "gameTable")
+    name_cell = _table_delegate(table, _proxy, 0, 1)
+    assert name_cell is not None
+    name_label = name_cell.findChild(QQuickItem, "gameNameCell")
+    assert name_label is not None and name_label.property("font").bold()
+    row_tip = name_cell.findChild(QObject, "rowBackgroundTip")
+    assert row_tip is not None
+    centre = QPointF(name_cell.property("width") / 2, name_cell.property("height") / 2)
+    QTest.mouseMove(win, name_cell.mapToScene(centre).toPoint())
+    assert _wait_for(lambda: row_tip.property("visible") is True), "row tooltip missing"
+
+    # Off returns the plain page: the checkbox is the only switch.
+    prefs.library_backdrop = False
+    prefs.background_preview = False
+    prefs.backdrop_bold = False
+    C.save_preferences(prefs)
+    page.reloadDisplayPrefs()
+    qgui_app.processEvents()
+    assert page.property("libraryBackdrop") is False
+    assert page.property("backgroundPreview") is False
+    assert page.property("boldLibraryText") is False
+    assert backdrop.property("visible") is False
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
     qgui_app.processEvents()
 
 
@@ -3749,6 +3867,12 @@ def test_prefs_runtime_graphics_rows(qgui_app, xdg_env):
     dialog.setProperty("visible", True)
     qgui_app.processEvents()
     swin = _modal_window(qgui_app, ("Preferences",))
+    slider = swin.findChild(QQuickItem, "prefsBackdropVisibility")
+    assert slider is not None
+    assert slider.property("enabled") is False
+    bold = swin.findChild(QQuickItem, "prefsBackdropBold")
+    assert bold is not None
+    assert bold.property("enabled") is False
     swin.findChild(QQuickItem, "prefsTabs").setProperty("currentIndex", 2)
     qgui_app.processEvents()
     for name in ("prefsDxvkDefault", "prefsVkd3dDefault"):

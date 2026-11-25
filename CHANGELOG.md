@@ -6,6 +6,13 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Preferences → Interface can draw the selected game's wide background
+  art behind the library (`[ui] library_backdrop`) and preview it in a
+  delayed tooltip on hover (`[ui] background_preview`). The Visibility
+  slider (`[ui] backdrop_visibility`, 10–60%) sets how strongly the art
+  shows, and *Bold Text Over Background* (`[ui] backdrop_bold`) uses a
+  heavier font for the list text over it. Both features are off by default and use the manual
+  background, its cache, then the banner; neither downloads new art.
 - Search Data lists the releases linked to a stored VNDB visual novel,
   with a Language filter built from the fetched rows; the pick drives
   the preview's Release Date and Publisher, is saved as

@@ -174,6 +174,25 @@ Kirigami.Page {
     property var viewSizes: ({icons: 96})
     property int iconSize: viewSizes["icons"] || 96
     property var selectedIds: []
+    // Display preferences own their own copies: the games page outlives
+    // the Preferences dialog, which announces a successful save.
+    property bool libraryBackdrop: false
+    property bool backgroundPreview: false
+    // Percent of the picture that shows through the theme dim.
+    property int backdropVisibility: 30
+    property bool backdropBold: false
+    // Bold text where it sits on the art; headers and gutters keep their
+    // own weight unconditionally.
+    readonly property bool boldLibraryText: libraryBackdrop && backdropBold
+    // Bumped when stored art changes, so the backdrop binding reloads.
+    property int artworkRevision: 0
+    // The selected game's wide art ("" when the pref is off, nothing is
+    // selected, or the game has no art).
+    readonly property string backdropUrl: {
+        var _revision = artworkRevision
+        return libraryBackdrop && primarySelected !== ""
+            ? gameModel.artworkPreview(primarySelected, "background", "") : ""
+    }
     property var bulkTagClearIds: []
     property string anchorId: ""
     // Set by a user-cleared selection: background refreshes must not
@@ -733,7 +752,31 @@ Kirigami.Page {
         gameMenu.popup()
     }
 
+    function reloadDisplayPrefs() {
+        var prefs = gameModel.loadPrefs()
+        libraryBackdrop = prefs.libraryBackdrop ?? false
+        backgroundPreview = prefs.backgroundPreview ?? false
+        backdropVisibility = prefs.backdropVisibility ?? 30
+        backdropBold = prefs.backdropBold ?? false
+    }
+
+    Connections {
+        target: prefsDialog
+        function onSaved() {
+            gamesPage.reloadDisplayPrefs()
+        }
+    }
+
+    Connections {
+        target: gameModel
+        // Stored art replaces a file behind the backdrop URL: reload it.
+        function onArtworkStored() {
+            gamesPage.artworkRevision += 1
+        }
+    }
+
     Component.onCompleted: {
+        gamesPage.reloadDisplayPrefs()
         gamesPage.refreshColumnOrder()
         gamesPage.refreshColumnWidths()
         // Fresh profile (nothing fitted yet): show content, capped.
@@ -1884,6 +1927,27 @@ Kirigami.Page {
         }
     }
 
+    // Optional library backdrop: the selected game's wide art behind
+    // every view. The dim rectangle keeps the theme's text readable on
+    // any picture; both ignore the pointer.
+    Image {
+        objectName: "libraryBackdrop"
+        anchors.fill: parent
+        visible: gamesPage.backdropUrl !== ""
+        source: gamesPage.backdropUrl
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        enabled: false
+    }
+    Rectangle {
+        objectName: "libraryBackdropDim"
+        anchors.fill: parent
+        visible: gamesPage.backdropUrl !== ""
+        color: Kirigami.Theme.backgroundColor
+        opacity: 1 - gamesPage.backdropVisibility / 100
+        enabled: false
+    }
+
     // Flush rounded frame around the table (TKS look): no margins, so
     // its top edge never reads as a second header separator.
     Item {
@@ -2297,6 +2361,7 @@ Kirigami.Page {
                             objectName: "gameNameCell"
                             Layout.fillWidth: true
                             verticalAlignment: Text.AlignVCenter
+                            font.bold: gamesPage.boldLibraryText
                             text: model?.gameName ?? ""
                             color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                             elide: Text.ElideRight
@@ -2362,6 +2427,27 @@ Kirigami.Page {
                             }
                         }
                     }
+                    // Loaded only in the name column: one preview per row,
+                    // not one per cell.
+                    Loader {
+                        objectName: "rowBackgroundPreviewLoader"
+                        active: logical === 1
+                        anchors.fill: parent
+                        sourceComponent: Component {
+                            Item {
+                                HoverHandler {
+                                    id: rowPreviewHover
+                                }
+                                BackgroundPreviewTip {
+                                    objectName: "rowBackgroundTip"
+                                    gameId: model?.gameId ?? ""
+                                    label: model?.gameName ?? ""
+                                    previewEnabled: gamesPage.backgroundPreview
+                                    visible: rowPreviewHover.hovered && gamesPage.backgroundPreview
+                                }
+                            }
+                        }
+                    }
                 }
                 // plain text columns (App ID, Source and the library
                 // columns: Last Played, Platform, Runtime, Wine, Install
@@ -2372,6 +2458,7 @@ Kirigami.Page {
                     anchors.fill: parent
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: Kirigami.Units.smallSpacing
+                    font.bold: gamesPage.boldLibraryText
                     text: {
                         if (logical === 2) {
                             return model?.gameId ?? ""
@@ -2425,6 +2512,7 @@ Kirigami.Page {
                     anchors.fill: parent
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: Kirigami.Units.smallSpacing
+                    font.bold: gamesPage.boldLibraryText
                     text: model?.gamePlayed ?? ""
                     color: gamesPage.selectedIds.indexOf(model?.gameId ?? '') >= 0 ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
                     elide: Text.ElideRight
@@ -2692,6 +2780,8 @@ Kirigami.Page {
             width: GridView.view ? GridView.view.cellWidth : 100
             height: GridView.view ? GridView.view.cellHeight : 100
             cellSize: gamesPage.iconSize
+            previewEnabled: gamesPage.backgroundPreview
+            boldText: gamesPage.boldLibraryText
             selected: gamesPage.selectedIds.indexOf(gameId) >= 0
             onPlayRequested: (gid) => gameModel.play(gid)
             onRowTapped: (gid, mods) => gamesPage.tapGame(gid, mods)
@@ -2728,6 +2818,8 @@ Kirigami.Page {
                 Repeater {
                     model: gameFilter
                     delegate: GameCard {
+                        previewEnabled: gamesPage.backgroundPreview
+                        boldText: gamesPage.boldLibraryText
                         selected: gamesPage.selectedIds.indexOf(gameId) >= 0
                         onPlayRequested: (gid) => gameModel.play(gid)
                         onRowTapped: (gid, mods) => gamesPage.tapGame(gid, mods)

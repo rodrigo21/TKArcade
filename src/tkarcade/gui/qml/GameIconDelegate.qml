@@ -24,6 +24,10 @@ Item {
     required property string gameStatusFg
     property int cellSize: 96
     property bool selected: false
+    // Preferences → Interface: the hover tooltip shows the background art.
+    property bool previewEnabled: false
+    // Preferences → Interface: the played line sits on the backdrop art.
+    property bool boldText: false
 
     function statusLabel(code) {
         switch (code) {
@@ -171,9 +175,21 @@ Item {
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
             text: iconCell.gameRunning ? qsTr("Running") : iconCell.gamePlayed
+            font.bold: iconCell.boldText
             color: iconCell.gameRunning ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.textColor
             opacity: 0.7
             elide: Text.ElideRight
         }
+    }
+
+    HoverHandler {
+        id: iconHover
+    }
+    BackgroundPreviewTip {
+        objectName: "iconBackgroundTip"
+        gameId: iconCell.gameId
+        label: iconCell.gameName
+        previewEnabled: iconCell.previewEnabled
+        visible: iconHover.hovered && iconCell.previewEnabled
     }
 }
