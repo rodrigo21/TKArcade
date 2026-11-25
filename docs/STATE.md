@@ -10,18 +10,17 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: seventy-two batches. The latest adds the VNDB release
-  picker: Search Data lists the releases linked to a VNDB identity, a
-  client-side language filter narrows them, the pick drives Release Date
-  and Publisher, and `[metadata] vndb_release` re-keys the cache for the
-  next download. Before it, Download Metadata merged the list fields
-  (tags append, an age rating replaces its own board) and the venv
-  refresh rule moved into `docs/DEVELOPMENT.md` and `docs/GIT.md`.
-- Verified: `scripts/check.sh --qml` (832 passed, 3 skipped) on the
-  approved diff, the offscreen Search Data screenshot
-  (`/tmp/opencode/vndb-release.png`) and `tests/test_docs.py` re-run
-  green after the decision record. The venv was refreshed after the
-  merge.
+- Landed: seventy-three batches. The latest adds the optional library
+  background display: the selected game's wide art behind the three
+  views (`[ui] library_backdrop`, Visibility slider
+  `[ui] backdrop_visibility` 10–60%, bold text `[ui] backdrop_bold`)
+  and a delayed hover tooltip (`[ui] background_preview`). Before it,
+  the VNDB release picker landed (`[metadata] vndb_release` drives Date
+  and Publisher).
+- Verified: `scripts/check.sh --changed` (833 passed, 3 skipped,
+  including the QML driver) on the approved diff, the offscreen
+  backdrop screenshots (`/tmp/opencode/backdrop-30.png`,
+  `backdrop-bold-list.png`), and the venv refreshed after the merge.
 - Next: the library format import needs a plan before its first reader
   (per-format readers for Lutris and Faugus, the ID/name mapping and an
   ImportDialog page). The tag follow-ups wait for it (library import tag
