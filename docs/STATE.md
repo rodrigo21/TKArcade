@@ -10,22 +10,25 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: seventy-three batches. The latest adds the optional library
-  background display: the selected game's wide art behind the three
-  views (`[ui] library_backdrop`, Visibility slider
-  `[ui] backdrop_visibility` 10–60%, bold text `[ui] backdrop_bold`)
-  and a delayed hover tooltip (`[ui] background_preview`). Before it,
-  the VNDB release picker landed (`[metadata] vndb_release` drives Date
-  and Publisher).
-- Verified: `scripts/check.sh --changed` (833 passed, 3 skipped,
-  including the QML driver) on the approved diff, the offscreen
-  backdrop screenshots (`/tmp/opencode/backdrop-30.png`,
-  `backdrop-bold-list.png`), and the venv refreshed after the merge.
-- Next: the library format import needs a plan before its first reader
-  (per-format readers for Lutris and Faugus, the ID/name mapping and an
-  ImportDialog page). The tag follow-ups wait for it (library import tag
-  mapping, display polish). After the import, decide whether sidebar
-  categories derive from tags and whether a bulk download is worth it.
+- Landed: seventy-four batches. The latest adds the Lutris and Faugus
+  library import: read-only readers (`pga.db` + YAML, `games.json`),
+  live configs for new games and `lutris`/`faugus` profiles for
+  existing ones, `[store] kind`/`id`, exact external prefixes
+  (`[runtime] prefix_exact`) and a checkable ImportDialog page with
+  `In Library`/`Unavailable` rows. Paths are never stat'ed; a
+  disconnected autofs drive disables its rows, and the readers run off
+  the GUI thread. Before it, the VNDB release picker landed
+  (`[metadata] vndb_release` drives Date and Publisher).
+- Verified: `scripts/check.sh --changed` (849 passed, 3 skipped,
+  including the QML driver) on the approved diff, the import
+  screenshots (`/tmp/opencode/import-library-state.png`), a read-only
+  Lutris scan (473 games in 0.25s, 15 offline rows), Faugus fixtures
+  (the local library is empty), and the venv refreshed after the merge.
+- Next: the online-tags follow-up — decide whether sidebar categories
+  derive from tags and whether a bulk download is worth it. The import
+  mapped foreign categories to `[general] categories`, so the old tag
+  mapping item is closed. The 1.0 gate waits on the maintainer's
+  release call (visual pass, shim removal, translations, release pass).
   Playnite is parked for 3.0, only if another operating system is
   supported. Epic/GOG is 2.0, and so is the IGDB per-user credential
   review.
