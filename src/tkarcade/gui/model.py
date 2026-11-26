@@ -395,6 +395,10 @@ class GameListModel(QAbstractTableModel):
     terminateReported = Signal(bool, str, str)
     # The set of running AppIDs changed (indicator repaint).
     runningChanged = Signal()
+    # Foreign library import (Lutris/Faugus): the reader runs off the GUI
+    # thread, because a large YAML set or a slow mount must not freeze it.
+    libraryCandidatesReady = Signal(str, dict)
+    libraryImportFinished = Signal(str)
     # Runtime archive work: download/extraction progress (kind, message),
     # the end of one download (kind, "" = installed) and the managed
     # versions changed. GUI-only; the launcher never imports that helper.
@@ -461,6 +465,8 @@ class GameListModel(QAbstractTableModel):
         self._archive_busy: set[str] = set()
         self._archive_sync_running = False
         self._reencode_busy = False
+        # One foreign-library read or import at a time (worker thread).
+        self._library_busy = False
         # Resolve the image writers before any worker queries them.
         artio.preload()
         self.backgroundDone.connect(self.refresh)
@@ -1170,6 +1176,7 @@ class GameListModel(QAbstractTableModel):
             "proton_log": bool(cfg.debug.proton_log),
             "winedebug": cfg.debug.winedebug,
             "runtime_prefix": cfg.runtime.prefix,
+            "runtime_prefix_exact": cfg.runtime.prefix_exact,
             "runtime_prefix_name": cfg.runtime.prefix_name,
             "runtime_tool": cfg.runtime.tool,
             "runtime_steam_runtime": cfg.runtime.steam_runtime,
@@ -1213,6 +1220,7 @@ class GameListModel(QAbstractTableModel):
         cfg.runtime.type = live.runtime.type
         cfg.runtime.tool = live.runtime.tool
         cfg.runtime.prefix = live.runtime.prefix
+        cfg.runtime.prefix_exact = live.runtime.prefix_exact
         cfg.runtime.prefix_name = live.runtime.prefix_name
 
     @Slot(str, result="QVariantMap")
@@ -1380,7 +1388,11 @@ class GameListModel(QAbstractTableModel):
         A rename must never move the prefix, so the derived name is kept
         in ``[runtime] prefix_name`` (the dialog shows it from then on).
         """
-        if cfg.runtime.prefix_name or steammod.is_steam_id(cfg.general.appid):
+        if (
+            cfg.runtime.prefix_exact
+            or cfg.runtime.prefix_name
+            or steammod.is_steam_id(cfg.general.appid)
+        ):
             return
         stem = xdg.folder_stem(cfg.general.name)
         if stem:
@@ -1398,6 +1410,12 @@ class GameListModel(QAbstractTableModel):
             cfg.general.menu_timeout = 0
         cfg.general.custom_prefix = str(data.get("custom_prefix", "")).strip()
         cfg.runtime.prefix = str(data.get("runtime_prefix", "")).strip()
+        cfg.runtime.prefix_exact = (
+            bool(data.get("runtime_prefix_exact", False))
+            and bool(cfg.runtime.prefix)
+            and cfg.runtime.type in ("wine", "umu")
+            and not steammod.is_steam_id(cfg.general.appid)
+        )
         cfg.runtime.prefix_name = str(data.get("runtime_prefix_name", "")).strip()
         GameListModel._pin_prefix_name(cfg)
         cfg.runtime.tool = str(data.get("runtime_tool", "")).strip()
@@ -3399,6 +3417,103 @@ class GameListModel(QAbstractTableModel):
         self.refresh()
         return "\n".join(lines)
 
+    @Slot(str, result="QVariantMap")
+    def libraryCandidates(self, source: str) -> dict:
+        """Rows and hint for one foreign library (synchronous, tests)."""
+        return self._library_candidates_data(source)
+
+    def _library_candidates_data(self, source: str) -> dict:
+        from .. import library_import as libmod
+
+        try:
+            found, hint = libmod.candidates(source)
+        except Exception as e:  # never break the dialog on a reader bug
+            log.warning("libraryCandidates(%s) failed: %s", source, e)
+            return {"rows": [], "hint": f"Could not read the library: {e}"}
+        rows = [
+            [
+                candidate.game.source_id,
+                candidate.game.name,
+                candidate.detail,
+                candidate.state,
+                candidate.target,
+            ]
+            for candidate in found
+        ]
+        return {"rows": rows, "hint": hint or ""}
+
+    @Slot(str)
+    def startLibraryCandidates(self, source: str) -> None:
+        """Read one foreign library on a worker; result via the signal."""
+        if self._library_busy:
+            return
+        self._library_busy = True
+        threading.Thread(
+            target=self._library_candidates_worker, args=(str(source),), daemon=True
+        ).start()
+
+    def _library_candidates_worker(self, source: str) -> None:
+        try:
+            data = self._library_candidates_data(source)
+        except Exception as e:  # a worker bug must not leave the dialog spinning
+            log.warning("libraryCandidates(%s) worker failed: %s", source, e)
+            data = {"rows": [], "hint": f"Could not read the library: {e}"}
+        self._library_busy = False
+        self.libraryCandidatesReady.emit(source, data)
+
+    @Slot(str, list, result=str)
+    def importLibrary(self, source, keys) -> str:
+        """Import the selected rows (synchronous, tests)."""
+        report = self._library_import_report(source, list(keys or []))
+        self.refresh()
+        return report
+
+    @Slot(str, list)
+    def startLibraryImport(self, source, keys) -> None:
+        """Import on a worker; the caller refreshes on the finished signal."""
+        if self._library_busy:
+            return
+        self._library_busy = True
+        threading.Thread(
+            target=self._library_import_worker,
+            args=(str(source), list(keys or [])),
+            daemon=True,
+        ).start()
+
+    def _library_import_worker(self, source: str, keys: list[str]) -> None:
+        report = self._library_import_report(source, keys)
+        self._library_busy = False
+        self.libraryImportFinished.emit(report)
+
+    def _library_import_report(self, source: str, keys: list[str]) -> str:
+        from .. import library_import as libmod
+
+        try:
+            result = libmod.import_games(source, list(keys or []))
+        except Exception as e:
+            log.warning("importLibrary(%s) failed: %s", source, e)
+            return f"Import Failed: {e}"
+        label = libmod.SOURCE_LABELS.get(source, source)
+        lines = []
+        if result.created:
+            lines.append(f"Imported {len(result.created)} New Game(s) from {label}.")
+        if result.profiled:
+            lines.append(
+                f"Saved {len(result.profiled)} Existing Game(s) as the '{source}' Profile."
+            )
+        if result.skipped:
+            lines.append(f"Skipped {len(result.skipped)} Game(s):")
+            lines += [f"  • {name}: {reason}" for name, reason in result.skipped[:10]]
+            if len(result.skipped) > 10:
+                lines.append(f"  … and {len(result.skipped) - 10} more")
+        if result.notes:
+            lines.append("Notes:")
+            for name, notes in list(result.notes.items())[:10]:
+                lines.append(f"  {name}: {'; '.join(notes)}")
+            if len(result.notes) > 10:
+                lines.append(f"  … and {len(result.notes) - 10} more")
+        return "\n".join(lines) or "Nothing Selected."
+
     @Slot(str, str)
     def refreshDisplayModes(self, provider: str, output: str) -> None:
         """Backend mode query off the GUI thread; rows via displayModesFinished."""
@@ -4110,13 +4225,16 @@ class GameListModel(QAbstractTableModel):
             usage.setdefault(os.fspath(target.container), []).append(appid)
         return usage
 
-    @Slot(str, str, str, str, result="QVariantMap")
-    def prefixNameState(self, appid: str, name: str, path: str = "", game_name: str = "") -> dict:
+    @Slot(str, str, str, str, bool, result="QVariantMap")
+    def prefixNameState(
+        self, appid: str, name: str, path: str = "", game_name: str = "", exact: bool = False
+    ) -> dict:
         """Resolved prefix for the name and dir fields, plus sharing info.
 
         A Steam game's field is its compatdata dir itself (empty = Steam's
         default). A local prefix is always ``<base>/<stem>``: the stem is
         the explicit name, else the game name normalised, else the AppID.
+        An imported exact prefix is taken as the WINEPREFIX itself.
         """
         prefs = cfgmod.load_preferences()
         typed = name.strip()
@@ -4124,6 +4242,8 @@ class GameListModel(QAbstractTableModel):
         if is_steam:
             custom = path.strip()
             target = Path(custom).expanduser() if custom else None
+        elif exact and path.strip():
+            target = Path(path.strip()).expanduser()
         else:
             target = cfgmod.prefix_dir(appid, path.strip(), prefs.prefix_base, name, game_name)
         usage = self._prefix_users(prefs)
@@ -4133,7 +4253,7 @@ class GameListModel(QAbstractTableModel):
         names = self._all_names()
         sanitized = ""
         renamed = False
-        if target is not None and not is_steam:
+        if target is not None and not is_steam and not exact:
             sanitized = target.name
             renamed = bool(typed) and target.name != typed
         return {

@@ -422,6 +422,10 @@ class RuntimeConfig:
     fresh_prefix: bool = False
     winetricks_verbs: list[str] = field(default_factory=list)
     prefix: str = ""  # Steam compatdata dir / local base ("" = Steam default / prefix_base)
+    # Local wine/umu only: ``prefix`` is the WINEPREFIX itself, not a base.
+    # Imported games point at a prefix another launcher owns, so the path
+    # must survive verbatim; the prefix is never moved or deleted.
+    prefix_exact: bool = False
     prefix_name: str = ""  # local only: friendly dir name under prefix_base ("" = appid)
     tool: str = ""  # runtime tool ("" = Steam default / global preference)
     steam_runtime: str = ""  # local native only: scout|soldier|sniper|steamrt4
@@ -557,8 +561,21 @@ class Preferences:
 
 
 @dataclass
+class StoreConfig:
+    """A non-Steam store identity (imported from another launcher).
+
+    The game keeps its ``local-*`` ID: the store ID is metadata for a
+    re-import and for the future origin work, never a second identity.
+    """
+
+    kind: str = ""  # gog|epic|amazon|humble|itch|... ("" = no store)
+    id: str = ""  # the store's own game ID
+
+
+@dataclass
 class GameConfig:
     general: GeneralConfig = field(default_factory=GeneralConfig)
+    store: StoreConfig = field(default_factory=StoreConfig)
     metadata: MetadataConfig = field(default_factory=MetadataConfig)
     env: EnvConfig = field(default_factory=EnvConfig)
     pre_post: PrePostConfig = field(default_factory=PrePostConfig)
@@ -647,6 +664,7 @@ def to_toml_dict(cfg: GameConfig) -> dict:
     general["gameid"] = general.pop("appid", "")
     data = {
         "general": {"config_version": CONFIG_VERSION, **general},
+        "store": _to_toml_value(cfg.store),
         "metadata": _to_toml_value(cfg.metadata),
         "env": {"vars": dict(cfg.env.vars)},
         "pre_post": _to_toml_value(cfg.pre_post),
@@ -927,6 +945,7 @@ def load_with_warning(appid: str) -> tuple[GameConfig, str | None]:
 #: runtime/graphics/audio switches, artwork and notes are picked per game;
 #: a template carrying them would pre-fill new games.
 _TEMPLATE_DROP_SECTIONS = (
+    "store",
     "metadata",
     "runtime",
     "graphics",
@@ -1017,11 +1036,12 @@ def prefix_dir(
 
 @dataclass(frozen=True)
 class PrefixTarget:
-    """A game's prefix paths: Steam compatdata/custom dir, or local subfolder."""
+    """A game's prefix paths: Steam compatdata/custom dir, local subfolder
+    or an exact imported WINEPREFIX."""
 
     container: Path  # folder shown and deleted; a Steam one holds pfx inside
     wineprefix: Path  # WINEPREFIX: the container, or container/"pfx" on Steam
-    managed: bool  # TKArcade-created (local or custom), never Steam compatdata
+    managed: bool  # TKArcade-created; never Steam compatdata or an imported prefix
 
 
 def prefix_target(
@@ -1032,6 +1052,8 @@ def prefix_target(
     ``cfg`` is the caller's view: the GUI's live config or the launcher's
     profile-merged one. None falls back to the local default location, as
     a config already removed by the cleanup scan still needs its path.
+    A local game with ``prefix_exact`` uses its stored path verbatim and
+    the target is unmanaged, because another launcher owns it.
     """
     from . import steam as steammod
 
@@ -1049,6 +1071,11 @@ def prefix_target(
         prefs = load_preferences()
     if cfg is None:
         container = prefix_dir(appid, "", prefs.prefix_base, "")
+    elif cfg.runtime.prefix_exact and cfg.runtime.prefix.strip():
+        # The other launcher owns this WINEPREFIX: use it verbatim and let
+        # cleanup/migration leave it alone.
+        container = Path(cfg.runtime.prefix.strip()).expanduser()
+        return PrefixTarget(container, container, False)
     else:
         container = prefix_dir(
             appid,
@@ -1153,10 +1180,12 @@ SECTION_KEYS: dict[str, set[str]] = {
         "fresh_prefix",
         "winetricks_verbs",
         "prefix",
+        "prefix_exact",
         "prefix_name",
         "tool",
         "steam_runtime",
     },
+    "store": {"kind", "id"},
     "graphics": {"dxvk", "dxvk_version", "vkd3d", "vkd3d_version"},
     "audio": {"sink"},
     "rtupscale": {"enable", "args"},
@@ -1355,6 +1384,9 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.general.launch_args = str(g.get("launch_args", ""))
     cfg.general.launch_cwd = str(g.get("launch_cwd", ""))
     cfg.general.installed_at = str(g.get("installed_at", "")).strip()
+    st = _section(data, "store")
+    cfg.store.kind = str(st.get("kind", "")).strip().casefold()
+    cfg.store.id = str(st.get("id", "")).strip()
     md = _section(data, "metadata")
     cfg.metadata.version = str(md.get("version", "")).strip()
     cfg.metadata.date = str(md.get("date", "")).strip()
@@ -1434,6 +1466,7 @@ def _build(data: dict, cfg: GameConfig) -> GameConfig:
     cfg.runtime.fresh_prefix = _as_bool(rt.get("fresh_prefix", False), False)
     cfg.runtime.winetricks_verbs = _str_list(rt.get("winetricks_verbs", []))
     cfg.runtime.prefix = str(rt.get("prefix", "")).strip()
+    cfg.runtime.prefix_exact = _as_bool(rt.get("prefix_exact", False), False)
     cfg.runtime.prefix_name = str(rt.get("prefix_name", "")).strip()
     cfg.runtime.tool = str(rt.get("tool", "")).strip()
     cfg.runtime.steam_runtime = normalize_steam_runtime(rt.get("steam_runtime", ""))
@@ -1972,6 +2005,8 @@ def diff_vs_defaults(cfg: GameConfig) -> str:
         general.pop("name", None)
         general.pop("active_profile", None)
         general.pop("installed_at", None)
+        # Store identity belongs to one game and is never a default.
+        section.pop("store", None)
     return "\n".join(
         difflib.unified_diff(
             _render_toml(base).splitlines(),
@@ -2154,6 +2189,8 @@ def _pin_prefix(appid: str, new: str, cfg: GameConfig) -> None:
     the AppID (the game name wins); when it does, the directory moves to
     the new path instead of leaving the saves behind.
     """
+    if cfg.runtime.prefix_exact:
+        return  # another launcher owns this WINEPREFIX
     base = load_preferences().prefix_base
     old_path = prefix_dir(
         appid, cfg.runtime.prefix, base, cfg.runtime.prefix_name, cfg.general.name

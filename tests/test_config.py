@@ -77,6 +77,8 @@ def test_save_defaults_drops_per_game_keys(xdg_env):
     cfg.general.active_profile = "main"
     cfg.general.show_menu = True
     cfg.metadata.version = "1.0"
+    cfg.store.kind = "gog"
+    cfg.store.id = "123"
     cfg.runtime.type = "proton"
     cfg.runtime.tool = "GE-Proton9-20"
     cfg.graphics.dxvk = True
@@ -88,7 +90,16 @@ def test_save_defaults_drops_per_game_keys(xdg_env):
     cfg.gamemode.feral_gamemode = True
     C.save_defaults(cfg)
     text = C.xdg.defaults_file().read_text()
-    for section in ("metadata", "runtime", "graphics", "audio", "debug", "artwork", "notes"):
+    for section in (
+        "store",
+        "metadata",
+        "runtime",
+        "graphics",
+        "audio",
+        "debug",
+        "artwork",
+        "notes",
+    ):
         assert f"[{section}]" not in text
     for line in (
         'name = "Template Name"',
@@ -659,9 +670,12 @@ _GAME_FIELDS = {
     "runtime.fresh_prefix": True,
     "runtime.winetricks_verbs": ["corefonts"],
     "runtime.prefix": "/tmp/opencode/prefix",
+    "runtime.prefix_exact": True,
     "runtime.tool": "GE-Proton9-1",
     "runtime.prefix_name": "Doom Eternal",
     "runtime.steam_runtime": "sniper",
+    "store.kind": "gog",
+    "store.id": "1207658691",
     "graphics.dxvk": True,
     "graphics.dxvk_version": "v2.6.2",
     "graphics.vkd3d": "proton",
@@ -803,6 +817,12 @@ def test_prefix_target_resolution(xdg_env, monkeypatch, tmp_path):
     local.runtime.prefix = str(tmp_path / "base")
     prefix = tmp_path / "base" / "Doom"
     assert C.prefix_target("local-doom", local) == C.PrefixTarget(prefix, prefix, True)
+
+    # An imported prefix is the WINEPREFIX itself and stays unmanaged.
+    external = tmp_path / "lutris" / "doom-prefix"
+    local.runtime.prefix = str(external)
+    local.runtime.prefix_exact = True
+    assert C.prefix_target("local-doom", local) == C.PrefixTarget(external, external, False)
 
     prefs = C.load_preferences()
     prefs.prefix_base = str(tmp_path / "prefs")
@@ -1471,6 +1491,28 @@ def test_migrate_ids_renames_every_store(xdg_env):
     assert (prefix_old / "drive_c").is_dir()
     # Idempotent.
     assert C.migrate_ids() == []
+
+
+def test_migrate_ids_keeps_an_exact_prefix(xdg_env, tmp_path):
+    old = "local-bad-hero---episode-1"
+    new = "local-bad-hero-episode-1"
+    external = tmp_path / "lutris" / "bad-hero"
+    (external / "drive_c").mkdir(parents=True)
+    cfg = C.GameConfig()
+    cfg.general.appid = old
+    cfg.general.name = "Bad Hero - Episode 1"
+    cfg.runtime.type = "wine"
+    cfg.runtime.prefix = str(external)
+    cfg.runtime.prefix_exact = True
+    C.save(cfg)
+
+    assert dict(C.migrate_ids())[old] == new
+    migrated = C.load(new)
+    assert migrated.runtime.prefix_exact is True
+    assert migrated.runtime.prefix == str(external)
+    assert (external / "drive_c").is_dir()
+    derived = C.prefix_dir(new, "", C.load_preferences().prefix_base, "", migrated.general.name)
+    assert not derived.exists()
 
 
 def _seed_legacy_steam_game():

@@ -91,7 +91,10 @@ it, but both are only the **base**: the WINEPREFIX of a local game is
 always a subfolder of it. The subfolder is `[runtime] prefix_name` when
 set (the GUI pins it from the game name on save, so renaming the game
 never moves the prefix), else the normalised game name (`TK's
-good-game_1` → `TKsGoodGame1`), else the AppID.
+good-game_1` → `TKsGoodGame1`), else the AppID. An imported game may set
+`[runtime] prefix_exact = true` instead: then `prefix` is the WINEPREFIX
+itself, `prefix_name` is ignored, and TKArcade never moves or deletes it
+because another launcher owns it.
 `[runtime] tool` overrides the global choice per game, and its meaning
 follows `[runtime] type`: a Steam compat tool for `proton`, the Wine
 build name from Preferences (a raw path still resolves) for `wine`, the
@@ -180,6 +183,21 @@ vkd3d_version = "v2.13"   # empty = newest installed
 ```
 
 ```toml
+# Imported game: the other launcher owns the WINEPREFIX and store entry.
+[general]
+gameid = "local-doom-2016"
+
+[runtime]
+type = "wine"
+prefix = "/home/me/Games/doom-prefix"
+prefix_exact = true
+
+[store]
+kind = "gog"
+id = "1207658691"
+```
+
+```toml
 # Local Linux game inside a Steam Linux Runtime.
 [general]
 gameid = "local-openra"
@@ -219,6 +237,22 @@ tooltip when the pointer rests on a game (`[ui] background_preview`,
 off by default); both use
 the manual background, its cache, then the banner, and neither
 downloads anything.
+
+**Import Configurations** — the toolbar's Import… window reads an
+export tarball, SteamTinkerLaunch configs, the predecessor project, or a
+Lutris/Faugus library. The Lutris and Faugus pages list the installed
+games with a checkbox: new games start checked, games already in the
+library start unchecked, are marked `In Library` and import as a
+`lutris`/`faugus` profile, and runners without a TKArcade equivalent
+are disabled with the reason.
+An imported game keeps the other launcher's WINEPREFIX
+(`[runtime] prefix_exact`), its arguments, environment, hooks, MangoHud/
+GameMode switches and categories, plus a non-Steam store identity
+(`[store] kind`/`id`) while keeping its `local-*` ID. Nothing is written
+to the other launcher's files, and the import downloads no artwork or
+metadata. Paths are compared as text, never stat'ed: a game on a
+disconnected external drive (autofs) is listed disabled with the reason
+instead of blocking the window, and the reader runs in the background.
 
 The default table layout shows Release Date, Origin, Platform, Played,
 Last Played and Installed after the game name; Runtime, Wine, ProtonDB,
@@ -378,7 +412,8 @@ warn instead of silently resetting.
   the game picker and the library tag filter.
 * `$XDG_DATA_HOME/tkarcade/prefixes/<name>/` — local Windows prefixes
   (default base; Preferences can move it, per-game `runtime.prefix` is
-  the base, and the folder is `runtime.prefix_name`, else the
+  the base unless `runtime.prefix_exact` makes it the WINEPREFIX itself,
+  and the folder is `runtime.prefix_name`, else the
   normalised game name, else the Game ID).
 * `$XDG_STATE_HOME/tkarcade/games/<gameid>.log` and `launcher.log`.
 * `$XDG_CACHE_HOME/tkarcade/` — e.g. the ProtonDB tier cache.

@@ -6,6 +6,17 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Imported games can keep another launcher's Wine prefix:
+  `[runtime] prefix_exact = true` uses `prefix` as the WINEPREFIX itself
+  and never moves or deletes it. `[store] kind`/`id` records a
+  non-Steam store identity while the game keeps its local ID. Import…
+  reads Lutris (`pga.db` + per-game YAML) and Faugus (`games.json`)
+  libraries: a checkable list, new games checked, existing ones marked
+  `In Library` and saved as a `lutris`/`faugus` profile, and runners
+  without a TKArcade equivalent disabled. The readers are read-only on the other
+  launcher's files and download nothing; they compare paths as text and
+  run in the background, so a disconnected external drive only disables
+  its rows with a warning instead of freezing the window.
 - Preferences → Interface can draw the selected game's wide background
   art behind the library (`[ui] library_backdrop`) and preview it in a
   delayed tooltip on hover (`[ui] background_preview`). The Visibility

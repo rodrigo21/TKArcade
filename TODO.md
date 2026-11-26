@@ -7,9 +7,9 @@ and git, standing decisions in `docs/POLICIES.md`, and hard-won
 QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 `docs/README.md`. The order:
 
-1. Library import first: the Lutris and Faugus readers bring foreign
-   libraries in, and the tag mapping waits on them. The manual tags
-   theme landed; its follow-ups sit under "Tags follow-up".
+1. The online-tags follow-up: decide whether the sidebar categories
+   derive from tags and whether a bulk download is worth it. The manual
+   tags theme landed; its display follow-up sits under "Tags follow-up".
 2. The 1.0 gate on the maintainer's release call: visual pass, shim
    removal, translations, release pass.
 3. Epic and GOG as origins in 2.0: the 1.0 gate removes the rename
@@ -20,16 +20,10 @@ QML/toolkit rules in `docs/QML-NOTES.md`. The document map is
 
 ## Before 1.0
 
-- [ ] **Library format import (Lutris, Faugus).** Only tarball,
-  SteamTinkerLaunch and predecessor configs import today. A foreign
-  library file needs a per-format reader, the ID/name mapping onto
-  existing games and an ImportDialog page. An imported store game records
-  its store in a `[store]` field and keeps a `local` ID.
-  Design: a plan lands before the first reader.
 - [ ] **Online tags follow-up.** Download Metadata fills `[metadata]
   tags` from Steam, IGDB and VNDB, and Details edits the list and filters
-  the library by it. After the library import, decide whether the sidebar
-  categories derive from tags and whether a bulk download is worth it.
+  the library by it. Decide whether the sidebar categories derive from
+  tags and whether a bulk download is worth it.
   Design: `docs/decisions/online-tags.md`.
 
 Release, only when the maintainer opens the subject:
@@ -63,8 +57,6 @@ Release, only when the maintainer opens the subject:
 
 ## Tags follow-up
 
-- [ ] **Library import tag mapping.** Map Lutris tags into
-  `tags.toml` when the library import lands.
 - [ ] **Tag display polish.** Chips, autocomplete, manual order and
   colors; only if use shows the need.
 

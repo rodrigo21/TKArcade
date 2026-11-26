@@ -5937,6 +5937,76 @@ def test_import_stl_flow(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
 
 
+def test_import_library_flow(qgui_app, xdg_env, tmp_path):
+    """The Faugus page imports the new rows and notifies."""
+    import json
+    import os
+    from pathlib import Path
+
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    data = Path(os.environ["XDG_DATA_HOME"]) / "faugus-launcher"
+    data.mkdir(parents=True)
+    existing_exe = data / "existing-game"
+    existing = C.GameConfig()
+    existing.general.appid = "local-existing"
+    existing.general.name = "Existing"
+    existing.general.custom_executable = str(existing_exe)
+    C.save(existing)
+    (data / "games.json").write_text(
+        json.dumps(
+            [
+                {
+                    "gameid": "native-flow",
+                    "title": "Native Flow",
+                    "path": str(data / "game"),
+                    "runner": "Linux-Native",
+                    "category": ["Flow"],
+                },
+                {
+                    "gameid": "existing-flow",
+                    "title": "Existing Flow",
+                    "path": str(existing_exe),
+                    "runner": "Linux-Native",
+                },
+                {
+                    "gameid": "bad-flow",
+                    "title": "Unsupported Flow",
+                    "path": "/x",
+                    "runner": "unknown",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    dlg = win.findChild(QObject, "importDialog")
+    dlg.openLibrary("faugus")
+    swin = _modal_window(qgui_app, ("Import Configurations",))
+    assert _wait_for(lambda: dlg.property("libraryRows").toVariant())
+    assert dlg.property("libraryLoading") is False
+    assert list(dlg.property("libraryPicked").toVariant()) == ["native-flow"]
+    rows = dlg.property("libraryRows").toVariant()
+    bad = next(row for row in rows if row[0] == "bad-flow")
+    assert bad[3] == "unavailable"
+    assert "no TKArcade equivalent" in bad[2]
+    existing_row = next(row for row in rows if row[0] == "existing-flow")
+    assert existing_row[3] == "existing"
+    assert existing_row[4] == "local-existing"
+    _click(swin, "importLibraryConfirm")
+    assert _wait_for(lambda: C.game_file("local-native-flow").is_file())
+    assert C.load("local-native-flow").general.name == "Native Flow"
+    page = win.findChild(QObject, "gamesPage")
+    assert _wait_for(lambda: page.property("notice").startswith("Imported"))
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_import_tarball_flow(qgui_app, xdg_env, tmp_path):
     """Backup tab imports the picked tarball and notifies."""
     from PySide6.QtCore import QObject
@@ -6280,6 +6350,7 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     prefix_field = swin.findChild(QQuickItem, "winePrefix")
     name_field = swin.findChild(QQuickItem, "settingsLocalPrefixName")
     name_hint = swin.findChild(QQuickItem, "settingsLocalPrefixHint")
+    exact_box = swin.findChild(QQuickItem, "winePrefixExact")
     gfx_dxvk = swin.findChild(QQuickItem, "settingsGraphicsDxvk")
     gfx_vkd3d_proton = swin.findChild(QQuickItem, "settingsGraphicsVkd3dProton")
     gfx_vkd3d_wine = swin.findChild(QQuickItem, "settingsGraphicsVkd3dWine")
@@ -6308,6 +6379,8 @@ def test_settings_local_runtime_flow(qgui_app, xdg_env, monkeypatch):
     # Wine names its binary in the field above: no duplicate check row.
     assert runtime_field.property("visible") is False
     assert prefix_field.property("visible") is True
+    assert exact_box.property("visible") is True
+    assert exact_box.property("checked") is False
     assert gfx_dxvk.property("visible") is True
     assert gfx_dxvk.property("checked") is True
     assert gfx_vkd3d_proton.property("visible") is True

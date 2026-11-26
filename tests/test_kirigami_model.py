@@ -2956,6 +2956,81 @@ def test_import_predecessor_without_source(qgui_app, xdg_env):
     assert GameListModel().importPredecessor().startswith("Import Failed")
 
 
+def test_library_candidates_and_import_report(qgui_app, xdg_env, monkeypatch):
+    from tkarcade import library_import as libmod
+    from tkarcade.gui.model import GameListModel
+
+    game = libmod.LibraryGame(source="faugus", source_id="new", name="New Game")
+    monkeypatch.setattr(
+        libmod,
+        "candidates",
+        lambda source: ([libmod.Candidate(game, state="new", detail="/games/new.exe")], ""),
+    )
+    model = GameListModel()
+    data = model.libraryCandidates("faugus")
+    assert data == {"rows": [["new", "New Game", "/games/new.exe", "new", ""]], "hint": ""}
+
+    monkeypatch.setattr(
+        libmod,
+        "import_games",
+        lambda source, keys: libmod.ImportResult(
+            created=["local-new-game"],
+            skipped=[("Bad", "no runner")],
+            notes={"New Game": ["no executable recorded"]},
+        ),
+    )
+    monkeypatch.setattr(model, "refresh", lambda: None)
+    report = model.importLibrary("faugus", ["new"])
+    assert "Imported 1 New Game(s) from Faugus." in report
+    assert "Skipped 1 Game(s):" in report
+    assert "New Game: no executable recorded" in report
+
+
+def test_library_import_nothing_selected(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.importLibrary("faugus", []) == "Nothing Selected."
+
+
+def test_library_workers_emit(qgui_app, xdg_env, monkeypatch):
+    from PySide6.QtTest import QSignalSpy
+
+    from tkarcade import library_import as libmod
+    from tkarcade.gui.model import GameListModel
+
+    game = libmod.LibraryGame(source="faugus", source_id="x", name="X")
+    monkeypatch.setattr(libmod, "candidates", lambda source: ([libmod.Candidate(game)], ""))
+    model = GameListModel()
+    spy = QSignalSpy(model.libraryCandidatesReady)
+    model.startLibraryCandidates("faugus")
+    assert spy.wait(2000) or spy.count() > 0
+    assert spy.at(0)[0] == "faugus"
+    data = spy.at(0)[1]
+    data = data.toVariant() if hasattr(data, "toVariant") else data
+    assert data["rows"] == [["x", "X", "", "new", ""]]
+
+    monkeypatch.setattr(
+        libmod,
+        "import_games",
+        lambda source, keys: libmod.ImportResult(created=["local-x"]),
+    )
+    done = QSignalSpy(model.libraryImportFinished)
+    model.startLibraryImport("faugus", ["x"])
+    assert done.wait(2000) or done.count() > 0
+    assert "Imported 1 New Game(s) from Faugus." in str(done.at(0)[0])
+
+
+def test_prefix_name_state_exact(qgui_app, xdg_env, tmp_path):
+    from tkarcade.gui.model import GameListModel
+
+    external = tmp_path / "lutris" / "prefix"
+    state = GameListModel().prefixNameState("local-a", "", str(external), "", True)
+    assert state["target"] == str(external)
+    assert state["renamed"] is False
+    assert state["steam"] is False
+
+
 def _filtered(qgui_app, appids=("213", "local-doom")):
     from tkarcade.gui.model import GameFilterModel, GameListModel
 

@@ -2,7 +2,7 @@
 
 `build.sh` produces `dist/TKArcade-<version>.AppImage` (git-ignored): the
 single `tkarcade` entry plus its Python runtime and
-PySide6/vdf/jeepney wheels (~150-250 MB). Run without arguments (or
+PySide6/vdf/jeepney/PyYAML wheels (~150-250 MB). Run without arguments (or
 `--gui`) for the settings GUI; anything else runs the launcher, so
 Steam Launch Options point at the file itself:
 

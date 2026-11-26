@@ -44,6 +44,9 @@ dependencies = [
   "PySide6>=6.12",
   "vdf",
   "jeepney",
+  # Lutris game configs are YAML; imported only by library_import (GUI),
+  # never by the launcher.
+  "PyYAML>=6",
   # Icons embedded in a local game's .exe: pure Python, MIT. Imported
   # lazily (artwork only), so a build without it simply shows no icon.
   "icoextract>=0.3",

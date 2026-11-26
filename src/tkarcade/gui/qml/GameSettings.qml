@@ -454,6 +454,7 @@ Window {
         wineVersionBox.currentIndex = wineIndex
         localWineField.text = wineIndex === labels.length - 1 ? savedWine : ""
         rtPrefixField.text = fields.runtime_prefix || ""
+        exactPrefixCheck.checked = fields.runtime_prefix_exact === true
         localPrefixNameField.text = fields.runtime_prefix_name || ""
         var srIndex = gameSettings.steamRuntimeCodes().indexOf(fields.runtime_steam_runtime || "")
         srBox.currentIndex = srIndex > 0 ? srIndex : 0
@@ -498,7 +499,8 @@ Window {
             return
         }
         var state = gameModel.prefixNameState(
-            editAppid, localPrefixNameField.text, rtPrefixField.text, nameField.text)
+            editAppid, localPrefixNameField.text, rtPrefixField.text, nameField.text,
+            exactPrefixCheck.checked)
         prefixTarget = state.target
         prefixExists = state.exists === true
         var parts = []
@@ -1257,6 +1259,7 @@ Window {
             // launcher reads them (Steam compatdata/compat tool vs full
             // WINEPREFIX/wine binary/PROTONPATH).
             "runtime_prefix": rtPrefixField.text,
+            "runtime_prefix_exact": exactPrefixCheck.checked,
             "runtime_prefix_name": localPrefixNameField.text,
             "runtime_tool": gameSettings.wineAvailable
                 ? wineToolData()
@@ -3889,9 +3892,11 @@ Window {
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 0
                                         Layout.minimumWidth: Kirigami.Units.gridUnit * 4
-                                        placeholderText: gameSettings.wineAvailable
-                                            ? qsTr("Empty = Steam Default")
-                                            : qsTr("Empty = the Prefix Base in Preferences")
+                                        placeholderText: exactPrefixCheck.checked
+                                            ? qsTr("Exact WINEPREFIX")
+                                            : gameSettings.wineAvailable
+                                                ? qsTr("Empty = Steam Default")
+                                                : qsTr("Empty = the Prefix Base in Preferences")
                                         onEditingFinished: gameSettings.refreshPrefixHint()
                                         // The pickers sit inside the fields
                                         // they fill: two text buttons plus
@@ -3903,6 +3908,7 @@ Window {
                                                 // A Steam compatdata dir is picked
                                                 // by the text button below.
                                                 visible: !gameSettings.wineAvailable
+                                                    && !exactPrefixCheck.checked
                                                 text: qsTr("Choose the Prefix Base…")
                                                 icon.name: "document-open-folder"
                                                 onTriggered: {
@@ -3915,21 +3921,25 @@ Window {
                                         // itself from the left, with no
                                         // ellipsis (QQC2), so the tooltip
                                         // carries the whole text.
-                                        Controls.ToolTip.text: (gameSettings.wineAvailable
-                                            ? qsTr("Steam's Compatdata Directory (STEAM_COMPAT_DATA_PATH).")
-                                            : qsTr("Base Directory: the Prefix Itself Is a Subfolder Named After the Game."))
+                                        Controls.ToolTip.text: (exactPrefixCheck.checked
+                                            ? qsTr("Exact WINEPREFIX Owned by Another Launcher; TKArcade Never Moves or Deletes It.")
+                                            : gameSettings.wineAvailable
+                                                ? qsTr("Steam's Compatdata Directory (STEAM_COMPAT_DATA_PATH).")
+                                                : qsTr("Base Directory: the Prefix Itself Is a Subfolder Named After the Game."))
                                             + (text !== "" ? "\n" + text : "")
                                         Controls.ToolTip.visible: hovered
                                     }
                                     Controls.Label {
                                         objectName: "prefixBaseSuffix"
                                         visible: !gameSettings.wineAvailable
+                                            && !exactPrefixCheck.checked
                                         Layout.alignment: Qt.AlignVCenter
                                         text: qsTr("(Base)")
                                         opacity: 0.7
                                     }
                                     Controls.Label {
                                         visible: !gameSettings.wineAvailable
+                                            && !exactPrefixCheck.checked
                                         Layout.alignment: Qt.AlignVCenter
                                         text: "/"
                                         opacity: 0.5
@@ -3938,6 +3948,7 @@ Window {
                                         id: localPrefixNameField
                                         objectName: "settingsLocalPrefixName"
                                         visible: !gameSettings.wineAvailable
+                                            && !exactPrefixCheck.checked
                                         Layout.fillWidth: true
                                         Layout.preferredWidth: 0
                                         Layout.minimumWidth: Kirigami.Units.gridUnit * 3
@@ -3958,6 +3969,7 @@ Window {
                                     Controls.Label {
                                         objectName: "prefixFolderSuffix"
                                         visible: !gameSettings.wineAvailable
+                                            && !exactPrefixCheck.checked
                                         Layout.alignment: Qt.AlignVCenter
                                         text: qsTr("(Folder)")
                                         opacity: 0.7
@@ -4026,8 +4038,9 @@ Window {
                                         // has a WINEPREFIX to delete, even
                                         // when it lives under the default
                                         // base (empty field).
-                                        visible: gameSettings.wineAvailable
-                                            || gameSettings.prefixExists
+                                        visible: (gameSettings.wineAvailable
+                                            || gameSettings.prefixExists)
+                                            && !exactPrefixCheck.checked
                                         text: qsTr("Clear…")
                                         onClicked: {
                                             var target = gameModel.prefixDir(editAppid)
@@ -4054,6 +4067,21 @@ Window {
                                                 settingsError.text = qsTr("Could Not Open the Prefix Folder.")
                                             }
                                         }
+                                    }
+                                }
+                                Controls.CheckBox {
+                                    id: exactPrefixCheck
+                                    objectName: "winePrefixExact"
+                                    visible: gameSettings.localWindowsRuntime && !defaultsMode
+                                    text: qsTr("Use This as the Exact WINEPREFIX (Imported)")
+                                    Controls.ToolTip.text: qsTr("Another Launcher Owns This Prefix: TKArcade Never Moves or Deletes It.")
+                                    Controls.ToolTip.visible: hovered
+                                    onToggled: {
+                                        if (checked && rtPrefixField.text.trim() === "") {
+                                            checked = false
+                                            return
+                                        }
+                                        gameSettings.refreshPrefixHint()
                                     }
                                 }
                                 Controls.CheckBox {

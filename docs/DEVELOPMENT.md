@@ -1,7 +1,7 @@
 # Development
 
 Dev flow uses `uv` with system site packages (reuses the distro's
-PySide6/vdf/jeepney); never plain `venv`/`pip` into the system
+PySide6/vdf/jeepney/PyYAML); never plain `venv`/`pip` into the system
 interpreter. Run checks with `.venv/bin/python`; `ruff` stays the
 system binary. Exception: `PKGBUILD check()` always uses system
 packages only (no uv in the chroot).

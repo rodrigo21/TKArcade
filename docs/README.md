@@ -49,6 +49,9 @@ What each document is for and where the source of truth lives.
   merged runtime config.
 - `decisions/prefix-name.md` — local prefix base and `<base>/<folder>`
   resolution.
+- `decisions/library-import.md` — Lutris/Faugus readers, exact external
+  prefixes, `[store]` identity, profiles for existing games and the
+  checkable import page.
 - `decisions/network-isolation.md` — per-game `unshare -Urn` and its
   failure policy.
 - `decisions/running-indicator.md` — running records, signal forwarding
@@ -142,10 +145,6 @@ What each document is for and where the source of truth lives.
 
 ## Plans
 
-- `plans/library-import.md` — Lutris and Faugus libraries as import
-  sources: read-only readers, the ID/exe/name matching, the profile for
-  an existing game, exact external prefixes, `[store]` identity and the
-  checkable ImportDialog page.
 - `plans/epic-gog-sources.md` — Epic and GOG as game origins: discovery
   through Heroic's files, the local-family launch choice, the import flow
   and four decisions the maintainer still owes; targeted at 2.0, after
