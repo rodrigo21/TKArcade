@@ -12,7 +12,7 @@ from tkarcade import config as C
 
 def test_steam_metadata_fills_only_empty_and_unlocked(qgui_app, xdg_env):
     """A new Steam game absorbs the store answer; typed and locked stay."""
-    from tkarcade.gui.model import _fill_steam_metadata
+    from tkarcade.gui.model import _fill_metadata
 
     cfg = C.GameConfig()
     cfg.general.appid = "steam-620"
@@ -28,7 +28,7 @@ def test_steam_metadata_fills_only_empty_and_unlocked(qgui_app, xdg_env):
         "date": "1993-12-10",
         "tags": ["Action", "Action", "Single-player"],
     }
-    assert _fill_steam_metadata(cfg, payload) is True
+    assert _fill_metadata(cfg, payload) is True
     assert cfg.metadata.description == "Store synopsis."
     assert cfg.metadata.developer == "Typed Studio"
     assert cfg.metadata.publisher == ""
@@ -38,27 +38,27 @@ def test_steam_metadata_fills_only_empty_and_unlocked(qgui_app, xdg_env):
     assert cfg.metadata.date == "1993-12-10"
     assert cfg.metadata.tags == ["Action", "Single-player"]
     # Second pass changes nothing: only the locked field is still empty.
-    assert _fill_steam_metadata(cfg, payload) is False
+    assert _fill_metadata(cfg, payload) is False
 
 
 def test_steam_metadata_respects_a_locked_tags_list(qgui_app, xdg_env):
     """A locked Tags list is not filled by the silent Steam pass."""
-    from tkarcade.gui.model import _fill_steam_metadata
+    from tkarcade.gui.model import _fill_metadata
 
     cfg = C.GameConfig()
     cfg.general.appid = "steam-620"
     cfg.metadata.locked = "tags"
-    assert _fill_steam_metadata(cfg, {"tags": ["Action"]}) is False
+    assert _fill_metadata(cfg, {"tags": ["Action"]}) is False
     assert cfg.metadata.tags == []
 
 
 def test_steam_metadata_drops_an_invalid_date(qgui_app, xdg_env):
     """A date the config cannot store stays out of the auto-fill."""
-    from tkarcade.gui.model import _fill_steam_metadata
+    from tkarcade.gui.model import _fill_metadata
 
     cfg = C.GameConfig()
     cfg.general.appid = "steam-70"
-    assert _fill_steam_metadata(cfg, {"date": "soon"}) is False
+    assert _fill_metadata(cfg, {"date": "soon"}) is False
     assert cfg.metadata.date == ""
 
 
@@ -1394,6 +1394,220 @@ def test_metadata_provider_workers(qgui_app, xdg_env, monkeypatch):
     choices.clear()
     model.searchMetadata("local-sg", "vndb", "  ")
     assert choices == [("local-sg", [])]
+
+
+def test_metadata_batch_uses_the_stored_identity(qgui_app, xdg_env, monkeypatch):
+    """A stored id wins over the source; only a bare game is searched."""
+    from tkarcade.gui import model as M
+
+    steam = C.GameConfig()
+    steam.general.appid = "steam-620"
+    C.save(steam)
+    vndb = C.GameConfig()
+    vndb.general.appid = "local-sg"
+    vndb.metadata.vndb_id = "v2002"
+    C.save(vndb)
+    igdb = C.GameConfig()
+    igdb.general.appid = "local-hades"
+    igdb.metadata.igdb_id = "1145360"
+    C.save(igdb)
+    linked = C.GameConfig()
+    linked.general.appid = "local-doom"
+    linked.metadata.steam_appid = "2280"
+    C.save(linked)
+    bare = C.GameConfig()
+    bare.general.appid = "local-bare"
+    C.save(bare)
+
+    model = M.GameListModel()
+    searches = []
+    monkeypatch.setattr(
+        M.metamod,
+        "search",
+        lambda provider, query: (
+            searches.append((provider, query)) or [{"id": "999", "name": query}]
+        ),
+    )
+    calls = []
+    monkeypatch.setattr(
+        M.metamod,
+        "download",
+        lambda provider, appid, target="", release="": (
+            calls.append((provider, appid, target)) or {"description": "Syn"}
+        ),
+    )
+    row = model._metadata_batch_row("steam-620", "vndb")
+    assert (row["provider"], row["target"], row["searched"]) == ("steam", "620", False)
+    row = model._metadata_batch_row("local-sg", "steam")
+    assert (row["provider"], row["target"]) == ("vndb", "v2002")
+    row = model._metadata_batch_row("local-hades", "steam")
+    assert (row["provider"], row["target"]) == ("igdb", "1145360")
+    row = model._metadata_batch_row("local-doom", "vndb")
+    assert (row["provider"], row["target"]) == ("steam", "2280")
+    assert row["state"] == "ok"
+    assert row["fields"] == "Description"
+    assert searches == []
+    assert ("steam", "steam-620", "620") in calls
+
+
+def test_metadata_batch_searches_and_flags_only_the_exact_title(qgui_app, xdg_env, monkeypatch):
+    """A title search fills the row; only the game's own title is pre-checked."""
+    from tkarcade.gui import model as M
+
+    exact = C.GameConfig()
+    exact.general.appid = "local-doom"
+    exact.general.name = "DOOM"
+    C.save(exact)
+    near = C.GameConfig()
+    near.general.appid = "local-doom2"
+    near.general.name = "Doom Eternal"
+    C.save(near)
+    empty = C.GameConfig()
+    empty.general.appid = "local-filled"
+    empty.general.name = "Other Game"
+    empty.metadata.description = "Typed"
+    C.save(empty)
+
+    model = M.GameListModel()
+    monkeypatch.setattr(
+        M.metamod,
+        "search",
+        lambda provider, query: (
+            [{"id": "2280", "name": "DOOM (1993)"}] if query in ("DOOM", "Doom Eternal") else []
+        ),
+    )
+    monkeypatch.setattr(
+        M.metamod,
+        "download",
+        lambda provider, appid, target="", release="": {"description": "Store"},
+    )
+    row = model._metadata_batch_row("local-doom", "steam")
+    assert (row["state"], row["exact"], row["searched"]) == ("ok", True, True)
+    assert row["match"] == "DOOM (1993)"
+    assert row["target"] == "2280"
+    row = model._metadata_batch_row("local-doom2", "steam")
+    assert (row["state"], row["exact"]) == ("ok", False)
+    row = model._metadata_batch_row("local-filled", "steam")
+    assert row["state"] == "no-match"
+    monkeypatch.setattr(M.metamod, "search", lambda provider, query: [{"id": "1", "name": "Typed"}])
+    monkeypatch.setattr(M.metamod, "download", lambda *a, **k: None)
+    assert model._metadata_batch_row("local-filled", "steam")["state"] == "no-data"
+
+    # Nothing to fill on a game that already carries every field and an id.
+    monkeypatch.setattr(M.metamod, "search", lambda provider, query: [{"id": "620", "name": "All"}])
+    monkeypatch.setattr(
+        M.metamod,
+        "download",
+        lambda *a, **k: {
+            "description": "Store",
+            "developer": "Dev",
+            "publisher": "Pub",
+            "genre": "Action",
+            "series": "S",
+            "date": "1993-12-10",
+            "tags": ["Action"],
+            "age_ratings": ["PEGI 12"],
+        },
+    )
+    filled = C.GameConfig()
+    filled.general.appid = "local-all"
+    filled.general.name = "All"
+    filled.metadata.steam_appid = "620"
+    for name in ("description", "developer", "publisher", "genre", "series"):
+        setattr(filled.metadata, name, "x")
+    filled.metadata.date = "1993-12-10"
+    filled.metadata.tags = ["Action"]
+    filled.metadata.age_ratings = ["PEGI 12"]
+    C.save(filled)
+    assert model._metadata_batch_row("local-all", "steam")["state"] == "empty"
+
+
+def test_metadata_batch_worker_reports_rows_and_stops(qgui_app, xdg_env, monkeypatch):
+    from tkarcade.gui import model as M
+
+    one = C.GameConfig()
+    one.general.appid = "steam-620"
+    C.save(one)
+    two = C.GameConfig()
+    two.general.appid = "steam-70"
+    C.save(two)
+    model = M.GameListModel()
+    monkeypatch.setattr(M.metamod, "download", lambda *a, **k: {"description": "Syn"})
+    rows = []
+    finished = []
+    model.metadataBatchRow.connect(
+        lambda index: rows.append((index, model.batchMetadataRow(index)["id"]))
+    )
+    model.metadataBatchFinished.connect(finished.append)
+    model._metadata_batch_worker(["steam-620", "steam-70"], "vndb")
+    assert rows == [(0, "steam-620"), (1, "steam-70")]
+    assert finished == [2]
+
+    rows.clear()
+    finished.clear()
+    model._batch_cancel = True
+    model._metadata_batch_worker(["steam-620", "steam-70"], "vndb")
+    assert rows == []
+    assert finished == [2]
+
+
+def test_apply_metadata_batch_fills_and_stores_the_identity(qgui_app, xdg_env, monkeypatch):
+    """Apply writes empty fields, stores a searched id, and never merges."""
+    from tkarcade.gui import model as M
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.metadata.locked = "developer"
+    C.save(cfg)
+    broken = C.GameConfig()
+    broken.general.appid = "local-broken"
+    C.save(broken)
+    model = M.GameListModel()
+    monkeypatch.setattr(
+        M.metamod,
+        "download",
+        lambda provider, appid, target="", release="": {
+            "description": "Store",
+            "developer": "Dev",
+            "tags": ["Action"],
+        },
+    )
+    entry = {"id": "local-doom", "provider": "vndb", "target": "v2002", "searched": True}
+    assert model.applyMetadataBatch([entry]) == "Filled 1 Game(s); 0 Skipped, 0 Failed."
+    saved = C.load("local-doom")
+    assert saved.metadata.description == "Store"
+    assert saved.metadata.developer == ""
+    assert saved.metadata.tags == ["Action"]
+    assert saved.metadata.vndb_id == "v2002"
+    # A second pass has nothing left to write.
+    assert model.applyMetadataBatch([entry]) == "Nothing to Fill."
+    # The list fields never merge into a game that carries its own.
+    saved.metadata.tags = ["Manual"]
+    C.save(saved)
+    assert model.applyMetadataBatch([entry]) == "Nothing to Fill."
+    assert C.load("local-doom").metadata.tags == ["Manual"]
+    # An entry without a known provider is skipped, not written.
+    assert model.applyMetadataBatch([{"id": "gone", "provider": "nope", "target": "1"}]) == (
+        "Nothing to Fill."
+    )
+    # A save that fails counts as failed and leaves that config alone.
+    real_save = M.cfgmod.save
+    monkeypatch.setattr(
+        M.cfgmod,
+        "save",
+        lambda cfg: (
+            real_save(cfg)
+            if cfg.general.appid != "local-broken"
+            else (_ for _ in ()).throw(OSError("x"))
+        ),
+    )
+    assert (
+        model.applyMetadataBatch(
+            [{"id": "local-broken", "provider": "steam", "target": "999", "searched": False}]
+        )
+        == "Filled 0 Game(s); 0 Skipped, 1 Failed."
+    )
+    assert C.load("local-broken").metadata.description == ""
 
 
 def test_igdb_configured_needs_both_parts(qgui_app, xdg_env):

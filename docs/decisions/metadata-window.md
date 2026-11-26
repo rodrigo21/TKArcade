@@ -21,7 +21,7 @@ before its store entry existed.
 
 1. **Steam fills its metadata on add.** `_fetch_on_save` asks for
    `enrich=True`; `_fetch_worker` hands each game to `_fetch_game`, which
-   calls `_enrich_steam` for a Steam id. `_fill_steam_metadata` writes
+   calls `_enrich_steam` for a Steam id. `_fill_metadata` writes
    the empty fields from the store payload (description, developer,
    publisher, genre, series, age ratings, date, tags): fill-empty only, a
    locked field stays out even when empty, and a value typed before Save

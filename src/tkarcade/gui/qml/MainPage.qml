@@ -682,6 +682,17 @@ Kirigami.Page {
         gamesPage.openDialog(bulkTagsDialog)
     }
 
+    // Batch Download Metadata: the window lists the selection, resolves it
+    // in the background and applies only the checked rows.
+    function openBulkMetadata() {
+        if (selectedIds.length === 0) {
+            gamesPage.notify(qsTr("Select Games First."))
+            return
+        }
+        bulkMetadataDialog.reset(selectedIds.slice())
+        bulkMetadataDialog.open(Controls.ApplicationWindow.window)
+    }
+
     function acceptClone() {
         var dest = cloneBox.editText.trim()
         if (dest === "") {
@@ -1924,6 +1935,11 @@ Kirigami.Page {
         Controls.MenuItem {
             text: qsTr("Set Tags…")
             onTriggered: gamesPage.openBulkTags()
+        }
+        Controls.MenuItem {
+            objectName: "menuDownloadMetadata"
+            text: qsTr("Download Metadata…")
+            onTriggered: gamesPage.openBulkMetadata()
         }
     }
 
@@ -3189,6 +3205,13 @@ Kirigami.Page {
             gamesPage.notify(gameModel.setTags(gamesPage.bulkTagClearIds, []))
             gamesPage.bulkTagClearIds = []
             bulkTagClearConfirm.close()
+        }
+    }
+
+    BulkMetadataDialog {
+        id: bulkMetadataDialog
+        onApplied: function(message) {
+            gamesPage.notify(message)
         }
     }
 

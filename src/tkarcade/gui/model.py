@@ -10,6 +10,7 @@ import shlex
 import shutil
 import subprocess
 import threading
+import unicodedata
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -95,11 +96,14 @@ def _apply_metadata(cfg, data: dict) -> None:
         md.tags = cfgmod.normalize_categories(raw_tags)
 
 
-def _fill_steam_metadata(cfg, data: dict) -> bool:
-    """Fill a config's empty metadata fields from a Steam store payload.
+def _fill_metadata(cfg, data: dict) -> bool:
+    """Fill a config's empty metadata fields from any provider payload.
 
     Fill-empty only, and a locked field stays out even when it is empty: a
-    lock is a decision, not a default. Returns whether anything changed.
+    lock is a decision, not a default. The two list fields are written
+    only when the game has none, because a fill nobody previewed must not
+    merge (`decisions/metadata-merge.md` §5). Returns whether anything
+    changed.
     """
     md = cfg.metadata
     locked = set(cfgmod.normalize_locked_fields(md.locked).split(","))
@@ -467,6 +471,10 @@ class GameListModel(QAbstractTableModel):
         self._reencode_busy = False
         # One foreign-library read or import at a time (worker thread).
         self._library_busy = False
+        # A batch metadata resolution stops between games when this is set;
+        # the worker never writes, so Apply can run while it finishes.
+        self._batch_cancel = False
+        self._batch_rows: dict[int, dict] = {}
         # Resolve the image writers before any worker queries them.
         artio.preload()
         self.backgroundDone.connect(self.refresh)
@@ -5144,7 +5152,7 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             log.debug("steam metadata(%s) load failed: %s", appid, e)
             return
-        if not _fill_steam_metadata(cfg, data):
+        if not _fill_metadata(cfg, data):
             return
         try:
             cfgmod.save(cfg)
@@ -5252,6 +5260,240 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return False
         return bool(prefs.igdb_client_id.strip() and prefs.igdb_client_secret.strip())
+
+    #: Field labels for the batch list's summary, in the preview order.
+    BATCH_FIELD_LABELS = {
+        "description": "Description",
+        "developer": "Developer",
+        "publisher": "Publisher",
+        "genre": "Genre",
+        "series": "Series",
+        "age_ratings": "Age Ratings",
+        "date": "Release Date",
+        "tags": "Tags",
+    }
+
+    #: (index) while a batch resolution runs: one row per selected game, in
+    #: the selection order, read back with `batchMetadataRow()`. A map in a
+    #: queued signal from a worker thread is dropped by Qt, so the row
+    #: stays here and the signal carries only its index. The worker never
+    #: saves.
+    metadataBatchRow = Signal(int)
+    #: (total) when resolution finished or stopped; "resolved" is counted
+    #: by the UI from the row signals.
+    metadataBatchFinished = Signal(int)
+
+    @staticmethod
+    def _stored_metadata_target(appid: str, cfg) -> tuple[str, str]:
+        """Identity the batch downloads from: (provider, target), "" if none.
+
+        The order is the one Search Data starts with: a visual novel, then
+        IGDB, then Steam (a library id or a store link).
+        """
+        md = cfg.metadata
+        vndb_id = cfgmod.normalize_vndb_id(md.vndb_id)
+        if vndb_id:
+            return "vndb", vndb_id
+        igdb_id = cfgmod.normalize_igdb_id(md.igdb_id)
+        if igdb_id:
+            return "igdb", igdb_id
+        if steammod.is_steam_id(appid):
+            return "steam", steammod.steam_appid(appid)
+        steam_appid = cfgmod.normalize_steam_appid(md.steam_appid)
+        if steam_appid:
+            return "steam", steam_appid
+        return "", ""
+
+    @staticmethod
+    def _same_title(left: str, right: str) -> bool:
+        """Whether a searched candidate is this game, not a sequel.
+
+        Case, accents and punctuation are ignored. A provider label that
+        adds a release year (``DOOM (1993)``) still counts; a subtitle or
+        an edition suffix leaves the match to the user.
+        """
+
+        def flat(text: str) -> str:
+            decomposed = unicodedata.normalize("NFKD", str(text or ""))
+            plain = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+            return " ".join(re.findall(r"[0-9a-z]+", plain.casefold()))
+
+        wanted = flat(left)
+        candidate = flat(right)
+        if not wanted:
+            return False
+        if candidate == wanted:
+            return True
+        if not candidate.startswith(wanted + " "):
+            return False
+        return bool(re.match(r"\d{4}\b", candidate[len(wanted) :].strip()))
+
+    def _metadata_batch_row(self, appid: str, source: str) -> dict:
+        """Resolve one selected game: stored identity first, else a search.
+
+        Read-only: the proposal is filled on a second load of the config, so
+        the list can show what Apply would write without touching disk. The
+        search uses the config's own name, so no Steam library scan runs on
+        this path.
+        """
+        row = {
+            "id": appid,
+            "provider": "",
+            "target": "",
+            "match": "",
+            "searched": False,
+            "exact": False,
+            "fields": "",
+            "state": "failed",
+        }
+        try:
+            cfg = cfgmod.load(appid)
+        except Exception as e:
+            log.warning("metadata batch(%s) load failed: %s", appid, e)
+            return row
+        name = cfg.general.name.strip() or appid
+        provider, target = self._stored_metadata_target(appid, cfg)
+        if target:
+            row["provider"] = provider
+            row["target"] = target
+        else:
+            provider = source
+            row["provider"] = provider
+            try:
+                candidates = metamod.search(provider, name)
+            except Exception as e:
+                log.debug("metadata batch(%s) search failed: %s", appid, e)
+                candidates = []
+            if not candidates:
+                row["state"] = "no-match"
+                return row
+            row["searched"] = True
+            row["target"] = str(candidates[0].get("id", ""))
+            row["match"] = str(candidates[0].get("name", ""))
+            row["exact"] = self._same_title(name, row["match"])
+        try:
+            data = metamod.download(provider, appid, row["target"])
+        except Exception as e:
+            log.debug("metadata batch(%s) download failed: %s", appid, e)
+            data = None
+        if not data:
+            row["state"] = "no-data"
+            return row
+        try:
+            proposal = cfgmod.load(appid)
+        except Exception:
+            row["state"] = "failed"
+            return row
+        _fill_metadata(proposal, data)
+        changed = [
+            key
+            for key in metamod.FIELDS
+            if getattr(proposal.metadata, key) != getattr(cfg.metadata, key)
+        ]
+        row["fields"] = ", ".join(self.BATCH_FIELD_LABELS[key] for key in changed)
+        row["state"] = "ok" if changed or row["searched"] else "empty"
+        return row
+
+    @Slot(list, str)
+    def resolveMetadataBatch(self, appids, source: str = "vndb") -> None:
+        """Resolve a library selection for the batch list off-thread.
+
+        The worker reads configs and providers only: Apply writes.
+        """
+        ids = [str(a) for a in appids or []]
+        provider = str(source or "").strip()
+        if provider not in metamod.PROVIDERS:
+            provider = "vndb"
+        if not ids or os.environ.get("TKARCADE_NO_BG_FETCH"):
+            self.metadataBatchFinished.emit(len(ids))
+            return
+        self._batch_cancel = False
+        self._batch_rows = {}
+        threading.Thread(
+            target=self._metadata_batch_worker, args=(ids, provider), daemon=True
+        ).start()
+
+    def _metadata_batch_worker(self, ids: list[str], source: str) -> None:
+        for index, appid in enumerate(ids):
+            if self._batch_cancel:
+                break
+            row = self._metadata_batch_row(appid, source)
+            self._batch_rows[index] = row
+            self.metadataBatchRow.emit(index)
+        self.metadataBatchFinished.emit(len(ids))
+
+    @Slot(int, result="QVariantMap")
+    def batchMetadataRow(self, index: int) -> dict:
+        """The resolved row the worker just emitted for `index`."""
+        return self._batch_rows.get(int(index), {})
+
+    @Slot()
+    def cancelMetadataBatch(self) -> None:
+        """Stop a running batch between games; resolved rows stay usable."""
+        self._batch_cancel = True
+
+    @staticmethod
+    def _write_metadata_target(cfg, provider: str, target: str) -> bool:
+        """Store the identity a checked search matched. False when unchanged."""
+        md = cfg.metadata
+        if provider == "steam":
+            value = cfgmod.normalize_steam_appid(target)
+            if not value or value == md.steam_appid:
+                return False
+            md.steam_appid = value
+            return True
+        if provider == "vndb":
+            value = cfgmod.normalize_vndb_id(target)
+            if not value or value == md.vndb_id:
+                return False
+            md.vndb_id = value
+            md.vndb_release = ""
+            return True
+        if provider == "igdb":
+            value = cfgmod.normalize_igdb_id(target)
+            if not value or value == md.igdb_id:
+                return False
+            md.igdb_id = value
+            return True
+        return False
+
+    @Slot(list, result=str)
+    def applyMetadataBatch(self, rows) -> str:
+        """Write the checked batch rows: fill-empty fields and searched ids.
+
+        A lock still wins, the lists fill only when empty, and a save that
+        fails leaves that game's config alone and counts as failed.
+        """
+        self._batch_cancel = True
+        filled = skipped = failed = 0
+        for entry in rows or []:
+            if not isinstance(entry, dict):
+                skipped += 1
+                continue
+            appid = str(entry.get("id", ""))
+            provider = str(entry.get("provider", ""))
+            target = str(entry.get("target", ""))
+            if not appid or not target or provider not in metamod.PROVIDERS:
+                skipped += 1
+                continue
+            try:
+                cfg = cfgmod.load(appid)
+                data = metamod.download(provider, appid, target)
+                changed = _fill_metadata(cfg, data) if data else False
+                if entry.get("searched") and self._write_metadata_target(cfg, provider, target):
+                    changed = True
+                if not changed:
+                    skipped += 1
+                    continue
+                cfgmod.save(cfg)
+                filled += 1
+            except Exception as e:
+                log.warning("metadata batch(%s) apply failed: %s", appid, e)
+                failed += 1
+        self.refresh()
+        if filled == 0 and failed == 0:
+            return "Nothing to Fill."
+        return f"Filled {filled} Game(s); {skipped} Skipped, {failed} Failed."
 
     def _fetch_steam_art(self, target: str, api_key: str, provider: str) -> None:
         """Download whatever art kinds are missing for one Steam AppID."""

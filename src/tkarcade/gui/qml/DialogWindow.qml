@@ -24,6 +24,9 @@ Window {
 
     property string acceptText: qsTr("OK")
     property bool acceptVisible: true
+    // Opt-in: a body whose accept needs input keeps the button visible but
+    // disabled until it is ready (the batch metadata list).
+    property bool acceptEnabled: true
     property string rejectText: qsTr("Cancel")
     property bool rejectVisible: true
     // Opt-in: a body holding a capped list may use the extra height when
@@ -79,6 +82,7 @@ Window {
             Controls.Button {
                 objectName: "dialogOk"
                 visible: dialogWindow.acceptVisible
+                enabled: dialogWindow.acceptEnabled
                 text: dialogWindow.acceptText
                 highlighted: true
                 onClicked: dialogWindow.accepted()

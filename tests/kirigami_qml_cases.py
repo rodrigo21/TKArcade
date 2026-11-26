@@ -8410,6 +8410,67 @@ def test_bulk_set_tags_and_clear_guard(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_bulk_download_metadata_resolves_and_applies(qgui_app, xdg_env, monkeypatch):
+    """Download Metadata lists the selection, resolves each row and applies."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+    from tkarcade.gui import model as M
+
+    for appid, name in (("local-one", "Doom"), ("local-two", "Hades")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = name
+        cfg.general.custom_executable = "/bin/true"
+        C.save(cfg)
+    monkeypatch.delenv("TKARCADE_NO_BG_FETCH", raising=False)
+    monkeypatch.setattr(M.metamod, "search", lambda provider, query: [{"id": "620", "name": query}])
+    monkeypatch.setattr(
+        M.metamod,
+        "download",
+        lambda provider, appid, target="", release="": {"description": "Store answer"},
+    )
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.setProperty("selectedIds", ["local-one", "local-two"])
+    page.openBulkMetadata()
+    QTest.qWait(120)
+    dialog = _confirm_window(qgui_app, "bulkMetadataDialog")
+    assert dialog.property("visible") is True
+    assert dialog.property("total") == 2
+    assert dialog.property("resolved") == 0
+    list_ = dialog.findChild(QQuickItem, "bulkMetadataList")
+    assert list_.property("count") == 2
+    assert dialog.findChild(QQuickItem, "dialogOk").property("enabled") is False
+
+    _click(dialog, "bulkMetadataFind")
+    # The worker resolves in the background; poll its rows, never a fixed wait.
+    import time
+
+    deadline = time.time() + 5
+    while time.time() < deadline and dialog.property("resolved") < 2:
+        QTest.qWait(100)
+    assert dialog.property("resolved") == 2
+    assert dialog.property("checkedCount") == 2
+    assert dialog.property("busy") is False
+    _click(dialog, "dialogOk")
+    QTest.qWait(200)
+    assert dialog.property("visible") is False
+    saved = C.load("local-one")
+    assert saved.metadata.description == "Store answer"
+    # The source combo defaulted to Steam and the match stored the link.
+    assert saved.metadata.steam_appid == "620"
+    assert C.load("local-two").metadata.description == "Store answer"
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_tag_manager_renames_prunes_and_deletes(qgui_app, xdg_env):
     """The filter popup opens the manager; every action reaches the games."""
     from PySide6.QtCore import QObject

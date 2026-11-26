@@ -35,7 +35,7 @@ policy; `decisions/manual-tags.md` §5 recorded the old rule.
    lists. The Tags picker still seeds and edits only the provider names;
    declining a name that the list already carries keeps it.
 5. Scalar fields keep fill-empty/Replace. The automatic Steam fill when
-   a game is added (`_fill_steam_metadata`) stays fill-empty: a write
+   a game is added (`_fill_metadata`) stays fill-empty: a write
    the user never previewed must not merge.
 6. `genre` and `series` stay out: they are free-form strings, not lists.
    No other field has list semantics.

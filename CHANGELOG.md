@@ -6,6 +6,18 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Download Metadata runs on a library selection: the menu action lists
+  each chosen game with the match it found and the fields it would fill,
+  then Apply writes the checked rows only. A stored Steam, VNDB or IGDB
+  identity wins; otherwise the game is searched by title in the source
+  picked in the window (IGDB when its credentials exist, else Steam,
+  VNDB available), and only the game's own title is checked by default.
+  A searched match stores its identity on Apply. Fields fill only when
+  empty, locks win, tags and age ratings fill only when the game has
+  none, and the worker never writes, so the list stays usable while it
+  resolves; a save or provider failure is counted and leaves that
+  config alone. The sidebar categories stay manual; tags do not derive
+  them.
 - Imported games can keep another launcher's Wine prefix:
   `[runtime] prefix_exact = true` uses `prefix` as the WINEPREFIX itself
   and never moves or deletes it. `[store] kind`/`id` records a

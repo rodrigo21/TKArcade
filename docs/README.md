@@ -142,6 +142,10 @@ What each document is for and where the source of truth lives.
 - `decisions/metadata-vndb-release.md` — the VNDB release list under the
   identity, the pick driving Date and Publisher, the client-side
   language filter and `[metadata] vndb_release`.
+- `decisions/bulk-metadata.md` — the selection-based Download Metadata
+  batch: the per-game list, the source for identity-less title searches,
+  the fill-empty write with stored identities, and why the sidebar stays
+  manual.
 
 ## Plans
 

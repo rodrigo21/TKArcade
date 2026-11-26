@@ -331,6 +331,13 @@ list counts as empty. Age ratings merge by board: the provider replaces
 the value of each board it answers and leaves the others, while Replace
 swaps the whole set. A lock blocks either list write, and the preview's
 New column shows the merged result.
+A selection skips the per-game window: **Download Metadata…** in the
+selection menu lists the chosen games, resolves each one off the GUI
+thread — stored identity first, otherwise a title search in the source
+picked in the window — and shows the match and the fields it would
+fill. Apply writes the checked rows only: empty fields, no merge, locks
+win, and a searched match stores its identity. A batch downloads no
+artwork and no ProtonDB tier.
 Execution (launch settings first, then the runtime selector and tool,
 the Steam Linux Runtime of a local native game, prefix with its
 installed and pending
