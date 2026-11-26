@@ -473,6 +473,25 @@ def normalize_artwork_provider(value: object) -> str:
     return text if text in ("steam", "sgdb", "igdb") else ""
 
 
+#: Sidebar width bounds, in grid units: Kirigami's drawer minimum is 8
+#: and its default maximum is 25. 0 keeps the built-in default (21); a
+#: dragged width is clamped so a stray value cannot hide the library.
+DRAWER_WIDTH_DEFAULT = 21
+DRAWER_WIDTH_MIN = 18
+DRAWER_WIDTH_MAX = 25
+
+
+def clamp_drawer_width(value: object) -> int:
+    """Sidebar width in grid units: 0 (default) or 18..25."""
+    try:
+        units = int(value)
+    except (TypeError, ValueError):
+        return 0
+    if units <= 0:
+        return 0
+    return max(DRAWER_WIDTH_MIN, min(DRAWER_WIDTH_MAX, units))
+
+
 def normalize_artwork_format(value: object) -> str:
     """Stored-art format: "auto", "avif", "webp", "jpeg" or "png"."""
     text = str(value or "").strip().lower()
@@ -558,6 +577,7 @@ class Preferences:
     main_window_maximized: bool = False  # restore maximized on open
     drawer_mode: str = "collapsible"  # overlay|collapsible (Kirigami drawer)
     drawer_collapsed: bool = True  # collapsible drawer starts collapsed
+    drawer_width: int = 0  # sidebar width in grid units (0 = built-in default)
 
 
 @dataclass
@@ -1549,6 +1569,7 @@ def load_preferences() -> Preferences:
     mode = str(ui.get("drawer_mode", "collapsible") or "collapsible").strip()
     out.drawer_mode = mode if mode in ("overlay", "collapsible") else "collapsible"
     out.drawer_collapsed = _as_bool(ui.get("drawer_collapsed", True), True)
+    out.drawer_width = clamp_drawer_width(ui.get("drawer_width", 0))
     if not out.tray_enable:
         out.minimize_to_tray = False
         out.close_to_tray = False
@@ -1827,6 +1848,7 @@ def save_preferences(prefs: Preferences) -> Path:
                 else "collapsible"
             ),
             "drawer_collapsed": bool(prefs.drawer_collapsed),
+            "drawer_width": clamp_drawer_width(prefs.drawer_width),
         }
     }
     write_atomic(path, _render_toml(data))

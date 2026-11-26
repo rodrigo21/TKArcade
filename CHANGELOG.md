@@ -346,6 +346,12 @@ Breaking config changes are called out explicitly under `Changed`.
   also trimmed when it is read, so a hand-edited or pre-split
   `defaults.toml` cannot pre-fill a new game with an identity, runtime,
   graphics, audio, artwork, notes or a save-name override.
+- A long category name no longer widens the whole sidebar: the drawer
+  paints a nested action without eliding it, so the name is elided to the
+  width left by the count and the game count stays whole. Hovering a
+  category shows its full name and count. The sidebar opens 21 grid
+  units wide and its edge can be dragged (18–25 units, persisted as
+  `[ui] drawer_width`); the elide follows the resulting width.
 
 ### Changed
 - Download Metadata merges the list fields instead of dropping them:

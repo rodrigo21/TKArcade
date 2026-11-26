@@ -105,6 +105,21 @@ failure. `AGENTS.md` links here.
   expandible headers), so a per-action smaller font is not available;
   do not try to inject a button into the header, the drawer rebuilds
   the delegate.
+- The `GlobalDrawer` is a Kirigami `OverlayDrawer`: it already ships an
+  edge resize handle. Set `interactiveResizeEnabled: true` and restore
+  the saved size into `preferredSize` (never `width`/`implicitWidth`);
+  the handle writes `preferredSize` while dragged, and the app persists
+  it when `interactiveResizing` turns false. `maximumSize` is
+  `min(80% of the window, 25 * gridUnit)` by default: a wider floor is
+  silently capped there (a 28-unit request stopped at 450 px).
+- The drawer paints a nested action's label without eliding it, so one
+  long user category widens the whole sidebar. Elide the text before it
+  reaches the Action (`TextMetrics.elidedText`), keeping the ` (N)` count
+  outside the elided name and the full label in `Kirigami.Action.tooltip`.
+  Derive the name budget from the drawer's **real** width (`width - 7 *
+  gridUnit` for icon, paddings and the count) and rebuild the actions
+  once the width settles (the width animates): a budget from the stored
+  value elides the label twice (`…A… …`) and can clip the count.
 - `CategoryPicker.qml` is that checkable list, shared by the library's
   Set Categories action, the GameSettings Add button and the game's tag
   picker: callers set `catRows` (`{name, state}`) and `newCategories`,

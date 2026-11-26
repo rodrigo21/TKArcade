@@ -1081,6 +1081,23 @@ def test_drawer_collapsed_roundtrip(qgui_app, xdg_env):
     assert GameListModel().drawerCollapsed() is False
 
 
+def test_drawer_width_roundtrip_and_clamp(qgui_app, xdg_env):
+    from tkarcade.gui.model import GameListModel
+
+    model = GameListModel()
+    assert model.drawerWidth() == 0
+    model.saveDrawerWidth(24)
+    assert C.load_preferences().drawer_width == 24
+    assert GameListModel().drawerWidth() == 24
+    model.saveDrawerWidth(4)
+    assert C.load_preferences().drawer_width == 18
+    assert model.drawerWidth() == 18
+    model.saveDrawerWidth(99)
+    assert C.load_preferences().drawer_width == 25
+    model.saveDrawerWidth(0)
+    assert model.drawerWidth() == 0
+
+
 def test_settings_load_save_roundtrip(qgui_app, xdg_env):
     from tkarcade.gui.model import GameListModel
 

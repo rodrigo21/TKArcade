@@ -9941,6 +9941,57 @@ def test_library_category_filter_bulk(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
+def test_drawer_category_label_elides_long_names(qgui_app, xdg_env):
+    """A long category never widens the sidebar; the tooltip keeps it whole."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtTest import QTest
+
+    from tkarcade import config as C
+
+    long_name = "A Very Long Category Name That Would Widen the Sidebar Past Its Width"
+    for appid, category in (("local-long", long_name), ("local-short", "Retro")):
+        cfg = C.GameConfig()
+        cfg.general.appid = appid
+        cfg.general.name = appid
+        cfg.general.custom_executable = "/bin/true"
+        cfg.general.categories = [category]
+        C.save(cfg)
+    win, engine, _proxy, warnings = _load_main(qgui_app)
+    drawer = win.findChild(QObject, "sourceDrawer")
+    drawer.setProperty("collapsed", False)
+    QTest.qWait(300)
+    # The stored 21-unit default drives the drawer through preferredSize.
+    unit = drawer.property("preferredSize") / 21
+    assert unit >= 8
+    assert drawer.property("width") >= 21 * unit
+    assert drawer.property("interactiveResizeEnabled") is True
+    long_action = win.findChild(QObject, "categoryAction_" + long_name)
+    assert long_action is not None
+    text = long_action.property("text")
+    assert text.endswith(" (1)")
+    assert text.count("…") == 1
+    assert long_name not in text
+    assert long_action.property("tooltip") == long_name + " (1)"
+    short = win.findChild(QObject, "categoryAction_Retro")
+    assert short.property("text") == "Retro (1)"
+    assert short.property("tooltip") == "Retro (1)"
+
+    # A wider drawer widens the name budget; the count never loses room
+    # and the label is never elided twice.
+    drawer.setProperty("preferredSize", 23 * unit)
+    QTest.qWait(600)
+    assert drawer.property("width") >= 23 * unit
+    rebuilt = win.findChild(QObject, "categoryAction_" + long_name)
+    assert rebuilt.property("text").endswith(" (1)")
+    assert rebuilt.property("text").count("…") == 1
+
+    real = [w for w in warnings if "graphics scene" not in w]
+    assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
 def test_library_category_editor(qgui_app, xdg_env):
     """Sidebar manager/editor: apply a category to games and delete it."""
     from PySide6.QtCore import Q_ARG, QMetaObject, QObject

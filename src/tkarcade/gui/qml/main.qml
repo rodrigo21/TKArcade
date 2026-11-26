@@ -54,6 +54,9 @@ Kirigami.ApplicationWindow {
 
     Component.onCompleted: {
         applyDrawerMode(gameModel.drawerMode())
+        // A dragged width wins; 0 keeps the built-in default.
+        root.drawerUnits = gameModel.drawerWidth() || root.drawerUnits
+        sourceDrawer.preferredSize = Kirigami.Units.gridUnit * root.drawerUnits
         // Actions row holds the view icons only: right-pin them.
         if (pageStack.globalToolBar) {
             pageStack.globalToolBar.toolbarActionAlignment = Qt.AlignRight
@@ -75,6 +78,27 @@ Kirigami.ApplicationWindow {
     // Categories outlive their game tags (zero counts stay listed), so the
     // section shows while the store has entries, not while a tag is used.
     property bool hasCategories: false
+
+    // Sidebar width, in grid units: Kirigami's own drawer resize handle
+    // writes `preferredSize` and this property persists it as
+    // `[ui] drawer_width` (0 = the built-in default). The drawer's width
+    // is `preferredSize` plus its paddings, clamped by `maximumSize`
+    // (25 grid units by default).
+    property int drawerUnits: 21
+    // The name budget follows the drawer's real width, never the stored
+    // value: icon, paddings and the ` (N)` count keep 7 grid units, so a
+    // name that fits is never cut and the count always fits. The count is
+    // appended outside the elided name; the full label lives in tooltip.
+    readonly property int categoryNameWidth:
+        Math.max(Kirigami.Units.gridUnit * 8,
+            sourceDrawer.width - Kirigami.Units.gridUnit * 7)
+
+    TextMetrics {
+        id: categoryMetrics
+        font: Kirigami.Theme.defaultFont
+        elide: Text.ElideRight
+        elideWidth: root.categoryNameWidth
+    }
 
     // The sidebar Categories section: the drawer paints the header plus
     // these children inline (popup when collapsed), so the list is rebuilt
@@ -140,8 +164,11 @@ Kirigami.ApplicationWindow {
             categoryAllComponent.createObject(categoriesSection)
         ]
         for (var i = 0; i < cats.length; i++) {
+            var count = counts[cats[i]] || 0
+            categoryMetrics.text = cats[i]
             made.push(categoryEntryComponent.createObject(categoriesSection, {
-                "text": qsTr("%1 (%2)").arg(cats[i]).arg(counts[cats[i]] || 0),
+                "text": qsTr("%1 (%2)").arg(categoryMetrics.elidedText).arg(count),
+                "tooltip": qsTr("%1 (%2)").arg(cats[i]).arg(count),
                 "category": cats[i],
                 "iconSource": icons[cats[i]] || "folder"
             }))
@@ -158,6 +185,32 @@ Kirigami.ApplicationWindow {
         target: gameModel
         function onRefreshed() {
             root.rebuildCategories()
+        }
+    }
+
+    // The label budget follows the drawer's real width: rebuild once the
+    // width settles (Kirigami animates it), not on every dragged frame.
+    Timer {
+        id: categoryRebuildTimer
+        interval: 180
+        onTriggered: root.rebuildCategories()
+    }
+
+    // Kirigami's drawer writes `preferredSize` while its edge handle is
+    // dragged; persist the result when the drag ends.
+    Connections {
+        target: sourceDrawer
+        function onWidthChanged() {
+            if (!sourceDrawer.collapsed) {
+                categoryRebuildTimer.restart()
+            }
+        }
+        function onInteractiveResizingChanged() {
+            if (!sourceDrawer.interactiveResizing) {
+                root.drawerUnits = Math.max(18, Math.min(25,
+                    Math.round(sourceDrawer.preferredSize / Kirigami.Units.gridUnit)))
+                gameModel.saveDrawerWidth(root.drawerUnits)
+            }
         }
     }
 
@@ -276,6 +329,10 @@ Kirigami.ApplicationWindow {
                 visible: root.hasCategories
             }
         ]
+        // Kirigami's own edge handle resizes the sidebar; the app only
+        // restores and stores `preferredSize`. The default maximumSize
+        // (25 grid units) caps it.
+        interactiveResizeEnabled: true
         // Escape hatch: the hamburger menu (with the drawer switch)
         // can hide inside the overflow button; the footer never does.
         // Hidden with a collapsed drawer (nothing fits its 50px).

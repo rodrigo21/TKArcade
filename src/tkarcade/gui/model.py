@@ -5984,6 +5984,27 @@ class GameListModel(QAbstractTableModel):
         except Exception as e:
             log.warning("saveDrawerCollapsed failed: %s", e)
 
+    @Slot(result=int)
+    def drawerWidth(self) -> int:
+        """Persisted sidebar width in grid units (0 = the built-in default)."""
+        try:
+            return cfgmod.clamp_drawer_width(cfgmod.load_preferences().drawer_width)
+        except Exception:
+            return 0
+
+    @Slot(int)
+    def saveDrawerWidth(self, units: int) -> None:
+        """Persist a dragged sidebar width (best effort)."""
+        try:
+            prefs = cfgmod.load_preferences()
+        except Exception:
+            prefs = cfgmod.Preferences()
+        prefs.drawer_width = cfgmod.clamp_drawer_width(units)
+        try:
+            cfgmod.save_preferences(prefs)
+        except Exception as e:
+            log.warning("saveDrawerWidth failed: %s", e)
+
     @Slot(str, result=bool)
     def play(self, appid: str) -> bool:
         """Play routing: Steam ids via the client, local ids direct."""
