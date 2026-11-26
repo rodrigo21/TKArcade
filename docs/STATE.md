@@ -10,28 +10,32 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: seventy-four batches. The latest adds the Lutris and Faugus
-  library import: read-only readers (`pga.db` + YAML, `games.json`),
-  live configs for new games and `lutris`/`faugus` profiles for
-  existing ones, `[store] kind`/`id`, exact external prefixes
-  (`[runtime] prefix_exact`) and a checkable ImportDialog page with
-  `In Library`/`Unavailable` rows. Paths are never stat'ed; a
-  disconnected autofs drive disables its rows, and the readers run off
-  the GUI thread. Before it, the VNDB release picker landed
-  (`[metadata] vndb_release` drives Date and Publisher).
-- Verified: `scripts/check.sh --changed` (849 passed, 3 skipped,
-  including the QML driver) on the approved diff, the import
-  screenshots (`/tmp/opencode/import-library-state.png`), a read-only
-  Lutris scan (473 games in 0.25s, 15 offline rows), Faugus fixtures
-  (the local library is empty), and the venv refreshed after the merge.
-- Next: the online-tags follow-up — decide whether sidebar categories
-  derive from tags and whether a bulk download is worth it. The import
-  mapped foreign categories to `[general] categories`, so the old tag
-  mapping item is closed. The 1.0 gate waits on the maintainer's
-  release call (visual pass, shim removal, translations, release pass).
-  Playnite is parked for 3.0, only if another operating system is
-  supported. Epic/GOG is 2.0, and so is the IGDB per-user credential
-  review.
+- Landed: seventy-five batches. The latest adds batch Download
+  Metadata: `Download Metadata…` in the selection menu lists every
+  chosen game, resolves each row off the GUI thread (stored identity
+  first, else a title search in the chosen source) and shows the match
+  plus the fields it would fill. The worker never writes; Apply fills
+  empty fields, respects locks, writes the lists only when empty and
+  stores a searched identity. No artwork or ProtonDB in a batch. It
+  closes the online-tags follow-up: the sidebar categories stay manual.
+  Before it, the VNDB release picker landed (`[metadata] vndb_release`
+  drives Date and Publisher).
+- Verified: `scripts/check.sh --changed` (853 passed, 3 skipped,
+  including the QML driver) on the approved diff, the dialog screenshot
+  (`/tmp/opencode/bulk-metadata-dialog.png` and `-checked.png`), and the
+  venv refreshed after the merge.
+- Next: the import mapping fixes the maintainer reported — the name's
+  trailing `[version]` must split at read time, imported configs must
+  start from Global Defaults (profiles from the live config), Lutris
+  MangoHud/Gamescope must map onto `[mangohud]`/`[gamescope]`
+  (`gamescope_flags`, window mode, resolutions, fps limiter), and
+  `MANGOHUD`/`MANGOHUD_DLSYM`/`MANGOHUD_CONFIGFILE` must become native
+  options instead of env vars. Also open: the sidebar category labels
+  overrun the drawer width (decide elide/tooltip, wrap or a manual
+  width). Then the 1.0 gate waits on the maintainer's release call
+  (visual pass, shim removal, translations, release pass). Playnite is
+  parked for 3.0, only if another operating system is supported.
+  Epic/GOG is 2.0, and so is the IGDB per-user credential review.
 - Deferred: the audit's #15 (launch parse) and #19 (role constants).
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
