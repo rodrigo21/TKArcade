@@ -352,6 +352,18 @@ Breaking config changes are called out explicitly under `Changed`.
   category shows its full name and count. The sidebar opens 21 grid
   units wide and its edge can be dragged (18–25 units, persisted as
   `[ui] drawer_width`); the elide follows the resulting width.
+- An imported game splits a trailing `[version]` from its name into
+  `[metadata] version` at read time (Lutris and Faugus), so the name, the
+  new `local-*` ID and name matching use the plain title without waiting
+  for the game dialog's save.
+- Imported games start from Global Defaults and imported profiles from
+  the existing game's config, instead of a blank object that erased the
+  defaults: the source fills its own fields, turns MangoHud, Gamescope,
+  GameMode and idle inhibition only on, and merges its environment.
+  Lutris Gamescope maps onto `[gamescope]` (window mode, game and output
+  resolutions, FPS limiter, flags, grab cursor, HDR), and `MANGOHUD`,
+  `MANGOHUD_DLSYM` and `MANGOHUD_CONFIGFILE` (a file inside the MangoHud
+  directory) become `[mangohud]` options instead of `[env]` entries.
 
 ### Changed
 - Download Metadata merges the list fields instead of dropping them:

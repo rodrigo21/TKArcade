@@ -248,7 +248,15 @@ are disabled with the reason.
 An imported game keeps the other launcher's WINEPREFIX
 (`[runtime] prefix_exact`), its arguments, environment, hooks, MangoHud/
 GameMode switches and categories, plus a non-Steam store identity
-(`[store] kind`/`id`) while keeping its `local-*` ID. Nothing is written
+(`[store] kind`/`id`) while keeping its `local-*` ID. A new game starts
+from Global Defaults, and an imported profile from the live config: the
+source only turns settings on and merges its environment, so a default
+it does not know about survives. Lutris Gamescope options become
+`[gamescope]` arguments, and the MangoHud variables (`MANGOHUD`,
+`MANGOHUD_DLSYM`, `MANGOHUD_CONFIGFILE` inside the MangoHud directory)
+become `[mangohud]` options instead of `[env]` entries; a variable with
+no equivalent stays. A trailing `[version]` in the name moves into
+`[metadata] version`. Nothing is written
 to the other launcher's files, and the import downloads no artwork or
 metadata. Paths are compared as text, never stat'ed: a game on a
 disconnected external drive (autofs) is listed disabled with the reason

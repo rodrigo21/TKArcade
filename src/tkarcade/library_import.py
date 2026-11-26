@@ -59,6 +59,9 @@ class LibraryGame:
     source: str
     source_id: str
     name: str
+    #: Trailing ``[version]`` split off the source name at read time, so
+    #: matching, the new ID and the config all see the plain name.
+    version: str = ""
     exe: str = ""
     args: str = ""
     working_dir: str = ""
@@ -74,7 +77,11 @@ class LibraryGame:
     pre_command: str = ""
     post_command: str = ""
     mangohud: bool = False
+    mangohud_args: str = ""  # wrapper flags, e.g. --dlsym
+    mangohud_config: str = ""  # filename inside the MangoHud config dir
     gamemode: bool = False
+    gamescope: bool = False
+    gamescope_args: str = ""
     inhibit_idle: bool = False
     notes: list[str] = field(default_factory=list)
     problem: str = ""  # non-empty: no TKArcade launch path
@@ -355,6 +362,51 @@ def _lutris_runtime(
         out.problem = f"Lutris runner {runner or 'unknown'!r} has no TKArcade equivalent"
 
 
+def _gamescope_args(system: dict) -> str:
+    """Gamescope options from a Lutris `system` block, its own order."""
+    args: list[str] = []
+    mode = str(system.get("gamescope_window_mode") or "").strip()
+    if mode in ("-f", "-b"):
+        args.append(mode)
+    for key, flags in (
+        ("gamescope_game_res", ("-w", "-h")),
+        ("gamescope_output_res", ("-W", "-H")),
+    ):
+        width, _, height = str(system.get(key) or "").strip().lower().partition("x")
+        if width.isdigit() and height.isdigit():
+            args.extend([flags[0], width, flags[1], height])
+    fps = str(system.get("gamescope_fps_limiter") or "").strip()
+    if fps.isdigit():
+        args.extend(["-r", fps])
+    flags = str(system.get("gamescope_flags") or "").strip()
+    if flags:
+        args.append(flags)
+    if _truthy(system.get("gamescope_force_grab_cursor")):
+        args.append("--force-grab-cursor")
+    if _truthy(system.get("gamescope_hdr")):
+        args.append("--hdr-enabled")
+    return " ".join(args)
+
+
+def _adapt_overlay_env(game: LibraryGame) -> None:
+    """Move MangoHud env vars with a native option into it, drop them.
+
+    Everything without an equivalent stays in `[env]` (vkBasalt, DXVK_HUD
+    and friends).
+    """
+    env = game.env
+    if _truthy(env.pop("MANGOHUD", "")):
+        game.mangohud = True
+    if _truthy(env.pop("MANGOHUD_DLSYM", "")):
+        game.mangohud_args = "--dlsym"
+    config_file = env.get("MANGOHUD_CONFIGFILE", "")
+    if config_file:
+        path = Path(_expand(config_file))
+        if path.parent == xdg.config_home() / "MangoHud" and path.name:
+            game.mangohud_config = path.name
+            env.pop("MANGOHUD_CONFIGFILE", None)
+
+
 def _lutris_system(system: dict, directory: str, out: LibraryGame) -> None:
     env = system.get("env")
     if isinstance(env, dict):
@@ -362,6 +414,7 @@ def _lutris_system(system: dict, directory: str, out: LibraryGame) -> None:
             name = str(key).strip()
             if name:
                 out.env[name] = _expand(value, directory)
+    _adapt_overlay_env(out)
     for key, value in (
         ("prelaunch_command", "pre_command"),
         ("postexit_command", "post_command"),
@@ -369,8 +422,11 @@ def _lutris_system(system: dict, directory: str, out: LibraryGame) -> None:
         text = _expand(system.get(key), directory)
         if text:
             setattr(out, value, text)
-    out.mangohud = _truthy(system.get("mangohud"))
+    out.mangohud = out.mangohud or _truthy(system.get("mangohud"))
     out.gamemode = _truthy(system.get("gamemode"))
+    if _truthy(system.get("gamescope")):
+        out.gamescope = True
+        out.gamescope_args = _gamescope_args(system)
     if _truthy(system.get("prelaunch_wait")):
         out.notes.append("prelaunch_wait has no equivalent")
 
@@ -398,10 +454,12 @@ def _lutris_game(
     if service == "steam" or runner == "steam":
         steam_appid = steam_appid or _digits(row.get("service_id")) or _digits(row.get("steamid"))
 
+    name, version = cfgmod.split_name_version(str(row.get("name") or "").strip() or "Unnamed")
     out = LibraryGame(
         source="lutris",
         source_id=str(row.get("slug") or configpath or row.get("id") or ""),
-        name=str(row.get("name") or "").strip() or "Unnamed",
+        name=name,
+        version=version,
         exe=_path(game.get("exe") or row.get("executable"), directory, False),
         args=str(game.get("args") or "").strip(),
         working_dir=_path(game.get("working_dir"), directory, True),
@@ -646,12 +704,13 @@ def _faugus_game(
     installs: list[runtimes.ProtonInstall],
     mounts: tuple[tuple[str, str], ...],
 ) -> LibraryGame:
-    title = str(entry.get("title") or "").strip() or "Unnamed"
+    title, version = cfgmod.split_name_version(str(entry.get("title") or "").strip() or "Unnamed")
     runtime, tool, steam_runtime, steam_appid, problem = _faugus_runtime(entry, config, installs)
     game = LibraryGame(
         source="faugus",
         source_id=str(entry.get("gameid") or title),
         name=title,
+        version=version,
         exe=_path(entry.get("path")),
         args=str(entry.get("game_arguments") or "").strip(),
         prefix=_path(entry.get("prefix")),
@@ -669,6 +728,7 @@ def _faugus_game(
     game.env = _faugus_env(entry.get("launch_arguments"), game.notes)
     if _truthy(entry.get("sdl_enabled")):
         game.env["PROTON_PREFER_SDL"] = "1"
+    _adapt_overlay_env(game)
     _faugus_extra_notes(entry, game)
     offline = _offline_problem(game, mounts)
     if offline:
@@ -711,33 +771,69 @@ def list_games(source: str) -> tuple[list[LibraryGame], str]:
 # --- Mapping and matching ----------------------------------------------
 
 
-def to_gameconfig(
-    game: LibraryGame, appid: str, *, steam: bool = False, set_name: bool = True
-) -> tuple[cfgmod.GameConfig, list[str]]:
-    """A complete GameConfig for one imported entry, plus its notes."""
-    cfg = cfgmod.GameConfig()
-    cfg.general.appid = appid
-    if not steam:
-        if set_name:
-            cfg.general.name = game.name
-        cfg.general.custom_executable = game.exe
-        cfg.runtime.type = game.runtime if game.runtime in _RUNTIME_KINDS else ""
-        cfg.runtime.tool = game.runtime_tool
-        cfg.runtime.prefix = game.prefix
-        cfg.runtime.prefix_exact = bool(game.prefix) and game.runtime in ("wine", "umu")
-        cfg.runtime.steam_runtime = game.steam_runtime
+def _apply_source_fields(cfg: cfgmod.GameConfig, game: LibraryGame, set_name: bool) -> None:
+    """The per-game fields a non-Steam source writes onto a config."""
+    if set_name:
+        cfg.general.name = game.name
+        cfg.metadata.version = game.version
+    cfg.general.custom_executable = game.exe
+    cfg.runtime.type = game.runtime if game.runtime in _RUNTIME_KINDS else ""
+    cfg.runtime.tool = game.runtime_tool
+    cfg.runtime.prefix = game.prefix
+    cfg.runtime.prefix_exact = bool(game.prefix) and game.runtime in ("wine", "umu")
+    cfg.runtime.steam_runtime = game.steam_runtime
+    if game.store_kind:
         cfg.store.kind = game.store_kind
         cfg.store.id = game.store_id
+    if game.mangohud:
+        cfg.mangohud.enable = True
+    if game.mangohud_args and game.mangohud_args not in cfg.mangohud.args:
+        cfg.mangohud.args = " ".join(filter(None, [cfg.mangohud.args, game.mangohud_args]))
+    if game.mangohud_config:
+        cfg.mangohud.config_file = game.mangohud_config
+    if game.gamescope:
+        cfg.gamescope.enable = True
+        cfg.gamescope.args = game.gamescope_args
+    if game.gamemode:
+        cfg.gamemode.feral_gamemode = True
+
+
+def _apply_launch_fields(cfg: cfgmod.GameConfig, game: LibraryGame) -> None:
+    """Launch behaviour every source writes: args, cwd, env, hooks."""
     cfg.general.launch_args = game.args
     cfg.general.launch_cwd = game.working_dir
     cfg.general.categories = cfgmod.normalize_categories(game.categories)
-    cfg.env.vars = dict(game.env)
-    cfg.mangohud.enable = game.mangohud
-    cfg.gamemode.feral_gamemode = game.gamemode
-    cfg.session.inhibit_idle = game.inhibit_idle
-    cfg.pre_post.pre_command = game.pre_command
-    cfg.pre_post.post_command = game.post_command
-    cfg.pre_post.run_in_shell = bool(game.pre_command or game.post_command)
+    cfg.env.vars = {**cfg.env.vars, **game.env}
+    if game.inhibit_idle:
+        cfg.session.inhibit_idle = True
+    if game.pre_command:
+        cfg.pre_post.pre_command = game.pre_command
+    if game.post_command:
+        cfg.pre_post.post_command = game.post_command
+    if game.pre_command or game.post_command:
+        cfg.pre_post.run_in_shell = True
+
+
+def to_gameconfig(
+    game: LibraryGame,
+    appid: str,
+    *,
+    base: cfgmod.GameConfig | None = None,
+    steam: bool = False,
+    set_name: bool = True,
+) -> tuple[cfgmod.GameConfig, list[str]]:
+    """A complete GameConfig for one imported entry, plus its notes.
+
+    `base` is the starting point: Global Defaults for a new game, the live
+    config for an existing game's profile. The source fills what it has; a
+    launcher toggle only turns something on, so a stored value the source
+    does not know about survives.
+    """
+    cfg = base if base is not None else cfgmod.load_defaults()
+    cfg.general.appid = appid
+    if not steam:
+        _apply_source_fields(cfg, game, set_name)
+    _apply_launch_fields(cfg, game)
     cfg.notes.text = f"Imported from {SOURCE_LABELS.get(game.source, game.source)}."
     return cfg, list(game.notes)
 
@@ -857,6 +953,7 @@ def import_games(source: str, keys: list[str] | tuple[str, ...]) -> ImportResult
                 cfg, notes = to_gameconfig(
                     game,
                     candidate.target,
+                    base=cfgmod.load(candidate.target),
                     steam=candidate.target.startswith("steam-"),
                     set_name=False,
                 )

@@ -146,6 +146,10 @@ What each document is for and where the source of truth lives.
   batch: the per-game list, the source for identity-less title searches,
   the fill-empty write with stored identities, and why the sidebar stays
   manual.
+- `decisions/import-mapping.md` — the import fixes: the name's
+  `[version]` split, Global Defaults (or the live config) as the base,
+  the Lutris Gamescope mapping and the MangoHud env vars that become
+  native options.
 
 ## Plans
 

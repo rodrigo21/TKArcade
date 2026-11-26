@@ -439,3 +439,160 @@ def test_import_skips_unavailable(xdg_env):
     result = li.import_games("faugus", ["bad"])
     assert result.created == [] and result.profiled == []
     assert result.skipped and "no TKArcade equivalent" in result.skipped[0][1]
+
+
+def test_lutris_version_gamescope_and_mangohud_env(xdg_env, monkeypatch):
+    """The name's [version] splits; gamescope and MangoHud env map natively."""
+    data, config = _lutris_env(xdg_env)
+    mangohud_dir = Path(xdg_env["config"]) / "MangoHud"
+    mangohud_dir.mkdir(parents=True)
+    conf = mangohud_dir / "No_Display.conf"
+    conf.write_text("fps\n", encoding="utf-8")
+    _write_db(
+        data / "pga.db",
+        [
+            {
+                "id": 1,
+                "name": "Game [v1.2]",
+                "slug": "game",
+                "runner": "wine",
+                "installed": 1,
+                "configpath": "game-1",
+            },
+            {
+                "id": 2,
+                "name": "Other",
+                "slug": "other",
+                "runner": "wine",
+                "installed": 1,
+                "configpath": "other-2",
+            },
+        ],
+    )
+    _write_yml(
+        config / "games" / "game-1.yml",
+        {
+            "system": {
+                "mangohud": False,
+                "gamemode": False,
+                "gamescope": True,
+                "gamescope_window_mode": "-b",
+                "gamescope_game_res": "1280x720",
+                "gamescope_output_res": "1920x1080",
+                "gamescope_fps_limiter": "60",
+                "gamescope_flags": "-S fit",
+                "gamescope_force_grab_cursor": True,
+                "gamescope_hdr": True,
+                "env": {
+                    "MANGOHUD": "1",
+                    "MANGOHUD_DLSYM": "1",
+                    "MANGOHUD_CONFIGFILE": str(conf),
+                    "ENABLE_VKBASALT": "0",
+                    "VKBASALT_CONFIG_FILE": "/x/vk.conf",
+                },
+            }
+        },
+    )
+    _write_yml(
+        config / "games" / "other-2.yml",
+        {
+            "system": {
+                "env": {"MANGOHUD_CONFIGFILE": "/elsewhere/Display.conf"},
+            }
+        },
+    )
+    monkeypatch.setattr(li.runtimes, "wine_path", lambda: "/usr/bin/wine")
+    games, _hint = li.list_games("lutris")
+    game = next(g for g in games if g.source_id == "game")
+    assert game.name == "Game"
+    assert game.version == "v1.2"
+    assert game.mangohud is True
+    assert game.mangohud_args == "--dlsym"
+    assert game.mangohud_config == "No_Display.conf"
+    assert game.env == {"ENABLE_VKBASALT": "0", "VKBASALT_CONFIG_FILE": "/x/vk.conf"}
+    assert game.gamescope is True
+    assert game.gamescope_args == (
+        "-b -w 1280 -h 720 -W 1920 -H 1080 -r 60 -S fit --force-grab-cursor --hdr-enabled"
+    )
+    cfg, _notes = li.to_gameconfig(game, "local-game")
+    assert cfg.metadata.version == "v1.2"
+    assert cfg.mangohud.enable is True
+    assert cfg.mangohud.args == "--dlsym"
+    assert cfg.mangohud.config_file == "No_Display.conf"
+    assert cfg.gamescope.enable is True
+    assert cfg.gamescope.args.startswith("-b -w 1280 -h 720")
+    # A config file outside the MangoHud directory has no native equivalent.
+    other = next(g for g in games if g.source_id == "other")
+    assert other.mangohud_config == ""
+    assert other.env == {"MANGOHUD_CONFIGFILE": "/elsewhere/Display.conf"}
+
+
+def test_import_starts_from_global_defaults(xdg_env, monkeypatch):
+    """Imported games inherit Global Defaults; the source only adds to them."""
+    defaults = C.GameConfig()
+    defaults.mangohud.enable = True
+    defaults.gamescope.enable = True
+    defaults.gamescope.args = "-f"
+    defaults.gamemode.feral_gamemode = True
+    defaults.session.inhibit_idle = True
+    defaults.env.vars = {"DEFAULT_VAR": "1"}
+    defaults.pre_post.pre_command = "echo default"
+    C.save_defaults(defaults)
+    game = li.LibraryGame(
+        source="lutris",
+        source_id="plain",
+        name="Plain",
+        exe="/games/plain.exe",
+        runtime="wine",
+        env={"IMPORTED_VAR": "2"},
+        mangohud=False,
+        gamemode=False,
+        gamescope=False,
+        inhibit_idle=False,
+    )
+    cfg, _notes = li.to_gameconfig(game, "local-plain")
+    assert cfg.mangohud.enable is True
+    assert cfg.gamescope.enable is True
+    assert cfg.gamescope.args == "-f"
+    assert cfg.gamemode.feral_gamemode is True
+    assert cfg.session.inhibit_idle is True
+    assert cfg.env.vars == {"DEFAULT_VAR": "1", "IMPORTED_VAR": "2"}
+    assert cfg.pre_post.pre_command == "echo default"
+    assert cfg.pre_post.run_in_shell is False
+
+
+def test_profile_base_keeps_the_live_config(xdg_env):
+    """A profile for an existing game starts from its live config."""
+    base = C.GameConfig()
+    base.general.appid = "local-live"
+    base.metadata.description = "Typed synopsis"
+    base.mangohud.config_file = "Display.conf"
+    game = li.LibraryGame(
+        source="lutris",
+        source_id="live",
+        name="Live",
+        exe="/games/live.exe",
+        runtime="wine",
+        mangohud_config="No_Display.conf",
+    )
+    cfg, _notes = li.to_gameconfig(game, "local-live", base=base, set_name=False)
+    assert cfg.metadata.description == "Typed synopsis"
+    assert cfg.general.name == ""  # the live game keeps its own name
+    assert cfg.mangohud.config_file == "No_Display.conf"
+
+
+def test_faugus_title_version_splits(xdg_env):
+    _write_faugus(
+        xdg_env,
+        [
+            {
+                "gameid": "vn",
+                "title": "Some Game [v0.9]",
+                "path": "/bin/true",
+                "runner": "linux",
+            }
+        ],
+    )
+    games, _hint = li.list_games("faugus")
+    assert games[0].name == "Some Game"
+    assert games[0].version == "v0.9"
