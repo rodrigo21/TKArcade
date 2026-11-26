@@ -142,6 +142,10 @@ What each document is for and where the source of truth lives.
 
 ## Plans
 
+- `plans/library-import.md` — Lutris and Faugus libraries as import
+  sources: read-only readers, the ID/exe/name matching, the profile for
+  an existing game, exact external prefixes, `[store]` identity and the
+  checkable ImportDialog page.
 - `plans/epic-gog-sources.md` — Epic and GOG as game origins: discovery
   through Heroic's files, the local-family launch choice, the import flow
   and four decisions the maintainer still owes; targeted at 2.0, after
