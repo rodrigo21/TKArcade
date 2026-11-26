@@ -624,21 +624,69 @@ class GameConfig:
         return self.general.appid
 
 
-_TRAILING_VERSION = re.compile(r"^(?P<name>.+?)\s*\[(?P<version>[^\[\]]+)\]\s*$")
+_VERSION_SHAPE = r"(?:[vV]\d[\w.\-]*|\d[\w.\-]*)"
+_TRAILING_VERSION = re.compile(rf"^(?P<name>.+?)\s*\[(?P<version>{_VERSION_SHAPE})\]\s*$")
+_VERSION_TOKEN = re.compile(r"\[(?P<version>v\d[\w.\-]*)\]", re.IGNORECASE)
+_TRAILING_TAG = re.compile(r"^(?P<name>.+?)\s*\((?P<tag>[^()]+)\)\s*$")
 _METADATA_DATE = re.compile(r"^(?P<y>\d{4})(?:-(?P<m>\d{2})(?:-(?P<d>\d{2}))?)?$")
+
+#: Parenthesized state labels the name rule lifts into `[metadata] tag`
+#: (the display suffix `Name (TAG)`). Ordinary parentheses — a year, an
+#: edition, a platform — stay in the name.
+STATE_TAG_LABELS = (
+    "abandoned",
+    "beaten",
+    "completed",
+    "not played",
+    "on hold",
+    "plan to play",
+    "played",
+    "playing",
+)
+
+
+def _is_state_tag(text: str) -> bool:
+    return " ".join(str(text or "").split()).casefold() in STATE_TAG_LABELS
+
+
+def split_name_suffixes(name: str) -> tuple[str, str, str]:
+    """Split the display suffixes off a game name: (name, version, tag).
+
+    The display adds ``Name [version] (TAG)`` (`game_display_name`), so
+    the save and import rules read that shape back: a trailing
+    parenthesized state label becomes the tag, then a trailing
+    ``[version]`` or a ``v<number>`` token anywhere becomes the version.
+    ``V.I.R.T.U.E.S. [v17] (Completed)`` becomes ``("V.I.R.T.U.E.S.",
+    "v17", "Completed")``. Ordinary parentheses (``DOOM (1993)``) and
+    other brackets (``[ENG]``, ``[Repack]``) stay in the name; a name that
+    is nothing but a suffix stays untouched.
+    """
+    text = str(name or "").strip()
+    tag = ""
+    match = _TRAILING_TAG.match(text)
+    if match is not None and _is_state_tag(match["tag"]):
+        text = match["name"].strip()
+        tag = match["tag"].strip()
+    version = ""
+    match = _TRAILING_VERSION.match(text)
+    if match is not None:
+        text = match["name"].strip()
+        version = match["version"].strip()
+    else:
+        found = list(_VERSION_TOKEN.finditer(text))
+        if found:
+            last = found[-1]
+            rest = f"{text[: last.start()]} {text[last.end() :]}".strip()
+            if rest:
+                text = " ".join(rest.split())
+                version = last.group("version").strip()
+    return text, version, tag
 
 
 def split_name_version(name: str) -> tuple[str, str]:
-    """Split a trailing ``[version]`` off a game name (save-time rule).
-
-    ``Jogo Bom [v0.3.5]`` becomes ``("Jogo Bom", "v0.3.5")``; a name that
-    is nothing but a bracket stays untouched.
-    """
-    text = name.strip()
-    match = _TRAILING_VERSION.match(text)
-    if match is None:
-        return text, ""
-    return match["name"].strip(), match["version"].strip()
+    """(name, version) for callers that do not carry the state tag."""
+    name, version, _tag = split_name_suffixes(name)
+    return name, version
 
 
 def game_display_name(name: str, cfg: GameConfig | None) -> str:

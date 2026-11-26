@@ -364,6 +364,13 @@ Breaking config changes are called out explicitly under `Changed`.
   resolutions, FPS limiter, flags, grab cursor, HDR), and `MANGOHUD`,
   `MANGOHUD_DLSYM` and `MANGOHUD_CONFIGFILE` (a file inside the MangoHud
   directory) become `[mangohud]` options instead of `[env]` entries.
+- A game name's display suffixes read back the way they are shown: a
+  trailing parenthesized state label (`(Completed)`, `(On Hold)` and the
+  other status words) moves into `[metadata] tag`, and a version token
+  before it (`Game [v17] (Completed)`) into `[metadata] version`. A
+  trailing bracket must look like a version to count, so `[ENG]` and
+  `[Repack]` stay in the name, as do ordinary parentheses such as
+  `(1993)` or `(Director's Cut)`.
 
 ### Changed
 - Download Metadata merges the list fields instead of dropping them:

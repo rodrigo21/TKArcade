@@ -1910,6 +1910,32 @@ def test_name_version_split():
     assert C.split_name_version("Jogo [Bom] [v1]") == ("Jogo [Bom]", "v1")
 
 
+def test_name_suffixes_split_the_state_tag():
+    """The display suffixes read back: (state tag) then [version]."""
+    assert C.split_name_suffixes("V.I.R.T.U.E.S. [v17] (Completed)") == (
+        "V.I.R.T.U.E.S.",
+        "v17",
+        "Completed",
+    )
+    assert C.split_name_suffixes("Jogo (On Hold)") == ("Jogo", "", "On Hold")
+    assert C.split_name_suffixes("Jogo (on hold)") == ("Jogo", "", "on hold")
+    # Ordinary parentheses are part of the title.
+    assert C.split_name_suffixes("DOOM (1993)") == ("DOOM (1993)", "", "")
+    assert C.split_name_suffixes("Game (Director's Cut)") == (
+        "Game (Director's Cut)",
+        "",
+        "",
+    )
+    # Other brackets stay; a version token before the tag still splits.
+    assert C.split_name_suffixes("Game [ENG] (Completed)") == (
+        "Game [ENG]",
+        "",
+        "Completed",
+    )
+    assert C.split_name_suffixes("Game [ENG]") == ("Game [ENG]", "", "")
+    assert C.split_name_suffixes("[v1]") == ("[v1]", "", "")
+
+
 def test_display_name_suffixes():
     cfg = C.GameConfig()
     assert C.game_display_name("Doom", cfg) == "Doom"

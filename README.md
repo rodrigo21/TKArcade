@@ -255,8 +255,11 @@ it does not know about survives. Lutris Gamescope options become
 `[gamescope]` arguments, and the MangoHud variables (`MANGOHUD`,
 `MANGOHUD_DLSYM`, `MANGOHUD_CONFIGFILE` inside the MangoHud directory)
 become `[mangohud]` options instead of `[env]` entries; a variable with
-no equivalent stays. A trailing `[version]` in the name moves into
-`[metadata] version`. Nothing is written
+no equivalent stays. A trailing `[version]` and a parenthesized state
+label (`(Completed)`, `(On Hold)` and the other status words) move into
+`[metadata] version` and `[metadata] tag`, including a version token
+before the label (`Game [v17] (Completed)`); ordinary parentheses such
+as `(1993)` stay in the name. Nothing is written
 to the other launcher's files, and the import downloads no artwork or
 metadata. Paths are compared as text, never stat'ed: a game on a
 disconnected external drive (autofs) is listed disabled with the reason

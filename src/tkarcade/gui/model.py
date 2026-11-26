@@ -96,6 +96,16 @@ def _apply_metadata(cfg, data: dict) -> None:
         md.tags = cfgmod.normalize_categories(raw_tags)
 
 
+def _split_display_suffixes(data: dict) -> None:
+    """Move a name's ``[version]``/``(state tag)`` into empty form fields."""
+    name, version, tag = cfgmod.split_name_suffixes(str(data.get("name", "")))
+    data["name"] = name
+    if version and not str(data.get("version", "")).strip():
+        data["version"] = version
+    if tag and not str(data.get("tag", "")).strip():
+        data["tag"] = tag
+
+
 def _fill_metadata(cfg, data: dict) -> bool:
     """Fill a config's empty metadata fields from any provider payload.
 
@@ -1284,10 +1294,7 @@ class GameListModel(QAbstractTableModel):
         # A trailing [version] typed into the name moves into its own
         # field; Steam names are Steam's and never rewritten.
         if not appid or not steammod.is_steam_id(appid):
-            name, version = cfgmod.split_name_version(str(data.get("name", "")))
-            data["name"] = name
-            if version and not str(data.get("version", "")).strip():
-                data["version"] = version
+            _split_display_suffixes(data)
         if not appid:
             cfg = self._new_local_game(data)
             if cfg is None:

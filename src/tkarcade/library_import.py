@@ -59,9 +59,11 @@ class LibraryGame:
     source: str
     source_id: str
     name: str
-    #: Trailing ``[version]`` split off the source name at read time, so
-    #: matching, the new ID and the config all see the plain name.
+    #: Trailing ``[version]`` and ``(state tag)`` split off the source name
+    #: at read time, so matching, the new ID and the config all see the
+    #: plain name.
     version: str = ""
+    tag: str = ""
     exe: str = ""
     args: str = ""
     working_dir: str = ""
@@ -454,12 +456,13 @@ def _lutris_game(
     if service == "steam" or runner == "steam":
         steam_appid = steam_appid or _digits(row.get("service_id")) or _digits(row.get("steamid"))
 
-    name, version = cfgmod.split_name_version(str(row.get("name") or "").strip() or "Unnamed")
+    name, version, tag = cfgmod.split_name_suffixes(str(row.get("name") or "").strip() or "Unnamed")
     out = LibraryGame(
         source="lutris",
         source_id=str(row.get("slug") or configpath or row.get("id") or ""),
         name=name,
         version=version,
+        tag=tag,
         exe=_path(game.get("exe") or row.get("executable"), directory, False),
         args=str(game.get("args") or "").strip(),
         working_dir=_path(game.get("working_dir"), directory, True),
@@ -704,13 +707,16 @@ def _faugus_game(
     installs: list[runtimes.ProtonInstall],
     mounts: tuple[tuple[str, str], ...],
 ) -> LibraryGame:
-    title, version = cfgmod.split_name_version(str(entry.get("title") or "").strip() or "Unnamed")
+    title, version, tag = cfgmod.split_name_suffixes(
+        str(entry.get("title") or "").strip() or "Unnamed"
+    )
     runtime, tool, steam_runtime, steam_appid, problem = _faugus_runtime(entry, config, installs)
     game = LibraryGame(
         source="faugus",
         source_id=str(entry.get("gameid") or title),
         name=title,
         version=version,
+        tag=tag,
         exe=_path(entry.get("path")),
         args=str(entry.get("game_arguments") or "").strip(),
         prefix=_path(entry.get("prefix")),
@@ -776,6 +782,7 @@ def _apply_source_fields(cfg: cfgmod.GameConfig, game: LibraryGame, set_name: bo
     if set_name:
         cfg.general.name = game.name
         cfg.metadata.version = game.version
+        cfg.metadata.tag = game.tag
     cfg.general.custom_executable = game.exe
     cfg.runtime.type = game.runtime if game.runtime in _RUNTIME_KINDS else ""
     cfg.runtime.tool = game.runtime_tool

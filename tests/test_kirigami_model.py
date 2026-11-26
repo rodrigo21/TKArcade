@@ -1200,6 +1200,16 @@ def test_metadata_suffix_and_name_split(qgui_app, xdg_env):
     proxy = GameFilterModel()
     proxy.setSourceModel(model)
     assert proxy.rowData(0)["gameName"] == "Doom [v1.2] (Beta)"
+    # A trailing state label moves into the tag; a year stays in the name.
+    out["name"] = "Doom (Completed)"
+    out["tag"] = ""
+    assert model.saveGame("local-doom", out) == "local-doom"
+    saved = C.load("local-doom")
+    assert saved.general.name == "Doom"
+    assert saved.metadata.tag == "Completed"
+    out["name"] = "DOOM (1993)"
+    assert model.saveGame("local-doom", out) == "local-doom"
+    assert C.load("local-doom").general.name == "DOOM (1993)"
     assert model.metadataDateValid("2026-10") is True
     assert model.metadataDateValid("2026-13") is False
 

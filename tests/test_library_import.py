@@ -453,7 +453,7 @@ def test_lutris_version_gamescope_and_mangohud_env(xdg_env, monkeypatch):
         [
             {
                 "id": 1,
-                "name": "Game [v1.2]",
+                "name": "Game [v1.2] (Completed)",
                 "slug": "game",
                 "runner": "wine",
                 "installed": 1,
@@ -506,6 +506,7 @@ def test_lutris_version_gamescope_and_mangohud_env(xdg_env, monkeypatch):
     game = next(g for g in games if g.source_id == "game")
     assert game.name == "Game"
     assert game.version == "v1.2"
+    assert game.tag == "Completed"
     assert game.mangohud is True
     assert game.mangohud_args == "--dlsym"
     assert game.mangohud_config == "No_Display.conf"
@@ -516,6 +517,7 @@ def test_lutris_version_gamescope_and_mangohud_env(xdg_env, monkeypatch):
     )
     cfg, _notes = li.to_gameconfig(game, "local-game")
     assert cfg.metadata.version == "v1.2"
+    assert cfg.metadata.tag == "Completed"
     assert cfg.mangohud.enable is True
     assert cfg.mangohud.args == "--dlsym"
     assert cfg.mangohud.config_file == "No_Display.conf"
@@ -587,7 +589,7 @@ def test_faugus_title_version_splits(xdg_env):
         [
             {
                 "gameid": "vn",
-                "title": "Some Game [v0.9]",
+                "title": "Some Game [v0.9] (Completed)",
                 "path": "/bin/true",
                 "runner": "linux",
             }
@@ -596,3 +598,4 @@ def test_faugus_title_version_splits(xdg_env):
     games, _hint = li.list_games("faugus")
     assert games[0].name == "Some Game"
     assert games[0].version == "v0.9"
+    assert games[0].tag == "Completed"
