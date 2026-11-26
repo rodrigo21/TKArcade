@@ -10,34 +10,28 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: seventy-six batches. The latest keeps the sidebar readable: a
+- Landed: seventy-seven batches. The latest settles the sidebar: a
   category name is elided to the width left by its count (count outside
-  the elide, full label in the tooltip), and the sidebar opens 21 grid
-  units wide with Kirigami's own edge handle resizing it (18–25 units,
-  persisted as `[ui] drawer_width`). The elide follows the drawer's real
-  width. Before it, batch Download Metadata landed: `Download Metadata…`
-  in the selection menu lists every chosen game, resolves each row off
-  the GUI thread (stored identity first, else a title search in the
-  chosen source) and shows the match plus the fields it would fill; the
-  worker never writes, Apply fills empty fields, respects locks, writes
-  the lists only when empty and stores a searched identity. It closed the
-  online-tags follow-up: the sidebar categories stay manual.
-- Verified: `scripts/check.sh --changed` (854 passed, 3 skipped,
-  including the QML driver) on the approved diff, an offscreen drag of
-  the drawer edge (21 → 24 units, persisted and restored,
-  `/tmp/opencode/drawer-native-after.png`), and the venv refreshed after
-  the merge.
-- Next: the import mapping fixes the maintainer reported — the name's
-  trailing `[version]` must split at read time, imported configs must
-  start from Global Defaults (profiles from the live config), Lutris
-  MangoHud/Gamescope must map onto `[mangohud]`/`[gamescope]`
-  (`gamescope_flags`, window mode, resolutions, fps limiter), and
-  `MANGOHUD`/`MANGOHUD_DLSYM`/`MANGOHUD_CONFIGFILE` must become native
-  options instead of env vars. Then the 1.0 gate waits on the
-  maintainer's release call (visual pass, shim removal, translations,
-  release pass). Playnite is parked for 3.0, only if another operating
-  system is supported. Epic/GOG is 2.0, and so is the IGDB per-user
-  credential review.
+  the elide, full label in the tooltip), the sidebar opens 12 grid units
+  wide and Kirigami's edge handle resizes it (10–25 units, persisted as
+  `[ui] drawer_width`), and the elide follows the drawer's real width.
+  The drag-persistence debounce and the Preferences slider were reverted
+  at the maintainer's request; the edge drag itself stores the width.
+  Before it, the Lutris/Faugus import mapping landed (version split,
+  defaults as the base, Gamescope, MangoHud env vars) and batch Download
+  Metadata (selection list, title search, fill-empty Apply). The sidebar
+  categories stay manual.
+- Verified: `scripts/check.sh --qml` (858 passed, 3 skipped, including
+  the QML driver) on the approved diff, and the venv refreshed after the
+  commit.
+- Next: the name-suffix batch sits uncommitted in `stash@{0}`
+  (`name-suffixes WIP: version+tag suffixes`): `split_name_suffixes`
+  reads `(State Tag)` and a mid-name `[vN]` back beside the version,
+  used by import and the dialog save. Restore it, review, commit and
+  land. Then the 1.0 gate waits on the maintainer's release call (visual
+  pass, shim removal, translations, release pass). Playnite is parked for
+  3.0, only if another operating system is supported. Epic/GOG is 2.0,
+  and so is the IGDB per-user credential review.
 - Deferred: the audit's #15 (launch parse) and #19 (role constants).
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
