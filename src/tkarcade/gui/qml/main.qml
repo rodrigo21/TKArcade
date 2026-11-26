@@ -82,7 +82,7 @@ Kirigami.ApplicationWindow {
     // is `preferredSize` plus its paddings, clamped by `maximumSize`
     // (25 grid units by default). The initial value comes from the saved
     // preference, so `preferredSize` is never Kirigami's -1 placeholder.
-    property int drawerUnits: gameModel.drawerWidth() || 21
+    property int drawerUnits: gameModel.drawerWidth() || 12
     // The name budget follows the drawer's real width, never the stored
     // value: icon, paddings and the ` (N)` count keep 7 grid units, so a
     // name that fits is never cut and the count always fits. The count is
@@ -208,7 +208,7 @@ Kirigami.ApplicationWindow {
                 if (sourceDrawer.preferredSize <= 0) {
                     return
                 }
-                root.drawerUnits = Math.max(18, Math.min(25,
+                root.drawerUnits = Math.max(10, Math.min(25,
                     Math.round(sourceDrawer.preferredSize / Kirigami.Units.gridUnit)))
                 gameModel.saveDrawerWidth(root.drawerUnits)
             }

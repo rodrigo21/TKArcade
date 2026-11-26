@@ -1090,8 +1090,8 @@ def test_drawer_width_roundtrip_and_clamp(qgui_app, xdg_env):
     assert C.load_preferences().drawer_width == 24
     assert GameListModel().drawerWidth() == 24
     model.saveDrawerWidth(4)
-    assert C.load_preferences().drawer_width == 18
-    assert model.drawerWidth() == 18
+    assert C.load_preferences().drawer_width == 10
+    assert model.drawerWidth() == 10
     model.saveDrawerWidth(99)
     assert C.load_preferences().drawer_width == 25
     model.saveDrawerWidth(0)

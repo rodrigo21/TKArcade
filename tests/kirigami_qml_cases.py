@@ -8738,7 +8738,8 @@ def test_narrow_toolbar_with_tags_keeps_actions(qgui_app, xdg_env):
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     win.setProperty("width", 700)
-    QTest.qWait(50)
+    # The collapsible drawer folds at startup; measure after it settles.
+    QTest.qWait(400)
 
     def visible(name):
         for item in win.findChildren(QQuickItem, name):
@@ -9960,10 +9961,10 @@ def test_drawer_category_label_elides_long_names(qgui_app, xdg_env):
     drawer = win.findChild(QObject, "sourceDrawer")
     drawer.setProperty("collapsed", False)
     QTest.qWait(300)
-    # The stored 21-unit default drives the drawer through preferredSize.
-    unit = drawer.property("preferredSize") / 21
+    # The stored 12-unit default drives the drawer through preferredSize.
+    unit = drawer.property("preferredSize") / 12
     assert unit >= 8
-    assert drawer.property("width") >= 21 * unit
+    assert drawer.property("width") >= 12 * unit
     assert drawer.property("interactiveResizeEnabled") is True
     long_action = win.findChild(QObject, "categoryAction_" + long_name)
     assert long_action is not None

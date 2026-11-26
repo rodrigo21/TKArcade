@@ -349,8 +349,8 @@ Breaking config changes are called out explicitly under `Changed`.
 - A long category name no longer widens the whole sidebar: the drawer
   paints a nested action without eliding it, so the name is elided to the
   width left by the count and the game count stays whole. Hovering a
-  category shows its full name and count. The sidebar opens 21 grid
-  units wide and its edge can be dragged (18–25 units, persisted as
+  category shows its full name and count. The sidebar opens 12 grid
+  units wide and its edge can be dragged (10–25 units, persisted as
   `[ui] drawer_width`); the elide follows the resulting width.
 - An imported game splits a trailing `[version]` from its name into
   `[metadata] version` at read time (Lutris and Faugus), so the name, the

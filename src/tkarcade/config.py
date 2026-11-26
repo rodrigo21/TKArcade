@@ -474,15 +474,15 @@ def normalize_artwork_provider(value: object) -> str:
 
 
 #: Sidebar width bounds, in grid units: Kirigami's drawer minimum is 8
-#: and its default maximum is 25. 0 keeps the built-in default (21); a
+#: and its default maximum is 25. 0 keeps the built-in default (12); a
 #: dragged width is clamped so a stray value cannot hide the library.
-DRAWER_WIDTH_DEFAULT = 21
-DRAWER_WIDTH_MIN = 18
+DRAWER_WIDTH_DEFAULT = 12
+DRAWER_WIDTH_MIN = 10
 DRAWER_WIDTH_MAX = 25
 
 
 def clamp_drawer_width(value: object) -> int:
-    """Sidebar width in grid units: 0 (default) or 18..25."""
+    """Sidebar width in grid units: 0 (default) or 10..25."""
     try:
         units = int(value)
     except (TypeError, ValueError):
