@@ -10,24 +10,21 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: eighty-four batches. The latest: Fetch Artwork appends the
-  picked VNDB release's packaging front as a **Release Cover** candidate
-  after the visual novel's own image, which keeps the automatic pick; the
-  release link is re-checked, `hide_explicit_artwork` and URL dedupe
-  apply, and the silent fetch is unchanged. Before it: the small choice
-  prompts (Take Artwork From…, the Gamescope/MangoHud presets, Add Env
-  Preset and Clone Settings) open as a modal overlay over the large
-  window, so the combo list is no longer clipped to three rows; the
-  editor game picker lists the games directly; the chooser keeps a kind
-  (a second click deselects it, no download and no chain fill), offers
-  the source's banner candidates as a Background section with **Use the
-  Banner** copying the banner instead of downloading it twice, and grew
-  the previews.
+- Landed: eighty-five batches. The latest: the shell and the editor's
+  own `QApplication` set the `tkarcade` desktop file name, so Wayland's
+  app id matches the installed entry and Plasma's task manager shows the
+  TKArcade icon instead of the generic Wayland one. Before it: Fetch
+  Artwork appends the picked VNDB release's packaging front as a
+  **Release Cover** candidate after the visual novel's own image, which
+  keeps the automatic pick; the release link is re-checked,
+  `hide_explicit_artwork` and URL dedupe apply, and the silent fetch is
+  unchanged.
 - Verified: `scripts/check.sh --qml` (890 passed, 3 skipped) on the
-  landed diff; the maintainer confirmed the overlay pickers and Clone on
-  the real display. The backdrop render confirmed the sharp fit, but the
-  software scenegraph draws no `MultiEffect` pixels, so the blur needs a
-  real-display check. The venv was refreshed after the merge.
+  landed diff; the maintainer confirmed the taskbar icon, the overlay
+  pickers and Clone on the real display. The backdrop render confirmed
+  the sharp fit, but the software scenegraph draws no `MultiEffect`
+  pixels, so the blur needs a real-display check. The venv was refreshed
+  after the merge.
 - Next: the 1.0 gate waits on the maintainer's release call (visual
   pass, shim removal, translations, release pass). On the real display,
   check the backdrop blur, the **Release Cover** row for a VNDB game with
