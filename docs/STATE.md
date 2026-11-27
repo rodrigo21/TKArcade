@@ -10,23 +10,23 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: seventy-eight batches. The latest reads the name's display
-  suffixes back: `split_name_suffixes` lifts a trailing `(State Tag)`
-  into `[metadata] tag` and a `[vN]` token (even mid-name) into
-  `[metadata] version`, used by the import and the dialog save; a
-  trailing bracket must look like a version, so `[ENG]`/`[Repack]` stay.
-  Before it, the sidebar settles at 12 units (10–25 by dragging) with
-  the category elide, the import mapping landed (defaults as the base,
-  Gamescope, MangoHud env vars) and batch Download Metadata (selection
-  list, title search, fill-empty Apply). The sidebar categories stay
-  manual.
-- Verified: `scripts/check.sh` (858 passed, 3 skipped) before the merge,
-  and the venv refreshed after the commit.
+- Landed: seventy-nine batches. The latest adds VNDB as the fourth
+  artwork source: the chosen provider fills the cover and a least-flagged
+  screenshot banner, needs no key, resolves `[metadata] vndb_id` from the
+  draft, config, cache or title search and writes a pick back (clearing
+  `vndb_release` on a change). `[ui] hide_explicit_artwork` (off) drops
+  flagged VNDB images and SGDB `nsfw` entries; the picker opens only
+  when a fetch downloaded nothing, so an icon fill cannot replace the
+  chosen art.
+- Verified: `scripts/check.sh` (873 passed, 3 skipped) and `--qml`
+  (874 passed, 3 skipped) on the landed diff; offscreen screenshots
+  showed no clipping; venv refreshed after the merge and push.
 - Next: the 1.0 gate waits on the maintainer's release call (visual
   pass, shim removal, translations, release pass). Playnite is parked
   for 3.0, only if another operating system is supported. Epic/GOG is
   2.0, and so is the IGDB per-user credential review.
-- Deferred: the audit's #15 (launch parse) and #19 (role constants).
+- Deferred: the audit's #15 (launch parse), #19 (role constants) and the
+  VNDB release-cover variants in `TODO.md`.
 - The Proton default is a dialog preselection only: a Steam game
   launches with Steam's own compat choice, and the manager says so.
 - Process: the maintainer's rule (2026-11-06) is in `AGENTS.md` — no
