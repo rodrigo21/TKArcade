@@ -66,6 +66,8 @@ What each document is for and where the source of truth lives.
   banner fallback and the no-automatic-download rule.
 - `decisions/background-display.md` — the optional dimmed library
   backdrop, the delayed hover tooltip and their two `[ui]` switches.
+- `decisions/background-fit.md` — the sharp aspect-fit backdrop over a
+  blurred copy that fills the page, so the wide art is never cropped.
 - `decisions/exe-icon.md` — the icon embedded in a local game's
   executable as the last icon fallback, extracted with `icoextract`.
 - `decisions/categories.md` — the persistent category store, the sidebar

@@ -34,6 +34,9 @@ independent preferences.
    `[ui] backdrop_visibility`; the dim is drawn as `1 - value`). There is
    no blur. The tooltip caps its picture at 27 grid units wide and loads
    only while shown.
+   - Superseded in part 2026-11-27: the backdrop now puts a blurred,
+     cropped copy of the art behind the sharp aspect-fit picture; see
+     `decisions/background-fit.md`. The tooltip keeps no blur.
 7. `[ui] backdrop_bold` (off by default) switches the text drawn over
    the art to a heavier font: the table name, text and played cells,
    the card footer and the icon played line. Headers, gutters, the

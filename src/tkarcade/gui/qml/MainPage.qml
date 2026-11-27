@@ -4,6 +4,7 @@ import QtQml.Models as QQmlModels
 import QtQuick.Layouts
 import QtQuick.Window
 import QtQuick.Controls as Controls
+import QtQuick.Effects
 import org.kde.kirigami as Kirigami
 import org.kde.kirigami.layouts as KL
 
@@ -1944,14 +1945,34 @@ Kirigami.Page {
     }
 
     // Optional library backdrop: the selected game's wide art behind
-    // every view. The dim rectangle keeps the theme's text readable on
-    // any picture; both ignore the pointer.
+    // every view. The full picture sits sharp and centered; a blurred,
+    // cropped copy of the same picture fills the room around it, so the
+    // art is never cut. The dim rectangle keeps the theme's text
+    // readable on any picture; every layer ignores the pointer.
+    Image {
+        objectName: "libraryBackdropFill"
+        anchors.fill: parent
+        visible: gamesPage.backdropUrl !== ""
+        source: gamesPage.backdropUrl
+        // The copy is blurred: a small decode is enough and keeps the
+        // per-selection GPU work down.
+        sourceSize.width: 512
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        enabled: false
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            blurEnabled: true
+            blur: 0.8
+            blurMax: 64
+        }
+    }
     Image {
         objectName: "libraryBackdrop"
         anchors.fill: parent
         visible: gamesPage.backdropUrl !== ""
         source: gamesPage.backdropUrl
-        fillMode: Image.PreserveAspectCrop
+        fillMode: Image.PreserveAspectFit
         asynchronous: true
         enabled: false
     }

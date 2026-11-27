@@ -3898,11 +3898,14 @@ def test_library_backdrop_and_hover_preview(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.select("local-doom")
     backdrop = win.findChild(QQuickItem, "libraryBackdrop")
+    fill = win.findChild(QQuickItem, "libraryBackdropFill")
     dim = win.findChild(QQuickItem, "libraryBackdropDim")
-    assert backdrop is not None and dim is not None
+    assert backdrop is not None and fill is not None and dim is not None
     assert _wait_for(lambda: str(wide) in page.property("backdropUrl")), "backdrop URL empty"
     assert backdrop.property("visible") is True
     assert str(wide) in backdrop.property("source").toString()
+    assert fill.property("visible") is True
+    assert str(wide) in fill.property("source").toString()
     assert dim.property("visible") is True
     assert page.property("backdropVisibility") == 45
     assert abs(dim.property("opacity") - 0.55) < 0.001
@@ -3959,6 +3962,7 @@ def test_library_backdrop_and_hover_preview(qgui_app, xdg_env):
     assert page.property("backgroundPreview") is False
     assert page.property("boldLibraryText") is False
     assert backdrop.property("visible") is False
+    assert fill.property("visible") is False
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
     win.close()

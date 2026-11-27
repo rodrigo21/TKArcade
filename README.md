@@ -236,7 +236,9 @@ over the art) and preview the same art in a delayed
 tooltip when the pointer rests on a game (`[ui] background_preview`,
 off by default); both use
 the manual background, its cache, then the banner, and neither
-downloads anything.
+downloads anything. The backdrop keeps the whole picture: a sharp,
+aspect-fit copy sits over a blurred copy of the same art that fills the
+page, so the wide art is never cropped to the window.
 
 **Import Configurations** — the toolbar's Import… window reads an
 export tarball, SteamTinkerLaunch configs, the predecessor project, or a

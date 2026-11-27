@@ -306,6 +306,9 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- The library backdrop no longer crops the background art to the window:
+  a sharp aspect-fit copy shows the whole picture, and a blurred copy of
+  the same art fills the page behind it.
 - The library header actions (view, Columns, Preferences, Defaults and
   the hamburger) no longer disappear on a window clamped below the
   1280 minimum: with the Tags button the title row overran the slot
