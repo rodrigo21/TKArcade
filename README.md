@@ -373,19 +373,31 @@ Fetch/Clear; a local game without an AppID is looked up by name on
 SteamGridDB and a stored choice keeps the same art across fetches. IGDB
 needs a Twitch application and the IGDB ID that Search Data saves; a
 Fetch without one searches the title (an exact match wins, otherwise the
-picker) and writes the resolved id to `[metadata] igdb_id`, so Details
-and Search Data reuse it. The silent pass also caches it, and Clear keeps
-it. It fills the cover and the banner, and its square icon slot stays
-with the other providers. VNDB needs no key: it fills the cover with a
-visual novel's image and the banner with its least flagged screenshot,
-resolves `[metadata] vndb_id` the same way (a picked id is written back,
-and another visual novel clears the stored release pick), and leaves the
-square icon slot alone too. The picker only opens when the fetch
-downloaded nothing, so an icon fill cannot replace that cover and
-banner. Preferences → Artwork → **Hide Explicit Artwork** (`[ui]
+identity picker) and writes the resolved id to `[metadata] igdb_id` on
+confirm, so Details and Search Data reuse it. The silent pass also caches
+it, and Clear keeps it. IGDB fills the cover and the banner, and its
+square icon slot stays with the other providers. VNDB needs no key: it
+fills the cover with a visual novel's image and offers every screenshot
+as the banner, resolves `[metadata] vndb_id` the same way (a picked id is
+written back on confirm, and another visual novel clears the stored
+release pick), and leaves the
+square icon slot alone too. Fetch Artwork opens a chooser with the
+source's candidate images: the row the automatic fetch would pick is
+marked **Automatic** and starts selected, the other rows show the rest
+of the provider's list, and only the selected images are downloaded on
+confirm. Steam's official candidates keep the file order (Library Cover
+2x/1x, Header; Library Hero) and are probed so a missing asset stays
+out; SteamGridDB lists icons, covers and heroes; IGDB lists its artworks
+and screenshots after the cover; VNDB lists every screenshot least
+flagged first. Kinds the source cannot fill (the IGDB/VNDB icon) are
+filled by the next provider when empty, and an offered kind is never
+replaced by a fallback after the confirm. The identity picker opens only
+when a title search cannot decide the game, so its pick never downloads
+an image. Preferences → Artwork → **Hide Explicit Artwork** (`[ui]
 hide_explicit_artwork`, off by default) drops VNDB images flagged
-explicit or violent and SteamGridDB `nsfw` entries when art downloads;
-it never deletes stored artwork, and IGDB and Steam carry no flags.
+explicit or violent and SteamGridDB `nsfw` entries from the chooser and
+downloads; it never deletes stored artwork, and IGDB and Steam carry no
+flags.
 Saving a game fills any missing art with
 the chosen provider, an existing game included. The
 `background` slot is a wide backdrop with no download of its own: it

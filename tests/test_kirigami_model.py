@@ -4306,69 +4306,96 @@ def test_row_cover_uses_the_artwork_source_appid(qgui_app, xdg_env):
     assert model.rowData(row)["gameCover"] == str(shared)
 
 
-def test_fetch_artwork_uses_the_typed_source_appid(qgui_app, xdg_env, monkeypatch):
-    """A typed Artwork Source AppID is the fetch target, even before Save."""
+def test_fetch_artwork_gallery_uses_the_typed_source_appid(qgui_app, xdg_env, monkeypatch):
+    """A typed Artwork Source AppID is the gallery target, even before Save."""
     from tkarcade import artwork
 
     calls = []
 
-    def fake_best(
-        appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False, names=()
+    def fake_gallery(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.FETCH_KINDS,
+        names=(),
+        igdb_id="",
+        vndb_id="",
+        game_id="",
     ):
-        calls.append((appid, provider, force, tuple(names)))
+        calls.append((appid, provider, tuple(names), igdb_id, vndb_id, game_id))
         return {
-            "art": {"cover": __import__("pathlib").Path("/tmp/x.png")},
-            "provider": "steam",
-            "error": "",
-            "name": "",
-            "valid": True,
-            "game_id": "",
+            "provider": "sgdb",
+            "groups": {
+                "cover": [
+                    {
+                        "url": "https://cdn/c.png",
+                        "thumb": "https://cdn/c.png",
+                        "auto": True,
+                        "label": "",
+                        "note": "",
+                    }
+                ]
+            },
+            "igdb_id": "",
+            "vndb_id": "",
+            "game_id": "7",
             "candidates": [],
+            "error": "",
         }
 
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    monkeypatch.setattr(artwork, "art_gallery", fake_gallery)
     local = C.GameConfig()
     local.general.appid = "local-quake"
     local.general.name = "Quake"
     local.general.custom_executable = "/bin/true"
     C.save(local)
     model = _model(qgui_app)
-    started = []
-    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    seen = []
+    model.artworkGallery.connect(lambda gid, data: seen.append((gid, data)))
     # The draft value wins over the saved config, like the old field did.
     assert model.fetchArtwork("local-quake", "", "480") == ""
     for _ in range(50):
-        if started:
+        if seen:
             break
         qgui_app.processEvents()
         time.sleep(0.05)
-    assert started == ["ok"], started
-    assert calls == [("480", "steam", True, ())], calls
+    assert calls == [("480", "steam", (), "", "", "")], calls
+    assert seen and seen[0][0] == "local-quake"
+    assert seen[0][1]["provider"] == "sgdb"
+    assert seen[0][1]["game_id"] == "7"
+    assert seen[0][1]["groups"]["cover"][0]["auto"] is True
     # A non-numeric value is reported, not sent to the name search.
     assert model.fetchArtwork("local-quake", "", "not-a-number") == "no-appid"
 
 
-def test_fetch_artwork_uses_the_game_name_and_its_provider(qgui_app, xdg_env, monkeypatch):
-    """A local game fetches by name, with its own provider override."""
+def test_fetch_artwork_gallery_uses_the_game_name_and_its_provider(qgui_app, xdg_env, monkeypatch):
+    """A local game opens the gallery by name, with its own provider."""
     from tkarcade import artwork
 
     calls = []
 
-    def fake_best(
-        appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False, names=()
+    def fake_gallery(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.FETCH_KINDS,
+        names=(),
+        igdb_id="",
+        vndb_id="",
+        game_id="",
     ):
-        calls.append((appid, provider, api_key, force, tuple(names)))
+        calls.append((appid, provider, api_key, tuple(names)))
         return {
-            "art": {"cover": __import__("pathlib").Path("/tmp/x.png")},
             "provider": "sgdb",
-            "error": "",
-            "name": "",
-            "valid": False,
+            "groups": {"cover": []},
+            "igdb_id": "",
+            "vndb_id": "",
             "game_id": "7",
             "candidates": [],
+            "error": "no-art",
         }
 
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    monkeypatch.setattr(artwork, "art_gallery", fake_gallery)
     local = C.GameConfig()
     local.general.appid = "local-quake"
     local.general.name = "Quake [v1.0]"
@@ -4385,146 +4412,175 @@ def test_fetch_artwork_uses_the_game_name_and_its_provider(qgui_app, xdg_env, mo
             break
         qgui_app.processEvents()
         time.sleep(0.05)
-    assert started == [("local-quake", "ok", "sgdb")], started
-    # Forced (Fetch Artwork), and the name drops the version first.
-    assert calls == [("local-quake", "sgdb", "", True, ("Quake", "Quake [v1.0]"))]
+    assert started == [("local-quake", "no-art", "sgdb")], started
+    # The name drops the version first, like the fetch used to.
+    assert calls == [("local-quake", "sgdb", "", ("Quake", "Quake [v1.0]"))]
     # Without a name there is nothing to look up.
     local.general.name = ""
     C.save(local)
     assert model.fetchArtwork("local-quake") == "no-appid"
 
 
-def test_fetch_artwork_reports_name_choices(qgui_app, xdg_env, monkeypatch):
-    """Several SteamGridDB entries: the dialog gets the list to ask."""
+def test_fetch_artwork_gallery_reports_name_choices(qgui_app, xdg_env, monkeypatch):
+    """Several provider entries: the dialog gets the list before any image."""
     from tkarcade import artwork
 
-    def fake_best(
-        appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False, names=()
+    def fake_gallery(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.FETCH_KINDS,
+        names=(),
+        igdb_id="",
+        vndb_id="",
+        game_id="",
     ):
         return {
-            "art": {},
-            "provider": "",
-            "error": "no-match",
-            "name": "",
-            "valid": False,
+            "provider": "sgdb",
+            "groups": {},
+            "igdb_id": "",
+            "vndb_id": "",
             "game_id": "",
-            "candidates": [{"id": "5", "name": "Doom 3"}],
+            "candidates": [{"id": "5", "name": "Doom 3", "provider": "sgdb"}],
+            "error": "no-match",
         }
 
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    monkeypatch.setattr(artwork, "art_gallery", fake_gallery)
     local = C.GameConfig()
     local.general.appid = "local-doom"
     local.general.name = "Doom"
     local.general.custom_executable = "/bin/true"
     C.save(local)
     model = _model(qgui_app)
-    seen = []
+    seen, statuses = [], []
     model.artworkChoices.connect(lambda gid, rows: seen.append((gid, rows)))
+    model.artworkFetched.connect(lambda gid, status, prov: statuses.append(status))
     model.fetchArtwork("local-doom")
     for _ in range(50):
-        if seen:
+        if seen and statuses:
             break
         qgui_app.processEvents()
         time.sleep(0.05)
     assert seen and seen[0][0] == "local-doom"
     assert seen[0][1][0]["name"] == "Doom 3"
+    assert statuses == ["choose"], statuses
 
 
-def test_fetch_artwork_keeps_the_picker_away_when_art_landed(qgui_app, xdg_env, monkeypatch):
-    """SteamGridDB icon-fill candidates must not interrupt downloaded art.
-
-    A chosen provider without a square icon leaves that kind to the name
-    search; several rows there used to open the picker after the cover and
-    banner were already stored, and picking would replace them.
-    """
+def test_download_artwork_choices_stores_the_picks_and_fills_the_missing(
+    qgui_app, xdg_env, monkeypatch
+):
+    """The confirm downloads the picks, then fills the source's missing kinds."""
     from pathlib import Path
 
     from tkarcade import artwork
 
-    def fake_best(
-        appid,
-        provider="steam",
-        api_key="",
-        kinds=artwork.ART_KINDS,
-        force=False,
-        names=(),
-        **_extra,
-    ):
-        return {
-            "art": {"cover": Path("/tmp/opencode/pink-cover.png")},
-            "provider": "vndb",
-            "error": "no-match",
-            "name": "",
-            "valid": False,
-            "game_id": "",
-            "vndb_id": "v46756",
-            "candidates": [{"id": "5", "name": "Mastering the Pink Box"}],
-        }
-
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
     local = C.GameConfig()
-    local.general.appid = "local-pink"
-    local.general.name = "Mastering the Pink Box"
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.artwork.provider = "sgdb"
     C.save(local)
-    model = _model(qgui_app)
-    statuses = []
-    choices = []
-    model.artworkFetched.connect(lambda gid, status, prov: statuses.append((gid, status, prov)))
-    model.artworkChoices.connect(lambda gid, rows: choices.append((gid, rows)))
-    assert model.fetchArtwork("local-pink", "vndb") == ""
-    for _ in range(50):
-        if statuses:
-            break
-        qgui_app.processEvents()
-        time.sleep(0.05)
-    assert statuses == [("local-pink", "ok", "vndb")]
-    assert choices == []
+    stored, fills, ids = [], [], []
 
-
-def test_fetch_artwork_game_downloads_the_chosen_id(qgui_app, xdg_env, monkeypatch):
-    """Picking a SteamGridDB entry downloads it and remembers the id."""
-    from pathlib import Path
-
-    from tkarcade import artwork
-
-    calls = []
     monkeypatch.setattr(
         artwork,
-        "fetch_sgdb_game",
-        lambda appid, game_id, key, **kw: (
-            calls.append((appid, game_id, key)) or {"cover": Path("/tmp/c.png")}
+        "store_choice",
+        lambda appid, kind, url, provider: (
+            stored.append((appid, kind, url, provider)) or Path(f"/tmp/{kind}.png")
         ),
     )
     monkeypatch.setattr(
         artwork,
         "store_sgdb_id",
-        lambda appid, game_id, name="": calls.append(("id", appid, game_id)),
+        lambda appid, game_id, name="": ids.append((appid, game_id)),
     )
-    local = C.GameConfig()
-    local.general.appid = "local-doom"
-    local.general.name = "Doom"
-    local.general.custom_executable = "/bin/true"
-    C.save(local)
-    prefs = C.load_preferences()
-    prefs.sgdb_api_key = "KEY"
-    C.save_preferences(prefs)
+
+    def fake_best(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.FETCH_KINDS,
+        force=False,
+        names=(),
+        igdb_id="",
+        vndb_id="",
+    ):
+        fills.append((appid, provider, tuple(kinds), force, tuple(names)))
+        return {
+            "art": {"icon": Path("/tmp/icon.png")},
+            "provider": "steam",
+            "error": "",
+            "name": "",
+            "valid": False,
+            "game_id": "",
+            "igdb_id": "",
+            "vndb_id": "",
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
     model = _model(qgui_app)
     started = []
-    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
-    assert model.fetchArtworkGame("", "7") == "no-game"
-    assert model.fetchArtworkGame("local-doom", "7") == ""
+    model.artworkFetched.connect(lambda gid, status, prov: started.append((gid, status, prov)))
+    picks = [{"kind": "cover", "url": "https://cdn/c.png", "provider": "sgdb"}]
+    assert model.downloadArtworkChoices("local-doom", "sgdb", "", "", "", "7", picks) == ""
     for _ in range(50):
         if started:
             break
         qgui_app.processEvents()
         time.sleep(0.05)
-    assert started == ["ok"], started
-    assert calls[0] == ("local-doom", "7", "KEY")
-    assert calls[1] == ("id", "local-doom", "7")
+    assert stored == [("local-doom", "cover", "https://cdn/c.png", "sgdb")], stored
+    assert ids == [("local-doom", "7")], ids
+    # Cover was offered; icon and banner stay to the chain.
+    assert fills == [("local-doom", "sgdb", ("icon", "banner"), True, ("Doom",))], fills
+    assert started == [("local-doom", "ok", "sgdb")], started
 
 
-def test_fetch_artwork_game_downloads_the_chosen_igdb_id(qgui_app, xdg_env, monkeypatch):
-    """Picking an IGDB row fetches its art and keeps the provider tag."""
+def test_fetch_artwork_gallery_uses_the_picked_game_id(qgui_app, xdg_env, monkeypatch):
+    """Picking a provider entry only resolves the game; the gallery follows."""
+    from tkarcade import artwork
+
+    calls = []
+
+    def fake_gallery(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.FETCH_KINDS,
+        names=(),
+        igdb_id="",
+        vndb_id="",
+        game_id="",
+    ):
+        calls.append(game_id)
+        return {
+            "provider": provider,
+            "groups": {"cover": []},
+            "igdb_id": "",
+            "vndb_id": "",
+            "game_id": game_id,
+            "candidates": [],
+            "error": "no-art",
+        }
+
+    monkeypatch.setattr(artwork, "art_gallery", fake_gallery)
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    C.save(local)
+    model = _model(qgui_app)
+    assert model.fetchArtwork("local-doom", "sgdb", "", "", "", "7") == ""
+    for _ in range(50):
+        if calls:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert calls == ["7"], calls
+
+
+def test_download_artwork_choices_stores_the_resolved_igdb_id(qgui_app, xdg_env, monkeypatch):
+    """The resolved identity is written on confirm, not on the preview."""
     from pathlib import Path
 
     from tkarcade import artwork
@@ -4534,66 +4590,52 @@ def test_fetch_artwork_game_downloads_the_chosen_igdb_id(qgui_app, xdg_env, monk
     local.general.name = "Hades"
     local.general.custom_executable = "/bin/true"
     C.save(local)
-    prefs = C.load_preferences()
-    prefs.igdb_client_id = "cid"
-    prefs.igdb_client_secret = "sec"
-    C.save_preferences(prefs)
-    calls = []
-
-    def fake_best(
-        appid,
-        provider="steam",
-        api_key="",
-        kinds=artwork.ART_KINDS,
-        force=False,
-        names=(),
-        **kwargs,
-    ):
-        calls.append((appid, provider, kwargs.get("igdb_id", "")))
-        return {
-            "art": {"cover": Path("/tmp/c.png")},
-            "provider": "igdb",
-            "error": "",
-            "name": "",
-            "valid": False,
-            "game_id": "",
-            "candidates": [],
-        }
-
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    monkeypatch.setattr(
+        artwork, "store_choice", lambda appid, kind, url, provider: Path("/tmp/c.png")
+    )
+    # Every other kind already has a cache file: no chain pass.
+    monkeypatch.setattr(artwork, "cached_path", lambda appid, kind: Path("/tmp/x.png"))
     model = _model(qgui_app)
     started, resolved = [], []
-    model.artworkFetched.connect(lambda gid, status, prov: started.append((status, prov)))
+    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
     model.igdbResolved.connect(lambda gid, ident: resolved.append((gid, ident)))
-    assert model.fetchArtworkGame("local-hades", "1", "igdb") == ""
+    picks = [{"kind": "cover", "url": "https://cdn/c.png", "provider": "igdb"}]
+    assert model.downloadArtworkChoices("local-hades", "igdb", "", "1", "", "", picks) == ""
     for _ in range(50):
         if started:
             break
         qgui_app.processEvents()
         time.sleep(0.05)
-    assert started == [("ok", "igdb")], started
-    assert calls == [("local-hades", "igdb", "1")], calls
+    assert started == ["ok"], started
     assert C.load("local-hades").metadata.igdb_id == "1"
     assert resolved == [("local-hades", "1")], resolved
 
-    # A source AppID's pick is not this game's metadata.
+    # A source AppID's identity is not this game's metadata.
+    local = C.load("local-hades")
+    local.artwork.artwork_appid = "480"
+    C.save(local)
     started.clear()
-    assert model.fetchArtworkGame("local-hades", "2", "igdb", "480") == ""
+    resolved.clear()
+    assert (
+        model.downloadArtworkChoices(
+            "local-hades",
+            "igdb",
+            "480",
+            "2",
+            "",
+            "",
+            [{"kind": "cover", "url": "https://cdn/c.png", "provider": "igdb"}],
+        )
+        == ""
+    )
     for _ in range(50):
         if started:
             break
         qgui_app.processEvents()
         time.sleep(0.05)
-    assert started == [("ok", "igdb")], started
-    assert calls[-1] == ("480", "igdb", "2")
+    assert started == ["ok"], started
     assert C.load("local-hades").metadata.igdb_id == "1"
-    assert resolved == [("local-hades", "1")], resolved
-
-    # Without the Twitch credential the action refuses before the worker.
-    prefs = C.load_preferences()
-    prefs.igdb_client_secret = ""
-    C.save_preferences(prefs)
-    assert model.fetchArtworkGame("local-hades", "1", "igdb") == "no-igdb-key"
+    assert resolved == [], resolved
 
 
 def test_clear_fetched_artwork_uses_the_game_id(qgui_app, xdg_env):
@@ -4658,8 +4700,10 @@ def test_clear_fetched_artwork_uses_the_source_appid(qgui_app, xdg_env):
     assert model.artworkStatus("local-doom", "480") == "cleared"
 
 
-def test_fetch_artwork_clears_the_game_mark_with_a_source_appid(qgui_app, xdg_env, monkeypatch):
-    """Fetch restores a sourced tile: the game's own Clear mark goes too."""
+def test_download_artwork_choices_clears_the_game_mark_with_a_source_appid(
+    qgui_app, xdg_env, monkeypatch
+):
+    """The confirm restores a sourced tile: the game's own Clear mark goes too."""
     from pathlib import Path
 
     from tkarcade import artwork
@@ -4677,46 +4721,33 @@ def test_fetch_artwork_clears_the_game_mark_with_a_source_appid(qgui_app, xdg_en
     assert model.clearArtwork("local-doom", "cover") is True
     assert artwork.is_kind_cleared("local-doom", "cover") is True
 
-    fetched = []
-
-    def fake_best(
-        appid,
-        provider="steam",
-        api_key="",
-        kinds=artwork.ART_KINDS,
-        force=False,
-        names=(),
-        **kwargs,
-    ):
-        fetched.append((appid, kwargs.get("igdb_id", "")))
-        return {
-            "art": {"cover": Path("/tmp/c.png")},
-            "provider": provider,
-            "error": "",
-            "name": "",
-            "valid": False,
-            "game_id": "",
-            "candidates": [],
-        }
-
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    stored = []
+    monkeypatch.setattr(
+        artwork,
+        "store_choice",
+        lambda appid, kind, url, provider: (
+            stored.append((appid, kind, url, provider)) or Path("/tmp/c.png")
+        ),
+    )
+    # Every other kind already has a cache file: no chain pass.
+    monkeypatch.setattr(artwork, "cached_path", lambda appid, kind: Path("/tmp/x.png"))
     started = []
     model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
-    assert model.fetchArtwork("local-doom", "steam", "480") == ""
+    picks = [{"kind": "cover", "url": "https://cdn/c.png", "provider": "steam"}]
+    assert model.downloadArtworkChoices("local-doom", "steam", "480", "", "", "", picks) == ""
     for _ in range(50):
         if started:
             break
         qgui_app.processEvents()
         time.sleep(0.05)
     assert started == ["ok"], started
-    assert fetched == [("480", "")], fetched
+    assert stored == [("480", "cover", "https://cdn/c.png", "steam")], stored
     # The per-tile Clear marked the game; the source AppID has the file.
     assert artwork.is_kind_cleared("local-doom", "cover") is False
-    assert model.artworkPreview("local-doom", "cover", "480") != ""
 
 
-def test_fetch_artwork_passes_the_draft_igdb_id(qgui_app, xdg_env, monkeypatch):
-    """A just-picked IGDB entry works before Save."""
+def test_fetch_artwork_gallery_passes_the_draft_igdb_id(qgui_app, xdg_env, monkeypatch):
+    """A just-picked IGDB entry reaches the gallery query before Save."""
     from tkarcade import artwork
 
     local = C.GameConfig()
@@ -4726,27 +4757,28 @@ def test_fetch_artwork_passes_the_draft_igdb_id(qgui_app, xdg_env, monkeypatch):
     C.save(local)
     calls = []
 
-    def fake_best(
+    def fake_gallery(
         appid,
         provider="steam",
         api_key="",
-        kinds=artwork.ART_KINDS,
-        force=False,
+        kinds=artwork.FETCH_KINDS,
         names=(),
-        **kwargs,
+        igdb_id="",
+        vndb_id="",
+        game_id="",
     ):
-        calls.append((appid, provider, kwargs.get("igdb_id", "")))
+        calls.append((appid, provider, igdb_id, vndb_id))
         return {
-            "art": {},
-            "provider": "",
-            "error": "no-art",
-            "name": "",
-            "valid": False,
+            "provider": provider,
+            "groups": {"cover": []},
+            "igdb_id": igdb_id,
+            "vndb_id": "",
             "game_id": "",
             "candidates": [],
+            "error": "no-art",
         }
 
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    monkeypatch.setattr(artwork, "art_gallery", fake_gallery)
     model = _model(qgui_app)
     started = []
     model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
@@ -4757,13 +4789,11 @@ def test_fetch_artwork_passes_the_draft_igdb_id(qgui_app, xdg_env, monkeypatch):
         qgui_app.processEvents()
         time.sleep(0.05)
     assert started == ["no-art"], started
-    assert calls == [("local-hades", "igdb", "1145360")], calls
+    assert calls == [("local-hades", "igdb", "1145360", "")], calls
 
 
-def test_fetch_artwork_saves_the_resolved_igdb_id(qgui_app, xdg_env, monkeypatch):
-    """An explicit Fetch writes the identity and updates the draft field."""
-    from pathlib import Path
-
+def test_fetch_artwork_gallery_does_not_save_the_identity(qgui_app, xdg_env, monkeypatch):
+    """The preview resolves the IGDB id but writes nothing before confirm."""
     from tkarcade import artwork
 
     local = C.GameConfig()
@@ -4772,93 +4802,54 @@ def test_fetch_artwork_saves_the_resolved_igdb_id(qgui_app, xdg_env, monkeypatch
     local.general.custom_executable = "/bin/true"
     C.save(local)
 
-    def fake_best(
+    def fake_gallery(
         appid,
         provider="steam",
         api_key="",
-        kinds=artwork.ART_KINDS,
-        force=False,
+        kinds=artwork.FETCH_KINDS,
         names=(),
-        **kwargs,
+        igdb_id="",
+        vndb_id="",
+        game_id="",
     ):
         return {
-            "art": {"cover": Path("/tmp/c.png")},
             "provider": "igdb",
-            "error": "",
-            "name": "",
-            "valid": False,
-            "game_id": "",
+            "groups": {
+                "cover": [
+                    {
+                        "url": "https://cdn/c.png",
+                        "thumb": "https://cdn/c.png",
+                        "auto": True,
+                        "label": "",
+                        "note": "",
+                    }
+                ]
+            },
             "igdb_id": "1",
+            "vndb_id": "",
+            "game_id": "",
             "candidates": [],
+            "error": "",
         }
 
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    monkeypatch.setattr(artwork, "art_gallery", fake_gallery)
     model = _model(qgui_app)
-    started, resolved = [], []
-    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    seen, resolved = [], []
+    model.artworkGallery.connect(lambda gid, data: seen.append((gid, data)))
     model.igdbResolved.connect(lambda gid, ident: resolved.append((gid, ident)))
     assert model.fetchArtwork("local-hades", "igdb", "") == ""
     for _ in range(50):
-        if started:
+        if seen:
             break
         qgui_app.processEvents()
         time.sleep(0.05)
-    assert started == ["ok"], started
-    assert C.load("local-hades").metadata.igdb_id == "1"
-    assert resolved == [("local-hades", "1")], resolved
-
-
-def test_fetch_artwork_does_not_save_a_source_appids_igdb_id(qgui_app, xdg_env, monkeypatch):
-    """The source AppID's IGDB game is not this game's metadata."""
-    from pathlib import Path
-
-    from tkarcade import artwork
-
-    local = C.GameConfig()
-    local.general.appid = "local-hades"
-    local.general.name = "Hades"
-    local.general.custom_executable = "/bin/true"
-    local.artwork.artwork_appid = "480"
-    C.save(local)
-
-    def fake_best(
-        appid,
-        provider="steam",
-        api_key="",
-        kinds=artwork.ART_KINDS,
-        force=False,
-        names=(),
-        **kwargs,
-    ):
-        return {
-            "art": {"cover": Path("/tmp/c.png")},
-            "provider": "igdb",
-            "error": "",
-            "name": "",
-            "valid": False,
-            "game_id": "",
-            "igdb_id": "1",
-            "candidates": [],
-        }
-
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
-    model = _model(qgui_app)
-    started, resolved = [], []
-    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
-    model.igdbResolved.connect(lambda gid, ident: resolved.append((gid, ident)))
-    assert model.fetchArtwork("local-hades", "igdb", "480") == ""
-    for _ in range(50):
-        if started:
-            break
-        qgui_app.processEvents()
-        time.sleep(0.02)
-    assert started == ["ok"], started
+    assert seen and seen[0][1]["igdb_id"] == "1"
     assert C.load("local-hades").metadata.igdb_id == ""
     assert resolved == [], resolved
 
 
-def test_fetch_artwork_game_clears_the_game_mark(qgui_app, xdg_env, monkeypatch):
-    """A picked SteamGridDB entry is an explicit restore; its mark goes too."""
+def test_download_artwork_choices_clears_the_game_mark(qgui_app, xdg_env, monkeypatch):
+    """A gallery pick is an explicit restore; the game's own mark goes too."""
     from pathlib import Path
 
     from tkarcade import artwork
@@ -4868,20 +4859,18 @@ def test_fetch_artwork_game_clears_the_game_mark(qgui_app, xdg_env, monkeypatch)
     local.general.name = "Doom"
     local.general.custom_executable = "/bin/true"
     C.save(local)
-    prefs = C.load_preferences()
-    prefs.sgdb_api_key = "KEY"
-    C.save_preferences(prefs)
     artwork.clear_kind("local-doom", "cover")
     assert artwork.is_kind_cleared("local-doom", "cover") is True
     monkeypatch.setattr(
-        artwork,
-        "fetch_sgdb_game",
-        lambda appid, game_id, key, **kw: {"cover": Path("/tmp/c.png")},
+        artwork, "store_choice", lambda appid, kind, url, provider: Path("/tmp/c.png")
     )
+    # Every other kind already has a cache file: no chain pass.
+    monkeypatch.setattr(artwork, "cached_path", lambda appid, kind: Path("/tmp/x.png"))
     model = _model(qgui_app)
     started = []
     model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
-    assert model.fetchArtworkGame("local-doom", "7") == ""
+    picks = [{"kind": "cover", "url": "https://cdn/c.png", "provider": "sgdb"}]
+    assert model.downloadArtworkChoices("local-doom", "sgdb", "", "", "", "7", picks) == ""
     for _ in range(50):
         if started:
             break

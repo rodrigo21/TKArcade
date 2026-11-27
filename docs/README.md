@@ -122,6 +122,9 @@ What each document is for and where the source of truth lives.
 - `decisions/artwork-vndb.md` — VNDB as the fourth artwork source: the
   cover and screenshot banner, the id resolution, the opt-in explicit
   art filter and the picker-only-when-empty rule.
+- `decisions/artwork-gallery.md` — the Fetch Artwork chooser: candidate
+  rows before any download, the marked automatic pick, the official
+  Steam assets, the per-source kinds and the chain fill after confirm.
 - `decisions/online-tags.md` — `[metadata] tags`, the Tags row in the
   Download Metadata preview and why online data stays out of the manual
   categories.

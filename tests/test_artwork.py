@@ -1494,3 +1494,100 @@ def test_store_rejects_a_page_served_as_an_image(monkeypatch, xdg_env):
     # A real image still lands.
     monkeypatch.setattr(art, "_get", lambda url, *_a, **_k: (_img("A"), ""))
     assert art._store("local-x", "cover", "https://cdn/x.png") is not None
+
+
+def test_steam_options_mark_the_first_existing_asset(monkeypatch, xdg_env):
+    """Steam candidates keep the official order; 404 rows are hidden."""
+    monkeypatch.setattr(art, "steam_app", lambda appid: {"name": "Canon", "icon": "abc"})
+    monkeypatch.setattr(art, "_url_exists", lambda url: "library_600x900_2x" not in url)
+
+    groups = art.steam_options("480")
+
+    assert [row["label"] for row in groups["cover"]] == ["Library Cover", "Header"]
+    assert [row["auto"] for row in groups["cover"]] == [True, False]
+    assert [row["label"] for row in groups["banner"]] == ["Library Hero", "Header"]
+    assert groups["banner"][0]["auto"] is True
+    assert [row["label"] for row in groups["icon"]] == [
+        "Client Icon",
+        "Client Icon (32 px)",
+        "Header",
+    ]
+    assert groups["icon"][0]["url"].endswith(".ico")
+    assert groups["icon"][0]["thumb"].endswith(".jpg")
+    # A non-numeric target has no official art.
+    assert art.steam_options("local-x") == {}
+
+
+def test_sgdb_game_options_sort_cap_and_mark(monkeypatch, xdg_env):
+    """The chooser keeps the sort of the automatic pick and caps the list."""
+    seen = []
+    rows = [
+        {
+            "thumb": f"https://cdn/{index}.png",
+            "width": 600,
+            "height": 900,
+            "style": "official" if index == 0 else "custom",
+        }
+        for index in range(art.GALLERY_LIMIT + 5)
+    ]
+
+    def fake_thumbs(game_id, kind, api_key, safe=False):
+        seen.append((game_id, kind, api_key, safe))
+        return rows
+
+    monkeypatch.setattr(art, "_sgdb_thumbs", fake_thumbs)
+    groups = art.sgdb_game_options("7", "KEY", ("cover",), safe=True)
+    assert seen == [("7", "cover", "KEY", True)]
+    assert len(groups["cover"]) == art.GALLERY_LIMIT
+    assert groups["cover"][0]["auto"] is True
+    assert groups["cover"][1]["auto"] is False
+    assert "600x900" in groups["cover"][0]["note"]
+    assert "official" in groups["cover"][0]["note"]
+
+
+def test_store_choice_writes_the_slot_and_manifest(monkeypatch, xdg_env):
+    """A chosen candidate lands in the provider slot with its provider tag."""
+    _stub(monkeypatch, [("cdn/c.png", _img("C"))])
+    path = art.store_choice("480", "cover", "https://cdn/c.png", "steam")
+    assert path is not None and path.read_bytes() == _img("C")
+    assert art.provider_for("480", "cover") == "steam"
+    # Only a provider https URL reaches the downloader.
+    assert art.store_choice("480", "banner", "file:///tmp/x.png", "steam") is None
+    assert art.store_choice("480", "background", "https://cdn/c.png", "steam") is None
+    assert art.store_choice("480", "cover", "https://cdn/c.png", "nope") is None
+
+
+def test_art_gallery_falls_back_to_sgdb_for_a_local_game(monkeypatch, xdg_env):
+    """A local game with Steam selected is queried on SteamGridDB by name."""
+    monkeypatch.setattr(art, "steam_options", lambda *_a, **_k: {})
+    monkeypatch.setattr(art, "stored_sgdb_id", lambda appid: "")
+    monkeypatch.setattr(art, "_resolve_sgdb_game", lambda key, names: ("7", "Doom", []))
+    monkeypatch.setattr(
+        art,
+        "sgdb_game_options",
+        lambda game_id, key, kinds, safe=None: {
+            "cover": [{"url": "https://cdn/c.png", "thumb": "https://cdn/c.png", "auto": True}]
+        },
+    )
+    result = art.art_gallery("local-doom", "steam", "KEY", names=("Doom",))
+    assert result["provider"] == "sgdb"
+    assert result["game_id"] == "7"
+    assert result["groups"]["cover"][0]["auto"] is True
+
+
+def test_art_gallery_reads_igdb_without_downloading(monkeypatch, xdg_env):
+    """The IGDB path returns the candidate rows and the resolved identity."""
+    monkeypatch.setattr(art, "_resolved_igdb_id", lambda gid, draft="": "1")
+    monkeypatch.setattr(
+        art.igdbmod,
+        "art_options",
+        lambda gid, target="": (
+            {"cover": [{"url": "https://cdn/c.png", "thumb": "https://cdn/c.png", "auto": True}]},
+            "",
+        ),
+    )
+    result = art.art_gallery("local-hades", "igdb", names=("Hades",))
+    assert result["provider"] == "igdb"
+    assert result["igdb_id"] == "1"
+    assert result["groups"]["cover"][0]["url"] == "https://cdn/c.png"
+    assert result["error"] == ""

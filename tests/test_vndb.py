@@ -404,3 +404,26 @@ def test_art_safe_without_a_clean_image_is_not_found(monkeypatch, xdg_env):
 def test_art_accepts_a_missing_entry(monkeypatch, xdg_env):
     _stub(monkeypatch, {"results": []})
     assert vndb.art("v999999") == ({}, "not-found")
+
+
+def test_art_options_lists_every_screenshot(monkeypatch, xdg_env):
+    """The chooser keeps the least-flagged order and marks the first row."""
+    _stub(
+        monkeypatch,
+        _art_payload(
+            {"url": "https://t.vndb.org/cv/1.jpg", "sexual": 0, "violence": 0, "dims": [800, 600]},
+            [
+                {"url": "https://t.vndb.org/sf/2.jpg", "sexual": 2, "violence": 0},
+                {"url": "https://t.vndb.org/sf/1.jpg", "sexual": 0.5, "violence": 0},
+            ],
+        ),
+    )
+    groups, error = vndb.art_options("v2002")
+    assert error == ""
+    assert [row["url"] for row in groups["banner"]] == [
+        "https://t.vndb.org/sf/1.jpg",
+        "https://t.vndb.org/sf/2.jpg",
+    ]
+    assert [row["auto"] for row in groups["banner"]] == [True, False]
+    assert groups["cover"][0]["auto"] is True
+    assert groups["cover"][0]["note"] == "800x600"

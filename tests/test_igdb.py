@@ -260,3 +260,32 @@ def test_art_without_images_is_not_found(monkeypatch, xdg_env):
     _creds()
     _stub(monkeypatch, rows=[{"name": "Hades"}])
     assert igdb.art("local-x", "1") == ({}, "not-found")
+
+
+def test_art_options_lists_every_banner_candidate(monkeypatch, xdg_env):
+    """The chooser keeps the art order and offers a smaller preview URL."""
+    _creds()
+    _stub(
+        monkeypatch,
+        rows=[
+            {
+                "cover": {"url": "//images.igdb.com/igdb/image/upload/t_thumb/co1.jpg"},
+                "artworks": [
+                    {"url": "//images.igdb.com/igdb/image/upload/t_thumb/ar1.jpg"},
+                    {"url": "//images.igdb.com/igdb/image/upload/t_thumb/ar2.jpg"},
+                ],
+                "screenshots": [{"url": "//images.igdb.com/igdb/image/upload/t_thumb/sc1.jpg"}],
+            }
+        ],
+    )
+    groups, error = igdb.art_options("local-hades", "1145360")
+    assert error == ""
+    assert [row["url"] for row in groups["banner"]] == [
+        "https://images.igdb.com/igdb/image/upload/t_1080p/ar1.jpg",
+        "https://images.igdb.com/igdb/image/upload/t_1080p/ar2.jpg",
+        "https://images.igdb.com/igdb/image/upload/t_1080p/sc1.jpg",
+    ]
+    assert [row["auto"] for row in groups["banner"]] == [True, False, False]
+    assert groups["cover"][0]["auto"] is True
+    assert groups["cover"][0]["thumb"].endswith("/t_cover_big/co1.jpg")
+    assert groups["banner"][0]["thumb"].endswith("/t_screenshot_med/ar1.jpg")

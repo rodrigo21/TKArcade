@@ -6,14 +6,25 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Fetch Artwork opens a chooser before any image is downloaded: every
+  source's candidates show as thumbnails, the row the automatic fetch
+  would pick is marked **Automatic** and starts selected, and the confirm
+  downloads only the selections. Steam's official assets (Library Cover,
+  Library Hero, Header, client icon) are included and probed so a missing
+  file stays out; SteamGridDB lists icons, covers and heroes, IGDB its
+  artworks and screenshots, and VNDB every screenshot. The identity
+  picker only resolves the game; the resolved SteamGridDB/IGDB/VNDB id is
+  written on confirm, and kinds the source cannot fill (the IGDB/VNDB
+  icon) are filled by the next provider only when empty. A chosen 32 px
+  official icon skips the SteamGridDB weak-icon upgrade.
 - Fetch Artwork gains VNDB as a fourth provider: it needs no key, fills
   the cover with a visual novel's image and the banner with its least
   flagged screenshot, and resolves `[metadata] vndb_id` from the dialog
   draft, the stored id, the cache or a title search (an exact title
   wins, otherwise the picker). A picked id is stored back and clears
-  `vndb_release` when the visual novel changes. The picker only opens
-  when the fetch downloaded nothing, so SteamGridDB icon-fill candidates
-  cannot replace the VNDB cover and banner. Preferences → Artwork
+  `vndb_release` when the visual novel changes. The identity picker only
+  opens when a title search cannot decide the game, so a SteamGridDB
+  icon-fill candidate cannot replace the VNDB cover and banner. Preferences → Artwork
   gains **Hide Explicit Artwork** (`[ui] hide_explicit_artwork`, off by
   default): it drops VNDB images flagged explicit or violent and
   SteamGridDB `nsfw` entries on downloads, and never touches stored

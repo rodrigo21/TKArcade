@@ -33,7 +33,6 @@ from .. import config as cfgmod
 from .. import exeicon as exeiconmod
 from .. import graphics as graphicsmod
 from .. import history as histmod
-from .. import igdb as igdbmod
 from .. import launcher as launchermod
 from .. import metadata as metamod
 from .. import protondb as pdbmod
@@ -2923,7 +2922,7 @@ class GameListModel(QAbstractTableModel):
             if ident:
                 signal.emit(str(appid), ident)
 
-    @Slot(str, str, str, str, str, result=str)
+    @Slot(str, str, str, str, str, str, result=str)
     def fetchArtwork(
         self,
         appid: str,
@@ -2931,19 +2930,22 @@ class GameListModel(QAbstractTableModel):
         source: str = "",
         igdb_id: str = "",
         vndb_id: str = "",
+        game_id: str = "",
     ) -> str:
-        """Re-download this game's art with the chosen provider. '' = ok.
+        """Collect this game's art candidates for the chooser. '' = ok.
 
         Target: the Artwork Source AppID typed in the dialog, then the
         game's own Steam AppID, then the SteamGridDB name lookup for a
         local game (IGDB or VNDB, when chosen, use the stored id or the
-        dialog draft, which wins when set).
+        dialog draft, which wins when set; ``game_id`` is the entry the
+        game picker just resolved).
         `provider` is the dialog draft, so a just-changed combo applies
         before Save; empty falls back to the game's key and then to the
-        global preference. Explicit, so it forces a refresh of the three
-        kinds. The outcome arrives as `artworkFetched(appid, status,
-        provider)` and, when the name matched several entries,
-        `artworkChoices(appid, rows)`; the dialog stays responsive.
+        global preference. Nothing is downloaded here: the outcome
+        arrives as `artworkGallery(appid, data)`, `artworkChoices(appid,
+        rows)` when a title search needs a game pick, or
+        `artworkFetched(appid, status, provider)` on error. The dialog
+        stays responsive.
         """
         if not appid:
             return "no-game"
@@ -2958,20 +2960,24 @@ class GameListModel(QAbstractTableModel):
         target, names = self._art_target(appid, source)
         if not target:
             return "no-appid"
-        draft_igdb = str(igdb_id or "").strip()
-        draft_vndb = str(vndb_id or "").strip()
-        # A source AppID's IGDB or VNDB entry belongs to that AppID, not
-        # this game.
-        owns_target = self._owns_art_target(appid, source)
 
         threading.Thread(
-            target=self._artwork_fetch_worker,
-            args=(appid, target, provider, api_key, names, draft_igdb, owns_target, draft_vndb),
+            target=self._artwork_gallery_worker,
+            args=(
+                appid,
+                target,
+                provider,
+                api_key,
+                names,
+                str(igdb_id or "").strip(),
+                str(vndb_id or "").strip(),
+                str(game_id or "").strip(),
+            ),
             daemon=True,
         ).start()
         return ""
 
-    def _artwork_fetch_worker(
+    def _artwork_gallery_worker(
         self,
         appid: str,
         target: str,
@@ -2979,127 +2985,204 @@ class GameListModel(QAbstractTableModel):
         api_key: str,
         names,
         draft_id: str,
-        owns_target: bool,
         draft_vndb: str = "",
+        game_id: str = "",
     ) -> None:
-        """Download and report one explicit Fetch Artwork request."""
-        status, provider_used, choices = "network", "", []
+        """Collect one explicit Fetch Artwork request without downloading."""
+        status = "network"
         try:
-            # A per-tile Clear marks the game, while the fetch target can be
-            # its Artwork Source AppID: drop both marks or the tile stays
-            # hidden after the target downloads.
-            artmod.unmark_cleared(str(appid))
-            if target != str(appid):
-                artmod.unmark_cleared(target)
-            extra = {}
-            if draft_id:
-                extra["igdb_id"] = draft_id
-            if draft_vndb:
-                extra["vndb_id"] = draft_vndb
-            result = artmod.fetch_best(target, provider, api_key, force=True, names=names, **extra)
-            self._reencode_downloads(result.get("art"))
-            self._upgrade_weak_icon(target, api_key)
-            self._store_art_identity(appid, result, owns_target)
+            result = artmod.art_gallery(
+                target,
+                provider,
+                api_key,
+                names=names,
+                igdb_id=draft_id,
+                vndb_id=draft_vndb,
+                game_id=game_id,
+            )
             choices = result.get("candidates") or []
-            if choices and not result["art"]:
-                # A title search needs a human pick before its art.
-                status = "choose"
-            else:
-                # Candidates can come from the SteamGridDB icon fill after
-                # the chosen provider already served the cover and banner;
-                # picking would replace that art, so only a fetch that
-                # downloaded nothing asks.
-                status = "ok" if result["art"] else (result["error"] or "no-art")
-            provider_used = result["provider"]
+            if choices:
+                # A title search needs a human pick before the images.
+                self.artworkChoices.emit(appid, choices)
+                self.artworkFetched.emit(appid, "choose", result.get("provider") or provider)
+                return
+            groups = {kind: rows for kind, rows in (result.get("groups") or {}).items() if rows}
+            if groups:
+                self.artworkGallery.emit(
+                    appid,
+                    {
+                        "provider": result.get("provider") or provider,
+                        "groups": groups,
+                        "igdb_id": str(result.get("igdb_id") or ""),
+                        "vndb_id": str(result.get("vndb_id") or ""),
+                        "game_id": str(result.get("game_id") or ""),
+                    },
+                )
+                return
+            status = result.get("error") or "no-art"
         except Exception as e:  # pragma: no cover - defensive
             log.warning("fetchArtwork(%s) failed: %s", appid, e)
-        if choices and status == "choose":
-            try:
-                self.artworkChoices.emit(appid, choices)
-            except Exception:
-                pass
-        self.artworkFetched.emit(appid, status, provider_used)
-        try:
-            self.backgroundDone.emit()
-        except Exception:
-            pass
+        self.artworkFetched.emit(appid, status, provider)
 
-    @Slot(str, str, str, str, result=str)
-    def fetchArtworkGame(
-        self, appid: str, game_id: str, provider: str = "sgdb", source: str = ""
+    @Slot(str, str, str, str, str, str, "QVariantList", result=str)
+    def downloadArtworkChoices(
+        self,
+        appid: str,
+        provider: str = "",
+        source: str = "",
+        igdb_id: str = "",
+        vndb_id: str = "",
+        game_id: str = "",
+        picks=None,
     ) -> str:
-        """Download the SteamGridDB, IGDB or VNDB entry the user picked."""
-        if not appid or not str(game_id).strip():
+        """Download the gallery's chosen images, then fill the missing kinds.
+
+        `picks` is [{"kind", "url", "provider"}, ...] from the chooser;
+        only those kinds are replaced. Kinds the chosen source does not
+        serve are filled by the normal chain when their slot is empty.
+        The outcome arrives as `artworkFetched(appid, status, provider)`
+        and the dialog stays responsive.
+        """
+        if not appid:
             return "no-game"
-        provider = provider if provider in ("sgdb", "igdb", "vndb") else "sgdb"
+        selections = [pick for pick in (picks or []) if isinstance(pick, dict)]
+        if not selections:
+            return "no-art"
         try:
-            api_key = cfgmod.load_preferences().sgdb_api_key.strip()
+            prefs = cfgmod.load_preferences()
+            api_key = prefs.sgdb_api_key.strip()
+            default = prefs.artwork_source
         except Exception:
-            api_key = ""
-        if provider == "igdb":
-            client_id, secret = igdbmod.credentials()
-            if not (client_id and secret):
-                return "no-igdb-key"
-        elif provider != "vndb" and not api_key:
-            return "no-key"
-        source = str(source or "").strip()
-        if not source:
-            try:
-                source = cfgmod.load(str(appid)).artwork.artwork_appid.strip()
-            except Exception:
-                source = ""
-        owns_target = not source
-        target = source if source.isdigit() else (steammod.steam_appid(str(appid)) or str(appid))
+            api_key, default = "", "steam"
+        provider = provider if provider in artmod.PROVIDERS else ""
+        provider = provider or self._game_provider(appid, default)
+        target, names = self._art_target(appid, source)
+        if not target:
+            return "no-appid"
+        owns_target = self._owns_art_target(appid, source)
 
         threading.Thread(
-            target=self._artwork_game_worker,
-            args=(appid, game_id, provider, api_key, target, owns_target),
+            target=self._artwork_download_worker,
+            args=(
+                appid,
+                target,
+                provider,
+                api_key,
+                names,
+                str(igdb_id or "").strip(),
+                str(vndb_id or "").strip(),
+                str(game_id or "").strip(),
+                owns_target,
+                selections,
+            ),
             daemon=True,
         ).start()
         return ""
 
-    def _artwork_game_worker(
+    @staticmethod
+    def _store_gallery_picks(target: str, picks, provider: str) -> tuple[dict, set[str]]:
+        """Store the chosen candidate URLs: (paths by kind, offered kinds)."""
+        stored: dict = {}
+        offered: set[str] = set()
+        for pick in picks:
+            kind = str(pick.get("kind") or "")
+            url = str(pick.get("url") or "")
+            picked_from = str(pick.get("provider") or provider)
+            if kind not in artmod.FETCH_KINDS or not url:
+                continue
+            offered.add(kind)
+            path = artmod.store_choice(target, kind, url, picked_from)
+            if path is not None:
+                stored[kind] = path
+        return stored, offered
+
+    def _fill_gallery_kinds(
         self,
         appid: str,
-        game_id: str,
+        target: str,
         provider: str,
         api_key: str,
-        target: str,
+        names,
+        igdb_id: str,
+        vndb_id: str,
+        fill: list[str],
         owns_target: bool,
+    ) -> tuple[dict, str]:
+        """Fill the kinds the source lacks: (paths, error token)."""
+        result = artmod.fetch_best(
+            target,
+            provider,
+            api_key,
+            kinds=tuple(fill),
+            force=True,
+            names=names,
+            igdb_id=igdb_id,
+            vndb_id=vndb_id,
+        )
+        self._store_art_identity(appid, result, owns_target)
+        return result.get("art") or {}, result.get("error") or ""
+
+    def _artwork_download_worker(
+        self,
+        appid: str,
+        target: str,
+        provider: str,
+        api_key: str,
+        names,
+        igdb_id: str,
+        vndb_id: str,
+        game_id: str,
+        owns_target: bool,
+        picks,
     ) -> None:
-        """Download one picked provider entry and report the outcome."""
+        """Download one gallery confirmation and report the outcome."""
         status = "network"
         provider_used = provider
+        stored: dict = {}
+        error = ""
+        offered: set[str] = set()
         try:
-            # A picked entry is an explicit restore: the game's own Clear
-            # mark and the target's must both go.
+            # Fetch is explicit: the game's own Clear mark and the target's
+            # must both go, or the tiles stay hidden after the download.
             artmod.unmark_cleared(str(appid))
             artmod.unmark_cleared(target)
-            if provider in ("igdb", "vndb"):
-                draft_key = f"{provider}_id"
-                picked = str(game_id).strip()
-                self._store_art_identity(appid, {draft_key: picked}, owns_target)
-                result = artmod.fetch_best(
+            stored, offered = self._store_gallery_picks(target, picks, provider)
+            if game_id and not target.isdigit():
+                # The sidecar id belongs to a name lookup, like the
+                # automatic fetch stores it.
+                artmod.store_sgdb_id(target, game_id, "")
+            self._store_art_identity(appid, {"igdb_id": igdb_id, "vndb_id": vndb_id}, owns_target)
+            fill = [
+                kind
+                for kind in artmod.FETCH_KINDS
+                if kind not in offered and artmod.cached_path(target, kind) is None
+            ]
+            filled: dict = {}
+            if fill:
+                filled, error = self._fill_gallery_kinds(
+                    appid,
                     target,
                     provider,
                     api_key,
-                    force=True,
-                    names=tuple(self._name_queries(appid)),
-                    **{draft_key: picked},
+                    names,
+                    igdb_id,
+                    vndb_id,
+                    fill,
+                    owns_target,
                 )
-                self._reencode_downloads(result.get("art"))
-                status = "ok" if result["art"] else (result["error"] or "no-art")
-                provider_used = result["provider"] or provider
+            self._reencode_downloads({**stored, **filled})
+            if "icon" not in offered:
+                # The chain filled the icon: the weak-icon upgrade still
+                # applies. A user-picked icon always wins over it.
+                self._upgrade_weak_icon(target, api_key)
+            if stored or filled:
+                status = "ok"
+            elif error:
+                status = error
             else:
-                art = artmod.fetch_sgdb_game(target, str(game_id).strip(), api_key, force=True)
-                if art:
-                    self._reencode_downloads(art)
-                    artmod.store_sgdb_id(target, str(game_id).strip(), "")
-                    status = "ok"
-                else:
-                    status = "no-art"
+                status = "no-art"
         except Exception as e:  # pragma: no cover - defensive
-            log.warning("fetchArtworkGame(%s) failed: %s", appid, e)
+            log.warning("downloadArtworkChoices(%s) failed: %s", appid, e)
         self.artworkFetched.emit(appid, status, provider_used)
         try:
             self.backgroundDone.emit()
@@ -5106,6 +5189,12 @@ class GameListModel(QAbstractTableModel):
     #: "blocked", "network" or "no-art"; provider is "steam", "sgdb",
     #: "igdb", "vndb" or "".
     artworkFetched = Signal(str, str, str)
+    #: (appid, {"provider", "groups", "igdb_id", "vndb_id", "game_id"})
+    #: when Fetch Artwork has candidates to show. Groups is
+    #: {kind: [{"url", "thumb", "auto", "label", "note"}, ...]}; the
+    #: first row of a kind is the automatic pick and nothing is
+    #: downloaded yet.
+    artworkGallery = Signal(str, "QVariantMap")
     #: (appid, igdb_id) when an explicit art action resolved the IGDB
     #: game; the open dialog writes the draft identity back.
     igdbResolved = Signal(str, str)

@@ -187,6 +187,12 @@ Window {
     property string artOriginBackground: ""
     // Kind of the URL prompt currently open.
     property string artUrlKind: ""
+    // Identity and source behind the open chooser: the confirm writes
+    // them back and fills the kinds the source cannot serve.
+    property string artGalleryProvider: ""
+    property string artGalleryIgdb: ""
+    property string artGalleryVndb: ""
+    property string artGalleryGame: ""
     // One width for every button in the Artwork section (and the matching
     // spacer on the rows with fewer buttons), so the fields line up in a
     // column instead of each button taking its own text width.
@@ -1813,19 +1819,20 @@ Window {
     }
 
     function fetchArtwork() {
-        artResult = ""
         var err = gameModel.fetchArtwork(
             editAppid,
             String(artProviderCombo.currentValue || ""),
             artSourceField.text,
             igdbIdField.text.trim(),
-            vndbIdField.text.trim())
+            vndbIdField.text.trim(),
+            "")
         var messages = {
             "": qsTr("Fetching Artwork…"),
             "no-game": qsTr("Save the Game First."),
             "no-appid": qsTr("Enter a Steam AppID or Save the Game With a Name First.")
         }
-        artStatusLabel.text = messages[err] || err
+        artResult = messages[err] || err
+        artStatusLabel.text = artResult
     }
 
     // Outcome of the worker thread behind Fetch Artwork.
@@ -1850,6 +1857,69 @@ Window {
         }
         artResult = text
         refreshArtStatus()
+    }
+
+    // Fetch Artwork collected the candidates: open the chooser with fresh
+    // JS arrays (a QVariantList lays out at zero width on Qt 6.11).
+    function openArtworkGallery(data) {
+        var map = data.groups || ({})
+        var order = ["icon", "cover", "banner"]
+        var groups = []
+        for (var i = 0; i < order.length; i++) {
+            var kind = order[i]
+            var source = map[kind] || []
+            if (source.length === 0) {
+                continue
+            }
+            var items = []
+            for (var j = 0; j < source.length; j++) {
+                var row = source[j]
+                items.push({
+                    "url": String(row.url || ""),
+                    "thumb": String(row.thumb || row.url || ""),
+                    "auto": row.auto === true,
+                    "label": String(row.label || ""),
+                    "note": String(row.note || "")
+                })
+            }
+            groups.push({"kind": kind, "label": artKindLabel(kind), "items": items})
+        }
+        artGalleryProvider = String(data.provider || "")
+        artGalleryIgdb = String(data.igdb_id || "")
+        artGalleryVndb = String(data.vndb_id || "")
+        artGalleryGame = String(data.game_id || "")
+        if (groups.length === 0) {
+            return
+        }
+        artResult = qsTr("Choose the Images to Download.")
+        artStatusLabel.text = artResult
+        artChooser.openWith(artDialogParent(), artGalleryProvider, groups)
+    }
+
+    function artKindLabel(kind) {
+        return kind === "icon" ? qsTr("Icon")
+            : (kind === "cover" ? qsTr("Cover") : qsTr("Banner"))
+    }
+
+    // The chooser confirmed: download the picks, then let the model fill
+    // the kinds this source cannot serve.
+    function applyArtworkPicks(picks) {
+        artResult = qsTr("Downloading the Chosen Artwork…")
+        var err = gameModel.downloadArtworkChoices(
+            editAppid,
+            artGalleryProvider,
+            artSourceField.text,
+            artGalleryIgdb,
+            artGalleryVndb,
+            artGalleryGame,
+            picks)
+        var messages = {
+            "": qsTr("Downloading the Chosen Artwork…"),
+            "no-game": qsTr("Save the Game First."),
+            "no-appid": qsTr("Enter a Steam AppID or Save the Game With a Name First."),
+            "no-art": qsTr("No Artwork Was Chosen.")
+        }
+        artStatusLabel.text = messages[err] || err
     }
 
     function askChoice(purpose, items, arg) {
@@ -1904,15 +1974,22 @@ Window {
             if (pick !== undefined && pick.data !== "") {
                 artResult = ""
                 var provider = String(pick.provider || pendingArg || "sgdb")
-                var err = gameModel.fetchArtworkGame(
-                    editAppid, String(pick.data), provider, artSourceField.text)
+                // The pick only resolves the game; the chooser still comes
+                // before any artwork is downloaded.
+                var err = gameModel.fetchArtwork(
+                    editAppid,
+                    provider,
+                    artSourceField.text,
+                    igdbIdField.text.trim(),
+                    vndbIdField.text.trim(),
+                    String(pick.data))
                 var messages = {
                     "": qsTr("Fetching Artwork…"),
                     "no-game": qsTr("Save the Game First."),
-                    "no-key": qsTr("Set the SteamGridDB Key in Preferences → Artwork → API Keys."),
-                    "no-igdb-key": qsTr("Set the IGDB Client ID and Secret in Preferences → Artwork → API Keys.")
+                    "no-appid": qsTr("Enter a Steam AppID or Save the Game With a Name First.")
                 }
-                artStatusLabel.text = messages[err] || err
+                artResult = messages[err] || err
+                artStatusLabel.text = artResult
             }
         }
     }
@@ -2719,6 +2796,13 @@ Window {
             }
             releaseLoading = false
             releaseRows = rows || []
+        }
+        // Fetch Artwork collected the candidates: the chooser shows them
+        // and nothing is written until it is confirmed.
+        function onArtworkGallery(appid, data) {
+            if (appid === editAppid && gameSettings.visible) {
+                openArtworkGallery(data || ({}))
+            }
         }
         // The name matched several provider entries: ask which one.
         function onArtworkChoices(appid, rows) {
@@ -5209,6 +5293,19 @@ Window {
             id: choiceError
             visible: text !== ""
             color: Kirigami.Theme.negativeTextColor
+        }
+    }
+
+    // Provider candidates behind Fetch Artwork: the automatic pick is
+    // preselected and marked; the confirm downloads only the selections.
+    ArtworkChooser {
+        id: artChooser
+        onApplyRequested: function(picks) {
+            gameSettings.applyArtworkPicks(picks)
+        }
+        onCancelled: {
+            artResult = ""
+            refreshArtStatus()
         }
     }
 

@@ -36,6 +36,8 @@ FETCH_FIELDS = (
 #: no square icon.
 ART_FIELDS = "cover.url,artworks.url,screenshots.url"
 ART_SIZES = {"cover": "t_720p", "banner": "t_1080p"}
+#: Smaller tokens for the chooser thumbnails; the download keeps ART_SIZES.
+ART_PREVIEW_SIZES = {"cover": "t_cover_big", "banner": "t_screenshot_med"}
 SEARCH_RESULTS = 10
 
 #: IGDB age-rating value -> ``config.AGE_RATINGS`` entry. The enum is one
@@ -334,12 +336,40 @@ def _image(url: object, size: str) -> str:
     return text.replace("/t_thumb/", f"/{size}/")
 
 
-def art(game_id: str, target: str = "", timeout: int = 15) -> tuple[dict[str, str], str]:
-    """Cover and banner URLs for one game: ({"cover", "banner"}, error).
+def _option(url: str, thumb: str, auto: bool = False) -> dict:
+    """One chooser row; the first row of a kind is the automatic pick."""
+    return {"url": url, "thumb": thumb or url, "auto": auto, "label": "", "note": ""}
 
-    IGDB has no square icon. The banner is the first artwork and falls
-    back to a screenshot, both 16:9; the views crop it into their box.
-    Error tokens: "no-igdb-key", "no-id", "not-found".
+
+def _artwork_banner(data: dict) -> list[dict]:
+    """Every artwork then every screenshot, deduplicated, first marked auto."""
+    banner: list[dict] = []
+    seen: set[str] = set()
+    for key in ("artworks", "screenshots"):
+        entries = data.get(key)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict) or not entry.get("url"):
+                continue
+            url = _image(entry["url"], ART_SIZES["banner"])
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            banner.append(_option(url, _image(entry["url"], ART_PREVIEW_SIZES["banner"])))
+    if banner:
+        banner[0]["auto"] = True
+    return banner
+
+
+def art_options(
+    game_id: str, target: str = "", timeout: int = 15
+) -> tuple[dict[str, list[dict]], str]:
+    """Candidate images per kind: ({"cover": [...], "banner": [...]}, error).
+
+    The first row of each kind is the automatic pick. The banner lists
+    artworks before screenshots, both 16:9. Error tokens: "no-igdb-key",
+    "no-id", "not-found".
     """
     client_id, secret = credentials()
     if not (client_id and secret):
@@ -351,18 +381,26 @@ def art(game_id: str, target: str = "", timeout: int = 15) -> tuple[dict[str, st
     if not rows or not isinstance(rows[0], dict):
         return {}, "not-found"
     data = rows[0]
+    out: dict[str, list[dict]] = {}
     cover = data.get("cover")
     cover_url = _image(cover.get("url") if isinstance(cover, dict) else "", ART_SIZES["cover"])
-    banner_url = ""
-    for key in ("artworks", "screenshots"):
-        entries = data.get(key)
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if isinstance(entry, dict) and entry.get("url"):
-                banner_url = _image(entry["url"], ART_SIZES["banner"])
-                break
-        if banner_url:
-            break
-    found = {kind: url for kind, url in (("cover", cover_url), ("banner", banner_url)) if url}
+    if cover_url:
+        thumb = _image(cover.get("url"), ART_PREVIEW_SIZES["cover"])
+        out["cover"] = [_option(cover_url, thumb, auto=True)]
+    banner = _artwork_banner(data)
+    if banner:
+        out["banner"] = banner
+    return (out, "") if out else ({}, "not-found")
+
+
+def art(game_id: str, target: str = "", timeout: int = 15) -> tuple[dict[str, str], str]:
+    """Cover and banner URLs for one game: ({"cover", "banner"}, error).
+
+    Wraps `art_options` and keeps the automatic pick. IGDB has no square
+    icon.
+    """
+    options, error = art_options(game_id, target, timeout)
+    if error:
+        return {}, error
+    found = {kind: rows[0]["url"] for kind, rows in options.items() if rows}
     return (found, "") if found else ({}, "not-found")

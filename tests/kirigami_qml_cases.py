@@ -2705,12 +2705,9 @@ def test_select_all_and_empty_click_clears(qgui_app, xdg_env):
 
 
 def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
-    """Artwork tab: per-game provider, Fetch, name choices and Clear."""
-    from pathlib import Path
-
+    """Artwork tab: per-game provider, the chooser, name choices and Clear."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import artwork
     from tkarcade import config as C
@@ -2741,44 +2738,97 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     assert status is not None
     fetched = []
 
-    def fake_best(
-        appid, provider="steam", api_key="", kinds=artwork.ART_KINDS, force=False, names=()
+    def fake_gallery(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.FETCH_KINDS,
+        names=(),
+        igdb_id="",
+        vndb_id="",
+        game_id="",
     ):
-        fetched.append((appid, provider, force, tuple(names)))
+        fetched.append((appid, provider, tuple(names)))
         return {
-            "art": {"cover": Path("/tmp/c.png")},
             "provider": provider,
-            "error": "",
-            "name": "",
-            "valid": False,
+            "groups": {
+                "cover": [
+                    {
+                        "url": "https://cdn/cover.png",
+                        "thumb": "https://cdn/cover.png",
+                        "auto": True,
+                        "label": "",
+                        "note": "",
+                    },
+                    {
+                        "url": "https://cdn/cover-alt.png",
+                        "thumb": "https://cdn/cover-alt.png",
+                        "auto": False,
+                        "label": "",
+                        "note": "",
+                    },
+                ],
+                "banner": [
+                    {
+                        "url": "https://cdn/banner.png",
+                        "thumb": "https://cdn/banner.png",
+                        "auto": True,
+                        "label": "Library Hero",
+                        "note": "",
+                    }
+                ],
+            },
+            "igdb_id": "",
+            "vndb_id": "",
             "game_id": "7",
             "candidates": [],
+            "error": "",
         }
 
-    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    monkeypatch.setattr(artwork, "art_gallery", fake_gallery)
+    model = engine.rootContext().contextProperty("gameModel")
+    downloads = []
+    model.downloadArtworkChoices = lambda appid, provider, source, igdb, vndb, gid, picks: (
+        downloads.append((appid, provider, source, igdb, vndb, gid, picks)) or ""
+    )
     _click(swin, "artFetch")
-    for _ in range(40):
-        if "Downloaded" in status.property("text"):
-            break
-        qgui_app.processEvents()
-        QTest.qWait(50)
+    chooser = _confirm_window(qgui_app, "artChooser")
+    assert chooser.isVisible() is True
+    # Search Data is modal: the chooser must be transient to it, not to the
+    # game dialog behind it, or it lands out of reach.
+    parent = chooser.transientParent()
+    assert parent is not None and parent.objectName() == "searchData", parent
     # The combo draft applies before Save, and the typed AppID is the target.
-    assert fetched == [("480", "sgdb", True, ())], fetched
-    assert "Artwork Downloaded" in status.property("text"), status.property("text")
-    assert "SteamGridDB Artwork" in status.property("text"), status.property("text")
+    assert fetched == [("480", "sgdb", ())], fetched
+    # The automatic row starts selected on every offered kind.
+    chosen = chooser.property("selections")
+    if hasattr(chosen, "toVariant"):
+        chosen = chosen.toVariant()
+    assert chosen.get("cover") == "https://cdn/cover.png", chosen
+    assert chosen.get("banner") == "https://cdn/banner.png", chosen
+    assert "Choose the Images" in status.property("text"), status.property("text")
+    # Swapping a row is what the confirm downloads.
+    chooser.setProperty(
+        "selections",
+        {"cover": "https://cdn/cover-alt.png", "banner": "https://cdn/banner.png"},
+    )
+    _click(chooser, "dialogOk")
+    qgui_app.processEvents()
+    assert downloads, downloads
+    picks = downloads[0][6]
+    assert {"kind": "cover", "url": "https://cdn/cover-alt.png", "provider": "sgdb"} in picks, picks
+    assert {"kind": "banner", "url": "https://cdn/banner.png", "provider": "sgdb"} in picks, picks
+    assert "Downloading the Chosen" in status.property("text"), status.property("text")
 
-    # IGDB is the third entry; the status names it after the fetch.
+    # IGDB is the third entry; its gallery opens for that provider.
     combo.setProperty("currentIndex", 3)
     qgui_app.processEvents()
     fetched.clear()
     _click(swin, "artFetch")
-    for _ in range(40):
-        if "IGDB Artwork" in status.property("text"):
-            break
-        qgui_app.processEvents()
-        QTest.qWait(50)
-    assert fetched == [("480", "igdb", True, ())], fetched
-    assert "IGDB Artwork" in status.property("text"), status.property("text")
+    chooser = _confirm_window(qgui_app, "artChooser")
+    assert fetched == [("480", "igdb", ())], fetched
+    _click(chooser, "dialogCancel")
+    qgui_app.processEvents()
 
     # The buttons in the section share one width and the fields line up in
     # one column (the provider row carries two spacers).
@@ -2798,28 +2848,25 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     for gone in ("artIcon", "artCover", "artBanner", "artIconClear"):
         assert swin.findChild(QQuickItem, gone) is None, gone
 
-    # Several name matches: the list asks, and the pick goes to the model.
-    model = engine.rootContext().contextProperty("gameModel")
-    # A resolved IGDB identity reaches the dialog draft at once.
+    # Several name matches: the pick resolves the game and reopens the
+    # gallery, still without downloading anything.
     model.igdbResolved.emit("local-doom", "1145360")
     qgui_app.processEvents()
     assert swin.findChild(QQuickItem, "settingsIgdbId").property("text") == "1145360"
     picked = []
-    model.fetchArtworkGame = lambda appid, gid, provider="sgdb", source="": (
-        picked.append((appid, gid, provider, source)) or ""
+    model.fetchArtwork = lambda appid, provider="", source="", igdb="", vndb="", gid="": (
+        picked.append((appid, provider, source, igdb, vndb, gid)) or ""
     )
     model.artworkChoices.emit("local-doom", [{"id": "7", "name": "Doom"}])
     qgui_app.processEvents()
     prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
     assert prompt.isVisible() is True
-    # Search Data is modal: the picker must be transient to it, not to the
-    # game dialog behind it, or it lands out of reach.
     parent = prompt.transientParent()
     assert parent is not None and parent.objectName() == "searchData", parent
     box = prompt.findChild(QQuickItem, "settingsChoiceBox")
     assert box.property("count") == 1, box.property("count")
     _click(prompt, "dialogOk")
-    assert picked == [("local-doom", "7", "sgdb", "480")], picked
+    assert picked == [("local-doom", "sgdb", "480", "1145360", "", "7")], picked
 
     # An IGDB title search carries its provider and the source draft.
     picked.clear()
@@ -2829,7 +2876,7 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     qgui_app.processEvents()
     prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
     _click(prompt, "dialogOk")
-    assert picked == [("local-doom", "1", "igdb", "480")], picked
+    assert picked == [("local-doom", "igdb", "480", "1145360", "", "1")], picked
 
     # Clear… asks first; with a typed AppID it removes that AppID's cache.
     cleared = []

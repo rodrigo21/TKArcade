@@ -369,13 +369,33 @@ def fetch(game_id: str, target: str = "", timeout: int = 15, release: str = "") 
     }
 
 
-def art(vn_id: str, timeout: int = 15, safe: bool = False) -> tuple[dict[str, str], str]:
-    """Cover and banner URLs for one visual novel: ({"cover", "banner"}, error).
+def _dims(image: object) -> str:
+    """Pixel-size label for the chooser ("" when VNDB omits it)."""
+    if not isinstance(image, dict):
+        return ""
+    dims = image.get("dims")
+    if not isinstance(dims, list) or len(dims) != 2:
+        return ""
+    try:
+        return f"{int(dims[0])}x{int(dims[1])}"
+    except (TypeError, ValueError):
+        return ""
 
-    The cover is the visual novel's own image; the banner is the least
-    flagged screenshot, cropped by the views like any wide art. With
-    `safe`, images flagged explicit or violent are dropped. Error tokens:
-    "no-id", "not-found".
+
+def _art_option(image: dict, auto: bool = False) -> dict:
+    url = _image_url(image)
+    return {"url": url, "thumb": url, "auto": auto, "label": "", "note": _dims(image)}
+
+
+def art_options(
+    vn_id: str, timeout: int = 15, safe: bool = False
+) -> tuple[dict[str, list[dict]], str]:
+    """Candidate images per kind: ({"cover": [...], "banner": [...]}, error).
+
+    The cover is the visual novel's own image; the banner lists every
+    screenshot, least flagged first, and the first row is the automatic
+    pick. With `safe`, images flagged explicit or violent are dropped.
+    Error tokens: "no-id", "not-found".
     """
     wanted = cfgmod.normalize_vndb_id(vn_id)
     if not wanted:
@@ -388,8 +408,10 @@ def art(vn_id: str, timeout: int = 15, safe: bool = False) -> tuple[dict[str, st
     if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
         return {}, "not-found"
     row = rows[0]
+    out: dict[str, list[dict]] = {}
     image = row.get("image")
-    cover = "" if safe and _explicit(image) else _image_url(image)
+    if not (safe and _explicit(image)) and _image_url(image):
+        out["cover"] = [_art_option(image, auto=True)]
     shots = row.get("screenshots")
     usable = [
         shot
@@ -397,6 +419,19 @@ def art(vn_id: str, timeout: int = 15, safe: bool = False) -> tuple[dict[str, st
         if isinstance(shot, dict) and _image_url(shot) and not (safe and _explicit(shot))
     ]
     usable.sort(key=lambda shot: (_flag(shot, "sexual"), _flag(shot, "violence")))
-    banner = _image_url(usable[0]) if usable else ""
-    found = {kind: url for kind, url in (("cover", cover), ("banner", banner)) if url}
+    banner = [_art_option(shot, auto=not index) for index, shot in enumerate(usable)]
+    if banner:
+        out["banner"] = banner
+    return (out, "") if out else ({}, "not-found")
+
+
+def art(vn_id: str, timeout: int = 15, safe: bool = False) -> tuple[dict[str, str], str]:
+    """Cover and banner URLs for one visual novel: ({"cover", "banner"}, error).
+
+    Wraps `art_options` and keeps the automatic pick.
+    """
+    options, error = art_options(vn_id, timeout, safe)
+    if error:
+        return {}, error
+    found = {kind: rows[0]["url"] for kind, rows in options.items() if rows}
     return (found, "") if found else ({}, "not-found")

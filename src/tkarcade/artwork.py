@@ -88,6 +88,18 @@ VNDB_KINDS = ("cover", "banner")
 #: Shape of the SteamGridDB entry each kind wants.
 _KIND_SHAPE = {"icon": "square", "cover": "portrait", "banner": "landscape"}
 
+#: Most candidates the chooser offers per kind: the list is already sorted
+#: best first, so the automatic pick never falls outside the cap.
+GALLERY_LIMIT = 60
+
+#: Human labels for the official Steam files in the chooser.
+_STEAM_LABELS = {
+    "library_600x900_2x.jpg": "Library Cover (2x)",
+    "library_600x900.jpg": "Library Cover",
+    "library_hero.jpg": "Library Hero",
+    "header.jpg": "Header",
+}
+
 #: Official Steam files per kind, best first. The client icon has no
 #: square sibling besides the .ico, and a few apps ship only the small
 #: 32x32 jpg: `header.jpg` is the last resort (the views crop it).
@@ -1023,6 +1035,22 @@ def _get_json(url: str, api_key: str = "") -> dict | list | None:
     return data if isinstance(data, (dict, list)) else None
 
 
+def _url_exists(url: str, timeout: int = 5) -> bool:
+    """True when a HEAD request says a Steam asset exists.
+
+    Only a 404 hides a candidate; a network or CDN failure keeps it, so a
+    hiccup never removes the automatic pick from the chooser.
+    """
+    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return 200 <= getattr(response, "status", 200) < 400
+    except urllib.error.HTTPError as e:
+        return e.code != 404
+    except Exception:
+        return True
+
+
 def steam_app(appid: str) -> dict | None:
     """Official Steam record for an AppID: {"name", "icon"}, or None.
 
@@ -1451,6 +1479,257 @@ def fetch_vndb(
     if out:
         store_vndb_id(gid, resolved)
     return out, "" if out else "no-art"
+
+
+# --------------------------------------------------------------------
+# Chooser candidates (no download)
+
+
+def _entry_note(entry: dict) -> str:
+    """Small label under a SteamGridDB thumb: size and style."""
+    parts: list[str] = []
+    try:
+        width = int(entry.get("width") or 0)
+        height = int(entry.get("height") or 0)
+    except (TypeError, ValueError):
+        width = height = 0
+    if width and height:
+        parts.append(f"{width}x{height}")
+    style = str(entry.get("style") or "").strip()
+    if style:
+        parts.append(style)
+    return " / ".join(parts)
+
+
+def _steam_label(kind: str, url: str) -> str:
+    """Readable name of one official Steam asset."""
+    name = url.rsplit("/", 1)[-1]
+    if kind == "icon":
+        if name.endswith(".ico"):
+            return "Client Icon"
+        if name != "header.jpg":
+            return "Client Icon (32 px)"
+    return _STEAM_LABELS.get(name, name)
+
+
+def steam_options(appid: str, kinds=FETCH_KINDS, info: dict | None = None) -> dict[str, list[dict]]:
+    """Official Steam candidates per kind, missing assets hidden.
+
+    The first row of each kind is the automatic pick, the same file
+    order `fetch_official` tries.
+    """
+    gid = _art_key(appid)
+    if not gid.isdigit():
+        return {}
+    if info is None:
+        info = steam_app(gid)
+    icon_hash = str((info or {}).get("icon", "") or "")
+    out: dict[str, list[dict]] = {}
+    for kind in kinds:
+        if kind not in FETCH_KINDS:
+            continue
+        rows: list[dict] = []
+        for url in _official_candidates(gid, kind, info):
+            if not _url_exists(url):
+                continue
+            thumb = url
+            if kind == "icon" and url.endswith(".ico") and icon_hash:
+                # Qt reads only the first ICO frame; the 32 px jpg of the
+                # same hash previews the multi-size icon correctly.
+                thumb = COMMUNITY_CDN.format(appid=gid, name=f"{icon_hash}.jpg")
+            rows.append(
+                {
+                    "url": url,
+                    "thumb": thumb,
+                    "auto": not rows,
+                    "label": _steam_label(kind, url),
+                    "note": "",
+                }
+            )
+        if rows:
+            out[kind] = rows
+    return out
+
+
+def sgdb_game_options(
+    game_id: str, api_key: str, kinds=FETCH_KINDS, safe: bool | None = None
+) -> dict[str, list[dict]]:
+    """SteamGridDB candidates per kind, sorted like the automatic pick."""
+    safe = _safe_downloads() if safe is None else safe
+    out: dict[str, list[dict]] = {}
+    for kind in kinds:
+        if kind not in FETCH_KINDS:
+            continue
+        entries = _sgdb_thumbs(game_id, kind, api_key, safe)[:GALLERY_LIMIT]
+        rows = []
+        for entry in entries:
+            thumb = str(entry.get("thumb") or "")
+            if not thumb:
+                continue
+            rows.append(
+                {
+                    "url": thumb,
+                    "thumb": thumb,
+                    "auto": not rows,
+                    "label": "",
+                    "note": _entry_note(entry),
+                }
+            )
+        if rows:
+            out[kind] = rows
+    return out
+
+
+def store_choice(appid: str, kind: str, url: str, provider: str) -> Path | None:
+    """Download one chosen candidate into the kind's cache slot.
+
+    The URL comes from our own provider payload, so only https is
+    accepted; `_store` still sniffs the body before writing.
+    """
+    if kind not in FETCH_KINDS or provider not in PROVIDERS:
+        return None
+    if not str(url).startswith("https://"):
+        return None
+    gid = _art_key(appid)
+    path = _store(gid, kind, url)
+    if path is None:
+        return None
+    _write_manifest(gid, kind, provider)
+    if kind == "icon" and provider == "sgdb":
+        _mark_icon_chain(gid)
+    return path
+
+
+def _gallery_result(result: dict, provider: str, groups: dict) -> dict:
+    """Fill a gallery result with one provider's groups, capped per kind."""
+    groups = {kind: rows[:GALLERY_LIMIT] for kind, rows in groups.items() if rows}
+    result["provider"] = provider
+    result["groups"] = groups
+    if not groups:
+        result["error"] = result.get("error") or "no-art"
+    return result
+
+
+def _gallery_sgdb(result: dict, gid: str, api_key: str, kinds, names, game_id: str) -> dict:
+    """SteamGridDB candidates after resolving the game id (no download)."""
+    if not (api_key or "").strip():
+        result["error"] = "no-key"
+        return result
+    game = str(game_id or "").strip() or stored_sgdb_id(gid)
+    if not game and gid.isdigit():
+        game = _sgdb_game_id(gid, api_key)
+    if not game and names:
+        game, _label, candidates = _resolve_sgdb_game(api_key, names)
+        if not game:
+            result["candidates"] = candidates
+            result["error"] = "no-match" if candidates else "not-found"
+            return result
+    if not game:
+        result["error"] = "not-found"
+        return result
+    result["game_id"] = game
+    return _gallery_result(result, "sgdb", sgdb_game_options(game, api_key, kinds))
+
+
+def _gallery_names(gid: str, names) -> tuple:
+    """Title queries; a Steam AppID contributes its official name."""
+    wanted = tuple(str(name).strip() for name in names if str(name or "").strip())
+    if wanted:
+        return wanted
+    if gid.isdigit():
+        info = steam_app(gid)
+        label = str((info or {}).get("name", "") or "").strip()
+        return (label,) if label else ()
+    return ()
+
+
+def _gallery_igdb(result: dict, gid: str, kinds, names, igdb_id: str, game_id: str) -> dict:
+    """IGDB candidates after resolving its game id (no download)."""
+    draft = str(game_id or "").strip() or igdb_id
+    if not _resolved_igdb_id(gid, draft):
+        names = _gallery_names(gid, names)
+    resolved, candidates, error = _igdb_lookup(gid, draft, names)
+    if candidates:
+        result["candidates"] = candidates
+        result["error"] = error
+        return result
+    if not resolved:
+        result["error"] = error or "no-id"
+        return result
+    groups, error = igdbmod.art_options(gid, resolved)
+    result["igdb_id"] = resolved
+    if error:
+        result["error"] = error
+        return result
+    return _gallery_result(result, "igdb", groups)
+
+
+def _gallery_vndb(result: dict, gid: str, kinds, names, vndb_id: str, game_id: str) -> dict:
+    """VNDB candidates after resolving its visual novel id (no download)."""
+    draft = str(game_id or "").strip() or vndb_id
+    if not _resolved_vndb_id(gid, draft):
+        names = _gallery_names(gid, names)
+    resolved, candidates, error = _vndb_lookup(gid, draft, names)
+    if candidates:
+        result["candidates"] = candidates
+        result["error"] = error
+        return result
+    if not resolved:
+        result["error"] = error or "no-vndb-id"
+        return result
+    groups, error = vndbmod.art_options(resolved, safe=_safe_downloads())
+    result["vndb_id"] = resolved
+    if error:
+        result["error"] = error
+        return result
+    return _gallery_result(result, "vndb", groups)
+
+
+def art_gallery(
+    appid: str,
+    provider: str = "steam",
+    api_key: str = "",
+    kinds=FETCH_KINDS,
+    names=(),
+    igdb_id: str = "",
+    vndb_id: str = "",
+    game_id: str = "",
+) -> dict:
+    """Candidate images for the chooser, with no download and no cache write.
+
+    Returns {"provider": effective source, "groups": {kind: [item]},
+    "igdb_id", "vndb_id", "game_id" (SteamGridDB), "candidates" (game
+    identity search) and "error"}. Each item is {"url", "thumb", "auto",
+    "label", "note"}; the first row of a kind is the automatic pick.
+
+    A local game without an AppID, or a Steam AppID without official
+    assets, falls to SteamGridDB like the fetch chain does. A chosen
+    IGDB or VNDB source that cannot resolve reports its own error.
+    """
+    result = {
+        "provider": "",
+        "groups": {},
+        "igdb_id": "",
+        "vndb_id": "",
+        "game_id": "",
+        "candidates": [],
+        "error": "",
+    }
+    gid = _art_key(appid)
+    provider = provider if provider in PROVIDERS else "steam"
+    wanted = tuple(kind for kind in kinds if kind in FETCH_KINDS)
+    if not wanted:
+        return result
+    if provider == "steam":
+        groups = steam_options(gid, wanted) if gid.isdigit() else {}
+        if groups:
+            return _gallery_result(result, "steam", groups)
+        provider = "sgdb"
+    if provider == "sgdb":
+        return _gallery_sgdb(result, gid, api_key, wanted, tuple(names), game_id)
+    if provider == "igdb":
+        return _gallery_igdb(result, gid, wanted, tuple(names), igdb_id, game_id)
+    return _gallery_vndb(result, gid, wanted, tuple(names), vndb_id, game_id)
 
 
 # --------------------------------------------------------------------
