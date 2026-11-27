@@ -10,23 +10,25 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: eighty batches. The latest turns the manual Fetch Artwork
-  into a chooser: every provider's candidates load as thumbnails, the
-  row the automatic fetch would pick is marked and preselected, Steam
-  official assets are probed and labelled, and only the selected images
-  are written on confirm. The chain fills the kinds the source cannot
-  serve (the IGDB/VNDB icon) only when empty; a chosen icon skips the
-  weak-icon upgrade. The resolved IGDB/VNDB/SGDB identity is stored on
-  confirm, never on the preview, and the identity picker only decides
-  the game. Previews stay in Qt memory and never enter the artwork
-  cache.
-- Verified: `scripts/check.sh --qml` (880 passed, 3 skipped) on the
-  landed diff; the offscreen chooser screenshot showed no clipping; the
-  venv was refreshed after the merge and push.
+- Landed: eighty-two batches. The latest two: the chooser keeps a kind
+  (a second click deselects it, so the confirm neither downloads nor
+  chain-fills that kind), offers the source's banner candidates as a
+  Background section with **Use the Banner** copying the chosen banner
+  instead of downloading it twice, and grew the cover and wide
+  previews; the library backdrop now shows the whole background
+  picture, a sharp aspect-fit copy over a blurred cropped copy that
+  fills the page. Resolved identities are stored on confirm, and
+  previews stay in Qt memory rather than the artwork cache.
+- Verified: `scripts/check.sh --qml` (883 passed, 3 skipped) on the
+  landed diff. The offscreen chooser screenshot showed no clipping; the
+  backdrop render confirmed the sharp fit, but the software scenegraph
+  draws no `MultiEffect` pixels, so the blur needs a real-display check.
+  The venv was refreshed after both merges.
 - Next: the 1.0 gate waits on the maintainer's release call (visual
-  pass, shim removal, translations, release pass). Playnite is parked
-  for 3.0, only if another operating system is supported. Epic/GOG is
-  2.0, and so is the IGDB per-user credential review.
+  pass, shim removal, translations, release pass); check the backdrop
+  blur on a real display first. Playnite is parked for 3.0, only if
+  another operating system is supported. Epic/GOG is 2.0, and so is the
+  IGDB per-user credential review.
 - Deferred: the audit's #15 (launch parse), #19 (role constants) and the
   VNDB release-cover variants in `TODO.md`.
 - The Proton default is a dialog preselection only: a Steam game
