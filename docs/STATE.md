@@ -10,21 +10,23 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: eighty-five batches. The latest: the shell and the editor's
-  own `QApplication` set the `tkarcade` desktop file name, so Wayland's
-  app id matches the installed entry and Plasma's task manager shows the
-  TKArcade icon instead of the generic Wayland one. Before it: Fetch
-  Artwork appends the picked VNDB release's packaging front as a
-  **Release Cover** candidate after the visual novel's own image, which
-  keeps the automatic pick; the release link is re-checked,
-  `hide_explicit_artwork` and URL dedupe apply, and the silent fetch is
-  unchanged.
+- Landed: eighty-six batches. The latest: Download Metadata's preview
+  became a per-field comparison. The Current and New columns carry a
+  checkbox per value (an exclusive pair for scalars), the headers act on
+  a whole column while starting unchecked, the New column names its
+  provider, and Apply writes exactly the checked selection. Lists render
+  inline under the window's single scroll; the window opens half the work
+  area wide and at its whole height; a value the game already carries
+  (list name or scalar text) is struck through, dimmer and unchecked;
+  the description compares in two six-line scrolling boxes; Reset
+  discards the fetched answer. Developer, publisher and genre split on
+  `;`. Before it: the Wayland app id fix.
 - Verified: `scripts/check.sh --qml` (890 passed, 3 skipped) on the
-  landed diff; the maintainer confirmed the taskbar icon, the overlay
-  pickers and Clone on the real display. The backdrop render confirmed
-  the sharp fit, but the software scenegraph draws no `MultiEffect`
-  pixels, so the blur needs a real-display check. The venv was refreshed
-  after the merge.
+  landed diff; the maintainer tested the first preview pass on the real
+  display and the scalar/description fixes were confirmed offscreen. The
+  backdrop render confirmed the sharp fit, but the software scenegraph
+  draws no `MultiEffect` pixels, so the blur needs a real-display check.
+  The venv was refreshed after the merge.
 - Next: the 1.0 gate waits on the maintainer's release call (visual
   pass, shim removal, translations, release pass). On the real display,
   check the backdrop blur, the **Release Cover** row for a VNDB game with
