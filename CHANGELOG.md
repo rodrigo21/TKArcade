@@ -310,6 +310,10 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- The library window and the editor/pre-launch windows report `tkarcade`
+  as their Wayland app id, matching the installed desktop entry, so
+  Plasma's task manager shows the TKArcade icon instead of the generic
+  Wayland one.
 - The choice prompts (Take Artwork From…, Gamescope preset, MangoHud
   template), Add Env Preset and Clone Settings open as a modal overlay
   over the large Search Data, settings or library window, so the combo

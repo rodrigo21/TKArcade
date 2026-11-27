@@ -156,6 +156,7 @@ def test_main_boots_the_shell(tmp_path):
         code = kirigami_app.main([])
         assert code == 0, code
         assert isinstance(QApplication.instance(), QApplication)
+        assert QApplication.instance().desktopFileName() == "tkarcade"
         print("OK")
         """
     )

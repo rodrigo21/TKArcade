@@ -348,6 +348,9 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication(sys.argv if argv is None else argv)
     app.setApplicationName("TKArcade")
     app.setOrganizationName("TKArcade")
+    # Wayland's app id must match packaging/tkarcade.desktop, or Plasma's
+    # task manager shows the generic Wayland icon for this window.
+    app.setDesktopFileName("tkarcade")
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     # The interface language comes from the preferences (the picker in
     # Preferences), not from LANG, and the catalog has to be installed

@@ -78,6 +78,8 @@ def run_editor(
     from .kirigami_app import build_engine
 
     app = QApplication.instance() or QApplication(sys.argv)
+    app.setApplicationName("TKArcade")
+    app.setDesktopFileName("tkarcade")
     install_translations(app, preferred_language())
     engine, _model, _filter = build_engine("Editor.qml")
     roots = engine.rootObjects()
