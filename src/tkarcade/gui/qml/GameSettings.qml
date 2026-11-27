@@ -64,9 +64,10 @@ Window {
     property string searchStatus: ""
     // Provider the window reads from: steam, vndb or igdb.
     property string searchSource: ""
-    // Preview rows for the provider answer: {key, field, current, next,
-    // values} for every field it answered. Apply is the only writer, into
-    // the fields; Save still writes the config.
+    // Preview rows for the provider answer: {key, field, list, locked} plus
+    // {currentItems, newItems} (lists, one {"name", "checked"} per value) or
+    // {current, next, choice} (scalars). Apply is the only writer, into the
+    // fields; Save still writes the config.
     property var metadataRows: []
     // Title-search candidates the window lists: [{"id", "name"}].
     property var searchCandidates: []
@@ -729,24 +730,41 @@ Window {
         return out
     }
 
-    // A list row's result before Apply: Replace writes the picked names;
-    // otherwise tags append to the current list and age ratings replace
-    // their own board.
-    function listRowResult(key, values) {
-        var picked = uniqueNames(values || [])
-        if (metadataReplaceBox.checked) {
-            return picked
+    // A joined field value split for the preview: ";" is the canonical
+    // separator, a comma-only value is older data.
+    function splitListItems(text) {
+        var raw = String(text || "").trim()
+        if (raw === "") {
+            return []
         }
-        if (key === "tags") {
-            return uniqueNames(onlineTagList.concat(picked))
-        }
-        return mergedRatings(ageRatings, picked)
+        return uniqueNames(raw.indexOf(";") >= 0 ? raw.split(";") : raw.split(","))
     }
 
-    // Current ratings keep every board the provider did not answer; a
-    // board it did answer takes the provider's value, so one game never
-    // ends up with two classifications from the same board.
-    function mergedRatings(current, incoming) {
+    // One preview column: {"name", "checked"} per value, all checked.
+    function previewItems(names) {
+        var out = []
+        var list = uniqueNames(names || [])
+        for (var i = 0; i < list.length; i++) {
+            out.push({ "name": list[i], "checked": true })
+        }
+        return out
+    }
+
+    // Copy one side so the Repeater rebuilds (docs/QML-NOTES.md).
+    function copyPreviewItems(items) {
+        var out = []
+        for (var i = 0; i < (items || []).length; i++) {
+            out.push({
+                "name": items[i].name,
+                "checked": items[i].checked,
+                "existing": items[i].existing === true
+            })
+        }
+        return out
+    }
+
+    // Rating label -> board name; an unknown label counts as its own board.
+    function ratingBoards() {
         var groups = gameModel.ageRatingGroups()
         var boardOf = {}
         for (var g = 0; g < groups.length; g++) {
@@ -755,22 +773,138 @@ Window {
                 boardOf[String(ratings[r])] = String(groups[g].name)
             }
         }
-        var covered = {}
-        for (var i = 0; i < incoming.length; i++) {
-            // An unknown label counts as its own board, never as covered.
-            covered[boardOf[incoming[i]] || incoming[i]] = true
+        return boardOf
+    }
+
+    function ratingBoard(boardOf, label) {
+        return boardOf[label] || label
+    }
+
+    // One board never carries two classifications: checking a value drops
+    // the other side's same-board entry.
+    function dropRivalBoard(items, checkedItems, boardOf) {
+        for (var i = 0; i < items.length; i++) {
+            for (var j = 0; j < checkedItems.length; j++) {
+                if (checkedItems[j].checked
+                        && ratingBoard(boardOf, items[i].name)
+                            === ratingBoard(boardOf, checkedItems[j].name)) {
+                    items[i].checked = false
+                }
+            }
         }
-        var out = []
-        for (var c = 0; c < current.length; c++) {
-            var label = String(current[c])
-            if (covered[boardOf[label] || label]) {
+    }
+
+    // In place, like the category picker: rebuilding the Repeater destroys
+    // the checkbox that is handling its own click.
+    function togglePreviewItem(key, side, index, checked) {
+        for (var i = 0; i < metadataRows.length; i++) {
+            var row = metadataRows[i]
+            if (row.key !== key) {
                 continue
             }
-            out.push(label)
+            var items = side === "current" ? row.currentItems : row.newItems
+            if (index < 0 || index >= items.length) {
+                return
+            }
+            items[index].checked = checked
+            if (key !== "age_ratings" || !checked) {
+                return
+            }
+            var boardOf = ratingBoards()
+            var other = side === "current" ? row.newItems : row.currentItems
+            var before = []
+            for (var j = 0; j < other.length; j++) {
+                before.push(other[j].checked)
+            }
+            dropRivalBoard(other, items, boardOf)
+            for (var k = 0; k < other.length; k++) {
+                if (other[k].checked !== before[k]) {
+                    // Repaint the rival side; only a rating toggle lands here.
+                    metadataRows = metadataRows.slice()
+                    return
+                }
+            }
+            return
+        }
+    }
+
+    // The column checkbox above the rows: every list value of one side.
+    function setAllPreviewItems(side, checked) {
+        var boardOf = ratingBoards()
+        var rows = metadataRows.slice()
+        for (var i = 0; i < rows.length; i++) {
+            var source = rows[i]
+            if (!source.list) {
+                continue
+            }
+            var currentItems = copyPreviewItems(source.currentItems)
+            var newItems = copyPreviewItems(source.newItems)
+            var items = side === "current" ? currentItems : newItems
+            for (var j = 0; j < items.length; j++) {
+                items[j].checked = checked
+            }
+            if (source.key === "age_ratings" && checked) {
+                dropRivalBoard(side === "current" ? newItems : currentItems, items, boardOf)
+            }
+            rows[i] = {
+                "key": source.key,
+                "field": source.field,
+                "list": true,
+                "locked": source.locked,
+                "currentItems": currentItems,
+                "newItems": newItems
+            }
+        }
+        metadataRows = rows
+    }
+
+    // In place for the same reason; the clicked box and its sibling keep
+    // their own visual state.
+    function choosePreviewScalar(key, side, checked) {
+        for (var i = 0; i < metadataRows.length; i++) {
+            var row = metadataRows[i]
+            if (row.key !== key || row.list) {
+                continue
+            }
+            row.choice = checked ? side : (row.choice === side ? "" : row.choice)
+            return
+        }
+    }
+
+    // Apply's list value: checked Current values first, then the checked
+    // New ones, deduped case-insensitively; a New rating covers its board.
+    function previewListResult(row) {
+        var out = []
+        var keys = []
+        function push(name) {
+            var key = String(name).toLowerCase()
+            if (keys.indexOf(key) >= 0) {
+                return
+            }
+            keys.push(key)
+            out.push(name)
+        }
+        var boardOf = row.key === "age_ratings" ? ratingBoards() : {}
+        var covered = {}
+        var incoming = row.newItems || []
+        for (var i = 0; i < incoming.length; i++) {
+            if (incoming[i].checked && row.key === "age_ratings") {
+                covered[ratingBoard(boardOf, incoming[i].name)] = true
+            }
+        }
+        var current = row.currentItems || []
+        for (var j = 0; j < current.length; j++) {
+            if (!current[j].checked) {
+                continue
+            }
+            if (row.key === "age_ratings" && covered[ratingBoard(boardOf, current[j].name)]) {
+                continue
+            }
+            push(current[j].name)
         }
         for (var k = 0; k < incoming.length; k++) {
-            if (out.indexOf(incoming[k]) < 0) {
-                out.push(incoming[k])
+            if (incoming[k].checked) {
+                push(incoming[k].name)
             }
         }
         return out
@@ -780,42 +914,6 @@ Window {
         tagsPicker.catRows = gameSettings.tagPickerRows(onlineTagList)
         tagsPicker.newCategories = ""
         tagsPicker.open(gameSettings)
-    }
-
-    // The preview's Tags row opens the same checkable list, seeded with
-    // the provider names: Apply writes only the checked subset.
-    function openPreviewTags() {
-        var rows = metadataRows
-        for (var i = 0; i < rows.length; i++) {
-            if (rows[i].key === "tags") {
-                metadataTagsPicker.catRows = gameSettings.tagPickerRows(rows[i].values)
-                metadataTagsPicker.newCategories = ""
-                metadataTagsPicker.open(gameSettings)
-                return
-            }
-        }
-    }
-
-    // Replace the row wholesale: mutating it in place leaves the
-    // Repeater showing the old text (docs/QML-NOTES.md).
-    function setPreviewTags(names) {
-        var list = uniqueNames(names)
-        var rows = metadataRows.slice()
-        for (var j = 0; j < rows.length; j++) {
-            if (rows[j].key !== "tags") {
-                continue
-            }
-            rows[j] = {
-                "key": "tags",
-                "field": rows[j].field,
-                "current": rows[j].current,
-                "next": list.join(", "),
-                "values": list,
-                "locked": rows[j].locked
-            }
-            break
-        }
-        metadataRows = rows
     }
 
     // The manager renamed or deleted names behind the open picker: keep
@@ -2398,37 +2496,98 @@ Window {
         return 0
     }
 
+    // Reset: discard the fetched answer (nothing was written yet) and
+    // leave the window as it was before the search.
+    function resetMetadataSearch() {
+        metadataRows = []
+        searchStatus = ""
+        searchCandidates = []
+        previewAllCurrent.checked = false
+        previewAllNew.checked = false
+    }
+
+    // The provider named in the preview's New column.
+    function metadataSourceName() {
+        if (searchSource === "vndb") {
+            return qsTr("VNDB")
+        }
+        if (searchSource === "igdb") {
+            return qsTr("IGDB")
+        }
+        return qsTr("Steam")
+    }
+
     // The provider answered: the window shows the rows instead of writing,
-    // so the current text stays visible next to the store answer. Only the
-    // fields it answered become rows.
+    // so the current values stay visible next to the store answer. Only the
+    // fields it answered become rows; the two columns carry one checkbox
+    // per value (lists) or one exclusive pair (scalars).
     function showProviderAnswer(data) {
         searchBusy = false
-        // Fill-empty is the default; overwriting is opt-in per lookup.
-        metadataReplaceBox.checked = false
+        previewAllCurrent.checked = false
+        previewAllNew.checked = false
         var rows = []
-        function add(key, field, current, next, values) {
+        function addScalar(key, field, current, next) {
             if (next === "") {
                 return
+            }
+            // A repeated value is marked like a repeated list name: the
+            // New side stays unchecked and the Current side keeps it.
+            var same = current.trim() !== "" && current.trim() === next.trim()
+            rows.push({
+                "key": key,
+                "field": field,
+                "list": false,
+                "locked": gameSettings.isLocked(key),
+                "current": current,
+                "next": next,
+                "existing": same,
+                // Typed values stay the default (fill-empty); an empty
+                // current side preselects the provider value.
+                "choice": current === "" ? "new" : "current"
+            })
+        }
+        function addList(key, field, currentNames, newNames) {
+            var incoming = previewItems(newNames)
+            if (incoming.length === 0) {
+                return
+            }
+            var current = previewItems(currentNames)
+            var known = {}
+            for (var i = 0; i < current.length; i++) {
+                known[current[i].name.toLowerCase()] = true
+            }
+            for (var j = 0; j < incoming.length; j++) {
+                if (known[incoming[j].name.toLowerCase()]) {
+                    // Already in the game: struck through, visibly dimmer
+                    // and unchecked, so the Current side keeps it.
+                    incoming[j].existing = true
+                    incoming[j].checked = false
+                }
+            }
+            if (key === "age_ratings") {
+                dropRivalBoard(current, incoming, ratingBoards())
             }
             rows.push({
                 "key": key,
                 "field": field,
-                "current": current,
-                "next": next,
-                "values": values || [],
-                "locked": gameSettings.isLocked(key)
+                "list": true,
+                "locked": gameSettings.isLocked(key),
+                "currentItems": current,
+                "newItems": incoming
             })
         }
-        add("description", qsTr("Description"), descriptionArea.text, String(data.description || ""))
-        add("developer", qsTr("Developer"), developerField.text, String(data.developer || ""))
-        add("publisher", qsTr("Publisher"), publisherField.text, String(data.publisher || ""))
-        add("genre", qsTr("Genre"), genreField.text, String(data.genre || ""))
-        add("series", qsTr("Series"), seriesField.text, String(data.series || ""))
-        var ratings = data.age_ratings || []
-        add("age_ratings", qsTr("Age Ratings"), ageRatings.join(", "), ratings.join(", "), ratings)
-        add("date", qsTr("Release Date"), dateField.text, String(data.date || ""))
-        var tags = data.tags || []
-        add("tags", qsTr("Tags"), onlineTags, tags.join(", "), tags)
+        addScalar("description", qsTr("Description"), descriptionArea.text,
+            String(data.description || ""))
+        addList("developer", qsTr("Developer"), splitListItems(developerField.text),
+            splitListItems(data.developer))
+        addList("publisher", qsTr("Publisher"), splitListItems(publisherField.text),
+            splitListItems(data.publisher))
+        addList("genre", qsTr("Genre"), splitListItems(genreField.text),
+            splitListItems(data.genre))
+        addScalar("series", qsTr("Series"), seriesField.text, String(data.series || ""))
+        addList("age_ratings", qsTr("Age Ratings"), ageRatings, data.age_ratings || [])
+        addScalar("date", qsTr("Release Date"), dateField.text, String(data.date || ""))
+        addList("tags", qsTr("Tags"), onlineTagList, data.tags || [])
         if (rows.length === 0) {
             // The opening lookup of a local game's linked AppID found
             // nothing: its title gets one chance before the message.
@@ -2451,10 +2610,9 @@ Window {
         metadataRows = rows
     }
 
-    // Apply fills empty fields only; a locked field is never written, and
-    // the switch only widens the write to unlocked rows. The two list
-    // fields merge by default (tags append, age ratings replace their
-    // board) and the switch replaces the whole list instead.
+    // Apply writes the chosen value of each row: the checked lists and the
+    // picked side of every scalar. A locked row or a row writing nothing is
+    // kept, and Save still writes the config.
     function applyMetadataRows() {
         var targets = {
             "description": descriptionArea,
@@ -2468,24 +2626,31 @@ Window {
         var kept = 0
         for (var i = 0; i < metadataRows.length; i++) {
             var row = metadataRows[i]
-            var isList = row.key === "tags" || row.key === "age_ratings"
-            if (row.locked || (!isList && row.current !== "" && !metadataReplaceBox.checked)) {
+            if (row.locked) {
                 kept++
                 continue
             }
-            if (row.key === "tags" && row.values.length === 0) {
-                // Every provider tag was declined: write nothing.
-                kept++
-                continue
-            }
-            if (row.key === "age_ratings") {
-                ageRatings = listRowResult("age_ratings", row.values)
-            } else if (row.key === "tags") {
-                var merged = listRowResult("tags", row.values)
-                onlineTagList = merged
-                onlineTags = merged.join(", ")
-            } else {
+            if (!row.list) {
+                if (row.choice !== "new" || row.next === "") {
+                    kept++
+                    continue
+                }
                 targets[row.key].text = row.next
+                applied++
+                continue
+            }
+            var result = previewListResult(row)
+            if (result.length === 0) {
+                kept++
+                continue
+            }
+            if (row.key === "tags") {
+                onlineTagList = result
+                onlineTags = result.join(", ")
+            } else if (row.key === "age_ratings") {
+                ageRatings = result
+            } else {
+                targets[row.key].text = result.join("; ")
             }
             applied++
         }
@@ -5594,29 +5759,6 @@ Window {
         onChanged: if (tagsPicker.visible) gameSettings.reloadTagsPicker()
     }
 
-    // Search Data preview: the provider tags are accepted or declined per
-    // name before Apply. The Details picker above owns the game's own
-    // list, so this one is a separate instance with its own row names.
-    CategoryPicker {
-        id: metadataTagsPicker
-        objectName: "settingsMetadataTagsPicker"
-        title: qsTr("Tags")
-        fitContent: true
-        minimumWidth: Kirigami.Units.gridUnit * 26
-        height: Kirigami.Units.gridUnit * 26
-        columns: 2
-        listHeight: Kirigami.Units.gridUnit * 20
-        newPlaceholder: qsTr("New Tags (Comma Separated)")
-        rowPrefix: "metadataTagPick_"
-        addObjectName: "metadataTagAdd"
-        searchable: true
-        filterPlaceholder: qsTr("Filter Tags")
-        filterObjectName: "metadataTagFilter"
-        onPicked: function(names) {
-            gameSettings.setPreviewTags(names)
-        }
-    }
-
     AgeRatingPicker {
         id: agePicker
         objectName: "settingsAgeRatingPicker"
@@ -5633,20 +5775,37 @@ Window {
         id: searchData
         objectName: "searchData"
         title: qsTr("Search Data")
-        width: Kirigami.Units.gridUnit * 40
-        minimumWidth: Kirigami.Units.gridUnit * 36
-        height: Kirigami.Units.gridUnit * 30
+        // Half the work area wide and the whole height: the preview's two
+        // value columns share the width, and long lists need the room.
+        width: Screen.availableWidth > 0 ? Screen.availableWidth / 2
+            : (Screen.width > 0 ? Screen.width / 2 : Kirigami.Units.gridUnit * 40)
+        minimumWidth: Math.min(Kirigami.Units.gridUnit * 36, width)
+        height: Screen.availableHeight > 0 ? Screen.availableHeight
+            : (Screen.height > 0 ? Screen.height : Kirigami.Units.gridUnit * 30)
         bodyFillHeight: true
         acceptText: qsTr("Apply")
         rejectText: qsTr("Close")
         // The tab's action lives in the dialog footer, the widgets button
         // box order: actions lead, Apply/Close close the row.
-        leadingActions: Controls.Button {
-            objectName: "settingsMetadataSearch"
-            text: qsTr("Search")
-            visible: searchTabs.currentIndex === 0
-            enabled: !gameSettings.searchBusy
-            onClicked: gameSettings.searchDataAgain()
+        leadingActions: RowLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Controls.Button {
+                objectName: "settingsMetadataSearch"
+                text: qsTr("Search")
+                visible: searchTabs.currentIndex === 0
+                enabled: !gameSettings.searchBusy
+                onClicked: gameSettings.searchDataAgain()
+            }
+            Controls.Button {
+                objectName: "settingsMetadataReset"
+                text: qsTr("Reset")
+                visible: searchTabs.currentIndex === 0
+                    && gameSettings.metadataRows.length > 0
+                enabled: !gameSettings.searchBusy
+                onClicked: gameSettings.resetMetadataSearch()
+                Controls.ToolTip.text: qsTr("Discard the Fetched Data and Go Back to Before the Search")
+                Controls.ToolTip.visible: hovered
+            }
         }
         onAccepted: gameSettings.applyMetadataRows()
         Controls.TabBar {
@@ -5836,121 +5995,277 @@ Window {
                     RowLayout {
                         Layout.fillWidth: true
                         visible: gameSettings.metadataRows.length > 0
-                        Controls.Label {
-                            Layout.preferredWidth: Kirigami.Units.gridUnit * 7
-                            font.bold: true
-                            text: qsTr("Field")
-                        }
-                        Controls.Label {
+                        // No field gutter: each row names its own field, so
+                        // the column boxes line up with the row halves.
+                        Controls.CheckBox {
+                            id: previewAllCurrent
+                            objectName: "metadataPreviewAllCurrent"
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             Layout.preferredWidth: 1
                             font.bold: true
                             text: qsTr("Current")
+                            checked: false
+                            onClicked: gameSettings.setAllPreviewItems("current", checked)
+                            Controls.ToolTip.text: qsTr("Check or Clear Every Current List Value")
+                            Controls.ToolTip.visible: hovered
                         }
-                        Controls.Label {
+                        Controls.CheckBox {
+                            id: previewAllNew
+                            objectName: "metadataPreviewAllNew"
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             Layout.preferredWidth: 1
                             font.bold: true
-                            text: qsTr("New")
+                            text: qsTr("New (%1)").arg(gameSettings.metadataSourceName())
+                            checked: false
+                            onClicked: gameSettings.setAllPreviewItems("new", checked)
+                            Controls.ToolTip.text: qsTr("Check or Clear Every Provider List Value")
+                            Controls.ToolTip.visible: hovered
                         }
                     }
                     Repeater {
                         objectName: "metadataPreviewRows"
                         model: gameSettings.metadataRows
-                        delegate: RowLayout {
+                        delegate: ColumnLayout {
+                            id: previewRow
                             required property var modelData
                             Layout.fillWidth: true
-                            Controls.Label {
-                                Layout.preferredWidth: Kirigami.Units.gridUnit * 7
-                                elide: Text.ElideRight
-                                text: modelData.field
-                            }
+                            spacing: Kirigami.Units.smallSpacing
                             Controls.Label {
                                 Layout.fillWidth: true
-                                Layout.minimumWidth: 0
-                                Layout.preferredWidth: 1
+                                font.bold: true
                                 elide: Text.ElideRight
-                                opacity: 0.7
-                                text: modelData.current !== "" ? modelData.current : "—"
-                                Controls.ToolTip.text: modelData.current
-                                Controls.ToolTip.visible: hovered && modelData.current !== ""
+                                opacity: modelData.locked ? 0.7 : 1
+                                text: modelData.locked
+                                    ? qsTr("%1 (Locked)").arg(modelData.field)
+                                    : modelData.field
+                                Controls.ToolTip.text: modelData.locked
+                                    ? qsTr("Locked; Search Data Will Not Replace It")
+                                    : ""
+                                Controls.ToolTip.visible: hovered && modelData.locked
                             }
-                            // One cell for the New column: the Label and the
-                            // Tags button share it, so the hidden one never
-                            // widens the RowLayout (its text would starve the
-                            // other columns).
-                            Item {
-                                id: tagsNewCell
-                                // The list rows show what Apply writes, not the
-                                // provider answer: the merge depends on the
-                                // Replace switch and the current lists.
-                                readonly property var listResult:
-                                    (modelData.key === "tags" || modelData.key === "age_ratings")
-                                        ? gameSettings.listRowResult(modelData.key, modelData.values)
-                                        : []
+                            RowLayout {
                                 Layout.fillWidth: true
-                                Layout.minimumWidth: 0
-                                Layout.preferredWidth: 1
-                                implicitHeight: modelData.key === "tags"
-                                    ? tagsPickButton.implicitHeight
-                                    : newValueLabel.implicitHeight
-                                Controls.Label {
-                                    id: newValueLabel
-                                    anchors.fill: parent
-                                    visible: modelData.key !== "tags"
-                                    elide: Text.ElideRight
-                                    verticalAlignment: Text.AlignVCenter
-                                    opacity: modelData.locked ? 0.7 : 1
-                                    text: {
-                                        if (modelData.locked) {
-                                            return qsTr("Locked")
+                                spacing: Kirigami.Units.smallSpacing
+                                // Scalar field: one exclusive pair, the
+                                // current value on the left.
+                                RowLayout {
+                                    visible: previewRow.modelData ? !modelData.list : false
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    Layout.alignment: Qt.AlignTop
+                                    Layout.preferredWidth: (metadataPanel.width - Kirigami.Units.smallSpacing) / 2
+                                    Controls.CheckBox {
+                                        id: currentScalarBox
+                                        visible: modelData && modelData.key !== "description"
+                                            && modelData.current !== ""
+                                        objectName: "metadataPreviewCurrent_"
+                                            + (previewRow.modelData ? previewRow.modelData.key : "")
+                                        Layout.fillWidth: true
+                                        enabled: !modelData.locked
+                                        checked: modelData.choice === "current"
+                                        opacity: modelData && modelData.current !== "" ? 0.7 : 0.4
+                                        text: modelData && !modelData.list
+                                            && modelData.current !== "" ? modelData.current : "—"
+                                        onClicked: {
+                                            gameSettings.choosePreviewScalar(
+                                                modelData.key, "current", checked)
+                                            if (checked) {
+                                                newScalarBox.checked = false
+                                            }
                                         }
-                                        return modelData.key === "age_ratings"
-                                            ? tagsNewCell.listResult.join(", ")
-                                            : modelData.next
+                                        Controls.ToolTip.text: qsTr("Apply the Typed Value")
+                                        Controls.ToolTip.visible: hovered
                                     }
-                                    Controls.ToolTip.text: modelData.locked
-                                        ? qsTr("Locked; Search Data Will Not Replace It")
-                                        : text
-                                    Controls.ToolTip.visible: hovered
+                                    Controls.CheckBox {
+                                        id: currentDescriptionBox
+                                        visible: modelData && modelData.key === "description"
+                                        objectName: "metadataPreviewCurrentDescription"
+                                        enabled: !modelData.locked
+                                        checked: modelData.choice === "current"
+                                        onClicked: {
+                                            gameSettings.choosePreviewScalar(
+                                                modelData.key, "current", checked)
+                                            if (checked) {
+                                                newDescriptionBox.checked = false
+                                            }
+                                        }
+                                        Controls.ToolTip.text: qsTr("Apply the Typed Description")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    // The description reads like the
+                                    // Information tab: six lines and a scroll.
+                                    Controls.ScrollView {
+                                        objectName: "metadataPreviewCurrentDescriptionBox"
+                                        visible: modelData && modelData.key === "description"
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 6
+                                        Layout.minimumHeight: Kirigami.Units.gridUnit * 6
+                                        implicitHeight: 0
+                                        clip: true
+                                        Controls.TextArea {
+                                            readOnly: true
+                                            selectByMouse: false
+                                            wrapMode: Text.WordWrap
+                                            background: null
+                                            padding: 0
+                                            placeholderText: "—"
+                                            text: modelData && !modelData.list
+                                                ? modelData.current : ""
+                                            opacity: modelData && !modelData.list
+                                                ? (modelData.current !== "" ? 0.7 : 0.4) : 0
+                                        }
+                                    }
+                                    Controls.Label {
+                                        visible: modelData && !modelData.list
+                                            && modelData.key !== "description"
+                                            && modelData.current === ""
+                                        opacity: 0.4
+                                        text: "—"
+                                    }
                                 }
-                                // The Tags row accepts or declines each
-                                // provider name before Apply (its own picker).
-                                Controls.Button {
-                                    id: tagsPickButton
-                                    objectName: "metadataTagsPick"
-                                    anchors.fill: parent
-                                    visible: modelData.key === "tags"
-                                    enabled: !modelData.locked
-                                    // No custom content item: the Plasma
-                                    // style paints the button text itself,
-                                    // so one here doubles it
-                                    // (docs/QML-NOTES.md).
-                                    text: modelData.locked ? qsTr("Locked")
-                                        : (tagsNewCell.listResult.length === 0 ? "—"
-                                            : (tagsNewCell.listResult.length === 1
-                                                ? tagsNewCell.listResult[0]
-                                                : qsTr("%1 + %2 Tag(s)")
-                                                    .arg(tagsNewCell.listResult[0])
-                                                    .arg(tagsNewCell.listResult.length - 1)))
-                                    Controls.ToolTip.text: modelData.locked
-                                        ? qsTr("Locked; Search Data Will Not Replace It")
-                                        : (tagsNewCell.listResult.length > 0
-                                            ? tagsNewCell.listResult.join(", ")
-                                            : qsTr("Choose the Tags to Apply"))
-                                    Controls.ToolTip.visible: hovered
-                                    onClicked: gameSettings.openPreviewTags()
+                                RowLayout {
+                                    visible: previewRow.modelData ? !modelData.list : false
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    Layout.alignment: Qt.AlignTop
+                                    Layout.preferredWidth: (metadataPanel.width - Kirigami.Units.smallSpacing) / 2
+                                    Controls.CheckBox {
+                                        id: newScalarBox
+                                        visible: modelData && modelData.key !== "description"
+                                        objectName: "metadataPreviewNew_"
+                                            + (previewRow.modelData ? previewRow.modelData.key : "")
+                                        Layout.fillWidth: true
+                                        enabled: !modelData.locked
+                                        checked: modelData.choice === "new"
+                                        text: modelData && !modelData.list ? modelData.next : ""
+                                        opacity: modelData && modelData.existing ? 0.6 : 1
+                                        font.strikeout: modelData && modelData.existing === true
+                                        onClicked: {
+                                            gameSettings.choosePreviewScalar(
+                                                modelData.key, "new", checked)
+                                            if (checked) {
+                                                currentScalarBox.checked = false
+                                            }
+                                        }
+                                        Controls.ToolTip.text: qsTr("Apply the Provider Value")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.CheckBox {
+                                        id: newDescriptionBox
+                                        visible: modelData && modelData.key === "description"
+                                        objectName: "metadataPreviewNewDescription"
+                                        enabled: !modelData.locked
+                                        checked: modelData.choice === "new"
+                                        onClicked: {
+                                            gameSettings.choosePreviewScalar(
+                                                modelData.key, "new", checked)
+                                            if (checked) {
+                                                currentDescriptionBox.checked = false
+                                            }
+                                        }
+                                        Controls.ToolTip.text: qsTr("Apply the Provider Description")
+                                        Controls.ToolTip.visible: hovered
+                                    }
+                                    Controls.ScrollView {
+                                        objectName: "metadataPreviewNewDescriptionBox"
+                                        visible: modelData && modelData.key === "description"
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        Layout.preferredHeight: Kirigami.Units.gridUnit * 6
+                                        Layout.minimumHeight: Kirigami.Units.gridUnit * 6
+                                        implicitHeight: 0
+                                        clip: true
+                                        Controls.TextArea {
+                                            readOnly: true
+                                            selectByMouse: false
+                                            wrapMode: Text.WordWrap
+                                            background: null
+                                            padding: 0
+                                            text: modelData && !modelData.list
+                                                ? modelData.next : ""
+                                            opacity: modelData && modelData.existing ? 0.6 : 1
+                                            font.strikeout: modelData
+                                                && modelData.existing === true
+                                        }
+                                    }
+                                }
+                                // List field: every value inline; the window's
+                                // one scroll shows the whole preview.
+                                ColumnLayout {
+                                    visible: previewRow.modelData ? modelData.list : false
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    Layout.alignment: Qt.AlignTop
+                                    Layout.preferredWidth: (metadataPanel.width - Kirigami.Units.smallSpacing) / 2
+                                    spacing: 0
+                                    Repeater {
+                                        model: previewRow.modelData
+                                            && previewRow.modelData.currentItems
+                                            ? previewRow.modelData.currentItems : []
+                                        delegate: Controls.CheckBox {
+                                            required property var modelData
+                                            required property int index
+                                            objectName: "metadataPreviewCurrent_"
+                                                + (previewRow.modelData
+                                                    ? previewRow.modelData.key : "") + "_" + index
+                                            Layout.fillWidth: true
+                                            enabled: !previewRow.modelData.locked
+                                            checked: modelData.checked
+                                            text: modelData.name
+                                            onClicked: gameSettings.togglePreviewItem(
+                                                previewRow.modelData.key,
+                                                "current", index, checked)
+                                        }
+                                    }
+                                    Controls.Label {
+                                        visible: previewRow.modelData
+                                            && previewRow.modelData.list
+                                            && previewRow.modelData.currentItems.length === 0
+                                        opacity: 0.4
+                                        text: "—"
+                                    }
+                                }
+                                ColumnLayout {
+                                    visible: previewRow.modelData ? modelData.list : false
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    Layout.alignment: Qt.AlignTop
+                                    Layout.preferredWidth: (metadataPanel.width - Kirigami.Units.smallSpacing) / 2
+                                    spacing: 0
+                                    Repeater {
+                                        model: previewRow.modelData
+                                            && previewRow.modelData.newItems
+                                            ? previewRow.modelData.newItems : []
+                                        delegate: Controls.CheckBox {
+                                            required property var modelData
+                                            required property int index
+                                            objectName: "metadataPreviewNew_"
+                                                + (previewRow.modelData
+                                                    ? previewRow.modelData.key : "") + "_" + index
+                                            Layout.fillWidth: true
+                                            enabled: !previewRow.modelData.locked
+                                            checked: modelData.checked
+                                            text: modelData.name
+                                            font.strikeout: modelData.existing === true
+                                            opacity: modelData.existing === true ? 0.6 : 1
+                                            onClicked: gameSettings.togglePreviewItem(
+                                                previewRow.modelData.key,
+                                                "new", index, checked)
+                                        }
+                                    }
+                                    Controls.Label {
+                                        visible: previewRow.modelData
+                                            && previewRow.modelData.list
+                                            && previewRow.modelData.newItems.length === 0
+                                        opacity: 0.4
+                                        text: "—"
+                                    }
                                 }
                             }
                         }
-                    }
-                    Controls.CheckBox {
-                        id: metadataReplaceBox
-                        objectName: "metadataPreviewReplace"
-                        Layout.fillWidth: true
-                        text: qsTr("Replace existing values")
                     }
                     Controls.Label {
                         objectName: "settingsMetadataStatus"

@@ -100,7 +100,7 @@ def test_fetch_maps_the_payload(monkeypatch, xdg_env):
     )
     assert vndb.fetch("local-sg", "V2002") == {
         "description": "Fate & time travel",
-        "developer": "NITRO PLUS, MAGES.",
+        "developer": "NITRO PLUS; MAGES.",
         "publisher": "",
         "genre": "",
         "series": "",

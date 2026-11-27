@@ -4991,18 +4991,6 @@ def test_selected_row_uses_highlight_text_color():
     assert "isSelected ? Kirigami.Theme.highlightColor" in text
 
 
-def test_preview_tags_button_has_no_custom_content_item():
-    """The Plasma style paints the button text; a contentItem doubles it."""
-    import pathlib
-
-    from tkarcade.gui import kirigami_app as kapp
-
-    text = (pathlib.Path(kapp.__file__).parent / "qml" / "GameSettings.qml").read_text()
-    start = text.index('objectName: "metadataTagsPick"')
-    block = text[start : text.index("onClicked: gameSettings.openPreviewTags()", start)]
-    assert "contentItem:" not in block
-
-
 def test_header_titles_share_styled_delegate():
     """Every header cell uses the Button-set title style (contrast)."""
     import pathlib
@@ -5456,6 +5444,10 @@ def _search_window(qgui_app, artwork=False):
     else:
         dlg.openSearchData()
     win = _confirm_window(qgui_app, "searchData")
+    # Deterministic size: the real window follows the screen's work area,
+    # which the offscreen platform reports differently from a desktop.
+    win.setProperty("width", 720)
+    win.setProperty("height", 540)
     QTest.qWait(80)
     return win
 
@@ -7744,18 +7736,22 @@ def test_metadata_download_fills_only_empty_fields(qgui_app, xdg_env):
     qgui_app.processEvents()
     _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Store synopsis."
-    assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Typed Studio"
+    assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == (
+        "Typed Studio; Store Studio"
+    )
     assert swin.findChild(QQuickItem, "settingsPublisher").property("text") == "Store Publisher"
+    assert swin.findChild(QQuickItem, "settingsGenre").property("text") == "Action; Adventure"
     assert swin.findChild(QQuickItem, "settingsAgeRating").property("text") == "PEGI 12"
     status = awin.findChild(QQuickItem, "settingsMetadataStatus").property("text")
-    assert status == "Loaded; Typed Fields Kept."
+    assert status == "Metadata Loaded."
     awin.close()
     qgui_app.processEvents()
     dlg.save()
     qgui_app.processEvents()
     saved = C.load("local-doom")
-    assert saved.metadata.developer == "Typed Studio"
+    assert saved.metadata.developer == "Typed Studio; Store Studio"
     assert saved.metadata.publisher == "Store Publisher"
+    assert saved.metadata.genre == "Action; Adventure"
     assert saved.metadata.age_ratings == ["PEGI 12"]
     page.openGameSettings("local-blank")
     swin = _settings_window(qgui_app)
@@ -7818,11 +7814,10 @@ def test_metadata_download_carries_tags(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_metadata_preview_tags_picker_selects_subset(qgui_app, xdg_env):
-    """The preview Tags row opens the picker; Apply writes the checked set."""
+def test_metadata_preview_tags_checkboxes_select_subset(qgui_app, xdg_env):
+    """Unchecking a provider tag keeps it out of the applied list."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -7831,6 +7826,7 @@ def test_metadata_preview_tags_picker_selects_subset(qgui_app, xdg_env):
     cfg.general.name = "Doom"
     cfg.general.custom_executable = "/bin/true"
     cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
     C.save(cfg)
     win, engine, _proxy, warnings = _load_main(qgui_app)
     page = win.findChild(QObject, "gamesPage")
@@ -7838,55 +7834,24 @@ def test_metadata_preview_tags_picker_selects_subset(qgui_app, xdg_env):
     swin = _settings_window(qgui_app)
     awin = _search_window(qgui_app)
     model = engine.rootContext().contextProperty("gameModel")
-    model.metadataFetched.emit(
-        "local-doom",
-        {"developer": "Store Studio", "tags": ["Action", "RPG", "Indie"]},
-    )
+    model.metadataFetched.emit("local-doom", {"tags": ["Action", "RPG", "Indie"]})
     qgui_app.processEvents()
     dlg = win.findChild(QObject, "gameSettings")
-    awin.setProperty("width", 720)
-    QTest.qWait(150)
-    button = _visible_tags_button(awin)
-    assert button.property("visible") is True
-    # The New column is one cell: a hidden Tags button must never widen the
-    # row or squeeze the other columns (it once overlapped every value).
-    rows = button.parentItem().parentItem().parentItem().childItems()
-    by_field = {
-        str(row.childItems()[0].property("text")): row.childItems()
-        for row in rows
-        if len(row.childItems()) >= 3
-    }
-    assert len(by_field["Developer"]) == 3
-    developer_widths = [cell.property("width") for cell in by_field["Developer"]]
-    assert all(width > 100 for width in developer_widths), developer_widths
-    assert sum(developer_widths) <= 720
-    assert len(by_field["Tags"]) == 3
-    # Compact label: the first tag plus how many follow.
-    assert button.property("text") == "Action + 2 Tag(s)"
-    _click_item(button)
-    QTest.qWait(150)
-    picker = win.findChild(QObject, "settingsMetadataTagsPicker")
-    assert picker.property("visible") is True
-    # Every provider name starts checked; the store follows unchecked.
-    assert picker.property("catRows").toVariant()[:3] == [
-        {"name": "Action", "state": 2},
-        {"name": "RPG", "state": 2},
-        {"name": "Indie", "state": 2},
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    tags_row = next(row for row in rows if row["key"] == "tags")
+    assert tags_row["currentItems"] == []
+    assert tags_row["newItems"] == [
+        {"name": "Action", "checked": True},
+        {"name": "RPG", "checked": True},
+        {"name": "Indie", "checked": True},
     ]
-    boxes = {
-        item.objectName(): item
-        for item in _visual_items(picker.property("contentItem"))
-        if item.objectName().startswith("metadataTagPick_")
-    }
-    _click_item(boxes["metadataTagPick_RPG"])
-    _click(picker, "dialogOk")
+    _click_preview(awin, "metadataPreviewNew_tags_1")
     qgui_app.processEvents()
     raw = dlg.property("metadataRows")
     rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
     tags_row = next(row for row in rows if row["key"] == "tags")
-    assert tags_row["values"] == ["Action", "Indie"]
-    assert tags_row["next"] == "Action, Indie"
-    assert _visible_tags_button(awin).property("text") == "Action + 1 Tag(s)"
+    assert [item["checked"] for item in tags_row["newItems"]] == [True, False, True]
     _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsTags").property("text") == "Action, Indie"
     awin.close()
@@ -7905,7 +7870,6 @@ def test_metadata_preview_tags_all_declined_writes_nothing(qgui_app, xdg_env):
     """Declining every provider tag leaves the list untouched on Apply."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
-    from PySide6.QtTest import QTest
 
     from tkarcade import config as C
 
@@ -7923,20 +7887,8 @@ def test_metadata_preview_tags_all_declined_writes_nothing(qgui_app, xdg_env):
     model = engine.rootContext().contextProperty("gameModel")
     model.metadataFetched.emit("local-doom", {"tags": ["Action", "Indie"]})
     qgui_app.processEvents()
-    button = _visible_tags_button(awin)
-    _click_item(button)
-    QTest.qWait(150)
-    picker = win.findChild(QObject, "settingsMetadataTagsPicker")
-    boxes = {
-        item.objectName(): item
-        for item in _visual_items(picker.property("contentItem"))
-        if item.objectName().startswith("metadataTagPick_")
-    }
-    _click_item(boxes["metadataTagPick_Action"])
-    _click_item(boxes["metadataTagPick_Indie"])
-    _click(picker, "dialogOk")
-    qgui_app.processEvents()
-    assert _visible_tags_button(awin).property("text") == "—"
+    _click_preview(awin, "metadataPreviewNew_tags_0")
+    _click_preview(awin, "metadataPreviewNew_tags_1")
     _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsTags").property("text") == "Not Set"
     assert awin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == (
@@ -7978,8 +7930,13 @@ def test_metadata_preview_tags_merge_with_existing(qgui_app, xdg_env):
     model = engine.rootContext().contextProperty("gameModel")
     model.metadataFetched.emit("local-doom", {"tags": ["Action", "RPG"]})
     qgui_app.processEvents()
-    # The New cell previews the merged list, not the provider answer alone.
-    assert _visible_tags_button(awin).property("text") == "RPG + 1 Tag(s)"
+    dlg = win.findChild(QObject, "gameSettings")
+    # Both sides start checked: the current tag and every provider tag.
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    tags_row = next(row for row in rows if row["key"] == "tags")
+    assert tags_row["currentItems"] == [{"name": "RPG", "checked": True}]
+    assert [item["name"] for item in tags_row["newItems"]] == ["Action", "RPG"]
     _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsTags").property("text") == "RPG, Action"
     awin.close()
@@ -8018,9 +7975,18 @@ def test_metadata_preview_tags_replace_still_replaces(qgui_app, xdg_env):
     model = engine.rootContext().contextProperty("gameModel")
     model.metadataFetched.emit("local-doom", {"tags": ["Action", "Indie"]})
     qgui_app.processEvents()
-    awin.findChild(QQuickItem, "metadataPreviewReplace").setProperty("checked", True)
+    dlg = win.findChild(QObject, "gameSettings")
+    # Clearing the Current column is the Replace: only the provider stays.
+    header = awin.findChild(QQuickItem, "metadataPreviewAllCurrent")
+    header.setProperty("checked", True)
+    header.clicked.emit()
+    header.setProperty("checked", False)
+    header.clicked.emit()
     qgui_app.processEvents()
-    assert _visible_tags_button(awin).property("text") == "Action + 1 Tag(s)"
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    tags_row = next(row for row in rows if row["key"] == "tags")
+    assert [item["checked"] for item in tags_row["currentItems"]] == [False]
     _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsTags").property("text") == "Action, Indie"
     awin.close()
@@ -8031,6 +7997,246 @@ def test_metadata_preview_tags_replace_still_replaces(qgui_app, xdg_env):
     assert C.load("local-doom").metadata.tags == ["Action", "Indie"]
     real = [w for w in warnings if "graphics scene" not in w]
     assert real == []
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_preview_header_boxes_start_unchecked(qgui_app, xdg_env):
+    """The column boxes are actions: unchecked until the user clicks one."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    cfg.metadata.tags = ["RPG"]
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit("local-doom", {"tags": ["Action", "Indie"]})
+    qgui_app.processEvents()
+    current = awin.findChild(QQuickItem, "metadataPreviewAllCurrent")
+    incoming = awin.findChild(QQuickItem, "metadataPreviewAllNew")
+    # Values start checked; the boxes that toggle them do not mirror that.
+    assert current.property("checked") is False
+    assert incoming.property("checked") is False
+    assert incoming.property("text") == "New (Steam)"
+    incoming.setProperty("checked", False)
+    incoming.clicked.emit()
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    tags_row = next(row for row in rows if row["key"] == "tags")
+    assert [item["checked"] for item in tags_row["newItems"]] == [False, False]
+    incoming.setProperty("checked", True)
+    incoming.clicked.emit()
+    qgui_app.processEvents()
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    tags_row = next(row for row in rows if row["key"] == "tags")
+    assert [item["checked"] for item in tags_row["newItems"]] == [True, True]
+    awin.close()
+    qgui_app.processEvents()
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_preview_lists_use_the_window_scroll(qgui_app, xdg_env):
+    """Every tag renders inline; only the window's own scroll is above it."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    tags = [f"Tag Number {index}" for index in range(12)]
+    model.metadataFetched.emit("local-doom", {"tags": tags})
+    qgui_app.processEvents()
+
+    def scroll_views_above(item):
+        count = 0
+        parent = item.parentItem()
+        while parent is not None:
+            if parent.metaObject().className().startswith("QQuickFlickable"):
+                count += 1
+            parent = parent.parentItem()
+        return count
+
+    first = _preview_item(awin, "metadataPreviewNew_tags_0")
+    last = _preview_item(awin, "metadataPreviewNew_tags_11")
+    assert last.property("text") == "Tag Number 11"
+    # One scroll (the window's) and no per-column view between the tags.
+    assert scroll_views_above(first) == 1
+    assert (
+        last.mapToItem(first.parentItem(), 0, 0).y() > first.mapToItem(first.parentItem(), 0, 0).y()
+    )
+    awin.close()
+    qgui_app.processEvents()
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_preview_marks_repeated_scalars(qgui_app, xdg_env):
+    """A scalar equal to the typed value is marked and stays unchecked."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    cfg.metadata.description = "Same synopsis."
+    cfg.metadata.date = "1993-12-10"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit(
+        "local-doom",
+        {
+            "description": "Same synopsis.",
+            "series": "New Series",
+            "date": "1993-12-10",
+        },
+    )
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    description = next(row for row in rows if row["key"] == "description")
+    date = next(row for row in rows if row["key"] == "date")
+    series = next(row for row in rows if row["key"] == "series")
+    assert description["existing"] is True
+    assert description["choice"] == "current"
+    assert date["existing"] is True
+    assert date["choice"] == "current"
+    assert series["existing"] is False
+    assert series["choice"] == "new"
+    # The repeated date renders struck through; the empty series Current
+    # side has no box to click.
+    date_box = _preview_item(awin, "metadataPreviewNew_date")
+    assert date_box.property("font").strikeOut() is True
+    series_current = _preview_item(awin, "metadataPreviewCurrent_series")
+    assert series_current.isVisible() is False
+    _click(awin, "dialogOk")
+    assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Same synopsis."
+    assert swin.findChild(QQuickItem, "settingsDate").property("text") == "1993-12-10"
+    assert swin.findChild(QQuickItem, "settingsSeries").property("text") == "New Series"
+    awin.close()
+    qgui_app.processEvents()
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_preview_description_boxes_scroll(qgui_app, xdg_env):
+    """The description compares in two six-line boxes that scroll."""
+    from PySide6.QtCore import QObject
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    cfg.metadata.steam_appid = "620"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    long_text = " ".join(f"line {index}" for index in range(80))
+    model.metadataFetched.emit("local-doom", {"description": long_text})
+    qgui_app.processEvents()
+    boxes = {
+        item.objectName(): item
+        for item in _visual_items(awin.property("contentItem"))
+        if item.objectName().endswith("DescriptionBox")
+    }
+    assert set(boxes) == {
+        "metadataPreviewCurrentDescriptionBox",
+        "metadataPreviewNewDescriptionBox",
+    }
+    for box in boxes.values():
+        assert box.property("height") >= 90
+    # Only the provider side has text here, so only it scrolls.
+    new_box = boxes["metadataPreviewNewDescriptionBox"]
+    assert new_box.property("contentItem").property("contentHeight") > new_box.property("height")
+    awin.close()
+    qgui_app.processEvents()
+    win.close()
+    engine.deleteLater()
+    qgui_app.processEvents()
+
+
+def test_metadata_preview_reset_discards_the_answer(qgui_app, xdg_env):
+    """Reset drops the fetched rows, the status and the title candidates."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtQuick import QQuickItem
+
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-doom"
+    cfg.general.name = "Doom"
+    cfg.general.custom_executable = "/bin/true"
+    cfg.runtime.type = "native"
+    C.save(cfg)
+    win, engine, _proxy, _warnings = _load_main(qgui_app)
+    page = win.findChild(QObject, "gamesPage")
+    page.openGameSettings("local-doom")
+    swin = _settings_window(qgui_app)
+    awin = _search_window(qgui_app)
+    model = engine.rootContext().contextProperty("gameModel")
+    model.metadataFetched.emit("local-doom", {"tags": ["Action", "Indie"]})
+    qgui_app.processEvents()
+    dlg = win.findChild(QObject, "gameSettings")
+    raw = dlg.property("metadataRows")
+    assert raw.toVariant() if hasattr(raw, "toVariant") else raw
+    reset = awin.findChild(QQuickItem, "settingsMetadataReset")
+    assert reset.property("visible") is True
+    _click(awin, "settingsMetadataReset")
+    qgui_app.processEvents()
+    raw = dlg.property("metadataRows")
+    assert (raw.toVariant() if hasattr(raw, "toVariant") else raw) == []
+    assert awin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == ""
+    assert awin.findChild(QQuickItem, "settingsMetadataReset").property("visible") is False
+    assert awin.findChild(QQuickItem, "metadataPreviewAllNew").property("checked") is False
+    # Nothing was written by the fetch, so the fields keep their values.
+    assert swin.findChild(QQuickItem, "settingsTags").property("text") == "Not Set"
+    awin.close()
+    qgui_app.processEvents()
     win.close()
     engine.deleteLater()
     qgui_app.processEvents()
@@ -8059,13 +8265,13 @@ def test_metadata_preview_ratings_merge_by_board(qgui_app, xdg_env):
     model = engine.rootContext().contextProperty("gameModel")
     model.metadataFetched.emit("local-doom", {"age_ratings": ["PEGI 12"]})
     qgui_app.processEvents()
-    texts = [
-        item.property("text")
-        for item in _visual_items(awin.property("contentItem"))
-        if isinstance(item.property("text"), str)
-    ]
-    assert "USK 16, PEGI 12" in texts
-    assert "PEGI 18, PEGI 12" not in texts
+    dlg = win.findChild(QObject, "gameSettings")
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    ratings = next(row for row in rows if row["key"] == "age_ratings")
+    # The same board cannot stay checked on both sides.
+    assert [item["checked"] for item in ratings["currentItems"]] == [False, True]
+    assert [item["checked"] for item in ratings["newItems"]] == [True]
     _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsAgeRating").property("text") == "USK 16, PEGI 12"
     awin.close()
@@ -8880,8 +9086,8 @@ def test_narrow_toolbar_with_tags_keeps_actions(qgui_app, xdg_env):
     qgui_app.processEvents()
 
 
-def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
-    """The Replace switch is the explicit opt-in for overwriting typed values."""
+def test_metadata_preview_pick_new_values_overwrites_typed(qgui_app, xdg_env):
+    """The New column is the explicit opt-in for overwriting typed values."""
     from PySide6.QtCore import QObject
     from PySide6.QtQuick import QQuickItem
 
@@ -8907,19 +9113,33 @@ def test_metadata_preview_replace_switch_overwrites_typed(qgui_app, xdg_env):
         {"developer": "Store Studio", "date": "1993-12-10"},
     )
     qgui_app.processEvents()
-    replace = awin.findChild(QQuickItem, "metadataPreviewReplace")
-    assert replace.property("checked") is False
-    replace.setProperty("checked", True)
+    dlg = win.findChild(QObject, "gameSettings")
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    developer = next(row for row in rows if row["key"] == "developer")
+    date = next(row for row in rows if row["key"] == "date")
+    # Typed values stay the default for both shapes.
+    assert developer["currentItems"] == [{"name": "Typed Studio", "checked": True}]
+    assert date["choice"] == "current"
+    header = awin.findChild(QQuickItem, "metadataPreviewAllCurrent")
+    header.setProperty("checked", True)
+    header.clicked.emit()
+    header.setProperty("checked", False)
+    header.clicked.emit()
+    _click_preview(awin, "metadataPreviewNew_date")
     _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Store Studio"
     assert swin.findChild(QQuickItem, "settingsDate").property("text") == "1993-12-10"
     assert (
         awin.findChild(QQuickItem, "settingsMetadataStatus").property("text") == "Metadata Loaded."
     )
-    # The next answer starts from the fill-empty default again.
+    # The next answer starts from the typed values again.
     model.metadataFetched.emit("local-doom", {"developer": "Store Studio"})
     qgui_app.processEvents()
-    assert awin.findChild(QQuickItem, "metadataPreviewReplace").property("checked") is False
+    raw = dlg.property("metadataRows")
+    rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
+    developer = next(row for row in rows if row["key"] == "developer")
+    assert developer["currentItems"] == [{"name": "Store Studio", "checked": True}]
     awin.close()
     qgui_app.processEvents()
     win.close()
@@ -9037,8 +9257,6 @@ def test_metadata_locked_field_survives_replace(qgui_app, xdg_env):
     raw = dlg.property("metadataRows")
     rows = raw.toVariant() if hasattr(raw, "toVariant") else raw
     assert [row["locked"] for row in rows] == [False, True]
-    replace = awin.findChild(QQuickItem, "metadataPreviewReplace")
-    replace.setProperty("checked", True)
     _click(awin, "dialogOk")
     assert swin.findChild(QQuickItem, "settingsDescription").property("text") == "Store synopsis."
     assert swin.findChild(QQuickItem, "settingsDeveloper").property("text") == "Typed Studio"
@@ -9818,20 +10036,30 @@ def _visual_items(root):
         yield from _visual_items(child)
 
 
-def _visible_tags_button(host):
-    """The Search Data Tags button of the tags row (delegates are rebuilt)."""
-    return next(
-        item
-        for item in _visual_items(host.property("contentItem"))
-        if item.objectName() == "metadataTagsPick" and item.property("visible")
-    )
-
-
 def _flush_deletes():
     """Run QML destroy() calls now: the rebuilt drawer hides stale actions."""
     from PySide6.QtCore import QCoreApplication, QEvent
 
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def _preview_item(host, name):
+    """One preview checkbox: Repeater delegates have no QObject parent."""
+    return next(
+        item for item in _visual_items(host.property("contentItem")) if item.objectName() == name
+    )
+
+
+def _click_preview(host, name):
+    """Toggle a preview checkbox through its clicked handler.
+
+    Repeater delegates have no QObject parent and, once the preview
+    scrolls, a synthetic mouse click can land on the dialog footer, so the
+    handler runs the way a user click would: the box flips, then clicks.
+    """
+    item = _preview_item(host, name)
+    item.setProperty("checked", not item.property("checked"))
+    item.clicked.emit()
 
 
 def _click_item(item):

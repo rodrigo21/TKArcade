@@ -49,7 +49,7 @@ def resolve(appid: str, target: str = "") -> str:
 def _joined(value: object) -> str:
     if not isinstance(value, list):
         return ""
-    return ", ".join(str(part).strip() for part in value if str(part).strip())
+    return "; ".join(str(part).strip() for part in value if str(part).strip())
 
 
 def _descriptions(value: object) -> list[str]:
@@ -101,7 +101,7 @@ def normalize(data: dict) -> dict:
         names = [
             str(part.get("description", "")).strip() for part in genres if isinstance(part, dict)
         ]
-        genre = ", ".join(name for name in names if name)
+        genre = "; ".join(name for name in names if name)
     franchise = data.get("franchise")
     release = data.get("release_date")
     date = rdmod.parse_date(release.get("date", "")) if isinstance(release, dict) else ""

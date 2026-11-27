@@ -57,7 +57,7 @@ def test_normalize_payload():
     assert out["description"] == 'Tom & Jerry "test"'
     assert out["developer"] == "Valve"
     assert out["publisher"] == "Valve"
-    assert out["genre"] == "Action, Adventure"
+    assert out["genre"] == "Action; Adventure"
     assert out["series"] == "Witcher"
     assert out["age_ratings"] == ["ESRB M", "PEGI 18", "USK 16"]
     assert out["date"] == "2025-08-28"

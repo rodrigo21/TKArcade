@@ -309,6 +309,28 @@ Breaking config changes are called out explicitly under `Changed`.
   `shortcuts.vdf` and uses the `local-*` config with that executable when
   no `steam-<n>` config exists.
 
+### Changed
+- Download Metadata's preview compares every field side by side: the
+  **Current** and **New** columns carry one checkbox per value (an
+  exclusive pair for scalars), the column headers check or clear a whole
+  side, and Apply writes exactly the checked selection. The **Replace
+  existing values** switch is gone (clearing Current does the same) and
+  the Tags row no longer opens a second picker; the same-board age-rating
+  rule holds as values are checked. Developer, publisher and genre are
+  lists now: they split on `;` (or a comma-only older value) and are
+  joined with `; `, and the provider adapters write that separator too.
+  The column boxes start unchecked and act on a whole column (first click
+  checks it, the next clears it); the New column names the provider it
+  came from; lists render in full, so the window has a single scroll
+  instead of a cramped column; the value columns start at the top, and a
+  provider value the game already carries — list name or scalar text —
+  shows struck through and dimmer in the New column, unchecked by default,
+  and the description compares as a six-line scrolling box like
+  Information; **Reset** discards the answer and
+  the title candidates, leaving the fields and the game's identities
+  untouched; and the window opens half the work area wide and at its
+  whole height.
+
 ### Fixed
 - The library window and the editor/pre-launch windows report `tkarcade`
   as their Wayland app id, matching the installed desktop entry, so

@@ -301,11 +301,21 @@ candidates. Under the VNDB id a Language filter narrows the releases
 linked to the visual novel, and the Release pick drives the preview's
 Release Date and Publisher; Save stores it as `[metadata] vndb_release`
 and Details shows the identity as `v2002/r1234`. The answer arrives as
-preview rows (Apply fills empty
-fields, merges the tag list and the age ratings, a switch replaces typed
-values and whole lists, the locks win) and writes the
-dialog draft; Save persists it and fills any missing artwork with the
-chosen provider. Details shows the identities back as a
+per-field preview rows and writes the dialog draft: the **Current** and
+**New** columns carry one checkbox per value, the New column names the
+provider it came from, the column headers (unchecked until clicked) check
+or clear a whole side, **Reset** drops the answer and the title
+candidates, and Apply writes exactly the checked selection (typed scalars
+stay selected by default, and a locked row is never written). Lists
+render in full, one scroll covers the whole preview, a value the game
+already carries, list name or scalar text, shows struck through and dimmer
+in the New column; the description compares as a six-line scrolling box, and
+the window opens
+half the work area wide and at its whole height, so both columns have
+room. Developer, publisher and genre are lists: they split on `;`
+(or on a comma-only older value) and are written with `; `. Save
+persists the draft and fills any missing artwork with the chosen
+provider. Details shows the identities back as a
 "Matches:" line, and a newly added Steam game fills its own store entry
 on save: empty fields only, locks respected, tags and release date
 included. IGDB needs a free Twitch application (client
@@ -313,10 +323,8 @@ id and secret in Preferences → Artwork → API Keys, apart from the
 default Artwork Source); the Twitch console asks for an OAuth
 redirect URL, where any public HTTPS address works, because the
 download uses the client-credentials grant and never redirects. The
-preview also carries a **Tags** row whose button opens the picker, so
-each provider tag can be accepted or declined before Apply; the button
-shows the first tag plus how many follow and keeps the whole list in
-its tooltip:
+preview's Tags row lists the game's own tags and the provider's tags as
+checkboxes, so each can be kept or declined before Apply:
 Apply writes the checked ones into `[metadata] tags`, where Steam
 contributes genres, store features and the franchise, IGDB its genres,
 franchise, themes and keywords, and VNDB its non-spoiler tags rated 2.0
@@ -337,13 +345,12 @@ count beside each name follows the search, origin, issues, category and
 tag selection, so it previews what the next check would leave. A
 name that leaves the store is dropped from the selection. The selection
 menu sets the tag list of several games at once; clearing every tag from
-games that have one asks for confirmation. Apply appends the accepted
-provider tags to the game's list, its own names first; the Replace
-switch swaps the whole list for the accepted set, and a fully cleared
-list counts as empty. Age ratings merge by board: the provider replaces
-the value of each board it answers and leaves the others, while Replace
-swaps the whole set. A lock blocks either list write, and the preview's
-New column shows the merged result.
+games that have one asks for confirmation. Apply writes the checked
+Current names first, then the checked provider names, deduped
+case-insensitively, so the game's own order survives; a list with every
+box cleared writes nothing. Age ratings keep one value per board:
+checking a provider rating unchecks the current value of the same board,
+and the reverse. A lock blocks either list write.
 A selection skips the per-game window: **Download Metadata…** in the
 selection menu lists the chosen games, resolves each one off the GUI
 thread — stored identity first, otherwise a title search in the source

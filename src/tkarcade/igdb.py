@@ -238,7 +238,7 @@ def _name_list(value: object) -> list[str]:
 
 def _names(value: object) -> str:
     """Joined ``name`` keys of a genre, franchise or company list."""
-    return ", ".join(_name_list(value))
+    return "; ".join(_name_list(value))
 
 
 def _tags(data: dict) -> list[str]:
@@ -263,7 +263,7 @@ def _companies(value: object, flag: str) -> str:
         name = str(company.get("name", "")).strip() if isinstance(company, dict) else ""
         if name and name not in names:
             names.append(name)
-    return ", ".join(names)
+    return "; ".join(names)
 
 
 def _ratings(value: object) -> list[str]:

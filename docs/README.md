@@ -153,6 +153,10 @@ What each document is for and where the source of truth lives.
   Metadata: tags append, an age rating replaces its own board, the
   Replace switch stays the wholesale overwrite, and the preview shows
   the result.
+- `decisions/metadata-preview-merge.md` — the per-field comparison that
+  replaced it: checkboxes for both columns, the header select-all, the
+  `;` list separator for developer/publisher/genre and the removed
+  Replace switch.
 - `decisions/metadata-vndb-release.md` — the VNDB release list under the
   identity, the pick driving Date and Publisher, the client-side
   language filter and `[metadata] vndb_release`.

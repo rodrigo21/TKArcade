@@ -94,7 +94,7 @@ def _publishers(value: object) -> str:
         name = str(part.get("name", "")).strip()
         if name and name not in names:
             names.append(name)
-    return ", ".join(names)
+    return "; ".join(names)
 
 
 def _langs(row: dict) -> list[str]:
@@ -175,7 +175,7 @@ def _developers(value: object) -> str:
         name = str(part.get("name", "")).strip() if isinstance(part, dict) else ""
         if name and name not in names:
             names.append(name)
-    return ", ".join(names)
+    return "; ".join(names)
 
 
 def _tags(value: object) -> list[str]:

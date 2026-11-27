@@ -103,8 +103,8 @@ def test_fetch_maps_the_payload(monkeypatch, xdg_env):
     assert igdb.fetch("local-hades", "1145360") == {
         "description": "Escape the underworld.",
         "developer": "Supergiant Games",
-        "publisher": "Supergiant Games, Private Division",
-        "genre": "Adventure, Indie",
+        "publisher": "Supergiant Games; Private Division",
+        "genre": "Adventure; Indie",
         "series": "Hades",
         "age_ratings": ["ESRB T", "PEGI 12"],
         "date": "2020-02-11",
