@@ -10,17 +10,19 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: seventy-nine batches. The latest adds VNDB as the fourth
-  artwork source: the chosen provider fills the cover and a least-flagged
-  screenshot banner, needs no key, resolves `[metadata] vndb_id` from the
-  draft, config, cache or title search and writes a pick back (clearing
-  `vndb_release` on a change). `[ui] hide_explicit_artwork` (off) drops
-  flagged VNDB images and SGDB `nsfw` entries; the picker opens only
-  when a fetch downloaded nothing, so an icon fill cannot replace the
-  chosen art.
-- Verified: `scripts/check.sh` (873 passed, 3 skipped) and `--qml`
-  (874 passed, 3 skipped) on the landed diff; offscreen screenshots
-  showed no clipping; venv refreshed after the merge and push.
+- Landed: eighty batches. The latest turns the manual Fetch Artwork
+  into a chooser: every provider's candidates load as thumbnails, the
+  row the automatic fetch would pick is marked and preselected, Steam
+  official assets are probed and labelled, and only the selected images
+  are written on confirm. The chain fills the kinds the source cannot
+  serve (the IGDB/VNDB icon) only when empty; a chosen icon skips the
+  weak-icon upgrade. The resolved IGDB/VNDB/SGDB identity is stored on
+  confirm, never on the preview, and the identity picker only decides
+  the game. Previews stay in Qt memory and never enter the artwork
+  cache.
+- Verified: `scripts/check.sh --qml` (880 passed, 3 skipped) on the
+  landed diff; the offscreen chooser screenshot showed no clipping; the
+  venv was refreshed after the merge and push.
 - Next: the 1.0 gate waits on the maintainer's release call (visual
   pass, shim removal, translations, release pass). Playnite is parked
   for 3.0, only if another operating system is supported. Epic/GOG is
