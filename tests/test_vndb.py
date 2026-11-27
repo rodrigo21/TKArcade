@@ -427,3 +427,118 @@ def test_art_options_lists_every_screenshot(monkeypatch, xdg_env):
     assert [row["auto"] for row in groups["banner"]] == [True, False]
     assert groups["cover"][0]["auto"] is True
     assert groups["cover"][0]["note"] == "800x600"
+
+
+def _release_art(vn_id="v2002", images=()):
+    return {
+        "results": [
+            {
+                "id": "r1234",
+                "vns": [{"id": vn_id, "rtype": "complete"}],
+                "images": list(images),
+            }
+        ]
+    }
+
+
+def test_art_options_adds_the_picked_release_cover(monkeypatch, xdg_env):
+    """The release packaging front follows the visual novel image, manual."""
+    calls = _stub_sequence(
+        monkeypatch,
+        [
+            _art_payload({"url": "https://t.vndb.org/cv/1.jpg", "sexual": 0, "violence": 0}),
+            _release_art(
+                images=[
+                    {
+                        "type": "pkgfront",
+                        "url": "https://t.vndb.org/pk/1.jpg",
+                        "sexual": 0,
+                        "violence": 0,
+                        "dims": [600, 900],
+                    },
+                    {"type": "pkgback", "url": "https://t.vndb.org/pk/2.jpg"},
+                ]
+            ),
+        ],
+    )
+
+    groups, error = vndb.art_options("v2002", release="R1234")
+
+    assert error == ""
+    assert [row["url"] for row in groups["cover"]] == [
+        "https://t.vndb.org/cv/1.jpg",
+        "https://t.vndb.org/pk/1.jpg",
+    ]
+    assert [row["auto"] for row in groups["cover"]] == [True, False]
+    assert groups["cover"][1]["label"] == "Release Cover"
+    assert groups["cover"][1]["note"] == "600x900"
+    body = json.loads(calls[1].data)
+    assert body["filters"] == ["id", "=", "r1234"]
+    assert body["fields"] == vndb.RELEASE_ART_FIELDS
+
+
+def test_art_options_without_a_release_skips_the_extra_request(monkeypatch, xdg_env):
+    calls = _stub(
+        monkeypatch,
+        _art_payload({"url": "https://t.vndb.org/cv/1.jpg", "sexual": 0, "violence": 0}),
+    )
+    groups, error = vndb.art_options("v2002")
+    assert error == ""
+    assert len(groups["cover"]) == 1
+    assert len(calls) == 1
+
+
+def test_art_options_release_cover_of_another_visual_novel_is_ignored(monkeypatch, xdg_env):
+    _stub_sequence(
+        monkeypatch,
+        [
+            _art_payload({"url": "https://t.vndb.org/cv/1.jpg", "sexual": 0, "violence": 0}),
+            _release_art("v9999", [{"type": "pkgfront", "url": "https://t.vndb.org/pk/1.jpg"}]),
+        ],
+    )
+    groups, error = vndb.art_options("v2002", release="r1234")
+    assert error == ""
+    assert [row["url"] for row in groups["cover"]] == ["https://t.vndb.org/cv/1.jpg"]
+
+
+def test_art_options_release_cover_fills_an_empty_cover(monkeypatch, xdg_env):
+    _stub_sequence(
+        monkeypatch,
+        [
+            _art_payload(None, []),
+            _release_art(images=[{"type": "pkgfront", "url": "https://t.vndb.org/pk/1.jpg"}]),
+        ],
+    )
+    groups, error = vndb.art_options("v2002", release="r1234")
+    assert error == ""
+    assert [row["url"] for row in groups["cover"]] == ["https://t.vndb.org/pk/1.jpg"]
+    assert groups["cover"][0]["auto"] is True
+
+
+def test_art_options_release_cover_safe_drops_explicit(monkeypatch, xdg_env):
+    _stub_sequence(
+        monkeypatch,
+        [
+            _art_payload({"url": "https://t.vndb.org/cv/1.jpg", "sexual": 0, "violence": 0}),
+            _release_art(
+                images=[{"type": "pkgfront", "url": "https://t.vndb.org/pk/1.jpg", "sexual": 2}]
+            ),
+        ],
+    )
+    groups, error = vndb.art_options("v2002", safe=True, release="r1234")
+    assert error == ""
+    assert [row["url"] for row in groups["cover"]] == ["https://t.vndb.org/cv/1.jpg"]
+
+
+def test_art_options_drops_a_release_cover_equal_to_the_main_image(monkeypatch, xdg_env):
+    url = "https://t.vndb.org/cv/1.jpg"
+    _stub_sequence(
+        monkeypatch,
+        [
+            _art_payload({"url": url, "sexual": 0, "violence": 0}),
+            _release_art(images=[{"type": "pkgfront", "url": url}]),
+        ],
+    )
+    groups, error = vndb.art_options("v2002", release="r1234")
+    assert error == ""
+    assert [row["url"] for row in groups["cover"]] == [url]

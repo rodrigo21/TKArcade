@@ -51,13 +51,6 @@ Release, only when the maintainer opens the subject:
 - [ ] **Tag display polish.** Chips, autocomplete, manual order and
   colors; only if use shows the need.
 
-## Artwork follow-up
-
-- [ ] **VNDB release cover variants.** The release `images` list
-  (`pkgfront`, language filter) can offer another cover when the
-  visual novel's main image is missing or poor. Only if use shows the
-  need.
-
 ## 2.0
 
 - [ ] **Epic and GOG game sources.** The Add Game dialog picks the source

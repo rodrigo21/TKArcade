@@ -1710,7 +1710,11 @@ def _gallery_vndb(result: dict, gid: str, kinds, names, vndb_id: str, game_id: s
     if not resolved:
         result["error"] = error or "no-vndb-id"
         return result
-    groups, error = vndbmod.art_options(resolved, safe=_safe_downloads())
+    try:
+        release = cfgmod.load(gid).metadata.vndb_release
+    except Exception:
+        release = ""
+    groups, error = vndbmod.art_options(resolved, safe=_safe_downloads(), release=release)
     result["vndb_id"] = resolved
     if error:
         result["error"] = error

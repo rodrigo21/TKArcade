@@ -35,6 +35,7 @@ RELEASE_FIELDS = (
     "vns.id,vns.rtype,producers.name,producers.developer,producers.publisher"
 )
 RELEASE_LINK_FIELDS = "id,released,producers.name,producers.publisher,vns.id"
+RELEASE_ART_FIELDS = "id,images{id,type,url,dims,sexual,violence,photo},vns.id"
 SEARCH_RESULTS = 10
 #: Kana caps one page at 100 rows.
 # shortcut: the first 100 releases; paginate when a visual novel exceeds it.
@@ -319,10 +320,12 @@ def releases(vn_id: str, timeout: int = 15) -> list[dict]:
     return found
 
 
-def _release(vn_id: str, release_id: str, timeout: int) -> dict | None:
+def _release(
+    vn_id: str, release_id: str, timeout: int, fields: str = RELEASE_LINK_FIELDS
+) -> dict | None:
     """The picked release, only while it still links this visual novel."""
     payload = _post(
-        {"filters": ["id", "=", release_id], "fields": RELEASE_LINK_FIELDS, "results": 1},
+        {"filters": ["id", "=", release_id], "fields": fields, "results": 1},
         timeout,
         RELEASE_ENDPOINT,
     )
@@ -382,17 +385,33 @@ def _dims(image: object) -> str:
         return ""
 
 
-def _art_option(image: dict, auto: bool = False) -> dict:
+def _art_option(image: dict, auto: bool = False, label: str = "") -> dict:
     url = _image_url(image)
-    return {"url": url, "thumb": url, "auto": auto, "label": "", "note": _dims(image)}
+    return {"url": url, "thumb": url, "auto": auto, "label": label, "note": _dims(image)}
+
+
+def _release_covers(vn_id: str, release: str, timeout: int, safe: bool) -> list[dict]:
+    """Packaging front covers of the picked release, after the link check."""
+    rel = _release(vn_id, release, timeout, RELEASE_ART_FIELDS)
+    images = rel.get("images") if rel else None
+    rows: list[dict] = []
+    for image in images if isinstance(images, list) else []:
+        if not isinstance(image, dict) or image.get("type") != "pkgfront":
+            continue
+        if not _image_url(image) or (safe and _explicit(image)):
+            continue
+        rows.append(_art_option(image, label="Release Cover"))
+    return rows
 
 
 def art_options(
-    vn_id: str, timeout: int = 15, safe: bool = False
+    vn_id: str, timeout: int = 15, safe: bool = False, release: str = ""
 ) -> tuple[dict[str, list[dict]], str]:
     """Candidate images per kind: ({"cover": [...], "banner": [...]}, error).
 
-    The cover is the visual novel's own image; the banner lists every
+    The cover is the visual novel's own image, then the packaging front of
+    the picked release; a release cover never displaces the main image and
+    only turns automatic when there is none. The banner lists every
     screenshot, least flagged first, and the first row is the automatic
     pick. With `safe`, images flagged explicit or violent are dropped.
     Error tokens: "no-id", "not-found".
@@ -412,6 +431,16 @@ def art_options(
     image = row.get("image")
     if not (safe and _explicit(image)) and _image_url(image):
         out["cover"] = [_art_option(image, auto=True)]
+    picked = cfgmod.normalize_vndb_release(release)
+    if picked:
+        known = {option["url"] for option in out.get("cover", [])}
+        covers = [
+            row for row in _release_covers(wanted, picked, timeout, safe) if row["url"] not in known
+        ]
+        if covers:
+            if "cover" not in out:
+                covers[0]["auto"] = True
+            out.setdefault("cover", []).extend(covers)
     shots = row.get("screenshots")
     usable = [
         shot

@@ -395,7 +395,9 @@ slot without a second download. Steam's official candidates keep the
 file order (Library Cover 2x/1x, Header; Library Hero) and are probed
 so a missing asset stays out; SteamGridDB lists icons, covers and
 heroes; IGDB lists its artworks and screenshots after the cover; VNDB
-lists every screenshot least flagged first. Kinds the source cannot
+lists every screenshot least flagged first, and the packaging front of
+the picked release (`[metadata] vndb_release`) after the visual novel's
+own image, which stays the automatic row. Kinds the source cannot
 fill (the IGDB/VNDB icon) are filled by the next provider when empty,
 and an offered kind is never replaced by a fallback after the confirm.
 The identity picker opens only

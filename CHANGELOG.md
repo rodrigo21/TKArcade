@@ -36,6 +36,10 @@ Breaking config changes are called out explicitly under `Changed`.
   default): it drops VNDB images flagged explicit or violent and
   SteamGridDB `nsfw` entries on downloads, and never touches stored
   art.
+- Fetch Artwork appends the packaging front of the picked VNDB release
+  (`[metadata] vndb_release`) to the cover candidates, after the visual
+  novel's own image, which stays the automatic pick; only the picked
+  release is read, one extra request.
 - Download Metadata runs on a library selection: the menu action lists
   each chosen game with the match it found and the fields it would fill,
   then Apply writes the checked rows only. A stored Steam, VNDB or IGDB

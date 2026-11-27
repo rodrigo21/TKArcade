@@ -1270,13 +1270,14 @@ def test_clear_keeps_the_igdb_choice(monkeypatch, xdg_env):
     assert result["art"]["cover"].read_bytes() == _img("COVER")
 
 
-def _vndb_game(vndb_id: str = "v2002") -> None:
+def _vndb_game(vndb_id: str = "v2002", release: str = "") -> None:
     from tkarcade import config as C
 
     cfg = C.GameConfig()
     cfg.general.appid = "local-sg"
     cfg.general.name = "Steins;Gate"
     cfg.metadata.vndb_id = vndb_id
+    cfg.metadata.vndb_release = release
     C.save(cfg)
 
 
@@ -1627,3 +1628,26 @@ def test_art_gallery_reads_igdb_without_downloading(monkeypatch, xdg_env):
     assert result["igdb_id"] == "1"
     assert result["groups"]["cover"][0]["url"] == "https://cdn/c.png"
     assert result["error"] == ""
+
+
+def test_art_gallery_offers_the_picked_release_cover(monkeypatch, xdg_env):
+    """The VNDB path reads vndb_release and passes it to the candidates."""
+    _vndb_game("v2002", "r1234")
+    seen = {}
+
+    def fake_options(vn_id, timeout=15, safe=False, release=""):
+        seen["release"] = release
+        return {
+            "cover": [
+                {"url": "https://cdn/c.png", "thumb": "https://cdn/c.png", "auto": True},
+                {"url": "https://cdn/r.png", "thumb": "https://cdn/r.png", "auto": False},
+            ]
+        }, ""
+
+    monkeypatch.setattr(art.vndbmod, "art_options", fake_options)
+    result = art.art_gallery("local-sg", "vndb", names=("Steins;Gate",))
+    assert seen["release"] == "r1234"
+    assert [row["url"] for row in result["groups"]["cover"]] == [
+        "https://cdn/c.png",
+        "https://cdn/r.png",
+    ]
