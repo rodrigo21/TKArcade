@@ -10,25 +10,28 @@ factual — history lives in `CHANGELOG.md` and git, deferred work in
 - Branch: `main`, pushed, clean. The working tree carries only the
   maintainer's `pkgver` churn in
   `packaging/arch/tkarcade-git/PKGBUILD`, never committed.
-- Landed: eighty-two batches. The latest two: the chooser keeps a kind
-  (a second click deselects it, so the confirm neither downloads nor
-  chain-fills that kind), offers the source's banner candidates as a
-  Background section with **Use the Banner** copying the chosen banner
-  instead of downloading it twice, and grew the cover and wide
-  previews; the library backdrop now shows the whole background
-  picture, a sharp aspect-fit copy over a blurred cropped copy that
-  fills the page. Resolved identities are stored on confirm, and
-  previews stay in Qt memory rather than the artwork cache.
+- Landed: eighty-three batches. The latest: the small choice prompts
+  (Take Artwork From…, the Gamescope/MangoHud presets, Add Env Preset
+  and Clone Settings) open as a modal overlay over the large window, so
+  the combo list is no longer clipped to three rows; the editor game
+  picker lists the games directly. Before it: the chooser keeps a kind
+  (a second click deselects it, no download and no chain fill), offers
+  the source's banner candidates as a Background section with **Use the
+  Banner** copying the banner instead of downloading it twice, and grew
+  the previews; the library backdrop shows the whole background picture,
+  a sharp aspect-fit copy over a blurred cropped copy.
 - Verified: `scripts/check.sh --qml` (883 passed, 3 skipped) on the
-  landed diff. The offscreen chooser screenshot showed no clipping; the
-  backdrop render confirmed the sharp fit, but the software scenegraph
-  draws no `MultiEffect` pixels, so the blur needs a real-display check.
-  The venv was refreshed after both merges.
+  landed diff; the maintainer confirmed the overlay pickers and Clone on
+  the real display. The backdrop render confirmed the sharp fit, but the
+  software scenegraph draws no `MultiEffect` pixels, so the blur needs a
+  real-display check. The venv was refreshed after the merge.
 - Next: the 1.0 gate waits on the maintainer's release call (visual
-  pass, shim removal, translations, release pass); check the backdrop
-  blur on a real display first. Playnite is parked for 3.0, only if
-  another operating system is supported. Epic/GOG is 2.0, and so is the
-  IGDB per-user credential review.
+  pass, shim removal, translations, release pass). On the real display,
+  check the backdrop blur and the long combos in the large windows
+  (Wine, Proton, DXVK, vkd3d, language, release), which share the window
+  height and were not opened one by one. Playnite is parked for 3.0,
+  only if another operating system is supported. Epic/GOG is 2.0, and so
+  is the IGDB per-user credential review.
 - Deferred: the audit's #15 (launch parse), #19 (role constants) and the
   VNDB release-cover variants in `TODO.md`.
 - The Proton default is a dialog preselection only: a Steam game
