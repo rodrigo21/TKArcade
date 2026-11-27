@@ -464,13 +464,13 @@ class ArtworkConfig:
     banner: str = ""  # explicit per-game banner/landscape image (file path)
     background: str = ""  # explicit per-game wide backdrop (falls back to banner)
     artwork_appid: str = ""  # Steam AppID whose art this game uses
-    provider: str = ""  # "" = global preference, else steam|sgdb
+    provider: str = ""  # "" = global preference, else steam|sgdb|igdb|vndb
 
 
 def normalize_artwork_provider(value: object) -> str:
-    """Per-game artwork provider: "" (global), "steam", "sgdb" or "igdb"."""
+    """Per-game artwork provider: "" (global), "steam", "sgdb", "igdb" or "vndb"."""
     text = str(value or "").strip().lower()
-    return text if text in ("steam", "sgdb", "igdb") else ""
+    return text if text in ("steam", "sgdb", "igdb", "vndb") else ""
 
 
 #: Sidebar width bounds, in grid units: Kirigami's drawer minimum is 8
@@ -545,9 +545,12 @@ class Preferences:
     sgdb_api_key: str = ""
     igdb_client_id: str = ""  # Twitch application, for the IGDB provider
     igdb_client_secret: str = ""
-    artwork_source: str = "steam"  # steam|sgdb|igdb: which provider a fetch tries first
+    artwork_source: str = "steam"  # steam|sgdb|igdb|vndb: which provider a fetch tries first
     artwork_format: str = "auto"  # auto|avif|webp|jpeg|png: how stored art is written
     artwork_quality: int = 85  # 1-100 for the lossy storage format
+    # Skip provider-flagged explicit or violent art on downloads. Off by
+    # default: only VNDB and SteamGridDB flag their images.
+    hide_explicit_artwork: bool = False
     column_order: str = ""  # visual order of logical columns, e.g. "0,1,3,2"
     hidden_columns: str = ""  # hidden logical columns, e.g. "1,3"
     column_widths: str = ""  # fitted widths, e.g. "1=210,2=90"
@@ -1581,9 +1584,12 @@ def load_preferences() -> Preferences:
     out.igdb_client_id = str(ui.get("igdb_client_id", "") or "").strip()
     out.igdb_client_secret = str(ui.get("igdb_client_secret", "") or "").strip()
     artwork_source = str(ui.get("artwork_source", "steam") or "steam").strip()
-    out.artwork_source = artwork_source if artwork_source in ("steam", "sgdb", "igdb") else "steam"
+    out.artwork_source = (
+        artwork_source if artwork_source in ("steam", "sgdb", "igdb", "vndb") else "steam"
+    )
     out.artwork_format = normalize_artwork_format(ui.get("artwork_format", "auto"))
     out.artwork_quality = clean_artwork_quality(ui.get("artwork_quality", 85))
+    out.hide_explicit_artwork = _as_bool(ui.get("hide_explicit_artwork", False), False)
     out.column_order = _clean_int_list(str(ui.get("column_order", "") or ""))
     out.hidden_columns = _clean_int_list(str(ui.get("hidden_columns", "") or ""))
     out.tag_filter = normalize_categories(ui.get("tag_filter", []))
@@ -1866,10 +1872,11 @@ def save_preferences(prefs: Preferences) -> Path:
             "igdb_client_id": prefs.igdb_client_id,
             "igdb_client_secret": prefs.igdb_client_secret,
             "artwork_source": prefs.artwork_source
-            if prefs.artwork_source in ("steam", "sgdb", "igdb")
+            if prefs.artwork_source in ("steam", "sgdb", "igdb", "vndb")
             else "steam",
             "artwork_format": normalize_artwork_format(prefs.artwork_format),
             "artwork_quality": clean_artwork_quality(prefs.artwork_quality),
+            "hide_explicit_artwork": bool(prefs.hide_explicit_artwork),
             "column_order": _clean_int_list(prefs.column_order),
             "hidden_columns": _clean_int_list(prefs.hidden_columns),
             "column_widths": _clean_width_map(prefs.column_widths),

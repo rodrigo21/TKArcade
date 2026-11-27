@@ -1,4 +1,4 @@
-"""VNDB metadata payload (Kana API, stdlib urllib).
+"""VNDB payloads (Kana API, stdlib urllib).
 
 A local game without a Steam AppID is searched by title; the picked
 visual novel saves in ``[metadata] vndb_id`` so the next download skips
@@ -6,8 +6,9 @@ the search. VNDB answers a synopsis, the developers and a release date.
 Its releases each carry a date and publishers, so an optional pick in
 ``[metadata] vndb_release`` replaces the visual-novel date and fills the
 publisher. Its tags land in ``[metadata] tags`` through Download
-Metadata, filtered by rating and spoiler. The cache and the rate gate
-live in ``metadata.py``.
+Metadata, filtered by rating and spoiler. Fetch Artwork takes the
+visual novel's cover and a screenshot from the same endpoint. The cache
+and the rate gate live in ``metadata.py``.
 """
 
 from __future__ import annotations
@@ -26,6 +27,9 @@ ENDPOINT = "https://api.vndb.org/kana/vn"
 RELEASE_ENDPOINT = "https://api.vndb.org/kana/release"
 SEARCH_FIELDS = "id,title,alttitle,released"
 FETCH_FIELDS = "id,description,released,developers.name,tags.name,tags.rating,tags.spoiler"
+ART_FIELDS = "image{url,dims,sexual,violence},screenshots{url,dims,sexual,violence}"
+#: VNDB image flags run from 0 to 2 as an average vote; this marks explicit.
+EXPLICIT_FLAG = 1.5
 RELEASE_FIELDS = (
     "id,title,alttitle,released,platforms,languages.lang,official,"
     "vns.id,vns.rtype,producers.name,producers.developer,producers.publisher"
@@ -206,6 +210,28 @@ def _label(row: dict) -> str:
     return f"{label} ({year})" if year.isdigit() else label
 
 
+def _image_url(image: object) -> str:
+    """Absolute URL of one Kana image object ("" when missing)."""
+    if not isinstance(image, dict):
+        return ""
+    url = str(image.get("url", "") or "").strip()
+    return "https:" + url if url.startswith("//") else url
+
+
+def _flag(image: dict, key: str) -> float:
+    try:
+        return float(image.get(key) or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _explicit(image: object) -> bool:
+    """True when the image is flagged explicit or violent."""
+    if not isinstance(image, dict):
+        return False
+    return _flag(image, "sexual") >= EXPLICIT_FLAG or _flag(image, "violence") >= EXPLICIT_FLAG
+
+
 def _post(body: dict, timeout: int = 15, endpoint: str = ENDPOINT) -> dict | None:
     request = urllib.request.Request(
         endpoint,
@@ -245,7 +271,14 @@ def search(query: str, timeout: int = 15) -> list[dict]:
             continue
         vid = str(row.get("id", "") or "").strip()
         if re.fullmatch(r"v\d+", vid):
-            found.append({"id": vid, "name": _label(row)})
+            found.append(
+                {
+                    "id": vid,
+                    "name": _label(row),
+                    "title": str(row.get("title", "") or "").strip(),
+                    "alt": str(row.get("alttitle", "") or "").strip(),
+                }
+            )
     return found
 
 
@@ -334,3 +367,36 @@ def fetch(game_id: str, target: str = "", timeout: int = 15, release: str = "") 
         "date": date,
         "tags": _tags(data.get("tags")),
     }
+
+
+def art(vn_id: str, timeout: int = 15, safe: bool = False) -> tuple[dict[str, str], str]:
+    """Cover and banner URLs for one visual novel: ({"cover", "banner"}, error).
+
+    The cover is the visual novel's own image; the banner is the least
+    flagged screenshot, cropped by the views like any wide art. With
+    `safe`, images flagged explicit or violent are dropped. Error tokens:
+    "no-id", "not-found".
+    """
+    wanted = cfgmod.normalize_vndb_id(vn_id)
+    if not wanted:
+        return {}, "no-id"
+    payload = _post(
+        {"filters": ["id", "=", wanted], "fields": ART_FIELDS, "results": 1},
+        timeout,
+    )
+    rows = payload.get("results") if payload is not None else None
+    if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
+        return {}, "not-found"
+    row = rows[0]
+    image = row.get("image")
+    cover = "" if safe and _explicit(image) else _image_url(image)
+    shots = row.get("screenshots")
+    usable = [
+        shot
+        for shot in (shots if isinstance(shots, list) else [])
+        if isinstance(shot, dict) and _image_url(shot) and not (safe and _explicit(shot))
+    ]
+    usable.sort(key=lambda shot: (_flag(shot, "sexual"), _flag(shot, "violence")))
+    banner = _image_url(usable[0]) if usable else ""
+    found = {kind: url for kind, url in (("cover", cover), ("banner", banner)) if url}
+    return (found, "") if found else ({}, "not-found")

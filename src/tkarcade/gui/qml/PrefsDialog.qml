@@ -349,7 +349,8 @@ Window {
                                     model: [
                                         { "text": qsTr("Steam (Official)"), "data": "steam" },
                                         { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" },
-                                        { "text": qsTr("IGDB (Community)"), "data": "igdb" }
+                                        { "text": qsTr("IGDB (Community)"), "data": "igdb" },
+                                        { "text": qsTr("VNDB (Visual Novels)"), "data": "vndb" }
                                     ]
                                     textRole: "text"
                                     valueRole: "data"
@@ -362,12 +363,20 @@ Window {
                                     Binding {
                                         target: artSourceCombo
                                         property: "currentIndex"
-                                        value: Math.max(0, ["steam", "sgdb", "igdb"].indexOf(
+                                        value: Math.max(0, ["steam", "sgdb", "igdb", "vndb"].indexOf(
                                             prefsDialog.values.artworkSource ?? "steam"))
                                     }
-                                    Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB and IGDB Are Community Artwork. Their Keys Live in the API Keys Section. Fetch Artwork Re-Downloads With the Chosen Source.")
+                                    Controls.ToolTip.text: qsTr("Steam Assets Are the Official Ones; SteamGridDB and IGDB Are Community Artwork. Their Keys Live in the API Keys Section. VNDB Covers Visual Novels and Needs No Key. Fetch Artwork Re-Downloads With the Chosen Source.")
                                     Controls.ToolTip.visible: hovered
                                     KirigamiLayouts.FormData.label: qsTr("Artwork Source:")
+                                }
+                                Controls.CheckBox {
+                                    objectName: "prefsHideExplicit"
+                                    text: qsTr("Hide Explicit Artwork")
+                                    checked: prefsDialog.values.hideExplicitArtwork ?? false
+                                    onClicked: prefsDialog.setPref("hideExplicitArtwork", checked)
+                                    Controls.ToolTip.text: qsTr("Skip the Images VNDB and SteamGridDB Flag as Explicit or Violent. Downloads Only: Artwork Already Stored Stays. IGDB and Steam Offer No Flags.")
+                                    Controls.ToolTip.visible: hovered
                                 }
                             }
                         }

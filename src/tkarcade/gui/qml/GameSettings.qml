@@ -1739,12 +1739,14 @@ Window {
     // it falls back to, so "Use Global Preference" is never a mystery.
     function providerOptions(globalSource) {
         var globalLabel = globalSource === "igdb" ? qsTr("IGDB")
-            : (globalSource === "sgdb" ? qsTr("SteamGridDB") : qsTr("Steam"))
+            : (globalSource === "sgdb" ? qsTr("SteamGridDB")
+            : (globalSource === "vndb" ? qsTr("VNDB") : qsTr("Steam")))
         return [
             { "text": qsTr("Use Global Preference (%1)").arg(globalLabel), "data": "" },
             { "text": qsTr("Steam (Official)"), "data": "steam" },
             { "text": qsTr("SteamGridDB (Community)"), "data": "sgdb" },
-            { "text": qsTr("IGDB (Community)"), "data": "igdb" }
+            { "text": qsTr("IGDB (Community)"), "data": "igdb" },
+            { "text": qsTr("VNDB (Visual Novels)"), "data": "vndb" }
         ]
     }
 
@@ -1782,7 +1784,8 @@ Window {
         var providers = {
             "steam": qsTr(" (Official Steam Artwork)"),
             "sgdb": qsTr(" (SteamGridDB Artwork)"),
-            "igdb": qsTr(" (IGDB Artwork)")
+            "igdb": qsTr(" (IGDB Artwork)"),
+            "vndb": qsTr(" (VNDB Artwork)")
         }
         return providers[provider] || ""
     }
@@ -1815,7 +1818,8 @@ Window {
             editAppid,
             String(artProviderCombo.currentValue || ""),
             artSourceField.text,
-            igdbIdField.text.trim())
+            igdbIdField.text.trim(),
+            vndbIdField.text.trim())
         var messages = {
             "": qsTr("Fetching Artwork…"),
             "no-game": qsTr("Save the Game First."),
@@ -1832,6 +1836,7 @@ Window {
             "no-key": qsTr("Set the SteamGridDB Key in Preferences → Artwork → API Keys."),
             "no-igdb-key": qsTr("Set the IGDB Client ID and Secret in Preferences → Artwork → API Keys."),
             "no-id": qsTr("IGDB Could Not Resolve This Game: Check the Game Name or Set the IGDB ID."),
+            "no-vndb-id": qsTr("VNDB Could Not Resolve This Game: Search Its Title or Set the VNDB ID."),
             "no-match": qsTr("No Exact Name Match. Pick One From the List."),
             "not-a-steam-app": qsTr("That Number Is Not a Steam AppID (a SteamGridDB Page ID Looks Similar)."),
             "not-found": qsTr("No Entry Found for That Game."),
@@ -2676,6 +2681,14 @@ Window {
         function onIgdbResolved(appid, id) {
             if (appid === editAppid) {
                 igdbIdField.text = String(id)
+            }
+        }
+        // Fetch Artwork resolved the visual novel: keep the draft identity
+        // and its release list in step with the stored one.
+        function onVndbResolved(appid, id) {
+            if (appid === editAppid) {
+                vndbIdField.text = String(id)
+                loadReleases()
             }
         }
         function onMetadataFetched(appid, data) {
@@ -5916,7 +5929,7 @@ Window {
                                     Layout.fillWidth: true
                                     textRole: "text"
                                     valueRole: "data"
-                                    Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB and IGDB Are Community Artwork and Need a Key Under Preferences → Artwork → API Keys. The Other Providers Fill the Missing Kinds.")
+                                    Controls.ToolTip.text: qsTr("Which Provider Fetch Artwork Tries First. Steam Assets Are Official; SteamGridDB and IGDB Are Community Artwork and Need a Key Under Preferences → Artwork → API Keys. VNDB Covers Visual Novels and Needs None. The Other Providers Fill the Missing Kinds.")
                                     Controls.ToolTip.visible: hovered
                                 }
                                 Item {

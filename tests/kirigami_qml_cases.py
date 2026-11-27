@@ -2728,7 +2728,7 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
 
     combo = swin.findChild(QQuickItem, "artProvider")
     assert combo is not None
-    assert combo.property("count") == 4, combo.property("count")
+    assert combo.property("count") == 5, combo.property("count")
     assert combo.property("currentIndex") == 0, combo.property("currentIndex")
     # The first entry names the global preference it falls back to.
     assert "(Steam)" in combo.property("currentText"), combo.property("currentText")
@@ -3725,6 +3725,7 @@ def test_prefs_save_roundtrip(qgui_app, xdg_env):
     qgui_app.processEvents()
     assert swin.findChild(QQuickItem, "prefsArtworkSourceSection") is not None
     assert swin.findChild(QQuickItem, "prefsApiKeysSection") is not None
+    assert swin.findChild(QQuickItem, "prefsHideExplicit") is not None
     tabs.setProperty("currentIndex", 2)
     qgui_app.processEvents()
     # Enter is the Save path (the widgets QDialog default button); the

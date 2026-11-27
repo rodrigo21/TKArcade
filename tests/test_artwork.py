@@ -1270,8 +1270,170 @@ def test_clear_keeps_the_igdb_choice(monkeypatch, xdg_env):
     assert result["art"]["cover"].read_bytes() == _img("COVER")
 
 
+def _vndb_game(vndb_id: str = "v2002") -> None:
+    from tkarcade import config as C
+
+    cfg = C.GameConfig()
+    cfg.general.appid = "local-sg"
+    cfg.general.name = "Steins;Gate"
+    cfg.metadata.vndb_id = vndb_id
+    C.save(cfg)
+
+
+VNDB_LINKS = {"cover": "https://t.vndb.org/cv/1.jpg", "banner": "https://t.vndb.org/sf/1.jpg"}
+VNDB_ROUTES = [
+    ("t.vndb.org/cv/1.jpg", _img("VCOVER")),
+    ("t.vndb.org/sf/1.jpg", _img("VSHOT")),
+]
+
+
+def test_vndb_fills_cover_and_banner(monkeypatch, xdg_env):
+    """The chosen VNDB provider stores the cover and a screenshot banner."""
+    _vndb_game()
+    monkeypatch.setattr(art.vndbmod, "art", lambda _vn, timeout=15, safe=False: (VNDB_LINKS, ""))
+    _stub(monkeypatch, VNDB_ROUTES)
+    result = art.fetch_best(
+        "local-sg", "vndb", "", ("cover", "banner"), force=True, names=("Steins;Gate",)
+    )
+    assert result["provider"] == "vndb"
+    assert result["vndb_id"] == "v2002"
+    assert result["art"]["cover"].read_bytes() == _img("VCOVER")
+    assert result["art"]["banner"].read_bytes() == _img("VSHOT")
+    assert art.provider_for("local-sg", "cover") == "vndb"
+    assert art.provider_for("local-sg", "banner") == "vndb"
+
+
+def test_vndb_reports_the_missing_id(monkeypatch, xdg_env):
+    _vndb_game("")
+    monkeypatch.setattr(
+        art.vndbmod,
+        "search",
+        lambda _query: (_ for _ in ()).throw(AssertionError("searched without a name")),
+    )
+    assert art.fetch_vndb("local-sg") == ({}, "no-vndb-id")
+
+
+def test_vndb_fetches_a_draft_id_before_save(monkeypatch, xdg_env):
+    """The dialog's just-picked id works without a stored vndb_id."""
+    _vndb_game("")
+    monkeypatch.setattr(art.vndbmod, "art", lambda _vn, timeout=15, safe=False: (VNDB_LINKS, ""))
+    _stub(monkeypatch, VNDB_ROUTES)
+    result = art.fetch_best(
+        "local-sg",
+        "vndb",
+        "",
+        ("cover", "banner"),
+        force=True,
+        names=("Steins;Gate",),
+        vndb_id="v2002",
+    )
+    assert result["provider"] == "vndb"
+    assert result["vndb_id"] == "v2002"
+    assert result["art"]["cover"].read_bytes() == _img("VCOVER")
+
+
+def test_vndb_search_resolves_an_exact_title(monkeypatch, xdg_env):
+    """Fetch Artwork searches VNDB when no id was stored first."""
+    _vndb_game("")
+    monkeypatch.setattr(
+        art.vndbmod,
+        "search",
+        lambda _query: [
+            {"id": "v2002", "name": "STEINS;GATE (2009)", "title": "STEINS;GATE", "alt": ""}
+        ],
+    )
+    monkeypatch.setattr(art.vndbmod, "art", lambda _vn, timeout=15, safe=False: (VNDB_LINKS, ""))
+    _stub(monkeypatch, VNDB_ROUTES)
+    result = art.fetch_best("local-sg", "vndb", "", ("cover",), force=True, names=("Steins;Gate",))
+    assert result["provider"] == "vndb"
+    assert result["vndb_id"] == "v2002"
+    assert art.stored_vndb_id("local-sg") == "v2002"
+
+
+def test_vndb_search_returns_candidates(monkeypatch, xdg_env):
+    """No exact title: the provider-tagged rows reach the picker."""
+    _vndb_game("")
+    row = {"id": "v9", "name": "STEINS;GATE 0 (2015)", "title": "STEINS;GATE 0", "alt": ""}
+    monkeypatch.setattr(art.vndbmod, "search", lambda _query: [row])
+    result = art.fetch_best("local-sg", "vndb", "", ("cover",), force=True, names=("Steins;Gate",))
+    assert result["art"] == {}
+    assert result["error"] == "no-match"
+    assert result["candidates"] == [dict(row, provider="vndb")]
+
+
+def test_vndb_search_uses_the_steam_name(monkeypatch, xdg_env):
+    """A Steam game without a VNDB id searches its official name."""
+    monkeypatch.setattr(art, "steam_app", lambda _appid: {"name": "Steins;Gate"})
+    monkeypatch.setattr(
+        art.vndbmod,
+        "search",
+        lambda _query: [
+            {"id": "v2002", "name": "STEINS;GATE (2009)", "title": "STEINS;GATE", "alt": ""}
+        ],
+    )
+    monkeypatch.setattr(art.vndbmod, "art", lambda _vn, timeout=15, safe=False: (VNDB_LINKS, ""))
+    _stub(monkeypatch, VNDB_ROUTES)
+    result = art.fetch_best("620", "vndb", "", ("cover",), force=True)
+    assert result["provider"] == "vndb"
+    assert result["vndb_id"] == "v2002"
+    assert art.stored_vndb_id("620") == "v2002"
+
+
+def test_clear_keeps_the_vndb_choice(monkeypatch, xdg_env):
+    """Clear removes the files but remembers the resolved visual novel."""
+    _vndb_game("")
+    monkeypatch.setattr(art.vndbmod, "art", lambda _vn, timeout=15, safe=False: (VNDB_LINKS, ""))
+    monkeypatch.setattr(
+        art.vndbmod,
+        "search",
+        lambda _query: [
+            {"id": "v2002", "name": "STEINS;GATE (2009)", "title": "STEINS;GATE", "alt": ""}
+        ],
+    )
+    _stub(monkeypatch, VNDB_ROUTES)
+    art.fetch_best("local-sg", "vndb", "", ("cover",), force=True, names=("Steins;Gate",))
+    assert art.stored_vndb_id("local-sg") == "v2002"
+    art.clear_fetched("local-sg")
+    assert art.stored_vndb_id("local-sg") == "v2002"
+    monkeypatch.setattr(
+        art.vndbmod,
+        "search",
+        lambda _query: (_ for _ in ()).throw(AssertionError("searched again")),
+    )
+    _stub(monkeypatch, VNDB_ROUTES)
+    result = art.fetch_best("local-sg", "vndb", "", ("cover",), force=True, names=("Steins;Gate",))
+    assert result["art"]["cover"].read_bytes() == _img("VCOVER")
+
+
+def test_safe_artwork_hides_flagged_sgdb_entries(monkeypatch, xdg_env):
+    """The preference drops SteamGridDB entries the site marks nsfw."""
+    from tkarcade import config as C
+
+    prefs = C.Preferences()
+    prefs.hide_explicit_artwork = True
+    C.save_preferences(prefs)
+    _stub(
+        monkeypatch,
+        [
+            (
+                "grids/game",
+                {
+                    "data": [
+                        dict(_grid_entry("https://cdn/nsfw.png", 600, 900), nsfw=True),
+                        _grid_entry("https://cdn/safe.png", 600, 900),
+                    ]
+                },
+            ),
+            ("cdn/safe.png", _img("SAFE")),
+        ],
+    )
+    art.fetch_sgdb_game("local-sg", "9", "KEY", ("cover",))
+    assert art.provider_for("local-sg", "cover") == "sgdb"
+    assert art.grid_path("local-sg", "cover").read_bytes() == _img("SAFE")
+
+
 def test_provider_order_puts_the_choice_first(xdg_env, monkeypatch):
-    """Three providers: the choice runs first, the rest keep PROVIDERS order."""
+    """Four providers: the choice runs first, the rest keep PROVIDERS order."""
     calls = []
 
     def fake_steam(*_args, **_kwargs):
@@ -1286,15 +1448,21 @@ def test_provider_order_puts_the_choice_first(xdg_env, monkeypatch):
         calls.append("igdb")
         return {}, "no-id"
 
+    def fake_vndb(*_args, **_kwargs):
+        calls.append("vndb")
+        return {}, "no-vndb-id"
+
     monkeypatch.setattr(art, "steam_app", lambda _appid: {"name": "Game"})
     monkeypatch.setattr(art, "fetch_official", fake_steam)
     monkeypatch.setattr(art, "fetch_sgdb", fake_sgdb)
     monkeypatch.setattr(art, "fetch_igdb", fake_igdb)
+    monkeypatch.setattr(art, "fetch_vndb", fake_vndb)
+    monkeypatch.setattr(art.vndbmod, "search", lambda _query: [])
     art.fetch_best("620", "igdb", "", ("cover",))
-    assert calls == ["igdb", "steam", "sgdb"]
+    assert calls == ["igdb", "steam", "sgdb", "vndb"]
     calls.clear()
-    art.fetch_best("620", "sgdb", "", ("banner",))
-    assert calls == ["sgdb", "steam", "igdb"]
+    art.fetch_best("620", "vndb", "", ("banner",))
+    assert calls == ["vndb", "steam", "sgdb", "igdb"]
 
 
 def test_manifest_write_survives_a_failed_rename(monkeypatch, xdg_env):

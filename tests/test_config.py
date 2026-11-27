@@ -566,12 +566,25 @@ def test_preferences_igdb_credentials_round_trip(xdg_env):
 def test_artwork_provider_accepts_igdb(xdg_env):
     assert C.normalize_artwork_provider("igdb") == "igdb"
     assert C.normalize_artwork_provider(" IGDB ") == "igdb"
+    assert C.normalize_artwork_provider("vndb") == "vndb"
     assert C.normalize_artwork_provider("gog") == ""
 
     prefs = C.Preferences()
     prefs.artwork_source = "igdb"
     C.save_preferences(prefs)
     assert C.load_preferences().artwork_source == "igdb"
+
+    prefs.artwork_source = "vndb"
+    C.save_preferences(prefs)
+    assert C.load_preferences().artwork_source == "vndb"
+
+
+def test_hide_explicit_artwork_roundtrips_and_defaults_off(xdg_env):
+    assert C.load_preferences().hide_explicit_artwork is False
+    prefs = C.load_preferences()
+    prefs.hide_explicit_artwork = True
+    C.save_preferences(prefs)
+    assert C.load_preferences().hide_explicit_artwork is True
 
 
 def test_backdrop_visibility_limits(xdg_env):
@@ -704,6 +717,7 @@ _PREF_FIELDS = {
     "close_to_tray": True,
     "sgdb_api_key": "secret-key",
     "artwork_source": "sgdb",
+    "hide_explicit_artwork": True,
     "column_order": "1,2,3,4,5,6,7,8,9,10,11",
     "hidden_columns": "4,5",
     "column_widths": "1=210,2=90,11=150",

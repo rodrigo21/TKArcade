@@ -4430,6 +4430,57 @@ def test_fetch_artwork_reports_name_choices(qgui_app, xdg_env, monkeypatch):
     assert seen[0][1][0]["name"] == "Doom 3"
 
 
+def test_fetch_artwork_keeps_the_picker_away_when_art_landed(qgui_app, xdg_env, monkeypatch):
+    """SteamGridDB icon-fill candidates must not interrupt downloaded art.
+
+    A chosen provider without a square icon leaves that kind to the name
+    search; several rows there used to open the picker after the cover and
+    banner were already stored, and picking would replace them.
+    """
+    from pathlib import Path
+
+    from tkarcade import artwork
+
+    def fake_best(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.ART_KINDS,
+        force=False,
+        names=(),
+        **_extra,
+    ):
+        return {
+            "art": {"cover": Path("/tmp/opencode/pink-cover.png")},
+            "provider": "vndb",
+            "error": "no-match",
+            "name": "",
+            "valid": False,
+            "game_id": "",
+            "vndb_id": "v46756",
+            "candidates": [{"id": "5", "name": "Mastering the Pink Box"}],
+        }
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    local = C.GameConfig()
+    local.general.appid = "local-pink"
+    local.general.name = "Mastering the Pink Box"
+    C.save(local)
+    model = _model(qgui_app)
+    statuses = []
+    choices = []
+    model.artworkFetched.connect(lambda gid, status, prov: statuses.append((gid, status, prov)))
+    model.artworkChoices.connect(lambda gid, rows: choices.append((gid, rows)))
+    assert model.fetchArtwork("local-pink", "vndb") == ""
+    for _ in range(50):
+        if statuses:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    assert statuses == [("local-pink", "ok", "vndb")]
+    assert choices == []
+
+
 def test_fetch_artwork_game_downloads_the_chosen_id(qgui_app, xdg_env, monkeypatch):
     """Picking a SteamGridDB entry downloads it and remembers the id."""
     from pathlib import Path

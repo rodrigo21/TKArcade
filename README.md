@@ -368,7 +368,7 @@ Steam AppID whose art overrides the game's own; a local game's
 executable icon still beats that AppID's official Steam icon, and a
 32 px official icon is upgraded from SteamGridDB when a key is set), the
 per-game download
-provider (Steam, SteamGridDB or IGDB; Steam first by default) and
+provider (Steam, SteamGridDB, IGDB or VNDB; Steam first by default) and
 Fetch/Clear; a local game without an AppID is looked up by name on
 SteamGridDB and a stored choice keeps the same art across fetches. IGDB
 needs a Twitch application and the IGDB ID that Search Data saves; a
@@ -376,7 +376,17 @@ Fetch without one searches the title (an exact match wins, otherwise the
 picker) and writes the resolved id to `[metadata] igdb_id`, so Details
 and Search Data reuse it. The silent pass also caches it, and Clear keeps
 it. It fills the cover and the banner, and its square icon slot stays
-with the other providers. Saving a game fills any missing art with
+with the other providers. VNDB needs no key: it fills the cover with a
+visual novel's image and the banner with its least flagged screenshot,
+resolves `[metadata] vndb_id` the same way (a picked id is written back,
+and another visual novel clears the stored release pick), and leaves the
+square icon slot alone too. The picker only opens when the fetch
+downloaded nothing, so an icon fill cannot replace that cover and
+banner. Preferences → Artwork → **Hide Explicit Artwork** (`[ui]
+hide_explicit_artwork`, off by default) drops VNDB images flagged
+explicit or violent and SteamGridDB `nsfw` entries when art downloads;
+it never deletes stored artwork, and IGDB and Steam carry no flags.
+Saving a game fills any missing art with
 the chosen provider, an existing game included. The
 `background` slot is a wide backdrop with no download of its own: it
 falls back to the banner art when empty, and clearing it never removes

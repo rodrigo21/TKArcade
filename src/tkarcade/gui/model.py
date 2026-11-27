@@ -2875,6 +2875,27 @@ class GameListModel(QAbstractTableModel):
         return ident
 
     @staticmethod
+    def _store_vndb_metadata(appid: str, vndb_id: str) -> str:
+        """Write a resolved VNDB identity into ``[metadata] vndb_id``.
+
+        Returns the normalized id ("" when invalid) even if the save
+        failed, so the dialog draft can still carry it. Another visual
+        novel invalidates the stored release pick.
+        """
+        ident = cfgmod.normalize_vndb_id(vndb_id)
+        if not ident:
+            return ""
+        try:
+            cfg = cfgmod.load(str(appid))
+            if cfg.metadata.vndb_id != ident:
+                cfg.metadata.vndb_id = ident
+                cfg.metadata.vndb_release = ""
+                cfgmod.save(cfg)
+        except Exception as e:
+            log.warning("store vndb id(%s) failed: %s", appid, e)
+        return ident
+
+    @staticmethod
     def _owns_art_target(appid: str, source: str = "") -> bool:
         """True when the art target is the game itself, not a source AppID."""
         if str(source or "").strip():
@@ -2884,15 +2905,38 @@ class GameListModel(QAbstractTableModel):
         except Exception:
             return False
 
-    @Slot(str, str, str, str, result=str)
+    def _store_art_identity(self, appid: str, result: dict, owns_target: bool) -> None:
+        """Write the resolved IGDB/VNDB id and tell the open dialog.
+
+        A source AppID's identity belongs to that AppID, not this game.
+        """
+        if not owns_target:
+            return
+        for key, store, signal in (
+            ("igdb_id", self._store_igdb_metadata, self.igdbResolved),
+            ("vndb_id", self._store_vndb_metadata, self.vndbResolved),
+        ):
+            resolved = str(result.get(key) or "")
+            if not resolved:
+                continue
+            ident = store(appid, resolved)
+            if ident:
+                signal.emit(str(appid), ident)
+
+    @Slot(str, str, str, str, str, result=str)
     def fetchArtwork(
-        self, appid: str, provider: str = "", source: str = "", igdb_id: str = ""
+        self,
+        appid: str,
+        provider: str = "",
+        source: str = "",
+        igdb_id: str = "",
+        vndb_id: str = "",
     ) -> str:
         """Re-download this game's art with the chosen provider. '' = ok.
 
         Target: the Artwork Source AppID typed in the dialog, then the
         game's own Steam AppID, then the SteamGridDB name lookup for a
-        local game (IGDB, when chosen, uses the stored igdb_id or the
+        local game (IGDB or VNDB, when chosen, use the stored id or the
         dialog draft, which wins when set).
         `provider` is the dialog draft, so a just-changed combo applies
         before Save; empty falls back to the game's key and then to the
@@ -2914,13 +2958,15 @@ class GameListModel(QAbstractTableModel):
         target, names = self._art_target(appid, source)
         if not target:
             return "no-appid"
-        draft_id = str(igdb_id or "").strip()
-        # A source AppID's IGDB entry belongs to that AppID, not this game.
+        draft_igdb = str(igdb_id or "").strip()
+        draft_vndb = str(vndb_id or "").strip()
+        # A source AppID's IGDB or VNDB entry belongs to that AppID, not
+        # this game.
         owns_target = self._owns_art_target(appid, source)
 
         threading.Thread(
             target=self._artwork_fetch_worker,
-            args=(appid, target, provider, api_key, names, draft_id, owns_target),
+            args=(appid, target, provider, api_key, names, draft_igdb, owns_target, draft_vndb),
             daemon=True,
         ).start()
         return ""
@@ -2934,6 +2980,7 @@ class GameListModel(QAbstractTableModel):
         names,
         draft_id: str,
         owns_target: bool,
+        draft_vndb: str = "",
     ) -> None:
         """Download and report one explicit Fetch Artwork request."""
         status, provider_used, choices = "network", "", []
@@ -2944,25 +2991,29 @@ class GameListModel(QAbstractTableModel):
             artmod.unmark_cleared(str(appid))
             if target != str(appid):
                 artmod.unmark_cleared(target)
-            extra = {"igdb_id": draft_id} if draft_id else {}
+            extra = {}
+            if draft_id:
+                extra["igdb_id"] = draft_id
+            if draft_vndb:
+                extra["vndb_id"] = draft_vndb
             result = artmod.fetch_best(target, provider, api_key, force=True, names=names, **extra)
             self._reencode_downloads(result.get("art"))
             self._upgrade_weak_icon(target, api_key)
-            resolved_id = str(result.get("igdb_id") or "")
-            if owns_target and resolved_id:
-                ident = self._store_igdb_metadata(appid, resolved_id)
-                if ident:
-                    self.igdbResolved.emit(str(appid), ident)
+            self._store_art_identity(appid, result, owns_target)
             choices = result.get("candidates") or []
             if choices and not result["art"]:
                 # A title search needs a human pick before its art.
                 status = "choose"
             else:
+                # Candidates can come from the SteamGridDB icon fill after
+                # the chosen provider already served the cover and banner;
+                # picking would replace that art, so only a fetch that
+                # downloaded nothing asks.
                 status = "ok" if result["art"] else (result["error"] or "no-art")
             provider_used = result["provider"]
         except Exception as e:  # pragma: no cover - defensive
             log.warning("fetchArtwork(%s) failed: %s", appid, e)
-        if choices:
+        if choices and status == "choose":
             try:
                 self.artworkChoices.emit(appid, choices)
             except Exception:
@@ -2977,10 +3028,10 @@ class GameListModel(QAbstractTableModel):
     def fetchArtworkGame(
         self, appid: str, game_id: str, provider: str = "sgdb", source: str = ""
     ) -> str:
-        """Download the SteamGridDB or IGDB entry the user picked."""
+        """Download the SteamGridDB, IGDB or VNDB entry the user picked."""
         if not appid or not str(game_id).strip():
             return "no-game"
-        provider = provider if provider in ("sgdb", "igdb") else "sgdb"
+        provider = provider if provider in ("sgdb", "igdb", "vndb") else "sgdb"
         try:
             api_key = cfgmod.load_preferences().sgdb_api_key.strip()
         except Exception:
@@ -2989,7 +3040,7 @@ class GameListModel(QAbstractTableModel):
             client_id, secret = igdbmod.credentials()
             if not (client_id and secret):
                 return "no-igdb-key"
-        elif not api_key:
+        elif provider != "vndb" and not api_key:
             return "no-key"
         source = str(source or "").strip()
         if not source:
@@ -3024,22 +3075,21 @@ class GameListModel(QAbstractTableModel):
             # mark and the target's must both go.
             artmod.unmark_cleared(str(appid))
             artmod.unmark_cleared(target)
-            if provider == "igdb":
-                if owns_target:
-                    ident = self._store_igdb_metadata(appid, str(game_id).strip())
-                    if ident:
-                        self.igdbResolved.emit(str(appid), ident)
+            if provider in ("igdb", "vndb"):
+                draft_key = f"{provider}_id"
+                picked = str(game_id).strip()
+                self._store_art_identity(appid, {draft_key: picked}, owns_target)
                 result = artmod.fetch_best(
                     target,
-                    "igdb",
+                    provider,
                     api_key,
                     force=True,
                     names=tuple(self._name_queries(appid)),
-                    igdb_id=str(game_id).strip(),
+                    **{draft_key: picked},
                 )
                 self._reencode_downloads(result.get("art"))
                 status = "ok" if result["art"] else (result["error"] or "no-art")
-                provider_used = result["provider"] or "igdb"
+                provider_used = result["provider"] or provider
             else:
                 art = artmod.fetch_sgdb_game(target, str(game_id).strip(), api_key, force=True)
                 if art:
@@ -5052,14 +5102,18 @@ class GameListModel(QAbstractTableModel):
     backgroundDone = Signal()
     #: (appid, status, provider) after Fetch Artwork: status is "ok",
     #: "choose" (a title search needs a pick), "no-key", "no-igdb-key",
-    #: "no-id", "no-match", "not-a-steam-app", "not-found", "blocked",
-    #: "network" or "no-art"; provider is "steam", "sgdb", "igdb" or "".
+    #: "no-id", "no-vndb-id", "no-match", "not-a-steam-app", "not-found",
+    #: "blocked", "network" or "no-art"; provider is "steam", "sgdb",
+    #: "igdb", "vndb" or "".
     artworkFetched = Signal(str, str, str)
     #: (appid, igdb_id) when an explicit art action resolved the IGDB
     #: game; the open dialog writes the draft identity back.
     igdbResolved = Signal(str, str)
+    #: (appid, vndb_id) when an explicit art action resolved the visual
+    #: novel; the open dialog writes the draft identity back.
+    vndbResolved = Signal(str, str)
     #: (appid, [{"id", "name", "provider"}, ...]) when a title search
-    #: needs a choice; provider is "sgdb" or "igdb".
+    #: needs a choice; provider is "sgdb", "igdb" or "vndb".
     artworkChoices = Signal(str, "QVariantList")
     #: (appid, kind, error) after a stored artwork image, from a pasted
     #: URL or a picked file (`.exe` included); error is "", "network",
@@ -5728,6 +5782,7 @@ class GameListModel(QAbstractTableModel):
             "artworkSource": str(prefs.artwork_source),
             "artworkFormat": str(prefs.artwork_format),
             "artworkQuality": int(prefs.artwork_quality),
+            "hideExplicitArtwork": bool(prefs.hide_explicit_artwork),
             "language": str(prefs.language),
             "prefixBase": str(prefs.prefix_base),
             "wineVersions": str(prefs.wine_versions),
@@ -5780,6 +5835,9 @@ class GameListModel(QAbstractTableModel):
             )
             prefs.artwork_quality = cfgmod.clean_artwork_quality(
                 get("artworkQuality", prefs.artwork_quality)
+            )
+            prefs.hide_explicit_artwork = bool(
+                get("hideExplicitArtwork", prefs.hide_explicit_artwork)
             )
             lang = str(get("language", prefs.language)).strip() or "system"
             prefs.language = lang

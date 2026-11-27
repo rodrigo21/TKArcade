@@ -45,8 +45,13 @@ def test_search_labels_candidates(monkeypatch, xdg_env):
         },
     )
     assert vndb.search("Steins;Gate") == [
-        {"id": "v2002", "name": "STEINS;GATE (2009)"},
-        {"id": "v93", "name": "Muv-Luv / マブラヴ (2003)"},
+        {"id": "v2002", "name": "STEINS;GATE (2009)", "title": "STEINS;GATE", "alt": ""},
+        {
+            "id": "v93",
+            "name": "Muv-Luv / マブラヴ (2003)",
+            "title": "Muv-Luv",
+            "alt": "マブラヴ",
+        },
     ]
     request = calls[0]
     assert request.get_method() == "POST"
@@ -326,3 +331,76 @@ def test_resolve_release_prefers_the_draft_then_the_config(xdg_env):
     cfg.metadata.vndb_id = ""
     C.save(cfg)
     assert vndb.resolve_release("local-sg") == ""
+
+
+def _art_payload(image=None, screenshots=()):
+    return {
+        "results": [
+            {
+                "image": image,
+                "screenshots": list(screenshots),
+            }
+        ]
+    }
+
+
+def test_art_reads_the_cover_and_the_least_flagged_screenshot(monkeypatch, xdg_env):
+    calls = _stub(
+        monkeypatch,
+        _art_payload(
+            {"url": "https://t.vndb.org/cv/1.jpg", "sexual": 0, "violence": 0},
+            [
+                {"url": "https://t.vndb.org/sf/2.jpg", "sexual": 2, "violence": 0},
+                {"url": "https://t.vndb.org/sf/1.jpg", "sexual": 0.5, "violence": 0},
+            ],
+        ),
+    )
+    urls, error = vndb.art("v2002")
+    assert error == ""
+    assert urls == {
+        "cover": "https://t.vndb.org/cv/1.jpg",
+        "banner": "https://t.vndb.org/sf/1.jpg",
+    }
+    body = json.loads(calls[0].data)
+    assert body["fields"] == (
+        "image{url,dims,sexual,violence},screenshots{url,dims,sexual,violence}"
+    )
+
+
+def test_art_without_an_id_skips_the_network(monkeypatch, xdg_env):
+    calls = _stub(monkeypatch, _art_payload())
+    assert vndb.art("") == ({}, "no-id")
+    assert calls == []
+
+
+def test_art_safe_drops_explicit_images(monkeypatch, xdg_env):
+    """The preference filter drops flagged art and keeps the clean shots."""
+    _stub(
+        monkeypatch,
+        _art_payload(
+            {"url": "https://t.vndb.org/cv/1.jpg", "sexual": 2, "violence": 0},
+            [
+                {"url": "https://t.vndb.org/sf/2.jpg", "sexual": 2, "violence": 0},
+                {"url": "https://t.vndb.org/sf/1.jpg", "sexual": 1, "violence": 0},
+            ],
+        ),
+    )
+    urls, error = vndb.art("v2002", safe=True)
+    assert error == ""
+    assert urls == {"banner": "https://t.vndb.org/sf/1.jpg"}
+
+
+def test_art_safe_without_a_clean_image_is_not_found(monkeypatch, xdg_env):
+    _stub(
+        monkeypatch,
+        _art_payload(
+            {"url": "https://t.vndb.org/cv/1.jpg", "sexual": 2, "violence": 0},
+            [{"url": "https://t.vndb.org/sf/2.jpg", "sexual": 0, "violence": 2}],
+        ),
+    )
+    assert vndb.art("v2002", safe=True) == ({}, "not-found")
+
+
+def test_art_accepts_a_missing_entry(monkeypatch, xdg_env):
+    _stub(monkeypatch, {"results": []})
+    assert vndb.art("v999999") == ({}, "not-found")

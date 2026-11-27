@@ -6,6 +6,18 @@ Breaking config changes are called out explicitly under `Changed`.
 ## [Unreleased]
 
 ### Added
+- Fetch Artwork gains VNDB as a fourth provider: it needs no key, fills
+  the cover with a visual novel's image and the banner with its least
+  flagged screenshot, and resolves `[metadata] vndb_id` from the dialog
+  draft, the stored id, the cache or a title search (an exact title
+  wins, otherwise the picker). A picked id is stored back and clears
+  `vndb_release` when the visual novel changes. The picker only opens
+  when the fetch downloaded nothing, so SteamGridDB icon-fill candidates
+  cannot replace the VNDB cover and banner. Preferences → Artwork
+  gains **Hide Explicit Artwork** (`[ui] hide_explicit_artwork`, off by
+  default): it drops VNDB images flagged explicit or violent and
+  SteamGridDB `nsfw` entries on downloads, and never touches stored
+  art.
 - Download Metadata runs on a library selection: the menu action lists
   each chosen game with the match it found and the fields it would fill,
   then Apply writes the checked rows only. A stored Steam, VNDB or IGDB
