@@ -58,6 +58,16 @@ failure. `AGENTS.md` links here.
   the field (`org.kde.desktop` sets `Menu.implicitWidth` in a loop), so a
   narrow list opens a narrow popup. Use `AppComboBox`, which pins
   `popup.width` to the control width; every combo in the app uses it.
+- A QQC2 `ComboBox` popup is an item inside the window on Fusion and the
+  offscreen platform, and the styles cap it at the parent window's
+  height: a small dialog showed only its first three rows. The choice
+  prompts are not separate windows: they open as a modal
+  `Controls.Popup` over the large Search Data, settings or library
+  window, where the combo list has room (`choicePrompt.openFor()`, the
+  env preset popup and the Clone Settings popup). The editor game picker
+  has no large host (its settings window is created after the pick), so
+  it lists the games directly in its own window instead of using a
+  combo.
 - Never give a non-editable `ComboBox` a custom `contentItem` in the
   desktop style: its `background` is a `StyleItem` that already paints
   `displayText` with the native style, so a `Label` in `contentItem`

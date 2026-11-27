@@ -306,6 +306,11 @@ Breaking config changes are called out explicitly under `Changed`.
   no `steam-<n>` config exists.
 
 ### Fixed
+- The choice prompts (Take Artwork From…, Gamescope preset, MangoHud
+  template), Add Env Preset and Clone Settings open as a modal overlay
+  over the large Search Data, settings or library window, so the combo
+  list has room; the editor game picker shows the games as a list in its
+  own window.
 - The library backdrop no longer crops the background art to the window:
   a sharp aspect-fit copy shows the whole picture, and a blurred copy of
   the same art fills the page behind it.

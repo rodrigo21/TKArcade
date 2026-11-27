@@ -627,7 +627,7 @@ Kirigami.Page {
             fresh.push(rows[i][1] + " [" + rows[i][0] + "]")
         }
         cloneRows = fresh
-        gamesPage.openDialog(cloneDialog)
+        cloneDialog.open()
     }
 
     function openResetDialog() {
@@ -3140,24 +3140,55 @@ Kirigami.Page {
         }
     }
 
-    DialogWindow {
+    // An overlay in the page, not a two-line window: the combo popup is
+    // clamped to its parent window, so the page gives the game list room.
+    Controls.Popup {
         id: cloneDialog
         objectName: "cloneDialog"
-        title: qsTr("Clone Settings")
-        acceptText: qsTr("Clone")
-        onAccepted: gamesPage.acceptClone()
-        Controls.Label {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: qsTr("Clone into Game:")
-        }
-        AppComboBox {
-            id: cloneBox
-            objectName: "cloneBox"
-            editable: true
-            Layout.fillWidth: true
-            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-            model: gamesPage.cloneRows
+        parent: gamesPage
+        modal: true
+        dim: true
+        focus: true
+        padding: Kirigami.Units.gridUnit
+        closePolicy: Controls.Popup.CloseOnEscape
+        x: parent ? Math.max(0, (parent.width - width) / 2) : 0
+        y: parent ? Math.max(0, (parent.height - height) / 2) : 0
+
+        ColumnLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Controls.Label {
+                font.bold: true
+                text: qsTr("Clone Settings")
+            }
+            Controls.Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: qsTr("Clone into Game:")
+            }
+            AppComboBox {
+                id: cloneBox
+                objectName: "cloneBox"
+                editable: true
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 22
+                model: gamesPage.cloneRows
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item {
+                    Layout.fillWidth: true
+                }
+                Controls.Button {
+                    objectName: "cloneOk"
+                    text: qsTr("Clone")
+                    highlighted: true
+                    onClicked: gamesPage.acceptClone()
+                }
+                Controls.Button {
+                    text: qsTr("Cancel")
+                    onClicked: cloneDialog.close()
+                }
+            }
         }
     }
 

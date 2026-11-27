@@ -13,7 +13,10 @@ Window {
     modality: Qt.WindowModal
     minimumWidth: Kirigami.Units.gridUnit * 22
     width: Kirigami.Units.gridUnit * 26
-    height: Kirigami.Units.gridUnit * 8
+    // The Game list drives the height (capped at ten rows); the picker
+    // has no large window to host an overlay, so the list itself is the
+    // content instead of a combo popup clipped to this window.
+    height: pickLayout.implicitHeight + pickLayout.anchors.margins * 2
     visible: false
     color: Kirigami.Theme.backgroundColor
 
@@ -22,6 +25,7 @@ Window {
     // fine but must not become a model as-is.
     property var games: []
     property var appids: []
+    property var labels: []
     property bool reported: false
 
     signal finished(string appid)
@@ -33,7 +37,7 @@ Window {
             labels.push(games[i][1] + " [" + games[i][0] + "]")
             appids.push(String(games[i][0]))
         }
-        pickBox.model = labels
+        picker.labels = labels
         pickBox.currentIndex = 0
         pickOk.enabled = labels.length > 0
         gameModel.watchDialogKeys(picker)
@@ -55,6 +59,7 @@ Window {
     }
 
     ColumnLayout {
+        id: pickLayout
         anchors.fill: parent
         // Widgets QDialog layout margin: 12px (Breeze uses 10).
         anchors.margins: Kirigami.Units.smallSpacing * 3
@@ -69,10 +74,21 @@ Window {
             text: qsTr("Game:")
             Layout.fillWidth: true
         }
-        AppComboBox {
+        ListView {
             id: pickBox
             objectName: "editorPickBox"
             Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(contentHeight, Kirigami.Units.gridUnit * 10)
+            clip: true
+            model: picker.labels
+            currentIndex: 0
+            Controls.ScrollBar.vertical: Controls.ScrollBar {}
+            delegate: Controls.RadioDelegate {
+                width: ListView.view.width
+                text: String(modelData || "")
+                checked: ListView.isCurrentItem
+                onClicked: pickBox.currentIndex = index
+            }
         }
         Item {
             Layout.fillHeight: true

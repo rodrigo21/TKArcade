@@ -1556,7 +1556,7 @@ Window {
     function openPreset() {
         presetBox.model = gameModel.envPresetLabels()
         presetBox.currentIndex = 0
-        presetDialog.open(gameSettings)
+        presetDialog.open()
     }
 
     function acceptEnvPreset() {
@@ -1946,7 +1946,7 @@ Window {
         }
         choiceBox.model = rows
         choiceBox.currentIndex = 0
-        choicePrompt.open(artDialogParent())
+        choicePrompt.openFor(artDialogParent())
     }
 
     function acceptChoice() {
@@ -5274,26 +5274,64 @@ Window {
         }
     }
 
-    DialogWindow {
+    // A modal overlay in the window in front (Search Data or the game
+    // dialog), not a tiny separate window: the combo popup is clamped to
+    // its parent window on the platform, so the large window gives it
+    // room for the whole list.
+    Controls.Popup {
         id: choicePrompt
         objectName: "settingsChoicePrompt"
-        title: pendingPrompt === "gsPreset"
-            ? qsTr("Gamescope Preset")
-            : (pendingPrompt === "mhTemplate"
-                ? qsTr("Start From:")
-                : qsTr("Take Artwork From…"))
-        onAccepted: gameSettings.acceptChoice()
-        AppComboBox {
-            id: choiceBox
-            objectName: "settingsChoiceBox"
-            Layout.fillWidth: true
-            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-            textRole: "text"
+        parent: gameSettings.contentItem
+        modal: true
+        dim: true
+        focus: true
+        padding: Kirigami.Units.gridUnit
+        closePolicy: Controls.Popup.CloseOnEscape
+        x: parent ? Math.max(0, (parent.width - width) / 2) : 0
+        y: parent ? Math.max(0, (parent.height - height) / 2) : 0
+
+        function openFor(window) {
+            parent = window.contentItem
+            open()
         }
-        Controls.Label {
-            id: choiceError
-            visible: text !== ""
-            color: Kirigami.Theme.negativeTextColor
+
+        ColumnLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Controls.Label {
+                font.bold: true
+                text: pendingPrompt === "gsPreset"
+                    ? qsTr("Gamescope Preset")
+                    : (pendingPrompt === "mhTemplate"
+                        ? qsTr("Start From:")
+                        : qsTr("Take Artwork From…"))
+            }
+            AppComboBox {
+                id: choiceBox
+                objectName: "settingsChoiceBox"
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 22
+                textRole: "text"
+            }
+            Controls.Label {
+                id: choiceError
+                visible: text !== ""
+                color: Kirigami.Theme.negativeTextColor
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item {
+                    Layout.fillWidth: true
+                }
+                Controls.Button {
+                    objectName: "settingsChoiceOk"
+                    text: qsTr("OK")
+                    highlighted: true
+                    onClicked: gameSettings.acceptChoice()
+                }
+                Controls.Button {
+                    text: qsTr("Cancel")
+                    onClicked: choicePrompt.close()
+                }
+            }
         }
     }
 
@@ -5330,16 +5368,48 @@ Window {
         }
     }
 
-    DialogWindow {
+    // The preset picker is an overlay in the settings window, not a
+    // separate tiny window: the combo popup is clamped to its parent
+    // window, so the large window gives it room.
+    Controls.Popup {
         id: presetDialog
         objectName: "envPresetDialog"
-        title: qsTr("Add Env Preset")
-        onAccepted: gameSettings.acceptEnvPreset()
-        AppComboBox {
-            id: presetBox
-            objectName: "envPresetBox"
-            Layout.fillWidth: true
-            Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+        parent: gameSettings.contentItem
+        modal: true
+        dim: true
+        focus: true
+        padding: Kirigami.Units.gridUnit
+        closePolicy: Controls.Popup.CloseOnEscape
+        x: parent ? Math.max(0, (parent.width - width) / 2) : 0
+        y: parent ? Math.max(0, (parent.height - height) / 2) : 0
+
+        ColumnLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Controls.Label {
+                font.bold: true
+                text: qsTr("Add Env Preset")
+            }
+            AppComboBox {
+                id: presetBox
+                objectName: "envPresetBox"
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 22
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Item {
+                    Layout.fillWidth: true
+                }
+                Controls.Button {
+                    objectName: "envPresetOk"
+                    text: qsTr("OK")
+                    highlighted: true
+                    onClicked: gameSettings.acceptEnvPreset()
+                }
+                Controls.Button {
+                    text: qsTr("Cancel")
+                    onClicked: presetDialog.close()
+                }
+            }
         }
     }
 

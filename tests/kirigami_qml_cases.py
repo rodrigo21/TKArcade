@@ -2721,6 +2721,7 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     page = win.findChild(QObject, "gamesPage")
     page.openGameSettings("local-doom")
     swin = _search_window(qgui_app, artwork=True)
+    dlg = win.findChild(QObject, "gameSettings")
     qgui_app.processEvents()
 
     combo = swin.findChild(QQuickItem, "artProvider")
@@ -2921,13 +2922,11 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     )
     model.artworkChoices.emit("local-doom", [{"id": "7", "name": "Doom"}])
     qgui_app.processEvents()
-    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
-    assert prompt.isVisible() is True
-    parent = prompt.transientParent()
-    assert parent is not None and parent.objectName() == "searchData", parent
+    prompt = dlg.findChild(QObject, "settingsChoicePrompt")
+    assert prompt is not None and prompt.property("visible") is True
     box = prompt.findChild(QQuickItem, "settingsChoiceBox")
     assert box.property("count") == 1, box.property("count")
-    _click(prompt, "dialogOk")
+    dlg.acceptChoice()
     assert picked == [("local-doom", "sgdb", "480", "1145360", "", "7")], picked
 
     # An IGDB title search carries its provider and the source draft.
@@ -2936,8 +2935,9 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
         "local-doom", [{"id": "1", "name": "Hades (2020)", "provider": "igdb"}]
     )
     qgui_app.processEvents()
-    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
-    _click(prompt, "dialogOk")
+    prompt = dlg.findChild(QObject, "settingsChoicePrompt")
+    assert prompt.property("visible") is True
+    dlg.acceptChoice()
     assert picked == [("local-doom", "igdb", "480", "1145360", "", "1")], picked
 
     # Clear… asks first; with a typed AppID it removes that AppID's cache.
@@ -5907,10 +5907,11 @@ def test_settings_env_and_gamemode_flows(qgui_app, xdg_env):
     dlg.acceptBulk()
     assert dlg.envRowCount() == 2
     click("envPreset")
-    preset = _confirm_window(qgui_app, "envPresetDialog")
+    preset = dlg.findChild(QObject, "envPresetDialog")
+    assert preset is not None and preset.property("visible") is True
     dlg.acceptEnvPreset()
     qgui_app.processEvents()
-    assert preset.isVisible() is False
+    assert preset.property("visible") is False
     if win.findChild(QObject, "envMismatchDialog").property("visible") is True:
         dlg.applyEnvPresetByName(dlg.property("pendingPreset"))
         qgui_app.processEvents()
@@ -5962,11 +5963,11 @@ def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     swin.findChild(QQuickItem, "dispProv").setProperty("currentIndex", 4)
     swin.findChild(QQuickItem, "gsEnable").setProperty("checked", True)
     click("gsPreset", swin)
-    prompt = _confirm_window(qgui_app, "settingsChoicePrompt")
-    assert prompt.isVisible() is True
+    prompt = dlg.findChild(QObject, "settingsChoicePrompt")
+    assert prompt is not None and prompt.property("visible") is True
     prompt.findChild(QQuickItem, "settingsChoiceBox").setProperty("currentIndex", 0)
     dlg.acceptChoice()
-    assert prompt.isVisible() is False
+    assert prompt.property("visible") is False
     assert swin.findChild(QQuickItem, "gsArgs").property("text") != ""
     # MangoHud lives in Performance now: its New Configuration... flow
     # runs from that tab, then the display assertions continue.
@@ -5976,7 +5977,7 @@ def test_settings_display_flow(qgui_app, xdg_env, monkeypatch):
     assert name_prompt.isVisible() is True
     name_prompt.findChild(QQuickItem, "settingsPromptField").setProperty("text", "testmh")
     dlg.acceptProfileName()
-    assert prompt.isVisible() is True
+    assert prompt.property("visible") is True
     dlg.acceptChoice()
     assert dlg.mhConfigData() == "testmh.conf"
     _settings_tab(swin, TAB_DISPLAY)
@@ -7186,18 +7187,20 @@ def test_clone_reset_menu_flows(qgui_app, xdg_env):
     page = win.findChild(QObject, "gamesPage")
     page.select("local-doom")
     page.openCloneDialog("local-doom")
-    clone = _confirm_window(qgui_app, "cloneDialog")
+    clone = win.findChild(QObject, "cloneDialog")
+    assert clone is not None and clone.property("visible") is True
     assert page.property("cloneRows").toVariant() == ["local-quake [local-quake]"]
-    box = clone.findChild(QQuickItem, "cloneBox")
+    box = win.findChild(QQuickItem, "cloneBox")
     box.setProperty("editText", "local-new")
-    _click(clone, "dialogOk")
+    page.acceptClone()
     qgui_app.processEvents()
     assert C.game_file("local-new").is_file()
     assert (C.profiles_dir("local-new") / "fast.toml").is_file()
     page.openCloneDialog("local-doom")
-    clone = _confirm_window(qgui_app, "cloneDialog")
-    clone.findChild(QQuickItem, "cloneBox").setProperty("editText", "local-quake")
-    _click(clone, "dialogOk")
+    clone = win.findChild(QObject, "cloneDialog")
+    assert clone.property("visible") is True
+    win.findChild(QQuickItem, "cloneBox").setProperty("editText", "local-quake")
+    page.acceptClone()
     overwrite = _confirm_window(qgui_app, "overwriteDialog")
     _click(overwrite, "confirmOk")
     assert C.load("local-quake").general.name == "local-doom"
