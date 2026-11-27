@@ -1863,7 +1863,7 @@ Window {
     // JS arrays (a QVariantList lays out at zero width on Qt 6.11).
     function openArtworkGallery(data) {
         var map = data.groups || ({})
-        var order = ["icon", "cover", "banner"]
+        var order = ["icon", "cover", "banner", "background"]
         var groups = []
         for (var i = 0; i < order.length; i++) {
             var kind = order[i]
@@ -1898,7 +1898,8 @@ Window {
 
     function artKindLabel(kind) {
         return kind === "icon" ? qsTr("Icon")
-            : (kind === "cover" ? qsTr("Cover") : qsTr("Banner"))
+            : (kind === "cover" ? qsTr("Cover")
+            : (kind === "banner" ? qsTr("Banner") : qsTr("Background")))
     }
 
     // The chooser confirmed: download the picks, then let the model fill

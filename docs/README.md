@@ -63,7 +63,7 @@ What each document is for and where the source of truth lives.
   Artwork Source AppID field, local name lookup and the icon fallback
   chain.
 - `decisions/artwork-background.md` — the wide backdrop kind, its
-  banner fallback and the no-own-download rule.
+  banner fallback and the no-automatic-download rule.
 - `decisions/background-display.md` — the optional dimmed library
   backdrop, the delayed hover tooltip and their two `[ui]` switches.
 - `decisions/exe-icon.md` — the icon embedded in a local game's
@@ -125,6 +125,9 @@ What each document is for and where the source of truth lives.
 - `decisions/artwork-gallery.md` — the Fetch Artwork chooser: candidate
   rows before any download, the marked automatic pick, the official
   Steam assets, the per-source kinds and the chain fill after confirm.
+- `decisions/artwork-chooser-keep.md` — clicking a selected chooser image
+  keeps that kind (no download, no chain fill), the Background section
+  mirrors the banner with **Use the Banner**, and the previews grow.
 - `decisions/online-tags.md` — `[metadata] tags`, the Tags row in the
   Download Metadata preview and why online data stays out of the manual
   categories.

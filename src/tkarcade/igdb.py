@@ -36,8 +36,8 @@ FETCH_FIELDS = (
 #: no square icon.
 ART_FIELDS = "cover.url,artworks.url,screenshots.url"
 ART_SIZES = {"cover": "t_720p", "banner": "t_1080p"}
-#: Smaller tokens for the chooser thumbnails; the download keeps ART_SIZES.
-ART_PREVIEW_SIZES = {"cover": "t_cover_big", "banner": "t_screenshot_med"}
+#: Bigger tokens for the chooser thumbnails; the download keeps ART_SIZES.
+ART_PREVIEW_SIZES = {"cover": "t_cover_big_2x", "banner": "t_screenshot_big"}
 SEARCH_RESULTS = 10
 
 #: IGDB age-rating value -> ``config.AGE_RATINGS`` entry. The enum is one

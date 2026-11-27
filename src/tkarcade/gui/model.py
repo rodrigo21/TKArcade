@@ -3038,10 +3038,12 @@ class GameListModel(QAbstractTableModel):
         """Download the gallery's chosen images, then fill the missing kinds.
 
         `picks` is [{"kind", "url", "provider"}, ...] from the chooser;
-        only those kinds are replaced. Kinds the chosen source does not
-        serve are filled by the normal chain when their slot is empty.
-        The outcome arrives as `artworkFetched(appid, status, provider)`
-        and the dialog stays responsive.
+        only those kinds are replaced. A pick with an empty URL is a kind
+        the chooser offered and the user kept: the chain leaves it alone.
+        Kinds the chosen source does not serve are filled by the normal
+        chain when their slot is empty. The outcome arrives as
+        `artworkFetched(appid, status, provider)` and the dialog stays
+        responsive.
         """
         if not appid:
             return "no-game"
@@ -3081,17 +3083,31 @@ class GameListModel(QAbstractTableModel):
 
     @staticmethod
     def _store_gallery_picks(target: str, picks, provider: str) -> tuple[dict, set[str]]:
-        """Store the chosen candidate URLs: (paths by kind, offered kinds)."""
+        """Store the chosen candidate URLs: (paths by kind, offered kinds).
+
+        A pick with an empty URL is a kind the chooser offered and the
+        user kept: it counts as offered, so the chain leaves it alone,
+        and nothing is written. A URL already stored for another kind is
+        copied instead of downloaded twice (the banner as background).
+        """
         stored: dict = {}
         offered: set[str] = set()
+        by_url: dict[str, Path] = {}
         for pick in picks:
             kind = str(pick.get("kind") or "")
             url = str(pick.get("url") or "")
             picked_from = str(pick.get("provider") or provider)
-            if kind not in artmod.FETCH_KINDS or not url:
+            if kind not in artmod.ART_KINDS:
                 continue
             offered.add(kind)
-            path = artmod.store_choice(target, kind, url, picked_from)
+            if not url:
+                continue
+            if url in by_url:
+                path = artmod.store_kind_copy(target, kind, by_url[url], picked_from)
+            else:
+                path = artmod.store_choice(target, kind, url, picked_from)
+                if path is not None:
+                    by_url[url] = path
             if path is not None:
                 stored[kind] = path
         return stored, offered

@@ -4536,6 +4536,68 @@ def test_download_artwork_choices_stores_the_picks_and_fills_the_missing(
     assert started == [("local-doom", "ok", "sgdb")], started
 
 
+def test_download_artwork_choices_keeps_unselected_kinds(qgui_app, xdg_env, monkeypatch):
+    """An empty pick marks a kind kept: the chain skips it, nothing is written."""
+    from pathlib import Path
+
+    from tkarcade import artwork
+
+    local = C.GameConfig()
+    local.general.appid = "local-doom"
+    local.general.name = "Doom"
+    local.general.custom_executable = "/bin/true"
+    local.artwork.provider = "vndb"
+    C.save(local)
+    stored, copies, fills = [], [], []
+
+    monkeypatch.setattr(
+        artwork,
+        "store_choice",
+        lambda appid, kind, url, provider: stored.append((kind, url)) or Path(f"/tmp/{kind}.png"),
+    )
+    monkeypatch.setattr(
+        artwork,
+        "store_kind_copy",
+        lambda appid, kind, source, provider: (
+            copies.append((kind, str(source), provider)) or Path(f"/tmp/{kind}.png")
+        ),
+    )
+
+    def fake_best(
+        appid,
+        provider="steam",
+        api_key="",
+        kinds=artwork.FETCH_KINDS,
+        force=False,
+        names=(),
+        igdb_id="",
+        vndb_id="",
+    ):
+        fills.append(tuple(kinds))
+        return {"art": {"icon": Path("/tmp/icon.png")}, "error": "", "provider": provider}
+
+    monkeypatch.setattr(artwork, "fetch_best", fake_best)
+    model = _model(qgui_app)
+    started = []
+    model.artworkFetched.connect(lambda gid, status, prov: started.append(status))
+    picks = [
+        {"kind": "banner", "url": "https://cdn/b.png", "provider": "vndb"},
+        {"kind": "cover", "url": "", "provider": "vndb"},
+        {"kind": "background", "url": "https://cdn/b.png", "provider": "vndb"},
+    ]
+    assert model.downloadArtworkChoices("local-doom", "vndb", "", "", "", "", picks) == ""
+    for _ in range(50):
+        if started:
+            break
+        qgui_app.processEvents()
+        time.sleep(0.05)
+    # The cover was offered and kept: no download, and no chain fill for it.
+    assert stored == [("banner", "https://cdn/b.png")], stored
+    assert copies == [("background", "/tmp/banner.png", "vndb")], copies
+    assert fills == [("icon",)], fills
+    assert started == ["ok"], started
+
+
 def test_fetch_artwork_gallery_uses_the_picked_game_id(qgui_app, xdg_env, monkeypatch):
     """Picking a provider entry only resolves the game; the gallery follows."""
     from tkarcade import artwork

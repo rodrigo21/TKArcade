@@ -287,5 +287,5 @@ def test_art_options_lists_every_banner_candidate(monkeypatch, xdg_env):
     ]
     assert [row["auto"] for row in groups["banner"]] == [True, False, False]
     assert groups["cover"][0]["auto"] is True
-    assert groups["cover"][0]["thumb"].endswith("/t_cover_big/co1.jpg")
-    assert groups["banner"][0]["thumb"].endswith("/t_screenshot_med/ar1.jpg")
+    assert groups["cover"][0]["thumb"].endswith("/t_cover_big_2x/co1.jpg")
+    assert groups["banner"][0]["thumb"].endswith("/t_screenshot_big/ar1.jpg")

@@ -17,6 +17,13 @@ Breaking config changes are called out explicitly under `Changed`.
   written on confirm, and kinds the source cannot fill (the IGDB/VNDB
   icon) are filled by the next provider only when empty. A chosen 32 px
   official icon skips the SteamGridDB weak-icon upgrade.
+- Fetch Artwork can keep a kind: clicking the selected image again
+  deselects it, and the confirm neither downloads nor chain-fills that
+  kind, so art from another provider survives a second pass. The chooser
+  gains a Background section with the source's banner candidates and a
+  **Use the Banner** shortcut that copies the chosen banner into the
+  background slot without a second download. The chooser previews grow
+  (the icon keeps its size) and IGDB previews ask for larger CDN tokens.
 - Fetch Artwork gains VNDB as a fourth provider: it needs no key, fills
   the cover with a visual novel's image and the banner with its least
   flagged screenshot, and resolves `[metadata] vndb_id` from the dialog

@@ -1,8 +1,9 @@
 // The provider candidates behind Fetch Artwork, before anything reaches
 // the cache: one section per kind, the automatic pick preselected and
-// marked, and only the selected URLs downloaded on confirm. The images
-// load straight from the provider; a blank thumb still leaves the row
-// selectable.
+// marked, and only the selected URLs downloaded on confirm. Clicking the
+// selected row again keeps that kind. The background section mirrors the
+// banner and starts empty. The images load straight from the provider; a
+// blank thumb still leaves the row selectable.
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as Controls
@@ -12,21 +13,33 @@ DialogWindow {
     id: chooser
     objectName: "artChooser"
     title: qsTr("Choose Artwork")
-    width: Kirigami.Units.gridUnit * 44
-    minimumWidth: Kirigami.Units.gridUnit * 36
-    height: Kirigami.Units.gridUnit * 34
+    width: Kirigami.Units.gridUnit * 56
+    minimumWidth: Kirigami.Units.gridUnit * 44
+    height: Kirigami.Units.gridUnit * 46
     acceptText: qsTr("Download")
-    acceptEnabled: groups.length > 0 && !applied
+    acceptEnabled: groups.length > 0 && !applied && selectionCount > 0
     bodyFillHeight: true
 
     // Effective source of the candidates (steam, sgdb, igdb or vndb).
     property string provider: ""
     // [{kind, label, items: [{url, thumb, auto, label, note}]}]
     property var groups: []
-    // kind -> chosen URL; the automatic row starts selected.
+    // kind -> chosen URL; the automatic row starts selected, except for
+    // the background, which waits for an explicit pick.
     property var selections: ({})
     // Set by apply(): a close after it is not a cancel.
     property bool applied: false
+
+    // Kinds the confirm will download: at least one is required.
+    readonly property int selectionCount: {
+        var total = 0
+        for (var key in selections) {
+            if (String(selections[key] || "") !== "") {
+                total += 1
+            }
+        }
+        return total
+    }
 
     signal applyRequested(var picks)
     signal cancelled()
@@ -45,6 +58,12 @@ DialogWindow {
         var picks = ({})
         for (var i = 0; i < groups.length; i++) {
             var items = groups[i].items || []
+            // The Background list mirrors the banner and is a choice
+            // only: it starts unselected, so the fallback stays until the
+            // user asks for a picture of its own.
+            if (groups[i].kind === "background") {
+                continue
+            }
             for (var j = 0; j < items.length; j++) {
                 if (items[j].auto === true) {
                     picks[groups[i].kind] = String(items[j].url)
@@ -64,7 +83,12 @@ DialogWindow {
         for (var key in selections) {
             next[key] = selections[key]
         }
-        next[kind] = String(url)
+        if (String(next[kind] || "") === String(url)) {
+            // A second click keeps that kind: no download, no chain fill.
+            delete next[kind]
+        } else {
+            next[kind] = String(url)
+        }
         selections = next
     }
 
@@ -73,18 +97,17 @@ DialogWindow {
     }
 
     function apply() {
+        // Every offered kind goes in the payload: an empty URL means the
+        // user kept that kind, so the model must not fill it either.
         var picks = []
         for (var i = 0; i < groups.length; i++) {
-            var kind = groups[i].kind
-            var chosen = String(selections[kind] || "")
-            if (chosen === "" && groups[i].items.length > 0) {
-                chosen = String(groups[i].items[0].url)
-            }
-            if (chosen !== "") {
-                picks.push({"kind": kind, "url": chosen, "provider": provider})
-            }
+            picks.push({
+                "kind": groups[i].kind,
+                "url": String(selections[groups[i].kind] || ""),
+                "provider": provider
+            })
         }
-        if (picks.length === 0) {
+        if (selectionCount === 0) {
             return
         }
         applied = true
@@ -92,21 +115,23 @@ DialogWindow {
         close()
     }
 
-    // The thumbnail box per kind, and the preview pixels Qt keeps.
+    // The thumbnail box per kind, and the preview pixels Qt keeps. The
+    // icon is already readable at its size; the wide picture and the
+    // cover grow enough to judge detail.
     function cellWidth(kind) {
         return kind === "icon" ? Kirigami.Units.gridUnit * 4
-            : (kind === "cover" ? Kirigami.Units.gridUnit * 6
-            : Kirigami.Units.gridUnit * 11)
+            : (kind === "cover" ? Kirigami.Units.gridUnit * 9
+            : Kirigami.Units.gridUnit * 20)
     }
 
     function cellHeight(kind) {
         return kind === "icon" ? Kirigami.Units.gridUnit * 4
-            : (kind === "cover" ? Kirigami.Units.gridUnit * 9
-            : Kirigami.Units.gridUnit * 6.2)
+            : (kind === "cover" ? Kirigami.Units.gridUnit * 13.5
+            : Kirigami.Units.gridUnit * 9.3)
     }
 
     function previewLimit(kind) {
-        return kind === "icon" ? 256 : (kind === "cover" ? 512 : 1024)
+        return kind === "icon" ? 256 : (kind === "cover" ? 768 : 1024)
     }
 
     onAccepted: chooser.apply()
@@ -119,7 +144,7 @@ DialogWindow {
     Controls.Label {
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
-        text: qsTr("Images from %1. The marked image is the automatic pick; only the selected images are downloaded now. Kinds this source cannot fill are completed by the next provider.").arg(chooser.providerNames[chooser.provider] || chooser.provider)
+        text: qsTr("Images from %1. The marked image is the automatic pick; only the selected images are downloaded now. Click a selected image again to keep that kind as it is. Kinds this source cannot fill are completed by the next provider.").arg(chooser.providerNames[chooser.provider] || chooser.provider)
     }
 
     Controls.ScrollView {
@@ -140,9 +165,26 @@ DialogWindow {
                     Layout.fillWidth: true
                     spacing: Kirigami.Units.smallSpacing
 
-                    Controls.Label {
-                        font.bold: true
-                        text: String(section.modelData.label || "")
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Kirigami.Units.smallSpacing
+
+                        Controls.Label {
+                            font.bold: true
+                            text: String(section.modelData.label || "")
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                        }
+                        // The background reuses the banner rows: this
+                        // copies the banner pick without a second download.
+                        Controls.Button {
+                            objectName: section.modelData.kind === "background" ? "artUseBanner" : ""
+                            visible: section.modelData.kind === "background"
+                                && String(chooser.selections["banner"] || "") !== ""
+                            text: qsTr("Use the Banner")
+                            onClicked: chooser.select("background", String(chooser.selections["banner"]))
+                        }
                     }
 
                     Flow {

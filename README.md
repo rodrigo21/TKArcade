@@ -385,13 +385,18 @@ square icon slot alone too. Fetch Artwork opens a chooser with the
 source's candidate images: the row the automatic fetch would pick is
 marked **Automatic** and starts selected, the other rows show the rest
 of the provider's list, and only the selected images are downloaded on
-confirm. Steam's official candidates keep the file order (Library Cover
-2x/1x, Header; Library Hero) and are probed so a missing asset stays
-out; SteamGridDB lists icons, covers and heroes; IGDB lists its artworks
-and screenshots after the cover; VNDB lists every screenshot least
-flagged first. Kinds the source cannot fill (the IGDB/VNDB icon) are
-filled by the next provider when empty, and an offered kind is never
-replaced by a fallback after the confirm. The identity picker opens only
+confirm. Clicking the selected image again keeps that kind: it is
+neither downloaded nor filled by the chain, so art from another source
+survives a second pass. The Background section reuses the banner
+candidates and **Use the Banner** copies the chosen banner into that
+slot without a second download. Steam's official candidates keep the
+file order (Library Cover 2x/1x, Header; Library Hero) and are probed
+so a missing asset stays out; SteamGridDB lists icons, covers and
+heroes; IGDB lists its artworks and screenshots after the cover; VNDB
+lists every screenshot least flagged first. Kinds the source cannot
+fill (the IGDB/VNDB icon) are filled by the next provider when empty,
+and an offered kind is never replaced by a fallback after the confirm.
+The identity picker opens only
 when a title search cannot decide the game, so its pick never downloads
 an image. Preferences → Artwork → **Hide Explicit Artwork** (`[ui]
 hide_explicit_artwork`, off by default) drops VNDB images flagged
@@ -400,9 +405,10 @@ downloads; it never deletes stored artwork, and IGDB and Steam carry no
 flags.
 Saving a game fills any missing art with
 the chosen provider, an existing game included. The
-`background` slot is a wide backdrop with no download of its own: it
-falls back to the banner art when empty, and clearing it never removes
-the banner. A local game whose icon slot is still empty shows the icon
+`background` slot is a wide backdrop with no automatic download of its
+own: it falls back to the banner art when empty, the chooser can store
+an explicit pick (including a copy of the banner), and clearing it never
+removes the banner. A local game whose icon slot is still empty shows the icon
 embedded in its executable — or in the `.exe` shipped beside a native
 launcher, as a Ren'Py port ships — extracted once into the cache. Clear empties
 the tile for real: a cleared kind, and every slot of a cleared game,

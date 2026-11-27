@@ -1545,6 +1545,25 @@ def test_sgdb_game_options_sort_cap_and_mark(monkeypatch, xdg_env):
     assert "official" in groups["cover"][0]["note"]
 
 
+def test_gallery_result_mirrors_the_banner_as_background(xdg_env):
+    """The background section reuses the banner rows and is never automatic."""
+    row = {
+        "url": "https://cdn/hero.jpg",
+        "thumb": "https://cdn/hero.jpg",
+        "auto": True,
+        "label": "Library Hero",
+        "note": "",
+    }
+    result = art._gallery_result({"groups": {}, "error": ""}, "steam", {"banner": [dict(row)]})
+    background = result["groups"]["background"]
+    assert [item["url"] for item in background] == ["https://cdn/hero.jpg"]
+    assert background[0]["auto"] is False
+    assert background[0]["label"] == "Library Hero"
+    # No banner candidates: no empty background section either.
+    empty = art._gallery_result({"groups": {}, "error": ""}, "igdb", {"cover": [dict(row)]})
+    assert "background" not in empty["groups"]
+
+
 def test_store_choice_writes_the_slot_and_manifest(monkeypatch, xdg_env):
     """A chosen candidate lands in the provider slot with its provider tag."""
     _stub(monkeypatch, [("cdn/c.png", _img("C"))])
@@ -1553,8 +1572,25 @@ def test_store_choice_writes_the_slot_and_manifest(monkeypatch, xdg_env):
     assert art.provider_for("480", "cover") == "steam"
     # Only a provider https URL reaches the downloader.
     assert art.store_choice("480", "banner", "file:///tmp/x.png", "steam") is None
-    assert art.store_choice("480", "background", "https://cdn/c.png", "steam") is None
+    # The chooser can write the background the automatic chain skips.
+    background = art.store_choice("480", "background", "https://cdn/c.png", "steam")
+    assert background is not None and background.read_bytes() == _img("C")
+    assert art.provider_for("480", "background") == "steam"
     assert art.store_choice("480", "cover", "https://cdn/c.png", "nope") is None
+
+
+def test_store_kind_copy_duplicates_a_stored_image(xdg_env, tmp_path):
+    """The banner pick becomes a background file without a second download."""
+    source = tmp_path / "banner.jpg"
+    source.write_bytes(b"\xff\xd8\xffjpeg")
+    path = art.store_kind_copy("480", "background", source, "sgdb")
+    assert path is not None
+    assert path.name == "steam-480-background.jpg"
+    assert path.read_bytes() == source.read_bytes()
+    assert art.provider_for("480", "background") == "sgdb"
+    # A kind outside the artwork set and an unknown provider stay out.
+    assert art.store_kind_copy("480", "logo", source, "sgdb") is None
+    assert art.store_kind_copy("480", "background", source, "nope") is None
 
 
 def test_art_gallery_falls_back_to_sgdb_for_a_local_game(monkeypatch, xdg_env):

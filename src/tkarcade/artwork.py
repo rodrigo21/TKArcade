@@ -1584,9 +1584,11 @@ def store_choice(appid: str, kind: str, url: str, provider: str) -> Path | None:
     """Download one chosen candidate into the kind's cache slot.
 
     The URL comes from our own provider payload, so only https is
-    accepted; `_store` still sniffs the body before writing.
+    accepted; `_store` still sniffs the body before writing. `background`
+    reaches this only from the chooser: the automatic chain does not
+    download it.
     """
-    if kind not in FETCH_KINDS or provider not in PROVIDERS:
+    if kind not in ART_KINDS or provider not in PROVIDERS:
         return None
     if not str(url).startswith("https://"):
         return None
@@ -1600,9 +1602,40 @@ def store_choice(appid: str, kind: str, url: str, provider: str) -> Path | None:
     return path
 
 
+def store_kind_copy(appid: str, kind: str, source: Path, provider: str) -> Path | None:
+    """Copy an already stored image into another kind's cache slot.
+
+    The chooser offers the banner pictures as background candidates: the
+    confirm must not download the same URL twice. The provider is
+    recorded under the new kind, so the status line names it honestly.
+    """
+    if kind not in ART_KINDS or provider not in PROVIDERS:
+        return None
+    try:
+        body = Path(source).read_bytes()
+    except OSError:
+        return None
+    gid = _art_key(appid)
+    path = replace_image(grid_path(gid, kind), body, Path(source).suffix)
+    if path is None:
+        return None
+    _write_manifest(gid, kind, provider)
+    if kind == "icon" and provider == "sgdb":
+        _mark_icon_chain(gid)
+    return path
+
+
 def _gallery_result(result: dict, provider: str, groups: dict) -> dict:
-    """Fill a gallery result with one provider's groups, capped per kind."""
+    """Fill a gallery result with one provider's groups, capped per kind.
+
+    The background has no provider list of its own: it mirrors the banner
+    candidates, unmarked, so the chooser can offer the same pictures for a
+    slot only an explicit pick writes.
+    """
     groups = {kind: rows[:GALLERY_LIMIT] for kind, rows in groups.items() if rows}
+    banner = groups.get("banner")
+    if banner and "background" not in groups:
+        groups["background"] = [dict(row, auto=False) for row in banner]
     result["provider"] = provider
     result["groups"] = groups
     if not groups:
@@ -1700,7 +1733,9 @@ def art_gallery(
     Returns {"provider": effective source, "groups": {kind: [item]},
     "igdb_id", "vndb_id", "game_id" (SteamGridDB), "candidates" (game
     identity search) and "error"}. Each item is {"url", "thumb", "auto",
-    "label", "note"}; the first row of a kind is the automatic pick.
+    "label", "note"}; the first row of a kind is the automatic pick. The
+    background group mirrors the banner, unmarked: only the chooser
+    writes that kind.
 
     A local game without an AppID, or a Steam AppID without official
     assets, falls to SteamGridDB like the fetch chain does. A chosen

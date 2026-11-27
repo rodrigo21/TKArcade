@@ -38,6 +38,9 @@ art, so nothing changes on screen until the user picks something.
   tells them apart. The dialog's minimum width grew to 37 grid units to
   fit all four. Each
   tooltip names its kind at the top-left corner.
+- Superseded in part 2026-11-27: the chooser can store an explicit
+  background, including a copy of the banner, while the automatic chain
+  still downloads nothing. See `decisions/artwork-chooser-keep.md`.
 
 ## Consequences
 

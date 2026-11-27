@@ -2706,7 +2706,7 @@ def test_select_all_and_empty_click_clears(qgui_app, xdg_env):
 
 def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     """Artwork tab: per-game provider, the chooser, name choices and Clear."""
-    from PySide6.QtCore import QObject
+    from PySide6.QtCore import Q_ARG, QMetaObject, QObject
     from PySide6.QtQuick import QQuickItem
 
     from tkarcade import artwork
@@ -2777,6 +2777,15 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
                         "note": "",
                     }
                 ],
+                "background": [
+                    {
+                        "url": "https://cdn/banner.png",
+                        "thumb": "https://cdn/banner.png",
+                        "auto": False,
+                        "label": "Library Hero",
+                        "note": "",
+                    }
+                ],
             },
             "igdb_id": "",
             "vndb_id": "",
@@ -2800,24 +2809,77 @@ def test_artwork_tab_fetch_clear_and_choices(qgui_app, xdg_env, monkeypatch):
     assert parent is not None and parent.objectName() == "searchData", parent
     # The combo draft applies before Save, and the typed AppID is the target.
     assert fetched == [("480", "sgdb", ())], fetched
-    # The automatic row starts selected on every offered kind.
+    # The automatic row starts selected on every offered kind except the
+    # background, which mirrors the banner and waits for an explicit pick.
     chosen = chooser.property("selections")
     if hasattr(chosen, "toVariant"):
         chosen = chosen.toVariant()
     assert chosen.get("cover") == "https://cdn/cover.png", chosen
     assert chosen.get("banner") == "https://cdn/banner.png", chosen
+    assert chosen.get("background") is None, chosen
     assert "Choose the Images" in status.property("text"), status.property("text")
-    # Swapping a row is what the confirm downloads.
-    chooser.setProperty(
-        "selections",
-        {"cover": "https://cdn/cover-alt.png", "banner": "https://cdn/banner.png"},
+    # A second click keeps the kind: the cover leaves the confirm payload.
+    assert QMetaObject.invokeMethod(
+        chooser,
+        "select",
+        Q_ARG("QVariant", "cover"),
+        Q_ARG("QVariant", "https://cdn/cover.png"),
     )
+    chosen = chooser.property("selections")
+    if hasattr(chosen, "toVariant"):
+        chosen = chosen.toVariant()
+    assert chosen.get("cover") is None, chosen
+    # The alternate row takes its place.
+    assert QMetaObject.invokeMethod(
+        chooser,
+        "select",
+        Q_ARG("QVariant", "cover"),
+        Q_ARG("QVariant", "https://cdn/cover-alt.png"),
+    )
+    # The background reuses the banner pick; the shortcut is offered and
+    # the same selection can come from it.
+    assert QMetaObject.invokeMethod(
+        chooser,
+        "select",
+        Q_ARG("QVariant", "background"),
+        Q_ARG("QVariant", "https://cdn/banner.png"),
+    )
+    chosen = chooser.property("selections")
+    if hasattr(chosen, "toVariant"):
+        chosen = chosen.toVariant()
+    assert chosen.get("cover") == "https://cdn/cover-alt.png", chosen
+    assert chosen.get("background") == "https://cdn/banner.png", chosen
+    # Keeping every kind disables the Download button.
+    for kind, url in (
+        ("cover", "https://cdn/cover-alt.png"),
+        ("banner", "https://cdn/banner.png"),
+        ("background", "https://cdn/banner.png"),
+    ):
+        assert QMetaObject.invokeMethod(
+            chooser, "select", Q_ARG("QVariant", kind), Q_ARG("QVariant", url)
+        )
+    qgui_app.processEvents()
+    assert chooser.property("acceptEnabled") is False, chooser.property("acceptEnabled")
+    # Pick the row swap and the duplicated background for the confirm.
+    for kind, url in (
+        ("cover", "https://cdn/cover-alt.png"),
+        ("banner", "https://cdn/banner.png"),
+        ("background", "https://cdn/banner.png"),
+    ):
+        assert QMetaObject.invokeMethod(
+            chooser, "select", Q_ARG("QVariant", kind), Q_ARG("QVariant", url)
+        )
     _click(chooser, "dialogOk")
     qgui_app.processEvents()
     assert downloads, downloads
     picks = downloads[0][6]
     assert {"kind": "cover", "url": "https://cdn/cover-alt.png", "provider": "sgdb"} in picks, picks
     assert {"kind": "banner", "url": "https://cdn/banner.png", "provider": "sgdb"} in picks, picks
+    assert {
+        "kind": "background",
+        "url": "https://cdn/banner.png",
+        "provider": "sgdb",
+    } in picks, picks
     assert "Downloading the Chosen" in status.property("text"), status.property("text")
 
     # IGDB is the third entry; its gallery opens for that provider.
